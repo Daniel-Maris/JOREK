@@ -1,0 +1,40 @@
+subroutine print_grid(node_list,element_list)
+!----------------------------------------------------------------
+! plot the grid of finite elements with the correct curved edges
+!----------------------------------------------------------------
+use data_structure
+
+implicit none
+
+type (type_node_list)    :: node_list
+type (type_element_list) :: element_list
+integer :: i
+
+write(*,*) '**************************************************'
+write(*,*) '*           finite element grid                  *'
+write(*,*) '**************************************************'
+
+write(*,*) ' node_list : n_nodes =',node_list%n_nodes
+write(*,'(A68)') '   i,    x,      y,      ux,     uy,     vx,     vy,     wx,     wy'
+do i=1,node_list%n_nodes
+  write(*,'(i5,8f8.3)') i,node_list%node(i)%x(1,1:2),node_list%node(i)%x(2,1:2), &
+                         node_list%node(i)%x(3,1:2),node_list%node(i)%x(4,1:2)
+enddo
+write(*,*)
+write(*,*) ' element_list : n_elements =',element_list%n_elements
+write(*,'(A88)') '    i,  iv1, iv2, iv3, iv4,  hu1,    hv1,    hu2,    hv2,    hu3,    hv3,    hu4,    hv4,'
+do i=1,element_list%n_elements
+  write(*,'(5i5,8f12.5)') i,element_list%element(i)%vertex(1:4)   , &
+                          element_list%element(i)%size(1,2:n_order), &
+                          element_list%element(i)%size(2,2:n_order), &
+                          element_list%element(i)%size(3,2:n_order), &
+                          element_list%element(i)%size(4,2:n_order)
+enddo
+
+write(*,*) ' node_list : index '
+do i=1,node_list%n_nodes
+  write(*,'(5i5,4e16.8)') i,node_list%node(i)%index(:),node_list%node(i)%values(1,:,6)
+enddo
+write(*,*) ' done print_grid'
+return
+end

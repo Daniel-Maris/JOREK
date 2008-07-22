@@ -1,0 +1,76 @@
+subroutine Broadcast_nodes(my_id,node_list)
+!----------------------------------------------------------
+! subroutine to broadcast all the nodes in the node_list
+!----------------------------------------------------------
+use data_structure
+implicit none
+
+type (type_node_list)    :: node_list
+
+include 'mpif.h'               ! MPI fortran include file
+type (type_node)         :: anode
+integer                  :: i, ierr, my_id, position, bufsize, IDBL_EXT, INT_EXT, ILOG_EXT
+integer, allocatable     :: buffer(:)
+
+!  type type_node                                      ! type definition of a node (i.e. a vertex)
+!    real*8     :: x(n_order+1,n_dim)                  ! x,y,z coordinates of points and additional nodal geometry
+!    real*8     :: values(n_tor,n_order+1,n_var)
+!    integer    :: index(n_order+1)                    ! the index in the main matrix
+!    integer    :: boundary                            ! = 1, 2 or 3 for boundary nodes
+!  endtype type_node                                   ! x(:,1) : position, x(:,2) : vector u, x(:,3) : vector v, x(4) : vector w
+
+!  type type_node_list                                 ! type definition of a list of nodes
+!    integer :: n_nodes                                ! the number of nodes in the list
+!    type (type_node)     :: node(n_nodes_max)         ! an allocatable list of nodes
+!  endtype type_node_list
+
+
+call MPI_TYPE_EXTENT(MPI_DOUBLE_PRECISION,IDBL_EXT,ierr)
+call MPI_TYPE_EXTENT(MPI_INTEGER,INT_EXT,ierr)
+call MPI_TYPE_EXTENT(MPI_LOGICAL,ILOG_EXT,ierr)
+
+call MPI_BCAST(node_list%n_nodes,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+call MPI_BCAST(node_list%n_dof,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+
+bufsize = node_list%n_nodes * (((n_order+1)*n_dim + 2*n_tor*(n_order+1)*n_var)*IDBL_EXT + (n_order+1 + 1)*INT_EXT )
+
+allocate(buffer(bufsize/ INT_EXT))
+
+if (my_id .eq. 0) then
+
+  position = 0
+  do i=1,node_list%n_nodes
+
+    anode = node_list%node(i)
+
+    call MPI_PACK(anode%x,(n_order+1)*n_dim,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%values,n_tor*(n_order+1)*n_var,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%deltas,n_tor*(n_order+1)*n_var,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%index,n_order+1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%boundary,1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+
+  enddo
+
+endif
+
+call MPI_BCAST(buffer,bufsize,MPI_PACKED,0,MPI_COMM_WORLD,ierr)
+
+if (my_id .ne. 0) then
+
+  position = 0
+  do i=1,node_list%n_nodes
+
+    call MPI_UNPACK(buffer,bufsize,position,anode%x,(n_order+1)*n_dim,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%values,n_tor*(n_order+1)*n_var,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%deltas,n_tor*(n_order+1)*n_var,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%index,n_order+1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%boundary,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+
+    node_list%node(i) = anode
+
+  enddo
+
+endif
+
+return
+end

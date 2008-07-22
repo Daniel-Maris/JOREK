@@ -1,0 +1,11 @@
+include ../config.in	
+
+all : plot_flux_surfaces.o \
+      plot_grid.o \
+      plot_profiles.o \
+      plot_solution.o
+      
+modules :      
+
+clean :
+	rm *.o

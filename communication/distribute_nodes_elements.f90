@@ -1,0 +1,84 @@
+subroutine distribute_nodes_elements(my_id,n_cpu,node_list,element_list, &
+                                    local_elms, n_local_elms, n_dof, index_min, index_max)
+!---------------------------------------------------------------------------------------------
+! subroutine divides the nodes (not their individual dof) over n_cpu equal parts
+!---------------------------------------------------------------------------------------------
+use data_structure
+
+implicit none
+
+type (type_node_list)    :: node_list
+type (type_element_list) :: element_list
+type (type_surface_list) :: flux_list
+
+integer :: local_elms(*)
+integer :: my_id, n_cpu, n_dof, n_local_elms, index_total, inode
+integer :: index_min(*), index_max(*), index_part, inext, i, k, iv
+
+logical :: elm_is_local
+
+write(*,*) '************************************'
+write(*,*) '*     distributing nodes           *'
+write(*,*) '************************************'
+
+index_total = -1
+do inode=1,node_list%n_nodes
+  index_total = max(index_total,maxval(node_list%node(inode)%index))
+enddo
+
+!write(*,*) ' n_elements  : ',my_id,element_list%n_elements
+!write(*,*) ' n_nodes     : ',my_id,node_list%n_nodes
+!write(*,*) ' index_total : ',my_id,index_total
+
+index_min(1:n_cpu) = 0
+index_max(1:n_cpu) = 0
+
+!----------------------------- must really take into account the number of elements contributing to each node
+index_min(1) = 1
+do i=1,n_cpu
+  index_max(i) = (i * index_total) / n_cpu
+enddo
+do i=2,n_cpu
+  index_min(i) = index_max(i-1) + 1
+enddo
+if (my_id .eq. n_cpu-1) index_max(my_id+1) = index_total
+
+!write(*,'(A,3i6)') ' index_min,index_max : ',my_id,index_min(my_id+1),index_max(my_id+1)
+!write(*,'(A,3i6)') ' index_part          : ',my_id,index_part
+
+n_dof           = index_total * n_tor * n_var
+
+!----------------------------------------------- find the elements that have a local node
+inext = 0
+
+do i = 1, element_list%n_elements
+
+  ELM_is_local = .false.
+
+  do iv=1,n_vertex_max
+
+    inode = element_list%element(i)%vertex(iv)
+
+    do k=1, n_order+1
+
+      if ( (node_list%node(inode)%index(k) .ge. index_min(my_id+1)) .and. &
+           (node_list%node(inode)%index(k) .le. index_max(my_id+1)) ) then
+        ELM_is_local = .true.
+      endif
+    enddo
+
+  enddo
+
+  if (ELM_is_local) then
+    inext = inext + 1
+    local_elms(inext) = i
+  endif
+
+enddo
+
+n_local_ELMs = inext
+
+write(*,'(i4,A,20i8)') my_id,' n_local_elms  : ',n_local_elms,element_list%n_elements
+
+return
+end

@@ -1,0 +1,50 @@
+subroutine update_rhs_n(my_id,my_id_n)
+!***********************************************************************
+!* subroutine updates the RHS with the explicit part of the matrix     *
+!* multiplied with the previous solution (deltas)                      *
+!***********************************************************************
+use parameters
+use mumps_module
+use global_distributed_matrix
+implicit none
+include 'mpif.h'
+
+integer             :: my_id, my_id_n, i, ir, jc
+real*8,allocatable  :: rhs_delta(:), rhs_delta_n(:), deltas_n(:)
+
+!write(*,*) my_id,my_id_n,' starting update_rhs'
+
+allocate(rhs_delta(ndof_glob))             ! size could be zero when my_id .gt.0 but needs to be allocated
+
+rhs_delta(1:ndof_glob) = 0.d0
+
+if (my_id_n .eq.0) then
+  allocate(rhs_delta_n(mumps_par%n),deltas_n(mumps_par%n))
+  rhs_delta_n(1:mumps_par%n) = 0.d0
+  deltas_n(1:mumps_par%n)    = 0.d0
+endif
+
+call gmres_matrix_vector(deltas,rhs_delta,my_id,my_id_n)
+
+call distribute_vector(my_id,rhs_delta,rhs_delta_n)
+call distribute_vector(my_id,deltas,deltas_n)
+
+if (my_id_n .eq. 0) then              ! rhs lives only on masters
+
+  do i=1,mumps_par%n
+    mumps_par%rhs(i) = mumps_par%rhs(i) + rhs_delta_n(i)                  ! positive sign is on purpose (for stability reasons)
+  enddo
+
+  do i=1,mumps_par%nz
+    ir = mumps_par%irn(i)
+    jc = mumps_par%jcn(i)
+    mumps_par%rhs(ir) = mumps_par%rhs(ir) - mumps_par%A(i) * deltas_n(jc) ! negative sign is on purpose (for stability reasons)
+  enddo
+
+endif
+
+deallocate(rhs_delta)
+if (my_id_n .eq.0) deallocate(rhs_delta_n,deltas_n)
+
+return
+end

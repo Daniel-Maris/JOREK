@@ -1,0 +1,22 @@
+
+include ../config.in
+
+all: mod_phys_module.o \
+     mod_mumps.o \
+     broadcast_elements.o \
+     broadcast_nodes.o \
+     broadcast_phys.o \
+     distribute_harmonics.o \
+     distribute_nodes_elements.o \
+     distribute_vector.o  \
+     export_grid.o \
+     export_pov.o \
+     export_restart.o \
+     import_restart.o \
+     update_deltas.o \
+     update_values.o 
+     
+modules :     
+
+clean :
+	rm *.o *.mod
