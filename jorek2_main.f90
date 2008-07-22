@@ -84,9 +84,12 @@ call MPI_INIT(IERR)                                ! initialise MPI
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)     ! the id of each cpu
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)  ! the number of cpus
 
-!method = 'implicit'
-method = 'explicit'
-gmres  = .true.
+method = 'direct'
+gmres  = .false.
+if (trim(method) .ne. 'direct') then
+  method = 'gmres'
+  gmres  = .true.
+endif
 
 use_mumps  = .false.
 use_pastix = (.not. use_mumps)
@@ -96,11 +99,7 @@ pastix_analysed    = .false.
 adaptive_time = .true.
 
 if (n_tor .eq. 1) then
-  method = 'implicit'
-endif
-
-if (method .eq. 'implicit') then
-  gmres = .false.
+  method = 'direct'
 endif
 
 if ( (.not. use_mumps) .and. (.not. use_pastix) ) then
@@ -115,7 +114,7 @@ endif
 !    stop
 !endif
 
-!if (method .eq. 'explicit') then
+!if (trim(method) .eq. 'gmres') then
 !  if (n_cpu .lt. (n_tor-1)/2+1) then
 !    write(*,'(A,i4,A,i4,A)') ' FATAL : need at least',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
 !    call MPI_FINALIZE(IERR)                                ! clean up MPI
@@ -276,7 +275,7 @@ if (nstep .gt. 0) then
 !*                   (i.e id=0 from each MPI_COMM_N)   *
 !*******************************************************
 
-  if (method .ne. 'implicit') then
+  if (trim(method) .ne. 'direct') then
 
     M_cpu = n_cpu / ((n_tor+1)/2)
 
@@ -310,7 +309,7 @@ if (nstep .gt. 0) then
   endif
 
   if (use_mumps) then
-    if (method .eq. 'implicit') then
+    if (trim(method) .eq. 'direct') then
       call initialise_mumps(MPI_COMM_WORLD)    ! start MUMPS sparse matrix solver all cpus
     else
       call initialise_mumps(MPI_COMM_N)        ! start MUMPS sparse matrix solver on local groups
@@ -363,7 +362,7 @@ do istep = 1, nstep
 
   call cpu_time(t_solve_0)
 
-  if (method .eq. 'implicit') then
+  if (trim(method) .eq. 'direct') then
 
     if (use_mumps) then
 
@@ -409,7 +408,7 @@ do istep = 1, nstep
 
   call cpu_time(t_solve_1)
 
-  if ((method .ne. 'implicit') .and. (gmres) ) then
+  if ((trim(method) .ne. 'direct') .and. (gmres) ) then
 
     call gmres_driver(my_id,my_id_n,i_tor,MPI_COMM_N,MPI_COMM_MASTER,iter_gmres)
 
@@ -422,7 +421,7 @@ do istep = 1, nstep
   if (my_id .eq. 0) write(*,'(i3,A,f8.3)') my_id,' solve : ',t_solve_1-t_solve_0
   if (my_id .eq. 0) write(*,'(i3,A,f8.3)') my_id,' gmres : ',t_solve_2-t_solve_1
 
-  if ( (gmres .and. (iter_gmres .lt. 400)) .or. (method .eq. 'implicit') ) then
+  if ( (gmres .and. (iter_gmres .lt. 400)) .or. (trim(method) .eq. 'direct') ) then
 
     call update_values(my_id,node_list,deltas)         ! add solution to node values
 
@@ -441,7 +440,7 @@ do istep = 1, nstep
   if (my_id .eq. 0) write(*,'(A,2e16.8,2i12)') ' min/max deltas : ',mindelta,maxdelta,minloc(deltas),maxloc(deltas)
 
 
-  if ((method .ne. 'implicit') .and. (gmres) .and. (adaptive_time) ) then        ! experimental
+  if ((trim(method) .ne. 'direct') .and. (gmres) .and. (adaptive_time) ) then        ! experimental
     if (iter_gmres .gt. 200) then
       tstep = tstep /2.d0
       write(*,*) my_id,' REDUCTION TIMESTEP : ',tstep
@@ -495,7 +494,7 @@ if (nstep .gt.0) then
   else
     pastix_iparm(2)     = 7              ! Clean-up
     pastix_iparm(3)     = 7
-    if (method .eq. 'implicit') then
+    if (trim(method) .eq. 'direct') then
       call pastix_fortran(pastix_data,MPI_COMM_WORLD,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                           pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
     else
@@ -514,7 +513,7 @@ if (my_id .eq. 0)  then
   call export_restart(node_list,element_list,'jorek199.rst')
 
   PI = 2.d0*asin(1.d0)
-  
+
   do ivar=1,n_var
     call plot_solution(node_list,element_list,ivar,-1,1,variable_names(ivar))
   enddo
@@ -524,7 +523,7 @@ if (my_id .eq. 0)  then
     write(label,'(A4,i3,A1)') '(n =',((i-1)/2)*n_period,')'
 
     do ivar=1,n_var
-      if ((ivar .ne. 3) .and. (ivar .ne. 4)) then   
+      if ((ivar .ne. 3) .and. (ivar .ne. 4)) then
         call plot_solution(node_list,element_list,ivar,i,1,variable_names(ivar)//label)
       endif
     enddo
