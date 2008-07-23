@@ -16,7 +16,7 @@ integer             :: index_snd, n_loc_n, n_cpu, n_cpu_n, M_cpu, ifactor, in, j
 integer, allocatable :: send_counts(:), send_disp(:), recv_counts(:), recv_disp(:)
 real*8              :: t1, t2, t3, t4, t5, t6
 
-write(*,*) my_id,my_id_n,' GMRES preconditioning ',MPI_COMM_WORLD
+!write(*,*) my_id,my_id_n,' GMRES preconditioning ',MPI_COMM_WORLD
 
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)     ! the number of cpus
 
@@ -95,16 +95,16 @@ else
   pastix_dparm(6)  = 1.d-20    ! error level refinement
   pastix_dparm(11) = 1.d-32    ! pivot threshold?
 
-  write(*,*) my_id, my_id_n,' PRECONDITIONING using PASTIX '
+!  write(*,*) my_id, my_id_n,' PRECONDITIONING using PASTIX '
 
   if (.not. associated(mumps_par%rhs)) then
-    write(*,*) ' gmres: RHS not allocated!',my_id, my_id_n
+!    write(*,*) ' gmres: RHS not allocated!',my_id, my_id_n
     allocate(mumps_par%rhs(mumps_par%n))
   endif
 
   call MPI_BCAST(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
 
-  write(*,'(2i3,A,2e16.8)') my_id,my_id_n,' precond : rhs before : ',maxval(mumps_par%rhs),minval(mumps_par%rhs)
+!  write(*,'(2i3,A,2e16.8)') my_id,my_id_n,' precond : rhs before : ',maxval(mumps_par%rhs),minval(mumps_par%rhs)
 
   call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                       pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
@@ -112,7 +112,7 @@ else
 
 endif
 
-write(*,'(2i3,A,2e16.8)') my_id,my_id_n,' precond : rhs after : ',maxval(mumps_par%rhs),minval(mumps_par%rhs)
+!write(*,'(2i3,A,2e16.8)') my_id,my_id_n,' precond : rhs after : ',maxval(mumps_par%rhs),minval(mumps_par%rhs)
 
 
 if (my_id_n .eq. 0) then
