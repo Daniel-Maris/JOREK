@@ -91,7 +91,7 @@ if (trim(method) .ne. 'direct') then
   gmres  = .true.
 endif
 
-use_mumps  = .false.
+use_mumps  = .true.
 use_pastix = (.not. use_mumps)
 pastix_initialised = .false.
 pastix_analysed    = .false.
@@ -510,7 +510,7 @@ endif
 
 if (my_id .eq. 0)  then
 
-  call export_restart(node_list,element_list,'jorek199.rst')
+  call export_restart(node_list,element_list,'jorek_restart.rst')
 
   PI = 2.d0*asin(1.d0)
 
