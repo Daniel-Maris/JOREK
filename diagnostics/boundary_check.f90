@@ -34,7 +34,7 @@ do i=1,node_list%n_nodes
           index1 = n_tor*n_var * (index_node1 - 1) + n_tor*(j-1) + in
           index2 = n_tor*n_var * (index_node2 - 1) + n_tor*(j-1) + in
 
-          if ( (abs(rhs(index1)) .gt. 1d-8) .or. (abs(rhs(index2) .gt. 1d-8)) ) then
+          if ( (abs(rhs(index1)) .gt. 1d-8) .or. (abs(rhs(index2)) .gt. 1d-8) ) then
             write(*,*) ' PROBLEM BOUNDARY CONDITION (1): ',i,j,in,rhs(index1),rhs(index2)
           endif
         enddo
