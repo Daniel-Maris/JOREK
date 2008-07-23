@@ -73,7 +73,7 @@ do k=1,surface_list%flux_surfaces(j_surf)%n_pieces
 
     if (dRRg1_dt .ne. 0)  delta_t = - (RRg1-R_find) / (dRRg1_dt)
 
-    if (abs(delta_t .le. 0.25)) t = t + delta_t
+    if (abs(delta_t) .le. 0.25) t = t + delta_t
 
     if (abs(t) .le. 1.000001d0) then
 
