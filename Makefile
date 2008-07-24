@@ -1,6 +1,6 @@
 include config.in
 
-DIRS = datatypes $(MODEL_DIR) models communication elements grids matrix solvers plots diagnostics
+DIRS = datatypes models/$(MODEL) models communication elements grids matrix solvers plots diagnostics
 
 MAIN = jorek_$(MODEL)
 
