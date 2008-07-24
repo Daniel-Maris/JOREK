@@ -9,7 +9,7 @@ FFLAGS = -r8 -i4 -O2 -align
 
 MYHOME = $(HOME)
 
-JOREK_DIR = $(MYHOME)/jorek2/trunk
+JOREK_DIR = $(MYHOME)/jorek2_svn/trunk
 
 MAIN_MODEL_DIR = $(JOREK_DIR)/models
 MODEL_DIR      = $(MAIN_MODEL_DIR)/$(MODEL)
