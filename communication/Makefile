@@ -14,7 +14,8 @@ all: mod_phys_module.o \
      export_restart.o \
      import_restart.o \
      update_deltas.o \
-     update_values.o 
+     update_values.o \
+     export_helena.o
      
 modules :     
 

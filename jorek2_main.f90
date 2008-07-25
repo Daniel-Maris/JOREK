@@ -69,7 +69,8 @@ logical                  :: gmres, solve_only, adaptive_time
 real*8 :: zn, dn_dpsi, dn_dz, dn_dpsi2, dn_dz2, dn_dpsi_dz, dn_dpsi3, dn_dpsi_dz2, dn_dpsi2_dz
 real*8 :: zT, dT_dpsi, dT_dz, dT_dpsi2, dT_dz2, dT_dpsi_dz, dT_dpsi3, dT_dpsi_dz2, dT_dpsi2_dz
 real*8 :: zFFprime, dFFprime_dpsi, dFFprime_dz, dFFprime_dpsi_dz,dFFprime_dpsi2,dFFprime_dz2
-real*8 :: Rp, R_out,Z_out,s_out,t_out,P_s,P_t,P_st,P_ss,P_tt, R, psi
+real*8 :: Rp, Zp, R_out,Z_out,s_out,t_out,P_s,P_t,P_st,P_ss,P_tt, R, psi
+real*8 :: Rp_start, Rp_end, Zp_start, Zp_end
 real*8,allocatable :: xp(:), yp1(:), yp2(:), yp3(:)
 integer            :: nplot,iplot,i_elm,ifail, ivar
 
@@ -84,7 +85,7 @@ call MPI_INIT(IERR)                                ! initialise MPI
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)     ! the id of each cpu
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)  ! the number of cpus
 
-method = 'direct'
+method = 'gmres'             ! options 'direct' or 'gmres'
 gmres  = .false.
 if (trim(method) .ne. 'direct') then
   method = 'gmres'
@@ -102,25 +103,31 @@ if (n_tor .eq. 1) then
   method = 'direct'
 endif
 
+!---------------------------------------------------------- some checks not to waste any cpu time
 if ( (.not. use_mumps) .and. (.not. use_pastix) ) then
   write(*,*) ' FATAL : specify a valid solver'
   call MPI_FINALIZE(IERR)                                ! clean up MPI
   stop
 endif
 
-!if (n_plane .lt. n_tor + 1) then
-!  write(*,*) ' FATAL : n_plane too small ',n_plane,n_tor
-!    call MPI_FINALIZE(IERR)                                ! clean up MPI
-!    stop
-!endif
+if (n_plane .lt. n_tor + 1) then
+  write(*,*) ' FATAL : n_plane too small ',n_plane,n_tor
+  call MPI_FINALIZE(IERR)                                ! clean up MPI
+  stop
+endif
 
-!if (trim(method) .eq. 'gmres') then
-!  if (n_cpu .lt. (n_tor-1)/2+1) then
-!    write(*,'(A,i4,A,i4,A)') ' FATAL : need at least',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
-!    call MPI_FINALIZE(IERR)                                ! clean up MPI
-!    stop
-!  endif
-!endif
+if (trim(method) .ne. 'direct') then
+  if (n_cpu .lt. (n_tor-1)/2+1) then
+    write(*,'(A,i4,A,i4,A)') ' FATAL : need at least',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
+    call MPI_FINALIZE(IERR)                                ! clean up MPI
+    stop
+  endif
+  if (mod(n_cpu,(n_tor-1)/2+1) .ne. 0) then
+    write(*,'(A,i4,A,i4,A)') ' FATAL : need a multiple of ',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
+    call MPI_FINALIZE(IERR)                                ! clean up MPI
+    stop
+  endif
+endif
 
 if (my_id .eq. 0) write(*,*) '****************************************'
 if (my_id .eq. 0) write(*,*) '*   3D Reduced MHD : JOREK_2.0         *'
@@ -136,10 +143,10 @@ if (my_id .eq. 0) then
 
   if (restart) then
 
-    call import_restart(node_list,element_list)     ! read restart file
+    call import_restart(node_list,element_list)    ! read restart file
     tstep = tstep_in
 
-    if (regrid) then
+    if (regrid) then                               ! optional redo fluxsurface grid
 
       if (xpoint)  then
         call grid_xpoint(node_list,element_list,n_flux,n_open,n_private,n_leg,n_tht)
@@ -186,15 +193,15 @@ if (.not. restart) then
 
     endif
 
-    if (my_id .eq. 0) call plot_grid(node_list,element_list,.true.,.false.)                ! plot the grid
+    if (my_id .eq. 0) call plot_grid(node_list,element_list,.true.,.false.)    ! plot the grid
 
   endif
 
-  call equilibrium(my_id,node_list,element_list,xpoint)                    ! equilibrium run on all cpus
+  call equilibrium(my_id,node_list,element_list,xpoint)                        ! equilibrium run on all cpus
 
-!  if (my_id .eq. 0) call print_grid(node_list,element_list)                              ! print the grid
+!  if (my_id .eq. 0) call print_grid(node_list,element_list)                   ! print the grid
 
-  if (n_flux .gt. 1) then
+  if (n_flux .gt. 1) then                                                      ! flux surface grid
 
     if (xpoint)  then
 
@@ -211,10 +218,10 @@ if (.not. restart) then
 
     endif
 
-    call equilibrium(my_id,node_list,element_list,xpoint)                  ! equilibrium run on all cpus
+    call equilibrium(my_id,node_list,element_list,xpoint)                         ! equilibrium run on all cpus
 
-!    if (my_id .eq. 0) call print_grid(node_list,element_list)              ! print nodes and elements
-!    if (my_id .eq. 0) call plot_grid(node_list,element_list,.true.,.false.)       ! plot the grid
+!    if (my_id .eq. 0) call print_grid(node_list,element_list)                    ! print nodes and elements
+!    if (my_id .eq. 0) call plot_grid(node_list,element_list,.true.,.false.)      ! plot the grid
 !    if (my_id .eq. 0) call plot_grid(node_list,element_list,.true.,.true.)       ! plot the grid
 
   endif
@@ -222,7 +229,7 @@ if (.not. restart) then
   if (my_id .eq. 0) call energy(node_list,element_list,W_mag,W_kin)
   if (my_id .eq. 0) write(*,'(A,12e16.8)') ' initial energies : ', W_mag, W_kin
 
-  mumps_par%JOB = -2                                 ! clean up this instance of mumps
+  mumps_par%JOB = -2                                    ! clean up this instance of mumps
   call DMUMPS(mumps_par)
 
 endif
@@ -231,8 +238,8 @@ call Broadcast_elements(my_id,element_list)             ! sending all elements
 call Broadcast_nodes(my_id,node_list)                   ! sending all nodes
 call Broadcast_phys(my_id)                              ! sending the physics parameters
 
-write(*,*) ' n_elements : ',my_id,element_list%n_elements
-write(*,*) ' n_nodes    : ',my_id,node_list%n_nodes
+!write(*,*) ' n_elements : ',my_id,element_list%n_elements
+!write(*,*) ' n_nodes    : ',my_id,node_list%n_nodes
 
 call MPI_Barrier(MPI_COMM_WORLD,ierr)
 
@@ -255,9 +262,9 @@ if (nstep .gt. 0) then
     psi_bnd = 0.d0
   endif
 
-!*********************************************
-!* distribute nodes and elements over cpu's  *
-!*********************************************
+!***********************************************************************
+!*            distribute nodes and elements over cpu's                 *
+!***********************************************************************
 
   allocate(local_elms(element_list%n_elements))
   allocate(index_min(n_cpu),index_max(n_cpu))
@@ -314,7 +321,7 @@ if (nstep .gt. 0) then
     else
       call initialise_mumps(MPI_COMM_N)        ! start MUMPS sparse matrix solver on local groups
     endif
-  endif  !(loop if nstep .gt. 0)
+  endif  
 
 endif
 
@@ -400,7 +407,7 @@ do istep = 1, nstep
 
     if (.not. gmres) call update_rhs_n(my_id,my_id_n)      ! correct the RHS with the previous solution (deltas)
 
-    call solve_matrix_n(my_id,i_tor,MPI_COMM_N,MPI_COMM_MASTER,solve_only)
+    call solve_matrix_n(my_id,i_tor,MPI_COMM_N,MPI_COMM_MASTER,solve_only)    ! factorise preconditioning matrices
 
   endif
 
@@ -410,7 +417,7 @@ do istep = 1, nstep
 
   if ((trim(method) .ne. 'direct') .and. (gmres) ) then
 
-    call gmres_driver(my_id,my_id_n,i_tor,MPI_COMM_N,MPI_COMM_MASTER,iter_gmres)
+    call gmres_driver(my_id,my_id_n,i_tor,MPI_COMM_N,MPI_COMM_MASTER,iter_gmres)     ! gmres solution
 
   endif
 
@@ -435,7 +442,7 @@ do istep = 1, nstep
 
 !  call boundary_check(node_list,deltas)
 
-!-------------------------------------------------------- adapt time step
+!-------------------------------------------------------- adapt time step (in progress...)
   mindelta = minval(deltas); maxdelta = maxval(deltas);
   if (my_id .eq. 0) write(*,'(A,2e16.8,2i12)') ' min/max deltas : ',mindelta,maxdelta,minloc(deltas),maxloc(deltas)
 
@@ -455,7 +462,7 @@ do istep = 1, nstep
     endif
   endif
 
-
+!--------------------------------------------------------- energies
   if (my_id .eq. 0)  then
     call energy(node_list,element_list,W_mag,W_kin)
 
@@ -487,12 +494,16 @@ do istep = 1, nstep
 
 enddo                                              ! end of time stepping
 
+!***********************************************************************
+!*                         cleanup  (solvers)                          *
+!***********************************************************************
+
 if (nstep .gt.0) then
   if (use_mumps) then
-    mumps_par%JOB = -2                                 ! clean up this instance of mumps
+    mumps_par%JOB = -2                            ! clean up this instance of mumps
     call DMUMPS(mumps_par)
   else
-    pastix_iparm(2)     = 7              ! Clean-up
+    pastix_iparm(2)     = 7                       ! Clean-up
     pastix_iparm(3)     = 7
     if (trim(method) .eq. 'direct') then
       call pastix_fortran(pastix_data,MPI_COMM_WORLD,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
@@ -556,28 +567,35 @@ if (my_id .eq. 0)  then
     call lincol(0)
   endif
 
+!---------------------------------------------- plot equilibrium current profile (to be removed)
   call find_axis(node_list,element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis)
-!  call plot_velocity_profiles(node_list,element_list,R_axis,Z_axis)
+
   nplot = 201
   allocate(xp(nplot),yp1(nplot),yp2(nplot),yp3(nplot))
   iplot = 0
 
   call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint)
 
+  Rp_start = R_axis - amin*2.d0
+  Rp_end   = R_axis + amin*2.d0
+  
+  Zp = Z_axis
+
   do i=1,nplot
 
-    Rp = 2.d0 + float(i-1)/float(nplot-1) * 2.d0
-    call find_RZ(node_list,element_list,Rp,Z_axis,R_out,Z_out,i_elm,s_out,t_out,ifail)
+    Rp =  Rp_start + float(i-1)/float(nplot-1) * (Rp_end - Rp_start)
+
+    call find_RZ(node_list,element_list,Rp,Zp,R_out,Z_out,i_elm,s_out,t_out,ifail)
 
     if (ifail .eq. 0) then
 
       call interp(node_list,element_list,i_elm,1,1,s_out,t_out,psi,P_s,P_t,P_st,P_ss,P_tt)
 
-      call density(    xpoint, Z_axis, Z_xpoint, psi,psi_axis,psi_xpoint,           &
+      call density(    xpoint, Zp, Z_xpoint, psi,psi_axis,psi_xpoint,           &
                        zn,dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2,dn_dpsi2_dz)
-      call temperature(xpoint, Z_axis, Z_xpoint, psi,psi_axis,psi_xpoint,           &
+      call temperature(xpoint, Zp, Z_xpoint, psi,psi_axis,psi_xpoint,           &
                        zT,dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2,dT_dpsi2_dz)
-      call FFprime(    xpoint, Z_axis, Z_xpoint, psi,psi_axis,psi_xpoint,           &
+      call FFprime(    xpoint, Zp, Z_xpoint, psi,psi_axis,psi_xpoint,           &
                        zFFprime,dFFprime_dpsi,dFFprime_dz,dFFprime_dpsi2,dFFprime_dz2,dFFprime_dpsi_dz)
 
       zjz   = zFFprime - Rp*Rp * (zn * dT_dpsi + dn_dpsi * zT)
@@ -589,7 +607,7 @@ if (my_id .eq. 0)  then
       yp2(iplot) = zjz
       yp3(iplot) = - Rp*Rp * (zn * dT_dpsi + dn_dpsi * zT)
 
-      write(*,'(A,8e16.8)') ' profiles : ',xp(iplot),psi,psi_axis,psi_xpoint,yp2(iplot),yp1(iplot),yp3(iplot)
+!      write(*,'(A,8e16.8)') ' profiles : ',xp(iplot),psi,psi_axis,psi_xpoint,yp2(iplot),yp1(iplot),yp3(iplot)
 
     endif
 
@@ -611,7 +629,5 @@ if (my_id .eq. 0)  then
 endif
 
 call MPI_FINALIZE(IERR)                                ! clean up MPI
-
-
 
 end
