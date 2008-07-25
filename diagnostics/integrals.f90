@@ -1,0 +1,127 @@
+subroutine Integrals(node_list,element_list,Bgeo,aminor,psi_limit,current,beta_p,beta_t,beta_n)
+!---------------------------------------------------------------
+!
+!---------------------------------------------------------------
+use data_structure
+use Gauss
+use basis_at_gaussian
+use phys_module
+
+implicit none
+
+type (type_node_list)    :: node_list
+type (type_element_list) :: element_list
+type (type_element)      :: element
+type (type_node_list)    :: nodes
+
+real*8     :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss)
+real*8     :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
+real*8     :: eq_g(n_var,n_gauss,n_gauss), eq_s(n_var,n_gauss,n_gauss), eq_t(n_var,n_gauss,n_gauss)
+
+integer    :: i, j, k, in, ms, mt, iv, inode, ife, n_elements
+real*8     :: current, beta_p, beta_n, beta_t, MU_zero, aminor
+real*8     :: xjac, BigR, wst, P_int, C_int, ZJ_0, PS_0, Volume, Area, PI, Bgeo, psi_limit
+
+P_int = 0.d0
+C_int = 0.d0
+Volume = 0.d0
+Area   = 0.d0
+
+PI = 2.d0*asin(1.d0)
+
+do ife =1,  element_list%n_elements
+
+  element = element_list%element(ife)
+
+  do iv = 1, n_vertex_max
+    inode          = element%vertex(iv)
+    nodes%node(iv) = node_list%node(inode)
+  enddo
+
+  x_g(:,:) = 0.d0;    x_s(:,:) = 0.d0;    x_t(:,:) = 0.d0;
+  y_g(:,:) = 0.d0;    y_s(:,:) = 0.;      y_t(:,:) = 0.d0;
+  eq_g(:,:,:) = 0.d0; eq_s(:,:,:) = 0.d0; eq_t(:,:,:) = 0.d0;
+
+  do i=1,n_vertex_max
+    do j=1,n_order+1
+      do ms=1, n_gauss
+        do mt=1, n_gauss
+
+          x_g(ms,mt) = x_g(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
+          y_g(ms,mt) = y_g(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
+
+          x_s(ms,mt) = x_s(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+          x_t(ms,mt) = x_t(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+          y_s(ms,mt) = y_s(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+          y_t(ms,mt) = y_t(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+
+        enddo
+      enddo
+    enddo
+  enddo
+
+
+  eq_g(:,:,:) = 0.d0; eq_s(:,:,:) = 0.d0; eq_t(:,:,:) = 0.d0;
+
+  do i=1,n_vertex_max
+    do j=1,n_order+1
+      do ms=1, n_gauss
+        do mt=1, n_gauss
+
+          do k=1,n_var
+            eq_g(k,ms,mt)  = eq_g(k,ms,mt)  + nodes%node(i)%values(1,j,k) * element%size(i,j) * H(i,j,ms,mt)
+            eq_s(k,ms,mt)  = eq_s(k,ms,mt)  + nodes%node(i)%values(1,j,k) * element%size(i,j) * H_s(i,j,ms,mt)
+            eq_t(k,ms,mt)  = eq_t(k,ms,mt)  + nodes%node(i)%values(1,j,k) * element%size(i,j) * H_t(i,j,ms,mt)
+          enddo
+
+        enddo
+      enddo
+    enddo
+  enddo
+!--------------------------------------------------- sum over the Gaussian integration points
+
+  do ms=1, n_gauss
+
+    do mt=1, n_gauss
+
+      wst = wgauss(ms)*wgauss(mt)
+
+      xjac = x_s(ms,mt)*y_t(ms,mt) - x_t(ms,mt)*y_s(ms,mt)
+      BigR = x_g(ms,mt)
+
+      rho_0 = eq_g(5,ms,mt)
+      T_0   = eq_g(6,ms,mt)
+      ZJ_0  = eq_g(3,ms,mt)
+      PS_0  = eq_g(1,ms,mt)
+
+      if (PS_0 .lt. psi_limit) then
+
+        P_int = P_int + rho_0 * T_0 * xjac * wst
+        C_int = C_int + ZJ_0 /BigR  * xjac * wst
+        Volume = Volume + 2.d0 * PI * BigR * xjac * wst
+        Area   = Area   + xjac * wst
+
+      endif
+
+    enddo
+  enddo
+enddo
+
+
+MU_zero = 4.d0*PI * 1.d-7
+
+current = C_int / MU_zero
+beta_p  = 8.d0 * PI * P_int / (C_int**2 )
+beta_t  = 2.d0 * P_int / Bgeo**2 / (Area)
+beta_n  = 100.d0 * (4.*PI/10.) * beta_t / (MU_zero * abs(current) /  (aminor * Bgeo))
+
+write(*,*) ' psi_limit : ',psi_limit
+write(*,'(A,f8.5,A)') ' current : ',current/1.e6,' MA'
+write(*,'(A,f8.5)') ' beta_p   : ',beta_p
+write(*,'(A,f8.5)') ' beta_t   : ',beta_t
+write(*,'(A,f8.5)') ' beta_n   : ',beta_n
+write(*,'(A,f8.5)') ' Area     : ',area,' m^2'
+write(*,'(A,f8.5)') ' Volume   : ',volume,' m^3'
+
+return
+end
