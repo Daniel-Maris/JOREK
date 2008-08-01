@@ -105,10 +105,18 @@ if (.not. pastix_initialised) then
   pastix_iparm(2)  = 0          ! initializse
   pastix_iparm(3)  = 0
 
-  pastix_iparm(31) = 2
-  pastix_iparm(35) = 1          ! thread/mpi
-  pastix_iparm(39) = 0
-  pastix_iparm(41) = 1
+  pastix_iparm(31) = pastix_facto
+  pastix_iparm(35) = pastix_nthrd          ! thread/mpi
+  pastix_iparm(39) = pastix_rhs
+  pastix_iparm(41) = pastix_sym
+
+  pastix_iparm(42) = pastix_ricar
+  pastix_iparm(37) = pastix_iluk
+  pastix_iparm(14) = pastix_amalg
+
+write(*,*) '***********************************'
+write(*,*) '* initialise PastiX               *'
+write(*,*) '***********************************'
 
   call pastix_fortran(pastix_data,MPI_COMM_WORLD,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                       pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
@@ -121,20 +129,28 @@ if (.not. pastix_analysed) then
 
   pastix_iparm(2) = 1
   pastix_iparm(3) = 3
-  pastix_iparm(6) = 1          ! refinement : max number of iterations
+  pastix_iparm(6) = pastix_iter          ! refinement : max number of iterations
 
  ! pastix_iparm(5) = n_tor * n_var   ! degrees of freedom per node (not correct)
 
-  pastix_iparm(31) = 2
-  pastix_iparm(35) = 1         ! numthreads : number of threads
-  pastix_iparm(39) = 0         ! right hand side (0 : use RHS)
-  pastix_iparm(37) = 1
-  pastix_iparm(41) = 1
+  pastix_iparm(31) = pastix_facto
+  pastix_iparm(35) = pastix_nthrd         ! numthreads : number of threads
+  pastix_iparm(39) = pastix_rhs         ! right hand side (0 : use RHS)
+  pastix_iparm(37) = pastix_iluk 
+  pastix_iparm(41) = pastix_sym
 
-  pastix_dparm(6)  = 1.d-20    ! error level refinement
-  pastix_dparm(11) = 1.d-32    ! pivot threshold?
+  pastix_iparm(42) = pastix_ricar
+  pastix_iparm(37) = pastix_iluk
+  pastix_iparm(14) = pastix_amalg
+
+  pastix_dparm(6)  = pastix_epsilon    ! error level refinement
+  pastix_dparm(11) = pastix_pivot    ! pivot threshold?
 
   call cpu_time(t_analysis_0)
+
+write(*,*) '***********************************'
+write(*,*) '* analyse PastiX                  *'
+write(*,*) '***********************************'
 
   call pastix_fortran(pastix_data,MPI_COMM_WORLD, mumps_par%n, &
                       mumps_par%jcn(1:mumps_par%n+1), mumps_par%irn(1:mumps_par%nz), mumps_par%A(1:mumps_par%nz), &
@@ -151,17 +167,25 @@ endif
 call cpu_time(t_fact_0)
 
 pastix_iparm(2) = 4
-pastix_iparm(3) = 6
-pastix_iparm(6) = 1          ! refinement : max number of iterations
+pastix_iparm(3) = pastix_endsolve
+pastix_iparm(6) = pastix_iter          ! refinement : max number of iterations
 
-pastix_iparm(31) = 2
-pastix_iparm(35) = 1         !   numthreads : number of threads
-pastix_iparm(39) = 0         ! right hand side (0 : use RHS)
-pastix_iparm(37) = 1
-pastix_iparm(41) = 1
+pastix_iparm(31) = pastix_facto
+pastix_iparm(35) = pastix_nthrd         !   numthreads : number of threads
+pastix_iparm(39) = pastix_rhs        ! right hand side (0 : use RHS)
+pastix_iparm(37) = pastix_iluk
+pastix_iparm(41) = pastix_sym
 
-pastix_dparm(6)  = 1.d-20    ! error level refinement
-pastix_dparm(11) = 1.d-32    ! pivot threshold?
+pastix_iparm(42) = pastix_ricar
+pastix_iparm(37) = pastix_iluk
+pastix_iparm(14) = pastix_amalg
+
+pastix_dparm(6)  = pastix_epsilon    ! error level refinement
+pastix_dparm(11) = pastix_pivot    ! pivot threshold?
+
+write(*,*) '***********************************'
+write(*,*) '* call PastiX                     *'
+write(*,*) '***********************************'
 
 call pastix_fortran(pastix_data,MPI_COMM_WORLD, mumps_par%n, mumps_par%jcn, mumps_par%irn, mumps_par%A, &
                     pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)

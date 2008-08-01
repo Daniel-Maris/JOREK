@@ -86,10 +86,14 @@ if (.not. solve_only) then
       pastix_iparm(2)     = 0                                     ! initializse
       pastix_iparm(3)     = 0
 
-      pastix_iparm(31) = 2
-      pastix_iparm(35) = 1                ! thread/mpi
-      pastix_iparm(39) = 0
-      pastix_iparm(41) = 1
+      pastix_iparm(31) = pastix_facto
+      pastix_iparm(35) = pastix_nthrd                ! thread/mpi
+      pastix_iparm(39) = pastix_rhs
+      pastix_iparm(41) = pastix_sym
+
+      pastix_iparm(42) = pastix_ricar
+      pastix_iparm(37) = pastix_iluk
+      pastix_iparm(14) = pastix_amalg
 
       call MPI_BCAST(mumps_par%n,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
 
@@ -110,16 +114,20 @@ if (.not. solve_only) then
 
     pastix_iparm(2) = 1
     pastix_iparm(3) = 3
-    pastix_iparm(6) = 0          ! refinement : max number of iterations
+    pastix_iparm(6) = pastix_iter          ! refinement : max number of iterations
 
-    pastix_iparm(31) = 2
-    pastix_iparm(35) = 1 !   numthreads   ! number of threads
-    pastix_iparm(39) = 0            ! right hand side (0 : use RHS)
-    pastix_iparm(37) = 1
-    pastix_iparm(41) = 1
+    pastix_iparm(31) = pastix_facto
+    pastix_iparm(35) = pastix_nthrd !   numthreads   ! number of threads
+    pastix_iparm(39) = pastix_rhs            ! right hand side (0 : use RHS)
+    pastix_iparm(37) = pastix_iluk
+    pastix_iparm(41) = pastix_sym
 
-    pastix_dparm(6)  = 1.d-20    ! error level refinement
-    pastix_dparm(11) = 1.d-32    ! pivot threshold?
+    pastix_iparm(42) = pastix_ricar
+    pastix_iparm(37) = pastix_iluk
+    pastix_iparm(14) = pastix_amalg
+
+    pastix_dparm(6)  = pastix_epsilon    ! error level refinement
+    pastix_dparm(11) = pastix_pivot    ! pivot threshold?
 
     write(*,*) my_id,my_id_n,' ana pastix'
 
@@ -154,16 +162,20 @@ if (.not. solve_only) then
 
     pastix_iparm(2) = 4
     pastix_iparm(3) = 4
-    pastix_iparm(6) = 0          ! refinement : max number of iterations
+    pastix_iparm(6) = pastix_iter          ! refinement : max number of iterations
 
-    pastix_iparm(31) = 2
-    pastix_iparm(35) = 1         ! numthreads   ! number of threads
-    pastix_iparm(37) = 1
-    pastix_iparm(39) = 0         ! right hand side (0 : use RHS)
-    pastix_iparm(41) = 1
+    pastix_iparm(31) = pastix_facto
+    pastix_iparm(35) = pastix_nthrd         ! numthreads   ! number of threads
+    pastix_iparm(37) = pastix_iluk 
+    pastix_iparm(39) = pastix_rhs         ! right hand side (0 : use RHS)
+    pastix_iparm(41) = pastix_sym
 
-    pastix_dparm(6)  = 1.d-20    ! error level refinement
-    pastix_dparm(11) = 1.d-32    ! pivot threshold?
+    pastix_iparm(42) = pastix_ricar
+    pastix_iparm(37) = pastix_iluk
+    pastix_iparm(14) = pastix_amalg
+
+    pastix_dparm(6)  = pastix_epsilon    ! error level refinement
+    pastix_dparm(11) = pastix_pivot    ! pivot threshold?
 
     write(*,*) my_id,my_id_n,' fact pastix'
 
@@ -197,17 +209,21 @@ else
   call cpu_time(t_solv_0)
 
   pastix_iparm(2) = 5
-  pastix_iparm(3) = 6
-  pastix_iparm(6) = 1          ! refinement : max number of iterations
+  pastix_iparm(3) = pastix_endsolve
+  pastix_iparm(6) = pastix_iter          ! refinement : max number of iterations
 
-  pastix_iparm(31) = 2
-  pastix_iparm(35) = 1 ! numthreads   ! number of threads
-  pastix_iparm(37) = 1
-  pastix_iparm(39) = 0            ! right hand side (0 : use RHS)
-  pastix_iparm(41) = 1
+  pastix_iparm(31) = pastix_facto
+  pastix_iparm(35) = pastix_nthrd ! numthreads   ! number of threads
+  pastix_iparm(37) = pastix_iluk
+  pastix_iparm(39) = pastix_rhs            ! right hand side (0 : use RHS)
+  pastix_iparm(41) = pastix_sym
 
-  pastix_dparm(6)  = 1.d-20    ! error level refinement
-  pastix_dparm(11) = 1.d-32    ! pivot threshold?
+  pastix_iparm(42) = pastix_ricar
+  pastix_iparm(37) = pastix_iluk
+  pastix_iparm(14) = pastix_amalg
+
+  pastix_dparm(6)  = pastix_epsilon    ! error level refinement
+  pastix_dparm(11) = pastix_pivot    ! pivot threshold?
 
   call MPI_BCAST(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
 
