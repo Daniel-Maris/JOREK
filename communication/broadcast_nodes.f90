@@ -72,5 +72,7 @@ if (my_id .ne. 0) then
 
 endif
 
+deallocate(buffer)
+
 return
 end

@@ -71,7 +71,7 @@ if (my_id_n .eq. 0) then
 endif
 
 
-if (my_id .eq. 0) deallocate(Rsnd_buffer)
+if (my_id .eq. 0) deallocate(Rsnd_buffer,send_counts,send_disp)
 
 
 if (use_mumps) then

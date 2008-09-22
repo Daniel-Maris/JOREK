@@ -202,6 +202,8 @@ enddo
 call cplotm(1,1,-1,x_g,y_g,4,-4,1,1,PS,4,zc,nc,'Solution',8,'R [m]',5,'Z [m]',5)
 call lincol(0)
 
+if (allocated(xp)) deallocate(xp)
+
 return
 end
 

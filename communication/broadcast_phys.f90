@@ -20,6 +20,7 @@ call MPI_TYPE_EXTENT(MPI_LOGICAL,ILOG_EXT,ierr)
 
 bufsize = ( 80 * IDBL_EXT + (4+n_tor) * INT_EXT + 4 * ILOG_EXT )
 
+if (allocated(buffer)) deallocate(buffer)
 allocate(buffer(bufsize/ INT_EXT))
 
 if (my_id .eq. 0) then
@@ -123,6 +124,8 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,xpoint,1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
 
 endif
+
+deallocate(buffer)
 
 return
 end
