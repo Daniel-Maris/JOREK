@@ -246,10 +246,10 @@ do i=1, n_local_elms
               index_node2 = node_list%node(inode)%index(2)             ! position of first deriative
 
               T0        = node_list%node(inode)%values(1,1,6)
-              Vpar0     = node_list%node(inode)%values(1,1,7)
+              Vpar0     = node_list%node(inode)%values(1,1,k)
               BigR      = node_list%node(inode)%x(1,1)
               dT0_ds    = node_list%node(inode)%values(1,2,6)
-              dVpar0_ds = node_list%node(inode)%values(1,2,7)
+              dVpar0_ds = node_list%node(inode)%values(1,2,k)
               dBigR_ds  = node_list%node(inode)%x(2,1)
 
               ps0_s     = node_list%node(inode)%values(1,2,1)

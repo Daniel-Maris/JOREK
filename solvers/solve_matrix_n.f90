@@ -4,8 +4,10 @@ subroutine solve_matrix_n(my_id,i_tor,MPI_COMM_N,MPI_COMM_MASTER,solve_only)
 ! using mumps with centralised matrix on the group mpi_group_n (mpi_comm_n)
 !---------------------------------------------------------------------
 use parameters
+
 use mumps_module
 use pastix_module
+
 use global_distributed_matrix
 implicit none
 include 'mpif.h'
@@ -19,8 +21,10 @@ logical :: solve_only
 write(*,*) my_id,'*********************************'
 write(*,*) my_id,'*      solve local matrix  (n)  *'
 write(*,*) my_id,'*********************************'
+
 if (use_mumps)  write(*,*) my_id,'*       using solver MUMPS      *'
 if (use_pastix) write(*,*) my_id,'*       using solver PastiX     *'
+
 write(*,*) my_id,'*********************************'
 
 call MPI_COMM_RANK(MPI_COMM_N, my_id_n, ierr)     ! the id of each cpu
@@ -52,8 +56,6 @@ if (.not. solve_only) then
 
   else
 
-    write(*,*) ' PASTIX ',my_id,my_id_n
-
     if (my_id_n .eq. 0) then
 
       if (allocated(sparskit_work)) deallocate(sparskit_work)
@@ -64,84 +66,102 @@ if (.not. solve_only) then
       deallocate(sparskit_work)
 
     endif
+    
+    if (use_pastix) then
+     
+      if (.not. pastix_smp_only) then
 
-    call MPI_BCAST(mumps_par%n,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
-    call MPI_BCAST(mumps_par%nz,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
+        call MPI_BCAST(mumps_par%n,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
+        call MPI_BCAST(mumps_par%nz,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
+    
+        if (my_id_n .gt. 0) then
+          if (associated(mumps_par%irn)) deallocate(mumps_par%irn)
+          if (associated(mumps_par%jcn)) deallocate(mumps_par%jcn)
+          if (associated(mumps_par%A))   deallocate(mumps_par%A)
+          if (associated(mumps_par%rhs)) deallocate(mumps_par%rhs)
+          allocate(mumps_par%irn(mumps_par%nz),mumps_par%jcn(mumps_par%nz),mumps_par%a(mumps_par%nz),mumps_par%rhs(mumps_par%n))
+        endif
 
-    if (my_id_n .gt. 0) then
-      if (associated(mumps_par%irn)) deallocate(mumps_par%irn)
-      if (associated(mumps_par%jcn)) deallocate(mumps_par%jcn)
-      if (associated(mumps_par%A))   deallocate(mumps_par%A)
-      if (associated(mumps_par%rhs)) deallocate(mumps_par%rhs)
-      allocate(mumps_par%irn(mumps_par%nz),mumps_par%jcn(mumps_par%nz),mumps_par%a(mumps_par%nz),mumps_par%rhs(mumps_par%n))
-    endif
+        call MPI_BCAST(mumps_par%IRN,mumps_par%nz,MPI_INTEGER,0,MPI_COMM_N,ierr)
+        call MPI_BCAST(mumps_par%JCN,mumps_par%nz,MPI_INTEGER,0,MPI_COMM_N,ierr)
+        call MPI_BCAST(mumps_par%A,mumps_par%nz,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
+  
+      endif
 
-    call MPI_BCAST(mumps_par%IRN,mumps_par%nz,MPI_INTEGER,0,MPI_COMM_N,ierr)
-    call MPI_BCAST(mumps_par%JCN,mumps_par%nz,MPI_INTEGER,0,MPI_COMM_N,ierr)
-    call MPI_BCAST(mumps_par%A,mumps_par%nz,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
+      if  (.not. pastix_initialised)  then
+    
+        if ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
+      
+          if (pastix_smp_only) pastix_nthrd = n_cpu_n                 ! use the size of the MPIgroup for the number of threads
 
-    if (.not. pastix_initialised) then
+          pastix_iparm(1)     = 0                                     ! insert default values
+          pastix_iparm(2)     = 0                                     ! initializse
+          pastix_iparm(3)     = 0
 
-      pastix_iparm(1)     = 0                                     ! insert default values
-      pastix_iparm(2)     = 0                                     ! initializse
-      pastix_iparm(3)     = 0
+          pastix_iparm(31) = pastix_facto
+          pastix_iparm(35) = pastix_nthrd                             ! thread/mpi
+          pastix_iparm(39) = pastix_rhs
+          pastix_iparm(41) = pastix_sym
 
-      pastix_iparm(31) = pastix_facto
-      pastix_iparm(35) = pastix_nthrd                ! thread/mpi
-      pastix_iparm(39) = pastix_rhs
-      pastix_iparm(41) = pastix_sym
+          pastix_iparm(42) = pastix_ricar
+          pastix_iparm(37) = pastix_iluk
+          pastix_iparm(14) = pastix_amalg
 
-      pastix_iparm(42) = pastix_ricar
-      pastix_iparm(37) = pastix_iluk
-      pastix_iparm(14) = pastix_amalg
+          if (.not. pastix_smp_only) call MPI_BCAST(mumps_par%n,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
 
-      call MPI_BCAST(mumps_par%n,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
+          allocate(pastix_perm_vars(mumps_par%n),pastix_iperm_vars(mumps_par%n))
 
-      allocate(pastix_perm_vars(mumps_par%n),pastix_iperm_vars(mumps_par%n))
+          call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
+                              pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
 
-      write(*,*) my_id,my_id_n,'ini pastix'
+          pastix_initialised = .true.
 
-      call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
-                          pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
+        endif
+      
+      endif
+      
+    endif   ! use_pastix (initialise)
 
-      pastix_initialised = .true.
 
-      write(*,*) my_id,my_id_n,' end ini pastix'
+    if (use_pastix) then
+    
+      if ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
+    
+        write(*,*) my_id,my_id_n,' pastix_nthrd = ',pastix_nthrd
 
-    endif
+        pastix_iparm(2) = 1
+        pastix_iparm(3) = 3
+        pastix_iparm(6) = pastix_iter                 ! refinement : max number of iterations
 
-    call cpu_time(t_analysis_0)
+        pastix_iparm(31) = pastix_facto
+        pastix_iparm(35) = pastix_nthrd               !   numthreads   ! number of threads
+        pastix_iparm(39) = pastix_rhs                 ! right hand side (0 : use RHS)
+        pastix_iparm(37) = pastix_iluk
+        pastix_iparm(41) = pastix_sym
 
-    pastix_iparm(2) = 1
-    pastix_iparm(3) = 3
-    pastix_iparm(6) = pastix_iter          ! refinement : max number of iterations
+        pastix_iparm(42) = pastix_ricar
+        pastix_iparm(37) = pastix_iluk
+        pastix_iparm(14) = pastix_amalg
 
-    pastix_iparm(31) = pastix_facto
-    pastix_iparm(35) = pastix_nthrd !   numthreads   ! number of threads
-    pastix_iparm(39) = pastix_rhs            ! right hand side (0 : use RHS)
-    pastix_iparm(37) = pastix_iluk
-    pastix_iparm(41) = pastix_sym
+        pastix_dparm(6)  = pastix_epsilon             ! error level refinement
+        pastix_dparm(11) = pastix_pivot               ! pivot threshold?
 
-    pastix_iparm(42) = pastix_ricar
-    pastix_iparm(37) = pastix_iluk
-    pastix_iparm(14) = pastix_amalg
+        call cpu_time(t_analysis_0)
 
-    pastix_dparm(6)  = pastix_epsilon    ! error level refinement
-    pastix_dparm(11) = pastix_pivot    ! pivot threshold?
-
-    write(*,*) my_id,my_id_n,' ana pastix'
-
-    call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
+        call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                         pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
 
-    call cpu_time(t_analysis_1)
+        call cpu_time(t_analysis_1)
 
-    write(*,*) my_id,my_id_n,' end ana pastix'
+        if (my_id_n .eq.0) write(*, '(i3,A,f8.3)') my_id,' PASTIX, analysis  : ',t_analysis_1-t_analysis_0
 
-    if (my_id_n .eq.0) write(*, '(i3,A,f8.3)') my_id,' PASTIX, analysis  : ',t_analysis_1-t_analysis_0
+      endif
+    
+    endif ! use_pastix, analysis
 
-  endif
-
+  endif   ! (.not., solve_only)
+  
+  write(*,*) ' end analysis all',my_id,my_id_n
 
   if (use_mumps) then
 
@@ -156,7 +176,9 @@ if (.not. solve_only) then
     if (my_id_n .eq.0)   write(*,'(i3,A,f8.3)')  my_id,' MUMPS, fact      : ',t_fact_1-t_fact_0
     if (my_id_n .eq.0)   write(*,'(i3,A,i8)')    my_id,' MUMPS, mem       : ',mumps_par%info(16)
 
-  else
+  elseif ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
+
+    write(*,*) my_id,my_id_n, ' start facto'
 
     call cpu_time(t_fact_0)
 
@@ -204,7 +226,7 @@ if (use_mumps) then
 
   if (my_id_n .eq.0)   write(*,'(i3,A,f8.3)')  my_id,' MUMPS, solv      : ',t_solv_1-t_solv_0
 
-else
+elseif ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
 
   call cpu_time(t_solv_0)
 
@@ -225,7 +247,7 @@ else
   pastix_dparm(6)  = pastix_epsilon    ! error level refinement
   pastix_dparm(11) = pastix_pivot    ! pivot threshold?
 
-  call MPI_BCAST(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
+  if (.not. pastix_smp_only) call MPI_BCAST(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
 
   call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                       pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)

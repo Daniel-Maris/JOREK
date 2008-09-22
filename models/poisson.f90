@@ -73,8 +73,8 @@ if (my_id .eq. 0) then
     endif
   endif
 
-  amix = 0.d0
-  if (itype .eq. -1) amix = 0.d0
+  amix = 0.5d0
+!  if (itype .eq. -1) amix = 0.d0
 
   do ife =1, n_elements
 

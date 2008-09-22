@@ -80,7 +80,9 @@ if (use_mumps) then
 
   call DMUMPS(mumps_par)
 
-else
+elseif ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
+
+  write(*,*) ' precond : pastix_nthrd = ',pastix_nthrd
 
   pastix_iparm(2) = 5
   pastix_iparm(3) = pastix_endsolve
@@ -106,7 +108,7 @@ else
     allocate(mumps_par%rhs(mumps_par%n))
   endif
 
-  call MPI_BCAST(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
+  if (.not. pastix_smp_only) call MPI_BCAST(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION,0,MPI_COMM_N,ierr)
 
 !  write(*,'(2i3,A,2e16.8)') my_id,my_id_n,' precond : rhs before : ',maxval(mumps_par%rhs),minval(mumps_par%rhs)
 

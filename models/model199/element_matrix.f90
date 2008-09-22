@@ -111,7 +111,6 @@ do i=1,n_vertex_max
  enddo
 enddo
 
-
 !--------------------------------------------------- sum over the Gaussian integration points
 do ms=1, n_gauss
 

@@ -18,7 +18,7 @@ all: modules \
      update_rhs_n.o \
 
 modules : mod_mumps.o \
-          mod_pastix.o
+          mod_pastix.o 
 	  	  
 clean :
 	rm *.mod *.o	  

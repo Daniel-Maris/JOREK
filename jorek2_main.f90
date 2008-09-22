@@ -93,14 +93,16 @@ if (trim(method) .ne. 'direct') then
 endif
 
 use_mumps  = .true.
-use_pastix = (.not. use_mumps)
+use_pastix = .false.
+
 pastix_initialised = .false.
 pastix_analysed    = .false.
-
+pastix_smp_only    = .false.         ! implies that each MPI group resides within one node!
+                                     ! requires no_mpi for Pastix library
 adaptive_time = .true.
 
 if (n_tor .eq. 1) then
-  method = 'direct'
+!  method = 'direct'
 endif
 
 !---------------------------------------------------------- some checks not to waste any cpu time
@@ -502,16 +504,22 @@ if (nstep .gt.0) then
   if (use_mumps) then
     mumps_par%JOB = -2                            ! clean up this instance of mumps
     call DMUMPS(mumps_par)
-  else
+  elseif (use_pastix) then
+    
     pastix_iparm(2)     = 7                       ! Clean-up
     pastix_iparm(3)     = 7
+    
     if (trim(method) .eq. 'direct') then
+    
       call pastix_fortran(pastix_data,MPI_COMM_WORLD,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                           pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
-    else
+    
+    elseif ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0))  ) then
+    
       call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                           pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
     endif
+    
   endif
 endif
 

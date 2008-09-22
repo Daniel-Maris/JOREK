@@ -86,10 +86,10 @@ if (my_id .eq. 0) then
                                     + dT_dz2   * node_list%node(i)%x(2,2)        * node_list%node(i)%x(3,2)
 
     if (n_var .ge. 7) then
-      node_list%node(i)%values(1,1,7) = 0.d0        ! parallel velocity
-      node_list%node(i)%values(1,2,7) = 0.d0
-      node_list%node(i)%values(1,3,7) = 0.d0
-      node_list%node(i)%values(1,4,7) = 0.d0
+      node_list%node(i)%values(1,1,n_var) = 0.d0        ! parallel velocity
+      node_list%node(i)%values(1,2,n_var) = 0.d0
+      node_list%node(i)%values(1,3,n_var) = 0.d0
+      node_list%node(i)%values(1,4,n_var) = 0.d0
     endif
     
     zjz     = zFFprime      - R*R *      (dn_dpsi    * zT + zn * dT_dpsi)
@@ -242,15 +242,15 @@ if (n_var .ge. 7) then
 
         BigR = node_list%node(i)%x(1,1)
         T0   = node_list%node(i)%values(in,1,6)
-        node_list%node(i)%values(in,1,7) = direction * BigR / F0 * sqrt(GAMMA * T0)
+        node_list%node(i)%values(in,1,n_var) = direction * BigR / F0 * sqrt(GAMMA * T0)
 
         BigR_s = node_list%node(i)%x(2,1)
         T0_s   = node_list%node(i)%values(in,2,6)
-        node_list%node(i)%values(in,2,7) = BigR_s / F0 * sqrt(GAMMA * T0) + 0.5d0* BigR/F0 * sqrt(GAMMA / T0) * T0_s
-        node_list%node(i)%values(in,2,7) = direction *  node_list%node(i)%values(in,2,7)
+        node_list%node(i)%values(in,2,n_var) = BigR_s / F0 * sqrt(GAMMA * T0) + 0.5d0* BigR/F0 * sqrt(GAMMA / T0) * T0_s
+        node_list%node(i)%values(in,2,n_var) = direction *  node_list%node(i)%values(in,2,n_var)
 
         write(*,'(A,8e14.6)') ' Boundary condition (eq): ',BigR,psi_xpoint,node_list%node(i)%values(1,1,1),ps0_x,ps0_y, &
-                              node_list%node(i)%values(in,1,7),BigR/F0 * sqrt(GAMMA*T0)
+                              node_list%node(i)%values(in,1,n_var),BigR/F0 * sqrt(GAMMA*T0)
 
       enddo
     endif
