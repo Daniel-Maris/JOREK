@@ -35,6 +35,7 @@ call MPI_BCAST(element_list%n_elements,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
 bufsize = element_list%n_elements * (2*n_vertex_max*INT_EXT + n_vertex_max*(n_order+1)*IDBL_EXT)
 
+if (allocated(buffer)) deallocate(buffer)
 allocate(buffer(bufsize/ INT_EXT))
 
 if (my_id .eq. 0) then
@@ -67,6 +68,8 @@ if (my_id .ne. 0) then
   enddo
 
 endif
+
+deallocate(buffer)
 
 return
 end

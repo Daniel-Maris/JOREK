@@ -182,7 +182,7 @@ endif
 
 
 deallocate(Asnd_buffer, isnd_buffer, jsnd_buffer)
-deallocate(recv_counts, recv_disp, sizes)
+deallocate(send_counts,send_disp,recv_counts,recv_disp, sizes)
 
 ifactor = 2
 if (my_id .eq. 0)            ifactor = 1
