@@ -67,6 +67,6 @@ call mpi_scatterv(Rsnd_buffer,send_counts,send_disp,MPI_DOUBLE_PRECISION, &
                   rhs_dis,n_send,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
 if (my_id .eq. 0) deallocate(Rsnd_buffer)
-deallocate(send_counts,send_disp)
+deallocate(send_counts, send_disp, recv_counts, recv_disp)
 return
 end
