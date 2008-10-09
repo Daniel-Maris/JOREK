@@ -7,15 +7,36 @@ subroutine export_helena(node_list,element_list)
 use data_structure
 use phys_module
 
+implicit none
+
 type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
 type (type_surface_list) :: surface_list
 real*8, allocatable      :: rplot(:), zplot(:)
 
+real*8 :: psi_axis, R_axis, Z_axis, s_axis, t_axis, psi_xpoint, R_xpoint, Z_xpoint, s_xpoint, t_xpoint
+real*8 :: psi_bnd, Rmin, Rmax, rr1, drr1, rr2, drr2, ss1, dss1, ss2, dss2 
+real*8 :: t, ri, dri, si, dsi, rplot_tmp, zplot_tmp, s_value
+real*8 :: aminor, Rgeo, Bgeo, current,beta_p,beta_t,beta_n, dp_int, zjz_int, sum_dl, q, dl, dp_dpsi
+real*8 :: dummy1, dummy2, dummy3, dummy4, dummy5, dummy6, dummy7, dummy8, dummy9, dummy10
+real*8 :: PSgi,dPSgi_dr,dPSgi_ds,dPSgi_drs,dPSgi_drr,dPSgi_dss
+real*8 :: R0gi,dR0gi_dr,dR0gi_ds,dR0gi_drs,dR0gi_drr,dR0gi_dss
+real*8 :: T0gi,dT0gi_dr,dT0gi_ds,dT0gi_drs,dT0gi_drr,dT0gi_dss
+real*8 :: ZJgi,dZJgi_dr,dZJgi_ds,dZJgi_drs,dZJgi_drr,dZJgi_dss
+real*8 :: RRgi,dRRgi_dr,dRRgi_ds,dRRgi_drs,dRRgi_drr,dRRgi_dss
+real*8 :: ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_drs,dZZgi_drr,dZZgi_dss
+real*8 :: dRRgi_dt, dZZgi_dt, RZjac, PI, PSI_R, PSI_Z, grad_psi, B_tot2, P0gi, dP0gi_dr,dP0gi_ds, P0_R, P0_Z 
+integer :: i_elm_axis, i_elm_xpoint, nplot, i, j, n_bnd, i_elm, k, ip, ig
+integer :: node1, node2, node3, node4
+
 !--------------------------------------- gaussian points between (-1.,1.)
 real*8 :: xgs(4), wgs(4)
 data xgs /-0.861136311594053, -0.339981043584856, 0.339981043584856,  0.861136311594053 /
 data wgs / 0.347854845137454,  0.652145154862546, 0.652145154862546,  0.347854845137454 /
+
+write(*,*) '***************************************'
+write(*,*) '* export_helena                       *'
+write(*,*) '***************************************'
 
 call find_axis(node_list,element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis)
 
@@ -37,6 +58,7 @@ open(11,file='equilibrium.txt')
 
 j=2
 
+psi_bnd = surface_list%psi_values(j)
 
 allocate(rplot(surface_list%flux_surfaces(j)%n_pieces * nplot))
 allocate(zplot(surface_list%flux_surfaces(j)%n_pieces * nplot))
@@ -125,8 +147,8 @@ if (allocated(surface_list%psi_values)) deallocate(surface_list%psi_values)
 allocate(surface_list%psi_values(surface_list%n_psi))
 
 do i=1,n_flux
-  s_value = float(i)/float(n_flux-1)
-  surface_list%psi_values(i) =  psi_axis + s_value**2 * (psi_xpoint - psi_axis)
+  s_value = float(i)/float(n_flux)
+  surface_list%psi_values(i) =  psi_axis + s_value**2 * (psi_bnd - psi_axis)
 enddo
 
 call find_flux_surfaces(xpoint,node_list,element_list,surface_list)
@@ -196,9 +218,8 @@ do i=2, surface_list%n_psi
 
       sum_dl   = sum_dl  +  wgs(ig) * dl
       dp_int   = dp_int  +  wgs(ig) * dP_dpsi * dl
-      zjz_int  = zjz_int +  wgs(ig) * ZJgi * dl
+      zjz_int  = zjz_int +  wgs(ig) * ZJgi /RRgi * dl       ! toroidal current density (not JOREKs J_3)
       q        = q       +  wgs(ig) / (RRgi * grad_psi) * dl
-
 
     enddo
 

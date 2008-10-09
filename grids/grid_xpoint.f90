@@ -78,8 +78,8 @@ SIG_theta   = 0.03d0 !0.03d0
 SIG_leg_0   = 0.05d0
 SIG_leg_1   = 0.2d0
 
-dPSI_open    = 0.15
-dPSI_private = 0.06 ! 0.075
+dPSI_open    = 0.10
+dPSI_private = 0.03 ! 0.075
 
 allocate(s_tmp(n_flux_2+1))
 call meshac2(n_flux_2+1,s_tmp,1.d0,9999.d0,SIG_closed,9999.d0,0.2d0,1.0d0)

@@ -85,7 +85,7 @@ call MPI_INIT(IERR)                                ! initialise MPI
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)     ! the id of each cpu
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)  ! the number of cpus
 
-method = 'gmres'             ! options 'direct' or 'gmres'
+method = 'direct'             ! options 'direct' or 'gmres'
 gmres  = .false.
 if (trim(method) .ne. 'direct') then
   method = 'gmres'
@@ -112,7 +112,7 @@ if ( (.not. use_mumps) .and. (.not. use_pastix) ) then
   stop
 endif
 
-if (n_plane .lt. n_tor + 1) then
+if ((n_plane .lt. n_tor + 1) .and. (n_tor .gt. 1)) then
   write(*,*) ' FATAL : n_plane too small ',n_plane,n_tor
   call MPI_FINALIZE(IERR)                                ! clean up MPI
   stop

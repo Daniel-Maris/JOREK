@@ -32,17 +32,26 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint
 
+write(*,*) '***************************************'
+write(*,*) '* JOREK2_diagno                       *'
+write(*,*) '***************************************'
+
+read(5,in1)
+
+write(*,*) ' R_geo : ',R_geo,F0
 
 call initialise_basis                              ! define the basis functions at the Gaussian points
+
+call import_restart(node_list,element_list)
 
 call export_helena(node_list,element_list)
 
 !----------------------------------------- plot profiles
-call begplt('profiles.ps')
+!call begplt('profiles.ps')
 
-call plot_velocity_profile(node_list,element_list, 3.d0, 0.d0, 3.d0, 2.d0)
+!call plot_velocity_profile(node_list,element_list, 3.d0, 0.d0, 3.d0, 2.d0)
 
-call finplt
+!call finplt
 
 end
 

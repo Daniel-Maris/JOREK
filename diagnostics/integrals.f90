@@ -22,10 +22,18 @@ integer    :: i, j, k, in, ms, mt, iv, inode, ife, n_elements
 real*8     :: current, beta_p, beta_n, beta_t, MU_zero, aminor
 real*8     :: xjac, BigR, wst, P_int, C_int, ZJ_0, PS_0, Volume, Area, PI, Bgeo, psi_limit
 
+write(*,*) '***************************************'
+write(*,*) '* Integrals                           *'
+write(*,*) '***************************************'
+
 P_int = 0.d0
 C_int = 0.d0
 Volume = 0.d0
 Area   = 0.d0
+
+Bgeo = F0 / R_geo
+
+write(*,*) ' R_geo : ',R_geo,F0,Bgeo
 
 PI = 2.d0*asin(1.d0)
 

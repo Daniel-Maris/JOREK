@@ -4,7 +4,8 @@ all: modules \
      initialise_parameters.o \
      sources.o \
      element_matrix.o \
-     element_matrix_fft.o 
+     element_matrix_fft.o \
+     boundary_conditions.o 
 
 modules : mod_parameters.o mod_phys_module.o 
 

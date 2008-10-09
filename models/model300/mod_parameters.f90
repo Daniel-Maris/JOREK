@@ -8,12 +8,12 @@ module parameters
   parameter (n_var          = 7)                       ! the number of variables
   parameter (n_dim          = 2)                       ! the number of dimensions
   parameter (n_order        = 3)                       ! order of the polynomial basis
-  parameter (n_tor          = 3)                       ! the number of toroidal harmonics
+  parameter (n_tor          = 1)                       ! the number of toroidal harmonics
   parameter (n_period       = 1)                       ! periodicity in toroidal direction
-  parameter (n_plane        = 4)                       ! the number of toroidal angles
+  parameter (n_plane        = 1)                       ! the number of toroidal angles
   parameter (n_vertex_max   = 4)                       ! the maximum number of corners of an element
-  parameter (n_nodes_max    = 8001)                    ! the maximum number of nodes
-  parameter (n_elements_max = 8001)                    ! the maximum number of elements
+  parameter (n_nodes_max    = 15001)                   ! the maximum number of nodes
+  parameter (n_elements_max = 15001)                   ! the maximum number of elements
   parameter (n_pieces_max   = 10001)                   ! the maximum number of line pieces describing a flux surface
   parameter (n_degrees      = n_order+1)               ! degrees of freedom per variable per node
 
