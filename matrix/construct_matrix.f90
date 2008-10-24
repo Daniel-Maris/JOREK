@@ -4,6 +4,7 @@ subroutine construct_matrix(my_id,node_list,element_list,local_elms,n_local_elms
 ! collect the element matrices into one large sparse matrix
 ! in coordinate format
 !---------------------------------------------------------------
+use parameters
 use data_structure
 use global_distributed_matrix
 use phys_module
@@ -14,7 +15,7 @@ include 'mpif.h'
 type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
 type (type_element)      :: element
-type (type_node_list)    :: nodes
+type (type_node)         :: nodes(n_vertex_max)
 
 real*8, allocatable :: rhs_loc(:)
 integer :: my_id, local_elms(*), n_local_elms, index_min, index_max,index_min_loc, index_max_loc
@@ -26,20 +27,23 @@ real*8  :: zbig, psi_axis, psi_bnd, Z_xpoint
 integer :: i_bnd, i, in, ife, iv, inode, inode1, inode2, knode, j, k, l, index_ij, index_kl
 integer :: index_i, index_large_i, index_large_k, index_node, index_node1, index_node2, i_order, k_order, ic, ielm, ierr
 integer :: ijA_position, ijA_position2, nz_AA2, n_AA2, ilarge2, kv, kT, ku
+integer :: omp_nthreads, omp_tid
 logical :: xpoint2
 
-!write(*,*) '****************************************'
-!write(*,*) '*  construct matrix                    *'
-!write(*,*) '****************************************'
-!write(*,*) ' n_elements (local)       : ',my_id,n_local_elms
-!write(*,*) ' index_min,index_max      : ',my_id,index_min,index_max
+integer, external :: omp_get_num_threads, omp_get_thread_num
+
+write(*,*) '****************************************'
+write(*,*) '*  construct matrix                    *'
+write(*,*) '****************************************'
+write(*,*) ' n_elements (local)       : ',my_id,n_local_elms
+write(*,*) ' index_min,index_max      : ',my_id,index_min,index_max
 
 i_bnd = 0
 
 do i=1, n_local_elms
 
   ielm = local_elms(i)
-
+  
   do iv=1,n_vertex_max
 
     inode = element_list%element(ielm)%vertex(iv)
@@ -71,16 +75,31 @@ A_glob   = 0.d0
 RHS_glob = 0.d0
 RHS_loc  = 0.d0
 
+
+!$omp parallel default(none) &
+!$omp   shared(n_local_elms,irn_glob,jcn_glob,A_glob,RHS_loc,local_elms,element_list,node_list,  &
+!$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)                           &
+!$omp   private(ife,ielm,iv,inode,element,nodes,ELM,RHS,i,inode1,i_order,index_node1,            &
+!$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position, &
+!$omp           l,index_kl,ilarge2,omp_nthreads,omp_tid)
+
+omp_nthreads = omp_get_num_threads()
+omp_tid      = omp_get_thread_num()
+
+!write(*,*) my_id,' number of threads, my_tid : ',omp_nthreads,omp_tid
+
+!$omp do
 do ife =1, n_local_elms
-
+  
   ielm = local_elms(ife)
-
+  
   element = element_list%element(ielm)
-
+ 
   do iv = 1, n_vertex_max
 
     inode          = element%vertex(iv)
-    nodes%node(iv) = node_list%node(inode)
+
+    nodes(iv) = node_list%node(inode)
 
   enddo
 
@@ -89,7 +108,7 @@ do ife =1, n_local_elms
   else
     call element_matrix(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)           ! use direct integration
   endif
-
+ 
 !------------------------------------------------------- comparing two versions of element_matrix
 !  if (ife .eq. n_local_elms/2) then
 !    call element_matrix_fft(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM2, RHS2)
@@ -172,7 +191,8 @@ do ife =1, n_local_elms
   enddo
 
 enddo
-
+!$omp end do
+!$omp end parallel
 
 call MPI_Reduce(RHS_loc,RHS_glob,ndof_glob,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 

@@ -78,31 +78,31 @@ integer            :: nplot,iplot,i_elm,ifail, ivar
 !*                  intialisation                                      *
 !***********************************************************************
 
-call MPI_INIT(IERR)                                ! initialise MPI
+!call MPI_INIT(IERR)                                ! initialise MPI
 
-!required=MPI_THREAD_MULTIPLE
-!call MPI_Init_thread(required,provided,StatInfo)    ! initialise threaded MPI (openMPI)
-call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)     ! the id of each cpu
-call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)  ! the number of cpus
+required=MPI_THREAD_MULTIPLE
+call MPI_Init_thread(required,provided,StatInfo)    ! initialise threaded MPI (openMPI)
+call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)      ! the id of each cpu
+call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)      ! the number of cpus
 
-method = 'direct'             ! options 'direct' or 'gmres'
-gmres  = .false.
+method = 'gmres'             ! options 'direct' or 'gmres'
+gmres  = .true.
 if (trim(method) .ne. 'direct') then
   method = 'gmres'
   gmres  = .true.
 endif
 
 use_mumps  = .true.
-use_pastix = .false.
+use_pastix = (.not. use_mumps)
 
 pastix_initialised = .false.
 pastix_analysed    = .false.
-pastix_smp_only    = .false.         ! implies that each MPI group resides within one node!
+pastix_smp_only    = .true.         ! implies that each MPI group resides within one node!
                                      ! requires no_mpi for Pastix library
 adaptive_time = .true.
 
 if (n_tor .eq. 1) then
-!  method = 'direct'
+  method = 'direct'
 endif
 
 !---------------------------------------------------------- some checks not to waste any cpu time
@@ -359,15 +359,14 @@ do istep = 1, nstep
 
   call cpu_time(t_matrix_0)
 
-
   call construct_matrix(my_id,node_list,element_list,local_elms,n_local_ELms,index_min(my_id+1),index_max(my_id+1), &
                         xpoint,psi_axis,psi_bnd,Z_xpoint)        ! construct the matrix from elemental matrices
 
   call cpu_time(t_matrix_1)
 
-  if (my_id .eq. 0) write(*,'(i3,A,f8.3)') my_id,' matrix  : ',t_matrix_1-t_matrix_0
-
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
+
+  if (my_id .eq. 0) write(*,'(i3,A,f8.3)') my_id,' matrix  : ',t_matrix_1-t_matrix_0
 
   call cpu_time(t_solve_0)
 
@@ -472,10 +471,7 @@ do istep = 1, nstep
     energies(1:n_tor,1,index_start+istep) = W_mag(1:n_tor)
     energies(1:n_tor,2,index_start+istep) = W_kin(1:n_tor)
 
-    Growth_mag = 0.d0
-    Growth_kin = 0.d0
-    Growth_mag = 0.d0
-    Growth_kin = 0.d0
+    Growth_mag  = 0.d0; Growth_kin  = 0.d0; Growth_mag0 = 0.d0; Growth_kin0 = 0.d0
 
     if (index_start+istep .gt. 1) then
       Growth_mag  = 0.5d0*log(abs(energies(n_tor,1,index_start+istep)/energies(n_tor,1,index_start+istep-1)))/ tstep

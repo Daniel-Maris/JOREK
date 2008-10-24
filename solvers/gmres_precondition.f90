@@ -82,8 +82,6 @@ if (use_mumps) then
 
 elseif ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
 
-  write(*,*) ' precond : pastix_nthrd = ',pastix_nthrd
-
   pastix_iparm(2) = 5
   pastix_iparm(3) = pastix_endsolve
   pastix_iparm(6) = pastix_iter          ! refinement : max number of iterations

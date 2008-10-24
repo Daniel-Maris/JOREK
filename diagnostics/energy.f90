@@ -12,7 +12,7 @@ implicit none
 type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
 type (type_element)      :: element
-type (type_node_list)    :: nodes
+type (type_node)         :: nodes(n_vertex_max)
 
 real*8     :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss)
 real*8     :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
@@ -31,8 +31,8 @@ do ife =1,  element_list%n_elements
   element = element_list%element(ife)
 
   do iv = 1, n_vertex_max
-    inode          = element%vertex(iv)
-    nodes%node(iv) = node_list%node(inode)
+    inode     = element%vertex(iv)
+    nodes(iv) = node_list%node(inode)
   enddo
 
   x_g(:,:) = 0.d0;    x_s(:,:) = 0.d0;    x_t(:,:) = 0.d0;
@@ -44,13 +44,13 @@ do ife =1,  element_list%n_elements
       do ms=1, n_gauss
         do mt=1, n_gauss
 
-          x_g(ms,mt) = x_g(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-          y_g(ms,mt) = y_g(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
+          x_g(ms,mt) = x_g(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
+          y_g(ms,mt) = y_g(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
 
-          x_s(ms,mt) = x_s(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-          x_t(ms,mt) = x_t(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
-          y_s(ms,mt) = y_s(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-          y_t(ms,mt) = y_t(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+          x_s(ms,mt) = x_s(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+          x_t(ms,mt) = x_t(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+          y_s(ms,mt) = y_s(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+          y_t(ms,mt) = y_t(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
         enddo
       enddo
@@ -67,9 +67,9 @@ do ife =1,  element_list%n_elements
           do mt=1, n_gauss
 
             do k=1,n_var
-              eq_g(k,ms,mt)  = eq_g(k,ms,mt)  + nodes%node(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)
-              eq_s(k,ms,mt)  = eq_s(k,ms,mt)  + nodes%node(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)
-              eq_t(k,ms,mt)  = eq_t(k,ms,mt)  + nodes%node(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)
+              eq_g(k,ms,mt)  = eq_g(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)
+              eq_s(k,ms,mt)  = eq_s(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)
+              eq_t(k,ms,mt)  = eq_t(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)
             enddo
         
 	    if (in .eq. 1) then

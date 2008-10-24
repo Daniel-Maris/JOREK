@@ -23,7 +23,7 @@ do inode1=1,node_list%n_nodes
 enddo
 ndof_glob = ndof_glob * n_tor*n_var
 
-n_max = 800
+n_max = 1024 
 
 allocate(ijA_size(index_max-index_min+1))
 allocate(irn_jcn(index_max-index_min+1,n_max))

@@ -19,7 +19,7 @@ integer               :: nnoel, nnos, nel, nsub, inode, ielm, n_scalars, n_vecto
 real*4,allocatable    :: xyz (:,:), scalars(:,:), vectors(:,:,:)
 integer,allocatable   :: ien (:,:)
 integer               :: i, j, k, m, etype, ivtk, irst, int, i_var, i_tor, index, index_node
-character             :: buffer*80, lf*1, str1*8, str2*8
+character             :: buffer*80, lf*1, str1*12, str2*12
 character*8, allocatable :: scalar_names(:), vector_names(:)
 real*4                :: float
 real*8                :: s, t
@@ -53,7 +53,7 @@ read(5,in1)               ! read the namelist input file
 
 ivtk = 22                 ! an arbitrary unit number for the VTK output file
 
-nsub  = 5                 ! the number of subdivisions of the cubic finite elements into linear pieces
+nsub  = 11                 ! the number of subdivisions of the cubic finite elements into linear pieces
 i_tor = -1
 
 n_scalars = n_var         ! number of scalars to write to the VTK output file
@@ -206,23 +206,23 @@ buffer = 'BINARY'//lf                                                           
 buffer = 'DATASET UNSTRUCTURED_GRID'//lf//lf                                          ; write(ivtk) trim(buffer)
 
 ! POINTS SECTION
-write(str1(1:8),'(i8)') nnos
+write(str1(1:12),'(i12)') nnos
 buffer = 'POINTS '//str1//'  float'//lf                                               ; write(ivtk) trim(buffer)
 write(ivtk) ((xyz(i,j),i=1,3),j=1,nnos)
 
 ! CELLS SECTION
-write(str1(1:8),'(i8)') nel            ! number of elements (cells)
-write(str2(1:8),'(i8)') nel*(1+nnoel)  ! size of the following element list (nel*(nnoel+1))
+write(str1(1:12),'(i12)') nel            ! number of elements (cells)
+write(str2(1:12),'(i12)') nel*(1+nnoel)  ! size of the following element list (nel*(nnoel+1))
 buffer = lf//lf//'CELLS '//str1//' '//str2//lf                                        ; write(ivtk) trim(buffer)
 write(ivtk) (nnoel,(ien(i,j),i=1,nnoel),j=1,nel)
 
 ! CELL_TYPES SECTION
-write(str1(1:8),'(i8)') nel   ! number of elements (cells)
+write(str1(1:12),'(i12)') nel   ! number of elements (cells)
 buffer = lf//lf//'CELL_TYPES'//str1//lf                                               ; write(ivtk) trim(buffer)
 write(ivtk) (etype,i=1,nel)
 
 ! POINT_DATA SECTION
-write(str1(1:8),'(i8)') nnos
+write(str1(1:12),'(i12)') nnos
 buffer = lf//lf//'POINT_DATA '//str1//lf                                              ; write(ivtk) trim(buffer)
 
 do i_var =1, n_scalars

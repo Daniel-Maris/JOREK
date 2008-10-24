@@ -18,6 +18,8 @@ real*8  :: t_analysis_0, t_analysis_1, t_fact_0, t_fact_1, t_solv_0, t_solv_1
 real*8, allocatable :: RHS_tmp(:)
 logical :: solve_only
 
+integer, external :: omp_get_num_threads, omp_get_thread_num
+
 write(*,*) my_id,'*********************************'
 write(*,*) my_id,'*      solve local matrix  (n)  *'
 write(*,*) my_id,'*********************************'
@@ -70,6 +72,12 @@ if (.not. solve_only) then
     if (use_pastix) then
      
       if (.not. pastix_smp_only) then
+      
+!$omp parallel default(none) shared(pastix_nthrd)    
+        pastix_nthrd = omp_get_num_threads()
+!$omp end parallel
+
+        write(*,'(i5,A,i5)') my_id,' PastiX n_threads : ',pastix_nthrd 
 
         call MPI_BCAST(mumps_par%n,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
         call MPI_BCAST(mumps_par%nz,1,MPI_INTEGER,0,MPI_COMM_N,ierr)
@@ -92,7 +100,11 @@ if (.not. solve_only) then
     
         if ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
       
-          if (pastix_smp_only) pastix_nthrd = n_cpu_n                 ! use the size of the MPIgroup for the number of threads
+!          if (pastix_smp_only) pastix_nthrd = n_cpu_n                ! use the size of the MPIgroup for the number of threads
+
+!$omp parallel default(none) shared(pastix_nthrd)    
+          pastix_nthrd = omp_get_num_threads()
+!$omp end parallel
 
           pastix_iparm(1)     = 0                                     ! insert default values
           pastix_iparm(2)     = 0                                     ! initializse
@@ -178,8 +190,6 @@ if (.not. solve_only) then
 
   elseif ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
 
-    write(*,*) my_id,my_id_n, ' start facto'
-
     call cpu_time(t_fact_0)
 
     pastix_iparm(2) = 4
@@ -199,14 +209,10 @@ if (.not. solve_only) then
     pastix_dparm(6)  = pastix_epsilon    ! error level refinement
     pastix_dparm(11) = pastix_pivot    ! pivot threshold?
 
-    write(*,*) my_id,my_id_n,' fact pastix'
-
     call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                         pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
 
     call cpu_time(t_fact_1)
-
-    write(*,*) my_id,my_id_n,' end fact pastix'
 
     if (my_id_n .eq.0)   write(*,'(i3,A,f8.3)')  my_id,' PastiX, fact      : ',t_fact_1-t_fact_0
 

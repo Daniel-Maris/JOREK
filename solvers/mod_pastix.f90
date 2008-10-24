@@ -25,7 +25,7 @@ module pastix_module             ! PastiX specific variables
   integer               :: pastix_endsolve
   parameter (pastix_endsolve=5)
   real*8                :: pastix_epsilon
-  parameter (pastix_epsilon=1.d-12)
+  parameter (pastix_epsilon=1.d-16)
   real*8                :: pastix_pivot
-  parameter (pastix_pivot=1.d-32)
+  parameter (pastix_pivot=1.d-40)
 endmodule pastix_module
