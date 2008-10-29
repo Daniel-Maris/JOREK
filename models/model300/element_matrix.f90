@@ -452,9 +452,11 @@ do ms=1, n_gauss
 !                         + F0 * (u_s * vpar0_t - u_t * vpar0_s)                            * theta * tstep &
 
                  amat_75 = + v * (rho_s * T0 * ps0_t - rho_t * T0 * ps0_s)                 * theta * tstep &
+                           + v * (rho * T0_s * ps0_t - rho * T0_t * ps0_s)                 * theta * tstep &
                            + v * F0 / BigR * rho_p * T0                             * xjac * theta * tstep
 
                  amat_76 = + v * (T_s * R0 * ps0_t - T_t * R0 * ps0_s)                     * theta * tstep &
+                           + v * (T * R0_s * ps0_t - T * R0_t * ps0_s)                     * theta * tstep &
                            + v * F0 / BigR * T_p * R0                               * xjac * theta * tstep
 
                  amat_77 = v * Vpar * R0 * F0**2 / BigR * xjac &

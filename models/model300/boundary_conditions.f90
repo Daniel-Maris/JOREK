@@ -45,11 +45,11 @@ do i=1, n_local_elms
 !------------------------------------ the open field lines (in case of x-point grid)
           if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
-!            if ((k .eq.   1) .or. (k .eq. 92) .or. (k .eq. 3)  .or. &
-!                (k .eq.  4)  .or. (k .eq. 95)  .or. (k .eq. 96) .or. (k .eq.97) ) then
+            if ((k .eq.   1) .or. (k .eq. 92) .or. (k .eq. 3)  .or. &
+                (k .eq.  4)  .or. (k .eq. 95)  .or. (k .eq. 96) .or. (k .eq.97) ) then
 
-            if ((k .eq.   1) .or. (k .eq. 92) .or. (k .eq. 93)  .or. &
-                (k .eq.  94) .or. (k .eq. 95) .or. (k .eq. 96) .or. (k .eq.97) ) then
+!            if ((k .eq.   1) .or. (k .eq. 92) .or. (k .eq. 93)  .or. &
+!                (k .eq.  94) .or. (k .eq. 95) .or. (k .eq. 96) .or. (k .eq.97) ) then
 
 !            if ((k .eq.   1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
 !                (k .eq.  4)  .or. (k .eq. 5) .or. (k .eq. 6) .or. (k .eq.97) ) then
