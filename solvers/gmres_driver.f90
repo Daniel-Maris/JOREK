@@ -23,7 +23,7 @@ call cpu_time(t1)
 call init_dgmres(icntl,cntl)
 
 icntl(3) = 6            ! output unit
-icntl(7) = 400          ! Maximum number of iterations
+icntl(7) = 200          ! Maximum number of iterations
 icntl(4) = 1            ! preconditioner (1) = left preconditioner
 icntl(5) = 3            ! orthogonalization scheme
 icntl(6) = 1            ! initial guess  (1) = user supplied guess
@@ -35,7 +35,7 @@ cntl(3) = 1.d0
 cntl(4) = 1.d3
 cntl(5) = 1.d0
 
-m = 40
+m = 20
 
 n_dof = ndof_glob
 

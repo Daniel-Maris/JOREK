@@ -10,7 +10,7 @@ implicit none
 type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
 type (type_element)      :: element
-type (type_node_list)    :: nodes
+type (type_node)         :: nodes(n_vertex_max)
 
 real*8   :: ELM(n_vertex_max*(n_order+1),n_vertex_max*(n_order+1)), RHS(n_vertex_max*(n_order+1))
 real*8   :: zbig, Z_xpoint, psi_axis, psi_bnd, psi_xpoint, R_xpoint, s_xpoint, t_xpoint
@@ -82,8 +82,8 @@ if (my_id .eq. 0) then
 
     do iv = 1, n_vertex_max
 
-      inode          = element%vertex(iv)
-      nodes%node(iv) = node_list%node(inode)
+      inode     = element%vertex(iv)
+      nodes(iv) = node_list%node(inode)
 
     enddo
 

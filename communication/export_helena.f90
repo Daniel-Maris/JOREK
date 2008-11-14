@@ -46,9 +46,13 @@ surface_list%n_psi =3
 if (allocated(surface_list%psi_values)) deallocate(surface_list%psi_values)
 allocate(surface_list%psi_values(surface_list%n_psi))
 
+!psi_xpoint = 0.d0
+
 surface_list%psi_values(1) =  psi_axis + 0.95  * (psi_xpoint - psi_axis)
 surface_list%psi_values(2) =  psi_axis + 0.99  * (psi_xpoint - psi_axis)
 surface_list%psi_values(3) =  psi_axis + 0.999 * (psi_xpoint - psi_axis)
+
+!surface_list%psi_values(3) =  1.d-8
 
 call find_flux_surfaces(xpoint,node_list,element_list,surface_list)
 

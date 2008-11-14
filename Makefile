@@ -26,7 +26,7 @@ clean :
 	
 	
 $(MAIN) : jorek2_main.f90
-	$(FC) $(FFLAGS)      \
+	$(FC) $(FFLAGS_NO_OMP)      \
 	jorek2_main.f90      \
 	datatypes/*.o        \
 	models/$(MODEL)/*.o  \
@@ -98,3 +98,6 @@ jorek2_diagno : modules sources
 	grids/meshac.o                    \
 	grids/fgauss.o                    \
 	 -o $(JOREK_DIR)/jorek2_diagno $(INCLUDES) $(LIBS)
+	 
+jorek_to_helena :
+	$(FC) diagnostics/jorek_to_helena.f90 -o jorek_to_helena 

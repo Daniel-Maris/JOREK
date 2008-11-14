@@ -26,7 +26,7 @@ integer :: index_i, index_large_i, index_large_k, index_node, index_node1, index
 integer :: ijA_position,ijA_position2, nz_AA2, n_AA2, ilarge2, kv, kT, ku, ilarge_vv, ilarge_vT, ilarge_vus
 logical :: xpoint2
 
-zbig = 1.d10
+zbig = 1.d12
 
 do i=1, n_local_elms
 
@@ -88,7 +88,7 @@ do i=1, n_local_elms
           if ((node_list%node(inode)%boundary .eq. 2) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
             if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
-                (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 96) ) then
+                (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) ) then
 
               index_node = node_list%node(inode)%index(1)
 

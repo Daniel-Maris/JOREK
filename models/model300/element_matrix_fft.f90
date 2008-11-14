@@ -16,24 +16,19 @@ implicit none
 type (type_element)   :: element
 type (type_node)      :: nodes(n_vertex_max)
 
+real*8     :: ELM(n_vertex_max*n_var*(n_order+1)*n_tor,n_vertex_max*n_var*(n_order+1)*n_tor)
+real*8     :: RHS(n_vertex_max*n_var*(n_order+1)*n_tor)
+
 real*8     :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss)
 real*8     :: x_ss(n_gauss,n_gauss),       x_st(n_gauss,n_gauss),       x_tt(n_gauss,n_gauss)
 real*8     :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
 real*8     :: y_ss(n_gauss,n_gauss),       y_st(n_gauss,n_gauss),       y_tt(n_gauss,n_gauss)
 
-real*8     :: eq_g(n_plane,n_var,n_gauss,n_gauss), eq_s(n_plane,n_var,n_gauss,n_gauss), eq_t(n_plane,n_var,n_gauss,n_gauss)
-real*8     :: eq_p(n_plane,n_var,n_gauss,n_gauss)
-real*8     :: eq_ss(n_plane,n_var,n_gauss,n_gauss),eq_st(n_plane,n_var,n_gauss,n_gauss),eq_tt(n_plane,n_var,n_gauss,n_gauss)
+real*8,allocatable :: eq_g(:,:,:,:), eq_s(:,:,:,:), eq_t(:,:,:,:), eq_p(:,:,:,:)
+real*8,allocatable :: eq_ss(:,:,:,:),eq_st(:,:,:,:),eq_tt(:,:,:,:)
 
-real*8     :: ELM(n_vertex_max*n_var*(n_order+1)*n_tor,n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: RHS(n_vertex_max*n_var*(n_order+1)*n_tor)
-
-real*8     :: ELM_p(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: ELM_n(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: ELM_k(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: ELM_kn(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: RHS_p(n_plane,n_vertex_max*n_var*(n_order+1))
-real*8     :: RHS_k(n_plane,n_vertex_max*n_var*(n_order+1))
+real*8,allocatable :: ELM_p(:,:,:), ELM_n(:,:,:), ELM_k(:,:,:), ELM_kn(:,:,:)
+real*8,allocatable :: RHS_p(:,:), RHS_k(:,:)
 
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, kl1, kl2, kl3, kl4, kl5, kl6, kl7
@@ -75,6 +70,17 @@ integer*8  :: plan
 
 INTEGER    :: FFTW_FORWARD,  FFTW_BACKWARD, FFTW_ESTIMATE
 PARAMETER (FFTW_FORWARD=-1,FFTW_BACKWARD=+1, FFTW_ESTIMATE=64)
+
+allocate(ELM_p(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(ELM_n(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(ELM_k(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(ELM_kn(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(RHS_p(n_plane,n_vertex_max*n_var*(n_order+1)))
+allocate(RHS_k(n_plane,n_vertex_max*n_var*(n_order+1)))
+
+allocate(eq_g(n_plane,n_var,n_gauss,n_gauss), eq_s(n_plane,n_var,n_gauss,n_gauss))
+allocate(eq_t(n_plane,n_var,n_gauss,n_gauss), eq_p(n_plane,n_var,n_gauss,n_gauss))
+allocate(eq_ss(n_plane,n_var,n_gauss,n_gauss),eq_st(n_plane,n_var,n_gauss,n_gauss),eq_tt(n_plane,n_var,n_gauss,n_gauss))
 
 ELM_p = 0.d0
 ELM_n = 0.d0
@@ -125,6 +131,10 @@ do i=1,n_vertex_max
              eq_t(mp,k,ms,mt) = eq_t(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)* HZ(in,mp)
 
              eq_p(mp,k,ms,mt) = eq_p(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ_p(in,mp)
+
+             eq_ss(mp,k,ms,mt) = eq_ss(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_ss(i,j,ms,mt)* HZ(in,mp)
+             eq_st(mp,k,ms,mt) = eq_st(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_st(i,j,ms,mt)* HZ(in,mp)
+             eq_tt(mp,k,ms,mt) = eq_tt(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_tt(i,j,ms,mt)* HZ(in,mp)
 
            enddo
 
@@ -185,6 +195,9 @@ do ms=1, n_gauss
      w0_p  = eq_p(mp,4,ms,mt)
      w0_s  = eq_s(mp,4,ms,mt)
      w0_t  = eq_t(mp,4,ms,mt)
+     w0_ss = eq_ss(mp,4,ms,mt)
+     w0_tt = eq_tt(mp,4,ms,mt)
+     w0_st = eq_st(mp,4,ms,mt)
 
      r0    = abs(eq_g(mp,5,ms,mt))
      r0_x  = (   y_t(ms,mt) * eq_s(mp,5,ms,mt) - y_s(ms,mt) * eq_t(mp,5,ms,mt) ) / xjac
@@ -221,6 +234,9 @@ do ms=1, n_gauss
      eta_T   = eta   * (T0/T_0)**(-1.5d0)                   ! temperature dependent resistivity
      visco_T = visco * (T0/T_0)**(-1.5d0)                   ! temperature dependent viscosity
 
+     eta_num_T   = eta_num   !* eta_T                        ! hyperresistivity
+     visco_num_T = visco_num !* visco_T                      ! hyperviscosity
+
      deta_dT   = - eta   * (1.5d0)  * T0**(-2.5d0) * T_0**(1.5d0)
      d2eta_d2T =   eta   * (3.75d0) * T0**(-3.5d0) * T_0**(1.5d0)
      dvisco_dT = - visco * (1.5d0)  * T0**(-2.5d0) * T_0**(1.5d0)
@@ -249,6 +265,10 @@ do ms=1, n_gauss
          v_t = h_t(i,j,ms,mt) * element%size(i,j)
          v_p = H(i,j,ms,mt)   * element%size(i,j)
 
+         v_ss = h_ss(i,j,ms,mt) * element%size(i,j) 
+         v_tt = h_tt(i,j,ms,mt) * element%size(i,j) 
+         v_st = h_st(i,j,ms,mt) * element%size(i,j) 
+
          Bgrad_rho_star   = ( v_x  * ps0_y - v_y  * ps0_x ) / BigR                         ! only the part without    d/d(phi)
          Bgrad_rho_k_star = ( F0 / BigR * v_p )           / BigR                           ! only the part containing d/d(phi)
          Bgrad_rho        = ( F0 / BigR * r0_p +  r0_x * ps0_y - r0_y * ps0_x ) / BigR
@@ -261,7 +281,7 @@ do ms=1, n_gauss
          rhs_ij_1 =   v * eta_T  * (zj0 - current_source(ms,mt))/ BigR    * xjac * tstep &
                       + v * (ps0_s * u0_t - ps0_t * u0_s)                        * tstep &
                       - v * eps_cyl * F0 / BigR  * u0_p                   * xjac * tstep &          ! F0 due to absence of normalisation
-                      + eta_num * (v_x * zj0_x + v_y * zj0_y)             * xjac * tstep
+                      + eta_num_T * (v_x * zj0_x + v_y * zj0_y)           * xjac * tstep
 
          rhs_ij_2 = - 0.5d0 * vv2 * (v_x * r0_y_hat - v_y * r0_x_hat)     * xjac * tstep &
                       - r0_hat * BigR**2 * w0 * (v_s * u0_t - v_t * u0_s)        * tstep &
@@ -269,7 +289,10 @@ do ms=1, n_gauss
                       - visco_T * BigR * (v_x * w0_x + v_y * w0_y)        * xjac * tstep &
                       - v * eps_cyl * F0 / BigR * zj0_p                   * xjac * tstep &         ! F0 due to absence of normalisation
                       + BigR**2 * (v_s * p0_t - v_t * p0_s)                      * tstep &
-                      + visco_num * (v_s * w0_s + v_t * w0_t)                    * tstep
+                      - visco_num_T  * ( (v_ss * (x_t(ms,mt)**2+y_t(ms,mt)**2) + v_tt*(x_s(ms,mt)**2+y_s(ms,mt)**2)  &
+                               -2.d0*  v_st * (x_s(ms,mt)*x_t(ms,mt) + y_s(ms,mt)*y_t(ms,mt)) )                    &
+                                    * (w0_ss * (x_t(ms,mt)**2+y_t(ms,mt)**2) + w0_tt*(x_s(ms,mt)**2+y_s(ms,mt)**2) &
+                               -2.d0*  w0_st * (x_s(ms,mt)*x_t(ms,mt) + y_s(ms,mt)*y_t(ms,mt)) ) ) / xjac**3  * tstep
 
          rhs_ij_3 = 0.d0 !- ( v_x * ps0_x  + v_y * ps0_y + v*zj0) / BigR * xjac * tstep
          rhs_ij_4 = 0.d0 !- ( v_x * u0_x   + v_y * u0_y  + v*w0)  * BigR * xjac * tstep
@@ -344,6 +367,10 @@ do ms=1, n_gauss
              u_s = psi_s ; zj_s = psi_s ; w_s = psi_s  ; rho_s = psi_s  ; T_s = psi_s ; Vpar_s = psi_s
              u_t = psi_t ; zj_t = psi_t ; w_t = psi_t  ; rho_t = psi_t  ; T_t = psi_t ; Vpar_t = psi_t
 
+             w_ss = h_ss(k,l,ms,mt) * element%size(k,l) 
+             w_tt = h_tt(k,l,ms,mt) * element%size(k,l) 
+             w_st = h_st(k,l,ms,mt) * element%size(k,l) 
+
              rho_hat   = BigR**2 * rho
              rho_x_hat = 2.d0 * BigR * BigR_x  * rho + BigR**2 * rho_x
              rho_y_hat = BigR**2 * rho_y
@@ -358,7 +385,7 @@ do ms=1, n_gauss
 
              amat_12_n = +  eps_cyl * F0 / BigR * v * u_p * xjac                      * theta * tstep
 
-             amat_13 = - eta_num * (v_x * zj_x + v_y * zj_y)                   * xjac * theta * tstep  &
+             amat_13 = - eta_num_T * (v_x * zj_x + v_y * zj_y)                 * xjac * theta * tstep  &
                        - eta_T * v * zj / BigR                                 * xjac * theta * tstep
 
              amat_16 = - deta_dT * v * T * (zj0 - current_source(ms,mt))/ BigR * xjac * theta * tstep
@@ -377,7 +404,10 @@ do ms=1, n_gauss
 
              amat_24 = r0_hat * BigR**2 * w  * ( v_s * u0_t - v_t * u0_s)  * theta * tstep  &
                      + BigR * ( v_x * w_x + v_y * w_y) * visco_T  * xjac   * theta * tstep  &
-                     - visco_num * (v_s * w_s + v_t * w_t)                         * tstep
+                     + visco_num_T  * ( (v_ss * (x_t(ms,mt)**2+y_t(ms,mt)**2) + v_tt*(x_s(ms,mt)**2+y_s(ms,mt)**2) &
+                               -2.d0*  v_st * (x_s(ms,mt)*x_t(ms,mt) + y_s(ms,mt)*y_t(ms,mt)) )                  &
+                                    * (w_ss * (x_t(ms,mt)**2+y_t(ms,mt)**2) + w_tt*(x_s(ms,mt)**2+y_s(ms,mt)**2) &
+                               -2.d0*  w_st * (x_s(ms,mt)*x_t(ms,mt) + y_s(ms,mt)*y_t(ms,mt)) ) ) / xjac**3  * theta*tstep
 
              amat_25 = + 0.5d0 * vv2 * (v_x * rho_y_hat - v_y * rho_x_hat)   * xjac * theta * tstep &
                        + rho_hat * BigR**2 * w0 * (v_s * u0_t - v_t * u0_s)         * theta * tstep &
@@ -586,11 +616,13 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
   do j=1, n_vertex_max*n_var*(n_order+1)
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_p(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
+!    call dfftw_execute(plan)
+
+    call my_fft(in_fft, out_fft, n_plane)
 
     do k=1,(n_tor+1)/2
 
@@ -640,7 +672,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   enddo
 
@@ -652,11 +684,13 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
   if (maxval(abs(ELM_n(1:n_plane,i,j))) .ne. 0.d0) then
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_n(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
+!    call dfftw_execute(plan)
+
+    call my_fft(in_fft, out_fft, n_plane)
 
     do k=1,(n_tor+1)/2
 
@@ -707,7 +741,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   endif
   enddo
@@ -720,11 +754,13 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
   if (maxval(abs(ELM_k(1:n_plane,i,j))) .ne. 0.d0) then
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_k(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
+!    call dfftw_execute(plan)
+
+    call my_fft(in_fft, out_fft, n_plane)
 
     do k=1,(n_tor+1)/2
 
@@ -775,7 +811,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   endif
   enddo
@@ -789,11 +825,13 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
   if (maxval(abs(ELM_kn(1:n_plane,i,j))) .ne. 0.d0) then
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_kn(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
+!    call dfftw_execute(plan)
+
+    call my_fft(in_fft, out_fft, n_plane)
 
     do k=1,(n_tor+1)/2
 
@@ -845,7 +883,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   endif
   enddo
@@ -856,11 +894,13 @@ ELM = 0.5d0 * ELM
 
 do j=1, n_vertex_max*n_var*(n_order+1)
 
-  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
   in_fft = RHS_p(1:n_plane,j)
 
-  call dfftw_execute(plan)
+!  call dfftw_execute(plan)
+
+  call my_fft(in_fft, out_fft, n_plane)
 
   index = n_tor*(j-1) + 1
 
@@ -875,17 +915,19 @@ do j=1, n_vertex_max*n_var*(n_order+1)
 
   enddo
 
-  call dfftw_destroy_plan(plan)
+!  call dfftw_destroy_plan(plan)
 
 enddo
 
 do j=1, n_vertex_max*n_var*(n_order+1)
 
-  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
   in_fft = RHS_k(1:n_plane,j)
 
-  call dfftw_execute(plan)
+!  call dfftw_execute(plan)
+
+  call my_fft(in_fft, out_fft, n_plane)
 
   index = n_tor*(j-1) + 1
   ik    = 1
@@ -902,9 +944,33 @@ do j=1, n_vertex_max*n_var*(n_order+1)
 
   enddo
 
-  call dfftw_destroy_plan(plan)
+!  call dfftw_destroy_plan(plan)
 
 enddo
 
+deallocate(ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k)
+
+deallocate(eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt)
+
+
+return
+end
+
+subroutine my_fft(in_fft,out_fft,n)
+      
+real*8     :: in_fft(*)
+complex*16 :: out_fft(*)
+      
+real*8     :: tmp_fft(2*n+2)
+integer    :: i
+      
+tmp_fft(1:n) = in_fft(1:n)
+      
+call RFT2(tmp_fft,n,1)
+      
+do i=1,n
+  out_fft(i) = cmplx(tmp_fft(2*i-1),tmp_fft(2*i))
+enddo
+      
 return
 end

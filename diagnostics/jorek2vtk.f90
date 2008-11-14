@@ -53,7 +53,7 @@ read(5,in1)               ! read the namelist input file
 
 ivtk = 22                 ! an arbitrary unit number for the VTK output file
 
-nsub  = 11                 ! the number of subdivisions of the cubic finite elements into linear pieces
+nsub  = 5                 ! the number of subdivisions of the cubic finite elements into linear pieces
 i_tor = -1
 
 n_scalars = n_var         ! number of scalars to write to the VTK output file

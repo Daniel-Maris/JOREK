@@ -44,12 +44,12 @@ call initialise_basis                              ! define the basis functions 
 
 call import_restart(node_list,element_list)
 
-!call export_helena(node_list,element_list)
+call export_helena(node_list,element_list)
 
 !----------------------------------------- plot profiles
 !call begplt('profiles.ps')
 
-call plot_velocity_profile(node_list,element_list, 3.d0, 0.d0, 3.d0, 2.d0)
+!call plot_velocity_profile(node_list,element_list, 3.d0, 0.d0, 3.d0, 2.d0)
 
 !call finplt
 

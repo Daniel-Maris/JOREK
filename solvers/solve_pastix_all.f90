@@ -18,6 +18,8 @@ real*8                   :: t_scale_0, t_scale_1
 integer                  :: i, k, j, ierr, my_id, m_loc
 integer,allocatable      :: counts(:), displacements(:)
 
+integer, external :: omp_get_num_threads, omp_get_thread_num
+
 write(*,*) my_id,'*********************************'
 write(*,*) my_id,'*  solve global matrix (PastiX) *'
 write(*,*) my_id,'*********************************'
@@ -98,6 +100,12 @@ if (my_id .eq. 0)  write(*,'(A,f8.3)') ' PASTIX, comm      : ',t_comm_1-t_comm_0
 
 if (.not. allocated(pastix_perm_vars))  allocate(pastix_perm_vars(mumps_par%n))
 if (.not. allocated(pastix_iperm_vars)) allocate(pastix_iperm_vars(mumps_par%n))
+
+!$omp parallel default(none) shared(pastix_nthrd)    
+        pastix_nthrd = omp_get_num_threads()
+!$omp end parallel
+
+write(*,'(i5,A,i5)') my_id,' PastiX n_threads : ',pastix_nthrd 
 
 if (.not. pastix_initialised) then
 

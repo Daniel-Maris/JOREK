@@ -33,7 +33,7 @@ if (my_id .eq. 0) then
 endif
 
 n_iter = 51
-amplitude = 1.d-10
+amplitude = 1.d-12
 mm = 2
 
 do iter=1,n_iter

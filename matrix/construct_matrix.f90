@@ -32,11 +32,13 @@ logical :: xpoint2
 
 integer, external :: omp_get_num_threads, omp_get_thread_num
 
-write(*,*) '****************************************'
-write(*,*) '*  construct matrix                    *'
-write(*,*) '****************************************'
-write(*,*) ' n_elements (local)       : ',my_id,n_local_elms
-write(*,*) ' index_min,index_max      : ',my_id,index_min,index_max
+if (my_id .eq. 0) then
+  write(*,*) '****************************************'
+  write(*,*) '*  construct matrix                    *'
+  write(*,*) '****************************************'
+! write(*,*) ' n_elements (local)       : ',my_id,n_local_elms
+! write(*,*) ' index_min,index_max      : ',my_id,index_min,index_max
+endif
 
 i_bnd = 0
 
@@ -75,17 +77,15 @@ A_glob   = 0.d0
 RHS_glob = 0.d0
 RHS_loc  = 0.d0
 
-
 !$omp parallel default(none) &
 !$omp   shared(n_local_elms,irn_glob,jcn_glob,A_glob,RHS_loc,local_elms,element_list,node_list,  &
-!$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)                           &
-!$omp   private(ife,ielm,iv,inode,element,nodes,ELM,RHS,i,inode1,i_order,index_node1,            &
+!$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)              &
+!$omp   private(ife,ielm,iv,inode,element,nodes,ELM,RHS,ELM2,RHS2,i,inode1,i_order,index_node1,            &
 !$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position, &
 !$omp           l,index_kl,ilarge2,omp_nthreads,omp_tid)
 
-omp_nthreads = omp_get_num_threads()
-omp_tid      = omp_get_thread_num()
-
+!omp_nthreads = omp_get_num_threads()
+!omp_tid      = omp_get_thread_num()
 !write(*,*) my_id,' number of threads, my_tid : ',omp_nthreads,omp_tid
 
 !$omp do
@@ -97,7 +97,7 @@ do ife =1, n_local_elms
  
   do iv = 1, n_vertex_max
 
-    inode          = element%vertex(iv)
+    inode     = element%vertex(iv)
 
     nodes(iv) = node_list%node(inode)
 

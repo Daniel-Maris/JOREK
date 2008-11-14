@@ -92,12 +92,12 @@ if (trim(method) .ne. 'direct') then
   gmres  = .true.
 endif
 
-use_mumps  = .true.
+use_mumps  = .false.
 use_pastix = (.not. use_mumps)
 
 pastix_initialised = .false.
 pastix_analysed    = .false.
-pastix_smp_only    = .true.         ! implies that each MPI group resides within one node!
+pastix_smp_only    = .false.         ! implies that each MPI group resides within one node!
                                      ! requires no_mpi for Pastix library
 adaptive_time = .true.
 
@@ -121,13 +121,13 @@ endif
 if (trim(method) .ne. 'direct') then
   if (n_cpu .lt. (n_tor-1)/2+1) then
     write(*,'(A,i4,A,i4,A)') ' FATAL : need at least',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
-    call MPI_FINALIZE(IERR)                                ! clean up MPI
-    stop
+!    call MPI_FINALIZE(IERR)                                ! clean up MPI
+!    stop
   endif
   if (mod(n_cpu,(n_tor-1)/2+1) .ne. 0) then
     write(*,'(A,i4,A,i4,A)') ' FATAL : need a multiple of ',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
-    call MPI_FINALIZE(IERR)                                ! clean up MPI
-    stop
+!    call MPI_FINALIZE(IERR)                                ! clean up MPI
+!    stop
   endif
 endif
 

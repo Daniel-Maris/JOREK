@@ -135,7 +135,7 @@ if (.not. solve_only) then
     endif   ! use_pastix (initialise)
 
 
-    if (use_pastix) then
+    if ((use_pastix).and. (.not. pastix_analysed)) then
     
       if ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
     
@@ -166,6 +166,8 @@ if (.not. solve_only) then
         call cpu_time(t_analysis_1)
 
         if (my_id_n .eq.0) write(*, '(i3,A,f8.3)') my_id,' PASTIX, analysis  : ',t_analysis_1-t_analysis_0
+   
+        pastix_analysed = .true.
 
       endif
     

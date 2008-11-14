@@ -1,4 +1,4 @@
-subroutine element_matrix_fft(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM,RHS)
+subroutine element_matrix_fft(element, nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM,RHS)
 !---------------------------------------------------------------
 ! calculates the matrix contribution of one element
 !
@@ -10,30 +10,24 @@ use data_structure
 use gauss
 use basis_at_gaussian
 use phys_module
-
 implicit none
-
+ 
 type (type_element)   :: element
-type (type_node_list) :: nodes
+type (type_node)      :: nodes(n_vertex_max)
+
+real*8     :: ELM(n_vertex_max*n_var*(n_order+1)*n_tor,n_vertex_max*n_var*(n_order+1)*n_tor)
+real*8     :: RHS(n_vertex_max*n_var*(n_order+1)*n_tor)
 
 real*8     :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss)
 real*8     :: x_ss(n_gauss,n_gauss),       x_st(n_gauss,n_gauss),       x_tt(n_gauss,n_gauss)
 real*8     :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
 real*8     :: y_ss(n_gauss,n_gauss),       y_st(n_gauss,n_gauss),       y_tt(n_gauss,n_gauss)
 
-real*8     :: eq_g(n_plane,n_var,n_gauss,n_gauss), eq_s(n_plane,n_var,n_gauss,n_gauss), eq_t(n_plane,n_var,n_gauss,n_gauss)
-real*8     :: eq_p(n_plane,n_var,n_gauss,n_gauss)
-real*8     :: eq_ss(n_plane,n_var,n_gauss,n_gauss),eq_st(n_plane,n_var,n_gauss,n_gauss),eq_tt(n_plane,n_var,n_gauss,n_gauss)
+real*8,allocatable :: eq_g(:,:,:,:), eq_s(:,:,:,:), eq_t(:,:,:,:), eq_p(:,:,:,:)
+real*8,allocatable :: eq_ss(:,:,:,:),eq_st(:,:,:,:),eq_tt(:,:,:,:)
+real*8,allocatable :: delta_g(:,:,:,:), delta_s(:,:,:,:), delta_t(:,:,:,:)
 
-real*8     :: ELM(n_vertex_max*n_var*(n_order+1)*n_tor,n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: RHS(n_vertex_max*n_var*(n_order+1)*n_tor)
-
-real*8     :: ELM_p(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: ELM_n(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: ELM_k(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: ELM_kn(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: RHS_p(n_plane,n_vertex_max*n_var*(n_order+1))
-real*8     :: RHS_k(n_plane,n_vertex_max*n_var*(n_order+1))
+real*8,allocatable :: ELM_p(:,:,:), ELM_n(:,:,:), ELM_k(:,:,:), ELM_kn(:,:,:), RHS_p(:,:), RHS_k(:,:)
 
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6
@@ -63,14 +57,27 @@ real*8     :: amat_51, amat_52, amat_55, amat_61, amat_62, amat_66, amat_16, ama
 real*8     :: amat_12_n, amat_23_n, amat_51_k, amat_55_kn, amat_55_k, amat_55_n, amat_61_k, amat_66_kn, amat_66_k, amat_66_n
 real*8     :: amat_stab_11, amat_stab_12, amat_stab_13, amat_stab_14 ,amat_stab_21,amat_stab_22, amat_stab_23, amat_stab_24
 real*8     :: amat_stab_31, amat_stab_32, amat_stab_33, amat_stab_34 ,amat_stab_41,amat_stab_42, amat_stab_43, amat_stab_44
+real*8     :: theta, zeta, delta_u_x, delta_u_y
 logical    :: xpoint2
 
+integer*8  :: plan
 real*8     :: in_fft(1:n_plane)
 complex*16 :: out_fft(1:n_plane)
-integer*8  :: plan
-
 INTEGER    :: FFTW_FORWARD,  FFTW_BACKWARD, FFTW_ESTIMATE
 PARAMETER (FFTW_FORWARD=-1,FFTW_BACKWARD=+1, FFTW_ESTIMATE=64)
+
+allocate(eq_g(n_plane,n_var,n_gauss,n_gauss), eq_s(n_plane,n_var,n_gauss,n_gauss))
+allocate(eq_t(n_plane,n_var,n_gauss,n_gauss), eq_p(n_plane,n_var,n_gauss,n_gauss))
+allocate(eq_ss(n_plane,n_var,n_gauss,n_gauss),eq_st(n_plane,n_var,n_gauss,n_gauss),eq_tt(n_plane,n_var,n_gauss,n_gauss))
+
+allocate(delta_g(n_plane,n_var,n_gauss,n_gauss), delta_s(n_plane,n_var,n_gauss,n_gauss), delta_t(n_plane,n_var,n_gauss,n_gauss))
+
+allocate(ELM_p(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(ELM_n(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(ELM_k(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(ELM_kn(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
+allocate(RHS_p(n_plane,n_vertex_max*n_var*(n_order+1)))
+allocate(RHS_k(n_plane,n_vertex_max*n_var*(n_order+1)))
 
 ELM_p = 0.d0
 ELM_n = 0.d0
@@ -84,6 +91,10 @@ RHS   = 0.d0
 PI    = 2.d0*asin(1.d0)
 GAMMA = 5.d0 / 3.d0
 
+theta = 0.5d0  ; zeta = 0.0d0      ! Crank-Nicholson scheme
+!theta = 1.0d0  ; zeta = 0.0d0      ! Euler scheme 
+!theta = 1.0d0   ; zeta = 0.5d0      ! BDF2 (Gears) scheme
+
 current_source  = 0.d0
 particle_source = 0.d0
 heat_source     = 0.d0
@@ -93,19 +104,21 @@ x_g  = 0.d0; x_s  = 0.d0; x_t  = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0;
 y_g  = 0.d0; y_s  = 0.d0; y_t  = 0.d0; y_st  = 0.d0; y_ss  = 0.d0; y_tt  = 0.d0;
 eq_g = 0.d0; eq_s = 0.d0; eq_t = 0.d0; eq_st = 0.d0; eq_ss = 0.d0; eq_tt = 0.d0; eq_p = 0.d0;
 
+delta_g = 0.d0; delta_s = 0.d0; delta_t = 0.d0
+
 do i=1,n_vertex_max
  do j=1,n_order+1
 
    do ms=1, n_gauss
      do mt=1, n_gauss
 
-       x_g(ms,mt)  = x_g(ms,mt)  + nodes%node(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-       x_s(ms,mt)  = x_s(ms,mt)  + nodes%node(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-       x_t(ms,mt)  = x_t(ms,mt)  + nodes%node(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
+       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
 
-       y_g(ms,mt)  = y_g(ms,mt)  + nodes%node(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
-       y_s(ms,mt)  = y_s(ms,mt)  + nodes%node(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-       y_t(ms,mt)  = y_t(ms,mt)  + nodes%node(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
+       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
        do mp=1,n_plane
 
@@ -113,13 +126,17 @@ do i=1,n_vertex_max
 
            do in=1,n_tor
 
-             eq_g(mp,k,ms,mt) = eq_g(mp,k,ms,mt) + nodes%node(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ(in,mp)
+             eq_g(mp,k,ms,mt) = eq_g(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ(in,mp)
 
-             eq_s(mp,k,ms,mt) = eq_s(mp,k,ms,mt) + nodes%node(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)* HZ(in,mp)
+             eq_s(mp,k,ms,mt) = eq_s(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)* HZ(in,mp)
 
-             eq_t(mp,k,ms,mt) = eq_t(mp,k,ms,mt) + nodes%node(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)* HZ(in,mp)
+             eq_t(mp,k,ms,mt) = eq_t(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)* HZ(in,mp)
 
-             eq_p(mp,k,ms,mt) = eq_p(mp,k,ms,mt) + nodes%node(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ_p(in,mp)
+             eq_p(mp,k,ms,mt) = eq_p(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ_p(in,mp)
+
+             delta_g(mp,k,ms,mt) = delta_g(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
+             delta_s(mp,k,ms,mt) = delta_s(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
+             delta_t(mp,k,ms,mt) = delta_t(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
 
            enddo
 
@@ -134,6 +151,7 @@ do i=1,n_vertex_max
    enddo
  enddo
 enddo
+
 
 !--------------------------------------------------- sum over the Gaussian integration points
 do ms=1, n_gauss
@@ -205,6 +223,9 @@ do ms=1, n_gauss
      P0_s  = r0_s * T0 + r0 * T0_s
      P0_t  = r0_t * T0 + r0 * T0_t
 
+     delta_u_x = (   y_t(ms,mt) * delta_s(mp,2,ms,mt) - y_s(ms,mt) * delta_t(mp,2,ms,mt) ) / xjac
+     delta_u_y = ( - x_t(ms,mt) * delta_s(mp,2,ms,mt) + x_s(ms,mt) * delta_t(mp,2,ms,mt) ) / xjac
+
      eta_T   = eta   * (T0/T_0)**(-1.5d0)                   ! temperature dependent resistivity
      visco_T = visco * (T0/T_0)**(-1.5d0)                   ! temperature dependent viscosity
 
@@ -248,7 +269,8 @@ do ms=1, n_gauss
          rhs_ij_1 =   v * eta_T  * (zj0 - current_source(ms,mt))/ BigR    * xjac * tstep &
                       + v * (ps0_s * u0_t - ps0_t * u0_s)                        * tstep &
                       - v * eps_cyl * F0 / BigR  * u0_p                   * xjac * tstep &          ! F0 due to absence of normalisation
-                      + eta_num * (v_x * zj0_x + v_y * zj0_y)             * xjac * tstep
+                      + eta_num * (v_x * zj0_x + v_y * zj0_y)             * xjac * tstep &
+                      + zeta * v * delta_g(mp,1,ms,mt) / BigR             * xjac 
 
          rhs_ij_2 = - 0.5d0 * vv2 * (v_x * r0_y_hat - v_y * r0_x_hat)     * xjac * tstep &
                       - r0_hat * BigR**2 * w0 * (v_s * u0_t - v_t * u0_s)        * tstep &
@@ -256,7 +278,8 @@ do ms=1, n_gauss
                       - visco_T * BigR * (v_x * w0_x + v_y * w0_y)        * xjac * tstep &
                       - v * eps_cyl * F0 / BigR * zj0_p                   * xjac * tstep &         ! F0 due to absence of normalisation
                       + BigR**2 * (v_s * p0_t - v_t * p0_s)                      * tstep &
-                      + visco_num * (v_s * w0_s + v_t * w0_t)                    * tstep
+                      + visco_num * (v_s * w0_s + v_t * w0_t)                    * tstep &
+                      - zeta * BigR * r0_hat * (v_x * delta_u_x + v_y * delta_u_y) * xjac  
 
          rhs_ij_3 = 0.d0 !- ( v_x * ps0_x  + v_y * ps0_y + v*zj0) / BigR * xjac * tstep
          rhs_ij_4 = 0.d0 !- ( v_x * u0_x   + v_y * u0_y  + v*w0)  * BigR * xjac * tstep
@@ -265,7 +288,8 @@ do ms=1, n_gauss
                     + v * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)                                      * tstep &
                     + v * 2.d0 * BigR * r0 * u0_y                                              * xjac * tstep &
                     - (D_par-D_prof) * BigR / BB2 * Bgrad_rho_star * Bgrad_rho                 * xjac * tstep &
-                    - D_prof * BigR  * (v_x*r0_x + v_y*r0_y                                  ) * xjac * tstep
+                    - D_prof * BigR  * (v_x*r0_x + v_y*r0_y                                  ) * xjac * tstep &
+                    + zeta * v * delta_g(mp,5,ms,mt) * BigR                                    * xjac 
 
          rhs_ij_5_k =  - (D_par-D_prof) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rho            * xjac * tstep &
                        - D_prof * BigR  * (                  v_p*r0_p * eps_cyl**2 /BigR**2 )  * xjac * tstep
@@ -274,7 +298,8 @@ do ms=1, n_gauss
                     + v * BigR**2 * ( T0_s * u0_t - T0_t * u0_s)                         * tstep &
                     + v * 2.d0* (GAMMA-1.d0) * BigR * T0 * u0_y                   * xjac * tstep &
                     - (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_star * Bgrad_T      * xjac * tstep &
-                    - ZK_prof * BigR * (v_x*T0_x + v_y*T0_y                     ) * xjac * tstep
+                    - ZK_prof * BigR * (v_x*T0_x + v_y*T0_y                     ) * xjac * tstep &
+                    + zeta * v * delta_g(mp,6,ms,mt) * BigR                       * xjac 
 
          rhs_ij_6_k = - (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_k_star * Bgrad_T * xjac * tstep &
                       - ZK_prof * BigR * (                + v_p*T0_p /BigR**2 )  * xjac * tstep
@@ -323,42 +348,42 @@ do ms=1, n_gauss
              index_kl = n_var*(n_order+1)*(k-1) + n_var * (l-1) + 1   ! index in the ELM matrix
 
 !------------------------------------------------------------ equation 1
-             amat_11 = v * psi / BigR * xjac                                                           &
-                     - v * (psi_s * u0_t - psi_t * u0_s)                              * 0.5d0 * tstep
+             amat_11 = v * psi / BigR * xjac * (1.d0+zeta)                                             &
+                     - v * (psi_s * u0_t - psi_t * u0_s)                              * theta * tstep
 
-             amat_12 = -  v * (ps0_s * u_t - ps0_t * u_s)                             * 0.5d0 * tstep
+             amat_12 = -  v * (ps0_s * u_t - ps0_t * u_s)                             * theta * tstep
 
-             amat_12_n = +  eps_cyl * F0 / BigR * v * u_p * xjac                      * 0.5d0 * tstep
+             amat_12_n = +  eps_cyl * F0 / BigR * v * u_p * xjac                      * theta * tstep
 
-             amat_13 = - eta_num * (v_x * zj_x + v_y * zj_y)                   * xjac * 0.5d0 * tstep  &
-                       - eta_T * v * zj / BigR                                 * xjac * 0.5d0 * tstep
+             amat_13 = - eta_num * (v_x * zj_x + v_y * zj_y)                   * xjac * theta * tstep  &
+                       - eta_T * v * zj / BigR                                 * xjac * theta * tstep
 
-             amat_16 = - deta_dT * v * T * (zj0 - current_source(ms,mt))/ BigR * xjac * 0.5d0 * tstep
+             amat_16 = - deta_dT * v * T * (zj0 - current_source(ms,mt))/ BigR * xjac * theta * tstep
 
 
 !------------------------------------------------------------ equation 2
-             amat_22 = - BigR * r0_hat * (v_x * u_x + v_y * u_y) * xjac                                                 &
-                       + r0_hat * BigR**2 * w0 * (v_s * u_t  - v_t  * u_s)                              * 0.5d0 * tstep &
-                       + BigR**2 * (u_x * u0_x + u_y * u0_y) * (v_x * r0_y_hat - v_y * r0_x_hat) * xjac * 0.5d0 * tstep
+             amat_22 = - BigR * r0_hat * (v_x * u_x + v_y * u_y) * xjac * (1.d0+zeta)                                   &
+                       + r0_hat * BigR**2 * w0 * (v_s * u_t  - v_t  * u_s)                              * theta * tstep &
+                       + BigR**2 * (u_x * u0_x + u_y * u0_y) * (v_x * r0_y_hat - v_y * r0_x_hat) * xjac * theta * tstep
 
-             amat_21 = - v * (psi_s * zj0_t - psi_t * zj0_s )              * 0.5d0 * tstep
+             amat_21 = - v * (psi_s * zj0_t - psi_t * zj0_s )              * theta * tstep
 
-             amat_23 = - v * (ps0_s * zj_t  - ps0_t * zj_s)                * 0.5d0 * tstep
+             amat_23 = - v * (ps0_s * zj_t  - ps0_t * zj_s)                * theta * tstep
 
-             amat_23_n = + eps_cyl * F0 / BigR * v * zj_p  * xjac               * 0.5d0 * tstep
+             amat_23_n = + eps_cyl * F0 / BigR * v * zj_p  * xjac               * theta * tstep
 
-             amat_24 = r0_hat * BigR**2 * w  * ( v_s * u0_t - v_t * u0_s)  * 0.5d0 * tstep  &
-                     + BigR * ( v_x * w_x + v_y * w_y) * visco_T  * xjac   * 0.5d0 * tstep  &
+             amat_24 = r0_hat * BigR**2 * w  * ( v_s * u0_t - v_t * u0_s)  * theta * tstep  &
+                     + BigR * ( v_x * w_x + v_y * w_y) * visco_T  * xjac   * theta * tstep  &
                      - visco_num * (v_s * w_s + v_t * w_t)                         * tstep
 
-             amat_25 = + 0.5d0 * vv2 * (v_x * rho_y_hat - v_y * rho_x_hat)   * xjac * 0.5d0 * tstep &
-                       + rho_hat * BigR**2 * w0 * (v_s * u0_t - v_t * u0_s)         * 0.5d0 * tstep &
-                       - BigR**2 * (v_s * rho_t * T0   - v_t * rho_s * T0  )        * 0.5d0 * tstep &
-                       - BigR**2 * (v_s * rho   * T0_t - v_t * rho   * T0_s)        * 0.5d0 * tstep
+             amat_25 = + 0.5d0 * vv2 * (v_x * rho_y_hat - v_y * rho_x_hat)   * xjac * theta * tstep &
+                       + rho_hat * BigR**2 * w0 * (v_s * u0_t - v_t * u0_s)         * theta * tstep &
+                       - BigR**2 * (v_s * rho_t * T0   - v_t * rho_s * T0  )        * theta * tstep &
+                       - BigR**2 * (v_s * rho   * T0_t - v_t * rho   * T0_s)        * theta * tstep
 
-             amat_26 = - BigR**2 * (v_s * r0_t * T   - v_t * r0_s * T)      * 0.5d0 * tstep  &
-                       - BigR**2 * (v_s * r0   * T_t - v_t * r0   * T_s)    * 0.5d0 * tstep  &
-                       + dvisco_dT * T * ( v_x * w0_x + v_y * w0_y ) * BigR * xjac * 0.5d0 * tstep
+             amat_26 = - BigR**2 * (v_s * r0_t * T   - v_t * r0_s * T)      * theta * tstep  &
+                       - BigR**2 * (v_s * r0   * T_t - v_t * r0   * T_s)    * theta * tstep  &
+                       + dvisco_dT * T * ( v_x * w0_x + v_y * w0_y ) * BigR * xjac * theta * tstep
 
 !------------------------------------------------------------ equation 3
              amat_33 = v * zj / BigR * xjac                                * tstep
@@ -376,27 +401,27 @@ do ms=1, n_gauss
              BB2_psi            = 2.d0 * (psi_x * ps0_x + psi_y * ps0_y ) /BigR**2
 
 
-             amat_51 = - (D_par-D_prof) * BigR * BB2_psi/ BB2**2 * Bgrad_rho_star     * Bgrad_rho     * xjac * 0.5d0 * tstep &
-                       + (D_par-D_prof) * BigR / BB2             * Bgrad_rho_star_psi * Bgrad_rho     * xjac * 0.5d0 * tstep &
-                       + (D_par-D_prof) * BigR / BB2             * Bgrad_rho_star     * Bgrad_rho_psi * xjac * 0.5d0 * tstep
+             amat_51 = - (D_par-D_prof) * BigR * BB2_psi/ BB2**2 * Bgrad_rho_star     * Bgrad_rho     * xjac * theta * tstep &
+                       + (D_par-D_prof) * BigR / BB2             * Bgrad_rho_star_psi * Bgrad_rho     * xjac * theta * tstep &
+                       + (D_par-D_prof) * BigR / BB2             * Bgrad_rho_star     * Bgrad_rho_psi * xjac * theta * tstep
 
-             amat_51_k = - (D_par-D_prof) * BigR * BB2_psi/ BB2**2 * Bgrad_rho_k_star * Bgrad_rho     * xjac * 0.5d0 * tstep &
-                         + (D_par-D_prof) * BigR / BB2             * Bgrad_rho_k_star * Bgrad_rho_psi * xjac * 0.5d0 * tstep
+             amat_51_k = - (D_par-D_prof) * BigR * BB2_psi/ BB2**2 * Bgrad_rho_k_star * Bgrad_rho     * xjac * theta * tstep &
+                         + (D_par-D_prof) * BigR / BB2             * Bgrad_rho_k_star * Bgrad_rho_psi * xjac * theta * tstep
 
-             amat_52 =  - v * BigR**2 * ( r0_s * u_t - r0_t * u_s)                                        * 0.5d0 * tstep &
-                        - v * 2.d0 * BigR * r0 * u_y                                               * xjac * 0.5d0 * tstep
+             amat_52 =  - v * BigR**2 * ( r0_s * u_t - r0_t * u_s)                                        * theta * tstep &
+                        - v * 2.d0 * BigR * r0 * u_y                                               * xjac * theta * tstep
 
-             amat_55 = v * rho * BigR                                                              * xjac   &
-                     - v * BigR**2 * ( rho_s * u0_t - rho_t * u0_s)                                       * 0.5d0 * tstep &
-                     - v * 2.d0 * BigR * rho * u0_y                                                * xjac * 0.5d0 * tstep &
-                     + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_star * Bgrad_rho_rho                * xjac * 0.5d0 * tstep &
-                     + D_prof * BigR  * (v_x*rho_x + v_y*rho_y )                                   * xjac * 0.5d0 * tstep
+             amat_55 = v * rho * BigR * (1.d0 + zeta)                                              * xjac   &
+                     - v * BigR**2 * ( rho_s * u0_t - rho_t * u0_s)                                       * theta * tstep &
+                     - v * 2.d0 * BigR * rho * u0_y                                                * xjac * theta * tstep &
+                     + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_star * Bgrad_rho_rho                * xjac * theta * tstep &
+                     + D_prof * BigR  * (v_x*rho_x + v_y*rho_y )                                   * xjac * theta * tstep
 
-             amat_55_k = + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rho_rho          * xjac * 0.5d0 * tstep
-             amat_55_n = + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_star   * Bgrad_rho_rho_n        * xjac * 0.5d0 * tstep
+             amat_55_k = + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rho_rho          * xjac * theta * tstep
+             amat_55_n = + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_star   * Bgrad_rho_rho_n        * xjac * theta * tstep
 
-             amat_55_kn = + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rho_rho_n       * xjac * 0.5d0 * tstep &
-                          + D_prof * BigR  * ( v_p*rho_p * eps_cyl**2 /BigR**2 )                   * xjac * 0.5d0 * tstep
+             amat_55_kn = + (D_par-D_prof) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rho_rho_n       * xjac * theta * tstep &
+                          + D_prof * BigR  * ( v_p*rho_p * eps_cyl**2 /BigR**2 )                   * xjac * theta * tstep
 
 
 !------------------------------------------------------------ equation 6
@@ -405,27 +430,27 @@ do ms=1, n_gauss
              Bgrad_T_T        = ( T_x * ps0_y - T_y * ps0_x ) / BigR
              Bgrad_T_T_n      = ( F0 / BigR * T_p) / BigR
 
-             amat_61 = - (ZK_par-ZK_prof) * BigR * BB2_psi / BB2**2 * Bgrad_T_star     * Bgrad_T     * xjac * 0.5d0 * tstep &
-                       + (ZK_par-ZK_prof) * BigR / BB2              * Bgrad_T_star_psi * Bgrad_T     * xjac * 0.5d0 * tstep &
-                       + (ZK_par-ZK_prof) * BigR / BB2              * Bgrad_T_star     * Bgrad_T_psi * xjac * 0.5d0 * tstep
+             amat_61 = - (ZK_par-ZK_prof) * BigR * BB2_psi / BB2**2 * Bgrad_T_star     * Bgrad_T     * xjac * theta * tstep &
+                       + (ZK_par-ZK_prof) * BigR / BB2              * Bgrad_T_star_psi * Bgrad_T     * xjac * theta * tstep &
+                       + (ZK_par-ZK_prof) * BigR / BB2              * Bgrad_T_star     * Bgrad_T_psi * xjac * theta * tstep
 
-             amat_61_k = - (ZK_par-ZK_prof) * BigR * BB2_psi / BB2**2 * Bgrad_T_k_star * Bgrad_T     * xjac * 0.5d0 * tstep &
-                         + (ZK_par-ZK_prof) * BigR / BB2              * Bgrad_T_k_star * Bgrad_T_psi * xjac * 0.5d0 * tstep
+             amat_61_k = - (ZK_par-ZK_prof) * BigR * BB2_psi / BB2**2 * Bgrad_T_k_star * Bgrad_T     * xjac * theta * tstep &
+                         + (ZK_par-ZK_prof) * BigR / BB2              * Bgrad_T_k_star * Bgrad_T_psi * xjac * theta * tstep
 
-             amat_62 = - v * BigR**2 * ( T0_x * u_y - T0_y * u_x)             * xjac * 0.5d0 * tstep &
-                       - v * 2.d0* (GAMMA-1.d0) * BigR * T0 * u_y             * xjac * 0.5d0 * tstep
+             amat_62 = - v * BigR**2 * ( T0_x * u_y - T0_y * u_x)             * xjac * theta * tstep &
+                       - v * 2.d0* (GAMMA-1.d0) * BigR * T0 * u_y             * xjac * theta * tstep
 
-             amat_66 =   v * T   * BigR * xjac      &
-                       - v * BigR**2 * ( T_s * u0_t - T_t * u0_s)                        * 0.5d0 * tstep &
-                       - v * 2.d0* (GAMMA-1.d0) * BigR * T * u0_y                 * xjac * 0.5d0 * tstep &
-                       + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_star * Bgrad_T_T * xjac * 0.5d0 * tstep &
-                       + ZK_prof * BigR * ( v_x*T_x + v_y*T_y )                   * xjac * 0.5d0 * tstep
+             amat_66 =   v * T   * BigR * xjac * (1.d0 + zeta)                                           &
+                       - v * BigR**2 * ( T_s * u0_t - T_t * u0_s)                        * theta * tstep &
+                       - v * 2.d0* (GAMMA-1.d0) * BigR * T * u0_y                 * xjac * theta * tstep &
+                       + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_star * Bgrad_T_T * xjac * theta * tstep &
+                       + ZK_prof * BigR * ( v_x*T_x + v_y*T_y )                   * xjac * theta * tstep
 
-             amat_66_k = + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_k_star * Bgrad_T_T    * xjac * 0.5d0 * tstep
-             amat_66_n = + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_star   * Bgrad_T_T_n  * xjac * 0.5d0 * tstep
+             amat_66_k = + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_k_star * Bgrad_T_T    * xjac * theta * tstep
+             amat_66_n = + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_star   * Bgrad_T_T_n  * xjac * theta * tstep
 
-             amat_66_kn = + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_k_star * Bgrad_T_T_n * xjac * 0.5d0 * tstep &
-                          + ZK_prof * BigR   * (v_p*T_p /BigR**2 )                       * xjac * 0.5d0 * tstep
+             amat_66_kn = + (ZK_par-ZK_prof) * BigR / BB2 * Bgrad_T_k_star * Bgrad_T_T_n * xjac * theta * tstep &
+                          + ZK_prof * BigR   * (v_p*T_p /BigR**2 )                       * xjac * theta * tstep
 
 
              kl1 = index_kl
@@ -459,7 +484,7 @@ do ms=1, n_gauss
              ELM_p(mp,ij4,kl2)  =  ELM_p(mp,ij4,kl2) + wst * amat_42
              ELM_p(mp,ij4,kl4)  =  ELM_p(mp,ij4,kl4) + wst * amat_44
 
-
+ 
              ELM_p(mp,ij5,kl1)  =  ELM_p(mp,ij5,kl1)  + wst * amat_51
              ELM_k(mp,ij5,kl1)  =  ELM_k(mp,ij5,kl1)  + wst * amat_51_k
 
@@ -492,16 +517,19 @@ do ms=1, n_gauss
  enddo
 enddo
 
+
 do i=1,n_vertex_max*n_var*(n_order+1)
 
   do j=1, n_vertex_max*n_var*(n_order+1)
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_p(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
-
+!    call dfftw_execute(plan)
+    
+    call my_fft(in_fft,out_fft,n_plane)
+    
     do k=1,(n_tor+1)/2
 
       index_k = n_tor*(i-1) + max(2*(k-1),1)
@@ -550,7 +578,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   enddo
 
@@ -562,11 +590,13 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
   if (maxval(abs(ELM_n(1:n_plane,i,j))) .ne. 0.d0) then
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_n(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
+!    call dfftw_execute(plan)
+
+    call my_fft(in_fft,out_fft,n_plane)
 
     do k=1,(n_tor+1)/2
 
@@ -617,7 +647,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   endif
   enddo
@@ -630,11 +660,13 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
   if (maxval(abs(ELM_k(1:n_plane,i,j))) .ne. 0.d0) then
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_k(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
+!    call dfftw_execute(plan)
+
+    call my_fft(in_fft,out_fft,n_plane)
 
     do k=1,(n_tor+1)/2
 
@@ -685,7 +717,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   endif
   enddo
@@ -699,11 +731,13 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
   if (maxval(abs(ELM_kn(1:n_plane,i,j))) .ne. 0.d0) then
 
-    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
     in_fft =  ELM_kn(1:n_plane,i,j)
 
-    call dfftw_execute(plan)
+!    call dfftw_execute(plan)
+
+    call my_fft(in_fft,out_fft,n_plane)
 
     do k=1,(n_tor+1)/2
 
@@ -755,7 +789,7 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
     enddo
 
-    call dfftw_destroy_plan(plan)
+!    call dfftw_destroy_plan(plan)
 
   endif
   enddo
@@ -766,11 +800,13 @@ ELM = 0.5d0 * ELM
 
 do j=1, n_vertex_max*n_var*(n_order+1)
 
-  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
   in_fft = RHS_p(1:n_plane,j)
 
-  call dfftw_execute(plan)
+!  call dfftw_execute(plan)
+
+  call my_fft(in_fft,out_fft,n_plane)
 
   index = n_tor*(j-1) + 1
 
@@ -785,17 +821,18 @@ do j=1, n_vertex_max*n_var*(n_order+1)
 
   enddo
 
-  call dfftw_destroy_plan(plan)
-
+!  call dfftw_destroy_plan(plan)
+ 
 enddo
 
 do j=1, n_vertex_max*n_var*(n_order+1)
 
-  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
+!  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
   in_fft = RHS_k(1:n_plane,j)
 
-  call dfftw_execute(plan)
+!  call dfftw_execute(plan)
+  call my_fft(in_fft,out_fft,n_plane)
 
   index = n_tor*(j-1) + 1
   ik    = 1
@@ -812,9 +849,32 @@ do j=1, n_vertex_max*n_var*(n_order+1)
 
   enddo
 
-  call dfftw_destroy_plan(plan)
+!  call dfftw_destroy_plan(plan)
 
 enddo
 
+deallocate(ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k)
+deallocate(eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t)
+
 return
 end
+
+subroutine my_fft(in_fft,out_fft,n)
+      
+real*8     :: in_fft(*)
+complex*16 :: out_fft(*)
+      
+real*8     :: tmp_fft(2*n+2)
+integer    :: i
+      
+tmp_fft(1:n) = in_fft(1:n)
+      
+call RFT2(tmp_fft,n,1)
+      
+do i=1,n
+  out_fft(i) = cmplx(tmp_fft(2*i-1),tmp_fft(2*i))
+enddo
+      
+return
+end
+      

@@ -9,8 +9,8 @@ use basis_at_gaussian
 
 implicit none
 
-type (type_element)   :: element
-type (type_node_list) :: nodes
+type (type_element) :: element
+type (type_node)    :: nodes(n_vertex_max)
 
 real*8     :: x_g(n_gauss,n_gauss), x_s(n_gauss,n_gauss), x_t(n_gauss,n_gauss)
 real*8     :: y_g(n_gauss,n_gauss), y_s(n_gauss,n_gauss), y_t(n_gauss,n_gauss)
@@ -37,21 +37,21 @@ do i=1,n_vertex_max
    do ms=1, n_gauss
      do mt=1, n_gauss
 
-       x_g(ms,mt) = x_g(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-       y_g(ms,mt) = y_g(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
+       x_g(ms,mt) = x_g(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
+       y_g(ms,mt) = y_g(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
 
-       x_s(ms,mt) = x_s(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-       x_t(ms,mt) = x_t(ms,mt) + nodes%node(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
-       y_s(ms,mt) = y_s(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-       y_t(ms,mt) = y_t(ms,mt) + nodes%node(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+       x_s(ms,mt) = x_s(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+       x_t(ms,mt) = x_t(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+       y_s(ms,mt) = y_s(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+       y_t(ms,mt) = y_t(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
-       eq_g(ms,mt)  = eq_g(ms,mt)  + nodes%node(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H(i,j,ms,mt)
-       eq_s(ms,mt)  = eq_s(ms,mt)  + nodes%node(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H_s(i,j,ms,mt)
-       eq_t(ms,mt)  = eq_t(ms,mt)  + nodes%node(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H_t(i,j,ms,mt)
+       eq_g(ms,mt)  = eq_g(ms,mt)  + nodes(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H(i,j,ms,mt)
+       eq_s(ms,mt)  = eq_s(ms,mt)  + nodes(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H_s(i,j,ms,mt)
+       eq_t(ms,mt)  = eq_t(ms,mt)  + nodes(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H_t(i,j,ms,mt)
 
-       eq2_g(ms,mt)  = eq2_g(ms,mt)  + nodes%node(i)%values(i_harm,j,ivar_out) * element%size(i,j) * H(i,j,ms,mt)
-       eq2_s(ms,mt)  = eq2_s(ms,mt)  + nodes%node(i)%values(i_harm,j,ivar_out) * element%size(i,j) * H_s(i,j,ms,mt)
-       eq2_t(ms,mt)  = eq2_t(ms,mt)  + nodes%node(i)%values(i_harm,j,ivar_out) * element%size(i,j) * H_t(i,j,ms,mt)
+       eq2_g(ms,mt)  = eq2_g(ms,mt)  + nodes(i)%values(i_harm,j,ivar_out) * element%size(i,j) * H(i,j,ms,mt)
+       eq2_s(ms,mt)  = eq2_s(ms,mt)  + nodes(i)%values(i_harm,j,ivar_out) * element%size(i,j) * H_s(i,j,ms,mt)
+       eq2_t(ms,mt)  = eq2_t(ms,mt)  + nodes(i)%values(i_harm,j,ivar_out) * element%size(i,j) * H_t(i,j,ms,mt)
 
      enddo
    enddo
