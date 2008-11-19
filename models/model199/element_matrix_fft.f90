@@ -1,3 +1,16 @@
+module elm_fft
+use parameters
+
+  real*8 :: ELM_p(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
+  real*8 :: ELM_n(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
+  real*8 :: ELM_k(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
+  real*8 :: ELM_kn(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor)
+  real*8 :: RHS_p(n_plane,n_vertex_max*n_var*(n_order+1))
+  real*8 :: RHS_k(n_plane,n_vertex_max*n_var*(n_order+1))
+
+!$OMP THREADPRIVATE(ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k)
+end module
+
 subroutine element_matrix_fft(element, nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM,RHS)
 !---------------------------------------------------------------
 ! calculates the matrix contribution of one element
@@ -10,6 +23,7 @@ use data_structure
 use gauss
 use basis_at_gaussian
 use phys_module
+use elm_fft
 implicit none
  
 type (type_element)   :: element
@@ -23,11 +37,10 @@ real*8     :: x_ss(n_gauss,n_gauss),       x_st(n_gauss,n_gauss),       x_tt(n_g
 real*8     :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
 real*8     :: y_ss(n_gauss,n_gauss),       y_st(n_gauss,n_gauss),       y_tt(n_gauss,n_gauss)
 
-real*8,allocatable :: eq_g(:,:,:,:), eq_s(:,:,:,:), eq_t(:,:,:,:), eq_p(:,:,:,:)
-real*8,allocatable :: eq_ss(:,:,:,:),eq_st(:,:,:,:),eq_tt(:,:,:,:)
-real*8,allocatable :: delta_g(:,:,:,:), delta_s(:,:,:,:), delta_t(:,:,:,:)
-
-real*8,allocatable :: ELM_p(:,:,:), ELM_n(:,:,:), ELM_k(:,:,:), ELM_kn(:,:,:), RHS_p(:,:), RHS_k(:,:)
+real*8     :: eq_g(n_plane,n_var,n_gauss,n_gauss), eq_s(n_plane,n_var,n_gauss,n_gauss)
+real*8     :: eq_t(n_plane,n_var,n_gauss,n_gauss), eq_p(n_plane,n_var,n_gauss,n_gauss)
+real*8     :: eq_ss(n_plane,n_var,n_gauss,n_gauss),eq_st(n_plane,n_var,n_gauss,n_gauss),eq_tt(n_plane,n_var,n_gauss,n_gauss)
+real*8     :: delta_g(n_plane,n_var,n_gauss,n_gauss),delta_s(n_plane,n_var,n_gauss,n_gauss),delta_t(n_plane,n_var,n_gauss,n_gauss)
 
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6
@@ -66,18 +79,6 @@ complex*16 :: out_fft(1:n_plane)
 INTEGER    :: FFTW_FORWARD,  FFTW_BACKWARD, FFTW_ESTIMATE
 PARAMETER (FFTW_FORWARD=-1,FFTW_BACKWARD=+1, FFTW_ESTIMATE=64)
 
-allocate(eq_g(n_plane,n_var,n_gauss,n_gauss), eq_s(n_plane,n_var,n_gauss,n_gauss))
-allocate(eq_t(n_plane,n_var,n_gauss,n_gauss), eq_p(n_plane,n_var,n_gauss,n_gauss))
-allocate(eq_ss(n_plane,n_var,n_gauss,n_gauss),eq_st(n_plane,n_var,n_gauss,n_gauss),eq_tt(n_plane,n_var,n_gauss,n_gauss))
-
-allocate(delta_g(n_plane,n_var,n_gauss,n_gauss), delta_s(n_plane,n_var,n_gauss,n_gauss), delta_t(n_plane,n_var,n_gauss,n_gauss))
-
-allocate(ELM_p(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
-allocate(ELM_n(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
-allocate(ELM_k(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
-allocate(ELM_kn(n_plane,n_vertex_max*n_var*(n_order+1),n_vertex_max*n_var*(n_order+1)*n_tor))
-allocate(RHS_p(n_plane,n_vertex_max*n_var*(n_order+1)))
-allocate(RHS_k(n_plane,n_vertex_max*n_var*(n_order+1)))
 
 ELM_p = 0.d0
 ELM_n = 0.d0
@@ -852,9 +853,6 @@ do j=1, n_vertex_max*n_var*(n_order+1)
 !  call dfftw_destroy_plan(plan)
 
 enddo
-
-deallocate(ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k)
-deallocate(eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t)
 
 return
 end

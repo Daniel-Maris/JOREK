@@ -77,6 +77,7 @@ A_glob   = 0.d0
 RHS_glob = 0.d0
 RHS_loc  = 0.d0
 
+
 !$omp parallel default(none) &
 !$omp   shared(n_local_elms,irn_glob,jcn_glob,A_glob,RHS_loc,local_elms,element_list,node_list,  &
 !$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)              &
@@ -193,6 +194,8 @@ do ife =1, n_local_elms
 enddo
 !$omp end do
 !$omp end parallel
+
+write(*,*) ' construct_matrix : end parallel'
 
 call MPI_Reduce(RHS_loc,RHS_glob,ndof_glob,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
