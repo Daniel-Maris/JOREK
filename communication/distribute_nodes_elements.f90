@@ -17,9 +17,11 @@ integer :: index_min(*), index_max(*), index_part, inext, i, k, iv
 
 logical :: elm_is_local
 
-write(*,*) '************************************'
-write(*,*) '*     distributing nodes           *'
-write(*,*) '************************************'
+if (my_id .eq.0) then
+  write(*,*) '************************************'
+  write(*,*) '*     distributing nodes           *'
+  write(*,*) '************************************'
+endif
 
 index_total = -1
 do inode=1,node_list%n_nodes
@@ -78,7 +80,7 @@ enddo
 
 n_local_ELMs = inext
 
-write(*,'(i4,A,20i8)') my_id,' n_local_elms  : ',n_local_elms,element_list%n_elements
+!write(*,'(i4,A,20i8)') my_id,' n_local_elms  : ',n_local_elms,element_list%n_elements
 
 return
 end

@@ -28,6 +28,9 @@ real*8                :: Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt, ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_
 real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_tt, TT,TT_s,TT_t,TT_st,TT_ss,TT_tt
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
 real*8                :: V, V_s, V_t, V_st, V_ss, V_tt
+real*8                :: psi_bnd,psi_axis,R_axis,Z_axis,s_axis,t_axis,psi_xpoint,R_xpoint,Z_xpoint,s_xpoint,t_xpoint
+real*8                :: ps0, psi_norm
+integer               :: i_elm_axis, i_elm_xpoint
 
 namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 restart,  regrid,                                   &
@@ -79,6 +82,14 @@ scalars = 0.d0
 vectors = 0.d0
 xyz     = 0
 ien     = 0
+
+call find_axis(node_list,element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis)
+if (xpoint) then
+  call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint)
+  psi_bnd = psi_xpoint
+else
+  psi_bnd = 0.d0
+endif
 
 do i=1,element_list%n_elements
 
@@ -141,6 +152,12 @@ do i=1,element_list%n_elements
             call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,m) = scalars(inode,m) + P * HZ(i_tor,1)
           enddo
+          
+	  ps0 = scalars(inode,1)
+          psi_norm = (ps0 - psi_axis)/(psi_bnd - psi_axis)
+          if ((psi_norm .lt. 1.d0) .and. (Z .lt. Z_xpoint)) then
+            psi_norm = 2.d0 - psi_norm
+          endif
 
           if ((xjac .gt. 1.d-6)) then
 

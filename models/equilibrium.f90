@@ -23,7 +23,7 @@ real*8     :: x_min, x_max, y_min, y_max,x ,y
 real*8     :: R_axis, Z_axis, s_axis, t_axis, R, Z, BigR, T0, BigR_s, T0_s
 real*8     :: zjz, dj_dpsi, dj_dR, dj_dZ, dj_dR_dZ, dj_dR_DR, dj_dZ_dZ, dj_dpsi2, dj_dR_dpsi, dj_dZ_dpsi, psi_n
 real*8     :: psi_bnd,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint
-real*8     :: ps0_s, ps0_t, p_s, p_t, zj0_s, zj0_t, equil_error, equil_value, ps0_x, ps0_y, Z_s, Z_t, xjac, direction
+real*8     :: ps0_s, ps0_t, p_s, p_t, zj0_s, zj0_t, equil_error, equil_value, ps0_x, ps0_y, Z_s, Z_t, xjac, direction, Btot
 logical    :: xpoint2
 
 if (my_id .eq. 0) then
@@ -238,15 +238,17 @@ if (n_var .ge. 7) then
 
       direction = + ps0_x / abs(ps0_x)             ! temporary solution for lower x-point only
 
+      Btot = sqrt(F0**2 + ps0_x**2 + ps0_y**2) / BigR
+
       do in=1,n_tor
 
         BigR = node_list%node(i)%x(1,1)
         T0   = node_list%node(i)%values(in,1,6)
-        node_list%node(i)%values(in,1,n_var) = direction * BigR / F0 * sqrt(GAMMA * T0)
+        node_list%node(i)%values(in,1,n_var) = direction / Btot * sqrt(GAMMA * T0)
 
         BigR_s = node_list%node(i)%x(2,1)
         T0_s   = node_list%node(i)%values(in,2,6)
-        node_list%node(i)%values(in,2,n_var) = BigR_s / F0 * sqrt(GAMMA * T0) + 0.5d0* BigR/F0 * sqrt(GAMMA / T0) * T0_s
+        node_list%node(i)%values(in,2,n_var) = BigR_s / (BigR*Btot) * sqrt(GAMMA * T0) + 0.5d0 / Btot * sqrt(GAMMA / T0) * T0_s
         node_list%node(i)%values(in,2,n_var) = direction *  node_list%node(i)%values(in,2,n_var)
 
         write(*,'(A,8e14.6)') ' Boundary condition (eq): ',BigR,psi_xpoint,node_list%node(i)%values(1,1,1),ps0_x,ps0_y, &

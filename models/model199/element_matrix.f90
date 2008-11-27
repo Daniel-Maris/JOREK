@@ -170,7 +170,7 @@ do ms=1, n_gauss
      w0_s  = eq_s(mp,4,ms,mt)
      w0_t  = eq_t(mp,4,ms,mt)
 
-     r0    = eq_g(mp,5,ms,mt)
+     r0    = abs(eq_g(mp,5,ms,mt))
      r0_x  = (   y_t(ms,mt) * eq_s(mp,5,ms,mt) - y_s(ms,mt) * eq_t(mp,5,ms,mt) ) / xjac
      r0_y  = ( - x_t(ms,mt) * eq_s(mp,5,ms,mt) + x_s(ms,mt) * eq_t(mp,5,ms,mt) ) / xjac
      r0_p  = eq_p(mp,5,ms,mt)
@@ -181,7 +181,7 @@ do ms=1, n_gauss
      r0_x_hat = 2.d0 * BigR * BigR_x  * r0 + BigR**2 * r0_x
      r0_y_hat = BigR**2 * r0_y
 
-     T0    = eq_g(mp,6,ms,mt)
+     T0    = abs(eq_g(mp,6,ms,mt))
      T0_x  = (   y_t(ms,mt) * eq_s(mp,6,ms,mt) - y_s(ms,mt) * eq_t(mp,6,ms,mt) ) / xjac
      T0_y  = ( - x_t(ms,mt) * eq_s(mp,6,ms,mt) + x_s(ms,mt) * eq_t(mp,6,ms,mt) ) / xjac
      T0_p  = eq_p(mp,6,ms,mt)

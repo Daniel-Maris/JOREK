@@ -45,14 +45,9 @@ do i=1, n_local_elms
 !------------------------------------ the open field lines (in case of x-point grid)
           if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
-            if ((k .eq.   1) .or. (k .eq. 92) .or. (k .eq. 3)  .or. &
+            if ((k .eq.   1) .or. (k .eq. 2) .or. (k .eq. 3)  .or. &
                 (k .eq.  4)  .or. (k .eq. 95)  .or. (k .eq. 96) .or. (k .eq.97) ) then
 
-!            if ((k .eq.   1) .or. (k .eq. 92) .or. (k .eq. 93)  .or. &
-!                (k .eq.  94) .or. (k .eq. 95) .or. (k .eq. 96) .or. (k .eq.97) ) then
-
-!            if ((k .eq.   1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
-!                (k .eq.  4)  .or. (k .eq. 5) .or. (k .eq. 6) .or. (k .eq.97) ) then
 
               index_node = node_list%node(inode)%index(1)
 
@@ -159,7 +154,7 @@ do i=1, n_local_elms
                 A_glob(ilarge_vus)   = - zbig * BigR**2 / ps0_s
 
                 RHS_glob(n_tor*n_var * (index_node-1) + (kv-1)*n_tor + in) = &
-                         Zbig * ( - Vpar0 + BigR**2 * U0_s /ps0_s + direction*sqrt(GAMMA*T0))
+                         Zbig * ( - Vpar0 + BigR**2 * U0_s /ps0_s + direction*sqrt(GAMMA*T0) / Btot)
 
               endif
 
@@ -179,14 +174,14 @@ do i=1, n_local_elms
 
                 irn_glob(ilarge_vv) =  n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in
                 jcn_glob(ilarge_vv) =  n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in
- !               A_glob(ilarge_vv)   = zbig
+                A_glob(ilarge_vv)   = zbig
 
                 irn_glob(ilarge_vT) =  n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in
                 jcn_glob(ilarge_vT) =  n_tor * n_var * (index_node-1) + (kT-1)*n_tor + in
- !               A_glob(ilarge_vT)   = - zbig / Btot * 0.5d0 * GAMMA / sqrt(GAMMA*T0) * direction
+                A_glob(ilarge_vT)   = - zbig / Btot * 0.5d0 * GAMMA / sqrt(GAMMA*T0) * direction
 
- !               RHS_glob(n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in) = &
- !                       Zbig*(-dVpar0_ds +  0.5d0 / Btot * GAMMA / sqrt(GAMMA*T0) * dT0_ds * direction)
+                RHS_glob(n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in) = &
+                        Zbig*(-dVpar0_ds +  0.5d0 / Btot * GAMMA / sqrt(GAMMA*T0) * dT0_ds * direction)
 
               endif
 

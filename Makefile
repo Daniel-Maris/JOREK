@@ -54,6 +54,9 @@ jorek2vtk : modules sources
 	elements/basis_functions2.o       \
         elements/interp.o                 \
 	elements/interp_RZ.o              \
+	diagnostics/find_axis.o           \
+	diagnostics/find_xpoint.o         \
+	solvers/mnewtax.o                 \
 	 -o $(JOREK_DIR)/jorek2vtk $(INCLUDES) $(LIBS)
 	 
 jorek2vtk_3d : modules sources

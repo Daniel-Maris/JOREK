@@ -20,14 +20,16 @@ logical :: solve_only
 
 integer, external :: omp_get_num_threads, omp_get_thread_num
 
-write(*,*) my_id,'*********************************'
-write(*,*) my_id,'*      solve local matrix  (n)  *'
-write(*,*) my_id,'*********************************'
+if (my_id .eq. 0) then
+  write(*,*) my_id,'*********************************'
+  write(*,*) my_id,'*      solve local matrix  (n)  *'
+  write(*,*) my_id,'*********************************'
 
-if (use_mumps)  write(*,*) my_id,'*       using solver MUMPS      *'
-if (use_pastix) write(*,*) my_id,'*       using solver PastiX     *'
+  if (use_mumps)  write(*,*) my_id,'*       using solver MUMPS      *'
+  if (use_pastix) write(*,*) my_id,'*       using solver PastiX     *'
 
-write(*,*) my_id,'*********************************'
+  write(*,*) my_id,'*********************************'
+endif
 
 call MPI_COMM_RANK(MPI_COMM_N, my_id_n, ierr)     ! the id of each cpu
 call MPI_COMM_SIZE(MPI_COMM_N, n_cpu_n, ierr)     ! the number of cpus
@@ -139,8 +141,6 @@ if (.not. solve_only) then
     
       if ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0)) ) then
     
-        write(*,*) my_id,my_id_n,' pastix_nthrd = ',pastix_nthrd
-
         pastix_iparm(2) = 1
         pastix_iparm(3) = 3
         pastix_iparm(6) = pastix_iter                 ! refinement : max number of iterations
@@ -175,7 +175,6 @@ if (.not. solve_only) then
 
   endif   ! (.not., solve_only)
   
-  write(*,*) ' end analysis all',my_id,my_id_n
 
   if (use_mumps) then
 
