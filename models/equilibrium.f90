@@ -33,8 +33,6 @@ if (my_id .eq. 0) then
 endif
 
 n_iter = 51
-amplitude = 1.d-12
-mm = 2
 
 do iter=1,n_iter
 
@@ -71,27 +69,7 @@ if (my_id .eq. 0) then
     call FFprime(    xpoint2, Z, Z_xpoint, psi,psi_axis,psi_bnd,zFFprime,dFFprime_dpsi,dFFprime_dz, &
                                                                dFFprime_dpsi2,dFFprime_dz2, dFFprime_dpsi_dz)
 
-    node_list%node(i)%values(1,1,5) = zn
-    node_list%node(i)%values(1,2,5) = dn_dpsi  * node_list%node(i)%values(1,2,1) + dn_dz * node_list%node(i)%x(2,2)
-    node_list%node(i)%values(1,3,5) = dn_dpsi  * node_list%node(i)%values(1,3,1) + dn_dz * node_list%node(i)%x(3,2)
-    node_list%node(i)%values(1,4,5) = dn_dpsi  * node_list%node(i)%values(1,4,1) + dn_dz * node_list%node(i)%x(4,2) &
-                                    + dn_dpsi2 * node_list%node(i)%values(1,2,1) * node_list%node(i)%values(1,3,1)  &
-                                    + dn_dz2   * node_list%node(i)%x(2,2)        * node_list%node(i)%x(3,2)
-
-    node_list%node(i)%values(1,1,6) = zT
-    node_list%node(i)%values(1,2,6) = dT_dpsi  * node_list%node(i)%values(1,2,1) + dT_dz * node_list%node(i)%x(2,2)
-    node_list%node(i)%values(1,3,6) = dT_dpsi  * node_list%node(i)%values(1,3,1) + dT_dz * node_list%node(i)%x(3,2)
-    node_list%node(i)%values(1,4,6) = dT_dpsi  * node_list%node(i)%values(1,4,1) + dT_dz * node_list%node(i)%x(4,2) &
-                                    + dT_dpsi2 * node_list%node(i)%values(1,2,1) * node_list%node(i)%values(1,3,1)  &
-                                    + dT_dz2   * node_list%node(i)%x(2,2)        * node_list%node(i)%x(3,2)
-
-    if (n_var .ge. 7) then
-      node_list%node(i)%values(1,1,n_var) = 0.d0        ! parallel velocity
-      node_list%node(i)%values(1,2,n_var) = 0.d0
-      node_list%node(i)%values(1,3,n_var) = 0.d0
-      node_list%node(i)%values(1,4,n_var) = 0.d0
-    endif
-    
+ 
     zjz     = zFFprime      - R*R *      (dn_dpsi    * zT + zn * dT_dpsi)
 
     dj_dpsi = dFFprime_dpsi - R*R *      (dn_dpsi2   * zT + zn * dT_dpsi2  + 2.d0 * dn_dpsi * dT_dpsi)
@@ -182,83 +160,6 @@ if (my_id .eq. 0) then
 
 endif
 
-
-do in=2,n_tor,1
-!do in=2,n_tor
-
-  if (my_id .eq. 0) then
-
-    do i=1,node_list%n_nodes
-
-      psi = node_list%node(i)%values(1,1,1)
-      Z   = node_list%node(i)%x(1,2)
-
-      psi_bnd = 0.d0
-      if (xpoint2) psi_bnd = psi_xpoint
-      psi_n = (psi - psi_axis)/(psi_bnd - psi_axis)
-
-      node_list%node(i)%values(in,1,4) = amplitude * psi_n * (1.d0 -psi_n)
-      node_list%node(i)%values(in,2,4) = amplitude * (1. - 2.d0 * psi_n)/(psi_bnd - psi_axis) * node_list%node(i)%values(1,2,1)
-      node_list%node(i)%values(in,3,4) = amplitude * (1. - 2.d0 * psi_n)/(psi_bnd - psi_axis) * node_list%node(i)%values(1,3,1)
-      node_list%node(i)%values(in,4,4) = amplitude * (1. - 2.d0 * psi_n)/(psi_bnd - psi_axis) * node_list%node(i)%values(1,4,1)
-
-
-      if (xpoint2 .and. ((psi_n .gt. 1.d0) .or. (Z .lt. Z_xpoint))) then
-        node_list%node(i)%values(in,1:4,4) = 0.d0
-      endif
-
-      node_list%node(i)%deltas = 0.d0
-
-    enddo
-
-  endif
-
-  call poisson(my_id,1,node_list,element_list,4,2,in,xpoint2)   !----------- for Poisson (toroidal) use 1
-
-! call poisson(my_id,2,node_list,element_list,4,2,in,xpoint2) !----------- for cylinder use 2
-
-enddo
-
-if (n_var .ge. 7) then
-
-!----------------------------------- fill in parallel velocity at boundary (on open field lines)
-  do i=1,node_list%n_nodes
-    if ((node_list%node(i)%boundary .eq. 1) .or. (node_list%node(i)%boundary .eq. 3)) then
-
-      ps0_s     = node_list%node(i)%values(1,2,1)
-      ps0_t     = node_list%node(i)%values(1,3,1)
-      R_s       = node_list%node(i)%x(2,1)
-      R_t       = node_list%node(i)%x(3,1)
-      Z_s       = node_list%node(i)%x(2,2)
-      Z_t       = node_list%node(i)%x(3,2)
-
-      xjac  =  R_s*Z_t - R_t*Z_s
-      ps0_x = (   Z_t * ps0_s - Z_s * ps0_t ) / xjac
-      ps0_y = ( - R_t * ps0_s + R_s * ps0_t ) / xjac
-
-      direction = + ps0_x / abs(ps0_x)             ! temporary solution for lower x-point only
-
-      Btot = sqrt(F0**2 + ps0_x**2 + ps0_y**2) / BigR
-
-      do in=1,n_tor
-
-        BigR = node_list%node(i)%x(1,1)
-        T0   = node_list%node(i)%values(in,1,6)
-        node_list%node(i)%values(in,1,n_var) = direction / Btot * sqrt(GAMMA * T0)
-
-        BigR_s = node_list%node(i)%x(2,1)
-        T0_s   = node_list%node(i)%values(in,2,6)
-        node_list%node(i)%values(in,2,n_var) = BigR_s / (BigR*Btot) * sqrt(GAMMA * T0) + 0.5d0 / Btot * sqrt(GAMMA / T0) * T0_s
-        node_list%node(i)%values(in,2,n_var) = direction *  node_list%node(i)%values(in,2,n_var)
-
-        write(*,'(A,8e14.6)') ' Boundary condition (eq): ',BigR,psi_xpoint,node_list%node(i)%values(1,1,1),ps0_x,ps0_y, &
-                              node_list%node(i)%values(in,1,n_var),BigR/F0 * sqrt(GAMMA*T0)
-
-      enddo
-    endif
-  enddo
-
-endif
 
 if (my_id .eq. 0) then
 

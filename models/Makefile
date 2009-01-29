@@ -9,7 +9,10 @@ all: modules \
      equilibrium.o \
      ffprime.o \
      poisson.o \
-     temperature.o
+     temperature.o \
+     temperature_i.o \
+     temperature_e.o \
+     add_pellet.o
 
 modules : mod_parameters.o mod_phys_module.o 
 

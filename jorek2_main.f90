@@ -121,13 +121,13 @@ endif
 if (trim(method) .ne. 'direct') then
   if (n_cpu .lt. (n_tor-1)/2+1) then
     write(*,'(A,i4,A,i4,A)') ' FATAL : need at least',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
-    call MPI_FINALIZE(IERR)                                ! clean up MPI
-    stop
+!    call MPI_FINALIZE(IERR)                                ! clean up MPI
+!    stop
   endif
   if (mod(n_cpu,(n_tor-1)/2+1) .ne. 0) then
     write(*,'(A,i4,A,i4,A)') ' FATAL : need a multiple of ',(n_tor-1)/2+1,' cpus for ',(n_tor-1)/2+1,' harmonics'
-    call MPI_FINALIZE(IERR)                                ! clean up MPI
-    stop
+!    call MPI_FINALIZE(IERR)                                ! clean up MPI
+!    stop
   endif
 endif
 
@@ -200,6 +200,7 @@ if (.not. restart) then
   endif
 
   call equilibrium(my_id,node_list,element_list,xpoint)                        ! equilibrium run on all cpus
+  call initial_conditions(my_id,node_list,element_list,xpoint)                 ! initial conditions
 
 !  if (my_id .eq. 0) call print_grid(node_list,element_list)                   ! print the grid
 
@@ -221,6 +222,7 @@ if (.not. restart) then
     endif
 
     call equilibrium(my_id,node_list,element_list,xpoint)                         ! equilibrium run on all cpus
+    call initial_conditions(my_id,node_list,element_list,xpoint)                  ! initial conditions
 
 !    if (my_id .eq. 0) call print_grid(node_list,element_list)                    ! print nodes and elements
 !    if (my_id .eq. 0) call plot_grid(node_list,element_list,.true.,.false.)      ! plot the grid

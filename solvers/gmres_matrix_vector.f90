@@ -33,23 +33,30 @@ y_tmp(1:ndof_glob) = 0.d0
 n_blocksize = n_tor * n_var
 n_blocks    = nz_glob/n_blocksize**2
 
+!$omp parallel default(none)                                                       &
+!$omp   shared(y_tmp, A_glob, jcn_glob, irn_glob,x, n_blocks,n_blocksize)          &
+!$omp   private(i,iA_start,ix_start, iy_start)
+
+!$omp do
 do i=1, n_blocks
 
   iA_start = (i-1) * n_blocksize**2
-
   ix_start = jcn_glob(iA_start+1)
   iy_start = irn_glob(iA_start+1)
 
   call dgemv('T',n_blocksize,n_blocksize,1.d0,A_glob(iA_start+1),n_blocksize,x(ix_start),1,1.d0,y_tmp(iy_start),1)
 
 enddo
-call cpu_time(t4)
+!$omp end do
+!$omp end parallel
 
 !do i=1,nz_glob
 !  ir = irn_glob(i)
 !  jc = jcn_glob(i)
 !  y_tmp(ir) = y_tmp(ir) + A_glob(i) * x(jc)
 !enddo
+
+call cpu_time(t4)
 
 y(1:ndof_glob) = 0.d0
 

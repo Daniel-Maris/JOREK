@@ -33,10 +33,10 @@ module data_structure                                 ! contains definition of t
     real*8  :: s(4,n_pieces_max), t(4,n_pieces_max)   ! 4 variables per line piece of the flux surface
    endtype
 
-  type  type_surface_list                                ! type definition for a list of surfaces
-    integer                          :: n_psi            ! the number of surfaces
-    real*8 ,allocatable              :: psi_values(:)    ! the values of the poloidal flux at the surfaces
-    type (type_surface), allocatable :: flux_surfaces(:) ! the list of surfaces
+  type  type_surface_list                                 ! type definition for a list of surfaces
+    integer                         :: n_psi              ! the number of surfaces
+    real*8,allocatable              :: psi_values(:)    ! the values of the poloidal flux at the surfaces
+    type (type_surface),allocatable :: flux_surfaces(:) ! the list of surfaces
   endtype
 
 endmodule

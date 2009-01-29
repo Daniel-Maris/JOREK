@@ -1,6 +1,6 @@
 include config.in
 
-DIRS = datatypes models/$(MODEL) models communication elements grids matrix solvers plots diagnostics
+DIRS = datatypes models/$(MODEL) models communication elements grids matrix solvers plots diagnostics refinement
 
 MAIN = jorek_$(MODEL)
 
@@ -36,9 +36,34 @@ $(MAIN) : jorek2_main.f90
 	grids/*.o            \
 	matrix/*.o           \
 	solvers/*.o          \
+	refinement/*.o       \
 	plots/*.o            \
 	diagnostics/*.o      \
 	 -o $(MAIN) $(INCLUDES) $(LIBS)
+	 
+jorek2_poincare : modules sources
+	$(FC) $(FFLAGS)                   \
+	diagnostics/jorek2_poincare.f90   \
+	datatypes/mod_parameters.o        \
+	datatypes/mod_data_structure.o    \
+	elements/mod_gauss.o              \
+	elements/mod_basis_at_gaussian.o  \
+	models/$(MODEL)/mod_phys_module.o \
+	communication/import_restart.o    \
+	elements/initialise_basis.o       \
+	elements/basis_functions.o        \
+	elements/basis_functions2.o       \
+        elements/hermite_1d.o             \
+        elements/interp.o                 \
+	elements/interp_RZ.o              \
+	diagnostics/find_axis.o           \
+	diagnostics/find_xpoint.o         \
+	diagnostics/RZ_minmax.o           \
+	grids/find_RZ.o                   \
+	solvers/root.o                    \
+	solvers/mnewtax.o                 \
+        refinement/neighbours.o           \
+	 -o $(JOREK_DIR)/jorek2_poincare $(INCLUDES) $(LIBS)
 
 jorek2vtk : modules sources
 	$(FC) $(FFLAGS)                   \

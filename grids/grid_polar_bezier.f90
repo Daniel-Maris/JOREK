@@ -25,10 +25,14 @@ implicit none
 
 real*8              :: Rgeo, Zgeo,amin,acentre,fbnd(*),fpsi(*),angle_start
 real*8, allocatable :: RR(:,:),ZZ(:,:),PSI(:,:)
-real*8              :: r_small, pi, dt, dr, thtj, radius, rm, drm, drmt, drmtr, angle, psi_axis
+real*8              :: r_small, pi, dt, ds, thtj, radius, rm, drm, drmt, drmtr, angle, psi_axis
 real*8              :: delta_rm, delta_zm, delta_rp, delta_zp, dir_2, dir_3
 integer             :: mf, nr, np, i, j, m, index, index0, node, k, iv, ivp, ivm, node_iv, node_ivp, node_ivm
 integer             :: n_element_start, n_node_start, n_index_start
+real*8              :: XR_r_0,XR_r_1, SIG_r_0, SIG_r_1, XR_tht_0, XR_tht_1, SIG_tht_0, SIG_tht_1, abltg(3), s_tmp, dr_ds, dtht_dt
+real*8, allocatable :: S1(:), S2(:), SP1(:), SP2(:), SP3(:), SP4(:)
+real*8, allocatable :: T1(:), T2(:), TP1(:), TP2(:), TP3(:), TP4(:)
+real*8, external    :: spwert
 
 type(type_node_list)    :: node_list
 type(type_element_list) :: element_list
@@ -37,11 +41,10 @@ allocate(RR(4,nr*np),ZZ(4,nr*np),PSI(4,nr*np))
 
 pi = 2.d0*asin(1.d0)
 
-r_small = acentre
 dt = 2.d0*pi/real(np)
-dr = (1.d0 - r_small)/real(nr-1)
+ds = 1.d0/real(nr-1)
 
-angle_start = - 3. * PI /4.
+angle_start = - 3.d0 * PI /4.d0
 
 n_element_start = element_list%n_elements
 n_node_start    = node_list%n_nodes
@@ -58,15 +61,50 @@ write(*,*) ' existing no. of elements : ',n_element_start
 write(*,*) ' existing number of nodes : ',n_node_start
 write(*,*) ' index_start              : ',n_index_start
 
-psi_axis = -0.1
+psi_axis = -0.1d0
+
+XR_r_0  = 999.d0 !0.90d0
+SIG_r_0 = 999.d0 !0.1d0
+XR_r_1  = 999.d0
+SIG_r_1 = 999.d0
+
+XR_tht_0  = 999.d0 !0.5
+SIG_tht_0 = 999.d0 !0.03d0
+XR_tht_1  = 999.d0
+SIG_tht_1 = 999.d0
+
+allocate(S1(nr),S2(nr),SP1(nr),SP2(nr),SP3(nr),SP4(nr))
+allocate(T1(np+1),T2(np+1),TP1(np+1),TP2(np+1),TP3(np+1),TP4(np+1))
+
+do i=1,nr
+  S1(i) = real(i-1)/real(nr-1)
+enddo
+do j=1,np+1
+  T1(j) = real(j-1)/real(np)
+enddo
+
+call meshac2(nr,S2,XR_r_0,XR_r_1,SIG_r_0,SIG_r_1,0.6d0,1.0d0)
+call spline(nr,S1,S2,0.d0,0.d0,2,SP1,SP2,SP3,SP4)
+
+call meshac2(np+1,T2,XR_tht_0,XR_tht_1,SIG_tht_0,SIG_tht_1,0.6d0,1.0d0)
+call spline(np+1,T1,T2,0.d0,0.d0,2,TP1,TP2,TP3,TP4)
+
 
 do i=1,nr
 
+ radius = spwert(nr,S1(i),SP1,SP2,SP3,SP4,S1,ABLTG)
+ dr_ds  = abltg(1)
+ 
+! write(*,'(4e12.4)') S1(i),S2(i),radius,dr_ds
+ 
  do  j=1,np
-
+  
    node   = np*(i-1) + j
-   thtj   = angle_start + dt * real(j-1)
-   radius = ( r_small + (1.d0-r_small) * float(i-1)/float(nr-1) )
+
+   thtj     = spwert(np+1,T1(j),TP1,TP2,TP3,TP4,T1,ABLTG) * 2.d0 * PI
+   dtht_dt  = abltg(1)
+
+   if (i.eq.nr) write(*,'(4e12.4)') T1(j),T2(j),thtj,dtht_dt
 
    RR(1,node) = Rgeo + amin * radius * fbnd(1) * cos(thtj) / 2.d0
    RR(2,node) =        amin *          fbnd(1) * cos(thtj) / 2.d0
@@ -119,15 +157,15 @@ do i=1,nr
 
    enddo
 
-   RR(2,node)  = RR(2,node) * dr/2.d0
-   RR(3,node)  = RR(3,node) * dt/2.d0
-   RR(4,node)  = RR(4,node) * dr/2.d0 * dt/2.d0
-   ZZ(2,node)  = ZZ(2,node) * dr/2.d0
-   ZZ(3,node)  = ZZ(3,node) * dt/2.d0
-   ZZ(4,node)  = ZZ(4,node) * dr/2.d0 * dt/2.d0
-   PSI(2,node) = PSI(2,node) * dr/2.d0
-   PSI(3,node) = PSI(3,node) * dt/2.d0
-   PSI(4,node) = PSI(4,node) * dr/2.d0 * dt/2.d0
+   RR(2,node)  = RR(2,node)  * ds/2.d0 * dr_ds
+   RR(3,node)  = RR(3,node)  * dt/2.d0 * dtht_dt
+   RR(4,node)  = RR(4,node)  * ds/2.d0 * dt/2.d0 * dr_ds * dtht_dt
+   ZZ(2,node)  = ZZ(2,node)  * ds/2.d0 * dr_ds
+   ZZ(3,node)  = ZZ(3,node)  * dt/2.d0 * dtht_dt
+   ZZ(4,node)  = ZZ(4,node)  * ds/2.d0 * dt/2.d0 * dr_ds * dtht_dt
+   PSI(2,node) = PSI(2,node) * ds/2.d0 * dr_ds
+   PSI(3,node) = PSI(3,node) * dt/2.d0 * dtht_dt
+   PSI(4,node) = PSI(4,node) * ds/2.d0 * dt/2.d0 * dr_ds * dtht_dt
 
 !   write(*,*) node, PSI(1,node)
 

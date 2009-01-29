@@ -25,8 +25,9 @@ real*8  :: ELM2(n_tor*n_vertex_max*(n_order+1)*n_var,n_tor*n_vertex_max*(n_order
 real*8  :: RHS2(n_tor*n_vertex_max*(n_order+1)*n_var)
 real*8  :: zbig, psi_axis, psi_bnd, Z_xpoint
 integer :: i_bnd, i, in, ife, iv, inode, inode1, inode2, knode, j, k, l, index_ij, index_kl
-integer :: index_i, index_large_i, index_large_k, index_node, index_node1, index_node2, i_order, k_order, ic, ielm, ierr
-integer :: ijA_position, ijA_position2, nz_AA2, n_AA2, ilarge2, kv, kT, ku
+integer :: index_i, index_node, index_node1, index_node2, i_order, k_order, ic, ielm, ierr
+integer :: ijA_position, ijA_position2, nz_AA2, n_AA2, kv, kT, ku
+integer :: index_large_i, index_large_k, ilarge2
 integer :: omp_nthreads, omp_tid
 logical :: xpoint2
 
