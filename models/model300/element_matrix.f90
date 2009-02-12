@@ -62,9 +62,9 @@ RHS = 0.d0
 
 PI    = 2.d0*asin(1.d0)
 
-theta = 0.5d0 ! Crank-Nicholson parameter
+!theta = 0.5d0 ! Crank-Nicholson parameter
 !theta = 1.0d0  ; zeta = 0.0d0      ! Euler scheme 
-!theta = 1.0d0   ; zeta = 0.5d0      ! BDF2 (Gears) scheme
+theta = 1.0d0   ; zeta = 0.5d0      ! BDF2 (Gears) scheme
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
 x_g  = 0.d0; x_s  = 0.d0; x_t  = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0;
@@ -177,7 +177,7 @@ do ms=1, n_gauss
      w0_tt = eq_tt(mp,4,ms,mt)
      w0_st = eq_st(mp,4,ms,mt)
 
-     r0    = abs(eq_g(mp,5,ms,mt))
+     r0    = eq_g(mp,5,ms,mt)
      r0_x  = (   y_t(ms,mt) * eq_s(mp,5,ms,mt) - y_s(ms,mt) * eq_t(mp,5,ms,mt) ) / xjac
      r0_y  = ( - x_t(ms,mt) * eq_s(mp,5,ms,mt) + x_s(ms,mt) * eq_t(mp,5,ms,mt) ) / xjac
      r0_p  = eq_p(mp,5,ms,mt)
@@ -188,7 +188,7 @@ do ms=1, n_gauss
      r0_x_hat = 2.d0 * BigR * BigR_x  * r0 + BigR**2 * r0_x
      r0_y_hat = BigR**2 * r0_y
 
-     T0    = abs(eq_g(mp,6,ms,mt))
+     T0    = eq_g(mp,6,ms,mt)
      T0_x  = (   y_t(ms,mt) * eq_s(mp,6,ms,mt) - y_s(ms,mt) * eq_t(mp,6,ms,mt) ) / xjac
      T0_y  = ( - x_t(ms,mt) * eq_s(mp,6,ms,mt) + x_s(ms,mt) * eq_t(mp,6,ms,mt) ) / xjac
      T0_p  = eq_p(mp,6,ms,mt)
@@ -212,15 +212,15 @@ do ms=1, n_gauss
      delta_u_x = (   y_t(ms,mt) * delta_s(mp,2,ms,mt) - y_s(ms,mt) * delta_t(mp,2,ms,mt) ) / xjac
      delta_u_y = ( - x_t(ms,mt) * delta_s(mp,2,ms,mt) + x_s(ms,mt) * delta_t(mp,2,ms,mt) ) / xjac
 
-     eta_T   = eta   * (T0/T_0)**(-1.5d0)                   ! temperature dependent resistivity
-     visco_T = visco * (T0/T_0)**(-1.5d0)                   ! temperature dependent viscosity
+     eta_T   = eta   * (abs(T0)/T_0)**(-1.5d0)                   ! temperature dependent resistivity
+     visco_T = visco * (abs(T0)/T_0)**(-1.5d0)                   ! temperature dependent viscosity
 
      eta_num_T   = eta_num                         ! hyperresistivity
      visco_num_T = visco_num                       ! hyperviscosity
 
-     deta_dT   = - eta   * (1.5d0)  * T0**(-2.5d0) * T_0**(1.5d0)
-     d2eta_d2T =   eta   * (3.75d0) * T0**(-3.5d0) * T_0**(1.5d0)
-     dvisco_dT = - visco * (1.5d0)  * T0**(-2.5d0) * T_0**(1.5d0)
+     deta_dT   = - eta   * (1.5d0)  * abs(T0)**(-2.5d0) * T_0**(1.5d0)
+     d2eta_d2T =   eta   * (3.75d0) * abs(T0)**(-3.5d0) * T_0**(1.5d0)
+     dvisco_dT = - visco * (1.5d0)  * abs(T0)**(-2.5d0) * T_0**(1.5d0)
 
      psi_norm = (ps0 - psi_axis)/(psi_bnd - psi_axis)
      if (xpoint2) then
@@ -356,7 +356,7 @@ do ms=1, n_gauss
                  w_tt = h_tt(k,l,ms,mt) * element%size(k,l) * HZ(in,mp)
                  w_st = h_st(k,l,ms,mt) * element%size(k,l) * HZ(in,mp)
 
-                 rho_hat   = BigR**2 * rho
+                 rho_hat   = BigR**2 * abs(rho)
                  rho_x_hat = 2.d0 * BigR * BigR_x  * rho + BigR**2 * rho_x
                  rho_y_hat = BigR**2 * rho_y
 

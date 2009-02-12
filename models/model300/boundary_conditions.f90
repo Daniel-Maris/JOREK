@@ -193,7 +193,7 @@ do i=1, n_local_elms
           if ((node_list%node(inode)%boundary .eq. 2) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
             if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
-                (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 96) .or. (k .eq. 7) ) then
+                (k .eq. 4) .or. (k .eq. 95) .or. (k .eq. 96) .or. (k .eq. 7) ) then
 !            if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
 !                (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) .or. (k .eq. 7) ) then
 
