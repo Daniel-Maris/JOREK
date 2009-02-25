@@ -45,6 +45,8 @@ if (index_start .ge. 1) then
 
   if (allocated(energies)) deallocate(energies)
   allocate(energies(n_tor,2,1:index_start+nstep))
+  
+  energies = 0.d0
 
   read(21) xtime(1:index_start)
   read(21) energies(1:n_tor_tmp,:,1:index_start)
