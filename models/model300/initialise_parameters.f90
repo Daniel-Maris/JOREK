@@ -22,7 +22,7 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 FF_0,  FF_1,  FF_coef,                              &
                 ZK_par, ZK_perp, D_par, D_perp,                     &
                 particlesource, heatsource,                         &
-                eta_num, visco_num,                                 &
+                eta_num, visco_num,visco_par_num, D_perp_num,       &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint
 
@@ -91,8 +91,10 @@ if (my_id .eq. 0) then
   D_perp(1)  = 1.d-5; D_perp(2) = 0.d0; D_perp(3)= 0.d0; D_perp(4)= 99.d0; D_perp(5) = 99.d0
   D_par      = 0.d0
 
-  eta_num   = 0.d0
-  visco_num = 0.d0
+  eta_num       = 0.d0
+  visco_num     = 0.d0
+  visco_par_num = 0.d0
+  D_perp_num    = 0.d0
 
   heatsource     = 1.e-7
   particlesource = 1.e-5
