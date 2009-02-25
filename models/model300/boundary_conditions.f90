@@ -24,6 +24,7 @@ real*8  :: grad_s, grad_psi, u0_s, u0_t, u0_x, u0_y
 integer :: i_bnd, i, in, ife, iv, inode, inode1, inode2, knode, j, k, l, index_ij, index_kl
 integer :: index_i, index_large_i, index_large_k, index_node, index_node1, index_node2, i_order, k_order, ic, ielm, ierr
 integer :: ijA_position,ijA_position2, nz_AA2, n_AA2, ilarge2, kv, kT, ku, ilarge_vv, ilarge_vT, ilarge_vus
+integer :: ilarge_vsvs, ilarge_vsTs, ilarge_vsT
 logical :: xpoint2
 
 zbig = 1.d10
@@ -88,7 +89,7 @@ do i=1, n_local_elms
               index_node  = node_list%node(inode)%index(1)             ! position of value
               index_node2 = node_list%node(inode)%index(2)             ! position of first deriative
 
-              T0        = node_list%node(inode)%values(1,1,6)
+              T0        = abs(node_list%node(inode)%values(1,1,6))
               Vpar0     = node_list%node(inode)%values(1,1,k)
               BigR      = node_list%node(inode)%x(1,1)
               dT0_ds    = node_list%node(inode)%values(1,2,6)
@@ -158,29 +159,36 @@ do i=1, n_local_elms
 
               endif
 
-              index_node = node_list%node(inode)%index(2)
+              index_node  = node_list%node(inode)%index(1)
+              index_node2 = node_list%node(inode)%index(2)
 
-              if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
+              if ((index_node2 .ge. index_min) .and. (index_node2 .le. index_max)) then
 
-                call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
+                call locate_irn_jcn(index_node2,index_node,index_min,index_max,ijA_position)
+                call locate_irn_jcn(index_node2,index_node2,index_min,index_max,ijA_position2)
 
-                index_large_i = n_tor * n_var * (index_node - 1)
+                index_large_i = n_tor * n_var * (index_node2 - 1)
 
                 kv = 7
                 kT = 6
 
-                ilarge_vv = ijA_position - 1 + ((kv-1)*n_tor + in-1) * n_var*n_tor + (kv-1)*n_tor + in
-                ilarge_vT = ijA_position - 1 + ((kv-1)*n_tor + in-1) * n_var*n_tor + (kT-1)*n_tor + in
+                ilarge_vsvs = ijA_position2 - 1 + ((kv-1)*n_tor + in-1) * n_var*n_tor + (kv-1)*n_tor + in
+                ilarge_vsTs = ijA_position2 - 1 + ((kv-1)*n_tor + in-1) * n_var*n_tor + (kT-1)*n_tor + in
+                ilarge_vsT  = ijA_position  - 1 + ((kv-1)*n_tor + in-1) * n_var*n_tor + (kT-1)*n_tor + in
 
-                irn_glob(ilarge_vv) =  n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in
-                jcn_glob(ilarge_vv) =  n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in
-                A_glob(ilarge_vv)   = zbig
+                irn_glob(ilarge_vsvs) =  n_tor * n_var * (index_node2-1) + (kv-1)*n_tor + in
+                jcn_glob(ilarge_vsvs) =  n_tor * n_var * (index_node2-1) + (kv-1)*n_tor + in
+                A_glob(ilarge_vsvs)   = zbig
 
-                irn_glob(ilarge_vT) =  n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in
-                jcn_glob(ilarge_vT) =  n_tor * n_var * (index_node-1) + (kT-1)*n_tor + in
-                A_glob(ilarge_vT)   = - zbig / Btot * 0.5d0 * GAMMA / sqrt(GAMMA*T0) * direction
+                irn_glob(ilarge_vsTs) =  n_tor * n_var * (index_node2-1) + (kv-1)*n_tor + in
+                jcn_glob(ilarge_vsTs) =  n_tor * n_var * (index_node2-1) + (kT-1)*n_tor + in
+                A_glob(ilarge_vsTs)   = - zbig / Btot * 0.5d0 * GAMMA / sqrt(GAMMA*T0) * direction
+ 
+                irn_glob(ilarge_vsT) =  n_tor * n_var * (index_node2-1) + (kv-1)*n_tor + in
+                jcn_glob(ilarge_vsT) =  n_tor * n_var * (index_node -1) + (kT-1)*n_tor + in
+                A_glob(ilarge_vsT)   = + zbig / Btot * 0.25d0 * GAMMA**2 / (GAMMA*T0)**(3/2) * dT0_ds * direction
 
-                RHS_glob(n_tor * n_var * (index_node-1) + (kv-1)*n_tor + in) = &
+                RHS_glob(n_tor * n_var * (index_node2-1) + (kv-1)*n_tor + in) = &
                         Zbig*(-dVpar0_ds +  0.5d0 / Btot * GAMMA / sqrt(GAMMA*T0) * dT0_ds * direction)
 
               endif
