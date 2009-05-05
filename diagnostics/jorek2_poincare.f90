@@ -43,7 +43,7 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 FF_0,  FF_1,  FF_coef,                              &
                 ZK_par, ZK_perp, D_par, D_perp,                     &
                 particlesource, heatsource,                         &
-                eta_num, visco_num,                                 &
+                eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint
 
@@ -81,10 +81,10 @@ enddo
 
 PI = 2.d0 *asin(1.d0)
 
-n_lines = 20
-n_turn  = 500
-n_phi   = 50
-
+n_lines = 25
+n_turn  = 8000
+n_phi   = 8000
+ 
 delta_phi = 2.d0 * PI / float(n_period*n_phi)
 tol       = 1.d-6
 
@@ -105,17 +105,20 @@ do i=1,(n_tor-1)/2
   mode(2*i)   = i
   mode(2*i+1) = i
 enddo
+write(*,*) ' modes : ',mode
   
 call begplt('poincare.ps')
 call nframe(21,11,1,Rmin,Rmax,Zmin,Zmax,'Poincare',8,'R [m]',4,'Z [m]',4)
+
 
 do i_lines=1,n_lines
 
   ip = 0
 
-  R_start = R_geo + 0.2+ 0.79*amin*float(i_lines-1)/float(n_lines-1)
+ ! R_start = R_geo + 0.5 + 0.4*amin*float(i_lines-1)/float(n_lines-1)
+  R_start = R_geo + 0.18 + 0.8*amin*float(i_lines-1)/float(n_lines-1)
   Z_start = Z_geo
-  P_start = PI/2.d0
+  P_start = 0.d0 !PI/2.d0
 
   write(*,'(2i6,2f8.3)') i_lines,n_lines,R_start,Z_start
 
@@ -270,7 +273,7 @@ do i_lines=1,n_lines
               i_elm      = element_neighbours(1,i_elm_prev)
 	      i_elm_tmp  = element_neighbours(3,i_elm)
 	      
-	      if (i_elm_prev .ne. i_elm_tmp) write(*,*) ' WARNING : CHANGE OF ORIENTATION (4)'
+	      if (i_elm_prev .ne. i_elm_tmp) write(*,*) ' WARNING : CHANGE OF ORIENTATION (4)',i_elm_prev,i_elm
  
               t_line = 1.d0
 
@@ -303,7 +306,7 @@ do i_lines=1,n_lines
 
       if (i_elm .eq. 0) exit
       
-      if (i_steps .gt. 8) write(*,'(A,5i6)') ' WARNING : isteps ',i_lines,i_turn,i_phi,i_steps,i_elm
+!      if (i_steps .gt. 8) write(*,'(A,5i6)') ' WARNING : isteps ',i_lines,i_turn,i_phi,i_steps,i_elm
             
     enddo ! end of a 2Pi turn
 
