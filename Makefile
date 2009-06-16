@@ -4,7 +4,7 @@ DIRS = datatypes models/$(MODEL) models communication elements grids matrix solv
 
 MAIN = jorek_$(MODEL)
 
-.PHONY : modules sources $(MAIN) jorek2_diagno jorek2vtk jorek2vtk_3d
+.PHONY : modules sources $(MAIN) jorek2_diagno jorek2vtk jorek2vtk_3d import_eqdsk
 
 all :   modules sources $(MAIN)
 
@@ -65,6 +65,30 @@ jorek2_poincare : modules sources
         refinement/neighbours.o           \
 	 -o $(JOREK_DIR)/jorek2_poincare $(INCLUDES) $(LIBS)
 
+jorek2_connection2 : modules sources
+	$(FC) $(FFLAGS_NO_OMP)                   \
+	diagnostics/jorek2_connection2.f90   \
+	datatypes/mod_parameters.o        \
+	datatypes/mod_data_structure.o    \
+	elements/mod_gauss.o              \
+	elements/mod_basis_at_gaussian.o  \
+	models/$(MODEL)/mod_phys_module.o \
+	communication/import_restart.o    \
+	elements/initialise_basis.o       \
+	elements/basis_functions.o        \
+	elements/basis_functions2.o       \
+        elements/hermite_1d.o             \
+        elements/interp.o                 \
+	elements/interp_RZ.o              \
+	diagnostics/find_axis.o           \
+	diagnostics/find_xpoint.o         \
+	diagnostics/RZ_minmax.o           \
+	grids/find_RZ.o                   \
+	solvers/root.o                    \
+	solvers/mnewtax.o                 \
+        refinement/neighbours.o           \
+	 -o $(JOREK_DIR)/jorek2_connection $(INCLUDES) $(LIBS)
+
 jorek2vtk : modules sources
 	$(FC) $(FFLAGS)                   \
 	diagnostics/jorek2vtk.f90         \
@@ -83,6 +107,26 @@ jorek2vtk : modules sources
 	diagnostics/find_xpoint.o         \
 	solvers/mnewtax.o                 \
 	 -o $(JOREK_DIR)/jorek2vtk $(INCLUDES) $(LIBS)
+
+jorek2_fieldlines_vtk : modules sources
+	$(FC) $(FFLAGS)                   \
+	diagnostics/jorek2_fieldlines_vtk.f90         \
+	datatypes/mod_parameters.o        \
+	datatypes/mod_data_structure.o    \
+	elements/mod_gauss.o              \
+	models/$(MODEL)/mod_phys_module.o \
+	elements/mod_basis_at_gaussian.o  \
+	communication/import_restart.o    \
+	elements/initialise_basis.o       \
+	elements/basis_functions.o        \
+	elements/basis_functions2.o       \
+        elements/interp.o                 \
+	elements/interp_RZ.o              \
+	diagnostics/find_axis.o           \
+	diagnostics/find_xpoint.o         \
+	solvers/mnewtax.o                 \
+        refinement/neighbours.o           \
+	 -o $(JOREK_DIR)/jorek2_fieldlines_vtk $(INCLUDES) $(LIBS)
 	 
 jorek2vtk_3d : modules sources
 	$(FC) $(FFLAGS)                   \
@@ -107,6 +151,7 @@ jorek2_diagno : modules sources
 	datatypes/mod_data_structure.o    \
 	communication/export_helena.o     \
 	plots/plot_velocity_profile.o     \
+	plots/plot_profiles.o             \
 	diagnostics/find_flux_surfaces.o  \
 	diagnostics/flux_surface_add_line.o  \
 	diagnostics/flux_surface_add_point.o  \
@@ -115,6 +160,7 @@ jorek2_diagno : modules sources
 	diagnostics/RZ_minmax.o           \
 	diagnostics/psi_minmax.o          \
 	diagnostics/integrals.o           \
+	diagnostics/integrals_3D.o        \
 	solvers/mnewtax.o                 \
 	solvers/solvP3.o                  \
 	solvers/solve_M2.o                \
@@ -129,3 +175,6 @@ jorek2_diagno : modules sources
 	 
 jorek_to_helena :
 	$(FC) diagnostics/jorek_to_helena.f90 -o jorek_to_helena 
+	
+import_eqdsk :
+	$(FC) util/import_eqdsk.f90 -o import_eqdsk $(LIBS)
