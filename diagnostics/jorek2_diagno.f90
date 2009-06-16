@@ -13,6 +13,9 @@ implicit none
 
 type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
+integer :: i, in, i_tor
+real*8  :: growth_kin, growth_mag,density,density_in,density_out,pressure,pressure_in,pressure_out
+real*8  :: Rplot(2), Zplot(2)
 
 namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 restart,  regrid,                                   &
@@ -28,7 +31,7 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 FF_0,  FF_1,  FF_coef,                              &
                 ZK_par, ZK_perp, D_par, D_perp,                     &
                 particlesource, heatsource,                         &
-                eta_num, visco_num,                                 &
+                eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint
 
@@ -38,13 +41,71 @@ write(*,*) '***************************************'
 
 read(5,in1)
 
-write(*,*) ' R_geo : ',R_geo,F0
+call import_restart(node_list,element_list)
+
+do i_tor=1, n_tor
+  mode(i_tor) = + int(i_tor / 2) * n_period
+  write(*,*) ' toroidal mode numbers : ',i_tor,mode(i_tor)
+enddo
 
 call initialise_basis                              ! define the basis functions at the Gaussian points
 
-call import_restart(node_list,element_list)
+open(20,file='energies.txt')
 
-call export_helena(node_list,element_list)
+write(20,'(A,25(A11,i3.3))') '      i      time',('          M',n_period*((in-1)/2),in=1,n_tor,2), &
+                                                 ('          K',n_period*((in-1)/2),in=1,n_tor,2)
+
+do i=2,index_start
+
+ Growth_mag  = 0.5d0*log(abs(energies(n_tor,1,i)/energies(n_tor,1,i-1))) &
+             / (xtime(i)-xtime(i-1))
+ Growth_kin  = 0.5d0*log(abs(energies(n_tor,2,i)/energies(n_tor,2,i-1))) &
+             / (xtime(i)-xtime(i-1))
+
+! write(*,'(i7,f10.3,200e14.6)') i,xtime(i),energies(1:n_tor,:,i),growth_mag,growth_kin
+
+ write(20,'(i7,f10.3,200e14.6)') i,xtime(i),energies(1,1,i),(energies(in,1,i)+energies(in+1,1,i),in=2,n_tor,2), &
+                                            energies(1,2,i),(energies(in,2,i)+energies(in+1,2,i),in=2,n_tor,2)
+
+enddo
+close(20)
+
+!call Integrals_3D(node_list,element_list,density,density_in,density_out,pressure,pressure_in,pressure_out)
+
+!------------------lowshape3bis outside
+!Rplot(1) = 3.0
+!Rplot(2) = 3.676
+!Zplot(1) = -2.066
+!Zplot(2) = -1.9265
+
+!------------------ lowshape3bis inside
+!Rplot(1) = 2.3213
+!Rplot(2) = 2.8511
+!Zplot(1) = -1.9178
+!Zplot(2) = -2.0339
+
+!------------------ lowshape3bis midplane
+!Rplot(1) = 1.88
+!Rplot(2) = 4.88
+!Zplot(1) = 0.09
+!Zplot(2) = 0.09
+
+!-----------------lowshape7,8 (midplane)
+!Rplot(1) = 1.9
+!Rplot(2) = 4.2
+!Zplot(1) = 0.07
+!Zplot(2) = 0.07
+
+
+Rplot(1) = 3.6
+Rplot(2) = 4.2
+Zplot(1) = 0.22 !0.06 !0.2
+Zplot(2) = 0.22 !0.06 !0.2
+
+call plot_profiles(node_list,element_list,Rplot,Zplot)
+
+
+!call export_helena(node_list,element_list)
 
 !----------------------------------------- plot profiles
 !call begplt('profiles.ps')

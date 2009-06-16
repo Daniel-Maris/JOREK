@@ -42,7 +42,7 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 FF_0,  FF_1,  FF_coef,                              &
                 ZK_par, ZK_perp, D_par, D_perp,                     &
                 particlesource, heatsource,                         &
-                eta_num, visco_num,                                 &
+                eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint
 

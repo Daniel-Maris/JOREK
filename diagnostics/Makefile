@@ -12,7 +12,8 @@ all : boundary_check.o         \
       psi_minmax.o             \
       q_profile.o              \
       RZ_minmax.o              \
-      integrals.o          
+      integrals.o              \
+      integrals_3D.o          
       
 modules :       
 

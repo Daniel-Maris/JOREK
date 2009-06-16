@@ -102,10 +102,11 @@ enddo
 
 mode(1) = 0
 do i=1,(n_tor-1)/2
-  mode(2*i)   = i
-  mode(2*i+1) = i
+  mode(2*i)   = i * n_period
+  mode(2*i+1) = i * n_period
 enddo
-write(*,*) ' modes : ',mode
+write(*,*) ' modes   : ',mode
+write(*,*) ' nperiod : ',n_period
   
 call begplt('poincare.ps')
 call nframe(21,11,1,Rmin,Rmax,Zmin,Zmax,'Poincare',8,'R [m]',4,'Z [m]',4)
@@ -115,8 +116,8 @@ do i_lines=1,n_lines
 
   ip = 0
 
- ! R_start = R_geo + 0.5 + 0.4*amin*float(i_lines-1)/float(n_lines-1)
-  R_start = R_geo + 0.18 + 0.8*amin*float(i_lines-1)/float(n_lines-1)
+  R_start = R_geo + 0.6 + 0.4*amin*float(i_lines-1)/float(n_lines-1)
+!  R_start = R_geo + 0.18 + 0.8*amin*float(i_lines-1)/float(n_lines-1)
   Z_start = Z_geo
   P_start = 0.d0 !PI/2.d0
 

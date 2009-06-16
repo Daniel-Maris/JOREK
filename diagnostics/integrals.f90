@@ -1,4 +1,5 @@
-subroutine Integrals(node_list,element_list,Bgeo,aminor,psi_limit,current,beta_p,beta_t,beta_n)
+subroutine Integrals(node_list,element_list,Bgeo,aminor,psi_limit,current,beta_p,beta_t,beta_n,&
+                     density,density_in,density_out,pressure,pressure_in,pressure_out)
 !---------------------------------------------------------------
 !
 !---------------------------------------------------------------
@@ -21,19 +22,26 @@ real*8     :: eq_g(n_var,n_gauss,n_gauss), eq_s(n_var,n_gauss,n_gauss), eq_t(n_v
 integer    :: i, j, k, in, ms, mt, iv, inode, ife, n_elements
 real*8     :: current, beta_p, beta_n, beta_t, MU_zero, aminor
 real*8     :: xjac, BigR, wst, P_int, C_int, ZJ_0, PS_0, Volume, Area, PI, Bgeo, psi_limit
-
+real*8     :: density, density_in, density_out,  pressure, pressure_in, pressure_out
+real*8     :: current_in, current_out, C_hel, P_hel, D_int, D_ext, P_ext, C_ext
 write(*,*) '***************************************'
 write(*,*) '* Integrals                           *'
 write(*,*) '***************************************'
 
-P_int = 0.d0
-C_int = 0.d0
-Volume = 0.d0
-Area   = 0.d0
+density  = 0.d0
+pressure = 0.d0
+D_int    = 0.d0
+P_int    = 0.d0
+C_int    = 0.d0
+D_ext    = 0.d0
+P_ext    = 0.d0
+C_ext    = 0.d0
+P_hel    = 0.d0
+C_hel    = 0.d0
+Volume   = 0.d0
+Area     = 0.d0
 
 Bgeo = F0 / R_geo
-
-write(*,*) ' R_geo : ',R_geo,F0,Bgeo
 
 PI = 2.d0*asin(1.d0)
 
@@ -46,8 +54,8 @@ do ife =1,  element_list%n_elements
     nodes%node(iv) = node_list%node(inode)
   enddo
 
-  x_g(:,:) = 0.d0;    x_s(:,:) = 0.d0;    x_t(:,:) = 0.d0;
-  y_g(:,:) = 0.d0;    y_s(:,:) = 0.;      y_t(:,:) = 0.d0;
+  x_g(:,:)    = 0.d0; x_s(:,:)    = 0.d0; x_t(:,:)    = 0.d0;
+  y_g(:,:)    = 0.d0; y_s(:,:)    = 0.d0; y_t(:,:)    = 0.d0;
   eq_g(:,:,:) = 0.d0; eq_s(:,:,:) = 0.d0; eq_t(:,:,:) = 0.d0;
 
   do i=1,n_vertex_max
@@ -102,26 +110,45 @@ do ife =1,  element_list%n_elements
       ZJ_0  = eq_g(3,ms,mt)
       PS_0  = eq_g(1,ms,mt)
 
+      pressure = pressure + rho_0 * T_0 * xjac * BigR * wst
+      density  = density  + rho_0       * xjac * BigR * wst
+
       if (PS_0 .lt. psi_limit) then
 
-        P_int = P_int + rho_0 * T_0 * xjac * wst
-        C_int = C_int + ZJ_0 /BigR  * xjac * wst
+        D_int = D_int + rho_0       * xjac * BigR * wst
+        P_int = P_int + rho_0 * T_0 * xjac * BigR * wst
+        C_int = C_int + ZJ_0 /BigR  * xjac * BigR * wst
+        
+        P_hel = P_hel + rho_0 * T_0 * xjac * wst         ! 2D integrals
+        C_hel = C_hel + ZJ_0 /BigR  * xjac * wst
+        
         Volume = Volume + 2.d0 * PI * BigR * xjac * wst
         Area   = Area   + xjac * wst
+        
+      else
 
+        D_ext = D_ext + rho_0       * xjac * BigR * wst      
+        P_ext = P_ext + rho_0 * T_0 * xjac * BigR * wst
+        C_ext = C_ext + ZJ_0 /BigR  * xjac * BigR * wst
+        
       endif
 
     enddo
   enddo
 enddo
 
+density_in   = D_int
+density_out  = D_ext
+pressure_in  = P_int
+pressure_out = P_ext
 
 MU_zero = 4.d0*PI * 1.d-7
 
-current = C_int / MU_zero
-beta_p  = 8.d0 * PI * P_int / (C_int**2 )
-beta_t  = 2.d0 * P_int / Bgeo**2 / (Area)
+current = C_hel / MU_zero
+beta_p  = 8.d0 * PI * P_hel / (C_hel**2 )
+beta_t  = 2.d0 * P_hel / Bgeo**2 / (Area)
 beta_n  = 100.d0 * (4.*PI/10.) * beta_t / (MU_zero * abs(current) /  (aminor * Bgeo))
+
 
 write(*,*) ' psi_limit : ',psi_limit
 write(*,'(A,f8.5,A)') ' current : ',current/1.e6,' MA'
@@ -130,6 +157,10 @@ write(*,'(A,f8.5)') ' beta_t   : ',beta_t
 write(*,'(A,f8.5)') ' beta_n   : ',beta_n
 write(*,'(A,f8.5)') ' Area     : ',area,' m^2'
 write(*,'(A,f8.5)') ' Volume   : ',volume,' m^3'
+
+write(*,'(A,5f8.5)') 'density  (total/in/out) : ',density,  density_in,  density_out 
+write(*,'(A,5f8.5)') 'pressure (total/in/out) : ',pressure, pressure_in, pressure_out 
+write(*,'(A,5f8.5)') 'current  (in/out)       : ',current_in, current_out 
 
 return
 end

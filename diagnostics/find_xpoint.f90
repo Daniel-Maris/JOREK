@@ -20,9 +20,9 @@ real*8  :: x(2), s, t, xerr, ferr, rs_tolerance
 logical :: early_exit
 parameter (rs_tolerance = 1.d-8)
 
-!write(*,*) '*********************************'
-!write(*,*) '*     find_xpoint               *'
-!write(*,*) '*********************************'
+write(*,*) '*********************************'
+write(*,*) '*     find_xpoint               *'
+write(*,*) '*********************************'
 
 
 dpsi_xpoint = 1.d20
@@ -82,7 +82,7 @@ call interp_RZ(node_list,element_list,i_elm_xpoint,s,t,R_xpoint,R_s,R_t,R_st,R_s
 s_xpoint = s
 t_xpoint = t
 
-!write(*,'(A,4f14.8)') ' X-point : ',R_xpoint,Z_xpoint,psi_xpoint
+write(*,'(A,4f14.8)') ' X-point : ',R_xpoint,Z_xpoint,psi_xpoint
 
 return
 END
