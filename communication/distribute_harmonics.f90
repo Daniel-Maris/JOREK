@@ -31,11 +31,19 @@ real*8,  allocatable :: Asnd_buffer(:), Rsnd_buffer(:)
 integer, allocatable :: isnd_buffer(:), jsnd_buffer(:)
 integer, allocatable :: send_counts(:), send_disp(:), recv_counts(:), recv_disp(:), sizes(:)
 
-!write(*,*) my_id,'*********************************'
-!write(*,*) my_id,'*      distributing matrix      *'
-!write(*,*) my_id,'*********************************'
+write(*,*) my_id,'*********************************'
+write(*,*) my_id,'*      distributing matrix      *'
+write(*,*) my_id,'*********************************'
 
-ibufsize = nz_glob    ! much smaller in fact : more like 2*nz_glob/n_tor ???
+ibufsize=0
+do i=1,nz_glob                                    ! determine buffersize
+  n_i = (mod(irn_glob(i)-1,n_tor) + 1) / 2        ! the toroidal modenumbers for this row-index
+  n_j = (mod(jcn_glob(i)-1,n_tor) + 1) / 2        ! the toroidal modenumbers for this column-index
+  if (n_i .eq. n_j) then                          ! select only the contributions from each toroidal harmonic
+    ibufsize = ibufsize + 1
+  endif
+enddo
+write(*,*) my_id,' ibufsize : ',ibufsize,nz_glob
 
 allocate(Asnd_buffer(ibufsize),isnd_buffer(ibufsize),jsnd_buffer(ibufsize))
 allocate(send_counts(n_cpu),send_disp(n_cpu))
@@ -46,9 +54,9 @@ n_loc_n  = ndof_glob  / n_tor
 
 M_cpu = n_cpu / ((n_tor+1)/2)
 
-!write(*,*) my_id,' nz_glob, nz_loc_n : ',nz_glob, nz_loc_n
-!write(*,*) my_id,' n, n_loc_n       : ',ndof_glob , n_loc_n
-!write(*,*) my_id,' n_cpu, M_cpu     : ',n_cpu, M_cpu
+write(*,*) my_id,' nz_glob, nz_loc_n : ',nz_glob, nz_loc_n
+write(*,*) my_id,' n, n_loc_n       : ',ndof_glob , n_loc_n
+write(*,*) my_id,' n_cpu, M_cpu     : ',n_cpu, M_cpu
 
 
 index(1) = 0

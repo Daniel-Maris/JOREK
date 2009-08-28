@@ -15,7 +15,7 @@ module pastix_module             ! PastiX specific variables
   integer               :: pastix_nthrd=1
  ! parameter (pastix_nthrd=1)
   integer               :: pastix_iter
-  parameter (pastix_iter=250)
+  parameter (pastix_iter=3)
   integer               :: pastix_ricar
   parameter (pastix_ricar=0)
   integer               :: pastix_iluk

@@ -21,14 +21,14 @@ integer               :: i, j, k, m, etype, ivtk, irst, int, i_var, i_tor, index
 character             :: buffer*80, lf*1, str1*8, str2*8
 character*8, allocatable :: scalar_names(:), vector_names(:)
 real*4                :: float
-real*8                :: s, t, phi, PI, angle
+real*8                :: s, t, phi, PI, angle, cur_pert
 real*8                :: P,P_s,P_t,P_st,P_ss,P_tt,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
 real*8                :: Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt, ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_ss,ZJ_tt, W,W_s,W_t,W_st,W_ss,W_tt
 real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_tt, TT,TT_s,TT_t,TT_st,TT_ss,TT_tt
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
 logical               :: periodic
 
-namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
+namelist /in1/  tstep, nstep, eta, visco, visco_par, cur_pert,       &
                 restart,  regrid,                                   &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
                 n_open,n_private,n_leg,  nout,                      &

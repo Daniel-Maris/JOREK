@@ -70,7 +70,7 @@ enddo
 
 open(21,file='profiles.txt')
 do i = 1,iplot
-   write(21,'(20e14.6)') xp(i,1:2), yp(i,1:n_var),yp(i,5)*yp(i,6)
+   write(21,'(20e14.6)') xp(i,1:2), yp(i,1:n_var),yp(i,5)*yp(i,6)*yp(i,7)
 enddo
 
 

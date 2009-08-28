@@ -27,14 +27,27 @@ module data_structure                                 ! contains definition of t
     type (type_element)  :: element(n_elements_max)   ! the list of elements
   endtype type_element_list
 
+  type type_boundary                                  ! type definition for one boundary element (1D element)
+    integer :: vertex(2)                              ! the nodes of the corners
+    integer :: direction(2,2)                         ! indicates which direction of the nodes is along the boundary (2 or 3)
+    integer :: element                                ! boundary element is part of this element
+    integer :: side                                   ! boundary element corresponds to this side of the originating element
+    real*8  :: size(2,2)                              ! the size of the vectors at each vertex of the element : size(vertex,order)
+  endtype type_boundary
+
+  type type_boundary_list                             ! type definition for a list of boundary elements
+    integer :: n_boundary                             ! the number of boundary elements in the list
+    type (type_boundary) :: boundary(n_boundary_max)  ! the list of boundary elements
+  endtype type_boundary_list
+
   type type_surface                                   ! type definition for a fluxsurface (in 2D)
     integer :: n_pieces                               ! the number of pieces (each piece is a 3rd order polynomial)
     integer :: elm(n_pieces_max)                      ! the element containg the current piece
     real*8  :: s(4,n_pieces_max), t(4,n_pieces_max)   ! 4 variables per line piece of the flux surface
    endtype
 
-  type  type_surface_list                                 ! type definition for a list of surfaces
-    integer                         :: n_psi              ! the number of surfaces
+  type  type_surface_list                               ! type definition for a list of surfaces
+    integer                         :: n_psi            ! the number of surfaces
     real*8,allocatable              :: psi_values(:)    ! the values of the poloidal flux at the surfaces
     type (type_surface),allocatable :: flux_surfaces(:) ! the list of surfaces
   endtype

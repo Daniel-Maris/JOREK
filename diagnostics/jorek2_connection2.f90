@@ -85,7 +85,7 @@ enddo
 
 PI = 2.d0 *asin(1.d0)
 
-n_turns = 50
+n_turns = 500
 n_phi   = 1000
 
 np = 1
@@ -131,17 +131,17 @@ call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoin
 
 write(*,*) ' PSI_XPOINT : ',psi_xpoint,i_elm_xpoint
   
-call begplt('connection.ps')
+call begplt('connection2e.ps')
 call nframe(21,11,1,Rmin,Rmax,Zmin,Zmax,'Poincare',8,'R [m]',4,'Z [m]',4)
 
 i_line = 0
 
 write(*,*) ' number of elements : ',element_list%n_elements
 
-open(20,file='connection2.txt')
-open(21,file='connection2_inside.txt')
+open(20,file='connection2e.txt')
+open(21,file='connection2e_inside.txt')
 
-do i = element_list%n_elements/4, 3*element_list%n_elements/4
+do i = 6*element_list%n_elements/8, 8*element_list%n_elements/8
 
   write(*,*) ' element : ',i
 

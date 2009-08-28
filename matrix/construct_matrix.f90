@@ -1,5 +1,5 @@
-subroutine construct_matrix(my_id,node_list,element_list,local_elms,n_local_elms,index_min,index_max, &
-                            xpoint2,psi_axis,psi_bnd,Z_xpoint)
+subroutine construct_matrix(my_id,node_list,element_list,boundary_list,local_elms,n_local_elms,&
+                            index_min,index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint)
 !---------------------------------------------------------------
 ! collect the element matrices into one large sparse matrix
 ! in coordinate format
@@ -12,10 +12,11 @@ use phys_module
 implicit none
 include 'mpif.h'
 
-type (type_node_list)    :: node_list
-type (type_element_list) :: element_list
-type (type_element)      :: element
-type (type_node)         :: nodes(n_vertex_max)
+type (type_node_list)     :: node_list
+type (type_element_list)  :: element_list
+type (type_boundary_list) :: boundary_list
+type (type_element)       :: element
+type (type_node)          :: nodes(n_vertex_max)
 
 real*8, allocatable :: rhs_loc(:)
 integer :: my_id, local_elms(*), n_local_elms, index_min, index_max,index_min_loc, index_max_loc
@@ -24,10 +25,10 @@ real*8  :: RHS(n_tor*n_vertex_max*(n_order+1)*n_var)
 real*8  :: ELM2(n_tor*n_vertex_max*(n_order+1)*n_var,n_tor*n_vertex_max*(n_order+1)*n_var)
 real*8  :: RHS2(n_tor*n_vertex_max*(n_order+1)*n_var)
 real*8  :: zbig, psi_axis, psi_bnd, Z_xpoint
-integer :: i_bnd, i, in, ife, iv, inode, inode1, inode2, knode, j, k, l, index_ij, index_kl
+integer :: i_bnd, i, in, ife, iv, iv2, inode, inode1, inode2, knode, j, k, l, index_ij, index_kl
 integer :: index_i, index_node, index_node1, index_node2, i_order, k_order, ic, ielm, ierr
 integer :: ijA_position, ijA_position2, nz_AA2, n_AA2, kv, kT, ku
-integer :: index_large_i, index_large_k, ilarge2
+integer :: index_large_i, index_large_k, ilarge2, vertex(2)
 integer :: omp_nthreads, omp_tid
 logical :: xpoint2
 
@@ -80,11 +81,11 @@ RHS_loc  = 0.d0
 
 
 !$omp parallel default(none) &
-!$omp   shared(n_local_elms,irn_glob,jcn_glob,A_glob,RHS_loc,local_elms,element_list,node_list,  &
-!$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)              &
-!$omp   private(ife,ielm,iv,inode,element,nodes,ELM,RHS,ELM2,RHS2,i,inode1,i_order,index_node1,            &
-!$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position, &
-!$omp           l,index_kl,ilarge2,omp_nthreads,omp_tid)
+!$omp   shared(n_local_elms,irn_glob,jcn_glob,A_glob,RHS_loc,local_elms,element_list,node_list,               &
+!$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)                                 &
+!$omp   private(ife,ielm,iv,iv2,inode,inode1,inode2,element,nodes,ELM,RHS,ELM2,RHS2,i,i_order,index_node1,    &
+!$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position,              &
+!$omp           l,index_kl,ilarge2,vertex,omp_nthreads,omp_tid)
 
 !omp_nthreads = omp_get_num_threads()
 !omp_tid      = omp_get_thread_num()
@@ -106,9 +107,48 @@ do ife =1, n_local_elms
   enddo
 
   if (n_tor .gt. 3) then
+
     call element_matrix_fft(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)      ! use fft for toroidal integration
+
   else
-    call element_matrix(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)           ! use direct integration
+
+    call element_matrix(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)          ! use direct integration
+
+    do iv = 1, n_vertex_max                                                                     ! boundary integrals
+    
+      iv2  = mod(iv, n_vertex_max) + 1
+      
+      inode1 = element%vertex(iv)
+      inode2 = element%vertex(iv2)
+      
+      if (     ((node_list%node(inode1)%boundary .eq. 1) .or.(node_list%node(inode1)%boundary .eq. 3)) &
+         .and. ((node_list%node(inode2)%boundary .eq. 1) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
+	 
+	nodes(1) = node_list%node(inode1)
+	nodes(2) = node_list%node(inode2)
+	vertex   = (/ iv, iv2 /)
+	
+	write(*,*) iv,iv2,'boundary_matrix_open : ',inode1,inode2
+
+        call boundary_matrix_open(vertex, element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)    ! only for open field lines for now
+      
+      endif
+
+      if (     ((node_list%node(inode1)%boundary .eq. 2) .or.(node_list%node(inode1)%boundary .eq. 3)) &
+         .and. ((node_list%node(inode2)%boundary .eq. 2) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
+	 
+!	nodes(1) = node_list%node(inode1)
+!	nodes(2) = node_list%node(inode2)
+!	vertex   = (/ iv, iv2 /)
+	
+!	write(*,*) iv,iv2,'boundary_matrix : ',inode1,inode2
+
+!        call boundary_matrix(vertex, element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)    ! only for open field lines for now
+      
+      endif
+    
+    enddo
+    
   endif
  
 !------------------------------------------------------- comparing two versions of element_matrix
@@ -196,11 +236,11 @@ enddo
 !$omp end do
 !$omp end parallel
 
-write(*,*) ' construct_matrix : end parallel'
-
 call MPI_Reduce(RHS_loc,RHS_glob,ndof_glob,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
 deallocate(RHS_loc)
+
+call vacuum(my_id,node_list,element_list,boundary_list,index_min,index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint)	
 
 call boundary_conditions(my_id,node_list,element_list,local_elms,n_local_elms,index_min,index_max, &
                          xpoint2,psi_axis,psi_bnd,Z_xpoint)			    

@@ -1,4 +1,4 @@
-subroutine plot_grid(node_list,element_list,frame,bezier)
+subroutine plot_grid(node_list,element_list,boundary_list,frame,bezier)
 !----------------------------------------------------------------
 ! plot the grid of finite elements with the correct curved edges
 !----------------------------------------------------------------
@@ -7,21 +7,23 @@ use data_structure
 
 implicit none
 
-type (type_node_list)    :: node_list
-type (type_element_list) :: element_list
+type (type_node_list)     :: node_list
+type (type_element_list)  :: element_list
+type (type_boundary_list) :: boundary_list
 real*8,allocatable :: xp(:,:)
 real*8             :: xs(2,n_dim), xx_0(n_dim), uu_0(n_dim), vv_0(n_dim), ww_0(n_dim)
 real*8             :: uv_0(n_dim), uv_p(n_dim), xx_p(n_dim) ,xb(4,n_dim)
 real*8             :: xmax, xmin, ymax, ymin, s, huv_0, huv_p, x_length
-integer            :: i, j, inode_0, inode_p, iplot, k, ip, np, iuv
+integer            :: i, j, inode_0, inode_p, iplot, k, ip, np, iuv, idir_0, idir_p
 logical            :: frame, bezier
 character*3        :: label
 
 write(*,*) '************************************'
 write(*,*) '*           plot_grid              *'
 write(*,*) '************************************'
-write(*,*) ' number of elements : ',element_list%n_elements
-write(*,*) ' number of nodes    : ',node_list%n_nodes
+write(*,*) ' number of elements          : ',element_list%n_elements
+write(*,*) ' number of boundary elements : ',boundary_list%n_boundary
+write(*,*) ' number of nodes             : ',node_list%n_nodes
 
 allocate(xp(node_list%n_nodes,n_dim))
 
@@ -125,13 +127,52 @@ do k=1, element_list%n_elements
 
      call bezier_1d(n_dim, s, xb, xp(j,:))
    enddo
-
+   
    call lplot6(1,1,xp(1:np,1),xp(1:np,2),-np,' ')
  enddo
 enddo
 
 call lincol(1)
 call lplot(11,11,461,xp(:,1),xp(:,2),-iplot,1,' ',1,' ',1,' ',1)
+
+call lincol(4)
+
+do k=1, boundary_list%n_boundary
+
+   idir_0 = boundary_list%boundary(k)%direction(1,2)
+
+   inode_0 = boundary_list%boundary(k)%vertex(1)
+   xx_0    = node_list%node(inode_0)%x(1,:)
+   uv_0    = node_list%node(inode_0)%x(idir_0,:)
+   huv_0   = boundary_list%boundary(k)%size(1,2)
+
+   idir_p = boundary_list%boundary(k)%direction(2,2)
+
+   inode_p = boundary_list%boundary(k)%vertex(2)
+   xx_p    = node_list%node(inode_p)%x(1,:)
+   uv_p    = node_list%node(inode_p)%x(idir_p,:)
+   huv_p   = boundary_list%boundary(k)%size(2,2)
+
+!    write(*,*) xx_0
+!    write(*,*) xx_0 + uv_0*huv_0
+!    write(*,*) xx_p + uv_p*huv_p
+!    write(*,*) xx_p
+
+   do j=1,np
+     s = (float(j-1)/float(np-1))
+     xb(1,:) = xx_0
+     xb(2,:) = xx_0+uv_0*huv_0
+     xb(3,:) = xx_p+uv_p*huv_p
+     xb(4,:) = xx_p
+
+     call bezier_1d(n_dim, s, xb, xp(j,:))
+   enddo
+
+   call lplot6(1,1,xp(1:np,1),xp(1:np,2),-np,' ')
+
+enddo
+
+call lincol(0)
 
 deallocate(xp)
 

@@ -10,7 +10,7 @@ type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
 type (type_surface_list) :: surface_list
 
-integer    :: ierr, my_id, n_iter, iter, i, in, mm, i_elm_axis
+integer    :: ierr, my_id, n_iter, iter, i, in, mm, i_elm_axis, i_elm_xpoint
 real*8     :: amplitude, psi, psi_axis
 real*8     :: zn, dn_dpsi, dn_dpsi2, dn_dz, dn_dz2, dn_dpsi_dz, dn_dpsi3, dn_dpsi2_dz, dn_dpsi_dz2
 real*8     :: zT, dT_dpsi, dT_dpsi2, dT_dz, dT_dz2, dT_dpsi_dz, dT_dpsi3, dT_dpsi2_dz, dT_dpsi_dz2
@@ -22,7 +22,7 @@ real*8     :: r_x, r_y, r_xy, r_xx, r_yy, tht_x, tht_y, tht_xy, tht_xx, tht_yy
 real*8     :: x_min, x_max, y_min, y_max,x ,y
 real*8     :: R_axis, Z_axis, s_axis, t_axis, R, Z, BigR, T0, BigR_s, T0_s
 real*8     :: zjz, dj_dpsi, dj_dR, dj_dZ, dj_dR_dZ, dj_dR_DR, dj_dZ_dZ, dj_dpsi2, dj_dR_dpsi, dj_dZ_dpsi, psi_n
-real*8     :: psi_bnd,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint
+real*8     :: psi_bnd,psi_xpoint,R_xpoint,Z_xpoint,s_xpoint,t_xpoint
 real*8     :: ps0_s, ps0_t, p_s, p_t, zj0_s, zj0_t, equil_error, equil_value, ps0_x, ps0_y, Z_s, Z_t, xjac, direction, Btot
 logical    :: xpoint2
 

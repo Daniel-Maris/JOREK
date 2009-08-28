@@ -1,6 +1,6 @@
 subroutine basisfunctions2(s,t,H,H_s,H_t,H_st,H_ss,H_tt)
 !--------------------------------------------------------------
-! subroutine which defines the bass functions
+! subroutine which defines the basis functions
 ! derived from a mixed Bezier/Cubic finite element representation
 !   index 1 : counts the vertex
 !   index 2 : counts the variables (p,u,v,w)

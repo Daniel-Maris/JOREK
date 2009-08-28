@@ -2,6 +2,7 @@ include ../config.in
 
 all: modules \
      basis_functions2.o \
+     basis_functions1.o \
      basis_functions.o \
      bezier_1d.o \
      bezier_2d.o \

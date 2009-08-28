@@ -59,7 +59,7 @@ dT_dpsi_dz2 = 0.d0
 temperature_profile = prof1
 
 if (xpoint2) then
-  sigz    = 0.1d0
+  sigz    = 0.05d0
 
   atn_z           =  (0.5d0 - 0.5d0*tanh((Z_xpoint-Z)/sigz))
   datn_z          =  0.5d0/cosh((Z_xpoint-Z)/sigz)**2 / sigz

@@ -78,8 +78,8 @@ SIG_theta   = 0.03d0 !0.03d0
 SIG_leg_0   = 0.05d0
 SIG_leg_1   = 0.2d0
 
-dPSI_open    = 0.18  ! 0.10
-dPSI_private = 0.04 ! 0.03 ! 0.075
+dPSI_open    = 0.18 !0.15 !0.22 !0.18  ! 0.10
+dPSI_private = 0.03 !0.06 !0.03 !0.06 ! 0.03 ! 0.075
 
 allocate(s_tmp(n_flux_2+1))
 call meshac2(n_flux_2+1,s_tmp,1.d0,9999.d0,SIG_closed,9999.d0,0.2d0,1.0d0)
@@ -276,9 +276,13 @@ tht_x = atan2(Z_xpoint-Z_axis,R_xpoint-R_axis)
 allocate(theta_sep(n_tht_3),R_sep(n_tht_3),Z_sep(n_tht_3))
 
 deallocate(s_tmp); allocate(s_tmp(n_tht_2))
+
 call meshac2(n_tht_2,s_tmp,0.d0,1.d0,SIG_theta,SIG_theta,0.8d0,1.0d0)
 
+!call meshac3(n_tht_2,s_tmp,0.d0,-tht_x/(2.d0*PI),1.d0,SIG_theta,0.05d0,SIG_theta,0.8d0,1.0d0)
+
 do j=1,n_tht_2
+
   theta_sep(j) = tht_x + 2.d0 * PI * s_tmp(j)
 
   if (theta_sep(j) .lt. 0.d0) theta_sep(j) = theta_sep(j) + 2.d0 * PI
@@ -978,7 +982,7 @@ newnode_list%n_nodes = index
 
 write(*,*) ' definition of nodes completed ',newnode_list%n_nodes
 
-call nframe(11,11,1,2.5,3.5,-1.71,-1.0,' ',1,'R',1,'Z',1)
+call nframe(11,11,1,2.5,3.5,-2.0,-1.0,' ',1,'R',1,'Z',1)
 call plot_flux_surfaces(node_list,element_list,flux_list,.false.)
 
 

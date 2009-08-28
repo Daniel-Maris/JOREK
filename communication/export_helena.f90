@@ -26,6 +26,7 @@ real*8 :: ZJgi,dZJgi_dr,dZJgi_ds,dZJgi_drs,dZJgi_drr,dZJgi_dss
 real*8 :: RRgi,dRRgi_dr,dRRgi_ds,dRRgi_drs,dRRgi_drr,dRRgi_dss
 real*8 :: ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_drs,dZZgi_drr,dZZgi_dss
 real*8 :: dRRgi_dt, dZZgi_dt, RZjac, PI, PSI_R, PSI_Z, grad_psi, B_tot2, P0gi, dP0gi_dr,dP0gi_ds, P0_R, P0_Z 
+real*8 :: density, density_in, density_out, pressure, pressure_in, pressure_out
 integer :: i_elm_axis, i_elm_xpoint, nplot, i, j, n_bnd, i_elm, k, ip, ig
 integer :: node1, node2, node3, node4
 
@@ -40,19 +41,26 @@ write(*,*) '***************************************'
 
 call find_axis(node_list,element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis)
 
-call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint)
+if (allocated(surface_list%psi_values)) deallocate(surface_list%psi_values)
+allocate(surface_list%psi_values(3))
+
+if (xpoint) then
+  write(*,*) ' x-point plasma'
+  call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint)
+  surface_list%psi_values(1) =  psi_axis + 0.95  * (psi_xpoint - psi_axis)
+  surface_list%psi_values(2) =  psi_axis + 0.99  * (psi_xpoint - psi_axis)
+  surface_list%psi_values(3) =  psi_axis + 0.995 * (psi_xpoint - psi_axis)
+else
+  write(*,*) ' NOT an x-point plasma'
+  psi_xpoint = 0.d0
+  surface_list%psi_values(1) =  psi_axis + 0.95  * (psi_xpoint - psi_axis)
+  surface_list%psi_values(2) =  psi_axis + 0.99  * (psi_xpoint - psi_axis)
+  surface_list%psi_values(3) =  1.d-3
+endif
 
 surface_list%n_psi =3
 if (allocated(surface_list%psi_values)) deallocate(surface_list%psi_values)
 allocate(surface_list%psi_values(surface_list%n_psi))
-
-!psi_xpoint = 0.d0
-
-surface_list%psi_values(1) =  psi_axis + 0.95  * (psi_xpoint - psi_axis)
-surface_list%psi_values(2) =  psi_axis + 0.99  * (psi_xpoint - psi_axis)
-surface_list%psi_values(3) =  psi_axis + 0.999 * (psi_xpoint - psi_axis)
-
-!surface_list%psi_values(3) =  1.d-8
 
 call find_flux_surfaces(xpoint,node_list,element_list,surface_list)
 
@@ -139,12 +147,13 @@ write(*,'(A,f8.5,A)') ' amin : ',aminor,' m'
 write(*,'(A,f8.5,A)') ' Rgeo : ',Rgeo,' m'
 write(*,'(A,f8.5,A)') ' Bgeo : ',Bgeo,' T'
 
-call Integrals(node_list,element_list,Bgeo,aminor,surface_list%psi_values(j),current,beta_p,beta_t,beta_n)
+call Integrals(node_list,element_list,Bgeo,aminor,surface_list%psi_values(j),current,beta_p,beta_t,beta_n, &
+               density,density_in,density_out,pressure,pressure_in,pressure_out)
 
 write(11,*) aminor, Rgeo, Bgeo
 write(11,*) current,beta_p,beta_t,beta_n
 
-n_flux = 101
+n_flux = 201
 
 surface_list%n_psi =n_flux
 if (allocated(surface_list%psi_values)) deallocate(surface_list%psi_values)

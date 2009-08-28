@@ -7,7 +7,7 @@ use basis_at_gaussian
 use phys_module
 
 implicit none
-integer :: i,k,l
+integer :: i,k,l, i_tor
 real*8  :: s,t,phi,PI
 
 real*8 :: G(n_vertex_max,n_order+1,n_gauss,n_gauss)
@@ -18,9 +18,15 @@ real*8 :: G_ss(n_vertex_max,n_order+1,n_gauss,n_gauss)
 real*8 :: G_tt(n_vertex_max,n_order+1,n_gauss,n_gauss)
 
 do k=1,n_gauss
+
  s = xgauss(k)
+ 
+ call basisfunctions1(s,H1(1:2,1:4,k), H1_s(1:2,1:4,k), H1_ss(1:2,1:4,k)) ! the one-D basis functions
+
  do l=1,n_gauss
+ 
    t = xgauss(l)
+   
    call basisfunctions2(s,t,H(1:4,1:4,k,l),   H_s(1:4,1:4,k,l), H_t(1:4,1:4,k,l), &
                             H_st(1:4,1:4,k,l),H_ss(1:4,1:4,k,l),H_tt(1:4,1:4,k,l) )
 
@@ -41,6 +47,11 @@ if (abs(maxval(H_t-G_t))   .gt. 1d-14) write(*,*) ' error in Basisfunctions H_t 
 if (abs(maxval(H_st-G_st)) .gt. 1d-14) write(*,*) ' error in Basisfunctions H_st : ',abs(maxval(H_st-G_st))
 
 PI = 2.d0* asin(1.d0)
+
+do i_tor=1, n_tor
+  mode(i_tor) = + int(i_tor / 2) * n_period
+  write(*,*) ' toroidal mode numbers : ',i_tor,mode(i_tor)
+enddo
 
 do k=1,n_plane
 

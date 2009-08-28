@@ -10,13 +10,13 @@ type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
 type (type_surface_list) :: surface_list
 
-integer    :: my_id, i, in, mm, i_elm_axis
+integer    :: my_id, i, in, mm, i_elm_axis, i_elm_xpoint
 real*8     :: amplitude, psi, psi_axis
 real*8     :: zn, dn_dpsi, dn_dpsi2, dn_dz, dn_dz2, dn_dpsi_dz, dn_dpsi3, dn_dpsi2_dz, dn_dpsi_dz2
 real*8     :: zT, dT_dpsi, dT_dpsi2, dT_dz, dT_dz2, dT_dpsi_dz, dT_dpsi3, dT_dpsi2_dz, dT_dpsi_dz2
 real*8     :: zFFprime,dFFprime_dpsi,dFFprime_dz, dFFprime_dpsi_dz, dFFprime_dz2, dFFprime_dpsi2
 real*8     :: R_axis, Z_axis, s_axis, t_axis, R, Z, BigR
-real*8     :: psi_n, psi_bnd,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint
+real*8     :: psi_n, psi_bnd,psi_xpoint,R_xpoint,Z_xpoint,s_xpoint,t_xpoint
 logical    :: xpoint2
 
 if (my_id .eq. 0) then

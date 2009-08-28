@@ -10,15 +10,20 @@ use global_distributed_matrix
 implicit none
 include 'mpif.h'
 integer             :: my_id, my_id_n, MPI_COMM_MASTER, MPI_COMM_N, ierr, i, i_tor(*), n_dof
+integer             :: my_id_master
 real*8              :: x(*), y(*)
 real*8, allocatable :: y_tmp(:), Rsnd_buffer(:)
 integer             :: index_snd, n_loc_n, n_cpu, n_cpu_n, M_cpu, ifactor, in, j, idisp, index_rcv
 integer, allocatable :: send_counts(:), send_disp(:), recv_counts(:), recv_disp(:)
 real*8              :: t1, t2, t3, t4, t5, t6
+real*8, allocatable :: buffer(:)
+integer             :: ibuf_size, status(MPI_STATUS_SIZE)
 
 !write(*,*) my_id,my_id_n,' GMRES preconditioning ',MPI_COMM_WORLD
 
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)     ! the number of cpus
+
+if (my_id_n .eq. 0) call MPI_COMM_RANK(MPI_COMM_MASTER, my_id_master, ierr)      ! the id of each cpu in the MASTER group
 
 call cpu_time(t1)
 
@@ -65,8 +70,25 @@ if (my_id_n .eq. 0) then
 
   allocate(mumps_par%rhs(ifactor*n_loc_n))
 
-  call mpi_scatterv(Rsnd_buffer,send_counts,send_disp,MPI_DOUBLE_PRECISION, &
-                    mumps_par%rhs,ifactor*n_loc_n,MPI_DOUBLE_PRECISION,0,MPI_COMM_MASTER,ierr)
+!  call mpi_scatterv(Rsnd_buffer,send_counts,send_disp,MPI_DOUBLE_PRECISION, &
+!                    mumps_par%rhs,ifactor*n_loc_n,MPI_DOUBLE_PRECISION,0,MPI_COMM_MASTER,ierr)
+
+!------------- mpi_scatterv alternative
+  ibuf_size = 8*n_dof  
+  allocate(buffer(ibuf_size))
+  call mpi_buffer_attach(buffer,ibuf_size,ierr)
+  if (my_id_master .eq. 0) mumps_par%rhs(1:n_loc_n) = Rsnd_buffer(1:n_loc_n)
+  do i=2,(n_tor+1)/2 
+    if (my_id_master .eq. 0) then    
+      idisp = n_loc_n + 1  + (i-2)*2*n_loc_n 
+      call mpi_bsend(Rsnd_buffer(idisp),2*n_loc_n,MPI_DOUBLE_PRECISION,i-1,i-1,MPI_COMM_MASTER,ierr)    
+    endif      
+    if (my_id_master .eq. i-1) then
+      call mpi_recv(mumps_par%rhs,2*n_loc_n,MPI_DOUBLE_PRECISION,0,i-1,MPI_COMM_MASTER,status,ierr)      
+    endif    
+  enddo
+  call mpi_buffer_detach(buffer,ibuf_size,ierr)
+!------------------- end alternative
 
 endif
 
@@ -136,8 +158,25 @@ if (my_id_n .eq. 0) then
     recv_disp(i) = recv_disp(i-1) + recv_counts(i-1)
   enddo
 
-  call mpi_gatherv(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION, &
-                   y_tmp,recv_counts,recv_disp,MPI_DOUBLE_PRECISION,0,MPI_COMM_MASTER,ierr)
+!  call mpi_gatherv(mumps_par%rhs,mumps_par%n,MPI_DOUBLE_PRECISION, &
+!                   y_tmp,recv_counts,recv_disp,MPI_DOUBLE_PRECISION,0,MPI_COMM_MASTER,ierr)
+
+!----------------------------- mpi_gatherv alternative
+  if (my_id_master .eq. 0)  y_tmp(1:n_loc_n) = mumps_par%rhs(1:n_loc_n) 
+  call mpi_buffer_attach(buffer,ibuf_size,ierr)
+  do i=2,(n_tor+1)/2 
+    if (my_id_master .eq. i-1) then
+      call mpi_bsend(mumps_par%rhs,2*n_loc_n,MPI_DOUBLE_PRECISION,0,i-1,MPI_COMM_MASTER,ierr)
+    endif  
+    if (my_id_master .eq. 0) then    
+      idisp = n_loc_n + 1  + (i-2)*2*n_loc_n 
+      write(*,*) idisp
+      call mpi_recv(y_tmp(idisp),2*n_loc_n,MPI_DOUBLE_PRECISION,i-1,i-1,MPI_COMM_MASTER,status,ierr)
+    endif    
+  enddo
+  call mpi_buffer_detach(buffer,ibuf_size,ierr)
+  deallocate(buffer)
+!--------------------------- end alternative
 
   if (my_id .eq. 0) then
 
@@ -158,7 +197,7 @@ if (my_id_n .eq. 0) then
 endif
 
 call cpu_time(t2)
-!if (my_id .eq. 0) write(*,'(i3,A,f14.6)') my_id,' PRECON TOTAL : ',t2-t1
+if (my_id .eq. 0) write(*,'(i3,A,f14.6)') my_id,' PRECON TOTAL : ',t2-t1
 
 return
 end

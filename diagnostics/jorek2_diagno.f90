@@ -105,7 +105,7 @@ Zplot(2) = 0.22 !0.06 !0.2
 call plot_profiles(node_list,element_list,Rplot,Zplot)
 
 
-!call export_helena(node_list,element_list)
+call export_helena(node_list,element_list)
 
 !----------------------------------------- plot profiles
 !call begplt('profiles.ps')

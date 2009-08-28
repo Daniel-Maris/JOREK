@@ -1,6 +1,6 @@
 include config.in
 
-DIRS = datatypes models/$(MODEL) models communication elements grids matrix solvers plots diagnostics refinement
+DIRS = datatypes models/$(MODEL) models communication elements grids matrix solvers plots diagnostics vacuum refinement
 
 MAIN = jorek_$(MODEL)
 
@@ -38,6 +38,7 @@ $(MAIN) : jorek2_main.f90
 	solvers/*.o          \
 	refinement/*.o       \
 	plots/*.o            \
+        vacuum/*.o           \
 	diagnostics/*.o      \
 	 -o $(MAIN) $(INCLUDES) $(LIBS)
 	 
@@ -100,6 +101,7 @@ jorek2vtk : modules sources
 	communication/import_restart.o    \
 	elements/initialise_basis.o       \
 	elements/basis_functions.o        \
+        elements/basis_functions1.o       \
 	elements/basis_functions2.o       \
         elements/interp.o                 \
 	elements/interp_RZ.o              \

@@ -39,6 +39,7 @@ use pastix_module
 use data_structure
 use phys_module
 use global_distributed_matrix
+use vacuum_response_module
 
 implicit none
 
@@ -46,6 +47,7 @@ include 'mpif.h'
 
 type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
+type (type_boundary_list):: boundary_list
 type (type_surface_list) :: surface_list
 logical                  :: grid_changed, ELM_is_local
 real*8                   :: W_mag(n_tor), W_kin(n_tor), growth_mag, growth_kin, growth_mag0, growth_kin0
@@ -57,7 +59,7 @@ integer                  :: my_id, my_id_n, my_id_master
 integer                  :: istep,ierr,i,j,k,in,iv, inode, index, index_node, i_elm_axis, i_elm_xpoint
 integer                  :: nznew, first_row, last_row, isize, n_local_ELMs, inext, index_part, index_total
 integer                  :: i_rank(n_tor), n_cpu, n_cpu_n, n_cpu_master, m_cpu, n_masters
-integer                  :: iter_gmres
+integer                  :: iter_gmres, n_bnd
 integer                  :: MPI_COMM_N, MPI_GROUP_MASTER, MPI_GROUP_WORLD, MPI_COMM_MASTER
 character*8              :: method, label
 character*14             :: fileout
@@ -82,6 +84,7 @@ integer            :: nplot,iplot,i_elm,ifail, ivar
 
 required=MPI_THREAD_MULTIPLE
 call MPI_Init_thread(required,provided,StatInfo)    ! initialise threaded MPI (openMPI)
+
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)      ! the id of each cpu
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)      ! the number of cpus
 
@@ -103,6 +106,7 @@ adaptive_time = .true.
 
 if (n_tor .eq. 1) then
   method = 'direct'
+  gmres  = .false.
 endif
 
 !---------------------------------------------------------- some checks not to waste any cpu time
@@ -166,8 +170,9 @@ endif
 
 if (.not. restart) then
 
-  element_list%n_elements = 0
-  node_list%n_nodes       = 0
+  element_list%n_elements  = 0
+  boundary_list%n_boundary = 0
+  node_list%n_nodes        = 0
 
   call initialise_mumps(MPI_COMM_WORLD)    ! start MUMPS sparse matrix solver
 
@@ -185,7 +190,7 @@ if (.not. restart) then
 
     elseif ((n_radial .gt. 0) .and. (n_pol .gt. 0) ) then
 
-      call grid_polar_bezier(R_geo,Z_geo,amin,0.d0,fbnd,fpsi,mf,n_radial,n_pol,node_list,element_list)
+      call grid_polar_bezier(R_geo,Z_geo,amin,0.d0,fbnd,fpsi,mf,n_radial,n_pol,node_list,element_list,boundary_list)
 
     else
 
@@ -195,22 +200,23 @@ if (.not. restart) then
 
     endif
 
-    if (my_id .eq. 0) call plot_grid(node_list,element_list,.true.,.false.)    ! plot the grid
+    call plot_grid(node_list,element_list,boundary_list,.true.,.false.)    ! plot the grid
+!    call print_grid(node_list,element_list,boundary_list)                   ! print the grid
 
   endif
 
   call equilibrium(my_id,node_list,element_list,xpoint)                        ! equilibrium run on all cpus
   call initial_conditions(my_id,node_list,element_list,xpoint)                 ! initial conditions
 
-!  if (my_id .eq. 0) call print_grid(node_list,element_list)                   ! print the grid
-
   if (n_flux .gt. 1) then                                                      ! flux surface grid
 
     if (xpoint)  then
 
       if (my_id .eq. 0) call grid_xpoint(node_list,element_list,n_flux,n_open,n_private,n_leg,n_tht)
-      call Broadcast_nodes(my_id,node_list)
+
+      call broadcast_nodes(my_id,node_list)
       call broadcast_elements(my_id,element_list)
+      call broadcast_boundary(my_id,boundary_list)
 
       call poisson(my_id,0,node_list,element_list,3,1,1,xpoint)
       call poisson(my_id,1,node_list,element_list,4,2,1,xpoint)
@@ -238,15 +244,40 @@ if (.not. restart) then
 
 endif
 
-call Broadcast_elements(my_id,element_list)             ! sending all elements
-call Broadcast_nodes(my_id,node_list)                   ! sending all nodes
-call Broadcast_phys(my_id)                              ! sending the physics parameters
+
+call broadcast_elements(my_id,element_list)             ! sending all elements
+call broadcast_boundary(my_id,boundary_list)            ! sending boundary elements
+call broadcast_nodes(my_id,node_list)                   ! sending all nodes
+call broadcast_phys(my_id)                              ! sending the physics parameters
 
 !write(*,*) ' n_elements : ',my_id,element_list%n_elements
 !write(*,*) ' n_nodes    : ',my_id,node_list%n_nodes
 
 call MPI_Barrier(MPI_COMM_WORLD,ierr)
 
+!************************************************************************
+!*                        vacuum initialisation                         *
+!************************************************************************
+if (freeboundary) then
+  
+  if (my_id .eq. 0) call export_boundary(node_list,boundary_list)
+
+  write(*,*) ' n_boundary : ',boundary_list%n_boundary
+
+  call initialise_mumps(MPI_COMM_WORLD)                  ! start MUMPS sparse matrix solver
+
+  n_dof_bnd = 2*boundary_list%n_boundary                 ! the number of degress of freedomon the boundary not correct for grid-xpoint
+
+  allocate(vacuum_response(n_dof_bnd,n_dof_bnd,n_tor))   ! allocate the vacuum response matrix
+
+  call ideal_wall(my_id,node_list,boundary_list,n_dof_bnd,vacuum_response)   ! fill the vacuum response matrix
+
+  mumps_par%JOB = -2                                     ! clean up this instance of mumps
+  call DMUMPS(mumps_par)
+
+  call MPI_Barrier(MPI_COMM_WORLD,ierr)
+
+endif
 !***********************************************************************
 !*                 end of initilisation/equilibrium                    *
 !***********************************************************************
@@ -277,7 +308,8 @@ if (nstep .gt. 0) then
 
   node_list%n_dof = ndof_glob
 
-  call global_matrix_structure(my_id,node_List,element_list,local_elms,n_local_elms,index_min(my_id+1),index_max(my_id+1))
+  call global_matrix_structure(my_id,node_List,element_list,boundary_list,freeboundary, &
+                               local_elms,n_local_elms,index_min(my_id+1),index_max(my_id+1))
 
 !*******************************************************
 !*      create groups /communicators                   *
@@ -329,6 +361,8 @@ if (nstep .gt. 0) then
 
 endif
 
+
+
 !***********************************************************************
 !***********************************************************************
 !*                          time stepping                              *
@@ -361,8 +395,10 @@ do istep = 1, nstep
 
   call cpu_time(t_matrix_0)
 
-  call construct_matrix(my_id,node_list,element_list,local_elms,n_local_ELms,index_min(my_id+1),index_max(my_id+1), &
+  call construct_matrix(my_id,node_list,element_list,boundary_list, &
+                        local_elms,n_local_ELms,index_min(my_id+1),index_max(my_id+1), &
                         xpoint,psi_axis,psi_bnd,Z_xpoint)        ! construct the matrix from elemental matrices
+
 
   call cpu_time(t_matrix_1)
 
@@ -580,7 +616,11 @@ if (my_id .eq. 0)  then
   allocate(xp(nplot),yp1(nplot),yp2(nplot),yp3(nplot))
   iplot = 0
 
-  call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint)
+  if (xpoint) then
+    call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint)
+  else
+    psi_xpoint = psi_bnd
+  endif
 
   Rp_start = R_axis - amin*2.d0
   Rp_end   = R_axis + amin*2.d0

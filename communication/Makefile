@@ -4,6 +4,7 @@ include ../config.in
 all: mod_phys_module.o \
      mod_mumps.o \
      broadcast_elements.o \
+     broadcast_boundary.o \
      broadcast_nodes.o \
      broadcast_phys.o \
      distribute_harmonics.o \
@@ -15,6 +16,7 @@ all: mod_phys_module.o \
      import_restart.o \
      update_deltas.o \
      update_values.o \
+     export_boundary.o \
      export_helena.o
      
 modules :     

@@ -74,6 +74,7 @@ do ms=1, n_gauss
 
    ps0_x = (   y_t(ms,mt) * eq2_s(ms,mt) - y_s(ms,mt) * eq2_t(ms,mt) ) / xjac
    ps0_y = ( - x_t(ms,mt) * eq2_s(ms,mt) + x_s(ms,mt) * eq2_t(ms,mt) ) / xjac
+   
 
    do i=1,n_vertex_max
 

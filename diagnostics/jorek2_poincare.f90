@@ -19,17 +19,19 @@ use elements_nodes_neighbours
 
 implicit none
 
-real*8,allocatable  :: rp(:), zp(:)
-integer :: i, j, iside_i, iside_j, ip, i_lines, n_lines, i_tor, i_harm, i_var_psi
+real*8,allocatable  :: rp(:), zp(:), tp(:), pp(:)
+integer :: i, j, iside_i, iside_j, ip, i_lines, n_lines, i_tor, i_harm, i_var_psi, iplot_type
 integer :: i_elm, ifail, i_phi, n_phi, i_turn, n_turn, i_elm_out, i_elm_prev, i_elm_tmp,i_steps
 real*8  :: R_start, Z_start, P_start, R_line, Z_line, s_line, t_line, p_line, R_mid, Z_mid, s_mid, t_mid, p_mid, s_out, t_out
 real*8  :: R, R_s, R_t, R_st, R_ss, R_tt, Z, Z_s, Z_t, Z_st, Z_ss, Z_tt, P, P_s, P_t, P_st, P_ss, P_tt
 real*8  :: tol, delta_phi, Zjac, psi_s, psi_t, R_in, Z_in, R_out, Z_out, Rmin, Rmax, Zmin, Zmax, PI, delta_s, delta_t, R_keep, Z_keep
 real*8  :: small_delta, small_delta_s, small_delta_t, delta_phi_local, delta_phi_step
+real*8  :: psi_axis, R_axis, Z_axis, s_axis, t_axis, atmp, cur_pert, psi_xpoint,R_xpoint,Z_xpoint,s_xpoint,t_xpoint, psi_bnd, psi_out
+integer :: i_elm_axis, i_elm_xpoint
 
 logical, external :: neighbours
 
-namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
+namelist /in1/  tstep, nstep, eta, visco, visco_par, cur_pert,      &
                 restart,  regrid,                                   &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
                 n_open,n_private,n_leg,  nout,                      &
@@ -50,6 +52,8 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
 write(*,*) '***************************************'
 write(*,*) '* JOREK2_poincare                     *'
 write(*,*) '***************************************'
+
+iplot_type = 2 ! 1: Poincare plot in (R,Z) coordinates, 2: in (R,theta) coordinates
 
 read(5,in1)
 
@@ -81,16 +85,16 @@ enddo
 
 PI = 2.d0 *asin(1.d0)
 
-n_lines = 25
-n_turn  = 8000
-n_phi   = 8000
+n_lines = 50
+n_turn  = 500
+n_phi   = 500
  
 delta_phi = 2.d0 * PI / float(n_period*n_phi)
 tol       = 1.d-6
 
 i_var_psi = 1
 
-allocate(Rp(n_turn),Zp(n_turn))
+allocate(Rp(n_turn),Zp(n_turn), Tp(n_turn),Pp(n_turn))
 
 Rmin = 1.d20; Rmax = -1.d20; Zmin = 1.d20; Zmax=-1.d20
 do i=1,node_list%n_nodes
@@ -107,10 +111,24 @@ do i=1,(n_tor-1)/2
 enddo
 write(*,*) ' modes   : ',mode
 write(*,*) ' nperiod : ',n_period
+
+call find_axis(node_list,element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis)
+if (xpoint) then
+  call find_xpoint(node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint)
+  psi_bnd = psi_xpoint
+else
+  psi_bnd = 0.d0
+endif
   
 call begplt('poincare.ps')
-call nframe(21,11,1,Rmin,Rmax,Zmin,Zmax,'Poincare',8,'R [m]',4,'Z [m]',4)
 
+open(21,file='poincare.txt')
+
+if (iplot_type .eq. 1) then
+  call nframe(21,11,1,Rmin,Rmax,Zmin,Zmax,'Poincare',8,'R [m]',4,'Z [m]',4)
+else
+  call nframe(1,11,1,0.d0,1.2d0,-PI,PI,'Poincare',8,'r [m]',4,'theta',5)
+endif
 
 do i_lines=1,n_lines
 
@@ -317,8 +335,13 @@ do i_lines=1,n_lines
     Z_line = Z
             
     ip = ip+1
+
+    call var_value(i_elm,1,s_line,t_line,p_line,psi_out)
+
     Rp(ip) = R_line
     Zp(ip) = Z_line
+    Tp(ip)  = atan2( Z_line - Z_axis, R_line - R_axis)
+    Pp(ip)  = (psi_out - psi_axis)/(psi_bnd - psi_axis)
 
     if (i_elm .eq. 0) exit
      
@@ -326,11 +349,21 @@ do i_lines=1,n_lines
   
   write(*,*) ' points : ',ip
 
+  do i=1,ip
+    write(21,'(4e18.8)') Rp(i),Zp(i),Pp(i),Tp(i)
+  enddo
+  
   call lincol(mod(i_lines,8))
-  call pplot(1,1,Rp,Zp,ip,1)
+   
+  if (iplot_type .eq. 1) then
+    call pplot(1,1,Rp,Zp,ip,1)
+  else
+    call pplot(1,1,Pp,Tp,ip,1)
+  endif
   
 enddo
 
+close(21)
 call finplt
 
 end
@@ -382,3 +415,41 @@ delta_t = - psi_s * R / (Zjac * F0) * delta_p
 return
 end
 
+subroutine var_value(i_elm,i_var,s_in,t_in,p_in,value_out)
+use parameters
+use elements_nodes_neighbours
+use phys_module
+
+implicit none
+
+integer :: i_var, i_elm, i_tor, i_harm
+
+real*8 :: s_in, t_in, p_in
+real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
+real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt
+real*8 :: value_out
+
+
+!call interp_RZ(node_list,element_list,i_elm,s_in,t_in,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
+!Zjac = (R_s * Z_t - R_t * Z_s)
+
+call interp(node_list,element_list,i_elm,i_var,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+
+value_out = P0
+
+do i_tor = 1, (n_tor-1)/2
+
+  i_harm = 2*i_tor
+
+  call interp(node_list,element_list,i_elm,i_var,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+
+  value_out = value_out + Pcos * cos(mode(i_harm)*p_in)
+
+  call interp(node_list,element_list,i_elm,i_var,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+
+  value_out = value_out + Psin * sin(mode(i_harm+1)*p_in)
+
+enddo
+
+return
+end

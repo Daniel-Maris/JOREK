@@ -45,7 +45,7 @@ if (index_start .ge. 1) then
 
   if (allocated(energies)) deallocate(energies)
   allocate(energies(n_tor,2,1:index_start+nstep))
-  
+
   energies = 0.d0
 
   read(21) xtime(1:index_start)
@@ -68,7 +68,7 @@ do i=2,index_start
              / (xtime(i)-xtime(i-1))
 
 ! write(*,'(i7,f10.3,200e14.6)') i,xtime(i),energies(1:n_tor,:,i),growth_mag,growth_kin
- write(*,'(i7,f10.3,200e14.6)') i,xtime(i),energies(1:n_tor,:,i)
+! write(*,'(i7,f10.3,200e14.6)') i,xtime(i),energies(1:n_tor,:,i)
 
 enddo
 
@@ -85,6 +85,8 @@ if (n_tor_tmp .lt. n_tor) then ! initialise new harmonics (only density and temp
 endif
 
 write(*,*) '********* end restart ******************'
+
+!call add_pellet(node_list,element_list,25.d0,0.06d0,0.03d0,3.78d0,0.14d0)
 
 return
 end

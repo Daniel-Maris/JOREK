@@ -47,7 +47,8 @@ if (my_id .eq. 0) then
     n_AA = max(n_AA,node_list%node(inode)%index(4))
   enddo
 
-  write(*,*) ' number of unknowns : ',n_AA, node_list%n_nodes * (n_order+1)
+  write(*,*) ' number of unknowns      : ',n_AA, node_list%n_nodes * (n_order+1)
+  write(*,*) ' number of boundary nodes: ',n_border
 
   if (.not. associated(mumps_par%A))     allocate(mumps_par%A(nz_AA))
   if (.not. associated(mumps_par%rhs))   allocate(mumps_par%rhs(n_AA))
@@ -73,7 +74,7 @@ if (my_id .eq. 0) then
     endif
   endif
 
-  amix = 0.5d0
+  amix = 0.d0
 !  if (itype .eq. -1) amix = 0.d0
 
   do ife =1, n_elements
@@ -188,6 +189,8 @@ endif
 mumps_par%JOB = 6
 mumps_par%SYM = 0
 mumps_par%icntl(7) = 4
+
+write(*,*) ' mumps : ',mumps_par%n, mumps_par%nz
 
 call DMUMPS(mumps_par)
 
