@@ -3,7 +3,7 @@ module parameters
   implicit none
 
   integer      :: n_var, n_dim, n_order, n_tor, n_period, n_plane, n_vertex_max
-  integer      :: n_nodes_max ,n_elements_max, n_pieces_max,n_degrees
+  integer      :: n_nodes_max ,n_elements_max, n_boundary_max, n_pieces_max,n_degrees
   
   parameter (n_var          = 6)                       ! the number of variables
   parameter (n_dim          = 2)                       ! the number of dimensions

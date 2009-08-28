@@ -14,7 +14,7 @@ all: modules \
      temperature_e.o \
      add_pellet.o
 
-modules : mod_parameters.o mod_phys_module.o 
+modules : mod_parameters.o mod_phys_module.o mod_nodes_elements.o
 
 clean :
 	rm *.mod *.o

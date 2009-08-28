@@ -39,15 +39,13 @@ use pastix_module
 use data_structure
 use phys_module
 use global_distributed_matrix
+use nodes_elements
 use vacuum_response_module
 
 implicit none
 
 include 'mpif.h'
 
-type (type_node_list)    :: node_list
-type (type_element_list) :: element_list
-type (type_boundary_list):: boundary_list
 type (type_surface_list) :: surface_list
 logical                  :: grid_changed, ELM_is_local
 real*8                   :: W_mag(n_tor), W_kin(n_tor), growth_mag, growth_kin, growth_mag0, growth_kin0

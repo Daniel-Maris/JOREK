@@ -82,7 +82,7 @@ RHS_loc  = 0.d0
 !$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)              &
 !$omp   private(ife,ielm,iv,inode,element,nodes,ELM,RHS,ELM2,RHS2,i,inode1,i_order,index_node1,            &
 !$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position, &
-!$omp           l,index_kl,ilarge2,omp_nthreads,omp_tid)
+!$omp           l,index_kl,ilarge2,iv2,vertex,inode2,omp_nthreads,omp_tid)
 
 !omp_nthreads = omp_get_num_threads()
 !omp_tid      = omp_get_thread_num()
