@@ -1,5 +1,5 @@
-subroutine construct_matrix(my_id,node_list,element_list,boundary_list,local_elms,n_local_elms,&
-                            index_min,index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint)
+subroutine construct_matrix(my_id,local_elms,n_local_elms,index_min,index_max, &
+                            xpoint2,psi_axis,psi_bnd,Z_xpoint)
 !---------------------------------------------------------------
 ! collect the element matrices into one large sparse matrix
 ! in coordinate format
@@ -8,13 +8,11 @@ use parameters
 use data_structure
 use global_distributed_matrix
 use phys_module
+use nodes_elements
 
 implicit none
 include 'mpif.h'
 
-type (type_node_list)     :: node_list
-type (type_element_list)  :: element_list
-type (type_boundary_list) :: boundary_list
 type (type_element)       :: element
 type (type_node)          :: nodes(n_vertex_max)
 
@@ -47,7 +45,7 @@ i_bnd = 0
 do i=1, n_local_elms
 
   ielm = local_elms(i)
-  
+
   do iv=1,n_vertex_max
 
     inode = element_list%element(ielm)%vertex(iv)
@@ -79,25 +77,25 @@ A_glob   = 0.d0
 RHS_glob = 0.d0
 RHS_loc  = 0.d0
 
-
 !$omp parallel default(none) &
-!$omp   shared(n_local_elms,irn_glob,jcn_glob,A_glob,RHS_loc,local_elms,element_list,node_list,               &
-!$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)                                 &
-!$omp   private(ife,ielm,iv,iv2,inode,inode1,inode2,element,nodes,ELM,RHS,ELM2,RHS2,i,i_order,index_node1,    &
-!$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position,              &
-!$omp           l,index_kl,ilarge2,vertex,omp_nthreads,omp_tid)
+!$omp   shared(n_local_elms,irn_glob,jcn_glob,A_glob,RHS_loc,local_elms,element_list,node_list,  &
+!$omp          index_min, index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint, my_id)              &
+!$omp   private(ife,ielm,iv,inode,element,nodes,ELM,RHS,ELM2,RHS2,i,inode1,i_order,index_node1,            &
+!$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position, &
+!$omp           l,index_kl,ilarge2,omp_nthreads,omp_tid)
 
 !omp_nthreads = omp_get_num_threads()
 !omp_tid      = omp_get_thread_num()
 !write(*,*) my_id,' number of threads, my_tid : ',omp_nthreads,omp_tid
 
+
 !$omp do
 do ife =1, n_local_elms
-  
+
   ielm = local_elms(ife)
-  
+
   element = element_list%element(ielm)
- 
+
   do iv = 1, n_vertex_max
 
     inode     = element%vertex(iv)
@@ -115,42 +113,42 @@ do ife =1, n_local_elms
     call element_matrix(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)          ! use direct integration
 
     do iv = 1, n_vertex_max                                                                     ! boundary integrals
-    
+
       iv2  = mod(iv, n_vertex_max) + 1
-      
+
       inode1 = element%vertex(iv)
       inode2 = element%vertex(iv2)
-      
+
       if (     ((node_list%node(inode1)%boundary .eq. 1) .or.(node_list%node(inode1)%boundary .eq. 3)) &
          .and. ((node_list%node(inode2)%boundary .eq. 1) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
-	 
+
 	nodes(1) = node_list%node(inode1)
 	nodes(2) = node_list%node(inode2)
 	vertex   = (/ iv, iv2 /)
-	
+
 	write(*,*) iv,iv2,'boundary_matrix_open : ',inode1,inode2
 
         call boundary_matrix_open(vertex, element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)    ! only for open field lines for now
-      
+
       endif
 
       if (     ((node_list%node(inode1)%boundary .eq. 2) .or.(node_list%node(inode1)%boundary .eq. 3)) &
          .and. ((node_list%node(inode2)%boundary .eq. 2) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
-	 
+
 !	nodes(1) = node_list%node(inode1)
 !	nodes(2) = node_list%node(inode2)
 !	vertex   = (/ iv, iv2 /)
-	
+
 !	write(*,*) iv,iv2,'boundary_matrix : ',inode1,inode2
 
 !        call boundary_matrix(vertex, element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)    ! only for open field lines for now
-      
+
       endif
-    
+
     enddo
-    
+
   endif
- 
+
 !------------------------------------------------------- comparing two versions of element_matrix
 !  if (ife .eq. n_local_elms/2) then
 !    call element_matrix_fft(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM2, RHS2)
@@ -240,10 +238,10 @@ call MPI_Reduce(RHS_loc,RHS_glob,ndof_glob,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_CO
 
 deallocate(RHS_loc)
 
-call vacuum(my_id,node_list,element_list,boundary_list,index_min,index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint)	
+call vacuum(my_id,node_list,element_list,boundary_list,index_min,index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint)
 
 call boundary_conditions(my_id,node_list,element_list,local_elms,n_local_elms,index_min,index_max, &
-                         xpoint2,psi_axis,psi_bnd,Z_xpoint)			    
+                         xpoint2,psi_axis,psi_bnd,Z_xpoint)
 
 
 return

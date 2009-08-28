@@ -29,10 +29,10 @@ icntl(5) = 3            ! orthogonalization scheme
 icntl(6) = 1            ! initial guess  (1) = user supplied guess
 icntl(8) = 1            ! residual calculation strategy at restart
 
-cntl(1) = 1.d-9         ! stopping tolerance
+cntl(1) = 1.d-7         ! stopping tolerance
 cntl(2) = 1.d0
 cntl(3) = 1.d0
-cntl(4) = 1.d3
+cntl(4) = 1.d3          ! 1.d0
 cntl(5) = 1.d0
 
 m = 20

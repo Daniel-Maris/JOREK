@@ -74,7 +74,7 @@ real*8 :: zFFprime, dFFprime_dpsi, dFFprime_dz, dFFprime_dpsi_dz,dFFprime_dpsi2,
 real*8 :: Rp, Zp, R_out,Z_out,s_out,t_out,P_s,P_t,P_st,P_ss,P_tt, R, psi
 real*8 :: Rp_start, Rp_end, Zp_start, Zp_end
 real*8,allocatable :: xp(:), yp1(:), yp2(:), yp3(:)
-integer            :: nplot,iplot,i_elm,ifail, ivar
+integer            :: nplot, iplot, i_elm, ifail, ivar, iter_big, iter_precon
 
 !***********************************************************************
 !*                  intialisation                                      *
@@ -102,7 +102,7 @@ pastix_initialised = .false.
 pastix_analysed    = .false.
 pastix_smp_only    = .false.         ! implies that each MPI group resides within one node!
                                      ! requires no_mpi for Pastix library
-adaptive_time = .true.
+adaptive_time = .false.
 
 if (n_tor .eq. 1) then
   method = 'direct'
@@ -259,7 +259,7 @@ call MPI_Barrier(MPI_COMM_WORLD,ierr)
 !*                        vacuum initialisation                         *
 !************************************************************************
 if (freeboundary) then
-  
+
   if (my_id .eq. 0) call export_boundary(node_list,boundary_list)
 
   write(*,*) ' n_boundary : ',boundary_list%n_boundary
@@ -357,7 +357,7 @@ if (nstep .gt. 0) then
     else
       call initialise_mumps(MPI_COMM_N)        ! start MUMPS sparse matrix solver on local groups
     endif
-  endif  
+  endif
 
 endif
 
@@ -372,7 +372,9 @@ endif
 
 if (nstep .gt. 0) call update_deltas(my_id,node_list)        ! create list of delta values in local_matrix module
 
-iter_gmres = 999
+iter_gmres  = 999
+iter_big    = 200
+iter_precon = 22
 
 do istep = 1, nstep
 
@@ -425,7 +427,7 @@ do istep = 1, nstep
     solve_only = .false.
     if ((gmres) .and. (istep .gt. 1)) then
       solve_only = .true.
-      if (iter_gmres .gt. 50) then
+      if (iter_gmres .gt. iter_precon) then                        ! redo preconditioner
         solve_only = .false.
       endif
     endif
@@ -467,7 +469,7 @@ do istep = 1, nstep
   if (my_id .eq. 0) write(*,'(i3,A,f8.3)') my_id,' solve : ',t_solve_1-t_solve_0
   if (my_id .eq. 0) write(*,'(i3,A,f8.3)') my_id,' gmres : ',t_solve_2-t_solve_1
 
-  if ( (gmres .and. (iter_gmres .lt. 400)) .or. (trim(method) .eq. 'direct') ) then
+  if ( (gmres .and. (iter_gmres .lt. iter_big)) .or. (trim(method) .eq. 'direct') ) then
 
     call update_values(my_id,node_list,deltas)         ! add solution to node values
 
@@ -485,9 +487,8 @@ do istep = 1, nstep
   mindelta = minval(deltas); maxdelta = maxval(deltas);
   if (my_id .eq. 0) write(*,'(A,2e16.8,2i12)') ' min/max deltas : ',mindelta,maxdelta,minloc(deltas),maxloc(deltas)
 
-
   if ((trim(method) .ne. 'direct') .and. (gmres) .and. (adaptive_time) ) then        ! experimental
-    if (iter_gmres .gt. 200) then
+    if (iter_gmres .ge. iter_big) then
       tstep = tstep /2.d0
       write(*,*) my_id,' REDUCTION TIMESTEP : ',tstep
     elseif (max(abs(mindelta),abs(maxdelta)) .gt. 0.05) then
@@ -539,21 +540,21 @@ if (nstep .gt.0) then
     mumps_par%JOB = -2                            ! clean up this instance of mumps
     call DMUMPS(mumps_par)
   elseif (use_pastix) then
-    
+
     pastix_iparm(2)     = 7                       ! Clean-up
     pastix_iparm(3)     = 7
-    
+
     if (trim(method) .eq. 'direct') then
-    
+
       call pastix_fortran(pastix_data,MPI_COMM_WORLD,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                           pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
-    
+
     elseif ( (.not. pastix_smp_only) .or. (pastix_smp_only .and. (my_id_n .eq.0))  ) then
-    
+
       call pastix_fortran(pastix_data,MPI_COMM_N,mumps_par%n,mumps_par%jcn,mumps_par%irn,mumps_par%A, &
                           pastix_perm_vars,pastix_iperm_vars,mumps_par%rhs,1,pastix_iparm,pastix_dparm)
     endif
-    
+
   endif
 endif
 
@@ -624,7 +625,7 @@ if (my_id .eq. 0)  then
 
   Rp_start = R_axis - amin*2.d0
   Rp_end   = R_axis + amin*2.d0
-  
+
   Zp = Z_axis
 
   do i=1,nplot
