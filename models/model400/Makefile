@@ -5,7 +5,10 @@ all: modules \
      sources.o \
      element_matrix.o \
      element_matrix_fft.o \
+     boundary_matrix.o   \
+     boundary_matrix_open.o   \
      boundary_conditions.o \
+     vacuum.o \
      initial_conditions.o
 
 modules : mod_parameters.o mod_phys_module.o 

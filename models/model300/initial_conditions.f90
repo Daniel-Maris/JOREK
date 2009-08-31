@@ -10,8 +10,8 @@ type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
 type (type_surface_list) :: surface_list
 
-integer    :: my_id, i, in, mm, i_elm_axis, i_elm_xpoint
-real*8     :: amplitude, psi, psi_axis
+integer    :: my_id, i, in, mm, i_elm_axis,i_elm_xpoint
+real*8     :: amplitude, psi, psi_axis, theta, PI
 real*8     :: zn, dn_dpsi, dn_dpsi2, dn_dz, dn_dz2, dn_dpsi_dz, dn_dpsi3, dn_dpsi2_dz, dn_dpsi_dz2
 real*8     :: zT, dT_dpsi, dT_dpsi2, dT_dz, dT_dz2, dT_dpsi_dz, dT_dpsi3, dT_dpsi2_dz, dT_dpsi_dz2
 real*8     :: zFFprime,dFFprime_dpsi,dFFprime_dz, dFFprime_dpsi_dz, dFFprime_dz2, dFFprime_dpsi2
@@ -27,6 +27,7 @@ if (my_id .eq. 0) then
   write(*,*) '***************************************'
 endif
 
+PI = 2.d0 *asin(1.d0)
 
 if (my_id .eq. 0) then
 
@@ -76,6 +77,27 @@ if (my_id .eq. 0) then
 
 endif
 
+!----------------------------------------- flux boundary perturbation (to be completed, see Marina)
+!if (my_id .eq. 0) then
+!  do i=1,node_list%n_nodes
+!    psi = node_list%node(i)%values(1,1,1)
+!    R   = node_list%node(i)%x(1,1)
+!    Z   = node_list%node(i)%x(1,2)
+!    theta = atan2(Z-Z_axis, R-R_axis)
+!    psi_bnd = 0.d0
+!    if (xpoint2) psi_bnd = psi_xpoint
+!    psi_n = (psi - psi_axis)/(psi_bnd - psi_axis)     
+!    if (node_list%node(i)%boundary .ne. 0) then
+!      node_list%node(i)%values(2,1,1) =  0.01 * sin(2.d0*theta)
+!      node_list%node(i)%values(3,1,1) = -0.01 * cos(2.d0*theta) 
+!      node_list%node(i)%values(2,3,1) =  0.01 * cos(2.d0*theta) * 2.d0*PI/float(n_tht)
+!      node_list%node(i)%values(3,3,1) = +0.01 * sin(2.d0*theta) * 2.d0*PI/float(n_tht)
+!    endif
+!  enddo
+!call poisson(my_id,-2,node_list,element_list,1,3,2,xpoint2) 
+!call poisson(my_id,-2,node_list,element_list,1,3,3,xpoint2) 
+!endif    
+    
 !---------------------------- initialise perturbations
 amplitude = 1.d-12
 mm = 2
@@ -97,8 +119,7 @@ do in=2,n_tor
       node_list%node(i)%values(in,2,4) = amplitude * (1. - 2.d0 * psi_n)/(psi_bnd - psi_axis) * node_list%node(i)%values(1,2,1)
       node_list%node(i)%values(in,3,4) = amplitude * (1. - 2.d0 * psi_n)/(psi_bnd - psi_axis) * node_list%node(i)%values(1,3,1)
       node_list%node(i)%values(in,4,4) = amplitude * (1. - 2.d0 * psi_n)/(psi_bnd - psi_axis) * node_list%node(i)%values(1,4,1)
-
-
+      
       if (xpoint2 .and. ((psi_n .gt. 1.d0) .or. (Z .lt. Z_xpoint))) then
         node_list%node(i)%values(in,1:4,4) = 0.d0
       endif
