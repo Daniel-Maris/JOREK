@@ -395,8 +395,8 @@ do istep = 1, nstep
 
   call cpu_time(t_matrix_0)
 
-  call construct_matrix(my_id,node_list,element_list,boundary_list, &
-                        local_elms,n_local_ELms,index_min(my_id+1),index_max(my_id+1), &
+
+  call construct_matrix(my_id,local_elms,n_local_ELms,index_min(my_id+1),index_max(my_id+1), &
                         xpoint,psi_axis,psi_bnd,Z_xpoint)        ! construct the matrix from elemental matrices
 
 
