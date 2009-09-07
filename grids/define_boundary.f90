@@ -11,7 +11,7 @@ use phys_module
 implicit none
 
 integer             :: n_bnd, i, j, m
-real*8, allocatable :: r_bnd(:),psi_bnd(:),dr_bnd(:),dpsi_bnd(:),tht_bnd(:)
+real*8, allocatable :: r_tmp(:),psi_tmp(:),dr_tmp(:),dpsi_tmp(:),tht_tmp(:)
 real*8, allocatable :: Work(:)
 real*8              :: PI, Vr(4), Vpsi(4), RP, ZP, theta, tht_i
 
@@ -24,54 +24,88 @@ PI = 2.d0*asin(1.d0)
 !------------------------------- boundary given by ellip, tria etc as splined in r_bnd, psi_bnd (module boundary)
 if (mf .le. 0) then
 
-  write(*,'(A18,f8.4)')  '  ellipticity     : ',ellip
-  write(*,'(A18,2f8.4)') '  triangularity   : ',tria_u,tria_l
-  write(*,'(A18,2f8.4)') '  quadrangularity : ',quad_u,quad_l
-  write(*,'(A18,f8.4)')  '  Xpoint(ampl)    : ',xampl
-  write(*,'(A18,f8.4)')  '  Xpoint(width)   : ',xwidth
-  write(*,'(A18,f8.4)')  '  Xpoint(sigma)   : ',xsig
-  write(*,'(A18,f8.4)')  '  Xpoint(angle)   : ',xtheta
+  if (n_boundary .eq. 0) then
 
-  n_bnd = 256
-  allocate(tht_bnd(n_bnd),r_bnd(n_bnd),dr_bnd(n_bnd),psi_bnd(n_bnd),dpsi_bnd(n_bnd))
+    write(*,'(A18,f8.4)')  '  ellipticity     : ',ellip
+    write(*,'(A18,2f8.4)') '  triangularity   : ',tria_u,tria_l
+    write(*,'(A18,2f8.4)') '  quadrangularity : ',quad_u,quad_l
+    write(*,'(A18,f8.4)')  '  Xpoint(ampl)    : ',xampl
+    write(*,'(A18,f8.4)')  '  Xpoint(width)   : ',xwidth
+    write(*,'(A18,f8.4)')  '  Xpoint(sigma)   : ',xsig
+    write(*,'(A18,f8.4)')  '  Xpoint(angle)   : ',xtheta
 
-  do i=1,n_bnd
+    n_bnd = 256
+    allocate(tht_tmp(n_bnd),r_tmp(n_bnd),dr_tmp(n_bnd),psi_tmp(n_bnd),dpsi_tmp(n_bnd))
 
-    theta = 2.d0*PI * real(i-1)/real(n_bnd-1)
+    do i=1,n_bnd
 
-    if (theta .lt. pi) then
+      theta = 2.d0*PI * real(i-1)/real(n_bnd-1)
 
-      RP = cos(theta + tria_u*sin(theta) + quad_u*sin(2.d0*theta))
+      if (theta .lt. pi) then
 
-    else
+        RP = cos(theta + tria_u*sin(theta) + quad_u*sin(2.d0*theta))
 
-      RP = cos(theta + tria_l*sin(theta) + quad_l*sin(2.d0*theta))
+      else
 
-    endif
+        RP = cos(theta + tria_l*sin(theta) + quad_l*sin(2.d0*theta))
 
-    ZP = ellip * sin(theta)
+      endif
 
-    tht_bnd(i) = atan2(ZP,RP)
-    if (tht_bnd(i) .lt. 0.d0*pi)    tht_bnd(i) = tht_bnd(i) + 2.d0*pi
+      ZP = ellip * sin(theta)
 
-    tht_i = tht_bnd(i)
-    if (theta      .lt. 0.5d0*pi)   tht_i = tht_i + 2.d0*pi
+      tht_tmp(i) = atan2(ZP,RP)
+      if (tht_tmp(i) .lt. 0.d0*pi)    tht_tmp(i) = tht_tmp(i) + 2.d0*pi
 
-    r_bnd(i)   = sqrt(rp**2+zp**2)
-    psi_bnd(i) =  - xshift * sin(tht_i) + xleft * cos(tht_i) &
-               + xampl*(-1.d0 + (xwidth*(tht_i-xtheta)/xsig)**2)* exp( - ((tht_i-xtheta)/xsig)**2)
+      tht_i = tht_tmp(i)
+      if (theta      .lt. 0.5d0*pi)   tht_i = tht_i + 2.d0*pi
 
-  enddo
+      r_tmp(i)   = sqrt(rp**2+zp**2)
+      psi_tmp(i) =  - xshift * sin(tht_i) + xleft * cos(tht_i) &
+                 + xampl*(-1.d0 + (xwidth*(tht_i-xtheta)/xsig)**2)* exp( - ((tht_i-xtheta)/xsig)**2)
 
-  r_bnd(n_bnd)   = r_bnd(1)
-  psi_bnd(n_bnd) = psi_bnd(1)
+    enddo
+
+    r_tmp(n_bnd)   = r_tmp(1)
+    psi_tmp(n_bnd) = psi_tmp(1)
+
+  else
+
+    write(*,'(A)')     ' boundary information from R_bnd, Z_bnd, psi_bnd '
+    write(*,'(A,i6)')  ' n_bnd : ',n_boundary
+
+    n_bnd = n_boundary
+
+    allocate(tht_tmp(n_bnd),r_tmp(n_bnd),dr_tmp(n_bnd),psi_tmp(n_bnd),dpsi_tmp(n_bnd))
+
+    do i=1,n_bnd
+
+      RP = R_boundary(i) - R_geo
+      ZP = Z_boundary(i) - Z_geo
+
+      tht_tmp(i) = atan2(ZP,RP)
+
+      if (tht_tmp(i) .lt. 0.d0*pi)    tht_tmp(i) = tht_tmp(i) + 2.d0*pi
+
+      tht_i = tht_tmp(i)
+      if (theta      .lt. 0.5d0*pi)   tht_i = tht_i + 2.d0*pi
+
+      r_tmp(i)   = sqrt(rp**2+zp**2)
+      psi_tmp(i) = psi_boundary(i)
+
+    enddo
+
+    r_tmp(n_bnd)   = r_tmp(1)
+    psi_tmp(n_bnd) = psi_tmp(1)
+    tht_tmp(n_bnd) = tht_tmp(1) + 2.d0 * PI
+
+  endif
 
   allocate(work(3*n_bnd))
 
-  call TB15A(n_bnd,tht_bnd,r_bnd,dr_bnd,work,6)           ! periodic spline of the radius
-  call TB15A(n_bnd,tht_bnd,psi_bnd,dpsi_bnd,work,6)       ! periodic spline of flux
+  call TB15A(n_bnd,tht_tmp,r_tmp,dr_tmp,work,6)           ! periodic spline of the radius
+  call TB15A(n_bnd,tht_tmp,psi_tmp,dpsi_tmp,work,6)       ! periodic spline of flux
 
-  call lplot6(1,1,tht_bnd,psi_bnd,n_bnd,'psi at boundary')
+  call lplot6(1,1,tht_tmp,psi_tmp,n_bnd,'psi at boundary')
 
   deallocate(work)
 
@@ -81,11 +115,14 @@ if (mf .le. 0) then
 
     theta = 2.d0 * PI * float(j-1)/float(mf)
 
-    call  TG02A(-1,n_bnd,tht_bnd,r_bnd,dr_bnd,theta,Vr)
-    call  TG02A(-1,n_bnd,tht_bnd,psi_bnd,dpsi_bnd,theta,Vpsi)
+    if (theta .lt. tht_tmp(1))     theta = theta + 2.d0 *PI
+    if (theta .gt. tht_tmp(n_bnd)) theta = theta - 2.d0 *PI
+
+    call  TG02A(-1,n_bnd,tht_tmp,r_tmp,dr_tmp,theta,Vr)
+    call  TG02A(-1,n_bnd,tht_tmp,psi_tmp,dpsi_tmp,theta,Vpsi)
 
     fbnd(j) = Vr(1)
-    fpsi(j) = Vpsi(1)
+    fpsi(j) = - Vpsi(1)
 
   enddo
 
@@ -101,9 +138,14 @@ if (mf .le. 0) then
     fpsi(m) = - fpsi(m)
   enddo
 
+  fpsi(1) = 0.d0
+
+  deallocate(tht_tmp,r_tmp,dr_tmp,psi_tmp,dpsi_tmp)
+
 else
   write(*,*) ' boundary defined by Fourier series : ',mf
 endif
+
 
 return
 
