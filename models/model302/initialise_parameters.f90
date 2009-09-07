@@ -15,6 +15,7 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 xr1, sig1, xr2, sig2,                               &
                 R_begin, R_end, Z_begin, Z_end,                     &
                 R_geo, Z_geo, amin, mf, fbnd, fpsi, mode,           &
+                R_boundary, Z_boundary, psi_boundary, n_boundary,   &
                 F0,                                                 &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
@@ -40,7 +41,7 @@ if (my_id .eq. 0) then
   restart      = .false.
   import_equil = .false.
   regrid       = .false.
-  
+
   freeboundary = .false.
 
   n_R       = 3
@@ -62,8 +63,13 @@ if (my_id .eq. 0) then
   F0        = 10.d0
   GAMMA     = 5.d0 / 3.d0
 
-  mf        = 8
+  mf        = 2
   fbnd      = 0.d0; fbnd(1) =2.d0
+
+  R_boundary   = 0.d0
+  Z_boundary   = 0.d0
+  psi_boundary = 0.d0
+  n_boundary   = 0
 
   ellip  = 1.d0
   tria_u = 0.d0
