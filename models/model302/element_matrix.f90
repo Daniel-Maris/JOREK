@@ -539,11 +539,11 @@ do ms=1, n_gauss
 
                  amat_75 = + v * (rho_s * T0 * ps0_t - rho_t * T0 * ps0_s)                 * theta * tstep &
                            + v * (rho * T0_s * ps0_t - rho * T0_t * ps0_s)                 * theta * tstep &
-                           + v * F0 / BigR * rho_p * T0                             * xjac * theta * tstep
+                           + v * F0 / BigR * (rho_p * T0 + rho * T0_p)              * xjac * theta * tstep
 
                  amat_76 = + v * (T_s * R0 * ps0_t - T_t * R0 * ps0_s)                     * theta * tstep &
                            + v * (T * R0_s * ps0_t - T * R0_t * ps0_s)                     * theta * tstep &
-                           + v * F0 / BigR * T_p * R0                               * xjac * theta * tstep
+                           + v * F0 / BigR * (T_p * R0 + T * R0_p)                  * xjac * theta * tstep
 
                  amat_77 = v * Vpar * R0 * F0**2 / BigR * xjac * (1.d0 + zeta) &
                          + visco_par * (v_x * Vpar_x + v_y * Vpar_y) * BigR         * xjac  * theta * tstep !&
