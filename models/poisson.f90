@@ -75,7 +75,7 @@ if (my_id .eq. 0) then
   endif
 
   amix = 0.d0
-!  if (itype .eq. -1) amix = 0.d0
+  if (itype .eq. -1) amix = 0.75d0
 
   do ife =1, n_elements
 
@@ -112,7 +112,7 @@ if (my_id .eq. 0) then
 
         index_large_i = node_list%node(inode)%index(j)  ! base index in the main matrix
 
-        mumps_par%rhs(index_large_i) = mumps_par%rhs(index_large_i) + (1.d0-amix) * RHS(index_ij)
+        mumps_par%rhs(index_large_i) = mumps_par%rhs(index_large_i) + RHS(index_ij)
 
         do k=1,n_vertex_max
 
@@ -206,7 +206,7 @@ if (my_id .eq. 0) then
 
       index = node_list%node(i)%index(k)
 
-      node_list%node(i)%values(i_harm,k,ivar_out) = node_list%node(i)%values(i_harm,k,ivar_out) + mumps_par%RHS(index)
+      node_list%node(i)%values(i_harm,k,ivar_out) = node_list%node(i)%values(i_harm,k,ivar_out) + (1. - amix) * mumps_par%RHS(index)
 
     enddo
   enddo
