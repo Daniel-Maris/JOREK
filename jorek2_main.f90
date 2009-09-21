@@ -611,7 +611,7 @@ if (my_id .eq. 0)  then
 !---------------------------------------------- plot equilibrium current profile (to be removed)
   call find_axis(node_list,element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis)
 
-  nplot = 201
+  nplot = 501
   allocate(xp(nplot),yp1(nplot),yp2(nplot),yp3(nplot))
   iplot = 0
 
@@ -643,14 +643,14 @@ if (my_id .eq. 0)  then
       call FFprime(    xpoint, Zp, Z_xpoint, psi,psi_axis,psi_xpoint,           &
                        zFFprime,dFFprime_dpsi,dFFprime_dz,dFFprime_dpsi2,dFFprime_dz2,dFFprime_dpsi_dz)
 
-      zjz   = zFFprime - Rp*Rp * (zn * dT_dpsi + dn_dpsi * zT)
+      zjz   = (zFFprime - Rp*Rp * (zn * dT_dpsi + dn_dpsi * zT)) / Rp
 
       iplot = iplot + 1
 
       xp(iplot)  = Rp
-      yp1(iplot) = zFFprime
+      yp1(iplot) = zFFprime / Rp
       yp2(iplot) = zjz
-      yp3(iplot) = - Rp*Rp * (zn * dT_dpsi + dn_dpsi * zT)
+      yp3(iplot) = - Rp*Rp * (zn * dT_dpsi + dn_dpsi * zT) / Rp
 
 !      write(*,'(A,8e16.8)') ' profiles : ',xp(iplot),psi,psi_axis,psi_xpoint,yp2(iplot),yp1(iplot),yp3(iplot)
 
@@ -668,7 +668,9 @@ if (my_id .eq. 0)  then
 
 !  call export_POV(node_list,element_list,3,1)          ! export to POVray native bezier patch format
 
-  if (allocated(energies))  deallocate(energies)
+  call export_helena(node_list,element_list)
+
+if (allocated(energies))  deallocate(energies)
   if (allocated(xtime))     deallocate(xtime)
 
 endif

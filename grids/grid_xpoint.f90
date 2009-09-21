@@ -78,7 +78,7 @@ SIG_theta   = 0.03d0 !0.03d0
 SIG_leg_0   = 0.05d0
 SIG_leg_1   = 0.2d0
 
-dPSI_open    = 0.18 !0.15 !0.22 !0.18  ! 0.10
+dPSI_open    = 0.11 !0.18 !0.15 !0.22 !0.18  ! 0.10
 dPSI_private = 0.03 !0.06 !0.03 !0.06 ! 0.03 ! 0.075
 
 allocate(s_tmp(n_flux_2+1))

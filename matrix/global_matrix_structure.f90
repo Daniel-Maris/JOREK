@@ -109,7 +109,7 @@ do i=1,n_local_elms                                                 ! loop over 
           enddo
         enddo
 	
-	if (freeboundary .and. (node_list%node(inode1)%boundary)) then      ! add contributions from all boundary nodes
+	if (freeboundary .and. (node_list%node(inode1)%boundary .ne. 0)) then      ! add contributions from all boundary nodes
 
           do ibnd = 1,boundary_list%n_boundary
   

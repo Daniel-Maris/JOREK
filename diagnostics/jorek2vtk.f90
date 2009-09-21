@@ -39,6 +39,7 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 xr1, sig1, xr2, sig2,                               &
                 R_begin, R_end, Z_begin, Z_end,                     &
                 R_geo, Z_geo, amin, mf, fbnd, fpsi, mode,           &
+                R_boundary, Z_boundary, psi_boundary, n_boundary,   &
                 F0,                                                 &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
@@ -48,14 +49,15 @@ namelist /in1/  tstep, nstep, eta, visco, visco_par,                &
                 particlesource, heatsource,                         &
                 eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
-                xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint
+                xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint,      &
+                freeboundary
 
 
 read(5,in1)               ! read the namelist input file
 
 ivtk = 22                 ! an arbitrary unit number for the VTK output file
 
-nsub  = 2                 ! the number of subdivisions of the cubic finite elements into linear pieces
+nsub  = 5                 ! the number of subdivisions of the cubic finite elements into linear pieces
 i_tor = -1
 
 n_scalars = n_var + 8     ! number of scalars to write to the VTK output file
@@ -159,23 +161,23 @@ do i=1,element_list%n_elements
         endif
 
       else
-      
-        u0_x = 0.d0; u0_y = 0.d0; ps_x = 0.d0; ps_y  = 0.d0; zj_x  = 0.d0; zj_y  = 0.d0; 
+
+        u0_x = 0.d0; u0_y = 0.d0; ps_x = 0.d0; ps_y  = 0.d0; zj_x  = 0.d0; zj_y  = 0.d0;
 	TT_x = 0.d0; TT_y = 0.d0; TT_p = 0.d0; RHO_x = 0.d0; RHO_y = 0.d0; RHO_p = 0.d0;
-    
+
         do i_tor = 1,n_tor
 
           do m=1,n_var
             call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,m) = scalars(inode,m) + P * HZ(i_tor,1)
           enddo
-          
+
 	  ps0 = scalars(inode,1)
           psi_norm = (ps0 - psi_axis)/(psi_bnd - psi_axis)
           if ((psi_norm .lt. 1.d0) .and. (Z .lt. Z_xpoint)) then
             psi_norm = 2.d0 - psi_norm
           endif
-          	  
+
           call interp(node_list,element_list,i,1,i_tor,s,t,Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt)
           call interp(node_list,element_list,i,2,i_tor,s,t,U,U_s,U_t,U_st,U_ss,U_tt)
           call interp(node_list,element_list,i,3,i_tor,s,t,ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_ss,ZJ_tt)
@@ -185,7 +187,7 @@ do i=1,element_list%n_elements
           call interp(node_list,element_list,i,7,i_tor,s,t,V,V_s,V_t,V_st,V_ss,V_tt)
 
           if ((xjac .gt. 1.d-6)) then      ! avoid the axis
-          
+
 	    u0_x  = u0_x   + (   Z_t * U_s - Z_s * U_t )     / xjac * HZ(i_tor,1)
             u0_y  = u0_y   + ( - R_t * U_s + R_s * U_t )     / xjac * HZ(i_tor,1)
 
@@ -202,26 +204,26 @@ do i=1,element_list%n_elements
             RHO_x = RHO_x  + (   Z_t * RHO_s - Z_s * RHO_t ) / xjac * HZ(i_tor,1)
             RHO_y = RHO_y  + ( - R_t * RHO_s + R_s * RHO_t ) / xjac * HZ(i_tor,1)
 	    RHO_p = RHO_p  + RHO * HZ_p(i_tor,1)
-          
-	  endif 
-	
+
+	  endif
+
 	enddo  ! end loop toroidal harmonics
-	  
+
         v_perp = R * sqrt(u0_x*u0_x + u0_y * u0_y)
-	      
+
         Btot = sqrt(F0**2 + ps_x**2 + ps_y**2) / BigR
-   
+
         ZK_prof = ZK_perp(1) * ((1.d0-ZK_perp(2)) + ZK_perp(2) *(0.5d0 - 0.5d0*tanh((psi_norm-ZK_perp(5))/ZK_perp(4))))
         D_prof  = D_perp(1)  * ((1.d0-D_perp(2))  + D_perp(2)  *(0.5d0 - 0.5d0*tanh((psi_norm-D_perp(5)) /D_perp(4))))
- 
+
         grad_psi = sqrt(ps_x*ps_x + ps_y*ps_y)
 
 !   'E_flux_Kpar ','E_flux_kperp','E_flux_Vpar ','E_flux_Vperp','D_flux_Dperp','D_flux_Vpar ','D_flux_Vperp'/)
-	    
+
         scalars(inode,n_var+1)   = scalars(inode,5) * scalars(inode,6)
 
         if (grad_psi .ne. 0.d0) then
-     
+
           scalars(inode,n_var+2) = ZK_par * ( F0 * TT_p / BigR**2  + (TT_x * ps_y - TT_y * ps_x) / BigR ) / Btot
 
           scalars(inode,n_var+3) = ZK_prof * (TT_x * ps_x + TT_y * ps_y) / grad_psi
@@ -231,13 +233,13 @@ do i=1,element_list%n_elements
           scalars(inode,n_var+5) = BigR   * (u0_x * ps_y - u0_y * ps_x) / sqrt(ps_x*ps_x + ps_y*ps_y) * scalars(inode,5) * scalars(inode,6)
 
           scalars(inode,n_var+6) = D_prof * (RHO_x * ps_x + RHO_y * ps_y) / sqrt(ps_x*ps_x + ps_y*ps_y)
- 
+
           scalars(inode,n_var+7) = scalars(inode,5) * scalars(inode,7) * Btot
 
-          scalars(inode,n_var+8) = BigR   * (u0_x * ps_y - u0_y * ps_x) / sqrt(ps_x*ps_x + ps_y*ps_y) * scalars(inode,5) 
+          scalars(inode,n_var+8) = BigR   * (u0_x * ps_y - u0_y * ps_x) / sqrt(ps_x*ps_x + ps_y*ps_y) * scalars(inode,5)
 
         endif
-	
+
 !        vectors(inode,:,1) = (/ - R * u0_y ,   + R * u0_x ,   0.d0 /)
 !        vectors(inode,:,2) = (/ + ps_y /R * scalars(inode,7), - ps_x /R * scalars(inode,7), 0.d0 /) * Btot
 !        vectors(inode,:,3) = (/ - R * u0_y + ps_y /R * scalars(inode,7) * Btot, + R * u0_x - ps_x /R * scalars(inode,7) * Btot, 0.d0 /)

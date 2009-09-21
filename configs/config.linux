@@ -1,13 +1,13 @@
 
-MODEL = model300
+MODEL = model302
 
 FC     = mpif90 -f90=ifort
 
-FFLAGS = -r8 -i4 -O2 -xT -align -openmp -openmp-lib compat
-#FFLAGS = -r8 -i4 -O0 -check bounds -traceback -align -openmp 
-#FFLAGS_NO_OMP = -r8 -i4 -O2 -xT -align 
+#FFLAGS = -r8 -i4 -O2 -xT -align -openmp -openmp-lib compat
+FFLAGS = -r8 -i4 -O0 -check bounds -traceback -align -openmp
+FFLAGS_NO_OMP = -r8 -i4 -O2 -xT -align
 
-# -i4 for openmpi 
+# -i4 for openmpi
 
 FFLAGS_NO_OMP = $(FFLAGS)
 
@@ -21,6 +21,7 @@ DATATYPES_DIR  = $(JOREK_DIR)/datatypes
 MATRIX_DIR     = $(JOREK_DIR)/matrix
 ELEMENTS_DIR   = $(JOREK_DIR)/elements
 SOLVERS_DIR    = $(JOREK_DIR)/solvers
+VACUUM_DIR     = $(JOREK_DIR)/vacuum
 
 LIBSCOTCH   = -L/home/GH200582/scotch_5.1/lib -lscotch -lscotcherr
 
@@ -38,8 +39,9 @@ PPPLIB    = $(MYHOME)/ppplib/ppplib.a
 
 METIS     = $(MYHOME)/metis-4.0/libmetis.a
 
+LIBPASTIX = -L$(MYHOME)/pastix_new/install/  -lpastix
 #LIBPASTIX = -L$(MYHOME)/PastiX/install/  -lpastix
-LIBPASTIX = /home/GH200582/pastix_old/install/libpastix_64bit_mpi_smp_nobubble_int_double_real_scotch_i686_pc_linux.a
+#LIBPASTIX = /home/GH200582/pastix_old/install/libpastix_64bit_mpi_smp_nobubble_int_double_real_scotch_i686_pc_linux.a
 
 LIBFFTW   = /opt/intel/mkl/10.0.5.025/lib/em64t/libfftw3xf_intel.a #/opt/fftw/lib/libfftw3.a
 
@@ -53,11 +55,11 @@ BLACS     = /home/GH200582/BLACS/LIB/blacs_MPI-LINUX-0.a /home/GH200582/BLACS/LI
 
 LIBS = $(LIBFFTW) $(METIS) $(LIBPASTIX) $(LIBSCOTCH)  $(LIBMUMPS) $(ORDLIB) $(SCALAP) $(BLACS) $(BLACS) $(LIBLAPACK) $(LIBBLAS) $(PPPLIB)
 
-INCLUDES  = -I$(DATATYPES_DIR) -I$(MAIN_MODLE_DIR) -I$(MODEL_DIR) -I$(MATRIX_DIR) -I$(ELEMENTS_DIR) -I$(SOLVERS_DIR) -I$(INCMUMPS) -I.
+INCLUDES  = -I$(DATATYPES_DIR) -I$(MAIN_MODEL_DIR) -I$(MODEL_DIR) -I$(MATRIX_DIR) -I$(ELEMENTS_DIR) -I$(VACUUM_DIR)  -I$(SOLVERS_DIR) -I$(INCMUMPS) -I.
 
 VPATH = $(MAIN_MODEL_DIR) $(MODEL_DIR) $(DATATYPES_DIR) $(SOLVERS_DIR)
 
-.SUFFIXES: .o .f90 .f 
+.SUFFIXES: .o .f90 .f
 
 %.o: %.f90
 	$(FC) -c $^ -o $@ $(FFLAGS) $(INCLUDES)

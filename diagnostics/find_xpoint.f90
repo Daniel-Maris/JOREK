@@ -82,7 +82,7 @@ call interp_RZ(node_list,element_list,i_elm_xpoint,s,t,R_xpoint,R_s,R_t,R_st,R_s
 s_xpoint = s
 t_xpoint = t
 
-write(*,'(A,4f14.8)') ' X-point : ',R_xpoint,Z_xpoint,psi_xpoint
+write(*,'(A,i6,4f14.8)') ' X-point : ',i_elm_xpoint,R_xpoint,Z_xpoint,psi_xpoint
 
 return
 END

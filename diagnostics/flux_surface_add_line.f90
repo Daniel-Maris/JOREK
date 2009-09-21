@@ -82,7 +82,7 @@ do iter=1, n_iter
 
   if (abs(surface_list%psi_values(j)-psi_test) .lt. abs(surface_list%psi_values(j)-psi_test2)) then
     if ( error_psi .gt.1.d-6) then
-      write(*,'(A,i3,3e16.8)') ' WARNING : IMPROVEMENT GONE WRONG ',iter,surface_list%psi_values(j),psi_test,psi_test2
+!      write(*,'(A,i3,3e16.8)') ' WARNING : IMPROVEMENT GONE WRONG ',iter,surface_list%psi_values(j),psi_test,psi_test2
       ifail = 99
     endif
   endif

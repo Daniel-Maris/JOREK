@@ -108,7 +108,7 @@ do i=1, element_list%n_elements
 
 ! complicated : 2 line pieces but which point belongs to which line piece?
 
-        write(*,*) ' found 4 points '
+!        write(*,*) ' found 4 points '
 
         r_av = (r_psi(1)+r_psi(2)+r_psi(3)+r_psi(4))/4.d0
         s_av = (s_psi(1)+s_psi(2)+s_psi(3)+s_psi(4))/4.d0
@@ -138,14 +138,14 @@ do i=1, element_list%n_elements
           itmp = itht(2); itht(2) = itht(3) ; itht(3) = itmp;
         endif
 
-        write(*,*) i,j
-        write(*,'(4f12.8)') tht
-        write(*,'(4i5)') itht
-        write(*,'(4f12.8)') tht(itht)
-        write(*,'(4f12.8)') r_psi
-        write(*,'(4f12.8)') s_psi
-        write(*,'(4f12.8)') dpsi_dr
-        write(*,'(4f12.8)') dpsi_ds
+ !       write(*,*) i,j
+ !       write(*,'(4f12.8)') tht
+ !       write(*,'(4i5)') itht
+ !       write(*,'(4f12.8)') tht(itht)
+ !       write(*,'(4f12.8)') r_psi
+ !       write(*,'(4f12.8)') s_psi
+ !       write(*,'(4f12.8)') dpsi_dr
+ !       write(*,'(4f12.8)') dpsi_ds
 
         if ((xpoint) .and. (i .eq. i_elm_xpoint)) then
           write(*,*) ' adding x-point'

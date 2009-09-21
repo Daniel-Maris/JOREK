@@ -87,11 +87,12 @@ if (mf .le. 0) then
       if (tht_tmp(i) .lt. 0.d0*pi)    tht_tmp(i) = tht_tmp(i) + 2.d0*pi
 
       tht_i = tht_tmp(i)
-      if (theta      .lt. 0.5d0*pi)   tht_i = tht_i + 2.d0*pi
+!      if (theta      .lt. 0.5d0*pi)   tht_i = tht_i + 2.d0*pi
 
       r_tmp(i)   = sqrt(rp**2+zp**2)
-      psi_tmp(i) = psi_boundary(i)
-
+      psi_tmp(i) = psi_boundary(i) - xshift * sin(tht_i) + xleft * cos(tht_i) &
+                 + xampl*(-1.d0 + (xwidth*(tht_i-xtheta)/xsig)**2)* exp( - ((tht_i-xtheta)/xsig)**2)
+		 
     enddo
 
     r_tmp(n_bnd)   = r_tmp(1)
@@ -106,7 +107,10 @@ if (mf .le. 0) then
   call TB15A(n_bnd,tht_tmp,psi_tmp,dpsi_tmp,work,6)       ! periodic spline of flux
 
   call lplot6(1,1,tht_tmp,psi_tmp,n_bnd,'psi at boundary')
-
+  call lincol(1)
+  call lplot6(1,1,tht_tmp,psi_boundary,-n_bnd,'psi at boundary')
+  call lincol(0)
+  
   deallocate(work)
 
   mf = 256
