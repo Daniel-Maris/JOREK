@@ -20,9 +20,9 @@ integer,allocatable      :: counts(:), displacements(:)
 
 integer, external :: omp_get_num_threads, omp_get_thread_num
 
-write(*,*) my_id,'*********************************'
-write(*,*) my_id,'*  solve global matrix (PastiX) *'
-write(*,*) my_id,'*********************************'
+!write(*,*) my_id,'*********************************'
+!write(*,*) my_id,'*  solve global matrix (PastiX) *'
+!write(*,*) my_id,'*********************************'
 
 m_loc = (index_max - index_min + 1) * n_tor * n_var
 mumps_par%nz_loc = nz_glob

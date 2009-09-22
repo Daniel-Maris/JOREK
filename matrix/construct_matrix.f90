@@ -240,8 +240,8 @@ deallocate(RHS_loc)
 
 !call vacuum(my_id,node_list,element_list,boundary_list,index_min,index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint)
 
-call boundary_conditions(my_id,node_list,element_list,local_elms,n_local_elms,index_min,index_max, &
-                         xpoint2,psi_axis,psi_bnd,Z_xpoint)
+!call boundary_conditions(my_id,node_list,element_list,local_elms,n_local_elms,index_min,index_max, &
+!                         xpoint2,psi_axis,psi_bnd,Z_xpoint)
 
 
 return
