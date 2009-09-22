@@ -112,28 +112,28 @@ do ife =1, n_local_elms
 
     call element_matrix(element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)          ! use direct integration
 
-    do iv = 1, n_vertex_max                                                                     ! boundary integrals
+!    do iv = 1, n_vertex_max                                                                     ! boundary integrals
+!
+!      iv2  = mod(iv, n_vertex_max) + 1
+!
+!      inode1 = element%vertex(iv)
+!      inode2 = element%vertex(iv2)
+!
+!      if (     ((node_list%node(inode1)%boundary .eq. 1) .or.(node_list%node(inode1)%boundary .eq. 3)) &
+!         .and. ((node_list%node(inode2)%boundary .eq. 1) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
 
-      iv2  = mod(iv, n_vertex_max) + 1
+!	nodes(1) = node_list%node(inode1)
+!	nodes(2) = node_list%node(inode2)
+!	vertex   = (/ iv, iv2 /)
 
-      inode1 = element%vertex(iv)
-      inode2 = element%vertex(iv2)
+!	write(*,*) iv,iv2,'boundary_matrix_open : ',inode1,inode2
 
-      if (     ((node_list%node(inode1)%boundary .eq. 1) .or.(node_list%node(inode1)%boundary .eq. 3)) &
-         .and. ((node_list%node(inode2)%boundary .eq. 1) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
+!        call boundary_matrix_open(vertex, element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)    ! only for open field lines for now
 
-	nodes(1) = node_list%node(inode1)
-	nodes(2) = node_list%node(inode2)
-	vertex   = (/ iv, iv2 /)
+!      endif
 
-	write(*,*) iv,iv2,'boundary_matrix_open : ',inode1,inode2
-
-        call boundary_matrix_open(vertex, element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)    ! only for open field lines for now
-
-      endif
-
-      if (     ((node_list%node(inode1)%boundary .eq. 2) .or.(node_list%node(inode1)%boundary .eq. 3)) &
-         .and. ((node_list%node(inode2)%boundary .eq. 2) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
+!      if (     ((node_list%node(inode1)%boundary .eq. 2) .or.(node_list%node(inode1)%boundary .eq. 3)) &
+!         .and. ((node_list%node(inode2)%boundary .eq. 2) .or.(node_list%node(inode2)%boundary .eq. 3)) ) then
 
 !	nodes(1) = node_list%node(inode1)
 !	nodes(2) = node_list%node(inode2)
@@ -143,9 +143,9 @@ do ife =1, n_local_elms
 
 !        call boundary_matrix(vertex, element,nodes, xpoint2, psi_axis, psi_bnd, Z_xpoint, ELM, RHS)    ! only for open field lines for now
 
-      endif
+!      endif
 
-    enddo
+!    enddo
 
   endif
 
@@ -240,8 +240,8 @@ deallocate(RHS_loc)
 
 !call vacuum(my_id,node_list,element_list,boundary_list,index_min,index_max,xpoint2,psi_axis,psi_bnd,Z_xpoint)
 
-!call boundary_conditions(my_id,node_list,element_list,local_elms,n_local_elms,index_min,index_max, &
-!                         xpoint2,psi_axis,psi_bnd,Z_xpoint)
+call boundary_conditions(my_id,node_list,element_list,local_elms,n_local_elms,index_min,index_max, &
+                         xpoint2,psi_axis,psi_bnd,Z_xpoint)
 
 
 return
