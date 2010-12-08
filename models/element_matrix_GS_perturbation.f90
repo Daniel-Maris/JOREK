@@ -1,4 +1,4 @@
-subroutine element_matrix_GS(xpoint,Z_xpoint,psi_axis,psi_bnd,element,nodes,ivar_in,ivar_out,i_harm,ELM,RHS)
+subroutine element_matrix_GS_perturbation(xpoint,Z_xpoint,psi_axis,psi_bnd,element,nodes,ivar_in,ivar_out,i_harm,ELM,RHS)
 !---------------------------------------------------------------
 ! calculates the matrix contribution of one element
 !---------------------------------------------------------------
@@ -101,6 +101,8 @@ do ms=1, n_gauss
         rhs_ij =  zFFprime / x_g(ms,mt) - (zn * dT_dpsi + dn_dpsi * zT) * x_g(ms,mt)
 
         RHS(index_ij) = RHS(index_ij) + v * rhs_ij  * xjac * wst
+
+        RHS(index_ij) = RHS(index_ij) + (v_x * ps0_x + v_y * ps0_y) * factor(ms,mt) * xjac * wst    ! solve for perturbation only
 
         do k=1,n_vertex_max
 
