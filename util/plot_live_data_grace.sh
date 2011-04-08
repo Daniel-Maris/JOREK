@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #
-# Purpose: Plot energies and growth rates during or after a JOREK code run
+# Purpose: Plot energies and growth rates during or after a JOREK code run using GRACE
 #
-# Data: 2011-03-30
+# Data: 2011-04-08
 # Author: Matthias Hoelzl, IPP Garching
 #
 
@@ -15,7 +15,6 @@ function usage() {
   echo "  -f <file>  Take data from <file> instead of 'macroscopic_vars.dat'"
   echo "  -l         List plottable quantities"
   echo "  -q <qtty>  Plot the given quantity (default: '-q energies')"
-  echo "  -ps        Plot to .ps files (default: plot to screen)"
   echo "  -(no)log   (Non-)Logarithmic y-axis (default: '-log')"
   echo ""
   echo "Remarks:"
@@ -33,33 +32,15 @@ if [ ! -f "$extract_live_data" ]; then
   echo "ERROR: The script extract_live_data.sh must be available in the same folder"
   echo "as the plot_live_data.sh script."
   exit 1
-elif [ ! -f "$SCRIPTDIR/plot_live_data.gnuplot" ]; then
-  echo "ERROR: The file plot_live_data.gnuplot must be available in the same folder"
-  echo "as the plot_live_data.sh script."
-  exit 1
 fi
 #   --- Gnuplot available?
-which_gnuplot=`which gnuplot`
-if [ ! `which gnuplot` ]; then
+if [ ! `which xmgrace` ]; then
   echo ""
-  echo "ERROR: You need to have gnuplot to use this script. If you have it installed,"
+  echo "ERROR: You need to have xmgrace to use this script. If you have it installed,"
   echo "you may need to add the installation folder to your PATH environment variable."
   echo ""
-  echo "NOTE: If you have xmgrace installed, you may use the script"
-  echo "plot_live_data_grace.sh instead."
-  echo ""
-  exit 1
-fi
-gnuplot_version_string=`gnuplot --version`
-gnuplot_version=`echo $gnuplot_version_string | cut -d' ' -f 2`
-gnuplot_version2=`echo $gnuplot_version | sed -e 's/\.//'`
-if [ $gnuplot_version2 -lt 44 ]; then
-  echo ""
-  echo "ERROR: Gnuplot 4.4 or newer is required."
-  echo "Found $gnuplot_version_string"
-  echo ""
-  echo "NOTE: If you have xmgrace installed, you may use the script"
-  echo "plot_live_data_grace.sh instead."
+  echo "NOTE: If you have a recent gnuplot version installed, you may use the script"
+  echo "plot_live_data.sh instead."
   echo ""
   exit 1
 fi
@@ -70,10 +51,7 @@ qtty="energies"
 logy=1
 file="macroscopic_vars.dat"
 while [ $# -gt 0 ]; do
-  if [ "$1" == "-ps" ]; then
-    ps=1
-    shift
-  elif [ "$1" == "-f" ]; then
+  if [ "$1" == "-f" ]; then
     file="$2"
     shift 2
   elif [ "$1" == "-q" ]; then
@@ -120,15 +98,16 @@ if [ $is_plottable -eq 0 ]; then
 fi
 
 # --- Extract necessary data from macroscopic_vars.dat
-n_tor=`$extract_live_data n_tor -f $file`
-ncols=`$extract_live_data n_${qtty} -f $file`
 xlabel=`$extract_live_data ${qtty}_xlabel -f $file`
 ylabel=`$extract_live_data ${qtty}_ylabel -f $file`
-$extract_live_data ${qtty} ${qtty}.dat -f $file
+$extract_live_data ${qtty} -f $file | sed -e 's/\(^ *[^0-9 ]\)/#\1/' > ${qtty}_grace.dat
 
-# --- Plot the quantity
-cat $SCRIPTDIR/plot_live_data.gnuplot                                                     \
-  | sed -e "s/<ncols>/$ncols/" -e "s/<ps>/$ps/" -e "s/<qtty>/$qtty/" -e "s/<logy>/$logy/" \
-        -e "s/<xlabel>/$xlabel/" -e "s/<ylabel>/$ylabel/"                                 \
-  > local_plot.gnuplot
-gnuplot local_plot.gnuplot
+options="-nxy"
+if [ $logy -eq 1 ]; then
+  options="-log y $options"
+  echo "NOTE: You may have to zoom out manually in GRACE as the program cannot autozoom"
+  echo "  with a logarithmic axis if there are zero values in the data."
+fi
+
+# --- Plot with grace
+xmgrace $options ${qtty}_grace.dat
