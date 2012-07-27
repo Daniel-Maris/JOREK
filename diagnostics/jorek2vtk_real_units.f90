@@ -51,7 +51,7 @@ integer 	      :: i_find, i_elm_find(8)
 real*8  	      :: Router,dRRg1_dr,dRRg1_ds,dRRg1_drs,dRRg1_drr,dRRg1_dss
 real*8  	      :: Zouter,dZZg1_dr,dZZg1_ds,dZZg1_drs,dZZg1_drr,dZZg1_dss
 real*8  	      :: s_find(8), t_find(8)
-real*8                :: Jb, minRad
+real*8                :: Jb, minRad,rho_norm,t_norm
 integer               :: i_elm_axis, i_elm_xpoint(2), k_tor, ifail, ierr
 logical               :: without_n0_mode
 !====================== --- add the diagnostics Er, Vtheta and Vneo
@@ -70,12 +70,12 @@ my_id     = 0
 call initialise_parameters(my_id, "__NO_FILENAME__")
 
 ! --- Preset parameters
-nsub      = 4             ! Number of subdivisions of the cubic finite elements into linear pieces
+nsub      = 5             ! Number of subdivisions of the cubic finite elements into linear pieces
 i_tor     = -1            ! If i_tor > 0, only this mode will be included in the vtk file...
-!i_tor     = 2            ! If i_tor > 0, only this mode will be included in the vtk file...
+!i_tor     = 2 
 i_plane   = 1             ! ... otherwise, all modes will be summed up at the toroidal plane i_plane
 without_n0_mode = .false. ! If true, do not include the n=0 mode (i_tor=1)
-!without_n0_mode = .true. ! If true, do not include the n=0 mode (i_tor=1)
+!without_n0_mode = .true.
 
 ! --- Read parameters from namelist file 'vtk.nml' if it exists
 open(42, file='vtk.nml', action='read', status='old', iostat=ierr)
@@ -109,10 +109,14 @@ allocate(scalar_names(n_scalars), vector_names(n_vectors))
 grad_psi = 0.d0
 
 scalar_names(1:n_var) = variable_names(1:n_var)
+scalar_names(3)='j_MA/m2     '
+scalar_names(5)='n_e20m-3    '
+scalar_names(6)='Te_keV      '
+scalar_names(7)='Vpar_km/s   '
 scalar_names(n_var+1:n_scalars) = (/ &
-  'pressure    ', 'E_flux_Kpar ', 'E_flux_kperp', 'E_flux_Vpar ', 'E_flux_Vperp', 'D_flux_Dperp', &
-  'D_flux_Vpar ', 'D_flux_Vperp', 'Er          ', 'Vtheta      ', 'Mach_par    ',&
-  'Mach_pol    ', 'Vsound      ', 'Btot        ', 'J-bootstrap ', 'Vneo        '/)
+  'P_kPa       ', 'E_flux_Kpar ', 'E_flux_kperp', 'E_flux_Vpar ', 'E_flux_Vperp', 'D_flux_Dperp', &
+  'D_flux_Vpar ', 'D_flux_Vperp', 'Er_kV/m     ', 'Vtheta_km/s ', 'Mach_prl    ',&
+  'Mach_pol    ',  'Vsound_km/s', 'Btot_T      ', 'J-bootstrap ', 'Vneo_km/s   '/)
 
 !vector_names = (/ 'v_perp  ','v_par   ','V_tot   '/)
 
@@ -489,6 +493,30 @@ do i=1,element_list%n_elements
    enddo
 
    ! endif
+enddo
+!===========================================================real values=============
+rho_norm = central_density*1.d20 * 2.d0 * 1.67d-27
+t_norm   = sqrt(MU_zero*rho_norm)
+!=================================================real values============
+ do i=1,nnos
+!============================================j_phi in MA/m2
+scalars(i,3) = scalars(i,3)/ MU_zero*1.e-6 
+!============================================density in 1e20m-3
+scalars(i,5) = scalars(i,5) * central_density
+!===========================================temperature in keV
+scalars(i,6) = scalars(i,6) / MU_zero / (central_density * 1d20) / EL_CHG /2./1.e3 !(assumes Te=Ti=T/2)
+!=====================================Vparal in km/s *Btot!!!
+scalars(i,7) = scalars(i,7)*scalars(i,n_var+14)/t_norm/1.e3
+!=====================Pressure in kPa
+scalars(i,8) = scalars(i,8) / MU_zero/1.e3
+!============================Er in kV/m
+scalars(i,16) = F0*scalars(i,16) / t_norm/1.e3
+!====================================Vtheta km/s
+scalars(i,17) = scalars(i,17) / t_norm/1.e3
+!===================================Vsound in km/s
+scalars(i,20) = scalars(i,20) / t_norm/1.e3
+!===================================Vneo in km/s
+scalars(i,23) = scalars(i,23) / t_norm/1.e3
 enddo
 
 !--------------------------------------------------- write the binary VTK file
