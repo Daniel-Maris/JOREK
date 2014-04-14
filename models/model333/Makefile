@@ -9,8 +9,7 @@ all: modules 				\
      boundary_conditions.o 		\
      initial_conditions.o		\
      boundary_matrix.o   		\
-     boundary_matrix_open.o   		#\
-#     vacuum.o 				\
+     boundary_matrix_open.o   		
 
 modules : mod_parameters.o mod_phys_module.o mod_equation_variables.o 
 

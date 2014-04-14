@@ -26,6 +26,9 @@ contains
     use phys_module
     use tr_module 
     use profiles, only: interpolProf
+    use diffusivities, only: get_dperp, get_zkperp
+    use corr_neg
+    use pellet_module
 
     implicit none
     
@@ -122,9 +125,10 @@ contains
     		  index_ij = n_tor*n_var*(n_order+1)*(i_vertex-1) + n_tor*n_var*(i_order-1) + i_tor
     		endif
 		
-	        call ELM_build_test_functions(element, nodes, ms, mt, i_plane, i_vertex, i_order, i_tor, &
-					      v, v_s,  v_t,	   v_p,  v_x,  v_y,			 &
-						 v_ss, v_tt, v_st, v_pp, v_xx, v_yy, v_xy		 )
+	        ! --- Build test functions (which we choose to be the basis functions)
+		call ELM_build_basis_functions(element, nodes, ms, mt, i_plane, i_vertex, i_order, i_tor, &
+					       v, v_s,  v_t,	    v_p,  v_x,  v_y,			  &
+						  v_ss, v_tt, v_st, v_pp, v_xx, v_yy, v_xy		  )
 		
 		rhs_tmp   = 0.d0
 		rhs_k_tmp = 0.d0
@@ -135,12 +139,10 @@ contains
 		call ELM_main_rhs_5  	(rhs_tmp, rhs_k_tmp)
 		call ELM_main_rhs_6  	(rhs_tmp, rhs_k_tmp)
 		call ELM_main_rhs_7  	(rhs_tmp, rhs_k_tmp)
-		call ELM_main_rhs_8  	(rhs_tmp, rhs_k_tmp)
 		call ELM_main_rhs_2_numm(rhs_tmp, rhs_k_tmp)
 		call ELM_main_rhs_5_numm(rhs_tmp, rhs_k_tmp)
 		call ELM_main_rhs_6_numm(rhs_tmp, rhs_k_tmp)
 		call ELM_main_rhs_7_numm(rhs_tmp, rhs_k_tmp)
-		call ELM_main_rhs_8_numm(rhs_tmp, rhs_k_tmp)
     		
 
     		! --- Fill up the matrix
@@ -171,32 +173,30 @@ contains
     			index_kl = n_tor*n_var*(n_order+1)*(j_vertex-1) + n_tor*n_var*(j_order-1) + j_tor
     		      endif
 
-		      call ELM_build_test_functions(element, nodes, ms, mt, i_plane, j_vertex, j_order, j_tor,  &
-                                                    psi, psi_s,  psi_t,          psi_p,  psi_x,  psi_y,         &
-				                         psi_ss, psi_tt, psi_st, psi_pp, psi_xx, psi_yy, psi_xy )
+		      ! --- Build basis functions
+		      call ELM_build_basis_functions(element, nodes, ms, mt, i_plane, j_vertex, j_order, j_tor,  &
+                                                     psi, psi_s,  psi_t,          psi_p,  psi_x,  psi_y,         &
+				                          psi_ss, psi_tt, psi_st, psi_pp, psi_xx, psi_yy, psi_xy )
     		      
 		      u    = psi; u_x    = psi_x; u_y    = psi_y; u_p    = psi_p; u_s    = psi_s; u_t    = psi_t
 		      zj   = psi; zj_x   = psi_x; zj_y   = psi_y; zj_p   = psi_p; zj_s   = psi_s; zj_t   = psi_t
 		      w    = psi; w_x    = psi_x; w_y    = psi_y; w_p    = psi_p; w_s    = psi_s; w_t    = psi_t
 		      rho  = psi; rho_x  = psi_x; rho_y  = psi_y; rho_p  = psi_p; rho_s  = psi_s; rho_t  = psi_t
-		      Ti   = psi; Ti_x   = psi_x; Ti_y   = psi_y; Ti_p   = psi_p; Ti_s   = psi_s; Ti_t   = psi_t
-		      Te   = psi; Te_x   = psi_x; Te_y   = psi_y; Te_p   = psi_p; Te_s   = psi_s; Te_t   = psi_t
+		      T    = psi; T_x    = psi_x; T_y    = psi_y; T_p    = psi_p; T_s    = psi_s; T_t    = psi_t
 		      Vpar = psi; Vpar_x = psi_x; Vpar_y = psi_y; Vpar_p = psi_p; Vpar_s = psi_s; Vpar_t = psi_t
 		      
 		      u_ss    = psi_ss; u_tt	= psi_tt; u_st    = psi_st
 		      zj_ss   = psi_ss; zj_tt	= psi_tt; zj_st   = psi_st
 		      w_ss    = psi_ss; w_tt	= psi_tt; w_st    = psi_st
    		      rho_ss  = psi_ss; rho_tt  = psi_tt; rho_st  = psi_st
-   		      Ti_ss   = psi_ss; Ti_tt	= psi_tt; Ti_st   = psi_st
-   		      Te_ss   = psi_ss; Te_tt	= psi_tt; Te_st   = psi_st
+   		      T_ss    = psi_ss; T_tt	= psi_tt; T_st    = psi_st
    		      Vpar_ss = psi_ss; Vpar_tt = psi_tt; Vpar_st = psi_st
                       
 		      u_xx    = psi_xx; u_yy    = psi_yy; u_xy    = psi_xy; u_pp    = psi_pp
 		      zj_xx   = psi_xx; zj_yy   = psi_yy; zj_xy   = psi_xy; zj_pp   = psi_pp
 		      w_xx    = psi_xx; w_yy    = psi_yy; w_xy    = psi_xy; w_pp    = psi_pp
 		      rho_xx  = psi_xx; rho_yy  = psi_yy; rho_xy  = psi_xy; rho_pp  = psi_pp
-		      Ti_xx   = psi_xx; Ti_yy   = psi_yy; Ti_xy   = psi_xy; Ti_pp   = psi_pp
-		      Te_xx   = psi_xx; Te_yy   = psi_yy; Te_xy   = psi_xy; Te_pp   = psi_pp
+		      T_xx    = psi_xx; T_yy    = psi_yy; T_xy    = psi_xy; T_pp    = psi_pp
 		      Vpar_xx = psi_xx; Vpar_yy = psi_yy; Vpar_xy = psi_xy; Vpar_pp = psi_pp
                       
 		      BB2_psi = 2.d0 * (psi_x * ps0_x + psi_y * ps0_y ) /BigR**2
@@ -212,12 +212,10 @@ contains
     		      call ELM_main_lhs_5     (amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
     		      call ELM_main_lhs_6     (amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
     		      call ELM_main_lhs_7     (amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
-    		      call ELM_main_lhs_8     (amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
     		      call ELM_main_lhs_2_numm(amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
     		      call ELM_main_lhs_5_numm(amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
     		      call ELM_main_lhs_6_numm(amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
     		      call ELM_main_lhs_7_numm(amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
-    		      call ELM_main_lhs_8_numm(amat_tmp, amat_k_tmp, amat_n_tmp, amat_kn_tmp)
 		      
     		      ! --- Fill up the matrix
     		      if (n_tor .gt. 3) then
