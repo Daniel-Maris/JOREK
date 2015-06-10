@@ -3,20 +3,14 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --threads-per-core=1
 #SBATCH -J Jorek
-#SBATCH --time=1:00:00
-
-#######################################################################
-# Look to non-regression-tests/testcases/tearing_limiter_199
-# to determine nb of nodes, MPI processes, and nb of threads
-#######################################################################
-
+#SBATCH --time=4:00:00
 
 ulimit -d unlimited
 ulimit -s unlimited
 ulimit -Sa
 ulimit -Ha
 
-CASE=tearing_limiter_199
+CASE=tearing_xpoint_303
 JOREK_HOME=`readlink -f ${PWD}/../../..` # Assumption about source code location
 
 cd ${JOREK_HOME}
