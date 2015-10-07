@@ -23,4 +23,6 @@ export compilethreads=8
 export PRERUN="export OMP_NUM_THREADS=2"
 export MPIRUN="mpirun -np "
 export BATCHCOMMAND="qsub"
+
 export http_proxy=${JOREK_HTTP_PROXY}
+export https_proxy=${JOREK_HTTP_PROXY}
