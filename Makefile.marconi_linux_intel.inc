@@ -33,11 +33,9 @@ USE_MUMPS         = 0
 # --- PaStiX solver
 PASTIX_HOME ?= "<<<<path-to-your-PaStiX-directory>>>>>"
 LIB_PASTIX        = `$(PASTIX_HOME)/install/pastix-conf --libs` 
-LIB_PASTIX        += -L$(MKL_LIB)
 LIB_PASTIX_MURGE  = `$(PASTIX_HOME)/install/pastix-conf --libs_murge`
 LIB_PASTIX_BLAS   = `$(PASTIX_HOME)/install/pastix-conf --blas`
 INC_PASTIX        = `$(PASTIX_HOME)/install/pastix-conf --incs`
-
 
 # --- FFTW Library
 LIBFFTW           = $(FFTW_HOME)/lib/libfftw3.a
@@ -50,7 +48,7 @@ FFLAGS           := $(FFLAGS) $(DEBUGFLAGS) $(FFLAGS_OMP)
 FFLAGS_NO_OMP     = $(FFLAGS) $(DEBUGFLAGS)
 
 HDF5INCLUDE = $(HDF5_HOME)/include
-HDF5LIB = -L$(HDF5_LIB) -lhdf5_fortran -lhdf5hl_fortran -lhdf5 -lhdf5_hl $(SZIP_LIB)/libsz.a -lz
+HDF5LIB = -lhdf5_fortran -lhdf5hl_fortran -lhdf5 -lhdf5_hl
 
 # HDF5LIB    = $(HDF5_HOME)/lib/libhdf5hl_fortran.a \
 #              $(HDF5_HOME)/lib/libhdf5_hl.a \
