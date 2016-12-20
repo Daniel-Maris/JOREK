@@ -1,9 +1,9 @@
 # --- General settings
 jorekmodel="199"
-description="Free boundary equilibrium for limiter plasma (JOREK-STARWALL)."
+description="Free boundary equilibrium for ASDEX Upgrade plasma (JOREK-STARWALL)."
 mpitasks=1
 binaries="jorek_model${jorekmodel}_1 rst_bin2hdf5 rst_hdf52bin"
-requiredfiles="$binaries input starwall-response.dat coil_field.dat"
+requiredfiles="$binaries input starwall-response.dat coil_field.dat ffp.dat t.dat rho.dat"
 
 
 # --- Compile the code for the test case
