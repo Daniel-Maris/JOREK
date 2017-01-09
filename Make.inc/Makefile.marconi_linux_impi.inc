@@ -7,10 +7,10 @@
 MODEL             = model199
 
 # --- Compiler and options
-FC                = mpif90 #INTELMPI#-mt_mpi
-CC                = mpicc  #INTELMPI#-mt_mpi
+FC                = mpif90 -mt_mpi
+CC                = mpicc -mt_mpi
 FFLAGS_OMP        = -qopenmp 
-FFLAGS            = -r8 -i4 -DUSE_BLOCK -DFUNNELED #RECENT_PASTIX#-DWORLDWAR2
+FFLAGS            = -r8 -i4 -DUSE_BLOCK -DFUNNELED #-DWORLDWAR2
 FFLAGS           += -fpp
 FFLAGS           += -xHost -O2
 
