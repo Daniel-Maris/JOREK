@@ -1,9 +1,9 @@
 &in1
 
- restart = .t.
+ restart = .f.
  regrid  = .f.
- tstep_n   = 5. !0.1 0.2 0.5 1.
- nstep_n   = 222 !20  20  100 1000
+ tstep_n   = 0.1 0.2 0.5 1.
+ nstep_n   = 20  20  100 1000
 
  nout = 10
  rho_file      = none   ! none otherwise
@@ -120,8 +120,9 @@
  amu_neo_const = 1.d-5
  aki_neo_const = -1.d0
 
- iter_precon = 0
- gmres_4 = 1.d4
+ iter_precon = 5
+ gmres_m = 20
+ gmres_4 = 1.d0
  gmres_max_iter = 200
  gmres_tol = 1.d-7
 
@@ -130,9 +131,9 @@
  murge_with_starpu = .f.
  murge_cuda_nbr = 0
  output_bnd_elements=.f.
- RMP_on = .t.
- RMP_psi_cos_file =  RMP_psi_cos_JET_N3.txt !none ! 
- RMP_psi_sin_file =  RMP_psi_sin_JET_N3.txt !none !
+ RMP_on = .f.
+ RMP_psi_cos_file = none  
+ RMP_psi_sin_file = none 
  lambda =0.0111
  tset = 500
 
