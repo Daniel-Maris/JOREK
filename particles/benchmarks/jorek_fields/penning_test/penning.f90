@@ -13,26 +13,26 @@ program penning
 use data_structure
 use phys_module
 use basis_at_gaussian
-use nodes_elements
-use mod_particles
-use clock_module
+use particle_tracer
 use mod_coordinate_transforms ! For solution of penning trap trajectory
 use mod_parameters
 use constants
+use mod_fields_linear
+use mod_export_restart
 
 implicit none
 
+type(jorek_fields_interp_linear) :: fields
+
 ! Define our particle list
-type (type_particle_list) :: particle_list !< This contains all particles used in the simulations
+type(particle_kinetic_leapfrog) :: particle
 
 ! Penning trap parameters (in SI units)
 real*8, parameter :: omega_e = 4.9d0
 real*8, parameter :: omega_b = 25.d0
 real*8, parameter :: epsilon = -1.d0
 real*8, parameter :: x0(3)   = [10.d0,0.d0,0.d0] ! in RZPhi
-real*8, parameter :: v0_SI(3)   = [50.d0,20.d0,0.d0] ! in RZPhi, = [50,0,20] in xyz
-! Corresponding JOREK units
-real*8 :: v0(3)
+real*8, parameter :: v0(3)   = [50.d0,20.d0,0.d0] ! in RZPhi, = [50,0,20] in xyz
 ! Penning trap parameters (for fields)
 integer, parameter :: charge = 1 ! in electron charges
 real*8, parameter :: mass    = 1.d0 ! in atomic mass units
@@ -43,30 +43,16 @@ real*8 :: Phi0
 ! The particle remains between +- 3 in Z and 8 and 13 in R for these parameters. set this in an input file
 
 ! Local variables
-integer :: i,ielm_out,ifail
+integer :: i,ielm_out,ifail,j,i_elm_old
 real*8  :: R,R_s,R_t,R_st,Z,Z_s,Z_t,Z_st
 real*8  :: s,t
-real*8  :: x_a(3), x_e(3), v(3), err_norm, err_ref
+real*8  :: x_a(3), x_e(3), err_norm, err_ref
+real*8  :: rz_old(2), st_old(2)
 ! For the initial half-step
-real*8  :: E(3), B(3), B2, f
+real*8  :: E(3), B(3), psi, U
 
 ! Fake MPI presence
 integer, parameter :: my_id = 0
-
-interface
-  subroutine update_particles(my_id, particle_list, t_step, n_step, energy_list, momentum_list, toroidal_field_factor, field_interp_time)
-    use mod_particles
-    ! -- Routine parameters
-    type (type_particle_list) :: particle_list      !< The particles we will march forward in time
-    real*8,  intent(in)       :: t_step             !< The size of each timestep
-    integer, intent(in)       :: n_step             !< The number of timesteps we will perform
-    integer, intent(in)       :: my_id              !< Id of the current process
-    real*8,  intent(out), dimension(:), optional :: energy_list !< Energy of the particles at the next-to(!) final timestep
-    real*8,  intent(out), dimension(:), optional :: momentum_list !< Generalized toroidal momentum of the particles at the next-to(!) final timestep
-    real*8,  intent(in),  optional :: toroidal_field_factor !< Multiply B_phi with this WARNING: use only for testing!
-    logical, intent(in),  optional :: field_interp_time !< Interpolate the fields linearly in time as if the first step was in the previous fields (almost) and the last in the current
-  end subroutine update_particles
-end interface
 
 
 write(*,*) '***************************************'
@@ -80,7 +66,9 @@ t_norm  = sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20) !
 qom     = real(charge) * el_chg / (mass * atomic_mass_unit)
 B0      = omega_b/qom ! In T
 Phi0    = epsilon*omega_e**2/qom/2.d0*t_norm ! In JOREK units: E_SI*t_norm
-v0      = v0_SI * t_norm
+
+fields%static = .true.
+rst_hdf5 = 1
 
 ! Only 1 toroidal mode (n=0)
 mode(1) = 0
@@ -88,57 +76,55 @@ mode(1) = 0
 ! Create a grid according to the variables present in the input file
 if ((n_R > 0) .and. (n_Z > 0) .and. (n_radial > 0)) then
   call grid_bezier_square_polar(n_R, n_Z, n_radial, R_begin, R_end, Z_begin, Z_end, R_geo,   &
-    Z_geo, amin, fbnd, fpsi, mf, .true., node_list, element_list)
+    Z_geo, amin, fbnd, fpsi, mf, .true., fields%node_list, fields%element_list)
 else if ((n_R > 0) .and. (n_Z > 0) ) then
-  call grid_bezier_square(n_R, n_Z, R_begin, R_end, Z_begin, Z_end, .true., node_list,       &
-    element_list)
+  call grid_bezier_square(n_R, n_Z, R_begin, R_end, Z_begin, Z_end, .true., fields%node_list,       &
+    fields%element_list)
 else if ((n_radial > 0) .and. (n_pol > 0) ) then
   call grid_polar_bezier(R_geo, Z_geo, amin, 0.d0, 0.d0, fbnd, fpsi, mf, n_radial, n_pol,    &
-    node_list, element_list)
+    fields%node_list, fields%element_list)
 else
   write(*,*) 'FATAL : no valid combination of grid-sizes specified'
   stop
 end if
-call update_neighbours(element_list,node_list)
+call update_neighbours(fields%element_list,fields%node_list)
 
 write(*,*) 'Initializing fields'
 ! Set the fields in the first two parameters
-do i=1,node_list%n_nodes
+do i=1,fields%node_list%n_nodes
   ! Get value and derivatives
-  R    = node_list%node(i)%x(1,1)
-  R_s  = node_list%node(i)%x(2,1)
-  R_t  = node_list%node(i)%x(3,1)
-  R_st = node_list%node(i)%x(4,1)
-  Z    = node_list%node(i)%x(1,2)
-  Z_s  = node_list%node(i)%x(2,2)
-  Z_t  = node_list%node(i)%x(3,2)
-  Z_st = node_list%node(i)%x(4,2)
+  R    = fields%node_list%node(i)%x(1,1)
+  R_s  = fields%node_list%node(i)%x(2,1)
+  R_t  = fields%node_list%node(i)%x(3,1)
+  R_st = fields%node_list%node(i)%x(4,1)
+  Z    = fields%node_list%node(i)%x(1,2)
+  Z_s  = fields%node_list%node(i)%x(2,2)
+  Z_t  = fields%node_list%node(i)%x(3,2)
+  Z_st = fields%node_list%node(i)%x(4,2)
 
   ! B has only a z component, so F = 0, Psi(R) = -B0/2 R^2
-  node_list%node(i)%values(1,1,1) = -0.5d0*B0*R**2
-  node_list%node(i)%values(1,2,1) = -B0*R*R_s
-  node_list%node(i)%values(1,3,1) = -B0*R*R_t
-  node_list%node(i)%values(1,4,1) = -B0*R_s*R_t - B0*R*R_st
+  fields%node_list%node(i)%values(1,1,1) = -0.5d0*B0*R**2
+  fields%node_list%node(i)%values(1,2,1) = -B0*R*R_s
+  fields%node_list%node(i)%values(1,3,1) = -B0*R*R_t
+  fields%node_list%node(i)%values(1,4,1) = -B0*R_s*R_t - B0*R*R_st
 
   ! E = -Grad F0*U, U = Phi0(R^2 - 2 Z^2) (see model001/initial_conditions.f90 for reference)
-  node_list%node(i)%values(1,1,2) = Phi0*(R**2-2.d0*Z**2)
-  node_list%node(i)%values(1,2,2) = Phi0*(2.d0*R*R_s - 4.d0*Z*Z_s)
-  node_list%node(i)%values(1,3,2) = Phi0*(2.d0*R*R_t - 4.d0*Z*Z_t)
-  node_list%node(i)%values(1,4,2) = Phi0*(2.d0*R_s*R_t - 4.d0*Z_s*Z_t &
+  fields%node_list%node(i)%values(1,1,2) = Phi0*(R**2-2.d0*Z**2)
+  fields%node_list%node(i)%values(1,2,2) = Phi0*(2.d0*R*R_s - 4.d0*Z*Z_s)
+  fields%node_list%node(i)%values(1,3,2) = Phi0*(2.d0*R*R_t - 4.d0*Z*Z_t)
+  fields%node_list%node(i)%values(1,4,2) = Phi0*(2.d0*R_s*R_t - 4.d0*Z_s*Z_t &
                                         + 2.d0*R*R_st  - 4.d0*Z*Z_st) ! U_RZ = 0
 
-  node_list%node(i)%deltas = 0.d0
+  fields%node_list%node(i)%deltas = 0.d0
 enddo
 ! The electric potential is F0*U, so set F0 to 1
 F0 = 1.d0
 
 ! Write a restart file containing the grid
-write(*,*) "INFO: Exporting grid to jorek_restart.rst"
-call export_binary_restart(node_list,element_list,'jorek_restart.rst',0)
+write(*,*) "INFO: Exporting grid to jorek_restart.h5"
+call export_restart(fields%node_list,fields%element_list,'jorek_restart')
 
 ! Initialize the particle list
-particle_list%n_particles = 1
-allocate(particle_list%particle(particle_list%n_particles))
 
 do i=1,size(tstep_n)
 if (tstep_n(i) .le. 1.1) cycle ! Skip anything below 1 (the default value if not entered)
@@ -148,18 +134,23 @@ if (tstep_n(i) .le. 1.1) cycle ! Skip anything below 1 (the default value if not
   ! Calculate the correct velocity for a half-step backwards to obtain second-order convergence
   E = [-2.d0*Phi0*x0(1),0.d0,0.d0]
   B = [0.d0, B0, 0.d0]
-  B2 = B0**2
-  f = -qom*tstep_n(i)*0.25d0*t_norm ! Perform the initial half-step without tan correction
+  call boris_initial_half_step_backwards_RZPhi(particle, mass, E, B, tstep_n(i)*t_norm)
 
-  v = v0 + f*E
-  v = (v + 2.d0*f/(1.d0+f**2*B2) * (cross_product(v,B) - f*v*B2 + f*B*dot_product(v,B)))
-  v = v + f*E
-
-  particle_list%particle(1)%v = v
-  call update_particles(my_id, particle_list, tstep_n(i), nstep_n(i), toroidal_field_factor=0.d0)
+  do j=1,nstep_n(i)
+    call fields%calc_EBpsiU(0.d0, particle%i_elm, particle%st, particle%x(3), E, B, psi, U)
+    B(3) = 0.d0 ! same as toroidal_field_factor
+    !write(*,"(6g14.6)") E, [-2.d0*Phi0/t_norm*particle%x(1),0.d0,0.d0]
+    rz_old    = particle%x(1:2)
+    st_old    = particle%st
+    i_elm_old = particle%i_elm
+    call boris_push_cylindrical(particle, mass, E, B, tstep_n(i)*t_norm)
+    call find_RZ_nearby(fields%node_list, fields%element_list, particle%x(1:2), rz_old, &
+        st_old, particle%st, i_elm_old, particle%i_elm, ifail)
+    !write(*,*) rz_old, particle%x(1:2)
+  end do
 
   ! Check position against analytical result
-  x_e = particle_list%particle(1)%x
+  x_e = particle%x
   x_a = analytical_trajectory(tstep_n(i)*real(nstep_n(i)))
   err_norm = sqrt(x_e(1)**2+x_a(1)**2 - 2.d0*x_e(1)*x_a(1)*(cos(x_e(3))*cos(x_a(3))+sin(x_e(3))*sin(x_a(3))))
 
@@ -195,8 +186,8 @@ contains
 
     t = t_jorek * t_norm ! t_norm is defined in the program above
     ! Initialize in xyz coordinates
-    x0_xyz = RZPhiToXYZ(x0)
-    v0_xyz = RZPhiToXYZ(v0_SI)
+    x0_xyz = cylindrical_to_cartesian(x0)
+    v0_xyz = cylindrical_to_cartesian(v0)
 
     ! Some initialization
     omega = sqrt(-2.d0*epsilon)*omega_e
@@ -219,19 +210,18 @@ contains
 
   !> Reset a particle to the initial conditions
   subroutine reset_particle() ! Uses the global variables
-    call find_RZ(node_list,element_list,x0(1),x0(2),R,Z,ielm_out,s,t,ifail)
+    implicit none
+    call find_RZ(fields%node_list,fields%element_list,x0(1),x0(2),R,Z,ielm_out,s,t,ifail)
     if (ifail .ne. 0) then
       write(*,*) "CRITICAL: could not find initial particle in grid", &
           "Particle location: ", x0(1), x0(2), " R,z_out= ", R, Z
       stop 1
     endif
-    particle_list%particle(1)%st = [s,t]
-    particle_list%particle(1)%i_elm = ielm_out
-    particle_list%particle(1)%x = [R,Z,x0(3)]
-    particle_list%particle(1)%v = v0
-    particle_list%particle(1)%q = charge
-    particle_list%particle(1)%mass = mass
-    particle_list%particle(1)%weight = 1.d0
-    particle_list%particle(1)%lost = .false.
+    particle%st = [s,t]
+    particle%i_elm = ielm_out
+    particle%x = [R,Z,x0(3)]
+    particle%v = v0
+    particle%q = charge
+    particle%weight = 1.d0
   end subroutine reset_particle
 end program penning

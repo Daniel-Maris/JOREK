@@ -1,7 +1,6 @@
 #!/bin/bash
 # See http://jorek.eu/wiki/doku.php?id=penning_test for details
 # Variables
-JOREK_DIR=../../..
 OPTIND=1         # Reset in case getopts has been used previously in the shell.
 verbose=0 # Default verbosity
 cases="dt_cases/* n_radial_cases/*" # Default cases
@@ -49,12 +48,12 @@ done
 shift $((OPTIND-1))
 
 # Make sure it is compiled first (in subshell so we stay in this dir)
-echo -en "Compiling JOREK..."
+echo -en "Compiling JOREK particle test..."
 if [ $verbose -eq 1 ]; then
    echo "" # finish the line
-   (cd $JOREK_DIR && make penning_test)
+   (j2p penning)
 else
-   (cd $JOREK_DIR && make penning_test 2>/dev/null >/dev/null)
+   (j2p penning 2>/dev/null >/dev/null)
 fi
 if [ $? -ne 0 ]
 then
@@ -77,7 +76,7 @@ for testcase in $cases; do
    mkdir -p $outdir
    outfile=$outdir/`basename $testcase`
    if [ $verbose -eq 1 ]; then
-      $JOREK_DIR/penning_test < $testcase | tee ${outfile}.log
+      ./penning < $testcase | tee ${outfile}.log
       if [ ${PIPESTATUS[0]} -ne 0 ]
       then
 	 echo -e "${red}FAIL${reset}"
@@ -86,7 +85,7 @@ for testcase in $cases; do
 	 echo -e "${green}SUCCES${reset}"
       fi
    else
-      $JOREK_DIR/penning_test < $testcase > ${outfile}.log
+      ./penning < $testcase > ${outfile}.log
       if [ $? -ne 0 ]
       then
 	 echo -e "${red}FAIL${reset}"
