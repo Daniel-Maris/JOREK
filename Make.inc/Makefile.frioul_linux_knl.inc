@@ -10,26 +10,27 @@ MODEL             = model303
 FC                = mpif90 -mt_mpi
 CC                = mpicc -mt_mpi
 CXX               = mpicxx -mt_mpi
-FFLAGS            = -i4 -DUSE_BLOCK -DFUNNELED #RECENT_PASTIX#-DWORLDWAR2
-FFLAGS           += -axmic-avx512 -qopt-prefetch=5 -O2
+FFLAGS            = -i4 -DUSE_BLOCK #-DFUNNELED #RECENT_PASTIX#-DWORLDWAR2
+FFLAGS           += -xmic-avx512 -O2 -fp-model fast=2
 
 # --- Various switches
 USE_PASTIX        = 1
 USE_PASTIX_MURGE  = 0
 USE_HDF5          = 1
 USE_FFTW          = 1
-USE_MUMPS         = 1
+USE_MUMPS         = 0
 
 # --- PaStiX solver
 PASTIX_LIB ?= "<<<<path-to-pastix-library-directory>>>>"
-LIB_PASTIX        = `$(PASTIX_LIB)/pastix-conf --libs` 
+LIB_PASTIX        = `$(PASTIX_LIB)/pastix-conf --libs` -L${MKL_LIB}
 LIB_PASTIX_MURGE  = `$(PASTIX_LIB)/pastix-conf --libs_murge`
 LIB_PASTIX_BLAS   = `$(PASTIX_LIB)/pastix-conf --blas`
 INC_PASTIX        = `$(PASTIX_LIB)/pastix-conf --incs`
 
 # --- FFTW Library
-LIBFFTW           = $(FFTW_LIB)/libfftw3.a
-INC_FFTW          = -I$(FFTW_INC)
+  #Through INTEL MKL 
+LIBFFTW           = -L$(MKL_LIB_DIR) -lfftw3xf_intel
+INC_FFTW          = -I$(MKL_INC_DIR)/fftw
 
 # --- Usually not to be changed
 FFLAGS_FIXEDFORM := $(FFLAGS) $(DEBUGFLAGS) $(FFLAGS_OMP)
@@ -38,7 +39,7 @@ FFLAGS           := $(FFLAGS) $(DEBUGFLAGS) $(FFLAGS_OMP)
 FFLAGS_NO_OMP     = $(FFLAGS) $(DEBUGFLAGS)
 
 HDF5INCLUDE = $(HDF5_HOME)/include
-HDF5LIB     = -L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -L$(SZIP_LIB) -lsz -lz
+HDF5LIB     = -L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz
 
 # --- MUMPS solver
 MUMPS_HOME ?= "<<<<path-to-your-Mumps-directory>>>>>"
