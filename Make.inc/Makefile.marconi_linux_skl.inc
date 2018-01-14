@@ -13,7 +13,7 @@ CXX               = mpicxx -cxx=icpc
 FFLAGS_OMP        = -qopenmp 
 FFLAGS            = -r8 -i4 -DUSE_BLOCK
 FFLAGS           += -fpp
-FFLAGS           += -xHost -O2
+FFLAGS           += -axCORE-AVX512 -mtune=skylake
 
 # --- Debugging options
 #DEBUGFLAGS        = -g
@@ -32,7 +32,7 @@ USE_FFTW          = 1
 USE_MUMPS         = 0
 
 # --- PaStiX solver
-PASTIX_HOME ?= "<<<<path-to-your-PaStiX-directory>>>>>"
+PASTIX_HOME ?= ${PASTIX_LIB}
 LIB_PASTIX        = `$(PASTIX_HOME)/install/pastix-conf --libs` 
 LIB_PASTIX_MURGE  = `$(PASTIX_HOME)/install/pastix-conf --libs_murge`
 LIB_PASTIX_BLAS   = `$(PASTIX_HOME)/install/pastix-conf --blas`
