@@ -1,6 +1,6 @@
 # --- General settings
-jorekmodel="303"
-description="Tearing mode, circular plasma, model$jorekmodel, n_tor=3 + Gears scheme."
+jorekmodel="333"
+description="Tearing mode, circular plasma, model$jorekmodel, n_tor=3 + dia,neo,Gears,tgnum."
 mpitasks=2
 binaries="jorek_model${jorekmodel}_3"
 binaries_initial="jorek_model${jorekmodel}_1"
@@ -25,16 +25,16 @@ function compile_jorek () {
 
 # --- Re-run the whole case from scratch into the non-linear phase
 function initial_run () {
-  ${codedir}/util/setinput.sh input nstep_n=10,10,10, tstep_n=1.,100.,3000.          || exit 1
+  ${codedir}/util/setinput.sh input nstep_n=10,10,10, tstep_n=1.,300.,10000.         || exit 1
   ./jorek_model${jorekmodel}_1 < input | tee logfile_initial                         || exit 1
-  ${codedir}/util/setinput.sh input nstep_n=30 tstep_n=3000. restart=.t.             || exit 1
+  ${codedir}/util/setinput.sh input nstep_n=16,5 tstep_n=10000.,2000. restart=.t.    || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_3 < input | tee -a logfile_initial    || exit 1
 }
 
 
 # --- Carry out the test case, i.e., run a single time step in the non-linear phase
 function restart_run () {
-  ${codedir}/util/setinput.sh input restart=.t. nstep_n=1 tstep_n=3000. nout=1       || exit 1
+  ${codedir}/util/setinput.sh input restart=.t. nstep_n=1 tstep_n=2000. nout=1       || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_3 < input | tee logfile               || exit 1
 }
 
