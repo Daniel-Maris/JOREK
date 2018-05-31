@@ -25,6 +25,7 @@ export MAKEFLAGS="-j$compilethreads"
 export PRERUN="export OMP_NUM_THREADS=4"
 export MPIRUN="mpirun -np "
 export BATCHCOMMAND="qsub"
+export CXXFLAGS=-O0 # problem with stdio library on ITER http://gcc.1065356.n8.nabble.com/g-4-8-fails-with-Ox-option-td953876.html
 
 export http_proxy=${JOREK_HTTP_PROXY}
 export https_proxy=${JOREK_HTTP_PROXY}
