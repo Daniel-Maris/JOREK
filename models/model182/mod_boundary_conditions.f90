@@ -10,8 +10,8 @@
 !*   element_list - List of all elements                                       *
 !*   local_elms   - List of local elements                                     *
 !*   n_local_elms - Number of local elements                                   *
-!*   index_min    - Minimal index of local elements (not with murge assembly)  *
-!*   index_max    - Maximal index of local elements (not with murge assembly)  *
+!*   index_min    - Minimal index of local elements                            *
+!*   index_max    - Maximal index of local elements                            *
 !*   xpoint2      -                                                            *
 !*   xcase2       -                                                            *
 !*   psi_axis     -                                                            *
@@ -19,9 +19,6 @@
 !*   Z_xpoint     -                                                            *
 !*   gmres        - boolean indicating if we are using GMRES method            *
 !*   solve_only   - Indicate if we want to perform only solve                  *
-!*                                                                             *
-!* Authors:                                                                    *
-!*   Xavier Lacoste - xavier.lacoste@inria.fr                                  *
 !*                                                                             *
 !*******************************************************************************
 module mod_boundary_conditions
@@ -35,11 +32,6 @@ contains
     use global_distributed_matrix
     use phys_module, only: F0, GAMMA
     use vacuum, only: is_freebound
-    USE murge_module, ONLY : MURGE_ASSEMBLYBEGIN => MURGE_ASSEMBLYBEGIN_WRAPPER,     &
-         use_murge, use_murge_element, murge_id, murge_global_n, MURGE_ASSEMBLY_OVW, &
-         MURGE_ASSEMBLY_FOOL, murge_sym, murge_id_prod, murge_global_n_prod,         &
-         MURGE_SUCCESS, murge_add_one_entry
-    use murge_module, only : MURGE_ASSEMBLYEND, vertex_is_local
     use mpi_mod
     use mod_locate_irn_jcn
 
@@ -79,219 +71,106 @@ contains
     logical :: is_local, only_count
 
     zbig = 1.d12
-    if (use_murge .and. use_murge_element) then
-       ! when we use murge assembly we first count entries then we had them.
-       loop_nbr = 2
-       only_count = .true.
-       cnt      = 0
-       cnt_prod = 0
-    else
-       ! No need to do 2 loops when we build irn_glob, jcn_glob, A_glob.
-       loop_nbr = 1
-       only_count = .false.
-    end if
 
+    do i=1, n_local_elms
 
-    do loop = 1, loop_nbr
-       if (loop == 2)  then
-          only_count = .false.
-#ifdef USE_MURGE
-          if (.not. solve_only) then
-             write (*,*) my_id, ":: Murge Boundary Assembly phase :: ", cnt, " entries"
-             CALL MURGE_ASSEMBLYBEGIN(murge_id, murge_global_n, cnt, &
-                  MURGE_ASSEMBLY_OVW, MURGE_ASSEMBLY_OVW,            &
-                  MURGE_ASSEMBLY_FOOL, murge_sym, ierr)
-          end if
-          if (gmres) then
-             write (*,*) &
-                  my_id, ":: Murge Boundary Assembly phase :: ", &
-                  cnt_prod, " product entries"
-             CALL MURGE_ASSEMBLYBEGIN(murge_id_prod, murge_global_n_prod, cnt_prod, &
-                  MURGE_ASSEMBLY_OVW, MURGE_ASSEMBLY_OVW,                           &
-                  MURGE_ASSEMBLY_FOOL, murge_sym, ierr)
-          end if
-          cnt      = 0
-          cnt_prod = 0
-#else
-          print *, "Binary built without murge"
-          call abort()
-#endif
-       end if
+      ielm = local_elms(i)
 
-       do i=1, n_local_elms
+      do iv=1, n_vertex_max
 
-          ielm = local_elms(i)
+        inode = element_list%element(ielm)%vertex(iv)
 
-          do iv=1, n_vertex_max
+        if (node_list%node(inode)%boundary .ne. 0) then
 
-             inode = element_list%element(ielm)%vertex(iv)
+          do in=1, n_tor
 
-             if (node_list%node(inode)%boundary .ne. 0) then
+            do k=1, n_var
 
-                do in=1, n_tor
+              !------------------------------------ the open field lines (in case of x-point grid)
+              if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
-                   do k=1, n_var
+                if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) ) then
 
-                      !------------------------------------ the open field lines (in case of x-point grid)
-                      if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
+                  if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
 
-                         if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
-                              (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) ) then
- 
-                          if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
+                    index_node = node_list%node(inode)%index(1)
+                    if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
-                            index_node = node_list%node(inode)%index(1)
-                            if (use_murge .and. use_murge_element) then
-                               call vertex_is_local(index_node, is_local)
-                               if (is_local) then
-                                  call murge_add_one_entry( & 
-                                       & index_node, k, in, &
-                                       & index_node, k, in, &
-                                       & zbig,              &
-                                       & solve_only, gmres, &
-                                       & cnt, cnt_prod, only_count)
-                               end if
-                            else
+                      call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
 
-                               if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
+                      index_large_i = n_tor * n_var * (index_node - 1)
 
-                                  call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
+                      ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
 
-                                  index_large_i = n_tor * n_var * (index_node - 1)
+                      irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                      jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                      A_glob(ilarge2)   = zbig
 
-                                  ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
+                    endif
 
-                                  irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  A_glob(ilarge2)   = zbig
+                    index_node = node_list%node(inode)%index(2)
+                    if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
-                               endif
-                            end if
+                      call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
 
-                            index_node = node_list%node(inode)%index(2)
+                      index_large_i = n_tor * n_var * (index_node - 1)
 
-                            if (use_murge .and. use_murge_element) then
-                               call vertex_is_local(index_node, is_local)
-                               if (is_local) then
-                                  call murge_add_one_entry( & 
-                                       & index_node, k, in, &
-                                       & index_node, k, in, &
-                                       & zbig,              &
-                                       & solve_only, gmres, &
-                                       & cnt, cnt_prod, only_count)
-                               end if
-                            else
-                               if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
+                      ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
 
-                                  call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
+                      irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                      jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                      A_glob(ilarge2)    = zbig
 
-                                  index_large_i = n_tor * n_var * (index_node - 1)
+                    endif
 
-                                  ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
+                  endif
+                endif
+              endif
 
-                                  irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  A_glob(ilarge2)    = zbig
+              !------------------------------------ wall aligned with fluxsurface (in case of x-point grid)
+              if ((node_list%node(inode)%boundary .eq. 2) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
-                               endif
-                            end if
+                if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
 
-                          endif
-                        endif
-                      endif
+                  index_node = node_list%node(inode)%index(1)
+                  if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
-                      !------------------------------------ wall aligned with fluxsurface (in case of x-point grid)
-                      if ((node_list%node(inode)%boundary .eq. 2) .or. (node_list%node(inode)%boundary .eq. 3)) then
+                    call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
 
-                         if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
+                    index_large_i = n_tor * n_var * (index_node - 1)
 
-                            index_node = node_list%node(inode)%index(1)
+                    ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
 
-                            if (use_murge .and. use_murge_element) then
-                               call vertex_is_local(index_node, is_local)
-                               if (is_local) then
-                                  call murge_add_one_entry( & 
-                                       & index_node, k, in, &
-                                       & index_node, k, in, &
-                                       & zbig,              &
-                                       & solve_only, gmres, &
-                                       & cnt, cnt_prod, only_count)
-                               end if
-                            else
-                               if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
+                    irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                    jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                    A_glob(ilarge2)   = zbig
 
-                                  call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
+                  endif
 
-                                  index_large_i = n_tor * n_var * (index_node - 1)
+                  index_node = node_list%node(inode)%index(3)
+                  if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
-                                  ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
+                    call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
 
-                                  irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  A_glob(ilarge2)   = zbig
+                    index_large_i = n_tor * n_var * (index_node - 1)
 
-                               endif
-                            end if
+                    ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
 
-                            index_node = node_list%node(inode)%index(3)
+                    irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                    jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
+                    A_glob(ilarge2)    = zbig
+                  endif
 
-                            if (use_murge .and. use_murge_element) then
-                               call vertex_is_local(index_node, is_local)
-                               if (is_local) then
-                                  call murge_add_one_entry( & 
-                                       & index_node, k, in, &
-                                       & index_node, k, in, &
-                                       & zbig,              &
-                                       & solve_only, gmres, &
-                                       & cnt, cnt_prod, only_count)
-                               end if
-                            else
-                               if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
+                endif
 
-                                  call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
+              endif
 
-                                  index_large_i = n_tor * n_var * (index_node - 1)
+            enddo
 
-                                  ilarge2 = ijA_position - 1 + ((k-1)*n_tor + in-1) * n_var*n_tor + (k-1)*n_tor + in
-
-                                  irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
-                                  A_glob(ilarge2)    = zbig
-                               end if
-                            endif
-
-                         endif
-
-                      endif
-
-                   enddo
-
-                enddo
-             endif
           enddo
-       enddo
-       if (loop == 2) then
-#ifdef USE_MURGE
-          if (.not. solve_only) then
-             CALL MURGE_ASSEMBLYEND(murge_id, ierr)
-             IF (ierr /= MURGE_SUCCESS) THEN
-                WRITE (*,*)  "ERROR in MURGE_ASSEMBLYEND "
-                STOP
-             END IF
-          end if
-          if (gmres) then
-             CALL MURGE_ASSEMBLYEND(murge_id_prod, ierr)
-             IF (ierr /= MURGE_SUCCESS) THEN
-                WRITE (*,*)  "ERROR in MURGE_ASSEMBLYEND "
-                STOP
-             END IF
-          end if
-#else
-          print *, "Binary built without murge"
-          call abort()
-#endif
-       end if
-    end do
+        endif
+      enddo
+    enddo
 
     return
   end subroutine boundary_conditions

@@ -20,9 +20,6 @@
 !*   gmres        - boolean indicating if we are using GMRES method            *
 !*   solve_only   - Indicate if we want to perform only solve                  *
 !*                                                                             *
-!* Authors:                                                                    *
-!*   Xavier Lacoste - xavier.lacoste@inria.fr                                  *
-!*                                                                             *
 !*******************************************************************************
 module mod_boundary_conditions
 implicit none
@@ -35,11 +32,6 @@ contains
     use global_distributed_matrix
     use phys_module, only: F0, GAMMA
     use vacuum, only: is_freebound
-    USE murge_module, ONLY : MURGE_ASSEMBLYBEGIN => MURGE_ASSEMBLYBEGIN_WRAPPER,     &
-         use_murge, use_murge_element, murge_id, murge_global_n, MURGE_ASSEMBLY_OVW, &
-         MURGE_ASSEMBLY_FOOL, murge_sym, murge_id_prod, murge_global_n_prod,         &
-         MURGE_SUCCESS, murge_add_one_entry
-    use murge_module, only : MURGE_ASSEMBLYEND, vertex_is_local
     use mpi_mod
     use mod_locate_irn_jcn
 
