@@ -25,24 +25,26 @@
 !*                                                                             *
 !*******************************************************************************
 module mod_boundary_conditions
+implicit none
 contains
   subroutine boundary_conditions( my_id, node_list, element_list, bnd_node_list, local_elms,         &
        n_local_elms, index_min, index_max, rhs_loc, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, &
        R_xpoint, Z_xpoint, psi_xpoint, gmres, solve_only )
 
-    use mod_assembly, only : boundary_conditions_add_one_entry, boundary_conditions_add_RHS
     use data_structure
     use global_distributed_matrix
-    use phys_module, only: F0, GAMMA, freeboundary
+    use phys_module, only: F0, GAMMA
+    use vacuum, only: is_freebound
     USE murge_module, ONLY : MURGE_ASSEMBLYBEGIN => MURGE_ASSEMBLYBEGIN_WRAPPER,     &
          use_murge, use_murge_element, murge_id, murge_global_n, MURGE_ASSEMBLY_OVW, &
          MURGE_ASSEMBLY_FOOL, murge_sym, murge_id_prod, murge_global_n_prod,         &
          MURGE_SUCCESS, murge_add_one_entry
-    use murge_module, only : MURGE_ASSEMBLYEND
+    use murge_module, only : MURGE_ASSEMBLYEND, vertex_is_local
     use mpi_mod
     use mod_locate_irn_jcn
 
     implicit none
+
 
     ! --- Routine parameters
     integer,                   intent(in)    :: my_id
@@ -67,45 +69,46 @@ contains
     logical,                   intent(in)    :: solve_only
 
     ! Internal parameters
-    real*8  :: zbig,  T0, Vpar0, bigR, dT0_ds, dVpar0_ds, dBigR_ds
-    real*8  :: R_s, R_t, Z_s, Z_t, ps0_s, ps0_t, ps0_x, ps0_y, direction, xjac
-    real*8  :: Btot
-    real*8  :: grad_psi, u0_s, u0_t, u0_x, u0_y
+    real*8  :: zbig
     integer :: i, in, iv, inode, k
-    integer :: index_large_i, index_node, index_node2, ielm
-    integer :: ijA_position,ijA_position2, ilarge2, kv, kT, ku, ilarge_vv, ilarge_vT, ilarge_vus
-    integer :: ilarge_vsvs, ilarge_vsTs, ilarge_vsT
+    integer :: index_large_i, index_node, ielm
+    integer :: ijA_position, ilarge2
+
     integer :: loop_nbr, loop, cnt, cnt_prod
-    integer :: first_tor, last_tor, ierr
+    integer :: ierr
     logical :: is_local, only_count
 
-    zbig = 1.d10
+    zbig = 1.d12
     if (use_murge .and. use_murge_element) then
        ! when we use murge assembly we first count entries then we had them.
-       loop_nbr   = 2
-       cnt        = 0
-       cnt_prod   = 0
+       loop_nbr = 2
        only_count = .true.
+       cnt      = 0
+       cnt_prod = 0
     else
        ! No need to do 2 loops when we build irn_glob, jcn_glob, A_glob.
-       loop_nbr   = 1
+       loop_nbr = 1
        only_count = .false.
     end if
+
 
     do loop = 1, loop_nbr
        if (loop == 2)  then
           only_count = .false.
 #ifdef USE_MURGE
-          write (*,*) my_id, ":: Murge Boundary Assembly phase :: ", cnt, " entries"
           if (.not. solve_only) then
-             CALL MURGE_ASSEMBLYBEGIN( murge_id, murge_global_n, cnt,              &
-                  &                    MURGE_ASSEMBLY_OVW, MURGE_ASSEMBLY_OVW,     &
-                  &                    MURGE_ASSEMBLY_FOOL, murge_sym, ierr)
+             write (*,*) my_id, ":: Murge Boundary Assembly phase :: ", cnt, " entries"
+             CALL MURGE_ASSEMBLYBEGIN(murge_id, murge_global_n, cnt, &
+                  MURGE_ASSEMBLY_OVW, MURGE_ASSEMBLY_OVW,            &
+                  MURGE_ASSEMBLY_FOOL, murge_sym, ierr)
           end if
           if (gmres) then
-             CALL MURGE_ASSEMBLYBEGIN( murge_id_prod, murge_global_n_prod, cnt_prod,    &
-                  &                    MURGE_ASSEMBLY_OVW, MURGE_ASSEMBLY_OVW,          &
-                  &                    MURGE_ASSEMBLY_FOOL, murge_sym, ierr)
+             write (*,*) &
+                  my_id, ":: Murge Boundary Assembly phase :: ", &
+                  cnt_prod, " product entries"
+             CALL MURGE_ASSEMBLYBEGIN(murge_id_prod, murge_global_n_prod, cnt_prod, &
+                  MURGE_ASSEMBLY_OVW, MURGE_ASSEMBLY_OVW,                           &
+                  MURGE_ASSEMBLY_FOOL, murge_sym, ierr)
           end if
           cnt      = 0
           cnt_prod = 0
@@ -132,20 +135,24 @@ contains
                       !------------------------------------ the open field lines (in case of x-point grid)
                       if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
-                         if ( (k .eq. 1) .or. (k .eq. 2) ) then
+                         if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
+                              (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) ) then
+ 
+                          if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
 
                             index_node = node_list%node(inode)%index(1)
                             if (use_murge .and. use_murge_element) then
-
-                              call boundary_conditions_add_one_entry( &
-                                  index_node,  k,  in,                &
-                                  index_node,  k,  in,                &
-                                  zbig, solve_only, gmres,            &
-                                  use_murge, use_murge_element,       &
-                                  cnt, cnt_prod, only_count,          &
-                                  index_min, index_max)
-
+                               call vertex_is_local(index_node, is_local)
+                               if (is_local) then
+                                  call murge_add_one_entry( & 
+                                       & index_node, k, in, &
+                                       & index_node, k, in, &
+                                       & zbig,              &
+                                       & solve_only, gmres, &
+                                       & cnt, cnt_prod, only_count)
+                               end if
                             else
+
                                if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
                                   call locate_irn_jcn(index_node,index_node,index_min,index_max,ijA_position)
@@ -162,16 +169,17 @@ contains
                             end if
 
                             index_node = node_list%node(inode)%index(2)
+
                             if (use_murge .and. use_murge_element) then
-
-                               call boundary_conditions_add_one_entry( &
-                                  index_node,  k,  in,                &
-                                  index_node,  k,  in,                &
-                                  zbig, solve_only, gmres,            &
-                                  use_murge, use_murge_element,       &
-                                  cnt, cnt_prod, only_count,          &
-                                  index_min, index_max)
-
+                               call vertex_is_local(index_node, is_local)
+                               if (is_local) then
+                                  call murge_add_one_entry( & 
+                                       & index_node, k, in, &
+                                       & index_node, k, in, &
+                                       & zbig,              &
+                                       & solve_only, gmres, &
+                                       & cnt, cnt_prod, only_count)
+                               end if
                             else
                                if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
@@ -187,27 +195,28 @@ contains
 
                                endif
                             end if
-                         endif
 
-                      end if
+                          endif
+                        endif
+                      endif
 
                       !------------------------------------ wall aligned with fluxsurface (in case of x-point grid)
-
                       if ((node_list%node(inode)%boundary .eq. 2) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
-                         if ( (k .eq. 1) .or. (k .eq. 2) ) then
+                         if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
 
                             index_node = node_list%node(inode)%index(1)
+
                             if (use_murge .and. use_murge_element) then
-
-                              call boundary_conditions_add_one_entry( &
-                                  index_node,  k,  in,                &
-                                  index_node,  k,  in,                &
-                                  zbig, solve_only, gmres,            &
-                                  use_murge, use_murge_element,       &
-                                  cnt, cnt_prod, only_count,          &
-                                  index_min, index_max)
-
+                               call vertex_is_local(index_node, is_local)
+                               if (is_local) then
+                                  call murge_add_one_entry( & 
+                                       & index_node, k, in, &
+                                       & index_node, k, in, &
+                                       & zbig,              &
+                                       & solve_only, gmres, &
+                                       & cnt, cnt_prod, only_count)
+                               end if
                             else
                                if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
@@ -223,18 +232,19 @@ contains
 
                                endif
                             end if
+
                             index_node = node_list%node(inode)%index(3)
 
                             if (use_murge .and. use_murge_element) then
-
-                               call boundary_conditions_add_one_entry( &
-                                  index_node,  k,  in,                &
-                                  index_node,  k,  in,                &
-                                  zbig, solve_only, gmres,            &
-                                  use_murge, use_murge_element,       &
-                                  cnt, cnt_prod, only_count,          &
-                                  index_min, index_max)
-
+                               call vertex_is_local(index_node, is_local)
+                               if (is_local) then
+                                  call murge_add_one_entry( & 
+                                       & index_node, k, in, &
+                                       & index_node, k, in, &
+                                       & zbig,              &
+                                       & solve_only, gmres, &
+                                       & cnt, cnt_prod, only_count)
+                               end if
                             else
                                if ((index_node .ge. index_min) .and. (index_node .le. index_max)) then
 
@@ -247,9 +257,9 @@ contains
                                   irn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
                                   jcn_glob(ilarge2) =  n_tor * n_var * (index_node-1) + (k-1)*n_tor + in
                                   A_glob(ilarge2)    = zbig
+                               end if
+                            endif
 
-                               endif
-                            end if
                          endif
 
                       endif
@@ -264,9 +274,17 @@ contains
 #ifdef USE_MURGE
           if (.not. solve_only) then
              CALL MURGE_ASSEMBLYEND(murge_id, ierr)
+             IF (ierr /= MURGE_SUCCESS) THEN
+                WRITE (*,*)  "ERROR in MURGE_ASSEMBLYEND "
+                STOP
+             END IF
           end if
           if (gmres) then
              CALL MURGE_ASSEMBLYEND(murge_id_prod, ierr)
+             IF (ierr /= MURGE_SUCCESS) THEN
+                WRITE (*,*)  "ERROR in MURGE_ASSEMBLYEND "
+                STOP
+             END IF
           end if
 #else
           print *, "Binary built without murge"
@@ -274,6 +292,7 @@ contains
 #endif
        end if
     end do
+
     return
   end subroutine boundary_conditions
 end module mod_boundary_conditions

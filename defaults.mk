@@ -149,6 +149,22 @@ ifeq (model710, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
 endif
 
+ifeq (model002, $(MODEL))
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL
+endif
+
+ifeq (model180, $(MODEL))
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL
+endif
+
+ifeq (model181, $(MODEL))
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL
+endif
+
+ifeq (model182, $(MODEL))
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL
+endif
+
 ifeq (1, $(USE_FFTW))
   LIBS     := $(LIBS) $(LIBFFTW)
   DEFINES  := $(DEFINES) -DUSE_FFTW

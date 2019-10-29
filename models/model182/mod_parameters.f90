@@ -3,7 +3,7 @@ module mod_parameters
 
   implicit none
 
-  integer, parameter :: jorek_model    = 199       !< JOREK physics model
+  integer, parameter :: jorek_model    = 182       !< JOREK physics model
 
   integer, parameter :: n_var          = 6         !< number of variables
   integer, parameter :: n_dim          = 2         !< number of dimensions
@@ -22,7 +22,6 @@ module mod_parameters
   
   !> Names of the physical variables
   character(len=11) :: variable_names(n_var) =                       &
-    (/ 'Flux       ','Potential  ','Current    ','Vorticity  ',      &
-       'Density    ','Temperature' /)
+    (/ 'Flux       ','Stream_func','Current    ','Vorticity  ','Density    ','Temperature' /)
 
 end module mod_parameters

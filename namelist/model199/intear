@@ -4,7 +4,7 @@
  regrid  = .f.
  refinement=.false.
  tstep   = 1000.
- nstep   = 0
+ nstep   = 40
 
  nout = 1
 

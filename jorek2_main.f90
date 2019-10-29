@@ -52,6 +52,10 @@ program JOREK2
   use mod_interp
   use basis_at_gaussian, only: initialise_basis
 
+#ifdef SEMIANALYTICAL
+  use mod_equations
+#endif
+
 ! these write additional live data (global data) used when an ECCD current is applied)
 #ifdef JECCD
   use live_data2,          only: init_live_data2, write_live_data2, finalize_live_data2
@@ -238,6 +242,10 @@ required = 0
   
   ! --- Preset input parameters to reasonable defaults, then read the input file.
   call initialise_and_broadcast_parameters(my_id, "__NO_FILENAME__")
+  
+#ifdef SEMIANALYTICAL
+  call init_equations()
+#endif
   
   ! --- Initialize the vacuum part.
   call vacuum_init(my_id, freeboundary_equil, freeboundary, resistive_wall)
