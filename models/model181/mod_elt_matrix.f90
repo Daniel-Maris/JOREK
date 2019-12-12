@@ -227,7 +227,7 @@ do ms=1, n_gauss
      eq(2*n_var+8,0,0,0) = get_zkperp(psi_norm)   ! k_perp
      eq(2*n_var+9,0,0,0) = particle_source(ms,mt) ! S_rho
      eq(2*n_var+10,0,0,0) = heat_source(ms,mt)    ! S_e
-     eq(2*n_var+11,0,0,0) = current_source(ms,mt) ! S_j
+!     eq(2*n_var+11,0,0,0) = current_source(ms,mt)/BigR ! S_j
      
      do i=1,n_vertex_max
 
@@ -258,9 +258,9 @@ do ms=1, n_gauss
            eq(2*n_var+1,1,0,1) = (y_t(ms,mt)*h_s(i,j,ms,mt) - y_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
            eq(2*n_var+1,0,1,1) = (-x_t(ms,mt)*h_s(i,j,ms,mt) + x_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
 
-           rhs_ij_1 = (eval(thread_eq(tid)%rhs1dt0seq) + eval(thread_eq(tid)%rhs1dt1seq)*tstep)*BigR*xjac
-           rhs_ij_2 = 0.d0 ! (eval(thread_eq(tid)%rhs2dt0seq) + eval(thread_eq(tid)%rhs2dt1seq)*tstep)*xjac
-           rhs_ij_3 = (eval(thread_eq(tid)%rhs3dt0seq) + eval(thread_eq(tid)%rhs3dt1seq)*tstep)*BigR*xjac
+           rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
+           rhs_ij_2 = eval(thread_eq(tid)%rhs2seq)*BigR*xjac
+           rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
            rhs_ij_4 = 0.d0 ! (eval(thread_eq(tid)%rhs4dt0seq) + eval(thread_eq(tid)%rhs4dt1seq)*tstep)*xjac
 
            ij1 = index_ij
@@ -303,23 +303,23 @@ do ms=1, n_gauss
                  index_kl = n_tor*n_var*(n_order+1)*(k-1) + n_tor * n_var * (l-1) + in   ! index in the ELM matrix
 
 !---------------------------------------------------------------- equation 1
-                 amat_11 = (eval(thread_eq(tid)%amat11dt0seq) + eval(thread_eq(tid)%amat11dt1seq)*tstep)*BigR*xjac
-                 amat_12 = 0.d0 ! eval(thread_eq(tid)%amat12dt1seq)*tstep*xjac
+                 amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac
+                 amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
                  amat_14 = 0.d0 ! eval(thread_eq(tid)%amat14dt1seq)*tstep*xjac
 
 !---------------------------------------------------------------- equation 2
-                 amat_21 = 0.d0 ! eval(thread_eq(tid)%amat21dt1seq)*tstep*xjac
-                 amat_22 = 1.d0 ! (eval(thread_eq(tid)%amat22dt0seq) + eval(thread_eq(tid)%amat22dt1seq)*tstep)*xjac
-                 amat_23 = 0.d0 ! eval(thread_eq(tid)%amat23dt1seq)*tstep*xjac
+                 amat_21 = 0.d0 ! eval(thread_eq(tid)%amat21seq)*BigR*xjac
+                 amat_22 = eval(thread_eq(tid)%amat22seq)*BigR*xjac
+                 amat_23 = eval(thread_eq(tid)%amat23seq)*BigR*xjac
                  amat_24 = 0.d0 ! eval(thread_eq(tid)%amat24dt1seq)*tstep*xjac
 
 !---------------------------------------------------------------- equation 3
-                 amat_32 = 0.d0 ! eval(thread_eq(tid)%amat32dt1seq)*tstep*xjac
-                 amat_33 = (eval(thread_eq(tid)%amat33dt0seq) + eval(thread_eq(tid)%amat33dt1seq)*tstep)*BigR*xjac
+                 amat_32 = eval(thread_eq(tid)%amat32seq)*BigR*xjac
+                 amat_33 = eval(thread_eq(tid)%amat33seq)*BigR*xjac
 
 !---------------------------------------------------------------- equation 4
-                 amat_41 = 0.d0 ! (eval(thread_eq(tid)%amat41dt0seq) + eval(thread_eq(tid)%amat41dt1seq)*tstep)*xjac
-                 amat_42 = 0.d0 ! (eval(thread_eq(tid)%amat42dt0seq) + eval(thread_eq(tid)%amat42dt1seq)*tstep)*xjac
+                 amat_41 = 0.d0 ! (eval(thread_eq(tid)%amat41dt0seq) + eval(thread_eq(tid)%amat41dt1seq)*tstep)*xjac 
+                 amat_42 = 0.d0 ! (eval(thread_eq(tid)%amat42dt0seq) + eval(thread_eq(tid)%amat42dt1seq)*tstep)*xjac 
                  amat_43 = 0.d0 ! (eval(thread_eq(tid)%amat43dt0seq) + eval(thread_eq(tid)%amat43dt1seq)*tstep)*xjac
                  amat_44 = 1.d0 ! (eval(thread_eq(tid)%amat44dt0seq) + eval(thread_eq(tid)%amat44dt1seq)*tstep)*xjac
 

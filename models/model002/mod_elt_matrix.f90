@@ -2,7 +2,7 @@ module mod_elt_matrix
   implicit none
 contains
 
-subroutine element_matrix(element,nodes, xpoint2, xcase2, minRad, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid)
+subroutine element_matrix(element,nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid)
 !---------------------------------------------------------------
 ! calculates the matrix contribution of one element
 !---------------------------------------------------------------
@@ -16,14 +16,6 @@ use mod_equations
 
 implicit none
 
-type(algexpr), parameter :: u0       = algexpr(basic=.true.,var=1)
-type(algexpr), parameter :: w0       = algexpr(basic=.true.,var=2)
-type(algexpr), parameter :: delta_u  = algexpr(basic=.true.,var=3)
-type(algexpr), parameter :: delta_w  = algexpr(basic=.true.,var=4)
-type(algexpr), parameter :: v        = algexpr(basic=.true.,var=5)
-type(algexpr), parameter :: u        = algexpr(basic=.true.,var=6)
-type(algexpr), parameter :: w        = algexpr(basic=.true.,var=6)
-
 type (type_element)   :: element
 type (type_node)      :: nodes(n_vertex_max)
 
@@ -35,7 +27,7 @@ integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, xcase2
 integer    :: in, im, ij1, ij2, kl1, kl2
 integer    :: last
 real*8     :: wst, xjac, xjac_x, xjac_y
-real*8     :: minRad, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2), psi_norm
+real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2), psi_norm
 real*8     :: rhs_ij_1,   rhs_ij_2
 real*8     :: theta, zeta
 
@@ -73,8 +65,6 @@ delta_s => thread_struct(tid)%delta_s
 delta_t => thread_struct(tid)%delta_t
 
 eq => thread_eq(tid)%eq
-
-!allocate(eq(2*n_var+2,0:n_order-1,0:n_order-1,0:n_order-1))
 
 ELM = 0.d0
 RHS = 0.d0
@@ -137,32 +127,6 @@ do i=1,n_vertex_max
   enddo
 enddo
 
-!rhs1 = -tstep*w0*pbrack(v,u0) - visco*tstep*inprod(v,w0) - (0.25d0*tstep**2)*pbrack(w0,u0)*pbrack(v,u0) - zeta*inprod(v,delta_u)
-!allocate(rhs1seq(countsubexprs(rhs1)))
-!last = 0
-!call buildsequence(rhs1, rhs1seq, eq, last)
-
-!amat11 = -(1.d0 + zeta)*inprod(v,u) + theta*tstep*w0*pbrack(v,u) &
-!       + (0.25d0*theta*tstep**2)*(pbrack(w0,u)*pbrack(v,u0) + pbrack(w0,u0)*pbrack(v,u))
-!allocate(amat11seq(countsubexprs(amat11)))
-!last = 0
-!call buildsequence(amat11, amat11seq, eq, last)
-
-!amat12 = theta*tstep*w*pbrack(v,u0) + tstep*theta*visco*inprod(v,w) + (0.25d0*theta*tstep**2)*pbrack(w,u0)*pbrack(v,u0)
-!allocate(amat12seq(countsubexprs(amat12)))
-!last = 0
-!call buildsequence(amat12, amat12seq, eq, last)
-
-!amat21 = inprod(v,u)
-!allocate(amat21seq(countsubexprs(amat21)))
-!last = 0
-!call buildsequence(amat21, amat21seq, eq, last)
-
-!amat22 = v*w
-!allocate(amat22seq(countsubexprs(amat22)))
-!last = 0
-!call buildsequence(amat22, amat22seq, eq, last)
-
 !--------------------------------------------------- sum over the Gaussian integration points
 do ms=1, n_gauss
 
@@ -224,11 +188,7 @@ do ms=1, n_gauss
                             - xjac_y*(-h_s(i,j,ms,mt)*x_t(ms,mt) + h_t(i,j,ms,mt)*x_s(ms,mt))*element%size(i,j)/xjac**2
 
 
-        rhs_ij_1 = (eval(thread_eq(tid)%rhs1dt0seq) + eval(thread_eq(tid)%rhs1dt1seq)*tstep + eval(thread_eq(tid)%rhs1dt2seq)*tstep**2)*xjac
-                 ! -eq(2,0,0,0)*(h_s(i,j,ms,mt)*eq_t(mp,1,ms,mt) - h_t(i,j,ms,mt)*eq_s(mp,1,ms,mt))*element%size(i,j)*tstep &
-                 ! - visco*(eq(2*n_var+1,1,0,0)*eq(2,1,0,0) + eq(2*n_var+1,0,1,0)*eq(2,0,1,0))*xjac*tstep &
-                 ! - 0.25d0*(eq(2,1,0,0)*eq(1,0,1,0) - eq(2,0,1,0)*eq(1,1,0,0))*(eq(2*n_var+1,1,0,0)*eq(1,0,1,0) - eq(2*n_var+1,0,1,0)*eq(1,1,0,0))*xjac*tstep**2 ! &
-                 ! - zeta*(eq(2*n_var+1,1,0,0)*eq(3,1,0,0) + eq(2*n_var+1,0,1,0)*eq(3,0,1,0))*xjac
+        rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*xjac
            
         rhs_ij_2 = 0.d0 
 
@@ -261,20 +221,12 @@ do ms=1, n_gauss
 
 !---------------------------------------------------------------- equation 1
  		      
-            amat_11 = (eval(thread_eq(tid)%amat11dt0seq) + eval(thread_eq(tid)%amat11dt1seq)*tstep + eval(thread_eq(tid)%amat11dt2seq)*tstep**2)*xjac
-                  ! - (eq(2*n_var+1,1,0,0)*eq(2*n_var+2,1,0,0) + eq(2*n_var+1,0,1,0)*eq(2*n_var+2,0,1,0))*xjac*(1.d0 + zeta)                 &  
-                  ! + eq(2,0,0,0)*(h_s(i,j,ms,mt)*h_t(k,l,ms,mt) - h_t(i,j,ms,mt)*h_s(k,l,ms,mt))*element%size(i,j)*element%size(k,l)*theta*tstep &
-                  ! + 0.25d0*(eq(2,1,0,0)*eq(2*n_var+2,0,1,0) - eq(2,0,1,0)*eq(2*n_var+2,1,0,0))*(eq(2*n_var+1,1,0,0)*eq(1,0,1,0) - eq(2*n_var+1,0,1,0)*eq(1,1,0,0))*xjac*theta*tstep**2 &
-		              ! + 0.25d0*(eq(2,1,0,0)*eq(1,0,1,0) - eq(2,0,1,0)*eq(1,1,0,0))*(eq(2*n_var+1,1,0,0)*eq(2*n_var+2,0,1,0) - eq(2*n_var+1,0,1,0)*eq(2*n_var+2,1,0,0))*xjac*theta*tstep**2
-     
-            amat_12 = (eval(thread_eq(tid)%amat12dt1seq)*tstep + eval(thread_eq(tid)%amat12dt2seq)*tstep**2)*xjac
-                    ! eq(2*n_var+2,0,0,0)*(h_s(i,j,ms,mt)*eq_t(mp,1,ms,mt) - h_t(i,j,ms,mt)*eq_s(mp,1,ms,mt))*element%size(i,j)*theta*tstep &
-                    ! + visco*(eq(2*n_var+1,1,0,0)*eq(2*n_var+2,1,0,0) + eq(2*n_var+1,0,1,0)*eq(2*n_var+2,0,1,0))*xjac*theta*tstep &
-                    ! + 0.25d0*(eq(2*n_var+2,1,0,0)*eq(1,0,1,0) - eq(2*n_var+2,0,1,0)*eq(1,1,0,0))*(eq(2*n_var+1,1,0,0)*eq(1,0,1,0) - eq(2*n_var+1,0,1,0)*eq(1,1,0,0))*xjac*theta*tstep**2
+            amat_11 = eval(thread_eq(tid)%amat11seq)*xjac
+            amat_12 = eval(thread_eq(tid)%amat12seq)*xjac
 		      
 !---------------------------------------------------------------- equation 2
-            amat_22 = eval(thread_eq(tid)%amat22dt0seq)*xjac
-            amat_21 = eval(thread_eq(tid)%amat21dt0seq)*xjac
+            amat_22 = eval(thread_eq(tid)%amat22seq)*xjac
+            amat_21 = eval(thread_eq(tid)%amat21seq)*xjac
 
             kl1 = index_kl
             kl2 = index_kl + 1
@@ -294,21 +246,5 @@ do ms=1, n_gauss
 enddo
 
 return
-
-!contains
-
-!type(algexpr) function pbrack(a,b)
-!  implicit none
-!  type(algexpr), intent(in) :: a, b
-  
-!  pbrack = dx(a)*dy(b) - dy(a)*dx(b)
-!end function pbrack
-
-!type(algexpr) function inprod(a,b)
-!  implicit none
-!  type(algexpr), intent(in) :: a, b
-  
-!  inprod = dx(a)*dx(b) + dy(a)*dy(b)
-!end function inprod
 end subroutine element_matrix
 end module mod_elt_matrix

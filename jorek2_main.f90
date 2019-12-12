@@ -242,10 +242,6 @@ required = 0
   ! --- Preset input parameters to reasonable defaults, then read the input file.
   call initialise_and_broadcast_parameters(my_id, "__NO_FILENAME__")
   
-#ifdef SEMIANALYTICAL
-  call init_equations()
-#endif
-  
   ! --- Initialize the vacuum part.
   call vacuum_init(my_id, freeboundary_equil, freeboundary, resistive_wall)
   
@@ -835,6 +831,9 @@ required = 0
   index_now = index_start  ! index_now: Index of current timestep
 
   jstep_loop: do jstep = 1, 10 ! Go through the different values of the tstep_n and nstep_n arrays
+#ifdef SEMIANALYTICAL
+  call init_equations()
+#endif
   istep_loop: do istep = 1, nstep_n(jstep)
     call clck_time_barrier(t_itstart)
     t0 = t_itstart

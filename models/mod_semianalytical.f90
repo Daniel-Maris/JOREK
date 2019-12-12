@@ -24,7 +24,7 @@ module mod_semianalytical
     integer*1       :: c1, c2, c3  ! These three constants collectively determine the type of arithmetic operation to be performed
     real*8          :: reslt       ! Stores the result
     real*8          :: f1, f2      ! Numerical factors individually multiplying v1 and v2
-    real*8          :: factor, add ! A numerical multiplicative factor (for entire expression) and an additive constant
+    real*8          :: a1, a2      ! Additive constants for v1 and v2
     
     ! Only for debugging purposes: points to the exact expression from which this action was obtained
     type(algexpr), pointer :: origin => NULL()
@@ -57,6 +57,8 @@ module mod_semianalytical
     procedure divexprn
     procedure divnexpr
   end interface operator (/)
+  
+  private :: buildsequence_rec
   
 contains
 
@@ -424,8 +426,8 @@ contains
     end if
   end function countsubexprs
 
-  ! Use an algebraic expression to build a sequence of instructions
-  recursive subroutine buildsequence(expr, actseq, eq, last)
+  ! Use an algebraic expression to build a sequence of instructions (recursive part)
+  recursive subroutine buildsequence_rec(expr, actseq, eq, last)
     implicit none
     type(algexpr),                       target, intent(in)    :: expr
     type(action), dimension(:),          target, intent(inout) :: actseq
@@ -433,28 +435,24 @@ contains
     integer,                                     intent(inout) :: last
     type(action),                        target                :: act
     
-    act%factor =  expr%factor
-    act%add    =  expr%add
     act%origin => expr
+    act%f1 = expr%operand1%factor
+    act%f2 = expr%operand2%factor
+    act%a1 = expr%operand1%add
+    act%a2 = expr%operand2%add
     
     if (expr%operand1%basic) then
       act%v1  => eq(expr%operand1%var,expr%operand1%dx,expr%operand1%dy,expr%operand1%dp)
-      act%add =  act%add + expr%operand1%add
-      act%f1  =  expr%operand1%factor
     else
-      call buildsequence(expr%operand1,actseq,eq,last)
+      call buildsequence_rec(expr%operand1,actseq,eq,last)
       act%v1 => actseq(last)%reslt
-      act%f1 =  1.d0
     end if
     
     if (expr%operand2%basic) then
       act%v2  => eq(expr%operand2%var,expr%operand2%dx,expr%operand2%dy,expr%operand2%dp)
-      act%add =  act%add + expr%operand2%add
-      act%f2  =  expr%operand2%factor
     else
-      call buildsequence(expr%operand2,actseq,eq,last)
+      call buildsequence_rec(expr%operand2,actseq,eq,last)
       act%v2 => actseq(last)%reslt
-      act%f2 =  1.d0
     end if
     
     select case (expr%oprtr)
@@ -477,6 +475,27 @@ contains
     end select
     last = last + 1
     actseq(last) = act
+  end subroutine buildsequence_rec
+  
+  ! Use an algebraic expression to build a sequence of instructions (initialization part)
+  subroutine buildsequence(expr, actseq, eq)
+    implicit none
+    type(algexpr),                       target, intent(in)    :: expr
+    type(action), dimension(:),          target, intent(inout) :: actseq
+    real*8,       dimension(:,0:,0:,0:), target, intent(in)    :: eq
+    integer                                                    :: last
+    
+    ! It is impossible to represent factors and additive constants on the uppermost algexpr in an action sequence format
+    ! Exit the code with an error message to avoid trouble (wrong numerical results) later
+    if (expr%factor .ne. 1 .or. expr%add .ne. 0) then
+      write(*,*)
+      write(*,*) '>>>>> Factor and/or additive on uppermost algexpr: EXITING THE CODE <<<<<'
+      write(*,*)
+      stop
+    end if
+    
+    last = 0
+    call buildsequence_rec(expr, actseq, eq, last)
   end subroutine buildsequence
 
   ! Execute the instruction sequence
@@ -489,7 +508,7 @@ contains
     !dir$ noparallel
     !dir$ novector
     do i=1,size(actseq)
-      actseq(i)%reslt = actseq(i)%factor*((actseq(i)%f1*actseq(i)%v1)*((1 - actseq(i)%c1)*(actseq(i)%f2*actseq(i)%v2) + actseq(i)%c1)/((1 - actseq(i)%c2)*(actseq(i)%f2*actseq(i)%v2) + actseq(i)%c2) + actseq(i)%c3*(actseq(i)%f2*actseq(i)%v2)) + actseq(i)%add
+      actseq(i)%reslt = (actseq(i)%f1*actseq(i)%v1 + actseq(i)%a1)*((1 - actseq(i)%c1)*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2) + actseq(i)%c1)/((1 - actseq(i)%c2)*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2) + actseq(i)%c2) + actseq(i)%c3*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2)
     end do
     
     eval = actseq(size(actseq))%reslt
