@@ -1,11 +1,11 @@
 # --- General settings
 jorekmodel="199"
-description="Free boundary equilibrium for NSTX with double-null X-point grid (JOREK-STARWALL)."
-mpitasks=1
+description="Free boundary equilibrium for ITER X-point plasma using coils directly in STARWALL (JOREK-STARWALL)."
+mpitasks=2
 binaries="jorek_model${jorekmodel}_1"
 binaries_initial=""
-requiredfiles="input starwall-response.dat coil_field.dat density temperature jorek_ffprime"
-extra_remote_files="starwall-response.dat coil_field.dat"
+requiredfiles="input starwall-response.dat"
+extra_remote_files="starwall-response.dat"
 
 
 # --- Compile the code for the test case
@@ -31,5 +31,5 @@ function restart_run () {
 
 # --- Compare the results of the test case to the reference solution
 function compare_results () {
-  compare_results_generic 3.e-3                                                      || exit 1
+  compare_results_generic 1.e-10                                                     || exit 1
 }
