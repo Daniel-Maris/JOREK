@@ -37,7 +37,7 @@ module mod_straight_field_line
   
   ! --- Constants
   character(len=23), parameter, private :: THIS_MOD_NAME = 'mod_straight_field_line'
-  logical,           parameter, private :: DEBUG         = .true. !< Switch on/off debugging output
+  logical,           parameter, private :: dbg           = .true. !< Switch on/off debugging output
   
   
   
@@ -250,7 +250,7 @@ module mod_straight_field_line
     if ( present(nmaxsteps2)   ) nmaxsteps   = nmaxsteps2
     if ( present(deltaphi2)    ) deltaphi    = deltaphi2
     if ( present(nsmallsteps2) ) nsmallsteps = nsmallsteps2
-    if ( DEBUG ) then
+    if ( dbg ) then
       write(*,*) 'nmaxsteps   =', nmaxsteps
       write(*,*) 'deltaphi    =', deltaphi
       write(*,*) 'nsmallsteps =', nsmallsteps
@@ -292,7 +292,7 @@ module mod_straight_field_line
     end if
     
     ! --- Output some data to files for debugging.
-    if ( debug ) then
+    if ( dbg ) then
       open(42, FILE='determine_theta_mag.rr-zz.dat', ACTION='WRITE', STATUS='REPLACE')
       do k = 1, mapping%nstpts
         do j = 0, mapping%npts(k)
@@ -495,7 +495,7 @@ module mod_straight_field_line
               ( ( mapping%tt(k,mapping%npts(k)) - mapping%tt(k,0) - 2.*PI ) / &
               ( mapping%tt(k,mapping%npts(k)) - mapping%tt(k,mapping%npts(k)-1) ) ) ) * 2.*PI
           end do
-          if ( debug ) then 
+          if ( dbg ) then 
             !$omp critical
             write(*,'(" Field line",I6,":    psin=",F7.3,"    npts=",I7)') k, mapping%psin(k),     &
               mapping%npts(k)

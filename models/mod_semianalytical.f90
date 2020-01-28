@@ -4,19 +4,29 @@ module mod_semianalytical
   ! A simple algebraic expression with two operands and an arithmetical operator (+, -, * or \)
   ! The operands can either be basics variables or algebraic expressions themselves
   type algexpr
-    type(algexpr), pointer :: operand1 => NULL(), operand2 => NULL()
-    character              :: oprtr = ''
-    integer                :: dx = 0, dy = 0, dp = 0    ! Orders of differential operators acting on this expression
-    logical                :: basic = .false.           ! .true. if there are no more sub-operands in the expression
-    integer                :: var = 0                   ! The index of the basic variable. Only initialized if basic .eq. .true.
-    real*8                 :: factor = 1.d0, add = 0.d0 ! A numerical multiplicative factor and an additive constant
+    type(algexpr), pointer    :: operand1 => NULL(), operand2 => NULL()
+    character                 :: oprtr = ''
+    integer                   :: dx = 0, dy = 0, dp = 0    ! Orders of differential operators acting on this expression
+    logical                   :: basic = .false.           ! .true. if there are no more sub-operands in the expression
+    integer                   :: var = 0                   ! The index of the basic variable. Only initialized if basic .eq. .true.
+    real*8                    :: factor = 1.d0, add = 0.d0 ! A numerical multiplicative factor and an additive constant
+    character(:), allocatable :: factcode, addcode         ! Fortran code for the multiplicative and additive constants
     
+#ifdef DEBUG
     ! These pointers are only for debugging purposes and should be removed in production
     ! up points to the expression for which this expression is an operand
     ! origin points to the un-expanded expression from which this expression was obtained
     type(algexpr), pointer :: up => NULL(), origin => NULL()
+#endif
   end type algexpr
+  
+  ! A constant derived from a Fortran variable that does not vary in space or time
+  type const
+    real*8                    :: value ! The numerical value of the constant
+    character(:), allocatable :: token ! The name of the corresponding Fortran variable
+  end type const
 
+#ifdef DEBUG
   ! An instruction to add, subtract, multiply or divide two numbers
   ! Algebraic expressions are compiled to sequences (arrays) of actions
   type action
@@ -26,9 +36,10 @@ module mod_semianalytical
     real*8          :: f1, f2      ! Numerical factors individually multiplying v1 and v2
     real*8          :: a1, a2      ! Additive constants for v1 and v2
     
-    ! Only for debugging purposes: points to the exact expression from which this action was obtained
+    ! Points to the exact expression from which this action was obtained
     type(algexpr), pointer :: origin => NULL()
   end type action
+#endif
   
   type(algexpr), parameter :: one = algexpr(basic = .true.,var=1,factor=0,add=1)
 
@@ -37,28 +48,55 @@ module mod_semianalytical
     procedure addexpr
     procedure addexprn
     procedure addnexpr
+    procedure addexprc
+    procedure addcexpr
+    procedure addcc
+    procedure addcn
+    procedure addnc
   end interface operator (+)
   
   interface operator (-)
     procedure subexpr
     procedure subexprn
     procedure subnexpr
+    procedure subexprc
+    procedure subcexpr
+    procedure subcc
+    procedure subcn
+    procedure subnc
     procedure negate
+    procedure negatec
   end interface operator (-)
   
   interface operator (*)
     procedure multexpr
     procedure multexprn
     procedure multnexpr
+    procedure multexprc
+    procedure multcexpr
+    procedure multcc
+    procedure multcn
+    procedure multnc
   end interface operator (*)
   
   interface operator (/)
     procedure divexpr
     procedure divexprn
     procedure divnexpr
+    procedure divexprc
+    procedure divcexpr
+    procedure divcc
+    procedure divcn
+    procedure divnc
   end interface operator (/)
   
+  interface operator (**)
+    procedure powcn
+  end interface operator (**)
+  
+#ifdef DEBUG
   private :: buildsequence_rec
+#endif
   
 contains
 
@@ -79,19 +117,91 @@ contains
     implicit none
     type(algexpr), intent(in) :: e1
     real*8,        intent(in) :: n2
+    character(23)             :: num
     
     addexprn = e1
     addexprn%add = addexprn%add + n2
+    write(num,'(E14.6)') n2
+    if (allocated(addexprn%addcode)) then
+      addexprn%addcode = addexprn%addcode // " + " // trim(adjustl(num))
+    else
+      addexprn%addcode = trim(adjustl(num))
+    end if
   end function addexprn
   
   type(algexpr) function addnexpr(n1,e2)
     implicit none
     real*8,        intent(in) :: n1
     type(algexpr), intent(in) :: e2
+    character(23)             :: num
     
     addnexpr = e2
     addnexpr%add = addnexpr%add + n1
+    write(num,'(E14.6)') n1
+    if (allocated(addnexpr%addcode)) then
+      addnexpr%addcode = addnexpr%addcode // " + " // trim(adjustl(num))
+    else
+      addnexpr%addcode = trim(adjustl(num))
+    end if
   end function addnexpr
+  
+  type(algexpr) function addexprc(e1,c2)
+    implicit none
+    type(algexpr), intent(in) :: e1
+    type(const),   intent(in) :: c2
+    
+    addexprc = e1
+    addexprc%add = addexprc%add + c2%value
+    if (allocated(addexprc%addcode)) then
+      addexprc%addcode = addexprc%addcode // " + " // c2%token
+    else
+      addexprc%addcode = c2%token
+    end if
+  end function addexprc
+  
+  type(algexpr) function addcexpr(c1,e2)
+    implicit none
+    type(const),   intent(in) :: c1
+    type(algexpr), intent(in) :: e2
+    
+    addcexpr = e2
+    addcexpr%add = addcexpr%add + c1%value
+    if (allocated(addcexpr%addcode)) then
+      addcexpr%addcode = addcexpr%addcode // " + " // c1%token
+    else
+      addcexpr%addcode = c1%token
+    end if
+  end function addcexpr
+  
+  type(const) function addcc(c1,c2)
+    implicit none
+    type(const), intent(in) :: c1, c2
+    
+    addcc%value = c1%value + c2%value
+    addcc%token = c1%token // " + " // c2%token
+  end function addcc
+  
+  type(const) function addcn(c1,n2)
+    implicit none
+    type(const), intent(in) :: c1
+    real*8,      intent(in) :: n2
+    character(23)           :: num
+    
+    addcn%value = c1%value + n2
+    write(num,'(E14.6)') n2
+    addcn%token = c1%token // " + " // trim(adjustl(num))
+  end function addcn
+  
+  type(const) function addnc(n1,c2)
+    implicit none
+    real*8,      intent(in) :: n1
+    type(const), intent(in) :: c2
+    character(23)           :: num
+    
+    addnc%value = n1 + c2%value
+    write(num,'(E14.6)') n1
+    addnc%token = trim(adjustl(num)) // " + " // c2%token
+  end function addnc
   
   type(algexpr) function subexpr(e1,e2)
     implicit none
@@ -109,20 +219,103 @@ contains
     implicit none
     type(algexpr), intent(in) :: e1
     real*8,        intent(in) :: n2
+    character(23)             :: num
     
     subexprn = e1
     subexprn%add = subexprn%add - n2
+    write(num,'(E14.6)') n2
+    if (allocated(subexprn%addcode)) then
+      subexprn%addcode = subexprn%addcode // " - " // trim(adjustl(num))
+    else
+      subexprn%addcode = "(-" // trim(adjustl(num)) // ")"
+    end if
   end function subexprn
   
   type(algexpr) function subnexpr(n1,e2)
     implicit none
     real*8,        intent(in) :: n1
     type(algexpr), intent(in) :: e2
+    character(23)             :: num
     
     subnexpr = e2
     subnexpr%factor = -subnexpr%factor
     subnexpr%add = n1 - subnexpr%add
+    write(num,'(E14.6)') n1
+    if (allocated(subnexpr%factcode)) then
+      subnexpr%factcode = "(-" // subnexpr%factcode // ")"
+    else
+      subnexpr%factcode = "(-1)"
+    end if
+    if (allocated(subnexpr%addcode)) then
+      subnexpr%addcode = trim(adjustl(num)) // " - (" // subnexpr%addcode // ")"
+    else
+      subnexpr%addcode = trim(adjustl(num))
+    end if
   end function subnexpr
+  
+  type(algexpr) function subexprc(e1,c2)
+    implicit none
+    type(algexpr), intent(in) :: e1
+    type(const),   intent(in) :: c2
+    
+    subexprc = e1
+    subexprc%add = subexprc%add - c2%value
+    if (allocated(subexprc%addcode)) then
+      subexprc%addcode = subexprc%addcode // " - (" // c2%token // ")"
+    else
+      subexprc%addcode = "(-(" // c2%token // "))"
+    end if
+  end function subexprc
+  
+  type(algexpr) function subcexpr(c1,e2)
+    implicit none
+    type(const),   intent(in) :: c1
+    type(algexpr), intent(in) :: e2
+    
+    subcexpr = e2
+    subcexpr%factor = -subcexpr%factor
+    subcexpr%add = c1%value - subcexpr%add
+    if (allocated(subcexpr%factcode)) then
+      subcexpr%factcode = "(-" // subcexpr%factcode // ")"
+    else
+      subcexpr%factcode = "(-1)"
+    end if
+    if (allocated(subcexpr%addcode)) then
+      subcexpr%addcode = c1%token // " - (" // subcexpr%addcode // ")"
+    else
+      subcexpr%addcode = c1%token
+    end if
+  end function subcexpr
+  
+  type(const) function subcc(c1,c2)
+    implicit none
+    type(const), intent(in) :: c1, c2
+    
+    subcc%value = c1%value - c2%value
+    subcc%token = c1%token // " - (" // c2%token // ")"
+  end function subcc
+  
+  type(const) function subcn(c1,n2)
+    implicit none
+    type(const), intent(in) :: c1
+    real*8,      intent(in) :: n2
+    character(23)           :: num
+    
+    subcn%value = c1%value - n2
+    write(num,'(E14.6)') n2
+    subcn%token = c1%token // " - " // trim(adjustl(num))
+  end function subcn
+  
+  type(const) function subnc(n1,c2)
+    implicit none
+    real*8,      intent(in) :: n1
+    type(const), intent(in) :: c2
+    character(23)           :: num
+    
+    subnc%value = n1 - c2%value
+    write(num,'(E14.6)') n1
+    subnc%token = trim(adjustl(num)) // " - (" // c2%token // ")"
+  end function subnc
   
   type(algexpr) function negate(expr)
     implicit none
@@ -131,7 +324,21 @@ contains
     negate = expr
     negate%factor = -negate%factor
     negate%add = -negate%add
+    if (allocated(negate%factcode)) then
+      negate%factcode = "(-" // negate%factcode // ")"
+    else
+      negate%factcode = "(-1)"
+    end if
+    if (allocated(negate%addcode)) negate%addcode = "-(" // negate%addcode // ")"
   end function negate
+  
+  type(const) function negatec(c)
+    implicit none
+    type(const), intent(in) :: c
+    
+    negatec%value = -c%value
+    negatec%token = "(-(" // c%token // "))"
+  end function negatec
   
   type(algexpr) function multexpr(e1,e2)
     implicit none
@@ -149,21 +356,99 @@ contains
     implicit none
     type(algexpr), intent(in) :: e1
     real*8,        intent(in) :: n2
+    character(23)             :: num
     
     multexprn = e1
     multexprn%factor = n2*multexprn%factor
     multexprn%add = n2*multexprn%add
+    write(num,'(E14.6)') n2
+    if (allocated(multexprn%factcode)) then
+      multexprn%factcode = trim(adjustl(num)) // "*" // multexprn%factcode
+    else
+      multexprn%factcode = trim(adjustl(num))
+    end if
+    if (allocated(multexprn%addcode)) multexprn%addcode = trim(adjustl(num)) // "*(" // multexprn%addcode // ")"
   end function multexprn
   
   type(algexpr) function multnexpr(n1,e2)
     implicit none
     real*8,        intent(in) :: n1
     type(algexpr), intent(in) :: e2
+    character(23)             :: num
     
     multnexpr = e2
     multnexpr%factor = n1*multnexpr%factor
     multnexpr%add = n1*multnexpr%add
+    write(num,'(E14.6)') n1
+    if (allocated(multnexpr%factcode)) then
+      multnexpr%factcode = trim(adjustl(num)) // "*" // multnexpr%factcode
+    else
+      multnexpr%factcode = trim(adjustl(num))
+    end if
+    if (allocated(multnexpr%addcode)) multnexpr%addcode = trim(adjustl(num)) // "*(" // multnexpr%addcode // ")"
   end function multnexpr
+  
+  type(algexpr) function multexprc(e1,c2)
+    implicit none
+    type(algexpr), intent(in) :: e1
+    type(const),   intent(in) :: c2
+    
+    multexprc = e1
+    multexprc%factor = c2%value*multexprc%factor
+    multexprc%add = c2%value*multexprc%add
+    if (allocated(multexprc%factcode)) then
+      multexprc%factcode = "(" // c2%token // ")*" // multexprc%factcode
+    else
+      multexprc%factcode = "(" // c2%token // ")"
+    end if
+    if (allocated(multexprc%addcode)) multexprc%addcode = "(" // c2%token // ")*(" // multexprc%addcode // ")"
+  end function multexprc
+  
+  type(algexpr) function multcexpr(c1,e2)
+    implicit none
+    type(const),   intent(in) :: c1
+    type(algexpr), intent(in) :: e2
+    
+    multcexpr = e2
+    multcexpr%factor = c1%value*multcexpr%factor
+    multcexpr%add = c1%value*multcexpr%add
+    if (allocated(multcexpr%factcode)) then
+      multcexpr%factcode = "(" // c1%token // ")*" // multcexpr%factcode
+    else
+      multcexpr%factcode = "(" // c1%token // ")"
+    end if
+    if (allocated(multcexpr%addcode)) multcexpr%addcode = "(" // c1%token // ")*(" // multcexpr%addcode // ")"
+  end function multcexpr
+  
+  type(const) function multcc(c1,c2)
+    implicit none
+    type(const), intent(in) :: c1, c2
+    
+    multcc%value = c1%value*c2%value
+    multcc%token = "(" // c1%token // ")*(" // c2%token // ")"
+  end function multcc
+  
+  type(const) function multcn(c1,n2)
+    implicit none
+    type(const), intent(in) :: c1
+    real*8,      intent(in) :: n2
+    character(23)           :: num
+    
+    multcn%value = c1%value*n2
+    write(num,'(E14.6)') n2
+    multcn%token = "(" // c1%token // ")*" // trim(adjustl(num))
+  end function multcn
+  
+  type(const) function multnc(n1,c2)
+    implicit none
+    real*8,      intent(in) :: n1
+    type(const), intent(in) :: c2
+    character(23)           :: num
+    
+    multnc%value = n1*c2%value
+    write(num,'(E14.6)') n1
+    multnc%token = trim(adjustl(num)) // "*(" // c2%token // ")"
+  end function multnc
   
   type(algexpr) function divexpr(e1,e2)
     implicit none
@@ -181,25 +466,108 @@ contains
     implicit none
     type(algexpr), intent(in) :: e1
     real*8,        intent(in) :: n2
+    character(23)             :: num
     
     divexprn = e1
     divexprn%factor = divexprn%factor/n2
     divexprn%add = divexprn%add/n2
+    write(num,'(E14.6)') n2
+    if (allocated(divexprn%factcode)) then
+      divexprn%factcode = "(" // divexprn%factcode // "/" // trim(adjustl(num)) // ")"
+    else
+      divexprn%factcode = "(1/" // trim(adjustl(num)) // ")"
+    end if
+    if (allocated(divexprn%addcode)) divexprn%addcode = "((" // divexprn%addcode // ")/" // trim(adjustl(num)) // ")"
   end function divexprn
   
   type(algexpr) function divnexpr(n1,e2)
     implicit none
     real*8,        intent(in) :: n1
     type(algexpr), intent(in) :: e2
+    character(23)             :: num
     
     allocate(divnexpr%operand1)
     allocate(divnexpr%operand2)
     
-    divnexpr%operand1        = one
-    divnexpr%operand1%factor = n1
-    divnexpr%operand2        = e2
-    divnexpr%oprtr           = '/'
+    divnexpr%operand1     = one
+    divnexpr%operand1%add = n1
+    divnexpr%operand2     = e2
+    divnexpr%oprtr        = '/'
+    write(num,'(E14.6)') n1
+    divnexpr%operand1%addcode = trim(adjustl(num))
   end function divnexpr
+  
+  type(algexpr) function divexprc(e1,c2)
+    implicit none
+    type(algexpr), intent(in) :: e1
+    type(const),   intent(in) :: c2
+    
+    divexprc = e1
+    divexprc%factor = divexprc%factor/c2%value
+    divexprc%add = divexprc%add/c2%value
+    if (allocated(divexprc%factcode)) then
+      divexprc%factcode = "(" // divexprc%factcode // "/(" // c2%token // "))"
+    else
+      divexprc%factcode = "(1/(" // c2%token // "))"
+    end if
+    if (allocated(divexprc%addcode)) divexprc%addcode = "((" // divexprc%addcode // ")/(" // c2%token // "))"
+  end function divexprc
+  
+  type(algexpr) function divcexpr(c1,e2)
+    implicit none
+    type(const),   intent(in) :: c1
+    type(algexpr), intent(in) :: e2
+    
+    allocate(divcexpr%operand1)
+    allocate(divcexpr%operand2)
+    
+    divcexpr%operand1        = one
+    divcexpr%operand1%factor = c1%value
+    divcexpr%operand2        = e2
+    divcexpr%oprtr           = '/'
+    divcexpr%operand1%addcode = c1%token
+  end function divcexpr
+  
+  type(const) function divcc(c1,c2)
+    implicit none
+    type(const), intent(in) :: c1, c2
+    
+    divcc%value = c1%value/c2%value
+    divcc%token = "((" // c1%token // ")/(" // c2%token // "))"
+  end function divcc
+  
+  type(const) function divcn(c1,n2)
+    implicit none
+    type(const), intent(in) :: c1
+    real*8,      intent(in) :: n2
+    character(23)           :: num
+    
+    divcn%value = c1%value/n2
+    write(num,'(E14.6)') n2
+    divcn%token = "((" // c1%token // ")/" // trim(adjustl(num)) // ")"
+  end function divcn
+  
+  type(const) function divnc(n1,c2)
+    implicit none
+    real*8,      intent(in) :: n1
+    type(const), intent(in) :: c2
+    character(23)           :: num
+    
+    divnc%value = n1/c2%value
+    write(num,'(E14.6)') n1
+    divnc%token = "(" // trim(adjustl(num)) // "/(" // c2%token // "))"
+  end function divnc
+  
+  type(const) function powcn(c1,n2)
+    implicit none
+    type(const), intent(in) :: c1
+    real*8,      intent(in) :: n2
+    character(23)           :: num
+    
+    powcn%value = c1%value**n2
+    write(num,'(E14.6)') n2
+    powcn%token = "((" // c1%token // ")**(" // trim(adjustl(num)) // "))"
+  end function powcn
   
   ! Functions applying differential operators to the expression
   type(algexpr) function dx(expr)
@@ -239,8 +607,13 @@ contains
       res%factor = expr%factor
       res%add    = expr%add
       
+      if (allocated(expr%factcode)) res%factcode = expr%factcode
+      if (allocated(expr%addcode)) res%addcode  = expr%addcode
+      
+#ifdef DEBUG
       res%origin => expr%origin
       res%up     => expr%up
+#endif
       
       allocate(res%operand1)
       allocate(res%operand2)
@@ -249,6 +622,7 @@ contains
     end if
   end function deepcopy
   
+#ifdef DEBUG
   ! This subroutine initializes the up pointers in an expression tree (only useful for debugging)
   recursive subroutine inituptree(expr)
     implicit none
@@ -261,6 +635,7 @@ contains
       call inituptree(expr%operand2)
     end if
   end subroutine inituptree
+#endif
 
   type(algexpr) recursive function Dexpand(expr) result(res)
     implicit none
@@ -284,7 +659,9 @@ contains
         res%dy = expr%dy
         res%dp = expr%dp
         res%add = 0
+#ifdef DEBUG
         res%origin => expr
+#endif
       else if (expr%dy .ne. 0) then
         select case (expr%oprtr)
           case ('+')
@@ -300,7 +677,9 @@ contains
         res%dy = expr%dy - 1
         res%dp = expr%dp
         res%add = 0
+#ifdef DEBUG
         res%origin => expr
+#endif
       else if (expr%dp .ne. 0) then
         select case (expr%oprtr)
           case ('+')
@@ -316,9 +695,12 @@ contains
         res%dy = expr%dy
         res%dp = expr%dp - 1
         res%add = 0
+#ifdef DEBUG
         res%origin => expr
+#endif
       end if
       res%factor = expr%factor
+      if (allocated(expr%factcode)) res%factcode = expr%factcode
       
       if (res%dx .ne. 0 .or. res%dy .ne. 0 .or. res%dp .ne. 0) then
         allocate(rescp)
@@ -426,6 +808,7 @@ contains
     end if
   end function countsubexprs
 
+#ifdef DEBUG
   ! Use an algebraic expression to build a sequence of instructions (recursive part)
   recursive subroutine buildsequence_rec(expr, actseq, eq, last)
     implicit none
@@ -444,6 +827,12 @@ contains
     if (expr%operand1%basic) then
       act%v1  => eq(expr%operand1%var,expr%operand1%dx,expr%operand1%dy,expr%operand1%dp)
     else
+      if (expr%operand1%dx .ne. 0 .or. expr%operand1%dy .ne. 0 .or. expr%operand1%dp .ne. 0) then
+        write(*,*)
+        write(*,*) '>>>>> Cannot build sequence from unexpanded algexpr: EXITING THE CODE <<<<<'
+        write(*,*)
+        stop
+      end if
       call buildsequence_rec(expr%operand1,actseq,eq,last)
       act%v1 => actseq(last)%reslt
     end if
@@ -451,6 +840,12 @@ contains
     if (expr%operand2%basic) then
       act%v2  => eq(expr%operand2%var,expr%operand2%dx,expr%operand2%dy,expr%operand2%dp)
     else
+      if (expr%operand2%dx .ne. 0 .or. expr%operand2%dy .ne. 0 .or. expr%operand2%dp .ne. 0) then
+        write(*,*)
+        write(*,*) '>>>>> Cannot build sequence from unexpanded algexpr: EXITING THE CODE <<<<<'
+        write(*,*)
+        stop
+      end if
       call buildsequence_rec(expr%operand2,actseq,eq,last)
       act%v2 => actseq(last)%reslt
     end if
@@ -513,4 +908,31 @@ contains
     
     eval = actseq(size(actseq))%reslt
   end function eval
+#endif
+  
+  ! Generates Fortran code from an algexpr structure
+  recursive function gencode(expr, varname) result(res)
+    implicit none
+    type(algexpr),             intent(in) :: expr
+    character(:), allocatable, intent(in) :: varname
+    character(:), allocatable             :: res
+    character(10)                         :: indices
+    
+    if (.not. expr%basic .and. (expr%dx .ne. 0 .or. expr%dy .ne. 0 .or. expr%dp .ne. 0)) then
+      write(*,*)
+      write(*,*) ">>>>> Cannot generate code from unexpanded algexpr: ABORTING COMPILATION <<<<<"
+      write(*,*)
+      stop
+    end if
+    
+    if (expr%basic) then
+      write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ")"
+      res = varname // indices
+    else
+      res = "(" // trim(gencode(expr%operand1,varname)) // expr%oprtr // trim(gencode(expr%operand2,varname)) // ")"
+    end if
+    
+    if (allocated(expr%factcode)) res = expr%factcode // "*" // res
+    if (allocated(expr%addcode)) res = res // " + " // expr%addcode
+  end function gencode
 end module mod_semianalytical

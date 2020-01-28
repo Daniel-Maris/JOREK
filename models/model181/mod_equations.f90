@@ -36,6 +36,7 @@ module mod_equations
   type(algexpr), parameter, private :: S_rho      = algexpr(basic=.true.,var=17)
   type(algexpr), parameter, private :: S_e        = algexpr(basic=.true.,var=18)
   type(algexpr), parameter, private :: S_j        = algexpr(basic=.true.,var=19)
+  type(algexpr), parameter, private :: F          = algexpr(basic=.true.,var=20)
   
   type(algexpr), private :: Bv2
   
@@ -83,28 +84,29 @@ module mod_equations
     jchi  = -(Bv2*pLap(Psi) + inprod(Bv2,Psi))
     
     if (eta_T_dependent) then
-      rhs1 = tstep*(v*Bv_pbrack((Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0))/Bv2,psi_v) &
-           - (eta*T_0**(1.5d0))*(dx(v)*(dy(psi_v)*j0p - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*j0p) &
+      rhs1 = -tstep*((Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0))*Bv_pbrack(v,psi_v)/Bv2 &
+           + (eta*T_0**(1.5d0))*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
            + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)/(sqrtT0c*sqrtT0c*sqrtT0c)) &
            + zeta*v*Bv_pbrack(psi_v,delta_Psi)
     else
-      rhs1 = tstep*(v*Bv_pbrack((Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0))/Bv2,psi_v) &
-           - eta*(dx(v)*(dy(psi_v)*j0p - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*j0p) &
+      rhs1 = -tstep*((Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0))*Bv_pbrack(v,psi_v)/Bv2 &
+           + eta*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
            + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)) &
            + zeta*v*Bv_pbrack(psi_v,delta_Psi)
     end if
     
     if (visco_T_dependent) then
-      rhs2 = -tstep*(inprod(Phi0,Bv_pbrack(v,Phi0)/Bv2) + Bv2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R)/rho0 &
-           - j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0))/rho0 + D_perp*gradprod(rho0,inprod(v,Phi0)/rho0) - S_rho*inprod(v,Phi0)/rho0) &
-           - tstep*v*Bv_pbrack(rho0,T0)/rho0 + (tstep*visco*T_0**(1.5d0))*Lap(v)*pLap(Phi0)/(sqrtT0c*sqrtT0c*sqrtT0c) &
+      rhs2 = tstep*(pLap(Phi0)*Bv_pbrack(v,Phi0)/Bv2 - Bv2*((j0x+dy(F)/R)*dx(v) + (j0y-dx(F)/R)*dy(v) + j0p*dp(v)/R)/rho0 &
+           + j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0))/rho0 - D_perp*gradprod(rho0,inprod(v,Phi0)/rho0) + S_rho*inprod(v,Phi0)/rho0 &
+           !- v*Bv_pbrack(rho0,T0)/rho0 
+           + (visco*T_0**(1.5d0))*Lap(v)*pLap(Phi0)/(sqrtT0c*sqrtT0c*sqrtT0c)) &
            - zeta*inprod(v,delta_Phi)
     else
-      rhs2 = tstep*(-inprod(Phi0,Bv_pbrack(v,Phi0)/Bv2) & ! + Bv2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R)/rho0 &
-           !- j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0))/rho0 
-           - D_perp*gradprod(rho0,inprod(v,Phi0)/rho0) + S_rho*inprod(v,Phi0)/rho0 &
-           - v*Bv_pbrack(rho0,T0)/rho0) + tstep*visco*Lap(v)*pLap(Phi0) &
-           - (0.25d0*tstep**2)*(pLap(Phi0)*Bv_pbrack(Bv_pbrack(v,Phi0)/Bv2,Phi0)/Bv2 + pLap(Phi0)*pLap(Phi0)*inprod(v,Phi0)/Bv2) - zeta*inprod(v,delta_Phi)
+      rhs2 = tstep*(pLap(Phi0)*Bv_pbrack(v,Phi0)/Bv2 - Bv2*((j0x+dy(F)/R)*dx(v) + (j0y-dx(F)/R)*dy(v) + j0p*dp(v)/R)/rho0 &
+           + j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0))/rho0 - D_perp*gradprod(rho0,inprod(v,Phi0)/rho0) + S_rho*inprod(v,Phi0)/rho0 &
+           !- v*Bv_pbrack(rho0,T0)/rho0 
+           + visco*Lap(v)*pLap(Phi0)) &
+           - zeta*inprod(v,delta_Phi)
     end if
     
     rhs3 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*gradprod(v,rho0) - S_rho*v) + zeta*v*delta_rho
@@ -132,16 +134,17 @@ module mod_equations
     
     if (eta_T_dependent) then
       amat11 = (1.d0 + zeta)*v*Bv_pbrack(psi_v,Psi) &
-             - tstep*theta*(v*Bv_pbrack(Bv_pbrack(Psi,Phi0)/Bv2,psi_v) - (eta*T_0**(1.5d0))*(dx(v)*(dy(psi_v)*jp - dp(psi_v)*jy/R) &
+             + tstep*theta*(Bv_pbrack(Psi,Phi0)*Bv_pbrack(v,psi_v)/Bv2 + (eta*T_0**(1.5d0))*(dx(v)*(dy(psi_v)*jp - dp(psi_v)*jy/R) &
              + dy(v)*(dp(psi_v)*jx/R - dx(psi_v)*jp) + dp(v)*(dx(psi_v)*jy - dy(psi_v)*jx)/R)/(sqrtT0c*sqrtT0c*sqrtT0c))
     else
       amat11 = (1.d0 + zeta)*v*Bv_pbrack(psi_v,Psi) &
-             - tstep*theta*(v*Bv_pbrack(Bv_pbrack(Psi,Phi0)/Bv2,psi_v) - eta*(dx(v)*(dy(psi_v)*jp - dp(psi_v)*jy/R) &
+             + tstep*theta*(Bv_pbrack(Psi,Phi0)*Bv_pbrack(v,psi_v)/Bv2 + eta*(dx(v)*(dy(psi_v)*jp - dp(psi_v)*jy/R) &
              + dy(v)*(dp(psi_v)*jx/R - dx(psi_v)*jp) + dp(v)*(dx(psi_v)*jy - dy(psi_v)*jx)/R))
     end if
-    amat12 = -tstep*theta*v*Bv_pbrack((Bv_pbrack(Psi0,Phi) - Bv_parderiv(Phi))/Bv2,psi_v)
+    amat12 = tstep*theta*(Bv_pbrack(Psi0,Phi) - Bv_parderiv(Phi))*Bv_pbrack(v,psi_v)/Bv2
     if (eta_T_dependent) then
-      amat14 = -tstep*theta*(1.5d0*eta*T_0**(1.5d0))*T*(dx(v)*(dy(psi_v)*j0p - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*j0p) &
+      amat14 = -tstep*theta*(1.5d0*eta*T_0**(1.5d0))*T*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) &
+             + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
              + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)/(sqrtT0c*sqrtT0c*sqrtT0c*sqrtT0c*sqrtT0c)
     else
       amat14 = 0.d0*one + 0.d0*one
@@ -149,20 +152,19 @@ module mod_equations
     
     amat21 = tstep*theta*(Bv2*(jx*dx(v) + jy*dy(v) + jp*dp(v)/R) - jchi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) - j0chi*Bv_pbrack(v,Psi))/rho0
     if (visco_T_dependent) then
-      amat22 = -(1.d0 + zeta)*inprod(v,Phi) + tstep*theta*(inprod(Phi,Bv_pbrack(v,Phi0)/Bv2) + inprod(Phi0,Bv_pbrack(v,Phi)/Bv2) &
-             + D_perp*gradprod(inprod(v,Phi)/rho0,rho0) - S_rho*inprod(v,Phi)/rho0 &
-             - (visco*T_0**(1.5d0))*Lap(v)*pLap(Phi0)/(sqrtT0c*sqrtT0c*sqrtT0c))
+      amat22 = -(1.d0 + zeta)*inprod(v,Phi) - tstep*theta*(pLap(Phi)*Bv_pbrack(v,Phi0)/Bv2 + pLap(Phi0)*Bv_pbrack(v,Phi)/Bv2 &
+             - D_perp*gradprod(inprod(v,Phi)/rho0,rho0) + S_rho*inprod(v,Phi)/rho0 &
+             + (visco*T_0**(1.5d0))*Lap(v)*pLap(Phi0)/(sqrtT0c*sqrtT0c*sqrtT0c))
     else
-      amat22 = -(1.d0 + zeta)*inprod(v,Phi) + tstep*theta*(inprod(Phi,Bv_pbrack(v,Phi0)/Bv2) + inprod(Phi0,Bv_pbrack(v,Phi)/Bv2) &
-             + D_perp*gradprod(inprod(v,Phi)/rho0,rho0) - S_rho*inprod(v,Phi)/rho0 - visco*Lap(v)*pLap(Phi0)) &
-             - (0.25d0*tstep**2)*(pLap(Phi)*Bv_pbrack(Bv_pbrack(v,Phi0)/Bv2,Phi0) + pLap(Phi0)*Bv_pbrack(Bv_pbrack(v,Phi0)/Bv2,Phi) &
-             + pLap(Phi0)*Bv_pbrack(Bv_pbrack(v,Phi)/Bv2,Phi0) + 2.d0*pLap(Phi0)*pLap(Phi)*inprod(v,Phi0) + pLap(Phi0)*pLap(Phi0)*inprod(v,Phi))/Bv2
+      amat22 = -(1.d0 + zeta)*inprod(v,Phi) - tstep*theta*(pLap(Phi)*Bv_pbrack(v,Phi0)/Bv2 + pLap(Phi0)*Bv_pbrack(v,Phi)/Bv2 &
+             - D_perp*gradprod(inprod(v,Phi)/rho0,rho0) + S_rho*inprod(v,Phi)/rho0 + visco*Lap(v)*pLap(Phi0))
     end if
-    amat23 = -tstep*theta*( & ! Bv2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R) - j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) &
-           - S_rho*inprod(v,Phi0) + v*Bv_pbrack(rho0,T0))*rho/(rho0*rho0) + tstep*theta*(D_perp*gradprod(inprod(v,Phi0)/rho0,rho) &
-           - D_perp*gradprod(inprod(v,Phi0)*rho/(rho0*rho0),rho0) + v*Bv_pbrack(rho,T0)/rho0)
+    amat23 = -tstep*theta*(Bv2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R) - j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) &
+           - S_rho*inprod(v,Phi0) & !+ v*Bv_pbrack(rho0,T0)
+           )*rho/(rho0*rho0) + tstep*theta*(D_perp*gradprod(inprod(v,Phi0)/rho0,rho) &
+           - D_perp*gradprod(inprod(v,Phi0)*rho/(rho0*rho0),rho0) ) !+ v*Bv_pbrack(rho,T0)/rho0)
     if (visco_T_dependent) then
-      amat24 = tstep*theta*v*Bv_pbrack(rho0,T)/rho0 + tstep*theta*(1.5d0*visco*T_0**(1.5d0))*pLap(Phi0)*Lap(v*T/(sqrtT0c*sqrtT0c*sqrtT0c*sqrtT0c*sqrtT0c))
+      amat24 = tstep*theta*v*Bv_pbrack(rho0,T)/rho0 + tstep*theta*(1.5d0*visco*T_0**(1.5d0))*pLap(Phi0)*Lap(v)*T/(sqrtT0c*sqrtT0c*sqrtT0c*sqrtT0c*sqrtT0c)
     else
       amat24 = tstep*theta*v*Bv_pbrack(rho0,T)/rho0
     end if
@@ -221,7 +223,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(2*n_var+11,0:n_order-1,0:n_order-1,0:n_order-1))
+        allocate(thread_eq(i)%eq(2*n_var+12,0:n_order-1,0:n_order-1,0:n_order-1))
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1e)))
         allocate(thread_eq(i)%rhs2seq(countsubexprs(rhs2e)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3e)))

@@ -46,6 +46,10 @@ real*8, dimension(n_gauss,n_gauss)    :: x_g, x_s, x_t
 real*8, dimension(n_gauss,n_gauss)    :: x_ss, x_st, x_tt
 real*8, dimension(n_gauss,n_gauss)    :: y_g, y_s, y_t
 real*8, dimension(n_gauss,n_gauss)    :: y_ss, y_st, y_tt
+#ifdef altcs
+real*8, dimension(n_gauss,n_gauss)    :: psieq, psieq_s, psieq_t
+real*8                                :: psieq_x, psieq_y
+#endif
 
 real*8, dimension(:,:,:,:) , pointer :: eq_g, eq_s, eq_t
 real*8, dimension(:,:,:,:) , pointer :: eq_st, eq_ss, eq_tt
@@ -85,6 +89,9 @@ x_g  = 0.d0; x_s   = 0.d0; x_t   = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d
 y_g  = 0.d0; y_s   = 0.d0; y_t   = 0.d0; y_st  = 0.d0; y_ss  = 0.d0; y_tt  = 0.d0;
 eq_g = 0.d0; eq_s  = 0.d0; eq_t  = 0.d0; eq_st = 0.d0; eq_ss = 0.d0; eq_tt = 0.d0;
 eq_p = 0.d0; eq_pp = 0.d0; eq_sp = 0.d0; eq_tp = 0.d0
+#ifdef altcs
+psieq = 0.d0; psieq_s = 0.d0; psieq_t = 0.d0
+#endif
 
 delta_g = 0.d0; delta_s = 0.d0; delta_t = 0.d0; delta_p = 0.d0
 
@@ -113,6 +120,12 @@ do i=1,n_vertex_max
        y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
        y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
        y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+       
+#ifdef altcs
+       psieq(ms,mt)   = psieq(ms,mt)   + nodes(i)%psi_eq(j)*element%size(i,j)*H(i,j,ms,mt)
+       psieq_s(ms,mt) = psieq_s(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_s(i,j,ms,mt)
+       psieq_t(ms,mt) = psieq_t(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_t(i,j,ms,mt)
+#endif
 
        do mp=1,n_plane
 
@@ -173,6 +186,11 @@ do ms=1, n_gauss
              + y_ss(ms,mt)*x_t(ms,mt)**2 - x_ss(ms,mt)*y_t(ms,mt)*x_t(ms,mt)) / xjac
    
    BigR = x_g(ms,mt)
+   
+#ifdef altcs
+   psieq_x = ( y_t(ms,mt)*psieq_s(ms,mt) - y_s(ms,mt)*psieq_t(ms,mt))/xjac
+   psieq_y = (-x_t(ms,mt)*psieq_s(ms,mt) + x_s(ms,mt)*psieq_t(ms,mt))/xjac
+#endif
 
    do mp = 1, n_plane
      phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
@@ -222,12 +240,29 @@ do ms=1, n_gauss
          psi_norm = 2.d0 - psi_norm
        endif
      endif
+     
+     ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi
+     eq(1,:,:,:) = eq(1,:,:,:)/F0
+     eq(n_var+1,:,:,:) = eq(n_var+1,:,:,:)/F0
 
      eq(2*n_var+7,0,0,0) = get_dperp(psi_norm)    ! D_perp
      eq(2*n_var+8,0,0,0) = get_zkperp(psi_norm)   ! k_perp
      eq(2*n_var+9,0,0,0) = particle_source(ms,mt) ! S_rho
      eq(2*n_var+10,0,0,0) = heat_source(ms,mt)    ! S_e
-!     eq(2*n_var+11,0,0,0) = current_source(ms,mt)/BigR ! S_j
+     eq(2*n_var+11,0,0,0) = current_source(ms,mt)/F0 ! S_j
+#ifdef altcs
+     call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,psieq(ms,mt),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
+                    dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
+     eq(2*n_var+12,0,0,0) = F_prof
+     eq(2*n_var+12,1,0,0) = dF_dpsi*psieq_x
+     eq(2*n_var+12,0,1,0) = dF_dpsi*psieq_y
+#else
+     call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,F0*eq(1,0,0,0),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
+                    dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
+     eq(2*n_var+12,0,0,0) = F_prof
+     eq(2*n_var+12,1,0,0) = dF_dpsi*F0*eq(1,1,0,0)
+     eq(2*n_var+12,0,1,0) = dF_dpsi*F0*eq(1,0,1,0)
+#endif
      
      do i=1,n_vertex_max
 
@@ -303,12 +338,12 @@ do ms=1, n_gauss
                  index_kl = n_tor*n_var*(n_order+1)*(k-1) + n_tor * n_var * (l-1) + in   ! index in the ELM matrix
 
 !---------------------------------------------------------------- equation 1
-                 amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac
+                 amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
                  amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
                  amat_14 = 0.d0 ! eval(thread_eq(tid)%amat14dt1seq)*tstep*xjac
 
 !---------------------------------------------------------------- equation 2
-                 amat_21 = 0.d0 ! eval(thread_eq(tid)%amat21seq)*BigR*xjac
+                 amat_21 = eval(thread_eq(tid)%amat21seq)*BigR*xjac/F0
                  amat_22 = eval(thread_eq(tid)%amat22seq)*BigR*xjac
                  amat_23 = eval(thread_eq(tid)%amat23seq)*BigR*xjac
                  amat_24 = 0.d0 ! eval(thread_eq(tid)%amat24dt1seq)*tstep*xjac

@@ -4,7 +4,7 @@ subroutine update_values(my_id,element_list,node_list,RHS)
 !-----------------------------------------------------------------------
 
 use data_structure
-use phys_module, only: linear_run
+use phys_module, only: linear_run, F0
 use mod_basisfunctions
 
 implicit none

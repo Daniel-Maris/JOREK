@@ -148,24 +148,20 @@ LIBS += $(LIBLAPACK) $(LIBBLAS) $(OPENMPLIB)
 DEFINES += -DJOREK_MODEL=$(MODEL_NUMBER) -DUSE_MPI
 
 # Use flags
+ifeq ($(DEBUG), 1)
+  DEFINES := $(DEFINES) -DDEBUG
+endif
+
 ifeq (model710, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
 endif
 
-ifeq (model002, $(MODEL))
+CGDEP=
+ifneq (,$(filter $(MODEL), model002 model180 model181 model182))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL
-endif
-
-ifeq (model180, $(MODEL))
-  DEFINES := $(DEFINES) -DSEMIANALYTICAL
-endif
-
-ifeq (model181, $(MODEL))
-  DEFINES := $(DEFINES) -DSEMIANALYTICAL
-endif
-
-ifeq (model182, $(MODEL))
-  DEFINES := $(DEFINES) -DSEMIANALYTICAL
+  ifneq ($(DEBUG), 1)     # should be ifeq ($(DEBUG), 0), but that doesn't work due to GNU make bug (v4.2.1)
+    CGDEP = generate_code
+  endif
 endif
 
 ifeq (1, $(USE_FFTW))
