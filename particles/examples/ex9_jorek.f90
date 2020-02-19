@@ -1,7 +1,7 @@
-!> Push relativistic guiding centre(s) with error control in JOREK fields
+!> Push relativistic guiding centre(s) with time step adaptation in JOREK fields
 !>
-!> Compile with `make ex8_jorek`
-!> Run with `./ex8_jorek < JOREK_namelist`
+!> Compile with `make ex9_jorek`
+!> Run with `./ex9_jorek < JOREK_namelist`
 
 program ex8_jorek
 
@@ -16,8 +16,6 @@ implicit none
 
 ! Set up the simulation variables
 logical,parameter                   :: write_timestep=.true.
-!> error control runge kutta error tolerances: 1:R, 2:Z, 3:phi, 4:p_parallel
-real(kind=8),dimension(4),parameter :: tolerances = [1.d-6,1.d-6,1.d-6,1.d-1]
 real(kind=8)                        :: timesteps(1) = [3.5723d-13] ! [1.d-10] !
 real(kind=8)                        :: target_time, t
 real(kind=8)                        :: energy !< Initial kinetic energy in eV
@@ -121,8 +119,9 @@ do while (.not. sim%stop_now)
           dt_local = timesteps(i)!< time step in local variable
         do while(sim%time .lt. target_time) !< continue until we reach the target time
           if (particles(j)%i_elm .eq. 0) exit
-          call runge_kutta_error_control_dt_gc_push_jorek(sim%fields,tolerances,&
-               time_local,dt_local,target_time,sim%groups(i)%mass,particles(j)) !< push in jorek fields
+          call runge_kutta_adapt_dt_gc_push_jorek(sim%fields,time_local,&
+               dt_local,target_time,sim%groups(i)%mass,particles(j)) !< push in jorek fields
+
           !> write time step profile if enables
           if(write_timestep) write(22,'(i6,2e26.16)') j,time_local,dt_local
           if (particles(j)%i_elm .eq. 0) n_lost = n_lost + 1		
