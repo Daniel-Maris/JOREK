@@ -30,7 +30,7 @@ logical               :: periodic, density_only
 integer               :: ierr, my_id
 logical               :: without_n0_mode
 
-namelist /vtk_params/ nsub, without_n0_mode, periodic
+namelist /vtk_params/ nsub, without_n0_mode, periodic, density_only, n_toroidal
 
 write(*,*) 'jorek2vtk_3d'
 

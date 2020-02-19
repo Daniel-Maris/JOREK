@@ -37,7 +37,7 @@ real*8     :: psi_norm
 real*8     :: rhs_ij_1,   rhs_ij_2,   rhs_ij_3,   rhs_ij_4,   rhs_ij_5,   rhs_ij_6
 real*8     :: theta, zeta, delta_u_x, delta_u_y
 
-real*8     :: amat_11, amat_12, amat_13, amat_14, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_33, amat_31
+real*8     :: amat_11, amat_12, amat_13, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_33, amat_31
 real*8     :: amat_41, amat_42, amat_43, amat_44, amat_52, amat_55, amat_66
 
 real*8     :: F_prof, dF_dpsi, dF_dz, dF_dpsi2, dF_dz2, dF_dpsi_dz, FFprime_prof, dFF_dpsi, dFF_dz, dFF_dpsi2, dFF_dz2, dFF_dpsi_dz
@@ -59,6 +59,8 @@ real*8, dimension(:,:,:,:) , pointer :: eq_p, eq_pp, eq_sp, eq_tp
 real*8, dimension(:,:,:,:) , pointer :: delta_g, delta_s, delta_t, delta_p
 
 real*8, dimension(:,:,:,:), pointer :: eq
+
+real*8 :: rhsdt0, rhsdt1, amatdt0, amatdt1
 
 eq_g    => thread_struct(tid)%eq_g   
 eq_s    => thread_struct(tid)%eq_s   
@@ -246,10 +248,10 @@ do ms=1, n_gauss
      eq(3,:,:,:) = eq(3,:,:,:)/F0
      eq(n_var+3,:,:,:) = eq(n_var+3,:,:,:)/F0
 
-     eq(2*n_var+6,0,0,0) = get_dperp(psi_norm)    ! D_perp
-     eq(2*n_var+7,0,0,0) = get_zkperp(psi_norm)   ! k_perp
-     eq(2*n_var+8,0,0,0) = particle_source(ms,mt) ! S_rho
-     eq(2*n_var+9,0,0,0) = heat_source(ms,mt)     ! S_e
+     eq(2*n_var+6,0,0,0) = get_dperp(psi_norm)       ! D_perp
+     eq(2*n_var+7,0,0,0) = get_zkperp(psi_norm)      ! k_perp
+     eq(2*n_var+8,0,0,0) = particle_source(ms,mt)    ! S_rho
+     eq(2*n_var+9,0,0,0) = heat_source(ms,mt)       ! S_e
      eq(2*n_var+10,0,0,0) = current_source(ms,mt)/F0 ! S_j
 #ifdef altcs
      call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,psieq(ms,mt),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
@@ -266,33 +268,33 @@ do ms=1, n_gauss
 #endif
      ! Resistivity
      if (eta_T_dependent) then
-       eq(2*n_var+12,0,0,0) = eta*(corr_neg_temp(eq(6,0,0,0))/T_0)**(-1.5d0)
+       eq(2*n_var+12,0,0,0) = eta*(corr_neg_temp(eq(6,0,0,0))/T_0)**(-1.5d0)               ! eta
+       eq(2*n_var+13,0,0,0) = -1.5d0*eta*corr_neg_temp(eq(6,0,0,0))**(-2.5d0)*T_0**(1.5d0) ! deta/dT
      else
        eq(2*n_var+12,0,0,0) = eta
+       eq(2*n_var+13,0,0,0) = 0.d0
      end if
      ! Viscosity
      if (visco_T_dependent) then
-       eq(2*n_var+13,0,0,0) = visco*(corr_neg_temp(eq(6,0,0,0))/T_0)**(-1.5d0)
+       eq(2*n_var+14,0,0,0) = visco*(corr_neg_temp(eq(6,0,0,0))/T_0)**(-1.5d0)               ! visco
+       eq(2*n_var+15,0,0,0) = -1.5d0*visco*corr_neg_temp(eq(6,0,0,0))**(-2.5d0)*T_0**(1.5d0) ! dvisco/dT
      else
-       eq(2*n_var+13,0,0,0) = visco
+       eq(2*n_var+14,0,0,0) = visco
+       eq(2*n_var+15,0,0,0) = 0.d0
      end if
      
-     ! Auxiliary variables
+     ! Auxiliary variables (aux)
 #ifdef DEBUG
-     eq(2*n_var+14,0,0,0) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+14,1,0,0) = eval(thread_eq(tid)%aBv2xseq)
-     eq(2*n_var+14,0,1,0) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+14,0,0,1) = eval(thread_eq(tid)%aBv2pseq)
-     eq(2*n_var+15,0,0,0) = eval(thread_eq(tid)%aj0xseq)
-     eq(2*n_var+16,0,0,0) = eval(thread_eq(tid)%aj0yseq)
-     eq(2*n_var+17,0,0,0) = eval(thread_eq(tid)%aj0pseq)
-     eq(2*n_var+18,0,0,0) = eval(thread_eq(tid)%aj0chiseq)
-     eq(2*n_var+19,0,0,0) = eval(thread_eq(tid)%atjxseq)
-     eq(2*n_var+20,0,0,0) = eval(thread_eq(tid)%atjyseq)
-     eq(2*n_var+21,0,0,0) = eval(thread_eq(tid)%atjpseq)
-     eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%atjchiseq)
+     eq(2*n_var+16,0,0,0) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+16,1,0,0) = eval(thread_eq(tid)%aBv2xseq)
+     eq(2*n_var+16,0,1,0) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+16,0,0,1) = eval(thread_eq(tid)%aBv2pseq)
+     eq(2*n_var+17,0,0,0) = eval(thread_eq(tid)%aj0xseq)
+     eq(2*n_var+18,0,0,0) = eval(thread_eq(tid)%aj0yseq)
+     eq(2*n_var+19,0,0,0) = eval(thread_eq(tid)%aj0pseq)
+     eq(2*n_var+20,0,0,0) = eval(thread_eq(tid)%aj0chiseq)
 #else
 #include "aux_unreadable.h"
 #endif
-       
+     
      do i=1,n_vertex_max
 
        do j=1,n_order+1
@@ -332,12 +334,12 @@ do ms=1, n_gauss
 #else
 #include "rhs_unreadable.h"
 
-          rhs_ij_1 = rhs_ij_1*BigR*xjac
-          rhs_ij_2 = rhs_ij_2*BigR*xjac
-          rhs_ij_3 = 0.d0
-          rhs_ij_4 = 0.d0
-          rhs_ij_5 = rhs_ij_5*BigR*xjac
-          rhs_ij_6 = 0.d0
+           rhs_ij_1 = rhs_ij_1*BigR*xjac
+           rhs_ij_2 = rhs_ij_2*BigR*xjac
+           rhs_ij_3 = 0.d0
+           rhs_ij_4 = 0.d0
+           rhs_ij_5 = rhs_ij_5*BigR*xjac
+           rhs_ij_6 = 0.d0
 #endif
 
            ij1 = index_ij
@@ -382,8 +384,14 @@ do ms=1, n_gauss
                  eq(2*n_var+2,0,1,1) = (-x_t(ms,mt)*h_s(k,l,ms,mt) + x_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
                  
                  index_kl = n_tor*n_var*(n_order+1)*(k-1) + n_tor * n_var * (l-1) + in   ! index in the ELM matrix
-
+                 
 #ifdef DEBUG
+!---------------------------------------------------------------- Auxiliary variables involving unknowns (aux2)
+                 eq(2*n_var+21,0,0,0) = eval(thread_eq(tid)%atjxseq)
+                 eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%atjyseq)
+                 eq(2*n_var+23,0,0,0) = eval(thread_eq(tid)%atjpseq)
+                 eq(2*n_var+24,0,0,0) = eval(thread_eq(tid)%atjchiseq)
+                 
 !---------------------------------------------------------------- equation 1
                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
                  amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
@@ -409,6 +417,7 @@ do ms=1, n_gauss
                  
                  amat_66 = 1.d0
 #else
+#include "aux2_unreadable.h"
 #include "amat_unreadable.h"
 
                  amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0
@@ -417,7 +426,7 @@ do ms=1, n_gauss
                  amat_31 = amat_31*xjac/(BigR*F0); amat_33 = amat_33*xjac/(BigR*F0)
                  amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
                  amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
-                 amat_66 = 0.d0
+                 amat_66 = 1.d0
 #endif
 
                  kl1 = index_kl

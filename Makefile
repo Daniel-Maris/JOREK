@@ -32,10 +32,12 @@ clean:
 	-@find . -name '*.mod' -delete -or -name '*.o' -delete
 	-@rm mpiversion.mk
 	@echo ">> Deleting Dynamically Generated Header Files <<"
-	-@rm models/$(MODEL)/rhs_unreadable.h
-	-@rm models/$(MODEL)/amat_unreadable.h
-	-@rm algexpr2fort
-	-@rm generate_code
+	-@rm -f models/$(MODEL)/rhs_unreadable.h
+	-@rm -f models/$(MODEL)/amat_unreadable.h
+	-@rm -f models/$(MODEL)/aux_unreadable.h
+	-@rm -f models/$(MODEL)/aux2_unreadable.h
+	-@rm -f algexpr2fort
+	-@rm -f generate_code
 cleandep:
 	@echo ">> Deleting Dependency Files <<"
 	-@rm -r $(DEPDIR)

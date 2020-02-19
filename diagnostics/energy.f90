@@ -143,7 +143,9 @@ do ife =1,  element_list%n_elements
         + eq_g(var_r,ms,mt) *( eq_g1(var_uR,ms,mt)*eq_g(var_uR,ms,mt) + eq_g1(var_uZ,ms,mt)*eq_g(var_uZ,ms,mt) + eq_g1(var_up,ms,mt)*eq_g(var_up,ms,mt)  ) &
         + eq_g(var_r,ms,mt) *( eq_g(var_uR,ms,mt) *eq_g1(var_uR,ms,mt)+ eq_g(var_uZ,ms,mt) *eq_g1(var_uZ,ms,mt)+ eq_g(var_up,ms,mt) *eq_g1(var_up,ms,mt) ) )
         endif
-
+#elif (JOREK_MODEL == 180 || JOREK_MODEL == 181 || JOREK_MODEL == 182)
+        W_mag(in) = W_mag(in) + (ps0_x*ps0_x + ps0_y*ps0_y)*xjac*wst/BigR
+        W_kin(in) = W_kin(in) + density_eq(ms,mt)*(u0_x*u0_x + u0_y*u0_y)*BigR**3*xjac*wst/F0**2
 #else
         W_mag(in) = W_mag(in) +                     (ps0_x*ps0_x + ps0_y*ps0_y ) / BigR    * xjac * wst
         W_kin(in) = W_kin(in) + density_eq(ms,mt) * (u0_x*u0_x   + u0_y*u0_y)    * BigR**3 * xjac * wst
