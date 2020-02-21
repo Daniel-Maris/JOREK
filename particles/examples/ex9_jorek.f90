@@ -1,9 +1,9 @@
-!> Push relativistic guiding centre(s) in JOREK fields
+!> Push relativistic guiding centre(s) with time step adaptation in JOREK fields
 !>
-!> Compile with `make ex7_jorek`
-!> Run with `./ex7_jorek < JOREK_namelist`
+!> Compile with `make ex9_jorek`
+!> Run with `./ex9_jorek < JOREK_namelist`
 
-program ex7_jorek
+program ex8_jorek
 
 use particle_tracer
 use mod_particle_io
@@ -15,21 +15,20 @@ use mod_gc_relativistic
 implicit none
 
 ! Set up the simulation variables
-real(kind=8)                      :: timesteps(1) = [1.d-10] ![3.5723d-13] ! 
-real(kind=8)                      :: target_time, t
-real*8                            :: energy !< Initial kinetic energy in eV
-real*8                            :: ksi    !< Initial cosine of pitch-angle
-integer(kind=4)                   :: n_part, i, j, k, n_steps, ifail, n_lost
-logical                           :: restart
-type(diag_print_kinetic_energy)   :: print_kinetic_energy
-type(write_particle_diagnostics)  :: diag
-type(particle_gc_relativistic)    :: particle_in, particle_out
-type(particle_gc)                 :: particle_out_gc
-real(kind=8)                      :: psi, U, gyro_angle
-real(kind=8),dimension(3)         :: E, B
-! For interp_PRZ
-real*8 :: P(1), P_s(1), P_t(1), P_phi(1), P_time(1)
-real*8 :: R, R_s, R_t, Z, Z_s, Z_t
+logical,parameter                   :: write_timestep=.true.
+real(kind=8)                        :: timesteps(1) = [3.5723d-13] ! [1.d-10] !
+real(kind=8)                        :: target_time, t
+real(kind=8)                        :: energy !< Initial kinetic energy in eV
+real(kind=8)                        :: ksi    !< Initial cosine of pitch-angle
+real(kind=8)                        :: time_local,dt_local !< local time and time step
+integer(kind=4)                     :: n_part, i, j, k, n_steps, ifail, n_lost
+logical                             :: restart
+type(diag_print_kinetic_energy)     :: print_kinetic_energy
+type(write_particle_diagnostics)    :: diag
+type(particle_gc_relativistic)      :: particle_in, particle_out
+type(particle_gc)                   :: particle_out_gc
+real(kind=8)                        :: psi, U, gyro_angle
+real(kind=8),dimension(3)           :: E, B
 
 call sim%initialize(num_groups=1)
 
@@ -50,9 +49,12 @@ if (.not. restart) then
   ! One can use read_jorek_fields_interp_linear or read_jorek_fields_interp_hermite_birkhoff,
   ! and i=-1 (to read jorek_restart.h5 and keep this field at all time) or i=last_file_before_time(sim%time)
   ! (to read a sequel of jorekXXXXX.h5 files and use time-evolving fields)
-  events = [event(read_jorek_fields_interp_linear(i=last_file_before_time(sim%time))), & 
-            event(diag,start=sim%time,step=1.d-7),         &
-            event(stop_action(),start=sim%time+1.d-6)]
+  !events = [event(read_jorek_fields_interp_linear(i=last_file_before_time(sim%time))), & 
+  !          event(diag,start=sim%time,step=1d-7),         &
+  !          event(stop_action(),start=sim%time+3.d-6)]
+  events = [event(read_jorek_fields_interp_linear(i=-1)),&
+       event(diag,start=sim%time,step=1.d-7),&
+       event(stop_action(),start=sim%time+3.d-6)]
 
   ! Run first event to read the JOREK fields
   call with(sim, events, at=0.d0)
@@ -65,8 +67,8 @@ if (.not. restart) then
                  p%x(1), p%x(2), & ! inputs
                  p%x(1), p%x(2), p%i_elm, p%st(1), p%st(2), ifail) ! outputs
     !p%p = [1.d7,0.]
-    energy = 1.d7 ! 5.12d5 ! !!! AT PRESENT, MUST INCLUDE REST ENERGY (FIX THIS) !!!
-    ksi    = 0. !1.d0 ! Cosine of pitch-angle
+    energy = 5.12d5 ! 1.d7 ! !!! AT PRESENT, MUST INCLUDE REST ENERGY (FIX THIS) !!!
+    ksi    = 1.d0 ! Cosine of pitch-angle
     particle_in = p
     particle_out = relativistic_gc_momenta_from_E_cospitch(particle_in,energy,ksi,sim%groups(1)%mass,sim%fields,sim%time)
     p%p = particle_out%p
@@ -97,10 +99,10 @@ endif
 call check_and_fix_timesteps(timesteps, events)
 
 ! Set dpsi/dt=0 (useful e.g. to check the conservation of the total particle energy) 
-!call sim%fields%set_flag_dpsidt(.true.)
+call sim%fields%set_flag_dpsidt(.true.)
 
 ! Open a file where to write some fields at a given position to test time interpolation routines
-!open(22,file='field_vs_t.dat')
+open(22,file='timestep_vs_time.dat')
 
 ! Loop until the simulation is stopped
 do while (.not. sim%stop_now)
@@ -108,9 +110,6 @@ do while (.not. sim%stop_now)
   target_time = next_event_at(sim, events)
   ! Loop over all particle groups
   do i=1,1
-    ! Compute the number of steps for the particle
-    n_steps = nint((target_time - sim%time)/timesteps(i))
-	write(*,*) 'n_steps', n_steps
     n_lost = 0
 
     select type (particles => sim%groups(i)%particles)
@@ -118,31 +117,20 @@ do while (.not. sim%stop_now)
 !      !$omp parallel do default(private) &
 !      !$omp shared (i, n_steps, timesteps, sim) &
 !      !$omp reduction(+:n_lost)	
-      do j=1,size(particles,1)
-        do k=1,n_steps
-          if (particles(j)%i_elm .eq. 0) exit
+       do j=1,size(particles,1)
+          time_local = sim%time !< copy simulation time in local variable
+          dt_local = timesteps(i)!< time step in local variable
+        do while((time_local .lt. target_time) .and. (particles(j)%i_elm .ne. 0)) !< continue until we reach the target time
+          call runge_kutta_adapt_dt_gc_push_jorek(sim%fields,time_local,&
+               dt_local,target_time,sim%groups(i)%mass,particles(j)) !< push in jorek fields
 
-	  sim%time = sim%time + timesteps(i)
-	  
-!          call runge_kutta_fixed_dt_gc_push(sim%fields,sim%time,timesteps(i), &
-!               sim%groups(i)%mass,particles(j)) !< push in analytical fields
-          call runge_kutta_fixed_dt_gc_push_jorek(sim%fields,sim%time,timesteps(i), &
-              sim%groups(i)%mass,particles(j)) !< push in jorek fields
+          time_local = time_local + dt_local
 
-!          write(*,*) 'Particle position: ', particles(j)%x(1), particles(j)%x(2), particles(j)%x(3)
-!          write(*,*) 'Particle momenta: ', particles(j)%p(1), particles(j)%p(2)
-
-!	  if (modulo(k-1,10000)==0) then	                
-!	    call sim%fields%interp_PRZ(sim%time, 1000, [1], 1, 0.5, 0.5, 0.5, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)	
-!	    write(22,'(7e26.16)') sim%time, P, P_time, R, Z
-!	  end if
-
-          if (particles(j)%i_elm .eq. 0) then
-	    n_lost = n_lost + 1
-	    write(*,*) 'PARTICLE IS LOST, STOPPING'
-	    stop
-	  end if 		
-        end do !< time steps
+          !> write time step profile if enables
+          if(write_timestep) write(22,'(i6,2e26.16)') j,time_local,dt_local
+          if (particles(j)%i_elm .eq. 0) n_lost = n_lost + 1		
+       end do !< time steps
+       !< overwrite simu
       end do !< particles
 !      !$omp end parallel do
     end select
@@ -172,5 +160,5 @@ call write_simulation_hdf5(sim, 'part_restart.h5')
 ! Finalize the simulation
 call sim%finalize
 
-end program ex7_jorek
+end program ex8_jorek
 
