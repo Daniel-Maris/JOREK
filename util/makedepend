@@ -10,7 +10,7 @@ $filename =~ /([^\/]*)[.]f90/;
 my $basename = $1;
 $filename =~ /(.*)\/[^\/]*[.]f90/;
 my $dirname = $1;
-my $skip_modules = "hdf5 mpi mpi_f08 omp_lib iso_c_binding iso_fortran_env h5lt";
+my $skip_modules = "hdf5 mpi mpi_f08 omp_lib iso_c_binding iso_fortran_env h5lt pastixf pastix_enums spmf";
 my $include_headers = "version.h"; # only include this header file if found
 
 sub uniq {
@@ -48,11 +48,11 @@ sub print_dependencies {
 		print "$basename: .obj/r3_info.o\n";
 		print "$basename: .obj/r3_ctlk.o\n";
 	    }
-	# C preprocessor style includes
-	} elsif (/^#\s*include\s*["<]([^">]*)[">]/) {
-	    if ( -f "$dirname/$1" ) {
-		print_dependencies("$dirname/$1");
-	    }
+#	# C preprocessor style includes
+#	} elsif (/^#\s*include\s*["<]([^">]*)[">]/) {
+#	    if ( -f "$dirname/$1" ) {
+#		print_dependencies("$dirname/$1");
+#	    }
 	# Fortran 90 "use"
 	} elsif (/^\s*use\s+(\w+)/i) {
 	    unless ($skip_modules =~ /\b$1\b/i or $found_modules =~ /\b$1\b/i) {
