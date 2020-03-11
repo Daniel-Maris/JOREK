@@ -68,7 +68,7 @@ module mod_equations
   type(algexpr), parameter, private :: tjp        = algexpr(basic=.true.,var=35)
   type(algexpr), parameter, private :: tjchi      = algexpr(basic=.true.,var=36)
   
-  type(const), private :: tstep, zeta, theta, visco_num, gamma, k_par
+  type(const), private :: tstep, zeta, theta, visco_num, eta_num, gamma, k_par
   
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5
   type(algexpr), private :: amat11, amat12, amat13, amat14
@@ -83,7 +83,7 @@ module mod_equations
   
   type(algexpr), private :: rhs1e, rhs2e, rhs3e, rhs4e, rhs5e
   type(algexpr), private :: amat11e, amat12e, amat13e
-  type(algexpr), private :: amat21e, amat22e, amat24e, amat25e
+  type(algexpr), private :: amat22e, amat24e, amat25e
   type(algexpr), private :: amat52e, amat55e
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p, ea_j0chi
   type(algexpr), private :: ea_tjchi
@@ -93,13 +93,14 @@ module mod_equations
   contains
   
   subroutine init_equations()
-    use phys_module, only: time_evol_zeta, time_evol_theta, zk_par, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num
+    use phys_module, only: time_evol_zeta, time_evol_theta, zk_par, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num, Ieta_num => eta_num
     implicit none
     
     tstep     = const(value = Itstep,          token = "tstep")
     zeta      = const(value = time_evol_zeta,  token = "time_evol_zeta")
     theta     = const(value = time_evol_theta, token = "time_evol_theta")
     visco_num = const(value = Ivisco_num,      token = "visco_num")
+    eta_num   = const(value = Ieta_num,        token = "eta_num")
     gamma     = const(value = Igamma,          token = "gamma")
     k_par     = const(value = zk_par,          token = "zk_par")
     
@@ -117,7 +118,8 @@ module mod_equations
     
     rhs1 = -tstep*((Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0))*Bv_pbrack(v,psi_v)/Bv2 &
          + eta*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
-         + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)) &
+         + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R) + eta_num*(gradprod(j0x,dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
+         + gradprod(j0y,dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(j0p,dx(v)*dy(psi_v) - dy(v)*dx(psi_v)))) &
          + zeta*v*Bv_pbrack(psi_v,delta_Psi)
     
     rhs2 = tstep*(w0*Bv_pbrack(v,Phi0)/Bv2 - Bv2*((j0x+dy(F)/R)*dx(v) + (j0y-dx(F)/R)*dy(v) + j0p*dp(v)/R)/rho0 &
@@ -134,9 +136,12 @@ module mod_equations
     
     amat11 = (1.d0 + zeta)*v*Bv_pbrack(psi_v,Psi) + tstep*theta*(Bv_pbrack(Psi,Phi0)*Bv_pbrack(v,psi_v)/Bv2 + &
              eta*(dx(v)*(dy(psi_v)*tjp - dp(psi_v)*tjy/R) &
-           + dy(v)*(dp(psi_v)*tjx/R - dx(psi_v)*tjp) + dp(v)*(dx(psi_v)*tjy - dy(psi_v)*tjx)/R))
+           + dy(v)*(dp(psi_v)*tjx/R - dx(psi_v)*tjp) + dp(v)*(dx(psi_v)*tjy - dy(psi_v)*tjx)/R) &
+           + eta_num*(gradprod(tjx,dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
+           + gradprod(tjy,dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(tjp,dx(v)*dy(psi_v) - dy(v)*dx(psi_v))))
     amat12 = tstep*theta*(Bv_pbrack(Psi0,Phi) - Bv_parderiv(Phi))*Bv_pbrack(v,psi_v)/Bv2
-    amat13 = (-tstep)*theta*eta*zj*Bv_pbrack(v,psi_v)
+    amat13 = (-tstep)*theta*(eta*zj*Bv_pbrack(v,psi_v) + eta_num*(gradprod(zj*dx(chi),dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
+           + gradprod(zj*dy(chi),dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(zj*dp(chi)/R,dx(v)*dy(psi_v) - dy(v)*dx(psi_v))))
     
     amat21 = tstep*theta*(Bv2*(tjx*dx(v) + tjy*dy(v) + tjp*dp(v)/R) - tjchi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) - j0chi*Bv_pbrack(v,Psi))/rho0
     amat22 = -(1.d0 + zeta)*inprod(v,Phi) - tstep*theta*(w0*Bv_pbrack(v,Phi)/Bv2 - D_perp*gradprod(inprod(v,Phi)/rho0,rho0) + S_rho*inprod(v,Phi)/rho0)
@@ -144,7 +149,7 @@ module mod_equations
     amat24 = -tstep*theta*w*Bv_pbrack(v,Phi0)/Bv2 + tstep*theta*(visco*gradprod(v,w) + visco_num*Lap(v)*Lap(w)/R)
     amat25 = -tstep*theta*(Bv2*((j0x+dy(F)/R)*dx(v) + (j0y-dx(F)/R)*dy(v) + j0p*dp(v)/R) - j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) &
            - S_rho*inprod(v,Phi0) &! + v*Bv_pbrack(rho0,T0)
-             )*rho/(rho0*rho0) + tstep*theta*(D_perp*gradprod(inprod(v,Phi0)/rho0,rho) &
+           )*rho/(rho0*rho0) + tstep*theta*(D_perp*gradprod(inprod(v,Phi0)/rho0,rho) &
            - D_perp*gradprod(inprod(v,Phi0)*rho/(rho0*rho0),rho0) )! + v*Bv_pbrack(rho,T0)/rho0)
     
     amat31 = gradprod(v,Psi)
@@ -160,8 +165,8 @@ module mod_equations
     rhs2e = Dexpand(deepcopy(rhs2))
     rhs5e = Dexpand(deepcopy(rhs5))
     
-    amat11e = Dexpand(deepcopy(amat11)); amat12e = Dexpand(deepcopy(amat12))
-    amat21e = Dexpand(deepcopy(amat21)); amat22e = Dexpand(deepcopy(amat22)); amat24e = Dexpand(deepcopy(amat24)); amat25e = Dexpand(deepcopy(amat25))
+    amat11e = Dexpand(deepcopy(amat11)); amat12e = Dexpand(deepcopy(amat12)); amat13e = Dexpand(deepcopy(amat13))
+    amat22e = Dexpand(deepcopy(amat22)); amat24e = Dexpand(deepcopy(amat24)); amat25e = Dexpand(deepcopy(amat25))
     amat52e = Dexpand(deepcopy(amat52)); amat55e = Dexpand(deepcopy(amat55))
     
     ea_Bv2x = Dexpand(deepcopy(dx(a_Bv2))); ea_Bv2y = Dexpand(deepcopy(dy(a_Bv2))); ea_Bv2p = Dexpand(deepcopy(dp(a_Bv2)))
@@ -184,8 +189,8 @@ module mod_equations
         allocate(thread_eq(i)%rhs5seq(countsubexprs(rhs5e)))
         allocate(thread_eq(i)%amat11seq(countsubexprs(amat11e)))
         allocate(thread_eq(i)%amat12seq(countsubexprs(amat12e)))
-        allocate(thread_eq(i)%amat13seq(countsubexprs(amat13)))
-        allocate(thread_eq(i)%amat21seq(countsubexprs(amat21e)))
+        allocate(thread_eq(i)%amat13seq(countsubexprs(amat13e)))
+        allocate(thread_eq(i)%amat21seq(countsubexprs(amat21)))
         allocate(thread_eq(i)%amat22seq(countsubexprs(amat22e)))
         allocate(thread_eq(i)%amat23seq(countsubexprs(amat23)))
         allocate(thread_eq(i)%amat24seq(countsubexprs(amat24e)))
@@ -227,9 +232,9 @@ module mod_equations
       
       call buildsequence(amat11e, thread_eq(i)%amat11seq, thread_eq(i)%eq)
       call buildsequence(amat12e, thread_eq(i)%amat12seq, thread_eq(i)%eq)
-      call buildsequence(amat13, thread_eq(i)%amat13seq, thread_eq(i)%eq)
+      call buildsequence(amat13e, thread_eq(i)%amat13seq, thread_eq(i)%eq)
       
-      call buildsequence(amat21e, thread_eq(i)%amat21seq, thread_eq(i)%eq)
+      call buildsequence(amat21, thread_eq(i)%amat21seq, thread_eq(i)%eq)
       call buildsequence(amat22e, thread_eq(i)%amat22seq, thread_eq(i)%eq)
       call buildsequence(amat23, thread_eq(i)%amat23seq, thread_eq(i)%eq)
       call buildsequence(amat24e, thread_eq(i)%amat24seq, thread_eq(i)%eq)
@@ -275,8 +280,8 @@ module mod_equations
     type(algexpr), dimension(n_amat), intent(out) :: amat
     character(7),  dimension(n_amat), intent(out) :: varnames
     
-    amat = (/ amat11e, amat12e, amat13,                   &
-              amat21e, amat22e, amat23, amat24e, amat25e, &
+    amat = (/ amat11e, amat12e, amat13e,                   &
+              amat21, amat22e, amat23, amat24e, amat25e, &
               amat31,           amat33, &
                       amat42,           amat44, &
                       amat52e,                   amat55e  /)

@@ -725,7 +725,7 @@ contains
     implicit none
     type(algexpr), intent(in) :: expr
     
-    if (expr%factor .ne. 1) write(*,"(F10.3,A)",advance='no') expr%factor,"*"
+    if (expr%factor .ne. 1.d0) write(*,"(F10.3,A)",advance='no') expr%factor,"*"
     
     if (expr%dx .ne. 0) write(*,"(A,I1)",advance='no') "dx",expr%dx
     if (expr%dy .ne. 0) write(*,"(A,I1)",advance='no') "dy",expr%dy
@@ -741,7 +741,7 @@ contains
       write(*,"(A)",advance='no') ")"
     end if
     
-    if (expr%add .ne. 0) write(*,"(A,F10.3)",advance='no') " + ",expr%add
+    if (expr%add .ne. 0.d0) write(*,"(A,F10.3)",advance='no') " + ",expr%add
   end subroutine printexpr
   
   ! Print LaTeX code for an expression
@@ -751,7 +751,7 @@ contains
     type(algexpr),    intent(in) :: expr
     character(len=*), intent(in) :: varsymb
     
-    if (expr%factor .ne. 1) write(*,"(F10.3,A)",advance='no') expr%factor,"*"
+    if (expr%factor .ne. 1.d0) write(*,"(F10.3,A)",advance='no') expr%factor,"*"
     
     if (expr%dx .eq. 1) then
       write(*,"(A)",advance='no') "\frac{\partial}{\partial x}"
@@ -794,7 +794,7 @@ contains
       end if
     end if
     
-    if (expr%add .ne. 0) write(*,"(A,F10.3)",advance='no') " + ",expr%add
+    if (expr%add .ne. 0.d0) write(*,"(A,F10.3)",advance='no') " + ",expr%add
   end subroutine printlatex
 
   integer recursive function countsubexprs(expr) result(res)

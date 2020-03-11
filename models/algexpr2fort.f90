@@ -1,4 +1,5 @@
 program algexpr2fort
+#ifdef SEMIANALYTICAL
   use phys_module
   use mod_semianalytical
   use mod_equations
@@ -109,4 +110,7 @@ program algexpr2fort
     end do
     close(40)
   end if
+#else
+  write(*,*) ">> Code generation is only for semianalytical models. <<"
+#endif
 end program algexpr2fort

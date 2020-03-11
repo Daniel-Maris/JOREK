@@ -250,22 +250,24 @@ do ms=1, n_gauss
 
      eq(2*n_var+6,0,0,0) = get_dperp(psi_norm)       ! D_perp
      eq(2*n_var+7,0,0,0) = get_zkperp(psi_norm)      ! k_perp
-     eq(2*n_var+8,0,0,0) = particle_source(ms,mt)    ! S_rho
-     eq(2*n_var+9,0,0,0) = heat_source(ms,mt)       ! S_e
-     eq(2*n_var+10,0,0,0) = current_source(ms,mt)/F0 ! S_j
+     if (mp .eq. 1) then ! these quantities are the same on all poloidal planes
+       eq(2*n_var+8,0,0,0) = particle_source(ms,mt)    ! S_rho
+       eq(2*n_var+9,0,0,0) = heat_source(ms,mt)       ! S_e
+       eq(2*n_var+10,0,0,0) = current_source(ms,mt)/F0 ! S_j
 #ifdef altcs
-     call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,psieq(ms,mt),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
-                    dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
-     eq(2*n_var+11,0,0,0) = F_prof
-     eq(2*n_var+11,1,0,0) = dF_dpsi*psieq_x
-     eq(2*n_var+11,0,1,0) = dF_dpsi*psieq_y
+       call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,psieq(ms,mt),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
+                      dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
+       eq(2*n_var+11,0,0,0) = F_prof
+       eq(2*n_var+11,1,0,0) = dF_dpsi*psieq_x
+       eq(2*n_var+11,0,1,0) = dF_dpsi*psieq_y
 #else
-     call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,F0*eq(1,0,0,0),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
-                    dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
-     eq(2*n_var+11,0,0,0) = F_prof
-     eq(2*n_var+11,1,0,0) = dF_dpsi*F0*eq(1,1,0,0)
-     eq(2*n_var+11,0,1,0) = dF_dpsi*F0*eq(1,0,1,0)
+       call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,F0*eq(1,0,0,0),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
+                      dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
+       eq(2*n_var+11,0,0,0) = F_prof
+       eq(2*n_var+11,1,0,0) = dF_dpsi*F0*eq(1,1,0,0)
+       eq(2*n_var+11,0,1,0) = dF_dpsi*F0*eq(1,0,1,0)
 #endif
+     end if
      ! Resistivity
      if (eta_T_dependent) then
        eq(2*n_var+12,0,0,0) = eta*(corr_neg_temp(eq(6,0,0,0))/T_0)**(-1.5d0)               ! eta
