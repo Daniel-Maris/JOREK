@@ -16,6 +16,7 @@ use tr_module
 use diffusivities, only: get_dperp, get_zkperp    
 use corr_neg
 use vacuum, only: freeb_fact
+use equil_info, only: get_psi_n
 use mod_semianalytical
 use mod_equations
 
@@ -33,12 +34,12 @@ integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6
 real*8     :: wst,  xjac, xjac_x, xjac_y, xjac_s, xjac_t, BigR, r2, phi
 real*8     :: current_source(n_gauss,n_gauss),particle_source(n_gauss,n_gauss),heat_source(n_gauss,n_gauss)
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2), dj_dpsi, dj_dz
-real*8     :: psi_norm
+real*8     :: psi_norm, reta
 real*8     :: rhs_ij_1,   rhs_ij_2,   rhs_ij_3,   rhs_ij_4,   rhs_ij_5,   rhs_ij_6
-real*8     :: theta, zeta, delta_u_x, delta_u_y
+real*8     :: delta_u_x, delta_u_y
 
-real*8     :: amat_11, amat_12, amat_13, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_33, amat_31
-real*8     :: amat_41, amat_42, amat_43, amat_44, amat_52, amat_55, amat_66
+real*8     :: amat_11, amat_12, amat_13, amat_16, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_33, amat_31
+real*8     :: amat_41, amat_42, amat_43, amat_44, amat_52, amat_55, amat_61, amat_62, amat_63, amat_65, amat_66
 
 real*8     :: F_prof, dF_dpsi, dF_dz, dF_dpsi2, dF_dz2, dF_dpsi_dz, FFprime_prof, dFF_dpsi, dFF_dz, dFF_dpsi2, dFF_dz2, dFF_dpsi_dz
 
@@ -60,8 +61,6 @@ real*8, dimension(:,:,:,:) , pointer :: delta_g, delta_s, delta_t, delta_p
 
 real*8, dimension(:,:,:,:), pointer :: eq
 
-real*8 :: rhsdt0, rhsdt1, amatdt0, amatdt1
-
 eq_g    => thread_struct(tid)%eq_g   
 eq_s    => thread_struct(tid)%eq_s   
 eq_t    => thread_struct(tid)%eq_t   
@@ -81,10 +80,6 @@ eq => thread_eq(tid)%eq
 
 ELM = 0.d0
 RHS = 0.d0
-
-! --- Take time evolution parameters from phys_module
-theta = time_evol_theta
-zeta  = time_evol_zeta
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
 #ifdef altcs
@@ -170,6 +165,12 @@ do i=1,n_vertex_max
  enddo
 enddo
 
+if (eta .ne. 0.d0) then
+  reta = eta_ohmic/eta
+else
+  reta = 0.d0
+end if
+
 !--------------------------------------------------- sum over the Gaussian integration points
 do ms=1, n_gauss
 
@@ -232,15 +233,7 @@ do ms=1, n_gauss
      eq(2*n_var+5,0,0,0) = x_g(ms,mt)                 ! R
      eq(2*n_var+5,1,0,0) = 1.d0
      
-     psi_norm = (eq(1,0,0,0) - psi_axis)/(psi_bnd - psi_axis)
-     if (xpoint2) then
-       if ((psi_norm .lt. 1.d0) .and. (y_g(ms,mt) .lt. Z_xpoint(1)) .and. (xcase2 .ne. 2)) then
-         psi_norm = 2.d0 - psi_norm
-       endif
-       if ((psi_norm .lt. 1.d0) .and. (y_g(ms,mt) .gt. Z_xpoint(2)) .and. (xcase2 .ne. 1)) then
-         psi_norm = 2.d0 - psi_norm
-       endif
-     endif
+     psi_norm = get_psi_n(eq(1,0,0,0), y_g(ms,mt))
      
      ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi
      eq(1,:,:,:) = eq(1,:,:,:)/F0
@@ -250,6 +243,17 @@ do ms=1, n_gauss
 
      eq(2*n_var+6,0,0,0) = get_dperp(psi_norm)       ! D_perp
      eq(2*n_var+7,0,0,0) = get_zkperp(psi_norm)      ! k_perp
+     
+     ! --- Increase diffusivity if very small density/temperature
+     if (xpoint2) then
+       if (eq(5,0,0,0) .lt. D_prof_neg_thresh)  then
+         eq(2*n_var+6,0,0,0)  = D_prof_neg
+       endif
+       if (eq(6,0,0,0) .lt. ZK_prof_neg_thresh) then
+         eq(2*n_var+7,0,0,0) = ZK_prof_neg
+       endif
+     endif
+     
      if (mp .eq. 1) then ! these quantities are the same on all poloidal planes
        eq(2*n_var+8,0,0,0) = particle_source(ms,mt)    ! S_rho
        eq(2*n_var+9,0,0,0) = heat_source(ms,mt)       ! S_e
@@ -284,15 +288,27 @@ do ms=1, n_gauss
        eq(2*n_var+14,0,0,0) = visco
        eq(2*n_var+15,0,0,0) = 0.d0
      end if
+     ! Parallel thermal conductivity
+     if (zkpar_T_dependent) then
+       eq(2*n_var+16,0,0,0) = zk_par*(corr_neg_temp(eq(6,0,0,0))/T_0)**(2.5d0)               ! k_par
+       eq(2*n_var+17,0,0,0) = 2.5d0*zk_par*corr_neg_temp(eq(6,0,0,0))**(1.5d0)*T_0**(-2.5d0) ! dk_par_dT
+       if (eq(2*n_var+16,0,0,0) .gt. zk_par_max) then
+         eq(2*n_var+16,0,0,0) = zk_par_max
+         eq(2*n_var+17,0,0,0) = 0.d0
+       end if
+     else
+       eq(2*n_var+16,0,0,0) = zk_par
+       eq(2*n_var+17,0,0,0) = 0.d0
+     end if
      
      ! Auxiliary variables (aux)
 #ifdef DEBUG
-     eq(2*n_var+16,0,0,0) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+16,1,0,0) = eval(thread_eq(tid)%aBv2xseq)
-     eq(2*n_var+16,0,1,0) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+16,0,0,1) = eval(thread_eq(tid)%aBv2pseq)
-     eq(2*n_var+17,0,0,0) = eval(thread_eq(tid)%aj0xseq)
-     eq(2*n_var+18,0,0,0) = eval(thread_eq(tid)%aj0yseq)
-     eq(2*n_var+19,0,0,0) = eval(thread_eq(tid)%aj0pseq)
-     eq(2*n_var+20,0,0,0) = eval(thread_eq(tid)%aj0chiseq)
+     eq(2*n_var+18,0,0,0) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+18,1,0,0) = eval(thread_eq(tid)%aBv2xseq)
+     eq(2*n_var+18,0,1,0) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+18,0,0,1) = eval(thread_eq(tid)%aBv2pseq)
+     eq(2*n_var+19,0,0,0) = eval(thread_eq(tid)%aj0xseq)
+     eq(2*n_var+20,0,0,0) = eval(thread_eq(tid)%aj0yseq)
+     eq(2*n_var+21,0,0,0) = eval(thread_eq(tid)%aj0pseq)
+     eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%aj0chiseq)
 #else
 #include "aux_unreadable.h"
 #endif
@@ -332,7 +348,7 @@ do ms=1, n_gauss
            rhs_ij_3 = 0.d0 ! eval(thread_eq(tid)%rhs3seq)*xjac*freeb_fact/BigR
            rhs_ij_4 = 0.d0 ! (eval(thread_eq(tid)%rhs4dt0seq) + eval(thread_eq(tid)%rhs4dt1seq)*tstep)*xjac
            rhs_ij_5 = eval(thread_eq(tid)%rhs5seq)*BigR*xjac
-           rhs_ij_6 = 0.d0
+           rhs_ij_6 = eval(thread_eq(tid)%rhs6seq)*BigR*xjac
 #else
 #include "rhs_unreadable.h"
 
@@ -341,7 +357,7 @@ do ms=1, n_gauss
            rhs_ij_3 = 0.d0
            rhs_ij_4 = 0.d0
            rhs_ij_5 = rhs_ij_5*BigR*xjac
-           rhs_ij_6 = 0.d0
+           rhs_ij_6 = rhs_ij_6*BigR*xjac
 #endif
 
            ij1 = index_ij
@@ -389,10 +405,10 @@ do ms=1, n_gauss
                  
 #ifdef DEBUG
 !---------------------------------------------------------------- Auxiliary variables involving unknowns (aux2)
-                 eq(2*n_var+21,0,0,0) = eval(thread_eq(tid)%atjxseq)
-                 eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%atjyseq)
-                 eq(2*n_var+23,0,0,0) = eval(thread_eq(tid)%atjpseq)
-                 eq(2*n_var+24,0,0,0) = eval(thread_eq(tid)%atjchiseq)
+                 eq(2*n_var+23,0,0,0) = eval(thread_eq(tid)%atjxseq)
+                 eq(2*n_var+24,0,0,0) = eval(thread_eq(tid)%atjyseq)
+                 eq(2*n_var+25,0,0,0) = eval(thread_eq(tid)%atjpseq)
+                 eq(2*n_var+26,0,0,0) = eval(thread_eq(tid)%atjchiseq)
                  
 !---------------------------------------------------------------- equation 1
                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
@@ -414,21 +430,28 @@ do ms=1, n_gauss
                  amat_42 = eval(thread_eq(tid)%amat42seq)*BigR*xjac
                  amat_44 = eval(thread_eq(tid)%amat44seq)*BigR*xjac
                  
+!---------------------------------------------------------------- equation 5
                  amat_52 = eval(thread_eq(tid)%amat52seq)*BigR*xjac
                  amat_55 = eval(thread_eq(tid)%amat55seq)*BigR*xjac
                  
-                 amat_66 = 1.d0
+!---------------------------------------------------------------- equation 6
+                 amat_61 = eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
+                 amat_62 = eval(thread_eq(tid)%amat62seq)*BigR*xjac
+                 amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
+                 amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
+                 amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
 #else
 #include "aux2_unreadable.h"
 #include "amat_unreadable.h"
 
-                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0
+                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0; amat_16 = amat_16*BigR*xjac
                  amat_21 = amat_21*BigR*xjac/F0; amat_22 = amat_22*BigR*xjac; amat_23 = amat_23*BigR*xjac/F0; amat_24 = amat_24*BigR*xjac
-                 amat_25 = amat_25*BigR*xjac
+                 amat_25 = amat_25*BigR*xjac; amat_26 = amat_26*BigR*xjac
                  amat_31 = amat_31*xjac/(BigR*F0); amat_33 = amat_33*xjac/(BigR*F0)
                  amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
                  amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
-                 amat_66 = 1.d0
+                 amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_63 = amat_63*BigR*xjac/F0; amat_65 = amat_65*BigR*xjac
+                 amat_66 = amat_66*BigR*xjac
 #endif
 
                  kl1 = index_kl
@@ -457,6 +480,10 @@ do ms=1, n_gauss
                  ELM(ij5,kl2) =  ELM(ij5,kl2) + wst*amat_52
                  ELM(ij5,kl5) =  ELM(ij5,kl5) + wst*amat_55
                  
+                 ELM(ij6,kl1) =  ELM(ij6,kl1) + wst*amat_61
+                 ELM(ij6,kl2) =  ELM(ij6,kl2) + wst*amat_62
+                 ELM(ij6,kl3) =  ELM(ij6,kl3) + wst*amat_63
+                 ELM(ij6,kl5) =  ELM(ij6,kl5) + wst*amat_65
                  ELM(ij6,kl6) =  ELM(ij6,kl6) + wst*amat_66
 
                enddo
