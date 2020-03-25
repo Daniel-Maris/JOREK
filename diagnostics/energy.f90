@@ -78,8 +78,12 @@ do ife =1,  element_list%n_elements
               eq_t(k,ms,mt)  = eq_t(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)
             enddo
         
-	    if (in .eq. 1) then
+	          if (in .eq. 1) then
+#if (JOREK_MODEL != 180 && JOREK_MODEL != 181)
               density_eq(ms,mt) = abs(eq_g(5,ms,mt))
+#else
+              density_eq(ms,mt) = abs(eq_g(3,ms,mt))
+#endif
             endif
 
 #ifdef fullmhd

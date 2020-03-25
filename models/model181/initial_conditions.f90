@@ -138,6 +138,11 @@ do in=2,n_tor
 
 enddo
 
+#ifdef altcs
+do i=1,node_list%n_nodes
+  node_list%node(i)%psi_eq(:) = node_list%node(i)%values(1,:,1)
+end do
+#endif
 
 return
 end

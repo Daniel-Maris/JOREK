@@ -119,12 +119,12 @@ module mod_equations
     a_j0x =  -(zj0 + 2.d0*dx(Psi0)/R)*dx(chi) + Bv_parderiv(dx(Psi0)) - gradprod(Psi0,dx(chi))
     a_j0y =  -(zj0 + 2.d0*dx(Psi0)/R)*dy(chi) + Bv_parderiv(dy(Psi0)) - gradprod(Psi0,dy(chi))
     a_j0p = (-(zj0 + 2.d0*dx(Psi0)/R)*dp(chi) + Bv_parderiv(dp(Psi0)) - gradprod(Psi0,dp(chi)))/R + 2.d0*(dx(Psi0)*dp(chi) - dp(Psi0)*dx(chi))/(R*R)
-    a_j0chi = -(Bv2*zj0 + 2.d0*Bv2*dx(Psi0)/R - Bv_parderiv(Bv_parderiv(Psi0)) + Bv_parderiv(Bv2)*Bv_parderiv(Psi0)/Bv2 + inprod(Bv2,Psi0))
+    a_j0chi = -Bv2*zj0 - 2.d0*Bv2*dx(Psi0)/R + Bv_parderiv(Bv_parderiv(Psi0)) - Bv_parderiv(Bv2)*Bv_parderiv(Psi0)/Bv2 - inprod(Bv2,Psi0)
     
     a_tjx =  -2.d0*dx(Psi)*dx(chi)/R + Bv_parderiv(dx(Psi)) - gradprod(Psi,dx(chi))
     a_tjy =  -2.d0*dx(Psi)*dy(chi)/R + Bv_parderiv(dy(Psi)) - gradprod(Psi,dy(chi))
     a_tjp = (-2.d0*dx(Psi)*dp(chi)/R + Bv_parderiv(dp(Psi)) - gradprod(Psi,dp(chi)))/R + 2.d0*(dx(Psi)*dp(chi) - dp(Psi)*dx(chi))/(R*R)
-    a_tjchi  = -(2.d0*Bv2*dx(Psi)/R - Bv_parderiv(Bv_parderiv(Psi)) + Bv_parderiv(Bv2)*Bv_parderiv(Psi)/Bv2 + inprod(Bv2,Psi))
+    a_tjchi  = -2.d0*Bv2*dx(Psi)/R + Bv_parderiv(Bv_parderiv(Psi)) - Bv_parderiv(Bv2)*Bv_parderiv(Psi)/Bv2 - inprod(Bv2,Psi)
     
     rhs1 = -tstep*((Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0))*Bv_pbrack(v,psi_v)/Bv2 &
          + eta*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
@@ -153,8 +153,8 @@ module mod_equations
            + eta_num*(gradprod(tjx,dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
            + gradprod(tjy,dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(tjp,dx(v)*dy(psi_v) - dy(v)*dx(psi_v))))
     amat12 = tstep*theta*(Bv_pbrack(Psi0,Phi) - Bv_parderiv(Phi))*Bv_pbrack(v,psi_v)/Bv2
-    amat13 = (-tstep)*theta*(eta*zj*Bv_pbrack(v,psi_v) + eta_num*(gradprod(zj*dx(chi),dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
-           + gradprod(zj*dy(chi),dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(zj*dp(chi)/R,dx(v)*dy(psi_v) - dy(v)*dx(psi_v))))
+    amat13 = -tstep*theta*eta*zj*Bv_pbrack(v,psi_v) - tstep*theta*eta_num*(gradprod(zj*dx(chi),dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
+           + gradprod(zj*dy(chi),dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(zj*dp(chi)/R,dx(v)*dy(psi_v) - dy(v)*dx(psi_v)))
     amat16 = tstep*theta*deta_dT*T*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
            + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)
     
@@ -165,7 +165,7 @@ module mod_equations
     amat25 = -tstep*theta*(Bv2*((j0x+dy(F)/R)*dx(v) + (j0y-dx(F)/R)*dy(v) + j0p*dp(v)/R) - j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) &
            - S_rho*inprod(v,Phi0) + v*Bv_pbrack(rho0,T0))*rho/(rho0*rho0) + tstep*theta*(D_perp*gradprod(inprod(v,Phi0)/rho0,rho) &
            - D_perp*gradprod(inprod(v,Phi0)*rho/(rho0*rho0),rho0) + v*Bv_pbrack(rho,T0)/rho0)
-    amat26 = tstep*theta*(v*Bv_pbrack(rho0,T)/rho0 + dvisco_dT*T*gradprod(v,w0))
+    amat26 = tstep*theta*v*Bv_pbrack(rho0,T)/rho0 + tstep*theta*dvisco_dT*T*gradprod(v,w0)
     
     amat31 = gradprod(v,Psi)
     amat33 = v*zj
@@ -176,7 +176,7 @@ module mod_equations
     amat52 = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)
     amat55 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradprod(v,rho))
     
-    amat61 = tstep*theta*(k_par*Bv_parderiv(v)*Bv_pbrack(T0,Psi)/Bv2 - 2.d0*reta*eta*v*(j0x*tjx + j0y*tjy + j0p*tjp))
+    amat61 = tstep*theta*k_par*Bv_parderiv(v)*Bv_pbrack(T0,Psi)/Bv2 - 2.d0*tstep*theta*reta*eta*v*(j0x*tjx + j0y*tjy + j0p*tjp)
     amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0,Phi) - gamma*rho0*T0*Bv_pbrack(Bv2,Phi)/(Bv2*Bv2))
     amat63 = 2.d0*tstep*theta*reta*eta*v*j0chi*zj
     amat65 = (1.d0 + zeta)*v*T0*rho + tstep*theta*(v*Bv_pbrack(rho*T0,Phi0)/Bv2 - gamma*v*rho*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) )! + D_perp*T0*gradprod(v,rho))
