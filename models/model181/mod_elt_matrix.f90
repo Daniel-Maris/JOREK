@@ -383,7 +383,7 @@ do ms=1, n_gauss
 #include "rhs_unreadable.h"
 
            rhs_ij_1 = rhs_ij_1*BigR*xjac
-           rhs_ij_2 = rhs_ij_2*BigR*xjac
+           rhs_ij_2 = 0.d0 ! rhs_ij_2*BigR*xjac
            rhs_ij_3 = rhs_ij_3*BigR*xjac
            rhs_ij_4 = 0.d0 ! rhs_ij_4*BigR*xjac
 #endif
@@ -462,7 +462,9 @@ do ms=1, n_gauss
                  
                  amat_11 = amat_11*BigR*xjac/F0; amat_12 = 0.d0 ! amat_12*BigR*xjac;                              amat_14 = 0.d0 ! amat_14*BigR*xjac
                  amat_21 = 0.d0 ! amat_21*BigR*xjac/F0
-                 amat_22 = amat_22*BigR*xjac; amat_23 = 0.d0 ! amat_23*BigR*xjac; amat_24 = 0.d0 ! amat_24*BigR*xjac
+                 amat_22 = 1.d0 ! amat_22*BigR*xjac
+                 amat_23 = 0.d0 ! amat_23*BigR*xjac
+                 amat_24 = 0.d0 ! amat_24*BigR*xjac
                                                  amat_32 = amat_32*BigR*xjac; amat_33 = amat_33*BigR*xjac
                  amat_41 = 0.d0 ! amat_41*BigR*xjac/F0
                  amat_42 = 0.d0 ! amat_42*BigR*xjac

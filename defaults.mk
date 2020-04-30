@@ -157,7 +157,7 @@ ifeq (model710, $(MODEL))
 endif
 
 CGDEP=
-ifneq (,$(filter $(MODEL), model002 model180 model181 model182))
+ifneq (,$(filter $(MODEL), model002 model180 model181 model182 model183))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL
   ifneq ($(DEBUG), 1)     # should be ifeq ($(DEBUG), 0), but that doesn't work due to GNU make bug (v4.2.1)
     CGDEP = generate_code

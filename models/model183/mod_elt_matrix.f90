@@ -39,9 +39,9 @@ real*8     :: rhs_ij_1, rhs_ij_2, rhs_ij_3, rhs_ij_4, rhs_ij_5, rhs_ij_6
 real*8     :: delta_u_x, delta_u_y
 
 real*8     :: amat_11, amat_12, amat_13, amat_16, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_33, amat_31
-real*8     :: amat_41, amat_42, amat_43, amat_44, amat_52, amat_55, amat_61, amat_62, amat_63, amat_65, amat_66
+real*8     :: amat_41, amat_42, amat_43, amat_44, amat_51, amat_52, amat_55, amat_61, amat_62, amat_63, amat_65, amat_66
 
-real*8     :: F_prof, dF_dpsi, dF_dz, dF_dpsi2, dF_dz2, dF_dpsi_dz, FFprime_prof, dFF_dpsi, dFF_dz, dFF_dpsi2, dFF_dz2, dFF_dpsi_dz
+real*8     :: FFprime_prof, dFF_dpsi, dFF_dz, dFF_dpsi2, dFF_dz2, dFF_dpsi_dz
 
 logical    :: xpoint2
 
@@ -261,17 +261,15 @@ do ms=1, n_gauss
        eq(2*n_var+9,0,0,0) = heat_source(ms,mt)       ! S_e
        eq(2*n_var+10,0,0,0) = current_source(ms,mt)/F0 ! S_j
 #ifdef altcs
-       call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,psieq(ms,mt),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
-                      dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
-       eq(2*n_var+11,0,0,0) = F_prof
-       eq(2*n_var+11,1,0,0) = dF_dpsi*psieq_x
-       eq(2*n_var+11,0,1,0) = dF_dpsi*psieq_y
+       call ffprime(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,psieq(ms,mt),psi_axis,psi_bnd,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2, &
+                    dFF_dz2,dFF_dpsi_dz)
+       eq(2*n_var+11,1,0,0) = -2.d0*FFprime_prof*psieq_x
+       eq(2*n_var+11,0,1,0) = -2.d0*FFprime_prof*psieq_y
 #else
-       call F_profile(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,F0*eq(1,0,0,0),psi_axis,psi_bnd,F_prof,dF_dpsi,dF_dz,dF_dpsi2,dF_dz2, &
-                      dF_dpsi_dz,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2,dFF_dz2,dFF_dpsi_dz)
-       eq(2*n_var+11,0,0,0) = F_prof
-       eq(2*n_var+11,1,0,0) = dF_dpsi*F0*eq(1,1,0,0)
-       eq(2*n_var+11,0,1,0) = dF_dpsi*F0*eq(1,0,1,0)
+       call ffprime(xpoint2,xcase2,y_g(ms,mt),Z_xpoint,F0*eq(1,0,0,0),psi_axis,psi_bnd,FFprime_prof,dFF_dpsi,dFF_dz,dFF_dpsi2, &
+                    dFF_dz2,dFF_dpsi_dz)
+       eq(2*n_var+11,1,0,0) = -2.d0*FFprime_prof*F0*eq(1,1,0,0)
+       eq(2*n_var+11,0,1,0) = -2.d0*FFprime_prof*F0*eq(1,0,1,0)
 #endif
      end if
      ! Resistivity
@@ -303,6 +301,15 @@ do ms=1, n_gauss
        eq(2*n_var+17,0,0,0) = 0.d0
      end if
      
+!     write(filename,'(A,I5.5)') "f2x",index_now
+!     open(20,file=filename,action="write",status="unknown",position="append")
+!     write(20,'(E14.6,A1,E14.6,A1,E14.6)') x_g(ms,mt), " ", y_g(ms,mt), " ", eq(2*n_var+11,1,0,0)
+!     close(20)
+!     write(filename,'(A,I5.5)') "f2y",index_now
+!     open(30,file=filename,action="write",status="unknown",position="append")
+!     write(30,'(E14.6,A1,E14.6,A1,E14.6)') x_g(ms,mt), " ", y_g(ms,mt), " ", eq(2*n_var+11,0,1,0)
+!     close(30)
+     
      ! Auxiliary variables (aux)
 #ifdef DEBUG
      eq(2*n_var+18,0,0,0) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+18,1,0,0) = eval(thread_eq(tid)%aBv2xseq)
@@ -310,7 +317,9 @@ do ms=1, n_gauss
      eq(2*n_var+19,0,0,0) = eval(thread_eq(tid)%aj0xseq)
      eq(2*n_var+20,0,0,0) = eval(thread_eq(tid)%aj0yseq)
      eq(2*n_var+21,0,0,0) = eval(thread_eq(tid)%aj0pseq)
-     eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%aj0chiseq)
+     eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%aw0xseq)
+     eq(2*n_var+23,0,0,0) = eval(thread_eq(tid)%aw0yseq)
+     eq(2*n_var+24,0,0,0) = eval(thread_eq(tid)%aw0pseq)
 #else
 #include "aux_unreadable.h"
 #endif
@@ -359,7 +368,7 @@ do ms=1, n_gauss
            rhs_ij_3 = 0.d0
            rhs_ij_4 = 0.d0
            rhs_ij_5 = rhs_ij_5*BigR*xjac
-           rhs_ij_6 = rhs_ij_6*BigR*xjac
+           rhs_ij_6 = 0.d0 ! rhs_ij_6*BigR*xjac
 #endif
 
            ij1 = index_ij
@@ -407,15 +416,18 @@ do ms=1, n_gauss
                  
 #ifdef DEBUG
 !---------------------------------------------------------------- Auxiliary variables involving unknowns (aux2)
-                 eq(2*n_var+23,0,0,0) = eval(thread_eq(tid)%atjxseq)
-                 eq(2*n_var+24,0,0,0) = eval(thread_eq(tid)%atjyseq)
-                 eq(2*n_var+25,0,0,0) = eval(thread_eq(tid)%atjpseq)
-                 eq(2*n_var+26,0,0,0) = eval(thread_eq(tid)%atjchiseq)
+                 eq(2*n_var+25,0,0,0) = eval(thread_eq(tid)%atjxseq)
+                 eq(2*n_var+26,0,0,0) = eval(thread_eq(tid)%atjyseq)
+                 eq(2*n_var+27,0,0,0) = eval(thread_eq(tid)%atjpseq)
+                 eq(2*n_var+28,0,0,0) = eval(thread_eq(tid)%atwxseq)
+                 eq(2*n_var+29,0,0,0) = eval(thread_eq(tid)%atwyseq)
+                 eq(2*n_var+30,0,0,0) = eval(thread_eq(tid)%atwpseq)
                  
 !---------------------------------------------------------------- equation 1
                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
                  amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
                  amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0
+                 amat_16 = eval(thread_eq(tid)%amat16seq)*BigR*xjac
 
 !---------------------------------------------------------------- equation 2
                  amat_21 = eval(thread_eq(tid)%amat21seq)*BigR*xjac/F0
@@ -433,6 +445,7 @@ do ms=1, n_gauss
                  amat_44 = eval(thread_eq(tid)%amat44seq)*BigR*xjac
                  
 !---------------------------------------------------------------- equation 5
+                 amat_51 = eval(thread_eq(tid)%amat51seq)*BigR*xjac/F0
                  amat_52 = eval(thread_eq(tid)%amat52seq)*BigR*xjac
                  amat_55 = eval(thread_eq(tid)%amat55seq)*BigR*xjac
                  
@@ -446,14 +459,25 @@ do ms=1, n_gauss
 #include "aux2_unreadable.h"
 #include "amat_unreadable.h"
 
-                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0; amat_16 = amat_16*BigR*xjac
-                 amat_21 = amat_21*BigR*xjac/F0; amat_22 = amat_22*BigR*xjac; amat_23 = amat_23*BigR*xjac/F0; amat_24 = amat_24*BigR*xjac
-                 amat_25 = amat_25*BigR*xjac; amat_26 = amat_26*BigR*xjac
+                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac
+                 amat_13 = amat_13*BigR*xjac/F0; amat_16 = 0.d0 ! amat_16*BigR*xjac
+                 amat_21 = amat_21*BigR*xjac/F0
+                 amat_22 = amat_22*BigR*xjac
+                 amat_23 = amat_23*BigR*xjac/F0
+                 amat_24 = amat_24*BigR*xjac
+                 amat_25 = amat_25*BigR*xjac
+                 amat_26 = 0.d0 ! amat_26*BigR*xjac
                  amat_31 = amat_31*xjac/(BigR*F0); amat_33 = amat_33*xjac/(BigR*F0)
-                 amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
-                 amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
-                 amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_63 = amat_63*BigR*xjac/F0; amat_65 = amat_65*BigR*xjac
-                 amat_66 = amat_66*BigR*xjac
+                 amat_42 = amat_42*BigR*xjac
+                 amat_44 = amat_44*BigR*xjac
+                 amat_51 = amat_51*BigR*xjac/F0
+                 amat_52 = amat_52*BigR*xjac
+                 amat_55 = amat_55*BigR*xjac
+                 amat_61 = 0.d0 ! amat_61*BigR*xjac/F0
+                 amat_62 = 0.d0 ! amat_62*BigR*xjac
+                 amat_63 = 0.d0 ! amat_63*BigR*xjac/F0
+                 amat_65 = 0.d0 ! amat_65*BigR*xjac
+                 amat_66 = 1.d0 ! amat_66*BigR*xjac
 #endif
 
                  kl1 = index_kl
@@ -479,6 +503,7 @@ do ms=1, n_gauss
                  ELM(ij4,kl2) =  ELM(ij4,kl2) + wst*amat_42
                  ELM(ij4,kl4) =  ELM(ij4,kl4) + wst*amat_44
                  
+                 ELM(ij5,kl1) =  ELM(ij5,kl1) + wst*amat_51
                  ELM(ij5,kl2) =  ELM(ij5,kl2) + wst*amat_52
                  ELM(ij5,kl5) =  ELM(ij5,kl5) + wst*amat_55
                  
@@ -496,11 +521,6 @@ do ms=1, n_gauss
        enddo
 
      enddo
-     
-!     write(filename,'(A,I5.5)') "rhs",index_now
-!     open(20,file=filename,action="write",status="unknown",position="append")
-!     write(20,'(E14.6,A1,E14.6,A1,E14.6)') x_g(ms,mt), " ", y_g(ms,mt), " ", rhs_cum_2
-!     close(20)
      
    enddo
 
