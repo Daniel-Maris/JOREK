@@ -6,7 +6,7 @@ module mod_equations
   
   type type_thread_eq
 #ifdef DEBUG
-    type(action), dimension(:), allocatable :: rhs1seq, rhs2seq, rhs3seq, rhs5seq, rhs6seq
+    type(action), dimension(:), allocatable :: rhs1seq, rhs2seq, rhs3seq, rhs4seq, rhs5seq, rhs6seq
     type(action), dimension(:), allocatable :: amat11seq, amat12seq, amat13seq, amat16seq
     type(action), dimension(:), allocatable :: amat21seq, amat22seq, amat23seq, amat24seq, amat25seq, amat26seq
     type(action), dimension(:), allocatable :: amat31seq, amat33seq
@@ -91,7 +91,7 @@ module mod_equations
   
   type(algexpr), private :: B2, j0chi, j0_chi, tjchi, tj_chi, w0chi, w0_chi, twchi, tw_chi
   
-  integer, parameter :: n_rhs = 4, n_amat = 22, n_aux = 10, n_aux2 = 6
+  integer, parameter :: n_rhs = 6, n_amat = 22, n_aux = 10, n_aux2 = 6
   
   type(algexpr), private :: rhs1e, rhs2e, rhs3e, rhs4e, rhs5e, rhs6e
   type(algexpr), private :: amat11e, amat12e, amat13e
@@ -164,6 +164,7 @@ module mod_equations
          + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R) + eta_num*(gradprod(j0x,dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
          + gradprod(j0y,dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(j0p,dx(v)*dy(psi_v) - dy(v)*dx(psi_v)))) &
          + zeta*v*Bv_pbrack(psi_v,delta_Psi)
+!    rhs1 = tstep*v*(eta*(zj0 - S_j)*dp(chi)/(R*R) + Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0)) + zeta*Bv2*v*delta_Psi
     
     rhs2 = -tstep*(Bv_parderiv(inprod(Phi0,Phi0)/Bv2)*inprod(v,Psi0)/2.d0 + w0_chi*Bv_pbrack(v,Phi0) - inprod(Phi0,Psi0)*(w0x*dx(v) &
          + w0y*dy(v) + w0p*dp(v)/R - w0chi*Bv_parderiv(v)/Bv2) + (B2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R - j0chi*Bv_parderiv(v)/Bv2) &
@@ -172,9 +173,9 @@ module mod_equations
          + visco*gradprod(v,w0) &
          + visco_num*Lap(v)*Lap(w0)/R) - zeta*inprod(v,delta_Phi)
     
-    rhs3 = v*zj0 + gradprod(v,Psi0)
+    rhs3 = -tstep*gradprod(v,Psi0) - tstep*v*zj0
     
-    rhs4 = v*w0 + inprod(v,Phi0)
+    rhs4 = -tstep*inprod(v,Phi0) - tstep*v*w0
     
     rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*(gradprod(v,rho0) - B0_parderiv(v)*B0_parderiv(rho0)/B2) - S_rho*v) + zeta*v*delta_rho
     
@@ -193,6 +194,9 @@ module mod_equations
            + gradprod(zj*dy(chi),dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(zj*dp(chi)/R,dx(v)*dy(psi_v) - dy(v)*dx(psi_v)))
     amat16 = tstep*theta*deta_dT*T*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
            + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)
+!    amat11 = (1.d0 + zeta)*Bv2*v*Psi - tstep*theta*v*Bv_pbrack(Phi0,Psi)
+!    amat12 = (-tstep*theta*v)*(Bv_pbrack(Phi,Psi0) - Bv_parderiv(Phi))
+!    amat13 = (-tstep*theta*v)*eta*zj*dp(chi)/(R*R)
     
     amat21 = tstep*theta*(Bv_parderiv(inprod(Phi0,Phi0)/Bv2)*inprod(v,Psi)/2.d0 - inprod(Phi0,Psi)*(w0x*dx(v) + w0y*dy(v) + w0p*dp(v)/R &
            - w0chi*Bv_parderiv(v)/Bv2) + (B2*(tjx*dx(v) + tjy*dy(v) + tjp*dp(v)/R - tjchi*Bv_parderiv(v)/Bv2) + 2.d0*Bv2*inprod(Psi0,Psi)*(j0x*dx(v) &
@@ -210,11 +214,11 @@ module mod_equations
            - (rho*T0*Bv_parderiv(rho0)/(rho0*rho0) - T0*Bv_parderiv(rho)/rho0)*inprod(v,Psi0))
     amat26 = tstep*theta*v*(Bv_pbrack(rho0,T)/rho0 + (T*Bv_parderiv(rho0)/rho0 + Bv_parderiv(T))*inprod(v,Psi0)) + tstep*theta*dvisco_dT*T*gradprod(v,w0)
     
-    amat31 = gradprod(v,Psi)
-    amat33 = v*zj
+    amat31 = tstep*theta*gradprod(v,Psi)
+    amat33 = tstep*theta*v*zj
     
-    amat42 = inprod(v,Phi)
-    amat44 = v*w
+    amat42 = tstep*theta*inprod(v,Phi)
+    amat44 = tstep*theta*v*w
     
     amat51 = (-tstep*theta*D_perp)*(B0_parderiv(v)*B_parderiv(rho0) + B_parderiv(v)*B0_parderiv(rho0) &
            - 2.d0*Bv2*inprod(Psi0,Psi)*B0_parderiv(v)*B0_parderiv(rho0)/B2)/B2
@@ -259,6 +263,7 @@ module mod_equations
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1e)))
         allocate(thread_eq(i)%rhs2seq(countsubexprs(rhs2e)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
+        allocate(thread_eq(i)%rhs4seq(countsubexprs(rhs4)))
         allocate(thread_eq(i)%rhs5seq(countsubexprs(rhs5e)))
         allocate(thread_eq(i)%rhs6seq(countsubexprs(rhs6e)))
         allocate(thread_eq(i)%amat11seq(countsubexprs(amat11e)))
@@ -314,6 +319,7 @@ module mod_equations
       call buildsequence(rhs1e, thread_eq(i)%rhs1seq, thread_eq(i)%eq)
       call buildsequence(rhs2e, thread_eq(i)%rhs2seq, thread_eq(i)%eq)
       call buildsequence(rhs3,  thread_eq(i)%rhs3seq, thread_eq(i)%eq)
+      call buildsequence(rhs4,  thread_eq(i)%rhs4seq, thread_eq(i)%eq)
       call buildsequence(rhs5e, thread_eq(i)%rhs5seq, thread_eq(i)%eq)
       call buildsequence(rhs6e, thread_eq(i)%rhs6seq, thread_eq(i)%eq)
       
@@ -372,8 +378,8 @@ module mod_equations
     type(algexpr), dimension(n_rhs), intent(out) :: rhs
     character(8),  dimension(n_rhs), intent(out) :: varnames
     
-    rhs = (/ rhs1e, rhs2e, rhs5e, rhs6e /)
-    varnames = (/ "rhs_ij_1", "rhs_ij_2", "rhs_ij_5", "rhs_ij_6" /)
+    rhs = (/ rhs1e, rhs2e, rhs3, rhs4, rhs5e, rhs6e /)
+    varnames = (/ "rhs_ij_1", "rhs_ij_2", "rhs_ij_3", "rhs_ij_4", "rhs_ij_5", "rhs_ij_6" /)
   end subroutine get_rhs
   
   subroutine get_amat(amat,varnames)

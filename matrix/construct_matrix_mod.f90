@@ -715,18 +715,6 @@ subroutine construct_matrix(my_id, local_elms, n_local_elms, index_min, index_ma
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   if ( difference_found ) stop
 #endif
-
-  open(101,file="Amat.dat",status='replace',action='write')
-  do i=1,size(A_glob)
-    write(101,'(E18.6,2I4)') A_glob(i), irn_glob(i), jcn_glob(i)
-  end do
-  close(101)
-  
-  open(102,file="RHS.dat",status='replace',action='write')
-  do i=1,size(rhs_glob)
-    write(102,'(E18.6)') rhs_glob(i)
-  end do
-  close(102)
   
 end subroutine construct_matrix
 
