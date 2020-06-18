@@ -230,8 +230,8 @@ do ms=1, n_gauss
      
      eq(2*n_var+3,0,0,0) = F0*phi                     ! chi
      eq(2*n_var+3,0,0,1) = F0
-     eq(2*n_var+4,0,0,0) = x_g(ms,mt)                 ! psi_v
-     eq(2*n_var+4,1,0,0) = 1.d0
+     eq(2*n_var+4,0,0,0) = log(x_g(ms,mt))            ! psi_v
+     eq(2*n_var+4,1,0,0) = 1.d0/x_g(ms,mt)
      eq(2*n_var+5,0,0,0) = x_g(ms,mt)                 ! R
      eq(2*n_var+5,1,0,0) = 1.d0
      
@@ -301,15 +301,6 @@ do ms=1, n_gauss
        eq(2*n_var+17,0,0,0) = 0.d0
      end if
      
-!     write(filename,'(A,I5.5)') "f2x",index_now
-!     open(20,file=filename,action="write",status="unknown",position="append")
-!     write(20,'(E14.6,A1,E14.6,A1,E14.6)') x_g(ms,mt), " ", y_g(ms,mt), " ", eq(2*n_var+11,1,0,0)
-!     close(20)
-!     write(filename,'(A,I5.5)') "f2y",index_now
-!     open(30,file=filename,action="write",status="unknown",position="append")
-!     write(30,'(E14.6,A1,E14.6,A1,E14.6)') x_g(ms,mt), " ", y_g(ms,mt), " ", eq(2*n_var+11,0,1,0)
-!     close(30)
-     
      ! Auxiliary variables (aux)
 #ifdef DEBUG
      eq(2*n_var+18,0,0,0) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+18,1,0,0) = eval(thread_eq(tid)%aBv2xseq)
@@ -359,7 +350,7 @@ do ms=1, n_gauss
            rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*xjac/BigR
            rhs_ij_4 = eval(thread_eq(tid)%rhs4seq)*BigR*xjac
            rhs_ij_5 = eval(thread_eq(tid)%rhs5seq)*BigR*xjac
-           rhs_ij_6 = eval(thread_eq(tid)%rhs6seq)*BigR*xjac
+           rhs_ij_6 = 0.d0 ! eval(thread_eq(tid)%rhs6seq)*BigR*xjac
 #else
 #include "rhs_unreadable.h"
 
@@ -427,7 +418,7 @@ do ms=1, n_gauss
                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
                  amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
                  amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0
-                 amat_16 = eval(thread_eq(tid)%amat16seq)*BigR*xjac
+                 amat_16 = 0.d0 ! eval(thread_eq(tid)%amat16seq)*BigR*xjac
 
 !---------------------------------------------------------------- equation 2
                  amat_21 = eval(thread_eq(tid)%amat21seq)*BigR*xjac/F0
@@ -450,10 +441,10 @@ do ms=1, n_gauss
                  amat_55 = eval(thread_eq(tid)%amat55seq)*BigR*xjac
                  
 !---------------------------------------------------------------- equation 6
-                 amat_61 = eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
-                 amat_62 = eval(thread_eq(tid)%amat62seq)*BigR*xjac
-                 amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
-                 amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
+                 amat_61 = 0.d0 ! eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
+                 amat_62 = 0.d0 ! eval(thread_eq(tid)%amat62seq)*BigR*xjac
+                 amat_63 = 0.d0 ! eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
+                 amat_65 = 0.d0 ! eval(thread_eq(tid)%amat65seq)*BigR*xjac
                  amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
 #else
 #include "aux2_unreadable.h"
@@ -477,7 +468,7 @@ do ms=1, n_gauss
                  amat_62 = 0.d0 ! amat_62*BigR*xjac
                  amat_63 = 0.d0 ! amat_63*BigR*xjac/F0
                  amat_65 = 0.d0 ! amat_65*BigR*xjac
-                 amat_66 = 1.d0 ! amat_66*BigR*xjac
+                 amat_66 = amat_66*BigR*xjac
 #endif
 
                  kl1 = index_kl
