@@ -13,7 +13,7 @@ module mod_equations
     type(action), dimension(:), allocatable :: amat42seq, amat44seq
     type(action), dimension(:), allocatable :: amat51seq, amat52seq, amat55seq
     type(action), dimension(:), allocatable :: amat61seq, amat62seq, amat63seq, amat65seq, amat66seq
-    type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq
+    type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq, aB2seq
     type(action), dimension(:), allocatable :: aj0xseq, aj0yseq, aj0pseq, atjxseq, atjyseq, atjpseq
     type(action), dimension(:), allocatable :: aw0xseq, aw0yseq, aw0pseq, atwxseq, atwyseq, atwpseq
 #endif
@@ -62,21 +62,22 @@ module mod_equations
   type(algexpr), parameter, private :: dk_par_dT  = algexpr(basic=.true.,var=29)
   ! Auxiliary variables (aux)
   type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=30)
-  type(algexpr), parameter, private :: j0x        = algexpr(basic=.true.,var=31)
-  type(algexpr), parameter, private :: j0y        = algexpr(basic=.true.,var=32)
-  type(algexpr), parameter, private :: j0p        = algexpr(basic=.true.,var=33)
-  type(algexpr), parameter, private :: w0x        = algexpr(basic=.true.,var=34)
-  type(algexpr), parameter, private :: w0y        = algexpr(basic=.true.,var=35)
-  type(algexpr), parameter, private :: w0p        = algexpr(basic=.true.,var=36)
+  type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=31)
+  type(algexpr), parameter, private :: j0x        = algexpr(basic=.true.,var=32)
+  type(algexpr), parameter, private :: j0y        = algexpr(basic=.true.,var=33)
+  type(algexpr), parameter, private :: j0p        = algexpr(basic=.true.,var=34)
+  type(algexpr), parameter, private :: w0x        = algexpr(basic=.true.,var=35)
+  type(algexpr), parameter, private :: w0y        = algexpr(basic=.true.,var=36)
+  type(algexpr), parameter, private :: w0p        = algexpr(basic=.true.,var=37)
   ! Auxiliary variables involving unknowns (aux2)
-  type(algexpr), parameter, private :: tjx        = algexpr(basic=.true.,var=37)
-  type(algexpr), parameter, private :: tjy        = algexpr(basic=.true.,var=38)
-  type(algexpr), parameter, private :: tjp        = algexpr(basic=.true.,var=39)
-  type(algexpr), parameter, private :: twx        = algexpr(basic=.true.,var=40)
-  type(algexpr), parameter, private :: twy        = algexpr(basic=.true.,var=41)
-  type(algexpr), parameter, private :: twp        = algexpr(basic=.true.,var=42)
+  type(algexpr), parameter, private :: tjx        = algexpr(basic=.true.,var=38)
+  type(algexpr), parameter, private :: tjy        = algexpr(basic=.true.,var=39)
+  type(algexpr), parameter, private :: tjp        = algexpr(basic=.true.,var=40)
+  type(algexpr), parameter, private :: twx        = algexpr(basic=.true.,var=41)
+  type(algexpr), parameter, private :: twy        = algexpr(basic=.true.,var=42)
+  type(algexpr), parameter, private :: twp        = algexpr(basic=.true.,var=43)
   
-  type(const), private :: tstep, zeta, theta, visco_num, eta_num, gamma, reta
+  type(const), private :: tstep, zeta, theta, visco_num, eta_num, D_perp_num, gamma, reta
   
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6
   type(algexpr), private :: amat11, amat12, amat13, amat16
@@ -85,13 +86,13 @@ module mod_equations
   type(algexpr), private :: amat42, amat44
   type(algexpr), private :: amat51, amat52, amat55
   type(algexpr), private :: amat61, amat62, amat63, amat65, amat66
-  type(algexpr), private :: a_Bv2
+  type(algexpr), private :: a_Bv2, a_B2
   type(algexpr), private :: a_j0x, a_j0y, a_j0p, a_w0x, a_w0y, a_w0p
   type(algexpr), private :: a_tjx, a_tjy, a_tjp, a_twx, a_twy, a_twp
   
-  type(algexpr), private :: B2, j0chi, j0_chi, tjchi, tj_chi, w0chi, w0_chi, twchi, tw_chi
+  type(algexpr), private :: j0chi, j0_chi, tjchi, tj_chi, w0chi, w0_chi, twchi, tw_chi
   
-  integer, parameter :: n_rhs = 6, n_amat = 22, n_aux = 10, n_aux2 = 6
+  integer, parameter :: n_rhs = 6, n_amat = 22, n_aux = 11, n_aux2 = 6
   
   type(algexpr), private :: rhs1e, rhs2e, rhs3e, rhs4e, rhs5e, rhs6e
   type(algexpr), private :: amat11e, amat12e, amat13e
@@ -107,22 +108,25 @@ module mod_equations
   
   subroutine init_equations()
     use phys_module, only: time_evol_zeta, time_evol_theta, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num, Ieta_num => eta_num, &
-                           Ieta => eta, eta_ohmic
+                           ID_perp_num => D_perp_num, Ieta => eta, eta_ohmic
     implicit none
     
-    tstep     = const(value = Itstep,          token = "tstep")
-    zeta      = const(value = time_evol_zeta,  token = "time_evol_zeta")
-    theta     = const(value = time_evol_theta, token = "time_evol_theta")
-    visco_num = const(value = Ivisco_num,      token = "visco_num")
-    eta_num   = const(value = Ieta_num,        token = "eta_num")
-    gamma     = const(value = Igamma,          token = "gamma")
+    tstep      = const(value = Itstep,          token = "tstep")
+    zeta       = const(value = time_evol_zeta,  token = "time_evol_zeta")
+    theta      = const(value = time_evol_theta, token = "time_evol_theta")
+    visco_num  = const(value = Ivisco_num,      token = "visco_num")
+    eta_num    = const(value = Ieta_num,        token = "eta_num")
+    D_perp_num = const(value = ID_perp_num,     token = "D_perp_num")
+    gamma      = const(value = Igamma,          token = "gamma")
     if (Ieta .ne. 0.d0) then
-      reta    = const(value = eta_ohmic/Ieta,  token = "reta")
+      reta     = const(value = eta_ohmic/Ieta,  token = "reta")
     else
-      reta    = const(value = 0.d0,            token = "reta")
+      reta     = const(value = 0.d0,            token = "reta")
     end if
     
+    
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
+    a_B2 = Bv2 + Bv2*inprod(Psi0,Psi0)
     
     a_j0x =  -(zj0 + 2.d0*dx(Psi0)/R)*dx(chi) + Bv_parderiv(dx(Psi0)) - gradprod(Psi0,dx(chi))
     a_j0y =  -(zj0 + 2.d0*dx(Psi0)/R)*dy(chi) + Bv_parderiv(dy(Psi0)) - gradprod(Psi0,dy(chi))
@@ -146,7 +150,6 @@ module mod_equations
     a_twp = ((Bv_parderiv(Bv_parderiv(Phi)/Bv2) + gradprod(Phi,Bv2))*dp(chi) - Bv_parderiv(Bv2)*dp(Phi)/Bv2 &
           + Bv_parderiv(dp(Phi)) - gradprod(Phi,dp(chi)))/(R*Bv2) + 2.d0*(dx(Phi)*dp(chi) - dp(Phi)*dx(chi))/(R*R*Bv2)
     
-    B2 = Bv2 + Bv2*inprod(Psi0,Psi0)
     j0chi = dx(chi)*j0x + dy(chi)*j0y + dp(chi)*j0p/R; tjchi = dx(chi)*tjx + dy(chi)*tjy + dp(chi)*tjp/R
     w0chi = dx(chi)*w0x + dy(chi)*w0y + dp(chi)*w0p/R; twchi = dx(chi)*twx + dy(chi)*twy + dp(chi)*twp/R
     j0_chi = (j0chi + j0x*(dy(Psi0)*dp(chi) - dp(Psi0)*dy(chi))/R + j0y*(dp(Psi0)*dx(chi) - dx(Psi0)*dp(chi))/R &
@@ -164,20 +167,19 @@ module mod_equations
          + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R) + eta_num*(gradprod(j0x,dy(v)*dp(psi_v)/R - dp(v)*dy(psi_v)/R) &
          + gradprod(j0y,dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(j0p,dx(v)*dy(psi_v) - dy(v)*dx(psi_v)))) &
          + zeta*v*Bv_pbrack(psi_v,delta_Psi)
-!    rhs1 = tstep*v*(eta*(zj0 - S_j)*dp(chi)/(R*R) + Bv_pbrack(Psi0,Phi0) - Bv_parderiv(Phi0)) + zeta*Bv2*v*delta_Psi
     
     rhs2 = -tstep*(Bv_parderiv(inprod(Phi0,Phi0)/Bv2)*inprod(v,Psi0)/2.d0 + w0_chi*Bv_pbrack(v,Phi0) - inprod(Phi0,Psi0)*(w0x*dx(v) &
          + w0y*dy(v) + w0p*dp(v)/R - w0chi*Bv_parderiv(v)/Bv2) + (B2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R - j0chi*Bv_parderiv(v)/Bv2) &
-         - j0_chi*Bv2*Bv_pbrack(v,Psi0) + Bv_pbrack(v,F2)/(2.d0*R*R) - S_rho*inprod(v,Phi0) + v*Bv_pbrack(rho0,T0))/rho0 &
-         + D_perp*gradprod(rho0,inprod(v,Phi0)/rho0) & !+ (T0*Bv_parderiv(rho0)/rho0 + Bv_parderiv(T0))*inprod(v,Psi0) 
-         + visco*gradprod(v,w0) &
-         + visco_num*Lap(v)*Lap(w0)/R) - zeta*inprod(v,delta_Phi)
+         - j0_chi*Bv2*Bv_pbrack(v,Psi0) + Bv_pbrack(v,F2)/(2.d0*R*R) &!+ v*Bv_pbrack(rho0,T0)
+         - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0))/rho0 &
+!        + (T0*Bv_parderiv(rho0)/rho0 + Bv_parderiv(T0))*inprod(v,Psi0) 
+         + visco*gradprod(v,w0)/rho0 + visco_num*Lap(v)*Lap(w0)/rho0) - zeta*inprod(v,delta_Phi) - zeta*inprod(v,Phi0)*delta_rho/rho0
     
-    rhs3 = -tstep*gradprod(v,Psi0) - tstep*v*zj0
+    rhs3 = -gradprod(v,Psi0) - v*zj0
     
-    rhs4 = -tstep*inprod(v,Phi0) - tstep*v*w0
+    rhs4 = -inprod(v,Phi0) - v*w0
     
-    rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*(gradprod(v,rho0) - B0_parderiv(v)*B0_parderiv(rho0)/B2) - S_rho*v) + zeta*v*delta_rho
+    rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho0)- S_rho*v + D_perp_num*Lap(v)*Lap(rho0)) + zeta*v*delta_rho
     
     rhs6 = -tstep*(v*Bv_pbrack(rho0*T0,Phi0)/Bv2 - gamma*v*rho0*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T0) &
          + k_par*Bv_parderiv(v)*(Bv_parderiv(T0) + Bv_pbrack(T0,Psi0))/Bv2 &! + D_perp*T0*gradprod(v,rho0) &
@@ -194,44 +196,40 @@ module mod_equations
            + gradprod(zj*dy(chi),dp(v)*dx(psi_v)/R - dx(v)*dp(psi_v)/R) + gradprod(zj*dp(chi)/R,dx(v)*dy(psi_v) - dy(v)*dx(psi_v)))
     amat16 = tstep*theta*deta_dT*T*(dx(v)*(dy(psi_v)*(j0p+S_j*dp(chi)/R) - dp(psi_v)*j0y/R) + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) &
            + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)
-!    amat11 = (1.d0 + zeta)*Bv2*v*Psi - tstep*theta*v*Bv_pbrack(Phi0,Psi)
-!    amat12 = (-tstep*theta*v)*(Bv_pbrack(Phi,Psi0) - Bv_parderiv(Phi))
-!    amat13 = (-tstep*theta*v)*eta*zj*dp(chi)/(R*R)
     
     amat21 = tstep*theta*(Bv_parderiv(inprod(Phi0,Phi0)/Bv2)*inprod(v,Psi)/2.d0 - inprod(Phi0,Psi)*(w0x*dx(v) + w0y*dy(v) + w0p*dp(v)/R &
            - w0chi*Bv_parderiv(v)/Bv2) + (B2*(tjx*dx(v) + tjy*dy(v) + tjp*dp(v)/R - tjchi*Bv_parderiv(v)/Bv2) + 2.d0*Bv2*inprod(Psi0,Psi)*(j0x*dx(v) &
-           + j0y*dy(v) + j0p*dp(v)/R - j0chi*Bv_parderiv(v)/Bv2) - tj_chi*Bv2*Bv_pbrack(v,Psi0) - j0_chi*Bv2*Bv_pbrack(v,Psi))/rho0) &
-           + tstep*theta*(T0*Bv_parderiv(rho0)/rho0 + Bv_parderiv(T0))*inprod(v,Psi)
+           + j0y*dy(v) + j0p*dp(v)/R - j0chi*Bv_parderiv(v)/Bv2) - tj_chi*Bv2*Bv_pbrack(v,Psi0) - j0_chi*Bv2*Bv_pbrack(v,Psi))/rho0 )!&
+!           + tstep*theta*(T0*Bv_parderiv(rho0)/rho0 + Bv_parderiv(T0))*inprod(v,Psi)
     amat22 = -(1.d0 + zeta)*inprod(v,Phi) + tstep*theta*(Bv_parderiv(inprod(Phi0,Phi)/Bv2)*inprod(v,Psi0) + tw_chi*Bv_pbrack(v,Phi0) &
            + w0_chi*Bv_pbrack(v,Phi) - inprod(Phi,Psi0)*(w0x*dx(v) + w0y*dy(v) + w0p*dp(v)/R - w0chi*Bv_parderiv(v)/Bv2) &
-           - inprod(Phi0,Psi0)*(twx*dx(v) + twy*dy(v) + twp*dp(v)/R - twchi*Bv_parderiv(v)/Bv2) + D_perp*gradprod(inprod(v,Phi)/rho0,rho0) &
-           - S_rho*inprod(v,Phi)/rho0)
+           - inprod(Phi0,Psi0)*(twx*dx(v) + twy*dy(v) + twp*dp(v)/R - twchi*Bv_parderiv(v)/Bv2) &
+           - (Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0) + Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/rho0)
     amat23 = tstep*theta*zj*Bv2*Bv_pbrack(v,Psi0)/rho0
-    amat24 = -tstep*theta*w*Bv_pbrack(v,Phi0)/Bv2 + tstep*theta*(visco*gradprod(v,w) + visco_num*Lap(v)*Lap(w)/R)
-    amat25 = -tstep*theta*(B2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R - j0chi*Bv_parderiv(v)/Bv2) - j0_chi*Bv2*Bv_pbrack(v,Psi0) - S_rho*inprod(v,Phi0) &
-           + v*Bv_pbrack(rho0,T0) + Bv_pbrack(v,F2)/(2.d0*R*R))*rho/(rho0*rho0) + tstep*theta*(D_perp*gradprod(inprod(v,Phi0)/rho0,rho) &
-           - D_perp*gradprod(inprod(v,Phi0)*rho/(rho0*rho0),rho0) + v*Bv_pbrack(rho,T0)/rho0 &
-           - (rho*T0*Bv_parderiv(rho0)/(rho0*rho0) - T0*Bv_parderiv(rho)/rho0)*inprod(v,Psi0))
+    amat24 = -tstep*theta*w*Bv_pbrack(v,Phi0)/Bv2 + tstep*theta*(visco*gradprod(v,w)/rho0 + visco_num*Lap(v)*Lap(w)/rho0)
+    amat25 = -(1.d0 + zeta)*inprod(v,Phi0)*rho/rho0 - tstep*theta*((B2*(j0x*dx(v) + j0y*dy(v) + j0p*dp(v)/R - j0chi*Bv_parderiv(v)/Bv2) &
+           - j0_chi*Bv2*Bv_pbrack(v,Psi0) + Bv_pbrack(v,F2)/(2.d0*R*R) - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0) &!+ v*Bv_pbrack(rho0,T0) &
+           + visco*gradprod(v,w0) + visco_num*Lap(v)*Lap(w0))*rho/(rho0*rho0) + Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0)/rho0)
+!           +  v*Bv_pbrack(rho,T0)/rho0 - (rho*T0*Bv_parderiv(rho0)/(rho0*rho0) - T0*Bv_parderiv(rho)/rho0)*inprod(v,Psi0))
     amat26 = tstep*theta*v*(Bv_pbrack(rho0,T)/rho0 + (T*Bv_parderiv(rho0)/rho0 + Bv_parderiv(T))*inprod(v,Psi0)) + tstep*theta*dvisco_dT*T*gradprod(v,w0)
     
 #ifdef DEBUG
-    amat31 = tstep*theta*gradprod(v,Psi) + 0.d0*one
+    amat31 = theta*gradprod(v,Psi) + 0.d0*one
 #else
-    amat31 = tstep*theta*gradprod(v,Psi)
+    amat31 = theta*gradprod(v,Psi)
 #endif
-    amat33 = tstep*theta*v*zj
+    amat33 = theta*v*zj
     
 #ifdef DEBUG
-    amat42 = tstep*theta*inprod(v,Phi) + 0.d0*one
+    amat42 = theta*inprod(v,Phi) + 0.d0*one
 #else
-    amat42 = tstep*theta*inprod(v,Phi)
+    amat42 = theta*inprod(v,Phi)
 #endif
-    amat44 = tstep*theta*v*w
+    amat44 = theta*v*w
     
-    amat51 = (-tstep*theta*D_perp)*(B0_parderiv(v)*B_parderiv(rho0) + B_parderiv(v)*B0_parderiv(rho0) &
-           - 2.d0*Bv2*inprod(Psi0,Psi)*B0_parderiv(v)*B0_parderiv(rho0)/B2)/B2
+    amat51 = (-tstep*theta*D_perp)*gradDgrad_par(v,rho0)
     amat52 = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)
-    amat55 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*(gradprod(v,rho) - B0_parderiv(v)*B0_parderiv(rho0)/B2))
+    amat55 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho) + D_perp_num*Lap(v)*Lap(rho))
     
     amat61 = tstep*theta*k_par*Bv_parderiv(v)*Bv_pbrack(T0,Psi)/Bv2 - 2.d0*tstep*theta*reta*eta*v*(j0x*tjx + j0y*tjy + j0p*tjp)
     amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0,Phi) - gamma*rho0*T0*Bv_pbrack(Bv2,Phi)/(Bv2*Bv2))
@@ -267,7 +265,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(2*n_var+30,0:n_order-1,0:n_order-1,0:n_order-1))
+        allocate(thread_eq(i)%eq(2*n_var+31,0:n_order-1,0:n_order-1,0:n_order-1))
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1e)))
         allocate(thread_eq(i)%rhs2seq(countsubexprs(rhs2e)))
@@ -301,6 +299,7 @@ module mod_equations
         allocate(thread_eq(i)%aBv2xseq(countsubexprs(ea_Bv2x)))
         allocate(thread_eq(i)%aBv2yseq(countsubexprs(ea_Bv2y)))
         allocate(thread_eq(i)%aBv2pseq(countsubexprs(ea_Bv2p)))
+        allocate(thread_eq(i)%aB2seq(countsubexprs(a_B2)))
         allocate(thread_eq(i)%aj0xseq(countsubexprs(a_j0x)))
         allocate(thread_eq(i)%aj0yseq(countsubexprs(a_j0y)))
         allocate(thread_eq(i)%aj0pseq(countsubexprs(a_j0p)))
@@ -365,6 +364,8 @@ module mod_equations
       call buildsequence(ea_Bv2y, thread_eq(i)%aBv2yseq, thread_eq(i)%eq)
       call buildsequence(ea_Bv2p, thread_eq(i)%aBv2pseq, thread_eq(i)%eq)
       
+      call buildsequence(a_B2, thread_eq(i)%aB2seq, thread_eq(i)%eq)
+      
       call buildsequence(a_j0x, thread_eq(i)%aj0xseq, thread_eq(i)%eq)
       call buildsequence(a_j0y, thread_eq(i)%aj0yseq, thread_eq(i)%eq)
       call buildsequence(a_j0p, thread_eq(i)%aj0pseq, thread_eq(i)%eq)
@@ -417,7 +418,7 @@ module mod_equations
     integer      :: i
     character(2) :: num
     
-    aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p, a_j0x, a_j0y, a_j0p, ea_w0x, ea_w0y, ea_w0p /)
+    aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p, a_B2, a_j0x, a_j0y, a_j0p, ea_w0x, ea_w0y, ea_w0p /)
     varnames(1:4) = (/ "eq(30,0,0,0)", "eq(30,1,0,0)", "eq(30,0,1,0)", "eq(30,0,0,1)" /)
     do i=5,n_aux
       write(num,'(I2)') ((i-3)+2*n_var+17)
@@ -434,7 +435,7 @@ module mod_equations
     
     aux2 = (/ a_tjx, a_tjy, a_tjp, ea_twx, ea_twy, ea_twp /)
     do i=1,n_aux2
-      write(num,'(I2)') (i+2*n_var+24)
+      write(num,'(I2)') (i+2*n_var+26)
       varnames(i) = "eq(" // num // ",0,0,0)"
     end do
   end subroutine get_aux2
@@ -480,6 +481,20 @@ module mod_equations
   
     inprod = gradprod(a,b) - Bv_parderiv(a)*Bv_parderiv(b)/Bv2
   end function inprod
+  
+  type(algexpr) function gradgrad_perp(a,b)
+    implicit none
+    type(algexpr), intent(in) :: a, b
+  
+    gradgrad_perp = gradprod(a,b) - B0_parderiv(a)*B0_parderiv(b)/B2
+  end function gradgrad_perp
+  
+  type(algexpr) function gradDgrad_par(a,b)
+    implicit none
+    type(algexpr), intent(in) :: a, b
+    
+    gradDgrad_par = (B_parderiv(a)*B0_parderiv(b) + B0_parderiv(a)*B_parderiv(b) - 2.d0*Bv2*inprod(Psi0,Psi)*B0_parderiv(a)*B0_parderiv(b)/B2)/B2
+  end function gradDgrad_par
   
   type(algexpr) function Lap(a)
     implicit none

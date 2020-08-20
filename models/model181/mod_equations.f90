@@ -141,8 +141,9 @@ module mod_equations
            + dy(v)*(dp(psi_v)*j0x/R - dx(psi_v)*(j0p+S_j*dp(chi)/R)) + dp(v)*(dx(psi_v)*j0y - dy(psi_v)*j0x)/R)
     
     amat21 = tstep*theta*(Bv2*(jx*dx(v) + jy*dy(v) + jp*dp(v)/R) - jchi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) - j0chi*Bv_pbrack(v,Psi))/rho0
-    amat22 = -(1.d0 + zeta)*inprod(v,Phi) - tstep*theta*(pLap(Phi)*Bv_pbrack(v,Phi0)/Bv2 + pLap(Phi0)*Bv_pbrack(v,Phi)/Bv2 &
-           - D_perp*gradprod(inprod(v,Phi)/rho0,rho0) + S_rho*inprod(v,Phi)/rho0 + visco*Lap(v)*pLap(Phi))
+!    amat22 = -(1.d0 + zeta)*inprod(v,Phi) - tstep*theta*(pLap(Phi)*Bv_pbrack(v,Phi0)/Bv2 + pLap(Phi0)*Bv_pbrack(v,Phi)/Bv2 &
+!           - D_perp*gradprod(inprod(v,Phi)/rho0,rho0) + S_rho*inprod(v,Phi)/rho0 + visco*Lap(v)*pLap(Phi))
+    amat22 = v*Phi
     amat23 = -tstep*theta*(Bv2*((j0x+dy(F)/R)*dx(v) + (j0y-dx(F)/R)*dy(v) + j0p*dp(v)/R) - j0chi*(Bv_parderiv(v) + Bv_pbrack(v,Psi0)) &
            - S_rho*inprod(v,Phi0) &! + v*Bv_pbrack(rho0,T0)
            )*rho/(rho0*rho0) + tstep*theta*(D_perp*gradprod(inprod(v,Phi0)/rho0,rho) &
@@ -150,15 +151,17 @@ module mod_equations
     amat24 = tstep*theta*v*Bv_pbrack(rho0,T)/rho0 - tstep*theta*dvisco_dT*T*pLap(Phi0)*Lap(v)
     
     amat32 = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)
-    amat33 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradprod(v,rho))
+!    amat33 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradprod(v,rho))
+    amat33 = v*rho
     
     amat41 = tstep*theta*k_par*Bv_parderiv(v)*Bv_pbrack(T0,Psi)/Bv2 - 2.d0*tstep*theta*reta*eta*v*(j0x*jx + j0y*jy + j0p*jp)
     amat42 = tstep*theta*v*(Bv_pbrack(rho0*T0,Phi) - gamma*rho0*T0*Bv_pbrack(Bv2,Phi)/(Bv2*Bv2))
     amat43 = (1.d0 + zeta)*v*T0*rho + tstep*theta*(v*Bv_pbrack(rho*T0,Phi0)/Bv2 - gamma*v*rho*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
            + D_perp*T0*gradprod(v,rho))
-    amat44 = (1.d0 + zeta)*v*rho0*T + tstep*theta*(v*Bv_pbrack(rho0*T,Phi0)/Bv2 - gamma*v*rho0*T*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T) &
-           + k_par*Bv_parderiv(v)*(Bv_parderiv(T) + Bv_pbrack(T,Psi0))/Bv2 + dk_par_dT*T*Bv_parderiv(v)*(Bv_parderiv(T0) + Bv_pbrack(T0,Psi0))/Bv2 &
-           + D_perp*T*gradprod(v,rho0) + v*reta*deta_dT*T*(j0x*j0x + j0y*j0y + j0p*j0p))
+!    amat44 = (1.d0 + zeta)*v*rho0*T + tstep*theta*(v*Bv_pbrack(rho0*T,Phi0)/Bv2 - gamma*v*rho0*T*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T) &
+!           + k_par*Bv_parderiv(v)*(Bv_parderiv(T) + Bv_pbrack(T,Psi0))/Bv2 + dk_par_dT*T*Bv_parderiv(v)*(Bv_parderiv(T0) + Bv_pbrack(T0,Psi0))/Bv2 &
+!           + D_perp*T*gradprod(v,rho0) + v*reta*deta_dT*T*(j0x*j0x + j0y*j0y + j0p*j0p))
+    amat44 = v*T
     
     rhs2e = Dexpand(deepcopy(rhs2))
     rhs3e = Dexpand(deepcopy(rhs3))

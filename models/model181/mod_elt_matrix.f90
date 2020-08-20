@@ -376,15 +376,15 @@ do ms=1, n_gauss
 
 #ifdef DEBUG
            rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
-           rhs_ij_2 = eval(thread_eq(tid)%rhs2seq)*BigR*xjac
-           rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
+           rhs_ij_2 = 0.d0 ! eval(thread_eq(tid)%rhs2seq)*BigR*xjac
+           rhs_ij_3 = 0.d0 ! eval(thread_eq(tid)%rhs3seq)*BigR*xjac
            rhs_ij_4 = 0.d0 ! eval(thread_eq(tid)%rhs4seq)*BigR*xjac
 #else
 #include "rhs_unreadable.h"
 
            rhs_ij_1 = rhs_ij_1*BigR*xjac
            rhs_ij_2 = 0.d0 ! rhs_ij_2*BigR*xjac
-           rhs_ij_3 = rhs_ij_3*BigR*xjac
+           rhs_ij_3 = 0.d0 ! rhs_ij_3*BigR*xjac
            rhs_ij_4 = 0.d0 ! rhs_ij_4*BigR*xjac
 #endif
 
@@ -448,28 +448,30 @@ do ms=1, n_gauss
                  amat_24 = 0.d0 ! eval(thread_eq(tid)%amat24seq)*BigR*xjac
 
 !---------------------------------------------------------------- equation 3
-                 amat_32 = eval(thread_eq(tid)%amat32seq)*BigR*xjac
+                 amat_32 = 0.d0 ! eval(thread_eq(tid)%amat32seq)*BigR*xjac
                  amat_33 = eval(thread_eq(tid)%amat33seq)*BigR*xjac
 
 !---------------------------------------------------------------- equation 4
                  amat_41 = 0.d0 ! eval(thread_eq(tid)%amat41seq)*BigR*xjac/F0
                  amat_42 = 0.d0 ! eval(thread_eq(tid)%amat42seq)*BigR*xjac 
                  amat_43 = 0.d0 ! eval(thread_eq(tid)%amat43seq)*BigR*xjac
-                 amat_44 = 1.d0 ! eval(thread_eq(tid)%amat44seq)*BigR*xjac
+                 amat_44 = eval(thread_eq(tid)%amat44seq)*BigR*xjac
 #else
 #include "aux2_unreadable.h"
 #include "amat_unreadable.h"
                  
-                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = 0.d0 ! amat_12*BigR*xjac;                              amat_14 = 0.d0 ! amat_14*BigR*xjac
+                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = 0.d0 ! amat_12*BigR*xjac
+                 amat_14 = 0.d0 ! amat_14*BigR*xjac
                  amat_21 = 0.d0 ! amat_21*BigR*xjac/F0
-                 amat_22 = 1.d0 ! amat_22*BigR*xjac
+                 amat_22 = amat_22*BigR*xjac
                  amat_23 = 0.d0 ! amat_23*BigR*xjac
                  amat_24 = 0.d0 ! amat_24*BigR*xjac
-                                                 amat_32 = amat_32*BigR*xjac; amat_33 = amat_33*BigR*xjac
+                                                 amat_32 = 0.d0 ! amat_32*BigR*xjac
+                                                 amat_33 = amat_33*BigR*xjac
                  amat_41 = 0.d0 ! amat_41*BigR*xjac/F0
                  amat_42 = 0.d0 ! amat_42*BigR*xjac
                  amat_43 = 0.d0 ! amat_43*BigR*xjac
-                 amat_44 = 1.d0 ! amat_44*BigR*xjac
+                 amat_44 = amat_44*BigR*xjac
 #endif
 
                  kl1 = index_kl

@@ -61,8 +61,6 @@ real*8, dimension(:,:,:,:) , pointer :: delta_g, delta_s, delta_t, delta_p
 
 real*8, dimension(:,:,:,:), pointer :: eq
 
-character(8) :: filename
-
 eq_g    => thread_struct(tid)%eq_g   
 eq_s    => thread_struct(tid)%eq_s   
 eq_t    => thread_struct(tid)%eq_t   
@@ -159,7 +157,11 @@ do i=1,n_vertex_max
        enddo
 
        if (keep_current_prof) &
+#ifdef altcs
+         call current(xpoint2, xcase2, x_g(ms,mt),y_g(ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,current_source(ms,mt))
+#else
          call current(xpoint2, xcase2, x_g(ms,mt),y_g(ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,current_source(ms,mt))
+#endif
        call sources(xpoint2, xcase2, y_g(ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,particle_source(ms,mt),heat_source(ms,mt))
 
      enddo
@@ -230,8 +232,8 @@ do ms=1, n_gauss
      
      eq(2*n_var+3,0,0,0) = F0*phi                     ! chi
      eq(2*n_var+3,0,0,1) = F0
-     eq(2*n_var+4,0,0,0) = log(x_g(ms,mt))            ! psi_v
-     eq(2*n_var+4,1,0,0) = 1.d0/x_g(ms,mt)
+     eq(2*n_var+4,0,0,0) = x_g(ms,mt)            ! psi_v
+     eq(2*n_var+4,1,0,0) = 1.d0
      eq(2*n_var+5,0,0,0) = x_g(ms,mt)                 ! R
      eq(2*n_var+5,1,0,0) = 1.d0
      
@@ -305,12 +307,13 @@ do ms=1, n_gauss
 #ifdef DEBUG
      eq(2*n_var+18,0,0,0) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+18,1,0,0) = eval(thread_eq(tid)%aBv2xseq)
      eq(2*n_var+18,0,1,0) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+18,0,0,1) = eval(thread_eq(tid)%aBv2pseq)
-     eq(2*n_var+19,0,0,0) = eval(thread_eq(tid)%aj0xseq)
-     eq(2*n_var+20,0,0,0) = eval(thread_eq(tid)%aj0yseq)
-     eq(2*n_var+21,0,0,0) = eval(thread_eq(tid)%aj0pseq)
-     eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%aw0xseq)
-     eq(2*n_var+23,0,0,0) = eval(thread_eq(tid)%aw0yseq)
-     eq(2*n_var+24,0,0,0) = eval(thread_eq(tid)%aw0pseq)
+     eq(2*n_var+19,0,0,0) = eval(thread_eq(tid)%aB2seq)
+     eq(2*n_var+20,0,0,0) = eval(thread_eq(tid)%aj0xseq)
+     eq(2*n_var+21,0,0,0) = eval(thread_eq(tid)%aj0yseq)
+     eq(2*n_var+22,0,0,0) = eval(thread_eq(tid)%aj0pseq)
+     eq(2*n_var+23,0,0,0) = eval(thread_eq(tid)%aw0xseq)
+     eq(2*n_var+24,0,0,0) = eval(thread_eq(tid)%aw0yseq)
+     eq(2*n_var+25,0,0,0) = eval(thread_eq(tid)%aw0pseq)
 #else
 #include "aux_unreadable.h"
 #endif
@@ -407,12 +410,12 @@ do ms=1, n_gauss
                  
 #ifdef DEBUG
 !---------------------------------------------------------------- Auxiliary variables involving unknowns (aux2)
-                 eq(2*n_var+25,0,0,0) = eval(thread_eq(tid)%atjxseq)
-                 eq(2*n_var+26,0,0,0) = eval(thread_eq(tid)%atjyseq)
-                 eq(2*n_var+27,0,0,0) = eval(thread_eq(tid)%atjpseq)
-                 eq(2*n_var+28,0,0,0) = eval(thread_eq(tid)%atwxseq)
-                 eq(2*n_var+29,0,0,0) = eval(thread_eq(tid)%atwyseq)
-                 eq(2*n_var+30,0,0,0) = eval(thread_eq(tid)%atwpseq)
+                 eq(2*n_var+26,0,0,0) = eval(thread_eq(tid)%atjxseq)
+                 eq(2*n_var+27,0,0,0) = eval(thread_eq(tid)%atjyseq)
+                 eq(2*n_var+28,0,0,0) = eval(thread_eq(tid)%atjpseq)
+                 eq(2*n_var+29,0,0,0) = eval(thread_eq(tid)%atwxseq)
+                 eq(2*n_var+30,0,0,0) = eval(thread_eq(tid)%atwyseq)
+                 eq(2*n_var+31,0,0,0) = eval(thread_eq(tid)%atwpseq)
                  
 !---------------------------------------------------------------- equation 1
                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0

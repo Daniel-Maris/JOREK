@@ -59,6 +59,8 @@ if (my_id .eq. 0) then
 #ifdef fullmhd
     call MPI_PACK(anode%Fprof_eq       ,n_order+1,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(anode%psi_eq         ,n_order+1,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+#elif altcs
+    call MPI_PACK(anode%psi_eq         ,n_order+1,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 #endif
     call MPI_PACK(anode%index          ,n_order+1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(anode%boundary       ,1        ,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -87,6 +89,8 @@ if (my_id .ne. 0) then
     call MPI_UNPACK(buffer,bufsize,position,anode%deltas         ,n_tor*(n_order+1)*n_var,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
 #ifdef fullmhd
     call MPI_UNPACK(buffer,bufsize,position,anode%Fprof_eq       ,n_order+1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%psi_eq         ,n_order+1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+#elif altcs
     call MPI_UNPACK(buffer,bufsize,position,anode%psi_eq         ,n_order+1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
 #endif
     call MPI_UNPACK(buffer,bufsize,position,anode%index          ,n_order+1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
