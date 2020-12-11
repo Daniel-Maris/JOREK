@@ -415,7 +415,11 @@ do ife = ife_min, ife_max
         P_tot  = P_tot  + r0 * T0 * xjac * BigR * wst * delta_phi
         D_tot  = D_tot  + r0      * xjac * BigR * wst * delta_phi
         VP_tot = VP_tot + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
+#if (JOREK_MODEL == 180 || JOREK_MODEL == 183)
+        VK_tot = VK_tot + r0*(dudx**2 + dudy**2)*BigR**2*xjac*BigR*wst*delta_phi/F0**2
+#else
         VK_tot = VK_tot + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
+#endif
         VM_tot = VM_tot + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
         J2_tot = J2_tot + eta_T *(ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
 
@@ -459,7 +463,11 @@ do ife = ife_min, ife_max
           H_int = H_int + heat_source     * xjac * BigR * wst * delta_phi
           S_int = S_int + particle_source * xjac * BigR * wst * delta_phi
           VP_int = VP_int + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
+#if (JOREK_MODEL == 180 || JOREK_MODEL == 183)
+          VK_int = VK_int + r0*(dudx**2 + dudy**2)*BigR**2*xjac*BigR*wst*delta_phi/F0**2
+#else
           VK_int = VK_int + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
+#endif
           VM_int = VM_int + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_int = J2_int + eta_T * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
         else
@@ -469,7 +477,11 @@ do ife = ife_min, ife_max
           H_ext = H_ext + heat_source     * xjac * BigR * wst * delta_phi
           S_ext = S_ext + particle_source * xjac * BigR * wst * delta_phi
           VP_ext = VP_ext + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
+#if (JOREK_MODEL == 180 || JOREK_MODEL == 183)
+          VK_ext = VK_ext + r0*(dudx**2 + dudy**2)*BigR**2*xjac*BigR*wst*delta_phi/F0**2
+#else
           VK_ext = VK_ext + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
+#endif
           VM_ext = VM_ext + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_ext = J2_ext + eta_T * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
         endif

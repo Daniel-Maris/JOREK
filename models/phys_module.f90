@@ -147,7 +147,10 @@ module phys_module
   real*8  :: heatsource_gauss_sig      !< Width over which Gaussian source extends
   
   !> @name Hyper-resistivity, -viscosity and -diffusivities
-  real*8  :: eta_num, visco_num, visco_par_num, D_perp_num, Zk_perp_num, Dn_perp_num
+  real*8  :: eta_num, eta_num_tanh, eta_num_tanh_psin, eta_num_tanh_sig
+  real*8  :: visco_num, visco_num_tanh, visco_num_tanh_psin, visco_num_tanh_sig
+  real*8  :: D_perp_num, D_perp_num_tanh, D_perp_num_tanh_psin, D_perp_num_tanh_sig
+  real*8  :: visco_par_num, Zk_perp_num, Dn_perp_num
   
   !> @name Timestepping parameters
   real*8  :: tstep             		!< Size of the timesteps (\f$ \Delta t \f$)
