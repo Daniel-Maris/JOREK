@@ -50,13 +50,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 FF_0,  FF_1,  FF_coef,                              &
                 ZK_par, ZK_par_max, ZK_perp, D_par, D_perp,         &
                 particlesource, heatsource, tauIC,                  &
-                eta_num, eta_num_tanh, eta_num_tanh_psin,           &
-                         eta_num_tanh_sig,                          &
-                visco_num, visco_num_tanh, visco_num_tanh_psin,     &
-                           visco_num_tanh_sig,                      &
-                visco_par_num,                                      &
-                D_perp_num, D_perp_num_tanh, D_perp_num_tanh_psin,  &
-                            D_perp_num_tanh_sig,                    &
+                eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ZK_perp_num,                                        &
                 pellet_amplitude, pellet_R, pellet_Z, pellet_phi,   &
                 pellet_radius, pellet_sig, pellet_length,           &
@@ -289,6 +283,9 @@ if (my_id .eq. 0) then
   if (allocated(Ip_tot_t)) call tr_deallocate(Ip_tot_t,"Ip_tot_t",CAT_UNKNOWN)
   if (nstep .gt. 0) call tr_allocate(Ip_tot_t,1,index_start+nstep,"Ip_tot_t",CAT_UNKNOWN)
 
+  if (allocated(flux_poynting_t)) call tr_deallocate(flux_poynting_t,"flux_poynting_t",CAT_UNKNOWN)
+  if (nstep .gt. 0) call tr_allocate(flux_poynting_t,1,index_start+nstep,"flux_poynting_t",CAT_UNKNOWN)
+
   if (allocated(flux_Pvn_t)) call tr_deallocate(flux_Pvn_t,"flux_Pvn_t",CAT_UNKNOWN)
   if (nstep .gt. 0) call tr_allocate(flux_Pvn_t,1,index_start+nstep,"flux_Pvn_t",CAT_UNKNOWN)
 
@@ -318,7 +315,10 @@ if (my_id .eq. 0) then
 
   if (allocated(thmwork_tot_t)) call tr_deallocate(thmwork_tot_t,"thmwork_tot_t",CAT_UNKNOWN)
   if (nstep .gt. 0) call tr_allocate(thmwork_tot_t,1,index_start+nstep,"thmwork_tot_t",CAT_UNKNOWN)
-
+  
+  if (allocated(viscoperp_dissip_tot_t)) call tr_deallocate(viscoperp_dissip_tot_t,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
+  if (nstep .gt. 0) call tr_allocate(viscoperp_dissip_tot_t,1,index_start+nstep,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
+  
   if (allocated(viscopar_dissip_tot_t)) call tr_deallocate(viscopar_dissip_tot_t,"viscopar_dissip_tot_t",CAT_UNKNOWN)
   if (nstep .gt. 0) call tr_allocate(viscopar_dissip_tot_t,1,index_start+nstep,"viscopar_dissip_tot_t",CAT_UNKNOWN)
 
@@ -372,6 +372,18 @@ if (my_id .eq. 0) then
 
   if (allocated(dpart_tot_dt)) call tr_deallocate(dpart_tot_dt,"dpart_tot_dt",CAT_UNKNOWN)
   if (nstep .gt. 0) call tr_allocate(dpart_tot_dt,1,index_start+nstep,"dpart_tot_dt",CAT_UNKNOWN)
+  
+  if (allocated(Px_t)) call tr_deallocate(Px_t,"Px_t",CAT_UNKNOWN)
+  if (nstep .gt. 0) call tr_allocate(Px_t,1,index_start+nstep,"Px_t",CAT_UNKNOWN)
+  
+  if (allocated(Py_t)) call tr_deallocate(Py_t,"Py_t",CAT_UNKNOWN)
+  if (nstep .gt. 0) call tr_allocate(Py_t,1,index_start+nstep,"Py_t",CAT_UNKNOWN)
+  
+  if (allocated(dPx_dt)) call tr_deallocate(dPx_dt,"dPx_dt",CAT_UNKNOWN)
+  if (nstep .gt. 0) call tr_allocate(dPx_dt,1,index_start+nstep,"dPx_dt",CAT_UNKNOWN)
+  
+  if (allocated(dPy_dt)) call tr_deallocate(dPy_dt,"dPy_dt",CAT_UNKNOWN)
+  if (nstep .gt. 0) call tr_allocate(dPy_dt,1,index_start+nstep,"dPy_dt",CAT_UNKNOWN)
 
 
 endif

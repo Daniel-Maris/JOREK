@@ -35,7 +35,6 @@ clean:
 	-@rm -f models/$(MODEL)/rhs_unreadable.h
 	-@rm -f models/$(MODEL)/amat_unreadable.h
 	-@rm -f models/$(MODEL)/aux_unreadable.h
-	-@rm -f models/$(MODEL)/aux2_unreadable.h
 	-@rm -f algexpr2fort
 	-@rm -f generate_code
 cleandep:

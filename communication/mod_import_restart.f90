@@ -322,6 +322,10 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     call tr_allocate(flux_kinpar_t,1,index_start+nstep,"flux_kinpar_t",CAT_UNKNOWN)
     flux_kinpar_t = 0.d0
 
+    if (allocated(flux_poynting_t)) call tr_deallocate(flux_poynting_t,"flux_poynting_t",CAT_UNKNOWN)
+    call tr_allocate(flux_poynting_t,1,index_start+nstep,"flux_poynting_t",CAT_UNKNOWN)
+    flux_poynting_t = 0.d0
+
     if (allocated(flux_Pvn_t)) call tr_deallocate(flux_Pvn_t,"flux_Pvn_t",CAT_UNKNOWN)
     call tr_allocate(flux_Pvn_t,1,index_start+nstep,"flux_Pvn_t",CAT_UNKNOWN)
     flux_Pvn_t = 0.d0
@@ -366,6 +370,10 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     call tr_allocate(viscopar_flux_t,1,index_start+nstep,"viscopar_flux_t",CAT_UNKNOWN)
     viscopar_flux_t = 0.d0
 
+    if (allocated(viscoperp_dissip_tot_t)) call tr_deallocate(viscoperp_dissip_tot_t,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
+    call tr_allocate(viscoperp_dissip_tot_t,1,index_start+nstep,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
+    viscoperp_dissip_tot_t = 0.d0
+
     if (allocated(viscopar_dissip_tot_t)) call tr_deallocate(viscopar_dissip_tot_t,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     call tr_allocate(viscopar_dissip_tot_t,1,index_start+nstep,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     viscopar_dissip_tot_t = 0.d0
@@ -385,6 +393,22 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     if (allocated(mag_ener_src_tot)) call tr_deallocate(mag_ener_src_tot,"mag_ener_src_tot",CAT_UNKNOWN)
     call tr_allocate(mag_ener_src_tot,1,index_start+nstep,"mag_ener_src_tot",CAT_UNKNOWN)
     mag_ener_src_tot = 0.d0
+    
+    if (allocated(Px_t)) call tr_deallocate(Px_t,"Px_t",CAT_UNKNOWN)
+    call tr_allocate(Px_t,1,index_start+nstep,"Px_t",CAT_UNKNOWN)
+    Px_t = 0.d0
+    
+    if (allocated(Py_t)) call tr_deallocate(Py_t,"Py_t",CAT_UNKNOWN)
+    call tr_allocate(Py_t,1,index_start+nstep,"Py_t",CAT_UNKNOWN)
+    Py_t = 0.d0
+    
+    if (allocated(dPx_dt)) call tr_deallocate(dPx_dt,"dPx_dt",CAT_UNKNOWN)
+    call tr_allocate(dPx_dt,1,index_start+nstep,"dPx_dt",CAT_UNKNOWN)
+    dPx_dt = 0.d0
+    
+    if (allocated(dPy_dt)) call tr_deallocate(dPy_dt,"dPy_dt",CAT_UNKNOWN)
+    call tr_allocate(dPy_dt,1,index_start+nstep,"dPy_dt",CAT_UNKNOWN)
+    dPy_dt = 0.d0
 
 #ifdef JECCD
     if (allocated(energies2)) call tr_deallocate(energies2,"energies2",CAT_UNKNOWN)
@@ -1216,6 +1240,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     flux_kinpar_t = 0.d0
     call HDF5_array1D_reading(file_id,flux_kinpar_t,'flux_kinpar_t')
 
+    if (allocated(flux_poynting_t)) call tr_deallocate(flux_poynting_t,"flux_poynting_t",CAT_UNKNOWN)
+    call tr_allocate(flux_poynting_t,1,index_start+nstep,"flux_poynting_t",CAT_UNKNOWN)
+    flux_poynting_t = 0.d0
+    call HDF5_array1D_reading(file_id,flux_poynting_t,'flux_poynting_t')
+
     if (allocated(flux_Pvn_t)) call tr_deallocate(flux_Pvn_t,"flux_Pvn_t",CAT_UNKNOWN)
     call tr_allocate(flux_Pvn_t,1,index_start+nstep,"flux_Pvn_t",CAT_UNKNOWN)
     flux_Pvn_t = 0.d0
@@ -1270,6 +1299,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     call tr_allocate(viscopar_flux_t,1,index_start+nstep,"viscopar_flux_t",CAT_UNKNOWN)
     viscopar_flux_t = 0.d0
     call HDF5_array1D_reading(file_id,viscopar_flux_t,'viscopar_flux_t')
+
+    if (allocated(viscoperp_dissip_tot_t)) call tr_deallocate(viscoperp_dissip_tot_t,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
+    call tr_allocate(viscoperp_dissip_tot_t,1,index_start+nstep,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
+    viscoperp_dissip_tot_t = 0.d0
+    call HDF5_array1D_reading(file_id,viscoperp_dissip_tot_t,'viscoperp_dissip_tot_t')
 
     if (allocated(viscopar_dissip_tot_t)) call tr_deallocate(viscopar_dissip_tot_t,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     call tr_allocate(viscopar_dissip_tot_t,1,index_start+nstep,"viscopar_dissip_tot_t",CAT_UNKNOWN)
@@ -1340,6 +1374,26 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     call tr_allocate(density_tot_t,1,index_start+nstep,"density_tot_t",CAT_UNKNOWN)
     density_tot_t = 0.d0
     call HDF5_array1D_reading(file_id,density_tot_t,'density_tot_t')
+    
+    if (allocated(Px_t)) call tr_deallocate(Px_t,"Px_t",CAT_UNKNOWN)
+    call tr_allocate(Px_t,1,index_start+nstep,"Px_t",CAT_UNKNOWN)
+    Px_t = 0.d0
+    call HDF5_array1D_reading(file_id,Px_t,'Px_t')
+    
+    if (allocated(Py_t)) call tr_deallocate(Py_t,"Py_t",CAT_UNKNOWN)
+    call tr_allocate(Py_t,1,index_start+nstep,"Py_t",CAT_UNKNOWN)
+    Py_t = 0.d0
+    call HDF5_array1D_reading(file_id,Py_t,'Py_t')
+    
+    if (allocated(dPx_dt)) call tr_deallocate(dPx_dt,"dPx_dt",CAT_UNKNOWN)
+    call tr_allocate(dPx_dt,1,index_start+nstep,"dPx_dt",CAT_UNKNOWN)
+    dPx_dt = 0.d0
+    call HDF5_array1D_reading(file_id,dPx_dt,'dPx_dt')
+    
+    if (allocated(dPy_dt)) call tr_deallocate(dPy_dt,"dPy_dt",CAT_UNKNOWN)
+    call tr_allocate(dPy_dt,1,index_start+nstep,"dPy_dt",CAT_UNKNOWN)
+    dPy_dt = 0.d0
+    call HDF5_array1D_reading(file_id,dPy_dt,'dPy_dt')
 
 #ifdef JECCD                   
     if (allocated(t_energies2))   call tr_deallocate(t_energies2,"t_energies2",CAT_UNKNOWN)

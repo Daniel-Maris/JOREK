@@ -416,18 +416,9 @@ if (my_id == 0) then
   write(*,REAL_FMT) 'tauIC                 ', tauIC
   write(*,LOGI_FMT) 'Wdia                  ', Wdia
   write(*,REAL_FMT) 'eta_num               ', eta_num
-  write(*,REAL_FMT) 'eta_num_tanh          ', eta_num_tanh
-  write(*,REAL_FMT) 'eta_num_tanh_psin     ', eta_num_tanh_psin
-  write(*,REAL_FMT) 'eta_num_tanh_sig      ', eta_num_tanh_sig
   write(*,REAL_FMT) 'visco_num             ', visco_num
-  write(*,REAL_FMT) 'visco_num_tanh        ', visco_num_tanh
-  write(*,REAL_FMT) 'visco_num_tanh_psin   ', visco_num_tanh_psin
-  write(*,REAL_FMT) 'visco_num_tanh_sig    ', visco_num_tanh_sig
   write(*,REAL_FMT) 'visco_par_num         ', visco_par_num
   write(*,REAL_FMT) 'D_perp_num            ', D_perp_num
-  write(*,REAL_FMT) 'D_perp_num_tanh       ', D_perp_num_tanh
-  write(*,REAL_FMT) 'D_perp_num_tanh_psin  ', D_perp_num_tanh_psin
-  write(*,REAL_FMT) 'D_perp_num_tanh_sig   ', D_perp_num_tanh_sig
   write(*,REAL_FMT) 'Dn_perp_num           ', Dn_perp_num
   write(*,REAL_FMT) 'ZK_perp_num           ', ZK_perp_num
   write(*,REAL_FMT) 'tgnum                 ', tgnum(:)

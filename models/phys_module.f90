@@ -147,10 +147,7 @@ module phys_module
   real*8  :: heatsource_gauss_sig      !< Width over which Gaussian source extends
   
   !> @name Hyper-resistivity, -viscosity and -diffusivities
-  real*8  :: eta_num, eta_num_tanh, eta_num_tanh_psin, eta_num_tanh_sig
-  real*8  :: visco_num, visco_num_tanh, visco_num_tanh_psin, visco_num_tanh_sig
-  real*8  :: D_perp_num, D_perp_num_tanh, D_perp_num_tanh_psin, D_perp_num_tanh_sig
-  real*8  :: visco_par_num, Zk_perp_num, Dn_perp_num
+  real*8  :: eta_num, visco_num, visco_par_num, D_perp_num, Zk_perp_num, Dn_perp_num
   
   !> @name Timestepping parameters
   real*8  :: tstep             		!< Size of the timesteps (\f$ \Delta t \f$)
@@ -545,10 +542,10 @@ module phys_module
     E_tot_t(:), Helicity_tot_t(:), Kin_perp_tot_t(:), thermal_tot_t(:), kin_par_tot_t(:), ohmic_tot_t(:),      &
     Wmag_tot_t(:), Ip_tot_t(:), flux_Pvn_t(:), flux_qpar_t(:), dE_tot_dt(:), flux_qperp_t(:), flux_kinpar_t(:), &
     dWmag_tot_dt(:), dthermal_tot_dt(:), dkinpar_tot_dt(:), dkinperp_tot_dt(:),                      &
-    Magwork_tot_t(:), thmwork_tot_t(:), viscopar_dissip_tot_t(:), viscopar_flux_t(:), li3_t(:),      &
+    Magwork_tot_t(:), thmwork_tot_t(:), viscoperp_dissip_tot_t(:), viscopar_dissip_tot_t(:), viscopar_flux_t(:), li3_t(:),      &
     li3_tot_t(:), part_src_tot_t(:), heat_src_tot_t(:), volume_t(:), area_t(:), mag_ener_src_tot(:), &
     dpart_tot_dt(:), part_flux_Dpar_t(:), part_flux_Dperp_t(:), part_flux_vpar_t(:), part_flux_vperp_t(:), & 
-    dnpart_tot_dt(:), npart_tot_t(:), npart_flux_t(:), density_tot_t(:)
+    dnpart_tot_dt(:), npart_tot_t(:), npart_flux_t(:), density_tot_t(:), flux_poynting_t(:), Px_t(:), Py_t(:), dPx_dt(:), dPy_dt(:)
 
   !> @name gmres parameters
   integer             :: iter_precon    !< whenever the number of gmres iterations exceeds iter_precon, the preconditioning matrix is updated
