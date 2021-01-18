@@ -3,6 +3,10 @@ subroutine initialise_parameters(my_id, filename)
 
 use tr_module
 use phys_module
+use data_structure
+use constants
+use mpi_mod
+use corr_neg
 use mumps_module,  only: no_zeros_mumps, mumps_ordering
 use pastix_module, only: no_zeros_pastix, pastix_smp_only, pastix_pivot, &
     pastix_maxthrd
@@ -18,9 +22,29 @@ character(len=*),             intent(in) :: filename
 real*8 :: vacuum_fraction, b_over_a, a_over_b
 
 ! --- Local variables
-integer :: ierr,err,i
 
-! --- Namelist with input parameters.
+type (type_node_list)    :: node_list
+type (type_element_list) :: element_list
+
+integer :: ierr,err,ferr,i,ifail,i_elm,i_surface
+
+real*8, dimension(2) :: P, P_s, P_t, P_phi
+real*8  :: R, R_s, R_t, Z, Z_s, Z_t
+real*8  :: s_out,t_out,R_out,Z_out
+
+real*8  :: n_SI, T_eV, n_corr, T_corr
+real*8  :: spi_gd_angle_01, spi_gd_angle_02        ! The dispersion angles for each shard
+real*8  :: spi_rotation_01, spi_rotation_02        ! The rotation angle from shard coordinates to (R,Z,phi) coordinates
+real*8  :: spi_Vel_totref, spi_Vel_i, spi_Vel_R_tmp, spi_Vel_Z_tmp, spi_Vel_RxZ_tmp
+real*8  :: spi_Vel_x, spi_Vel_y, spi_Vel_z         ! Shard velocity in injection coordinates
+real*8  :: spi_R_inj, spi_Z_inj, spi_phi_inj       ! Injection position of SPI 
+real*8  :: spi_R_tmp, spi_Z_tmp, spi_phi_tmp, spi_radius_tmp
+real*8  :: sign_corr, real_total_quantity
+real*8, allocatable :: rnd(:)                      ! The random number array 
+real*8, allocatable :: shard_size(:)               ! The shard size array
+
+
+! --- Namelist with input parameters.                                                                                                                        
 namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rst_hdf5, rst_hdf5_version, keep_current_prof,      &
                 eta, visco, visco_par,                              &
@@ -50,17 +74,15 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 tokamak_device,                                     &
                 F0,gamma_sheath,gamma_stangeby, density_reflection, &
                 mach_one_bnd_integral, Vpar_smoothing,              &
-                deuterium_adas, old_deuterium_atomic,               &
                 Vpar_smoothing_coef,                                &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
-                rhon_0, rhon_1, rhon_coef,                          &
                 T_0,   T_1,   T_coef,                               &
                 FF_0,  FF_1,  FF_coef,                              &
-                ZK_par, ZK_par_max, ZK_perp, D_par, D_perp,         &
+                ZK_par, ZK_par_max, ZK_perp, D_par, D_perp, D_perp_imp, &
                 particlesource, heatsource, tauIC, Wdia,            &
                 eta_num, visco_num, visco_par_num, D_perp_num,      &
-                ZK_perp_num, Dn_perp_num,                           &
+                ZK_perp_num, Dn_perp_num, D_par_imp,                &
                 pellet_amplitude, pellet_R, pellet_Z, pellet_phi,   &
                 pellet_radius, pellet_sig, pellet_length,           &
                 pellet_psi, pellet_delta_psi, pellet_density,       &
@@ -69,9 +91,9 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 pellet_particles, use_pellet,                       &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint,      &
-                xcase, SDN_threshold, D_perp_file, ZK_perp_file,    &
+                xcase, D_perp_file, D_perp_imp_file, ZK_perp_file,  &
                 rho_file, T_file, ffprime_file, rot_file,           &
-                normalized_velocity_profile,                        &
+                normalized_velocity_profile, SDN_threshold,         &
                 freeboundary_equil, freeboundary,  freeb_change_indices, &
                 resistive_wall,                                     &
                 wall_resistivity, wall_resistivity_fact,            &
@@ -80,22 +102,19 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 use_mumps_eq, use_pastix_eq, use_strumpack_eq,      &
                 use_mumps, mumps_ordering,                          &
                 use_BLR_compression, epsilon_BLR, just_in_time_BLR, &
-                use_pastix, use_murge, use_murge_element, use_wsmp, &
-                n_tor_fft_thresh, use_strumpack,                    &
+                use_pastix, use_wsmp, n_tor_fft_thresh,             &
                 pastix_smp_only, refinement, force_central_node,    &
-                fix_axis_nodes,                                     &
+                fix_axis_nodes, use_strumpack,                      &
                 adaptive_time, equil, bench_without_plot,           &
                 no_zeros_pastix, no_zeros_mumps,                    &
                 eta_T_dependent, visco_T_dependent,                 &
-                zkpar_T_dependent, T_max_eta, T_max_eta_ohm,        &                                 
+                eta_num_T_dependent, visco_num_T_dependent,         &
+                zkpar_T_dependent, T_max_eta, T_max_eta_ohm,        & 
                 heatsource_psin, heatsource_sig,                    &
                 particlesource_psin, particlesource_sig,            &
                 edgeparticlesource, edgeparticlesource_psin,        &
                 edgeparticlesource_sig,                             &
                 particlesource_gauss, heatsource_gauss,             &
-                neutral_line_source,                                &
-                neutral_line_R_start, neutral_line_Z_start,         &
-                neutral_line_R_end,   neutral_line_Z_end,           &
                 heatsource_gauss_psin, heatsource_gauss_sig,        &
                 particlesource_gauss_psin, particlesource_gauss_sig,&
                 produce_live_data, gmres, gmres_max_iter,           &
@@ -106,21 +125,22 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 n_limiter, R_limiter, Z_limiter,                    &
                 first_target_point, last_target_point,              &
                 R_Z_psi_bnd_file, wall_file,time_evol_scheme,       &
-                spi_tor_rot, tor_frequency, ZK_par_neg_thresh,      &
+                spi_tor_rot, tor_frequency,                         &
                 corr_neg_temp_coef, corr_neg_dens_coef,             &
                 D_prof_neg, ZK_prof_neg, ZK_par_neg,                &
                 D_prof_neg_thresh, ZK_prof_neg_thresh, T_min,       &
                 ne_SI_min, Te_eV_min, rn0_min,                      &
-                D_neutral_x, D_neutral_y, D_neutral_p,              &
-                neutral_reflection, rho_min,                        &
+                rho_min, ZK_par_neg_thresh,         &
                 ns_sig, ns_deltaphi, ksi_ion, spi_rnd_seed,         &
                 ns_amplitude, ns_R, ns_Z, ns_phi, ns_radius,        &
                 spi_Vel_Rref,spi_Vel_Zref, using_spi, n_spi,        &
                 spi_Vel_RxZref, spi_quantity, spi_abl_model,        &
+                spi_quantity_bg, pellet_density_bg,                 &
                 ng_radius_ratio, ng_radius_min, spi_angle,          &
                 spi_L_inj, K_Dmv, A_Dmv, L_tube, V_Dmv, P_Dmv,      &
                 spi_Vel_diff, t_ns, JET_MGI, ASDEX_MGI,             &
-                delta_n_convection, nimp_bg, output_prad_phi,       &
+                gas_type, delta_n_convection, nimp_bg,              &
+                adas_dir, output_prad_phi,                          &
                 RMP_on, RMP_har_cos,RMP_har_sin, spi_shard_file,    &
                 RMP_growth_rate, RMP_ramp_up_time,                  &
                 RMP_psi_cos_file, RMP_psi_sin_file,                 &
@@ -140,9 +160,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 vert_FB_amp_ts, vert_FB_gain, vert_pos_file,        & 
                 vert_FB_tact, start_VFB_ts, I_coils_max
 
-
-if (my_id .eq. 0) then
-
+ if (my_id .eq. 0) then
   ! --- Preset input parameters to reasonable default values.
   call preset_parameters()
 
@@ -150,7 +168,7 @@ if (my_id .eq. 0) then
   
   ! --- Model-specific presets
   particlesource_psin = 100.d0
-  
+
   ! --- Read input parameters from namelist.
   if (trim(filename) .ne. "__NO_FILENAME__" ) then
     open(42, file=filename, status='old', action='read', iostat=ierr)
@@ -161,6 +179,7 @@ if (my_id .eq. 0) then
     read(42,in1)
     close(42)
   else
+
     read(5,in1)
   endif
 
@@ -168,6 +187,7 @@ if (my_id .eq. 0) then
   ns_tor_norm = ns_deltaphi * PI**0.5 * ERF(PI/ns_deltaphi)
 
   if (trim(R_Z_psi_bnd_file) .ne. 'none') then
+
     ! --- Open the file.
     OPEN(UNIT=243, FILE=R_Z_psi_bnd_file, FORM='FORMATTED', STATUS='OLD', ACTION='READ', IOSTAT=err)
     if ( err /= 0 ) then
@@ -175,6 +195,7 @@ if (my_id .eq. 0) then
       stop
     endif
     write(*,'(A)') ' boundary info from R_Z_psi_bnd_file: R_boundary, Z_boundary, psi_boundary '
+
     do i=1,n_boundary
       read(243,*) R_boundary(i),Z_boundary(i),psi_boundary(i)
       write(*,*) R_boundary(i),Z_boundary(i),psi_boundary(i)
@@ -225,6 +246,12 @@ call read_num_profiles(my_id)
 ! --- Determine the derivatives of the numerical input profiles.
 call derive_num_profiles(my_id)
 
+! --- For now the diamagnetic term has not been implemented properly
+if (tauIC .ne. 0.0) then
+  tauIC = 0.0
+  write(*,*) "WARNING! The diamagnetic term has not been implemented properly for model 501, setting tauIC = 0 now."
+endif
+
 if ( my_id == 0 ) then
   if (2*PI/(n_tor*n_period) >= ns_deltaphi) then
     write(*,*) "WARNING! ns_deltaphi too small for the n_tor, BEWARE!"
@@ -233,18 +260,18 @@ if ( my_id == 0 ) then
       stop
     end if
   end if
-
+  
   if (using_spi) then
     if (JET_MGI .or. ASDEX_MGI) then
       write(*,*) "WARNING: Using SPI, conflicting with MGI settings"
       write(*,*) "JET_MGI:", JET_MGI
       write(*,*) "ASDEX_MGI:", ASDEX_MGI
       stop
-    else 
+    else
       call init_spi()
     end if
   end if
 end if
-
+  
 return
 end subroutine initialise_parameters
