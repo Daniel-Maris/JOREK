@@ -19,6 +19,7 @@ use vacuum, only: freeb_fact
 use equil_info, only: get_psi_n
 use mod_semianalytical
 use mod_equations
+use mod_chi
 
 implicit none
 
@@ -230,9 +231,8 @@ do ms=1, n_gauss
      eq(n_var+1:2*n_var,0,1,0) = (-x_t(ms,mt)*delta_s(mp,:,ms,mt) + x_s(ms,mt)*delta_t(mp,:,ms,mt))/xjac
      eq(n_var+1:2*n_var,0,0,1) = delta_p(mp,:,ms,mt)
      
-     eq(2*n_var+3,0,0,0) = F0*phi                     ! chi
-     eq(2*n_var+3,0,0,1) = F0
-     eq(2*n_var+4,0,0,0) = x_g(ms,mt)                 ! R
+     eq(2*n_var+3,:,:,:) = get_chi(x_g(ms,mt),y_g(ms,mt),phi) ! chi
+     eq(2*n_var+4,0,0,0) = x_g(ms,mt)                         ! R
      eq(2*n_var+4,1,0,0) = 1.d0
      
      psi_norm = get_psi_n(eq(1,0,0,0), y_g(ms,mt))

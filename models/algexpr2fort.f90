@@ -6,10 +6,10 @@ program algexpr2fort
   use mod_parameters
   implicit none
   
-  integer :: i, j, length, n, e
+  integer :: i
   integer, parameter :: line_length = 130
   
-  character(3) :: model_num
+  character(3)  :: model_num
   
   character(:),  allocatable       :: varname, full
   character(8),  dimension(n_rhs)  :: varname_rhs
@@ -35,36 +35,14 @@ program algexpr2fort
   open(10, file="models/model"//model_num//"/rhs_unreadable.h", action="write", status="replace")
   do i=1,n_rhs
     full = varname_rhs(i) // "=" // gencode(rhs(i), varname)
-    length = len(full)
-    n = length/line_length
-    if (n .gt. 1) then
-      e = merge(n-1,n,n*line_length.eq.length)
-      write(10,'(A,A)') full(1:line_length), "&"
-      do j=2,e
-        write(10,'(A,A,A)') "&", full((j-1)*line_length+1:j*line_length), "&"
-      end do
-      write(10,'(A,A)') "&", full(e*line_length+1:length)
-    else
-      write(10,'(A)') full
-    end if
+    call write_long_string(10,full)
   end do
   close(10)
   
   open(20, file="models/model"//model_num//"/amat_unreadable.h", action="write", status="replace")
   do i=1,n_amat
     full = varname_amat(i) // " = " // gencode(amat(i), varname)
-    length = len(full)
-    n = length/line_length
-    if (n .gt. 1) then
-      e = merge(n-1,n,n*line_length.eq.length)
-      write(20,'(A,A)') full(1:line_length), "&"
-      do j=2,e
-        write(20,'(A,A,A)') "&", full((j-1)*line_length+1:j*line_length), "&"
-      end do
-      write(20,'(A,A)') "&", full(e*line_length+1:length)
-    else
-      write(20,'(A)') full
-    end if
+    call write_long_string(20,full)
   end do
   close(20)
   
@@ -72,21 +50,32 @@ program algexpr2fort
     open(30, file="models/model"//model_num//"/aux_unreadable.h", action="write", status="replace")
     do i=1,n_aux
       full = varname_aux(i) // "=" // gencode(aux(i), varname)
-      length = len(full)
-      n = length/line_length
-      if (n .gt. 1) then
-        e = merge(n-1,n,n*line_length.eq.length)
-        write(30,'(A,A)') full(1:line_length), "&"
-        do j=2,e
-          write(30,'(A,A,A)') "&", full((j-1)*line_length+1:j*line_length), "&"
-        end do
-        write(30,'(A,A)') "&", full(e*line_length+1:length)
-      else
-        write(30,'(A)') full
-      end if
+      call write_long_string(30,full)
     end do
     close(30)
   end if
+  
+  contains
+  
+  subroutine write_long_string(id, str)
+    implicit none
+    integer, intent(in) :: id
+    character(:), allocatable, intent(in) :: str
+    integer :: j, length, n, e
+    
+    length = len(str)
+    n = length/line_length
+    if (n .gt. 1) then
+      e = merge(n-1,n,n*line_length.eq.length)
+      write(id,'(A,A)') str(1:line_length), "&"
+      do j=2,e
+        write(id,'(A,A,A)') "&", str((j-1)*line_length+1:j*line_length), "&"
+      end do
+      write(id,'(A,A)') "&", str(e*line_length+1:length)
+    else
+      write(id,'(A)') str
+    end if
+  end subroutine write_long_string
 #else
   write(*,*) ">> Code generation is only for semianalytical models. <<"
 #endif

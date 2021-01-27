@@ -49,6 +49,7 @@ program JOREK2
 
 #ifdef SEMIANALYTICAL
   use mod_equations
+  use mod_chi
 #endif
 
 ! these write additional live data (global data) used when an ECCD current is applied)
@@ -878,6 +879,8 @@ required = 0
 #elif defined(SEMIANALYTICAL)
   call init_eq_struct()
 #endif
+
+  if (domm) call init_chi_basis()
 
   jstep_loop: do jstep = 1, 10 ! Go through the different values of the tstep_n and nstep_n arrays
 #if defined(SEMIANALYTICAL) && defined(DEBUG)

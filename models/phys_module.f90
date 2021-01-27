@@ -535,6 +535,11 @@ module phys_module
   real*8, allocatable :: num_rot_y3(:)   !< Third derivatives of toroidal rotation profile with respect to $\Psi_{N}$
   logical             :: normalized_velocity_profile !< if true, reads the normalized velocity profile as flux function, else Omega_tor is read as flux function. 
   
+  !> @name Coefficients for Dommaschk potentials
+  character(len=512)                         :: domm_file !< Namelist file containing the coefficients for Dommaschk potentials
+  logical                                    :: domm      !< automatically set to true if domm_file /= 'none'
+  real*8, dimension(4,0:l_pol,0:(n_tor-1)/2) :: dcoef     !< Array containing the Dommaschk potential coefficients
+  
   !> @name Global quantities determined in each time step
   real*8, allocatable :: R_axis_t(:), Z_axis_t(:), psi_axis_t(:), current_t(:), beta_p_t(:),       &
     beta_t_t(:), beta_n_t(:), density_in_t(:), density_out_t(:), pressure_in_t(:), &

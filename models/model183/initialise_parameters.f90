@@ -62,7 +62,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint,      &
                 xcase, D_perp_file, ZK_perp_file,                   &
-                rho_file, T_file, ffprime_file, rot_file,           &
+                rho_file, T_file, ffprime_file, rot_file, domm_file,&
                 normalized_velocity_profile,                        &
                 freeboundary_equil, freeboundary,  freeb_change_indices, &
                 resistive_wall,                                     &
@@ -111,6 +111,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 psi_offset_freeb, diag_coils, rmp_coils,            &
                 voltage_coils, vert_FB_amp, find_pf_coil_currents,  &
                 pastix_maxthrd, eta_ohmic
+                
+namelist /dommcoef/  dcoef
 
 if (my_id .eq. 0) then
 
@@ -394,6 +396,17 @@ call read_num_profiles(my_id)
 
 ! --- Determine the derivatives of the numerical input profiles.
 call derive_num_profiles(my_id)
+
+domm = ( domm_file /= 'none' )
+if (domm .and. my_id .eq. 0 ) then
+  open(43, file=domm_file, status='old', action='read', iostat=ierr)
+  if (ierr /= 0) then
+    write(*,*) 'ERROR: COULD NOT OPEN FILE "', trim(domm_file), '".'
+    stop
+  end if
+  read(43,dommcoef)
+  close(43)
+end if
   
 return
 end subroutine initialise_parameters

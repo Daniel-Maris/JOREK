@@ -91,6 +91,7 @@ module mod_semianalytical
   end interface operator (/)
   
   interface operator (**)
+    procedure powexprn
     procedure powcn
   end interface operator (**)
   
@@ -557,6 +558,23 @@ contains
     write(num,'(E14.6)') n1
     divnc%token = "(" // trim(adjustl(num)) // "/(" // c2%token // "))"
   end function divnc
+  
+  type(algexpr) function powexprn(e1,n2)
+    implicit none
+    type(algexpr), intent(in) :: e1
+    integer,       intent(in) :: n2
+    integer                   :: i
+    
+    if (n2 .eq. 0) then
+      powexprn = one
+    else
+      powexprn = e1
+      do i=2,abs(n2)
+        powexprn = powexprn*e1
+      end do
+      if (n2 .lt. 0) powexprn = 1.0/powexprn
+    end if
+  end function powexprn
   
   type(const) function powcn(c1,n2)
     implicit none

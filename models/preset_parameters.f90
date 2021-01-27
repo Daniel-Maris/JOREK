@@ -223,6 +223,7 @@ subroutine preset_parameters
   Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0
   rho_coef    = 0.d0;  rho_coef(1) =  0.d0
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
+  dcoef       = 0.d0
 
   pellet_amplitude  = 0.d0
   pellet_R          = 3.8d0
@@ -268,6 +269,7 @@ subroutine preset_parameters
   R_Z_psi_bnd_file   = 'none'
   wall_file          = 'none'
   rot_file           = 'none'
+  domm_file          = 'none'
   normalized_velocity_profile = .true.
 
   produce_live_data  = .true.
