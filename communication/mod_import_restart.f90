@@ -807,6 +807,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   real(RKIND), allocatable :: t_x(:,:,:,:)
   real(RKIND), allocatable :: t_values(:,:,:,:)
   real(RKIND), allocatable :: t_deltas(:,:,:,:)
+  real(RKIND), allocatable :: t_j_field(:,:,:,:)
+  real(RKIND), allocatable :: t_b_field(:,:,:,:)
 
   real(RKIND), allocatable :: t_psi_eq(:,:)
   real(RKIND), allocatable :: t_Fprof_eq(:,:)
@@ -973,6 +975,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_allocate(t_x,     1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim,         "node_list%x",     CAT_UNKNOWN)
   call tr_allocate(t_values,1,node_list%n_nodes,1,      n_tor_tmp,1,n_order+1,1,n_var_tmp, "node_list%values",CAT_UNKNOWN)
   call tr_allocate(t_deltas,1,node_list%n_nodes,1,      n_tor_tmp,1,n_order+1,1,n_var_tmp, "node_list%deltas",CAT_UNKNOWN)
+  call tr_allocate(t_j_field,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_dim,  "node_list%psi_vac",CAT_UNKNOWN)
+  call tr_allocate(t_b_field,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_dim,    "node_list%b_field",     CAT_UNKNOWN)
  
 #ifdef fullmhd
   call tr_allocate(t_psi_eq,  1,node_list%n_nodes,1,n_order+1, "node_list%psi_eq",  CAT_UNKNOWN)
@@ -1008,6 +1012,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   endif
   call HDF5_array4D_reading(file_id,t_values,   'values')
   call HDF5_array4D_reading(file_id,t_deltas,   'deltas')
+  call HDF5_array4D_reading(file_id,t_j_field,  'j_field')
+  call HDF5_array4D_reading(file_id,t_b_field,   'b_field')
 
 #ifdef fullmhd
   call HDF5_array2D_reading(file_id,t_psi_eq,   'psi_eq')
@@ -1065,6 +1071,9 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         end if
       end do
     end do
+
+    node_list%node(i)%b_field = t_b_field(i,:,:,:)
+    node_list%node(i)%j_field = t_j_field(i,:,:,:)
 
     ! --- Split "total" temperature into electron and ion temperature
     if ( import_3xx_4xx ) then
@@ -1744,6 +1753,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_deallocate(t_x,"t_x",CAT_UNKNOWN)
   call tr_deallocate(t_values,"t_values",CAT_UNKNOWN)
   call tr_deallocate(t_deltas,"t_deltas",CAT_UNKNOWN)
+  call tr_deallocate(t_j_field,"t_j_field",CAT_UNKNOWN)
+  call tr_deallocate(t_b_field,"t_b_field",CAT_UNKNOWN)
   call tr_deallocate(t_energies,"t_energies",CAT_UNKNOWN)
 
 #ifdef JECCD                   

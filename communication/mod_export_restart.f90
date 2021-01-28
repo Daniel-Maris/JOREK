@@ -248,9 +248,11 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   integer            :: ind, ierr
 
   ! type_node, node_list%n_nodes
-  real(RKIND), allocatable :: t_x(:,:,:,:)                 ! n_coord_tor, n_order+1, n_dim
+  real(RKIND), allocatable :: t_x(:,:,:,:)                      ! n_coord_tor, n_order+1, n_dim
   real(RKIND), allocatable :: t_values(:,:,:,:)            !       n_tor, n_order+1, n_var
   real(RKIND), allocatable :: t_deltas(:,:,:,:)            !       n_tor, n_order+1, n_var
+  real(RKIND), allocatable :: t_j_field(:,:,:,:)            ! n_coord_tor, n_order+1, n_dim
+  real(RKIND), allocatable :: t_b_field(:,:,:,:)          ! n_coord_tor, n_order+1, n_dim
 
   real(RKIND), allocatable :: t_psi_eq(:,:)                ! n_order+1
   real(RKIND), allocatable :: t_Fprof_eq(:,:)              ! n_order+1
@@ -304,6 +306,10 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
        "node_list%values",CAT_UNKNOWN)
   call tr_allocate(t_deltas,1,node_list%n_nodes,1,n_tor,1,n_order+1,1,n_var, &
        "node_list%deltas",CAT_UNKNOWN)
+  call tr_allocate(t_j_field,1,node_list%n_nodes,1,n_coord_tor,1,n_order+1,1,n_dim, &
+       "node_list%j_field",CAT_UNKNOWN)
+  call tr_allocate(t_b_field,1,node_list%n_nodes,1,n_coord_tor,1,n_order+1,1,n_dim, &
+       "node_list%b_field",CAT_UNKNOWN)
 
 #ifdef fullmhd
   call tr_allocate(t_psi_eq,1,node_list%n_nodes,1,n_order+1, &
@@ -367,6 +373,8 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      t_x(i,:,:,:)        = node_list%node(i)%x
      t_values(i,:,:,:) = node_list%node(i)%values
      t_deltas(i,:,:,:) = node_list%node(i)%deltas
+     t_j_field(i,:,:,:) = node_list%node(i)%j_field
+     t_b_field(i,:,:,:)  = node_list%node(i)%b_field
 
 #ifdef fullmhd
      t_psi_eq(i,:)     = node_list%node(i)%psi_eq
@@ -462,6 +470,10 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
        node_list%n_nodes,n_tor,n_order+1,n_var,'values'//char(0))
   call HDF5_array4D_saving(file_id,t_deltas, &
        node_list%n_nodes,n_tor,n_order+1,n_var,'deltas'//char(0))
+  call HDF5_array4D_saving(file_id,t_j_field, &
+       node_list%n_nodes,n_coord_tor,n_order+1,n_dim,'j_field'//char(0))
+  call HDF5_array4D_saving(file_id,t_b_field, &
+       node_list%n_nodes,n_coord_tor,n_order+1,n_dim,'b_field'//char(0))
 
 #ifdef fullmhd
   call HDF5_array2D_saving(file_id,t_psi_eq, &
@@ -711,6 +723,8 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call tr_deallocate(t_x,"x",CAT_UNKNOWN)
   call tr_deallocate(t_values,"values",CAT_UNKNOWN)
   call tr_deallocate(t_deltas,"deltas",CAT_UNKNOWN)
+  call tr_deallocate(t_j_field,"j_field",CAT_UNKNOWN)
+  call tr_deallocate(t_b_field,"b_field",CAT_UNKNOWN)
 #ifdef fullmhd
   call tr_deallocate(t_psi_eq,"psi_eq",CAT_UNKNOWN)
   call tr_deallocate(t_Fprof_eq,"Fprof_eq",CAT_UNKNOWN)

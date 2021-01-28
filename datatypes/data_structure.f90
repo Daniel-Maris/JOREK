@@ -8,10 +8,12 @@ module data_structure
 
   implicit none
 
-  type type_node                                  !< type definition of a node (i.e. a vertex)
+  type type_node                                        !< type definition of a node (i.e. a vertex)
     real*8     :: x(n_coord_tor,n_order+1,n_dim)        !< x,y,z coordinates of points and additional nodal geometry
-    real*8     :: values(n_tor,n_order+1,n_var)   !< Variable values and derivatives
-    real*8     :: deltas(n_tor,n_order+1,n_var)   !< Change of variable values and derivatives in last timestep
+    real*8     :: values(n_tor,n_order+1,n_var)         !< Variable values and derivatives
+    real*8     :: deltas(n_tor,n_order+1,n_var)         !< Change of variable values and derivatives in last timestep
+    real*8     :: j_field(n_coord_tor,n_order+1,n_dim)  !< vacuum poloidal flux
+    real*8     :: b_field(n_coord_tor,n_order+1,n_dim)  !< magnetic field R, Z components
 #ifdef fullmhd
     real*8     :: psi_eq(n_order+1)               !< equilibrium flux at the nodes
     real*8     :: Fprof_eq(n_order+1)             !< equilibrium profile R*B_phi at the nodes

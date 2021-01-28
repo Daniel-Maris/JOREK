@@ -132,6 +132,7 @@ most: jorek2_connection2 \
       jorek2vtk_3d \
       jorek2vtk \
       jorek2vtk_GaussVortTerms \
+      test_gvec2jorek_import \
       jorek_to_helena \
       new_diag_demo \
       jorek2_postproc \

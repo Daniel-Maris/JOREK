@@ -44,10 +44,11 @@ module phys_module
   real*8  :: neutral_reflection   !< reflection coefficient of ions into neutrals (model500)
   logical :: old_deuterium_atomic !< use old fit to calculate atomic coefficients for D (ionization, recombination, radiation), otherwise a better fit is used
   logical :: deuterium_adas       !< use OPEN ADAS to calculate ionization, recombination and radiation coeffients for deuterium                        
-  logical :: mach_one_bnd_integral!< use a boundary integral (boundary_matrix_open) to implement Mach=one boundary condition
-  logical :: vpar_smoothing       !< apply a smoothing function to smooth jumps in Vpar at B.n=0
-  real*8  :: vpar_smoothing_coef(3) !< coefficients for the smoothing profile of the parallel velocity
-  integer :: mode(n_tor)          !< Toroidal mode number corresponding to the JOREK modes, e.g., for n_period=8 and n_tor=3, mode(:)=0,8,8
+  logical :: mach_one_bnd_integral    !< use a boundary integral (boundary_matrix_open) to implement Mach=one boundary condition
+  logical :: vpar_smoothing           !< apply a smoothing function to smooth jumps in Vpar at B.n=0
+  real*8  :: vpar_smoothing_coef(3)   !< coefficients for the smoothing profile of the parallel velocity
+  integer :: mode(n_tor)              !< Toroidal mode number corresponding to the JOREK modes, e.g., for n_period=8 and n_tor=3, mode(:)=0,8,8
+  integer :: mode_coord(n_coord_tor)  !< Toroidal mode number corresponding to the JOREK RZ grid modes
   integer :: nout                 !< Output a restart file every nout timesteps
   integer :: xcase                !< 1->LowerXpoint. 2->UpperXpoint. 3->doubleNull
   real*8  :: SDN_threshold        !< threshold, in absolute psi, for a symmetric-double-null grid construction
@@ -106,6 +107,7 @@ module phys_module
   real*8, allocatable :: energies4(:,:,:)  !< global applied eccd currents j1 and j2 at timesteps.
 
   character(len=3)    :: mode_type(n_tor) !< 'cos' or 'sin'
+  character(len=3)    :: mode_coord_type(n_coord_tor) !< 'cos' or 'sin'
   
   !> Points used as limiters (see routine find_limiter)
   integer, parameter :: max_limiter = 1000 !< Maximum number of limiter points
@@ -114,7 +116,10 @@ module phys_module
   real*8  :: Z_limiter(max_limiter)        !< Z-positions of the limiter points
   integer :: first_target_point		   !< index of the first target point on the limiter (for xpoint_grid_wall)
   integer :: last_target_point		   !< index of the last  target point on the limiter (does NOT need to be > first_target_point)
-  
+   
+  ! Stellarator parameters
+  logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC TO-DO: remove this routine by making the GVEC import part of the restart file routine
+
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   logical :: extend_existing_grid                                               !< Add patches to existing grid from restart file
   integer, parameter :: n_wall_blocks_max = 30                                  !< Maximum number of blocks (30 should be enough)
