@@ -31,6 +31,7 @@ module mod_parameters
   integer, parameter :: n_tor          = 1!3!15!11!9!3!3!11!3!21!1!21                  !< number of toroidal harmonics in physics variables
   integer, parameter :: n_coord_tor    = 1         !< number of toroidal harmonics in (R, Z) coordinates
   integer, parameter :: n_period       = 1!3!3!4!6!6!6!4!4!2!1!2         !< periodicity in toroidal direction
+  integer, parameter :: n_field_period = 1         !< periodicity of device in toroidal direction
   integer, parameter :: n_plane        = 1!8!64!64!32!8!8!64!8!128!1!128         !< number of toroidal angles
   integer, parameter :: n_vertex_max   = 4         !< maximum number of corners of an element
   integer, parameter :: n_nodes_max    = 100001     !< maximum number of nodes
