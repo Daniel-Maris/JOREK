@@ -155,6 +155,9 @@ endif
 ifeq (model710, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
 endif
+ifeq (model711, $(MODEL))
+  DEFINES  := $(DEFINES) -Dfullmhd
+endif
 
 CGDEP=
 ifneq (,$(filter $(MODEL), model002 model180 model181 model182 model183))
@@ -193,7 +196,7 @@ endif
 
 ifeq (1, $(USE_PASTIX6))
   DEFINES  := $(DEFINES) -DUSE_PASTIX6
-  LIBS     := $(LIBS) $(LIB_PASTIX6) $(LIB_PASTIX6_BLAS)
+  LIBS     := $(LIBS) $(LIB_PASTIX6)  $(LIB_PASTIX6_BLAS)
   INCLUDES := $(INCLUDES) $(INC_PASTIX6)
 endif
 
@@ -224,6 +227,25 @@ endif
 
 ifeq (1, $(USE_BLOCK))
   DEFINES := $(DEFINES) -DUSE_BLOCK
+endif
+
+ifeq (1, $(USE_DIRECT_CONSTRUCTION))
+  DEFINES  := $(DEFINES) -DDIRECT_CONSTRUCTION
+endif
+
+ifeq (1, $(USE_COMPLEX_PRECOND))
+  DEFINES  := $(DEFINES) -DUSE_COMPLEX_PRECOND
+endif
+
+ifeq (1, $(USE_INTSIZE64))
+  DEFINES  := $(DEFINES) -DINTSIZE64
+endif
+
+ifeq (1, $(USE_STRUMPACK))
+  DEFINES  := $(DEFINES) -DUSE_STRUMPACK
+  LIBS     := $(LIBS) $(STRUMPACKLIB)
+  INCLUDES := $(INCLUDES) $(STRUMPACKINC)
+  EXTRA_FLAGS := $(EXTRA_FLAGS) -lstdc++ -std=c++14
 endif
 
 

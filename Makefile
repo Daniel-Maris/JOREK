@@ -160,7 +160,7 @@ generate_code: algexpr2fort
 INCLUDES += -Itools # for r3_info.h
 INCLUDES += -Imodels
 # C++ support
-LIBS += -lstdc++
+LIBS += -lstdc++ 
 CXXFLAGS += -pedantic -Wall
 
 # Rule-specific includes: an example
