@@ -499,9 +499,9 @@ required = 0
     call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, .false.) 
     
     call populate_element_rtree(node_list, element_list)
-    call update_equil_state(node_list, element_list, bnd_elm_list, xpoint, xcase, equil_state)
-    call print_equil_state(equil_state, .true.)
-    call save_special_points(equil_state, 'special_equilibrium_points.dat', .false., ierr)
+    call update_equil_state(my_id, node_list, element_list, bnd_elm_list, xpoint, xcase)
+    call print_equil_state(.true.)
+    call save_special_points('special_equilibrium_points.dat', .false., ierr)
     
     !call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
     
@@ -525,8 +525,8 @@ required = 0
     !close(42)
 
     ! Determine n.B for equilibrium
-    call determine_boundary_flux(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
-      equil_state%Z_xpoint, q, rad)
+    !call determine_boundary_flux(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
+    !  equil_state%Z_xpoint, q, rad)
     
     ! --- Clean up.
     !if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)

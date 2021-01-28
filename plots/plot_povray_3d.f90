@@ -64,8 +64,8 @@ do i_plane=1, n_plane+1
        huv_0   = element_list%element(k)%size(i,iuv)
        
        do i_tor=1, n_tor              ! toroidal harmonics
-         xx_0    = node_list%node(inode_0)%x(i_tor,1,:) * HRZ(i_tor, mod(i_plane-1, n_plane)+1)
-         uv_0    = node_list%node(inode_0)%x(i_tor,iuv,:) * HRZ(i_tor, mod(i_plane-1, n_plane)+1)
+         xx_0    = node_list%node(inode_0)%x(i_tor,1,:) * HZ_coord(i_tor, mod(i_plane-1, n_plane)+1)
+         uv_0    = node_list%node(inode_0)%x(i_tor,iuv,:) * HZ_coord(i_tor, mod(i_plane-1, n_plane)+1)
   
          if (iuv .eq. 1) then
            xb(i,iuv,:) = xb(i,iuv,:) + xx_0

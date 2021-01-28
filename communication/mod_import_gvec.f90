@@ -136,17 +136,6 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Z_four_t
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Z_four_st
-  
-  ! Chi profile
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four 
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four_s
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four_t
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four_st
-  Psi_vac_four = 0.0
 
   ! A_phi profile - currently not read in
   read(in_gvec, '(A)')
@@ -297,12 +286,6 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
         node_list%node(i_node)%X(itor,4,1)        = R_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
         node_list%node(i_node)%X(itor,4,2)        = Z_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
 
-        ! Read Psi
-        node_list%node(i_node)%values(itor, 1, 1) = Psi_four(i_theta, i_rad, idx)
-        node_list%node(i_node)%values(itor, 2, 1) = Psi_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
-        node_list%node(i_node)%values(itor, 3, 1) = Psi_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
-        node_list%node(i_node)%values(itor, 4, 1) = Psi_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
-        
         ! Read B field R, Z, phi components
         node_list%node(i_node)%b_field(itor, 1, 1) = B_R_four(i_theta, i_rad, idx)
         node_list%node(i_node)%b_field(itor, 2, 1) = B_R_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0

@@ -63,12 +63,12 @@ do i_plane=1, n_plane+1
        ip      = mod(i,4)+1
        inode_p = element_list%element(k)%vertex(ip)
        huv_p   = element_list%element(k)%size(ip,iuv+1)
-       do i_tor=1, n_tor              ! toroidal harmonics
-         xx_0    = node_list%node(inode_0)%x(i_tor,1,:) * HRZ(i_tor, mod(i_plane-1, n_plane)+1)
-         uv_0    = node_list%node(inode_0)%x(i_tor,iuv+1,:) * HRZ(i_tor, mod(i_plane-1, n_plane)+1)
+       do i_tor=1, n_coord_tor              ! toroidal harmonics
+         xx_0    = node_list%node(inode_0)%x(i_tor,1,:) * HZ_coord(i_tor, mod(i_plane-1, n_plane)+1)
+         uv_0    = node_list%node(inode_0)%x(i_tor,iuv+1,:) * HZ_coord(i_tor, mod(i_plane-1, n_plane)+1)
   
-         xx_p    = node_list%node(inode_p)%x(i_tor,1,:) * HRZ(i_tor, mod(i_plane-1, n_plane)+1)
-         uv_p    = node_list%node(inode_p)%x(i_tor,iuv+1,:) * HRZ(i_tor, mod(i_plane-1, n_plane)+1)
+         xx_p    = node_list%node(inode_p)%x(i_tor,1,:) * HZ_coord(i_tor, mod(i_plane-1, n_plane)+1)
+         uv_p    = node_list%node(inode_p)%x(i_tor,iuv+1,:) * HZ_coord(i_tor, mod(i_plane-1, n_plane)+1)
   
          xb(1,:) = xb(1,:) + xx_0
          xb(2,:) = xb(2,:) + xx_0+uv_0*huv_0
@@ -97,11 +97,11 @@ do inode_0=1, node_list%n_nodes
       phi = (float(i_plane - 1) + s) * phi_norm
       x_tot(j, :) = 0.0
       ! Get node control points
-      do i_tor=1,n_tor
-        xx_0 = node_list%node(inode_0)%x(i_tor,1,:) * HRZ(i_tor, i_plane)
-        uv_0 = node_list%node(inode_0)%x(i_tor,1,:) * HRZ_p(i_tor, i_plane)
-        xx_p = node_list%node(inode_0)%x(i_tor,1,:) * HRZ(i_tor, mod(i_plane, n_plane)+1)
-        uv_p = node_list%node(inode_p)%x(i_tor,1,:) * HRZ_p(i_tor, mod(i_plane, n_plane)+1)
+      do i_tor=1,n_coord_tor
+        xx_0 = node_list%node(inode_0)%x(i_tor,1,:) * HZ_coord(i_tor, i_plane)
+        uv_0 = node_list%node(inode_0)%x(i_tor,1,:) * HZ_coord_p(i_tor, i_plane)
+        xx_p = node_list%node(inode_0)%x(i_tor,1,:) * HZ_coord(i_tor, mod(i_plane, n_plane)+1)
+        uv_p = node_list%node(inode_p)%x(i_tor,1,:) * HZ_coord_p(i_tor, mod(i_plane, n_plane)+1)
       
         xb(1,:) = xx_0
         xb(2,:) = xx_0 +  uv_0 / 3.0 * phi_norm
