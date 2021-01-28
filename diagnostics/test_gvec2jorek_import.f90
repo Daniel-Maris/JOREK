@@ -46,7 +46,8 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   real*8, allocatable    :: R(:, :, :), R_s(:,:,:), R_t(:,:,:), R_st(:,:,:)
   real*8, allocatable    :: Z(:, :, :), Z_s(:,:,:), Z_t(:,:,:), Z_st(:,:,:)
   real*8, allocatable    :: Chi(:, :, :), Chi_s(:,:,:), Chi_t(:,:,:), Chi_st(:,:,:)
-  real*8, allocatable    :: B_R(:, :, :), B_Z(:,:,:)
+  real*8, allocatable    :: B_R(:, :, :), B_Z(:,:,:), B_phi(:,:,:)
+  real*8, allocatable    :: J_R(:, :, :), J_Z(:,:,:), J_phi(:,:,:)
   character(*), intent(in)              :: file_name                          ! Test file name
   integer, intent(inout)                :: ierr                               ! IO error status
   integer          :: n_rad, n_theta, n_phi                    ! Number of radial, poloidal and toroidal points in GVEC test data
@@ -69,7 +70,7 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   real*8           :: Psi_tot, Psi_tot_s, Psi_tot_t, Psi_tot_st, Psi_tot_ss, Psi_tot_tt
   real*8           :: B_R_tot, B_Z_tot
   integer          :: i_harm
-  real*8  :: HRZ(n_tor)
+  real*8  :: HZ_coord(n_tor)
 
   integer          :: n_skip=0
   real*8           :: abs_tol=1.d-5
@@ -118,6 +119,10 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   call tr_allocate(Chi_st, 1, n_theta, 1, n_phi, 1, n_rad,"Chi_st", CAT_GRID)
   call tr_allocate(B_R, 1, n_theta, 1, n_phi, 1, n_rad, "B_R", CAT_GRID)
   call tr_allocate(B_Z, 1, n_theta, 1, n_phi, 1, n_rad, "B_Z", CAT_GRID)
+  call tr_allocate(B_phi, 1, n_theta, 1, n_phi, 1, n_rad, "B_phi", CAT_GRID)
+  call tr_allocate(J_R, 1, n_theta, 1, n_phi, 1, n_rad, "J_R", CAT_GRID)
+  call tr_allocate(J_Z, 1, n_theta, 1, n_phi, 1, n_rad, "J_Z", CAT_GRID)
+  call tr_allocate(J_phi, 1, n_theta, 1, n_phi, 1, n_rad, "J_phi", CAT_GRID)
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') s
   read(in_gvec, '(A)')
@@ -148,9 +153,8 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
-  Chi = 0; Chi_s=0; Chi_t=0; Chi_st=0;
   read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi   ! Skip vector potential
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
   read(in_gvec, '(A)')
@@ -158,25 +162,25 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
   read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  ! Skip magnetic field representation in JOREK representation 
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi   
   read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi   
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
+  read(in_gvec, '(A)')
+
+
   read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  ! Skip A_phi_orig
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') B_Z
   close(in_gvec)
@@ -258,22 +262,22 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
                         Ri, Ri_s, Ri_t, Ri_p, Ri_st, Ri_ss, Ri_tt, Ri_sp, Ri_tp, Ri_pp,     &
                         Zi, Zi_s, Zi_t, Zi_p, Zi_st, Zi_ss, Zi_tt, Zi_sp, Zi_tp, Zi_pp)
 
-        HRZ(1)   = 1.d0
-        do i_harm=1,(n_tor-1)/2
-          HRZ(2*i_harm)      = cos(mode_RZ(2*i_harm)  *phi_loc)
-          HRZ(2*i_harm+1)    = sin(mode_RZ(2*i_harm+1)*phi_loc)
+        HZ_coord(1)   = 1.d0
+        do i_harm=1,(n_coord_tor-1)/2
+          HZ_coord(2*i_harm)      = cos(mode_coord(2*i_harm)  *phi_loc)
+          HZ_coord(2*i_harm+1)    = sin(mode_coord(2*i_harm+1)*phi_loc)
         enddo
         Psi_tot = 0.0; Psi_tot_s = 0.0; Psi_tot_t = 0.0; Psi_tot_st = 0.0
         do i_harm=1, n_tor
           call interp(node_list, element_list, i_elm, 1, i_harm, s_loc, theta_loc, Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt)      
-          Psi_tot = Psi_tot+Psi*HRZ(i_harm); Psi_tot_s = Psi_tot_s+Psi_s*HRZ(i_harm); Psi_tot_t = Psi_tot_t+Psi_t*HRZ(i_harm); Psi_tot_st = Psi_tot_st+Psi_st*HRZ(i_harm)
+          Psi_tot = Psi_tot+Psi*HZ_coord(i_harm); Psi_tot_s = Psi_tot_s+Psi_s*HZ_coord(i_harm); Psi_tot_t = Psi_tot_t+Psi_t*HZ_coord(i_harm); Psi_tot_st = Psi_tot_st+Psi_st*HZ_coord(i_harm)
         enddo
         B_R_tot = 0.0; B_Z_tot = 0.0;
         do i_harm=1, n_tor
           call interp(node_list, element_list, i_elm, 457, i_harm, s_loc, theta_loc, Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt)      
-          B_R_tot = B_R_tot+Psi*HRZ(i_harm);
+          B_R_tot = B_R_tot+Psi*HZ_coord(i_harm);
           call interp(node_list, element_list, i_elm, 458, i_harm, s_loc, theta_loc, Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt)      
-          B_Z_tot = B_Z_tot+Psi*HRZ(i_harm);
+          B_Z_tot = B_Z_tot+Psi*HZ_coord(i_harm);
         enddo
 
         ! Calculate errors
