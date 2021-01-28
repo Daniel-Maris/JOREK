@@ -975,8 +975,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_allocate(t_x,     1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim,         "node_list%x",     CAT_UNKNOWN)
   call tr_allocate(t_values,1,node_list%n_nodes,1,      n_tor_tmp,1,n_order+1,1,n_var_tmp, "node_list%values",CAT_UNKNOWN)
   call tr_allocate(t_deltas,1,node_list%n_nodes,1,      n_tor_tmp,1,n_order+1,1,n_var_tmp, "node_list%deltas",CAT_UNKNOWN)
-  call tr_allocate(t_j_field,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_dim,  "node_list%psi_vac",CAT_UNKNOWN)
-  call tr_allocate(t_b_field,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_dim,    "node_list%b_field",     CAT_UNKNOWN)
+  call tr_allocate(t_j_field,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_dim+1,  "node_list%psi_vac",CAT_UNKNOWN)
+  call tr_allocate(t_b_field,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_dim+1,    "node_list%b_field",     CAT_UNKNOWN)
  
 #ifdef fullmhd
   call tr_allocate(t_psi_eq,  1,node_list%n_nodes,1,n_order+1, "node_list%psi_eq",  CAT_UNKNOWN)

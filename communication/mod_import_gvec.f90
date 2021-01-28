@@ -31,12 +31,14 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   integer          :: coord_type, num_periods, asym    ! GVEC coordinate type, number of field periods, equilibrium symmetry
   integer          :: m_max, n_max, n_modes            ! Maximum poloidal mode number, maximum toroidal mode number, number of modes
   integer          :: sin_range(2), cos_range(2)       ! Indices in fourier representation for sinusoidal and cosinusoidal modes
-  real, allocatable        :: R_four(:, :, :), R_four_s(:, :, :), R_four_t(:, :, :), R_four_st(:, :, :) ! Arrays for node positions in fourier representation (i_theta, i_rad, i_four) 
-  real, allocatable        :: Z_four(:, :, :), Z_four_s(:, :, :), Z_four_t(:, :, :), Z_four_st(:, :, :) ! Arrays for node Z positions in fourier representation (i_theta, i_rad, i_four)
-  real, allocatable        :: Psi_four(:, :, :), Psi_four_s(:, :, :), Psi_four_t(:, :, :), Psi_four_st(:, :, :) ! Arrays for node Poloidal flux in fourier representation (i_theta, i_rad, i_four)
-  real, allocatable        :: Psi_vac_four(:, :, :), Psi_vac_four_s(:, :, :), Psi_vac_four_t(:, :, :), Psi_vac_four_st(:, :, :) ! Arrays for node Poloidal flux contribution from the vacuum field in fourier representation (i_theta, i_rad, i_four)
-  real, allocatable        :: B_R_four(:, :, :), B_R_four_s(:, :, :), B_R_four_t(:, :, :), B_R_four_st(:, :, :) ! Arrays for node B_R in fourier representation (i_theta, i_rad, i_four)
-  real, allocatable        :: B_Z_four(:, :, :), B_Z_four_s(:, :, :), B_Z_four_t(:, :, :), B_Z_four_st(:, :, :) ! Arrays for node B_Z in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: R_four(:, :, :), R_four_s(:, :, :), R_four_t(:, :, :), R_four_st(:, :, :)                 ! Arrays for node positions in fourier representation (i_theta, i_rad, i_four) 
+  real, allocatable        :: Z_four(:, :, :), Z_four_s(:, :, :), Z_four_t(:, :, :), Z_four_st(:, :, :)                 ! Arrays for node Z positions in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: B_R_four(:, :, :), B_R_four_s(:, :, :), B_R_four_t(:, :, :), B_R_four_st(:, :, :)         ! Arrays for node B_R in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: B_Z_four(:, :, :), B_Z_four_s(:, :, :), B_Z_four_t(:, :, :), B_Z_four_st(:, :, :)         ! Arrays for node B_Z in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: B_phi_four(:, :, :), B_phi_four_s(:, :, :), B_phi_four_t(:, :, :), B_phi_four_st(:, :, :) ! Arrays for node B_phi in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: J_R_four(:, :, :), J_R_four_s(:, :, :), J_R_four_t(:, :, :), J_R_four_st(:, :, :)         ! Arrays for node J_R in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: J_Z_four(:, :, :), J_Z_four_s(:, :, :), J_Z_four_t(:, :, :), J_Z_four_st(:, :, :)         ! Arrays for node J_Z in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: J_phi_four(:, :, :), J_phi_four_s(:, :, :), J_phi_four_t(:, :, :), J_phi_four_st(:, :, :) ! Arrays for node J_phi in fourier representation (i_theta, i_rad, i_four)
 
   ! JOREK grid
   integer          :: n_index_start, n_element_start, n_node_start
@@ -49,7 +51,8 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
  
   ! Smoothing variables at s=0
   real*8           :: R_average, Z_average
-  real*8           :: BR_average, BZ_average
+  real*8           :: BR_average, BZ_average, Bphi_average
+  real*8           :: JR_average, JZ_average, Jphi_average
 
   integer          :: in_gvec=11                          ! Input stream from gvec
   integer          :: gvec_preamble_lines=63              ! Number of lines in gvec preamble
@@ -66,10 +69,10 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   enddo
   read(in_gvec, *) n_rad, n_theta, n_phi
   write(*, *)  "n_rad    n_theta    n_phi: ", n_rad, n_theta, n_phi
-  !if ((n_theta .ne. n_tht) .or. (n_rad .ne. n_flux)) then
-  !  write(*, *) "Number of radial and poloidal points does not match values in input file: ", n_rad, n_flux, n_theta, n_tht
-  !  stop
-  !endif
+  if ((n_theta .ne. n_tht) .or. (n_rad .ne. n_flux)) then
+    write(*, *) "Number of radial and poloidal points does not match values in input file: ", n_rad, n_flux, n_theta, n_tht
+    stop
+  endif
   read(in_gvec,*)
   read(in_gvec, *) coord_type, num_periods, asym, m_max, n_max, n_modes, sin_range(:), cos_range(:)
   write(*, *) "nfp    asym    m_max    n_max", num_periods, asym, m_max, n_max
@@ -93,22 +96,30 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   call tr_allocate(Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,        "Z_four_s", CAT_GRID)
   call tr_allocate(Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,        "Z_four_t", CAT_GRID)
   call tr_allocate(Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,       "Z_four_st", CAT_GRID)
-  call tr_allocate(Psi_four, 1, n_theta, 1, n_rad, 1, n_modes,        "Psi_four", CAT_GRID)
-  call tr_allocate(Psi_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "Psi_four_s", CAT_GRID)
-  call tr_allocate(Psi_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "Psi_four_t", CAT_GRID)
-  call tr_allocate(Psi_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "Psi_four_st", CAT_GRID)
-  call tr_allocate(Psi_vac_four, 1, n_theta, 1, n_rad, 1, n_modes,    "Psi_vac_four", CAT_GRID)
-  call tr_allocate(Psi_vac_four_s, 1, n_theta, 1, n_rad, 1, n_modes,  "Psi_vac_four_s", CAT_GRID)
-  call tr_allocate(Psi_vac_four_t, 1, n_theta, 1, n_rad, 1, n_modes,  "Psi_vac_four_t", CAT_GRID)
-  call tr_allocate(Psi_vac_four_st, 1, n_theta, 1, n_rad, 1, n_modes, "Psi_vac_four_st", CAT_GRID)
-  call tr_allocate(B_R_four, 1, n_theta, 1, n_rad, 1, n_modes,    "B_R_vac_four", CAT_GRID)
-  call tr_allocate(B_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,  "B_R_vac_four_s", CAT_GRID)
-  call tr_allocate(B_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,  "B_R_vac_four_t", CAT_GRID)
-  call tr_allocate(B_R_four_st, 1, n_theta, 1, n_rad, 1, n_modes, "B_R_vac_four_st", CAT_GRID)
-  call tr_allocate(B_Z_four, 1, n_theta, 1, n_rad, 1, n_modes,    "B_Z_vac_four", CAT_GRID)
-  call tr_allocate(B_Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,  "B_Z_vac_four_s", CAT_GRID)
-  call tr_allocate(B_Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,  "B_Z_vac_four_t", CAT_GRID)
-  call tr_allocate(B_Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes, "B_Z_vac_four_st", CAT_GRID)
+  call tr_allocate(B_R_four, 1, n_theta, 1, n_rad, 1, n_modes,        "B_R_vac_four", CAT_GRID)
+  call tr_allocate(B_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_vac_four_s", CAT_GRID)
+  call tr_allocate(B_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_vac_four_t", CAT_GRID)
+  call tr_allocate(B_R_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "B_R_vac_four_st", CAT_GRID)
+  call tr_allocate(B_Z_four, 1, n_theta, 1, n_rad, 1, n_modes,        "B_Z_vac_four", CAT_GRID)
+  call tr_allocate(B_Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "B_Z_vac_four_s", CAT_GRID)
+  call tr_allocate(B_Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "B_Z_vac_four_t", CAT_GRID)
+  call tr_allocate(B_Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "B_Z_vac_four_st", CAT_GRID)
+  call tr_allocate(B_phi_four, 1, n_theta, 1, n_rad, 1, n_modes,      "B_phi_vac_four", CAT_GRID)
+  call tr_allocate(B_phi_four_s, 1, n_theta, 1, n_rad, 1, n_modes,    "B_phi_vac_four_s", CAT_GRID)
+  call tr_allocate(B_phi_four_t, 1, n_theta, 1, n_rad, 1, n_modes,    "B_phi_vac_four_t", CAT_GRID)
+  call tr_allocate(B_phi_four_st, 1, n_theta, 1, n_rad, 1, n_modes,   "B_phi_vac_four_st", CAT_GRID)
+  call tr_allocate(J_R_four, 1, n_theta, 1, n_rad, 1, n_modes,        "J_R_vac_four", CAT_GRID)
+  call tr_allocate(J_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "J_R_vac_four_s", CAT_GRID)
+  call tr_allocate(J_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "J_R_vac_four_t", CAT_GRID)
+  call tr_allocate(J_R_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "J_R_vac_four_st", CAT_GRID)
+  call tr_allocate(J_Z_four, 1, n_theta, 1, n_rad, 1, n_modes,        "J_Z_vac_four", CAT_GRID)
+  call tr_allocate(J_Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "J_Z_vac_four_s", CAT_GRID)
+  call tr_allocate(J_Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "J_Z_vac_four_t", CAT_GRID)
+  call tr_allocate(J_Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "J_Z_vac_four_st", CAT_GRID)
+  call tr_allocate(J_phi_four, 1, n_theta, 1, n_rad, 1, n_modes,      "J_phi_vac_four", CAT_GRID)
+  call tr_allocate(J_phi_four_s, 1, n_theta, 1, n_rad, 1, n_modes,    "J_phi_vac_four_s", CAT_GRID)
+  call tr_allocate(J_phi_four_t, 1, n_theta, 1, n_rad, 1, n_modes,    "J_phi_vac_four_t", CAT_GRID)
+  call tr_allocate(J_phi_four_st, 1, n_theta, 1, n_rad, 1, n_modes,   "J_phi_vac_four_st", CAT_GRID)
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') R_four
   read(in_gvec, '(A)')
@@ -137,33 +148,32 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four_st
   Psi_vac_four = 0.0
 
-  ! A_phi profile
+  ! A_phi profile - currently not read in
   read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four
   read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four_s
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_s
   read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four_t
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_t
   read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_four_st
-!  read(in_gvec, '(A)', iostat=iostatus)
-!  if (iostatus .eq. 0) then  ! Read vacuum field if it is present 
-!    write(*, *) 'Vacuum field present'
-!    read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_vac_four
-!    read(in_gvec, '(A)')
-!    read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_vac_four_s
-!    read(in_gvec, '(A)')
-!    read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_vac_four_t
-!    read(in_gvec, '(A)')
-!    read(in_gvec,'(*(6(e23.15,:,1X),/))') Psi_vac_four_st
-!  else                  ! Assume the equilibrium is a vacuum field
-!    write(*, *) 'Vacuum field not present'
-!    iostatus = 0
-!    Psi_vac_four    = Psi_four   
-!    Psi_vac_four_s  = Psi_four_s 
-!    Psi_vac_four_t  = Psi_four_t 
-!    Psi_vac_four_st = Psi_four_st
-!  endif
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_st
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_st
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four_st
+
   ! B profiles
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four
@@ -181,7 +191,40 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   read(in_gvec,'(*(6(e23.15,:,1X),/))') B_Z_four_t
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') B_Z_four_st
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_phi_four
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_phi_four_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_phi_four_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_phi_four_st
 
+  ! J profiles
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_R_four
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_R_four_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_R_four_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_R_four_st
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_Z_four
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_Z_four_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_Z_four_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_Z_four_st
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_phi_four
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_phi_four_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_phi_four_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') J_phi_four_st
   close(in_gvec)
 
   ! Zero element and node variables
@@ -259,12 +302,8 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
         node_list%node(i_node)%values(itor, 2, 1) = Psi_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
         node_list%node(i_node)%values(itor, 3, 1) = Psi_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
         node_list%node(i_node)%values(itor, 4, 1) = Psi_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
-        node_list%node(i_node)%psi_vac(itor, 1)   = Psi_four(i_theta, i_rad, idx) - Psi_vac_four(i_theta, i_rad, idx)
-        node_list%node(i_node)%psi_vac(itor, 2)   = (Psi_four_s(i_theta, i_rad, idx)  - Psi_vac_four_s(i_theta, i_rad, idx)) * s_factor * 1.0 / 3.0
-        node_list%node(i_node)%psi_vac(itor, 3)   = (Psi_four_t(i_theta, i_rad, idx)  - Psi_vac_four_t(i_theta, i_rad, idx)) * theta_factor * 1.0 / 3.0
-        node_list%node(i_node)%psi_vac(itor, 4)   = (Psi_four_st(i_theta, i_rad, idx) - Psi_vac_four_st(i_theta, i_rad, idx)) * s_factor * theta_factor * 1.0 / 9.0
         
-        ! Read B field R, Z components
+        ! Read B field R, Z, phi components
         node_list%node(i_node)%b_field(itor, 1, 1) = B_R_four(i_theta, i_rad, idx)
         node_list%node(i_node)%b_field(itor, 2, 1) = B_R_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
         node_list%node(i_node)%b_field(itor, 3, 1) = B_R_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
@@ -273,6 +312,24 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
         node_list%node(i_node)%b_field(itor, 2, 2) = B_Z_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
         node_list%node(i_node)%b_field(itor, 3, 2) = B_Z_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
         node_list%node(i_node)%b_field(itor, 4, 2) = B_Z_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
+        node_list%node(i_node)%b_field(itor, 1, 3) = B_phi_four(i_theta, i_rad, idx)
+        node_list%node(i_node)%b_field(itor, 2, 3) = B_phi_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
+        node_list%node(i_node)%b_field(itor, 3, 3) = B_phi_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
+        node_list%node(i_node)%b_field(itor, 4, 3) = B_phi_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
+        
+        ! Read J field R, Z, phi components
+        node_list%node(i_node)%j_field(itor, 1, 1) = J_R_four(i_theta, i_rad, idx)
+        node_list%node(i_node)%j_field(itor, 2, 1) = J_R_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
+        node_list%node(i_node)%j_field(itor, 3, 1) = J_R_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
+        node_list%node(i_node)%j_field(itor, 4, 1) = J_R_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
+        node_list%node(i_node)%j_field(itor, 1, 2) = J_Z_four(i_theta, i_rad, idx)
+        node_list%node(i_node)%j_field(itor, 2, 2) = J_Z_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
+        node_list%node(i_node)%j_field(itor, 3, 2) = J_Z_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
+        node_list%node(i_node)%j_field(itor, 4, 2) = J_Z_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
+        node_list%node(i_node)%j_field(itor, 1, 3) = J_phi_four(i_theta, i_rad, idx)
+        node_list%node(i_node)%j_field(itor, 2, 3) = J_phi_four_s(i_theta, i_rad, idx) * s_factor * 1.0 / 3.0
+        node_list%node(i_node)%j_field(itor, 3, 3) = J_phi_four_t(i_theta, i_rad, idx) * theta_factor * 1.0 / 3.0
+        node_list%node(i_node)%j_field(itor, 4, 3) = J_phi_four_st(i_theta, i_rad, idx) * s_factor * theta_factor * 1.0 / 9.0
       enddo
       
       ! Determine if node is on the boundary
@@ -381,14 +438,6 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   call tr_deallocate(Z_four_s,        "Z_four_s", CAT_GRID)
   call tr_deallocate(Z_four_t,        "Z_four_t", CAT_GRID)
   call tr_deallocate(Z_four_st,       "Z_four_st", CAT_GRID)
-  call tr_deallocate(Psi_four,        "Psi_four", CAT_GRID)
-  call tr_deallocate(Psi_four_s,      "Psi_four_s", CAT_GRID)
-  call tr_deallocate(Psi_four_t,      "Psi_four_t", CAT_GRID)
-  call tr_deallocate(Psi_four_st,     "Psi_four_st", CAT_GRID)
-  call tr_deallocate(Psi_vac_four,    "Psi_vac_four", CAT_GRID)
-  call tr_deallocate(Psi_vac_four_s,  "Psi_vac_four_s", CAT_GRID)
-  call tr_deallocate(Psi_vac_four_t,  "Psi_vac_four_t", CAT_GRID)
-  call tr_deallocate(Psi_vac_four_st, "Psi_vac_four_st", CAT_GRID)
   call tr_deallocate(B_R_four,        "B_R_four", CAT_GRID)
   call tr_deallocate(B_R_four_s,      "B_R_four_s", CAT_GRID)
   call tr_deallocate(B_R_four_t,      "B_R_four_t", CAT_GRID)
@@ -397,6 +446,23 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   call tr_deallocate(B_Z_four_s,      "B_Z_four_s", CAT_GRID)
   call tr_deallocate(B_Z_four_t,      "B_Z_four_t", CAT_GRID)
   call tr_deallocate(B_Z_four_st,     "B_Z_four_st", CAT_GRID)
+  call tr_deallocate(B_Phi_four,      "B_Phi_four", CAT_GRID)
+  call tr_deallocate(B_Phi_four_s,    "B_Phi_four_s", CAT_GRID)
+  call tr_deallocate(B_Phi_four_t,    "B_Phi_four_t", CAT_GRID)
+  call tr_deallocate(B_Phi_four_st,   "B_Phi_four_st", CAT_GRID)
+  call tr_deallocate(B_R_four,        "J_R_four", CAT_GRID)
+  call tr_deallocate(B_R_four_s,      "J_R_four_s", CAT_GRID)
+  call tr_deallocate(B_R_four_t,      "J_R_four_t", CAT_GRID)
+  call tr_deallocate(B_R_four_st,     "J_R_four_st", CAT_GRID)
+  call tr_deallocate(B_Z_four,        "J_Z_four", CAT_GRID)
+  call tr_deallocate(B_Z_four_s,      "J_Z_four_s", CAT_GRID)
+  call tr_deallocate(B_Z_four_t,      "J_Z_four_t", CAT_GRID)
+  call tr_deallocate(B_Z_four_st,     "J_Z_four_st", CAT_GRID)
+  call tr_deallocate(B_Phi_four,      "J_Phi_four", CAT_GRID)
+  call tr_deallocate(B_Phi_four_s,    "J_Phi_four_s", CAT_GRID)
+  call tr_deallocate(B_Phi_four_t,    "J_Phi_four_t", CAT_GRID)
+  call tr_deallocate(B_Phi_four_st,   "J_Phi_four_st", CAT_GRID)
+
 end subroutine read_gvec_import
 
 subroutine get_gvec_mode_idx(idx, n_max, sin_range, cos_range, itor)
