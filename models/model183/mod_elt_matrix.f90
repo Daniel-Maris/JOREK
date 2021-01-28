@@ -2,7 +2,7 @@ module mod_elt_matrix
   implicit none
 contains
 
-subroutine element_matrix(element,nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid)
+subroutine element_matrix(element,nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, i_tor_min, i_tor_max)
   !---------------------------------------------------------------
   ! calculates the matrix contribution of one element
   !---------------------------------------------------------------
@@ -15,7 +15,6 @@ use phys_module
 use tr_module
 use diffusivities, only: get_dperp, get_zkperp    
 use corr_neg
-use vacuum, only: freeb_fact
 use equil_info, only: get_psi_n
 use mod_semianalytical
 use mod_equations
@@ -28,7 +27,7 @@ type (type_node)   , intent(in)   :: nodes(n_vertex_max)
 
 real*8, dimension (:,:), allocatable  :: ELM
 real*8, dimension (:)  , allocatable  :: RHS
-integer, intent(in) :: tid
+integer, intent(in) :: tid, i_tor_min, i_tor_max
 
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, xcase2
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6
@@ -45,6 +44,7 @@ real*8     :: amat_41, amat_42, amat_43, amat_44, amat_51, amat_52, amat_55, ama
 real*8     :: FFprime_prof, dFF_dpsi, dFF_dz, dFF_dpsi2, dFF_dz2, dFF_dpsi_dz
 
 logical    :: xpoint2
+integer    :: n_tor_local
 
 real*8, dimension(n_gauss,n_gauss)    :: x_g, x_s, x_t
 real*8, dimension(n_gauss,n_gauss)    :: x_ss, x_st, x_tt
@@ -105,19 +105,19 @@ do i=1,n_vertex_max
    do ms=1, n_gauss
      do mt=1, n_gauss
 
-       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
-       x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-       x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-       x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+       x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+       x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+       x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
 
-       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
-       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
-       y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-       y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-       y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
+       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+       y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+       y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+       y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
        
 #ifdef altcs
        psieq(ms,mt)   = psieq(ms,mt)   + nodes(i)%psi_eq(j)*element%size(i,j)*H(i,j,ms,mt)
@@ -299,13 +299,14 @@ do ms=1, n_gauss
 #include "aux_unreadable.h"
 #endif
      
+     n_tor_local = i_tor_max - i_tor_min + 1
      do i=1,n_vertex_max
 
        do j=1,n_order+1
 
-         do im=1,n_tor
+         do im=i_tor_min,i_tor_max
 
-           index_ij = n_tor*n_var*(n_order+1)*(i-1) + n_tor*n_var*(j-1) + im   ! index in the ELM matrix
+           index_ij = n_tor_local*n_var*(n_order+1)*(i-1) + n_tor_local*n_var*(j-1) + im - i_tor_min + 1   ! index in the ELM matrix
 
            eq(2*n_var+1,0,0,0) =  H(i,j,ms,mt)*element%size(i,j)*HZ(im,mp)
            eq(2*n_var+1,1,0,0) = (y_t(ms,mt)*h_s(i,j,ms,mt) - y_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
@@ -347,11 +348,11 @@ do ms=1, n_gauss
 #endif
 
            ij1 = index_ij
-           ij2 = index_ij + 1*n_tor
-           ij3 = index_ij + 2*n_tor
-           ij4 = index_ij + 3*n_tor
-           ij5 = index_ij + 4*n_tor
-           ij6 = index_ij + 5*n_tor
+           ij2 = index_ij + 1*n_tor_local
+           ij3 = index_ij + 2*n_tor_local
+           ij4 = index_ij + 3*n_tor_local
+           ij5 = index_ij + 4*n_tor_local
+           ij6 = index_ij + 5*n_tor_local
 
            RHS(ij1) = RHS(ij1) + rhs_ij_1*wst
            RHS(ij2) = RHS(ij2) + rhs_ij_2*wst
@@ -364,7 +365,7 @@ do ms=1, n_gauss
 
              do l=1,n_order+1
 
-               do in = 1, n_tor
+               do in=i_tor_min,i_tor_max
 
                  eq(2*n_var+2,0,0,0) = H(k,l,ms,mt)*element%size(k,l)*HZ(in,mp)
                  eq(2*n_var+2,1,0,0) = (y_t(ms,mt)*h_s(k,l,ms,mt) - y_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
@@ -387,7 +388,7 @@ do ms=1, n_gauss
                  eq(2*n_var+2,1,0,1) = (y_t(ms,mt)*h_s(k,l,ms,mt) - y_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
                  eq(2*n_var+2,0,1,1) = (-x_t(ms,mt)*h_s(k,l,ms,mt) + x_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
                  
-                 index_kl = n_tor*n_var*(n_order+1)*(k-1) + n_tor * n_var * (l-1) + in   ! index in the ELM matrix
+                 index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local*n_var*(l-1) + in - i_tor_min + 1   ! index in the ELM matrix
                  
 #ifdef DEBUG
 !---------------------------------------------------------------- equation 1
@@ -440,11 +441,11 @@ do ms=1, n_gauss
 #endif
 
                  kl1 = index_kl
-                 kl2 = index_kl + 1*n_tor
-                 kl3 = index_kl + 2*n_tor
-                 kl4 = index_kl + 3*n_tor
-                 kl5 = index_kl + 4*n_tor
-                 kl6 = index_kl + 5*n_tor
+                 kl2 = index_kl + 1*n_tor_local
+                 kl3 = index_kl + 2*n_tor_local
+                 kl4 = index_kl + 3*n_tor_local
+                 kl5 = index_kl + 4*n_tor_local
+                 kl6 = index_kl + 5*n_tor_local
 
                  ELM(ij1,kl1) =  ELM(ij1,kl1) + wst*amat_11
                  ELM(ij1,kl2) =  ELM(ij1,kl2) + wst*amat_12

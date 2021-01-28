@@ -58,9 +58,9 @@ program JOREK2
   use direct_construction_mod
   use centralization_mod
 
+  use mod_chi
 #ifdef SEMIANALYTICAL
   use mod_equations
-  use mod_chi
 #endif
 
 ! these write additional live data (global data) used when an ECCD current is applied)
