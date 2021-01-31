@@ -335,7 +335,7 @@ do ms=1, n_gauss
            rhs_ij_3 = 0.d0 ! eval(thread_eq(tid)%rhs3seq)*BigR*xjac
            rhs_ij_4 = 0.d0 ! eval(thread_eq(tid)%rhs4seq)*BigR*xjac
            rhs_ij_5 = eval(thread_eq(tid)%rhs5seq)*BigR*xjac
-           rhs_ij_6 = 0.d0 ! eval(thread_eq(tid)%rhs6seq)*BigR*xjac
+           rhs_ij_6 = eval(thread_eq(tid)%rhs6seq)*BigR*xjac
 #else
 #include "rhs_unreadable.h"
 
@@ -344,7 +344,7 @@ do ms=1, n_gauss
            rhs_ij_3 = 0.d0 ! rhs_ij_3*BigR*xjac
            rhs_ij_4 = 0.d0 ! rhs_ij_4*BigR*xjac
            rhs_ij_5 = rhs_ij_5*BigR*xjac
-           rhs_ij_6 = 0.d0 ! rhs_ij_6*BigR*xjac
+           rhs_ij_6 = rhs_ij_6*BigR*xjac
 #endif
 
            ij1 = index_ij
@@ -395,7 +395,7 @@ do ms=1, n_gauss
                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
                  amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
                  amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0
-                 amat_16 = 0.d0 ! eval(thread_eq(tid)%amat16seq)*BigR*xjac
+                 amat_16 = eval(thread_eq(tid)%amat16seq)*BigR*xjac
 
 !---------------------------------------------------------------- equation 2
                  amat_21 = eval(thread_eq(tid)%amat21seq)*BigR*xjac/F0
@@ -403,7 +403,7 @@ do ms=1, n_gauss
                  amat_23 = eval(thread_eq(tid)%amat23seq)*BigR*xjac/F0
                  amat_24 = eval(thread_eq(tid)%amat24seq)*BigR*xjac
                  amat_25 = eval(thread_eq(tid)%amat25seq)*BigR*xjac
-                 amat_26 = 0.d0 ! eval(thread_eq(tid)%amat26seq)*BigR*xjac
+                 amat_26 = eval(thread_eq(tid)%amat26seq)*BigR*xjac
 
 !---------------------------------------------------------------- equation 3
                  amat_31 = eval(thread_eq(tid)%amat31seq)*BigR*xjac/F0
@@ -419,24 +419,21 @@ do ms=1, n_gauss
                  amat_55 = eval(thread_eq(tid)%amat55seq)*BigR*xjac
                  
 !---------------------------------------------------------------- equation 6
-                 amat_61 = 0.d0 ! eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
-                 amat_62 = 0.d0 ! eval(thread_eq(tid)%amat62seq)*BigR*xjac
-                 amat_63 = 0.d0 ! eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
-                 amat_65 = 0.d0 ! eval(thread_eq(tid)%amat65seq)*BigR*xjac
+                 amat_61 = eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
+                 amat_62 = eval(thread_eq(tid)%amat62seq)*BigR*xjac
+                 amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
+                 amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
                  amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
 #else
 #include "amat_unreadable.h"
 
-                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0; amat_16 = 0.d0 ! amat_16*BigR*xjac
+                 amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0; amat_16 = amat_16*BigR*xjac
                  amat_21 = amat_21*BigR*xjac/F0; amat_22 = amat_22*BigR*xjac; amat_23 = amat_23*BigR*xjac/F0; amat_24 = amat_24*BigR*xjac
-                 amat_25 = amat_25*BigR*xjac; amat_26 = 0.d0 ! amat_26*BigR*xjac
+                 amat_25 = amat_25*BigR*xjac; amat_26 = amat_26*BigR*xjac
                  amat_31 = amat_31*BigR*xjac/F0; amat_33 = amat_33*BigR*xjac/F0
                  amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
                  amat_51 = amat_51*BigR*xjac/F0; amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
-                 amat_61 = 0.d0 ! amat_61*BigR*xjac/F0
-                 amat_62 = 0.d0 ! amat_62*BigR*xjac
-                 amat_63 = 0.d0 ! amat_63*BigR*xjac/F0
-                 amat_65 = 0.d0 ! amat_65*BigR*xjac
+                 amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_63 = amat_63*BigR*xjac/F0; amat_65 = amat_65*BigR*xjac
                  amat_66 = amat_66*BigR*xjac
 #endif
 
