@@ -4,7 +4,7 @@ module mod_chi
   use phys_module, only: domm, dcoef, F0, R_geo
   implicit none
   
-  integer, parameter :: m_tor = (n_tor - 1)/2
+  integer, parameter :: m_tor = (n_coord_tor - 1)/2
   
   type type_Cfunc
     real*8,  dimension(:), allocatable :: coef, lcoef
