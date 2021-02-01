@@ -17,8 +17,8 @@ module mod_chi
     type(type_Cfunc), dimension(:), allocatable :: rfunc
   end type type_Bfunc
   
-  type(type_Cfunc), dimension(0:l_pol,0:m_tor), private :: CD, CN
-  type(type_Bfunc), dimension(0:n_order-1,0:n_order-1,0:l_pol,0:m_tor), private :: D, N
+  type(type_Cfunc), dimension(0:l_pol_domm,0:m_tor), private :: CD, CN
+  type(type_Bfunc), dimension(0:n_order-1,0:n_order-1,0:l_pol_domm,0:m_tor), private :: D, N
   
   contains
   
@@ -31,7 +31,7 @@ module mod_chi
     ! Construct the C^D_{m,l}(R) and C^N_{m,l}(R) functions
     do i=0,m_tor
       m = i*n_period
-      do l=0,l_pol
+      do l=0,l_pol_domm
         allocate(CD(l,i)%coef(2*(l+1))); allocate(CD(l,i)%lcoef(l+1))
         allocate(CD(l,i)%pwr(2*(l+1)));  allocate(CD(l,i)%lpwr(l+1))
         allocate(CN(l,i)%coef(2*(l+1))); allocate(CN(l,i)%lcoef(l+1))
@@ -56,7 +56,7 @@ module mod_chi
     
     ! Construct the D_{m,l}(R,z) and N_{m,l}(R,z) functions
     do i=0,m_tor
-      do l=0,l_pol
+      do l=0,l_pol_domm
         allocate(D(0,0,l,i)%coef(l/2 + 1));  allocate(N(0,0,l,i)%coef(l/2 + 1))
         allocate(D(0,0,l,i)%zpwr(l/2 + 1));  allocate(N(0,0,l,i)%zpwr(l/2 + 1))
         allocate(D(0,0,l,i)%rfunc(l/2 + 1)); allocate(N(0,0,l,i)%rfunc(l/2 + 1))
@@ -70,7 +70,7 @@ module mod_chi
     
     ! Differentiate D and N with respect to R
     do i=0,m_tor
-      do l=0,l_pol
+      do l=0,l_pol_domm
         do i_ord=1,n_order-1
           D(i_ord,0,l,i) = D(i_ord-1,0,l,i); N(i_ord,0,l,i) = N(i_ord-1,0,l,i)
           do k=0,l/2
@@ -128,7 +128,7 @@ module mod_chi
     
     ! Differentiate D and N with respect to z
     do i=0,m_tor
-      do l=0,l_pol
+      do l=0,l_pol_domm
         do j_ord=1,n_order-1
           do i_ord=0,n_order-1
             D(i_ord,j_ord,l,i) = D(i_ord,j_ord-1,l,i); N(i_ord,j_ord,l,i) = N(i_ord,j_ord-1,l,i)
@@ -231,7 +231,7 @@ module mod_chi
           dksinmp(k_ord) = m**k_ord*(((1+(-1)**k_ord)/2)*sin(m*phi) + ((1-(-1)**k_ord)/2)*cos(m*phi))
           dkcosmp(k_ord) = m**k_ord*(((1+(-1)**k_ord)/2)*cos(m*phi) + ((1-(-1)**k_ord)/2)*sin(m*phi))
         end do
-        do l=0,l_pol
+        do l=0,l_pol_domm
           do j_ord=0,n_order-1
             do i_ord=0,n_order-1
               D_ml = 0.d0; N_ml_1 = 0.d0

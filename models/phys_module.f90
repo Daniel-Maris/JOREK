@@ -622,10 +622,10 @@ module phys_module
   real*8, allocatable :: num_rot_y3(:)   !< Third derivatives of toroidal rotation profile with respect to $\Psi_{N}$
   logical             :: normalized_velocity_profile !< if true, reads the normalized velocity profile as flux function, else Omega_tor is read as flux function. 
   
-  !> @name Coefficients for Dommaschk potentials
+  !> @name Coefficients for Dommaschk potentials; needed for vacuum field representation in stellarator models (see Dommaschk, CPC 40, 203, 1986)
   character(len=512)                               :: domm_file !< Namelist file containing the coefficients for Dommaschk potentials
   logical                                          :: domm      !< automatically set to true if domm_file /= 'none'
-  real*8, dimension(4,0:l_pol,0:(n_coord_tor-1)/2) :: dcoef     !< Array containing the Dommaschk potential coefficients
+  real*8, dimension(4,0:l_pol_domm,0:(n_coord_tor-1)/2) :: dcoef     !< Array containing the Dommaschk potential coefficients
   
   !> @name Global quantities determined in each time step
   real*8, allocatable :: R_axis_t(:), Z_axis_t(:), psi_axis_t(:), R_xpoint_t(:,:), Z_xpoint_t(:,:),           &
