@@ -82,6 +82,12 @@ real*8                :: Fprof
 real*8                :: BR, BR_R, BR_Z, BR_p
 real*8                :: BZ, BZ_R, BZ_Z, BZ_p
 real*8                :: BP, BP_R, BP_Z, BP_p
+real*8                :: BRg, BRg_s, BRg_t, BRg_st, BRg_ss, BRg_tt
+real*8                :: BZg, BZg_s, BZg_t, BZg_st, BZg_ss, BZg_tt
+real*8                :: BPg, BPg_s, BPg_t, BPg_st, BPg_ss, BPg_tt
+real*8                :: JRg, JRg_s, JRg_t, JRg_st, JRg_ss, JRg_tt
+real*8                :: JZg, JZg_s, JZg_t, JZg_st, JZg_ss, JZg_tt
+real*8                :: JPg, JPg_s, JPg_t, JPg_st, JPg_ss, JPg_tt
 real*8                :: JxB_R,   JxB_Z,   JxB_p,   JxB_pol
 real*8                :: GradP_R, GradP_Z, GradP_p, GradP_pol
 real*8                :: psi_axis,      R_axis,      Z_axis,      s_axis,      t_axis
@@ -91,14 +97,14 @@ real*8                :: J_phi, J_R, J_Z, eta_T
 real*8                :: E_phi, E_R, E_Z, dU_x, dU_y, Jpol_R, Jpol_Z, FFp
 real*8                :: xjac, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, Btot, BigR
 real*8                :: particle_source, D_prof, ZK_prof, source_pellet, ZKpar_T
-integer               :: n_fluxes, n_neo, n_bfield, n_vfield,n_pellet,n_bootstrap, n_psi_norm, n_Efield
+integer               :: n_fluxes, n_neo, n_gvec, n_bfield, n_vfield,n_pellet,n_bootstrap, n_psi_norm, n_Efield
 integer               :: n_Jpol
-integer               :: s_fluxes, s_neo, s_bfield, s_vfield,s_pellet,s_bootstrap, s_psi_norm, s_Efield
+integer               :: s_fluxes, s_neo, s_gvec, s_bfield, s_vfield,s_pellet,s_bootstrap, s_psi_norm, s_Efield
 integer               :: s_Jpol
 real*8                :: Jb,rho_norm,t_norm
 integer               :: i_elm_axis, i_elm_xpoint(2), k_tor, ifail, ierr
 logical               :: without_n0_mode, SI_units
-logical               :: include_fluxes, include_neo, include_magnetic_field, include_velocity_field
+logical               :: include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_velocity_field
 logical               :: include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
 real*8                :: toroidal_angle
 
@@ -161,7 +167,7 @@ real*8  :: Rp_start, Zp_start, Rp_end, Zp_end
 real*8  :: Rp, Zp, Rmin, Rmax, Zmin, Zmax, s_out, t_out, R_out, Z_out
 
 namelist /vtk_params/ nsub, i_tor, i_plane, without_n0_mode, SI_units, &
-                      include_fluxes, include_neo, include_magnetic_field, include_velocity_field,&
+                      include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_velocity_field,&
                       include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
 
 
@@ -172,6 +178,7 @@ write(*,*) ' if your VTK is smaller than expected,'
 write(*,*) ' please consider the new parameters:'
 write(*,*) '   -include_fluxes'
 write(*,*) '   -include_neo'
+write(*,*) '   -include_gvec_field    '
 write(*,*) '   -include_magnetic_field'
 write(*,*) '   -include_velocity_field'
 write(*,*) '   -include_electric_field'
@@ -199,6 +206,7 @@ without_n0_mode        = .false. ! If true, do not include the n=0 mode (i_tor=1
 SI_units               = .false. ! when true, write variables in SI units
 include_fluxes         = .false. ! include energy and density fluxes (or not)
 include_neo            = .false. ! include neoclassical and more terms (or not)
+include_gvec_field     = .true.  ! include current and magnetic field from GVEC
 include_magnetic_field = .false. ! include vector of magnetic field (or not)
 include_velocity_field = .false. ! include vector of velocity field (or not)
 include_electric_field = .false. ! include vector of E-field (or not), evaluated at t-dt/2 
@@ -232,6 +240,7 @@ write(*,*) 'without_n0_mode =', without_n0_mode
 write(*,*) 'si_units        =', si_units
 write(*,*) 'include_fluxes  =', include_fluxes
 write(*,*) 'include_neo     =', include_neo
+write(*,*) 'include_gvec_field     =', include_gvec_field
 write(*,*) 'include_magnetic_field =',include_magnetic_field
 write(*,*) 'include_velocity_field =',include_velocity_field
 write(*,*) 'include_electric_field =',include_electric_field
@@ -270,6 +279,11 @@ if (include_neo) then
   n_neo     = 10
   s_neo     = n_scalars
   n_scalars = n_scalars + n_neo
+endif
+if (include_gvec_field) then
+  n_gvec  = 2
+  s_gvec  = n_vectors
+  n_vectors = n_vectors + n_gvec
 endif
 if (include_magnetic_field) then
   n_bfield  = 1
@@ -446,12 +460,19 @@ scalar_names(s_fullmhd+1:s_fullmhd+11) = 'V_par_km/s  '
 endif
 #endif /*fullmhd*/
 
+if (include_gvec_field) then
+  vector_names(s_gvec+1  :s_gvec+1)      = 'B_gvec' 
+  vector_names(s_gvec+2  :s_gvec+n_gvec) = 'J_gvec' 
+endif
 if (include_magnetic_field)  vector_names(s_bfield+1:s_bfield+n_bfield) = 'B_field' 
 if (include_velocity_field)  vector_names(s_vfield+1:s_vfield+n_vfield) = 'v_field'
 if (include_electric_field)  vector_names(s_Efield+1:s_Efield+n_Efield) = 'E_field_tmid'
 
 do k_tor=1, n_tor
   mode(k_tor) = + int(k_tor / 2) * n_period
+enddo
+do k_tor=1, n_coord_tor
+  mode_coord(k_tor) = + int(k_tor / 2) * n_field_period
 enddo
 
 
@@ -493,6 +514,15 @@ if (toroidal_angle .ne. 0.d0) then
   do i=1,(n_tor-1)/2
     HZ(2*i,i_plane)      = cos(mode(2*i)   * toroidal_angle )
     HZ(2*i+1,i_plane)    = sin(mode(2*i+1) * toroidal_angle )
+  enddo
+  
+  do k_tor=1, n_coord_tor
+    mode_coord(k_tor) = + int(k_tor / 2) * n_field_period
+  enddo
+  HZ_coord(1,i_plane)   = 1.d0
+  do i=1,(n_coord_tor-1)/2
+    HZ_coord(2*i,i_plane)      = cos(mode_coord(2*i)   * toroidal_angle )
+    HZ_coord(2*i+1,i_plane)    = sin(mode_coord(2*i+1) * toroidal_angle )
   enddo
 endif
 
@@ -974,8 +1004,7 @@ do i=1,element_list%n_elements
           do m=1,n_var
              call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
              scalars(inode,m) = scalars(inode,m) + P * HZ(i_tor,i_plane)
-          enddo
-          
+          enddo          
           call interp_delta(node_list,element_list,i,1,i_tor,s,t,dpsi,dPs_s, dPs_t, dPs_st, dPs_ss, dPs_tt)
           call interp_delta(node_list,element_list,i,2,i_tor,s,t,dU,dU_s, dU_t, dU_st, dU_ss, dU_tt)         
 
@@ -1068,6 +1097,20 @@ do i=1,element_list%n_elements
           endif ! xjac
 
         enddo  ! end loop toroidal harmonics
+
+        do i_tor=1, n_coord_tor
+          if (include_gvec_field) then
+            call interp(node_list,element_list,i,456,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+            call interp(node_list,element_list,i,457,i_tor,s,t,BZg,BZg_s,BZg_t,BZg_st,BZg_ss,BZg_tt)
+            call interp(node_list,element_list,i,458,i_tor,s,t,Bpg,Bpg_s,Bpg_t,Bpg_st,Bpg_ss,Bpg_tt)
+            vectors(inode,:,s_gvec + 1) =  vectors(inode,:,s_gvec + 1) + (/ BRg, BZg, BPg /) * HZ_coord(i_tor, i_plane)          
+            
+            call interp(node_list,element_list,i,459,i_tor,s,t,JRg,JRg_s,JRg_t,JRg_st,JRg_ss,JRg_tt)
+            call interp(node_list,element_list,i,460,i_tor,s,t,JZg,JZg_s,JZg_t,JZg_st,JZg_ss,JZg_tt)
+            call interp(node_list,element_list,i,461,i_tor,s,t,Jpg,Jpg_s,Jpg_t,Jpg_st,Jpg_ss,Jpg_tt)
+            vectors(inode,:,s_gvec + 2) =  vectors(inode,:,s_gvec + 1) + (/ JRg, JZg, JPg /) * HZ_coord(i_tor, i_plane)         
+          end if
+        enddo
 
         Psi_tot = 0.d0
         do i_tor =1, n_tor

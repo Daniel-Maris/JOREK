@@ -24,7 +24,7 @@ function usage() {
 
 SCRIPTDIR=`dirname $0`; SCRIPTDIR=`readlink -f $SCRIPTDIR`
 make_config_files=`ls config.in Makefile.inc 2>/dev/null`
-params="n_tor n_period n_coord_tor n_coord_period n_field_period n_plane n_vertex_max n_nodes_max n_elements_max n_boundary_max n_pieces_max"
+params="n_tor n_period n_coord_tor n_field_period n_plane n_vertex_max n_nodes_max n_elements_max n_boundary_max n_pieces_max"
 
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
   usage && exit

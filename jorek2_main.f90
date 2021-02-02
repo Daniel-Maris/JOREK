@@ -595,8 +595,7 @@ required = 0
   !***********************************************************************
   !*                  define grid / equilibrium                          *
   !***********************************************************************
-  
-  if_not_restart: if (.not. restart) then
+  if_not_restart: if ((.not. restart) .and. (.not. gvec_grid_import)) then
     call tr_resetfile()
     element_list%n_elements      = 0
     bnd_elm_list%n_bnd_elements  = 0
@@ -809,30 +808,29 @@ required = 0
   call broadcast_boundary(my_id, bnd_elm_list, bnd_node_list)
   
   ! --- Fill the vacuum response matrices for freeboundary computations
-  if ( freeboundary ) then
-    call get_vacuum_response(my_id, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,    &
-      resistive_wall)
-    call update_response(my_id,tstep, freeboundary_equil, resistive_wall)
-    call import_external_fields('coil_field.dat', my_id)
-    call set_coil_curr_time_trace()
-    call read_Z_axis_profile() 
-    if ( (.not. restart) .or. (.not. wall_curr_initialized) ) call init_wall_currents(my_id, resistive_wall)
-  end if
+!  if ( freeboundary ) then
+!    call get_vacuum_response(my_id, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,    &
+!      resistive_wall)
+!    call update_response(my_id,tstep, freeboundary_equil, resistive_wall)
+!    call import_external_fields('coil_field.dat', my_id)
+!    call set_coil_curr_time_trace()
+!    if ( (.not. restart) .or. (.not. wall_curr_initialized) ) call init_wall_currents(my_id, resistive_wall)
+!  end if
   
   call tr_print_memsize("AfterEquilibrium")
 
-  if (RMP_on) then
-     if (my_id == 0) then
-        call read_RMP_profiles(bnd_node_list)
-     endif
-
-  endif
+!  if (RMP_on) then
+!     if (my_id == 0) then
+!        call read_RMP_profiles(bnd_node_list)
+!     endif
+!
+!  endif
   
   ! --- Broadcast grid information and input parameters to other MPI procs
   call broadcast_elements(my_id, element_list)                ! elements
-  if (RMP_on) then
-     call broadcast_RMP_profiles(my_id, bnd_node_list)        ! psi_RMP profiles
-  endif
+!  if (RMP_on) then
+!     call broadcast_RMP_profiles(my_id, bnd_node_list)        ! psi_RMP profiles
+!  endif
 
   call broadcast_nodes(my_id, node_list)                      ! nodes
 
@@ -840,12 +838,7 @@ required = 0
   call populate_element_rtree(node_list, element_list)
 
   call broadcast_phys(my_id)                                  ! physics parameters
-
-  ! --- Broadcast equil_state: This is needed because find_axis depends on the axis
-  ! --- from the previous time-step, which is only read by my_id=0 from the restart file
-  call broadcast_equil_state(my_id)                           ! equil_state
-
-  if ( freeboundary ) call broadcast_vacuum(my_id, resistive_wall)
+!  if ( freeboundary ) call broadcast_vacuum(my_id, resistive_wall)
   n_AA = 0  
   do inode = 1, node_list%n_nodes  
     n_AA = max(n_AA,node_list%node(inode)%index(4))  
