@@ -248,11 +248,11 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   integer            :: ind, ierr
 
   ! type_node, node_list%n_nodes
-  real(RKIND), allocatable :: t_x(:,:,:,:)                      ! n_coord_tor, n_order+1, n_dim
+  real(RKIND), allocatable :: t_x(:,:,:,:)                 ! n_coord_tor, n_order+1, n_dim
   real(RKIND), allocatable :: t_values(:,:,:,:)            !       n_tor, n_order+1, n_var
   real(RKIND), allocatable :: t_deltas(:,:,:,:)            !       n_tor, n_order+1, n_var
-  real(RKIND), allocatable :: t_j_field(:,:,:,:)            ! n_coord_tor, n_order+1, n_dim
-  real(RKIND), allocatable :: t_b_field(:,:,:,:)          ! n_coord_tor, n_order+1, n_dim
+  real(RKIND), allocatable :: t_j_field(:,:,:,:)           ! n_coord_tor, n_order+1, n_dim
+  real(RKIND), allocatable :: t_b_field(:,:,:,:)           ! n_coord_tor, n_order+1, n_dim
 
   real(RKIND), allocatable :: t_psi_eq(:,:)                ! n_order+1
   real(RKIND), allocatable :: t_Fprof_eq(:,:)              ! n_order+1
@@ -371,9 +371,9 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   !
   do i=1,node_list%n_nodes
      t_x(i,:,:,:)        = node_list%node(i)%x
-     t_values(i,:,:,:) = node_list%node(i)%values
-     t_deltas(i,:,:,:) = node_list%node(i)%deltas
-     t_j_field(i,:,:,:) = node_list%node(i)%j_field
+     t_values(i,:,:,:)   = node_list%node(i)%values
+     t_deltas(i,:,:,:)   = node_list%node(i)%deltas
+     t_j_field(i,:,:,:)  = node_list%node(i)%j_field
      t_b_field(i,:,:,:)  = node_list%node(i)%b_field
 
 #ifdef fullmhd
