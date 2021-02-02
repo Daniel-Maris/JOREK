@@ -25,7 +25,7 @@ call initialise_basis()
 
 ierr = 0
 write(*,*) "Reading GVEC import"
-call import_gvec(node_list, element_list, 'gvec2jorek.dat', ierr)
+call read_gvec_import(node_list, element_list, 'gvec2jorek.dat', .true., ierr)
 write(*,*) "Start GVEC comparison"
 call compare_gvec_data_points(node_list, element_list, 'gvec2jorek_testdata.dat', ierr)
 
@@ -42,12 +42,11 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   type(type_node_list),    intent(in)  :: node_list
   type(type_element_list), intent(in)  :: element_list
   
-  real*8, allocatable    :: s(:, :, :), theta(:, :, :), phi(:, :, :)          ! Arrays for GVEC test data
-  real*8, allocatable    :: R(:, :, :), R_s(:,:,:), R_t(:,:,:), R_st(:,:,:)
-  real*8, allocatable    :: Z(:, :, :), Z_s(:,:,:), Z_t(:,:,:), Z_st(:,:,:)
-  real*8, allocatable    :: Chi(:, :, :), Chi_s(:,:,:), Chi_t(:,:,:), Chi_st(:,:,:)
-  real*8, allocatable    :: B_R(:, :, :), B_Z(:,:,:), B_phi(:,:,:)
-  real*8, allocatable    :: J_R(:, :, :), J_Z(:,:,:), J_phi(:,:,:)
+  real*8, allocatable    :: s(:,:,:), theta(:,:,:), phi(:,:,:)            ! Arrays for GVEC test data
+  real*8, allocatable    :: R(:,:,:,:), R_s(:,:,:,:), R_t(:,:,:,:), R_st(:,:,:,:)
+  real*8, allocatable    :: Z(:,:,:,:), Z_s(:,:,:,:), Z_t(:,:,:,:), Z_st(:,:,:,:)
+  real*8, allocatable    :: B_R(:,:,:,:), B_Z(:,:,:,:), B_phi(:,:,:,:)
+  real*8, allocatable    :: J_R(:,:,:,:), J_Z(:,:,:,:), J_phi(:,:,:,:)
   character(*), intent(in)              :: file_name                          ! Test file name
   integer, intent(inout)                :: ierr                               ! IO error status
   integer          :: n_rad, n_theta, n_phi                    ! Number of radial, poloidal and toroidal points in GVEC test data
@@ -59,23 +58,26 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   integer          :: idx, i_rad, i_theta, i_phi, i_rad_loc, i_theta_loc, i_elm                ! Generic, radial, poloidal, toroidal, and element indices
   real*8           :: s_loc, theta_loc, phi_loc, dtheta, ds                                    ! Local s, t, phi coordinate and element ds, dt
   real*8           :: s_factor, t_factor, st_factor                                            ! Factors converting derivative units from global to local elements
-  real*8           :: R_error, Z_error, Psi_error, R_error_max, Z_error_max, Psi_error_max, B_R_error_max, B_Z_error_max   ! Errors in coordinates between JOREK and GVEC
-  real*8           :: R_error_sum, Z_error_sum, Psi_error_sum, B_R_error_sum, B_Z_error_sum                               
-  real*8           :: R_s_error, Z_s_error, Psi_s_error, R_s_error_max, Z_s_error_max, Psi_s_error_max, R_s_error_sum, Z_s_error_sum, Psi_s_error_sum                              
-  real*8           :: R_t_error, Z_t_error, Psi_t_error, R_t_error_max, Z_t_error_max, Psi_t_error_max, R_t_error_sum, Z_t_error_sum, Psi_t_error_sum                              
-  real*8           :: R_st_error, Z_st_error, Psi_st_error, R_st_error_max, Z_st_error_max, Psi_st_error_max, R_st_error_sum, Z_st_error_sum, Psi_st_error_sum                            
-  real*8           :: Ri, Ri_s, Ri_t, Ri_p, Ri_st, Ri_ss, Ri_tt, Ri_sp, Ri_tp, Ri_pp   ! Interpolated values for R, Z and derivatives
-  real*8           :: Zi, Zi_s, Zi_t, Zi_p, Zi_st, Zi_ss, Zi_tt, Zi_sp, Zi_tp, Zi_pp
-  real*8           :: Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt
-  real*8           :: Psi_tot, Psi_tot_s, Psi_tot_t, Psi_tot_st, Psi_tot_ss, Psi_tot_tt
-  real*8           :: B_R_tot, B_Z_tot
-  integer          :: i_harm
-  real*8  :: HZ_coord(n_tor)
+  real*8           :: R_error, Z_error, R_error_max, Z_error_max, B_R_error_max, B_Z_error_max ! Errors in coordinates between JOREK and GVEC
+  real*8           :: R_error_sum, Z_error_sum, B_R_error_sum, B_Z_error_sum                               
+  real*8           :: R_s_error, Z_s_error, R_s_error_max, Z_s_error_max, R_s_error_sum, Z_s_error_sum                              
+  real*8           :: R_t_error, Z_t_error, R_t_error_max, Z_t_error_max, R_t_error_sum, Z_t_error_sum                             
+  real*8           :: R_st_error, Z_st_error, R_st_error_max, Z_st_error_max, R_st_error_sum, Z_st_error_sum
 
-  integer          :: n_skip=0
-  real*8           :: abs_tol=1.d-5
-  integer          :: in_gvec=11
-  integer          :: gvec_preamble_lines=63
+  real*8           :: Ri, Ri_s, Ri_t, Ri_p, Ri_st, Ri_ss, Ri_tt, Ri_sp, Ri_tp, Ri_pp           ! Interpolated values for R, Z and derivatives
+  real*8           :: Zi, Zi_s, Zi_t, Zi_p, Zi_st, Zi_ss, Zi_tt, Zi_sp, Zi_tp, Zi_pp
+  real*8           :: dumm_var, dumm_var_s, dumm_var_t, dumm_var_st, dumm_var_ss, dumm_var_tt
+  real*8           :: B_R_loc, B_R_s, B_R_t, B_R_st, B_Z_loc, B_Z_s, B_Z_t, B_Z_st, B_phi_loc, B_phi_s, B_phi_t, B_phi_st
+  real*8           :: J_R_loc, J_R_s, J_R_t, J_R_st, J_Z_loc, J_Z_s, J_Z_t, J_Z_st, J_phi_loc, J_phi_s, J_phi_t, J_phi_st
+  
+  integer          :: i_harm
+  real*8           :: HZ_coord(n_coord_tor)                      ! Local grid toroidal basis functions
+
+  integer          :: i_var=1, i_s=2, i_t=3, i_st=4              ! Indexes for 4D test data
+  integer          :: n_skip=0                                   ! Number of skipped test data points
+  real*8           :: abs_tol=1.d-5                              ! Tolerance for accepting test data points
+  integer          :: in_gvec=11                                 ! IO handle for gvec input
+  integer          :: gvec_preamble_lines=124                    ! Number of preamble lines in gvec import
 
   ! Read test data parameters parameters
   open(in_gvec, file=trim(file_name), status='old', iostat=ierr, form='formatted', access='sequential')
@@ -97,92 +99,65 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   endif
 
   ! Chack JOREK is compiled correctly from equilibrium
-  if (n_tor .ne. n_modes) then
-    write(*,*) "Number of modes in JOREK and GVEC do not match! (n_tor, n_modes):" , n_tor, n_modes
+  if (n_coord_tor .ne. n_modes) then
+    write(*,*) "Number of modes in JOREK and GVEC do not match! (n_coord_tor, n_modes):" , n_coord_tor, n_modes
   endif
 
   ! Read 3D data
   call tr_allocate(s, 1, n_theta, 1, n_phi, 1, n_rad,   "s", CAT_GRID)
   call tr_allocate(theta, 1, n_theta, 1, n_phi, 1, n_rad,"theta", CAT_GRID)
   call tr_allocate(phi, 1, n_theta, 1, n_phi, 1, n_rad, "phi", CAT_GRID)
-  call tr_allocate(R, 1, n_theta, 1, n_phi, 1, n_rad,   "R", CAT_GRID)
-  call tr_allocate(R_s, 1, n_theta, 1, n_phi, 1, n_rad, "R_s", CAT_GRID)
-  call tr_allocate(R_t, 1, n_theta, 1, n_phi, 1, n_rad, "R_t", CAT_GRID)
-  call tr_allocate(R_st, 1, n_theta, 1, n_phi, 1, n_rad,"R_st", CAT_GRID)
-  call tr_allocate(Z, 1, n_theta, 1, n_phi, 1, n_rad,   "Z", CAT_GRID)
-  call tr_allocate(Z_s, 1, n_theta, 1, n_phi, 1, n_rad, "Z_s", CAT_GRID)
-  call tr_allocate(Z_t, 1, n_theta, 1, n_phi, 1, n_rad, "Z_t", CAT_GRID)
-  call tr_allocate(Z_st, 1, n_theta, 1, n_phi, 1, n_rad,"Z_st", CAT_GRID)
-  call tr_allocate(Chi, 1, n_theta, 1, n_phi, 1, n_rad,   "Chi", CAT_GRID)
-  call tr_allocate(Chi_s, 1, n_theta, 1, n_phi, 1, n_rad, "Chi_s", CAT_GRID)
-  call tr_allocate(Chi_t, 1, n_theta, 1, n_phi, 1, n_rad, "Chi_t", CAT_GRID)
-  call tr_allocate(Chi_st, 1, n_theta, 1, n_phi, 1, n_rad,"Chi_st", CAT_GRID)
-  call tr_allocate(B_R, 1, n_theta, 1, n_phi, 1, n_rad, "B_R", CAT_GRID)
-  call tr_allocate(B_Z, 1, n_theta, 1, n_phi, 1, n_rad, "B_Z", CAT_GRID)
-  call tr_allocate(B_phi, 1, n_theta, 1, n_phi, 1, n_rad, "B_phi", CAT_GRID)
-  call tr_allocate(J_R, 1, n_theta, 1, n_phi, 1, n_rad, "J_R", CAT_GRID)
-  call tr_allocate(J_Z, 1, n_theta, 1, n_phi, 1, n_rad, "J_Z", CAT_GRID)
-  call tr_allocate(J_phi, 1, n_theta, 1, n_phi, 1, n_rad, "J_phi", CAT_GRID)
+  call tr_allocate(R, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad,   "R", CAT_GRID)
+  call tr_allocate(Z, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad,   "Z", CAT_GRID)
+  call tr_allocate(B_R, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "B_R", CAT_GRID)
+  call tr_allocate(B_Z, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "B_Z", CAT_GRID)
+  call tr_allocate(B_phi, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "B_phi", CAT_GRID)
+  call tr_allocate(J_R, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "J_R", CAT_GRID)
+  call tr_allocate(J_Z, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "J_Z", CAT_GRID)
+  call tr_allocate(J_phi, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "J_phi", CAT_GRID)
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') s
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') theta
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') phi
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') R
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') R_s
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') R_t
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') R_st
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Z
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Z_s
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Z_t
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Z_st
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi   ! Skip poloidal flux
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi   ! Skip vector potential
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi   
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi   
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
-  read(in_gvec, '(A)')
-
-
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R  
-  read(in_gvec, '(A)')
-  read(in_gvec,'(*(6(e23.15,:,1X),/))') B_Z
+  do idx=1,4                                                  ! R, Z
+    read(in_gvec, '(A)')
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') R(idx,:,:,:)
+  enddo
+  do idx=1,4
+    read(in_gvec, '(A)')
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') Z(idx,:,:,:)
+  enddo
+  do idx=1,12
+    read(in_gvec, '(A)')                                    ! Skip vector potential
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R(idx,:,:,:)
+  enddo
+  do idx=1,4                                                  ! Magnetic field components
+    read(in_gvec, '(A)')
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R(idx,:,:,:)  
+  enddo
+  do idx=1,4
+    read(in_gvec, '(A)')
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') B_Z(idx,:,:,:)   
+  enddo
+  do idx=1,4
+    read(in_gvec, '(A)')
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') B_phi(idx,:,:,:) 
+  enddo
+  do idx=1,4
+    read(in_gvec, '(A)')                                    ! Current density Components
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') J_R(idx,:,:,:)   
+  enddo
+  do idx=1,4
+    read(in_gvec, '(A)')
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') J_Z(idx,:,:,:)
+  enddo
+  do idx=1,4
+    read(in_gvec, '(A)')
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') J_phi(idx,:,:,:)   
+  enddo
+  
   close(in_gvec)
   
   ! Get n_rad, n_phi and n_theta used in import
@@ -211,15 +186,14 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   write(in_gvec, '(12X,*(I6,:,1X))')  coord_type, num_periods, asym, m_max, n_max, n_modes, sin_range(:), cos_range(:)
 
   ! Loop through points and compare Ri, Zi to the value from GVEC
+  write(*,*) "Running tests"
   dtheta = 1.0 / float(n_theta_jorek)
   ds = 1.0 / float(n_rad_jorek-1)
   R_error_sum = 0.0;   R_s_error_sum=0.0;   R_t_error_sum=0.0;   R_st_error_sum=0.0
   Z_error_sum = 0.0;   Z_s_error_sum=0.0;   Z_t_error_sum=0.0;   Z_st_error_sum=0.0
-  Psi_error_sum = 0.0; Psi_s_error_sum=0.0; Psi_t_error_sum=0.0; Psi_st_error_sum=0.0
   B_R_error_sum = 0.0; B_Z_error_sum=0.0;
   R_error_max = 0.0;   R_s_error_max=0.0;   R_t_error_max=0.0;   R_st_error_max=0.0
   Z_error_max = 0.0;   Z_s_error_max=0.0;   Z_t_error_max=0.0;   Z_st_error_max=0.0
-  Psi_error_max = 0.0; Psi_s_error_max=0.0; Psi_t_error_max=0.0; Psi_st_error_max=0.0
   B_R_error_max = 0.0; B_Z_error_max = 0.0;
   s_factor = n_rad_jorek-1                            ! WARNING: this only works for a uniform grid
   t_factor = (n_theta_jorek) / (2 * PI)
@@ -267,89 +241,68 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
           HZ_coord(2*i_harm)      = cos(mode_coord(2*i_harm)  *phi_loc)
           HZ_coord(2*i_harm+1)    = sin(mode_coord(2*i_harm+1)*phi_loc)
         enddo
-        Psi_tot = 0.0; Psi_tot_s = 0.0; Psi_tot_t = 0.0; Psi_tot_st = 0.0
-        do i_harm=1, n_tor
-          call interp(node_list, element_list, i_elm, 1, i_harm, s_loc, theta_loc, Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt)      
-          Psi_tot = Psi_tot+Psi*HZ_coord(i_harm); Psi_tot_s = Psi_tot_s+Psi_s*HZ_coord(i_harm); Psi_tot_t = Psi_tot_t+Psi_t*HZ_coord(i_harm); Psi_tot_st = Psi_tot_st+Psi_st*HZ_coord(i_harm)
-        enddo
-        B_R_tot = 0.0; B_Z_tot = 0.0;
-        do i_harm=1, n_tor
-          call interp(node_list, element_list, i_elm, 457, i_harm, s_loc, theta_loc, Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt)      
-          B_R_tot = B_R_tot+Psi*HZ_coord(i_harm);
-          call interp(node_list, element_list, i_elm, 458, i_harm, s_loc, theta_loc, Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt)      
-          B_Z_tot = B_Z_tot+Psi*HZ_coord(i_harm);
+        B_R_loc = 0.0; B_Z_loc = 0.0;
+        do i_harm=1, n_coord_tor
+          call interp(node_list, element_list, i_elm, 457, i_harm, s_loc, theta_loc, dumm_var, dumm_var_s, dumm_var_t, dumm_var_st, dumm_var_ss, dumm_var_tt)      
+          B_R_loc = B_R_loc+dumm_var*HZ_coord(i_harm);
+          call interp(node_list, element_list, i_elm, 458, i_harm, s_loc, theta_loc, dumm_var, dumm_var_s, dumm_var_t, dumm_var_st, dumm_var_ss, dumm_var_tt)      
+          B_Z_loc = B_Z_loc+dumm_var*HZ_coord(i_harm);
         enddo
 
         ! Calculate errors
-        R_error_sum    = R_error_sum        + abs(Ri - R(i_theta,i_phi,i_rad))
-        Z_error_sum    = Z_error_sum        + abs(Zi - Z(i_theta,i_phi,i_rad))
-        Psi_error_sum  = Psi_error_sum      + abs(Psi_tot - Chi(i_theta,i_phi,i_rad))
-        R_s_error_sum  = R_s_error_sum      + abs(Ri_s * s_factor - R_s(i_theta,i_phi,i_rad))
-        Z_s_error_sum  = Z_s_error_sum      + abs(Zi_s * s_factor - Z_s(i_theta,i_phi,i_rad))
-        Psi_s_error_sum = Psi_s_error_sum   + abs(Psi_tot_s * s_factor - Chi_s(i_theta,i_phi,i_rad))
-        R_t_error_sum  = R_t_error_sum      + abs(Ri_t * t_factor - R_t(i_theta,i_phi,i_rad))
-        Z_t_error_sum  = Z_t_error_sum      + abs(Zi_t * t_factor - Z_t(i_theta,i_phi,i_rad))
-        Psi_t_error_sum  = Psi_t_error_sum  + abs(Psi_tot_t * t_factor - Chi_t(i_theta,i_phi,i_rad))
-        R_st_error_sum = R_st_error_sum     + abs(Ri_st * st_factor - R_st(i_theta,i_phi,i_rad))
-        Z_st_error_sum = Z_st_error_sum     + abs(Zi_st * st_factor - Z_st(i_theta,i_phi,i_rad))
-        Psi_st_error_sum = Psi_st_error_sum + abs(Psi_tot_st * st_factor - Chi_st(i_theta,i_phi,i_rad))
-        B_R_error_sum    = B_R_error_sum    + abs(B_R_tot - B_R(i_theta,i_phi,i_rad))
-        B_Z_error_sum    = B_Z_error_sum    + abs(B_Z_tot - B_Z(i_theta,i_phi,i_rad))
+        R_error_sum    = R_error_sum        + abs(Ri - R(i_var,i_theta,i_phi,i_rad))
+        Z_error_sum    = Z_error_sum        + abs(Zi - Z(i_var,i_theta,i_phi,i_rad))
+        R_s_error_sum  = R_s_error_sum      + abs(Ri_s * s_factor - R(i_s,i_theta,i_phi,i_rad))
+        Z_s_error_sum  = Z_s_error_sum      + abs(Zi_s * s_factor - Z(i_s,i_theta,i_phi,i_rad))
+        R_t_error_sum  = R_t_error_sum      + abs(Ri_t * t_factor - R(i_t,i_theta,i_phi,i_rad))
+        Z_t_error_sum  = Z_t_error_sum      + abs(Zi_t * t_factor - Z(i_t,i_theta,i_phi,i_rad))
+        R_st_error_sum = R_st_error_sum     + abs(Ri_st * st_factor - R(i_st,i_theta,i_phi,i_rad))
+        Z_st_error_sum = Z_st_error_sum     + abs(Zi_st * st_factor - Z(i_st,i_theta,i_phi,i_rad))
+        B_R_error_sum    = B_R_error_sum    + abs(B_R_loc - B_R(i_var, i_theta,i_phi,i_rad))
+        B_Z_error_sum    = B_Z_error_sum    + abs(B_Z_loc - B_Z(i_var, i_theta,i_phi,i_rad))
         
-        R_error_max       = max(R_error_max,        abs(Ri-R(i_theta,i_phi,i_rad)))  
-        R_s_error_max     = max(R_s_error_max,      abs(Ri_s * s_factor-R_s(i_theta,i_phi,i_rad)))  
-        R_t_error_max     = max(R_t_error_max,      abs(Ri_t * t_factor-R_t(i_theta,i_phi,i_rad))) 
-        R_st_error_max    = max(R_st_error_max,     abs(Ri_st * st_factor-R_st(i_theta,i_phi,i_rad)))  
-        Z_error_max       = max(Z_error_max,        abs(Zi-Z(i_theta,i_phi,i_rad)))
-        Z_s_error_max     = max(Z_s_error_max,      abs(Zi_s * s_factor-Z_s(i_theta,i_phi,i_rad)))  
-        Z_t_error_max     = max(Z_t_error_max,      abs(Zi_t * t_factor-Z_t(i_theta,i_phi,i_rad))) 
-        Z_st_error_max    = max(Z_st_error_max,     abs(Zi_st * st_factor-Z_st(i_theta,i_phi,i_rad)))  
-        Psi_error_max     = max(Psi_error_max,      abs(Psi_tot-Chi(i_theta,i_phi,i_rad)))
-        Psi_s_error_max   = max(Psi_s_error_max,    abs(Psi_tot_s * s_factor-Chi_s(i_theta,i_phi,i_rad)))  
-        Psi_t_error_max   = max(Psi_t_error_max,    abs(Psi_tot_t * t_factor-Chi_t(i_theta,i_phi,i_rad))) 
-        Psi_st_error_max  = max(Psi_st_error_max,   abs(Psi_tot_st * st_factor-Chi_st(i_theta,i_phi,i_rad)))  
-        B_R_error_max     = max(B_R_error_max,      abs(B_R_tot-B_R(i_theta,i_phi,i_rad)))  
-        B_Z_error_max     = max(B_Z_error_max,      abs(B_Z_tot-B_Z(i_theta,i_phi,i_rad)))  
+        R_error_max       = max(R_error_max,        abs(Ri-R(i_var,i_theta,i_phi,i_rad)))  
+        R_s_error_max     = max(R_s_error_max,      abs(Ri_s * s_factor-R(i_s,i_theta,i_phi,i_rad)))  
+        R_t_error_max     = max(R_t_error_max,      abs(Ri_t * t_factor-R(i_t,i_theta,i_phi,i_rad))) 
+        R_st_error_max    = max(R_st_error_max,     abs(Ri_st * st_factor-R(i_st,i_theta,i_phi,i_rad)))  
+        Z_error_max       = max(Z_error_max,        abs(Zi-Z(i_var,i_theta,i_phi,i_rad)))
+        Z_s_error_max     = max(Z_s_error_max,      abs(Zi_s * s_factor-Z(i_s,i_theta,i_phi,i_rad)))  
+        Z_t_error_max     = max(Z_t_error_max,      abs(Zi_t * t_factor-Z(i_t,i_theta,i_phi,i_rad))) 
+        Z_st_error_max    = max(Z_st_error_max,     abs(Zi_st * st_factor-Z(i_st,i_theta,i_phi,i_rad)))  
+        B_R_error_max     = max(B_R_error_max,      abs(B_R_loc-B_R(i_var,i_theta,i_phi,i_rad)))  
+        B_Z_error_max     = max(B_Z_error_max,      abs(B_Z_loc-B_Z(i_var,i_theta,i_phi,i_rad)))  
 
         ! Use data arrays for storing debug output 
-        R(i_theta, i_phi, i_rad)      = abs(Ri-R(i_theta,i_phi,i_rad))  
-        R_s(i_theta, i_phi, i_rad)    = abs(Ri_s * s_factor-R_s(i_theta,i_phi,i_rad))  
-        R_t(i_theta, i_phi, i_rad)    = abs(Ri_t * t_factor-R_t(i_theta,i_phi,i_rad)) 
-        R_st(i_theta, i_phi, i_rad)   = abs(Ri_st * st_factor-R_st(i_theta,i_phi,i_rad))  
-        Z(i_theta, i_phi, i_rad)      = abs(Zi-Z(i_theta,i_phi,i_rad))
-        Z_s(i_theta, i_phi, i_rad)    = abs(Zi_s * s_factor-Z_s(i_theta,i_phi,i_rad))  
-        Z_t(i_theta, i_phi, i_rad)    = abs(Zi_t * t_factor-Z_t(i_theta,i_phi,i_rad)) 
-        Z_st(i_theta, i_phi, i_rad)   = abs(Zi_st * st_factor-Z_st(i_theta,i_phi,i_rad))  
-        Chi(i_theta, i_phi, i_rad)    = abs(Psi_tot-Chi(i_theta,i_phi,i_rad))
-        Chi_s(i_theta, i_phi, i_rad)  = abs(Psi_tot_s * s_factor-Chi_s(i_theta,i_phi,i_rad))  
-        Chi_t(i_theta, i_phi, i_rad)  = abs(Psi_tot_t * t_factor-Chi_t(i_theta,i_phi,i_rad)) 
-        Chi_st(i_theta, i_phi, i_rad) = abs(Psi_tot_st * st_factor-Chi_st(i_theta,i_phi,i_rad))
+        R(i_var, i_theta, i_phi, i_rad)      = abs(Ri-R(i_var,i_theta,i_phi,i_rad))  
+        R(i_s,   i_theta, i_phi, i_rad)    = abs(Ri_s * s_factor-R(i_s,i_theta,i_phi,i_rad))  
+        R(i_t,   i_theta, i_phi, i_rad)    = abs(Ri_t * t_factor-R(i_t,i_theta,i_phi,i_rad)) 
+        R(i_st,  i_theta, i_phi, i_rad)   = abs(Ri_st * st_factor-R(i_st,i_theta,i_phi,i_rad))  
+        Z(i_var, i_theta, i_phi, i_rad)      = abs(Zi-Z(i_var,i_theta,i_phi,i_rad))
+        Z(i_s,   i_theta, i_phi, i_rad)    = abs(Zi_s * s_factor-Z(i_s,i_theta,i_phi,i_rad))  
+        Z(i_t,   i_theta, i_phi, i_rad)    = abs(Zi_t * t_factor-Z(i_t,i_theta,i_phi,i_rad)) 
+        Z(i_st,  i_theta, i_phi, i_rad)   = abs(Zi_st * st_factor-Z(i_st,i_theta,i_phi,i_rad))  
       enddo
     enddo
   enddo
+  write(*,*) "Running tests"
   R_error_sum      = R_error_sum      / abs(float(n_rad * n_phi * n_theta) - n_skip)
   Z_error_sum      = Z_error_sum      / abs(float(n_rad * n_phi * n_theta) - n_skip)
-  Psi_error_sum    = Psi_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
   R_s_error_sum    = R_s_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
   Z_s_error_sum    = Z_s_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
-  Psi_s_error_sum  = Psi_s_error_sum  / abs(float(n_rad * n_phi * n_theta) - n_skip)
   R_t_error_sum    = R_t_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
   Z_t_error_sum    = Z_t_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
-  Psi_t_error_sum  = Psi_t_error_sum  / abs(float(n_rad * n_phi * n_theta) - n_skip)
   R_st_error_sum   = R_st_error_sum   / abs(float(n_rad * n_phi * n_theta) - n_skip)
   Z_st_error_sum   = Z_st_error_sum   / abs(float(n_rad * n_phi * n_theta) - n_skip)
-  Psi_st_error_sum = Psi_st_error_sum / abs(float(n_rad * n_phi * n_theta) - n_skip)
-  B_R_error_sum     = B_R_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
-  B_Z_error_sum     = B_Z_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
-  write(*,*) "Errors R, Z, Psi          "
-  write(*,*) "Errors R_s, Z_s, Psi_s    "
-  write(*,*) "Errors R_t, Z_t, Psi_t    "
-  write(*,*) "Errors R_st, Z_st, Psi_st "
-  write(*,'(*(6(e23.15,:,1X),/))')  R_error_sum, Z_error_sum, Psi_error_sum, R_error_max, Z_error_max, Psi_error_max
-  write(*,'(*(6(e23.15,:,1X),/))')  R_s_error_sum, Z_s_error_sum, Psi_s_error_sum, R_s_error_max, Z_s_error_max, Psi_s_error_max
-  write(*,'(*(6(e23.15,:,1X),/))')  R_t_error_sum, Z_t_error_sum, Psi_t_error_sum, R_t_error_max, Z_t_error_max, Psi_t_error_max
-  write(*,'(*(6(e23.15,:,1X),/))')  R_st_error_sum, Z_st_error_sum, Psi_st_error_sum, R_st_error_max, Z_st_error_max, Psi_st_error_max
-  write(*,'(*(6(e23.15,:,1X),/))')  B_R_error_sum, B_Z_error_sum, 0.0, B_R_error_max, B_Z_error_max, 0.0
+  B_R_error_sum    = B_R_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
+  B_Z_error_sum    = B_Z_error_sum    / abs(float(n_rad * n_phi * n_theta) - n_skip)
+  write(*,*) "Errors R, Z, B_R, B_Z, B_phi, J_R, J_Z, J_phi          "
+  write(*,*) "Errors R_s, Z_s, B_R_s, B_Z_s, B_phi_s, J_R_s, J_Z_s, J_phi_s    "
+  write(*,*) "Errors R_t, Z_t, B_R_t, B_Z_t, B_phi_t, J_R_t, J_Z_t, J_phi_t    "
+  write(*,*) "Errors R_st, Z_st, B_R_st, B_Z_st, B_phi_st, J_R_st, J_Z_st, J_phi_st "
+  write(*,'(*(6(e23.15,:,1X),/))')  R_error_sum, Z_error_sum, R_error_max, Z_error_max
+  write(*,'(*(6(e23.15,:,1X),/))')  R_s_error_sum, Z_s_error_sum, R_s_error_max, Z_s_error_max
+  write(*,'(*(6(e23.15,:,1X),/))')  R_t_error_sum, Z_t_error_sum, R_t_error_max, Z_t_error_max
+  write(*,'(*(6(e23.15,:,1X),/))')  R_st_error_sum, Z_st_error_sum, R_st_error_max, Z_st_error_max
   
   ! Write out interpolated values for debugging against original data
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X1(R)"'
@@ -368,14 +321,6 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   write(in_gvec,'(*(6(e23.15,:,1X),/))') Z_t
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X2_st(Z)"'
   write(in_gvec,'(*(6(e23.15,:,1X),/))') Z_st
-  write(in_gvec, '(A)') '##<< 3D Scalar Variable: "A_phi"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Chi
-  write(in_gvec, '(A)') '##<< 3D Scalar Variable: "A_phi_s"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_s
-  write(in_gvec, '(A)') '##<< 3D Scalar Variable: "A_phi_t"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_t
-  write(in_gvec, '(A)') '##<< 3D Scalar Variable: "A_phi_st"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Chi_st
   close(in_gvec)
 
   ! Clean up
@@ -390,11 +335,11 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   call tr_deallocate(Z_s, "Z_s", CAT_GRID)
   call tr_deallocate(Z_t, "Z_t", CAT_GRID)
   call tr_deallocate(Z_st,"Z_st", CAT_GRID)
-  call tr_deallocate(Chi,   "Chi", CAT_GRID)
-  call tr_deallocate(Chi_s, "Chi_s", CAT_GRID)
-  call tr_deallocate(Chi_t, "Chi_t", CAT_GRID)
-  call tr_deallocate(Chi_st,"Chi_st", CAT_GRID)
   call tr_deallocate(B_R,   "B_R", CAT_GRID)
   call tr_deallocate(B_Z,   "B_Z", CAT_GRID)
+  call tr_deallocate(B_phi, "B_phi", CAT_GRID)
+  call tr_deallocate(J_R,   "J_R", CAT_GRID)
+  call tr_deallocate(J_Z,   "J_Z", CAT_GRID)
+  call tr_deallocate(J_phi, "J_phi", CAT_GRID)
 end subroutine 
   

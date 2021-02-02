@@ -11,11 +11,14 @@ subroutine import_gvec(node_list, element_list, file_name, ierr)
   type(type_element_list), intent(inout)  :: element_list
   character*(*),           intent(in)     :: file_name       ! gvec import file name
   integer,                 intent(inout)  :: ierr            ! Error status
-  call read_gvec_import(node_list, element_list, file_name, ierr)
+  
+  logical                                 :: is_test = .false.
+
+  call read_gvec_import(node_list, element_list, file_name, is_test, ierr)
 end subroutine import_gvec
 
 ! Read data from GVEC import file into arrays of fourier harmonics for each degree of freedom
-subroutine read_gvec_import(node_list, element_list, file_name, ierr)
+subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   use tr_module
   use data_structure
   use phys_module
@@ -23,6 +26,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   type(type_node_list),    intent(inout)  :: node_list
   type(type_element_list), intent(inout)  :: element_list
   character*(*),           intent(in)     :: file_name       ! gvec import file name
+  logical,                 intent(in)     :: is_test         ! true if routine is called for testing
   integer,                 intent(inout)  :: ierr            ! error status
   
   ! --- Local variables ---
@@ -55,7 +59,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   real*8           :: JR_average, JZ_average, Jphi_average
 
   integer          :: in_gvec=11                          ! Input stream from gvec
-  integer          :: gvec_preamble_lines=63              ! Number of lines in gvec preamble
+  integer          :: gvec_preamble_lines=124             ! Number of lines in gvec preamble
   integer          :: iostatus=0                          ! Error flag for reading vacuum field
 
   ! Read equilibrium parameters
@@ -69,7 +73,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   enddo
   read(in_gvec, *) n_rad, n_theta, n_phi
   write(*, *)  "n_rad    n_theta    n_phi: ", n_rad, n_theta, n_phi
-  if ((n_theta .ne. n_tht) .or. (n_rad .ne. n_flux)) then
+  if ((.not. is_test) .and. ((n_theta .ne. n_tht) .or. (n_rad .ne. n_flux))) then
     write(*, *) "Number of radial and poloidal points does not match values in input file: ", n_rad, n_flux, n_theta, n_tht
     stop
   endif
@@ -82,8 +86,8 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   endif
 
   ! Check JOREK is compiled correctly from equilibrium
-  if (n_tor .ne. n_modes) then
-    write(*,*) "Number of modes in JOREK and GVEC do not match! (n_tor, n_modes):" , n_tor, n_modes
+  if (n_coord_tor .ne. n_modes) then
+    write(*,*) "Number of modes in JOREK and GVEC do not match! (n_coord_tor, n_modes):" , n_coord_tor, n_modes
   endif
 
   ! Read fourier representation
@@ -96,30 +100,30 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   call tr_allocate(Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,        "Z_four_s", CAT_GRID)
   call tr_allocate(Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,        "Z_four_t", CAT_GRID)
   call tr_allocate(Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,       "Z_four_st", CAT_GRID)
-  call tr_allocate(B_R_four, 1, n_theta, 1, n_rad, 1, n_modes,        "B_R_vac_four", CAT_GRID)
-  call tr_allocate(B_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_vac_four_s", CAT_GRID)
-  call tr_allocate(B_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_vac_four_t", CAT_GRID)
-  call tr_allocate(B_R_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "B_R_vac_four_st", CAT_GRID)
-  call tr_allocate(B_Z_four, 1, n_theta, 1, n_rad, 1, n_modes,        "B_Z_vac_four", CAT_GRID)
-  call tr_allocate(B_Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "B_Z_vac_four_s", CAT_GRID)
-  call tr_allocate(B_Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "B_Z_vac_four_t", CAT_GRID)
-  call tr_allocate(B_Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "B_Z_vac_four_st", CAT_GRID)
-  call tr_allocate(B_phi_four, 1, n_theta, 1, n_rad, 1, n_modes,      "B_phi_vac_four", CAT_GRID)
-  call tr_allocate(B_phi_four_s, 1, n_theta, 1, n_rad, 1, n_modes,    "B_phi_vac_four_s", CAT_GRID)
-  call tr_allocate(B_phi_four_t, 1, n_theta, 1, n_rad, 1, n_modes,    "B_phi_vac_four_t", CAT_GRID)
-  call tr_allocate(B_phi_four_st, 1, n_theta, 1, n_rad, 1, n_modes,   "B_phi_vac_four_st", CAT_GRID)
-  call tr_allocate(J_R_four, 1, n_theta, 1, n_rad, 1, n_modes,        "J_R_vac_four", CAT_GRID)
-  call tr_allocate(J_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "J_R_vac_four_s", CAT_GRID)
-  call tr_allocate(J_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "J_R_vac_four_t", CAT_GRID)
-  call tr_allocate(J_R_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "J_R_vac_four_st", CAT_GRID)
-  call tr_allocate(J_Z_four, 1, n_theta, 1, n_rad, 1, n_modes,        "J_Z_vac_four", CAT_GRID)
-  call tr_allocate(J_Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "J_Z_vac_four_s", CAT_GRID)
-  call tr_allocate(J_Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "J_Z_vac_four_t", CAT_GRID)
-  call tr_allocate(J_Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "J_Z_vac_four_st", CAT_GRID)
-  call tr_allocate(J_phi_four, 1, n_theta, 1, n_rad, 1, n_modes,      "J_phi_vac_four", CAT_GRID)
-  call tr_allocate(J_phi_four_s, 1, n_theta, 1, n_rad, 1, n_modes,    "J_phi_vac_four_s", CAT_GRID)
-  call tr_allocate(J_phi_four_t, 1, n_theta, 1, n_rad, 1, n_modes,    "J_phi_vac_four_t", CAT_GRID)
-  call tr_allocate(J_phi_four_st, 1, n_theta, 1, n_rad, 1, n_modes,   "J_phi_vac_four_st", CAT_GRID)
+  call tr_allocate(B_R_four, 1, n_theta, 1, n_rad, 1, n_modes,        "B_R_four", CAT_GRID)
+  call tr_allocate(B_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_four_s", CAT_GRID)
+  call tr_allocate(B_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_four_t", CAT_GRID)
+  call tr_allocate(B_R_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "B_R_four_st", CAT_GRID)
+  call tr_allocate(B_Z_four, 1, n_theta, 1, n_rad, 1, n_modes,        "B_Z_four", CAT_GRID)
+  call tr_allocate(B_Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "B_Z_four_s", CAT_GRID)
+  call tr_allocate(B_Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "B_Z_four_t", CAT_GRID)
+  call tr_allocate(B_Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "B_Z_four_st", CAT_GRID)
+  call tr_allocate(B_phi_four, 1, n_theta, 1, n_rad, 1, n_modes,      "B_phi_four", CAT_GRID)
+  call tr_allocate(B_phi_four_s, 1, n_theta, 1, n_rad, 1, n_modes,    "B_phi_four_s", CAT_GRID)
+  call tr_allocate(B_phi_four_t, 1, n_theta, 1, n_rad, 1, n_modes,    "B_phi_four_t", CAT_GRID)
+  call tr_allocate(B_phi_four_st, 1, n_theta, 1, n_rad, 1, n_modes,   "B_phi_four_st", CAT_GRID)
+  call tr_allocate(J_R_four, 1, n_theta, 1, n_rad, 1, n_modes,        "J_R_four", CAT_GRID)
+  call tr_allocate(J_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "J_R_four_s", CAT_GRID)
+  call tr_allocate(J_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "J_R_four_t", CAT_GRID)
+  call tr_allocate(J_R_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "J_R_four_st", CAT_GRID)
+  call tr_allocate(J_Z_four, 1, n_theta, 1, n_rad, 1, n_modes,        "J_Z_four", CAT_GRID)
+  call tr_allocate(J_Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "J_Z_four_s", CAT_GRID)
+  call tr_allocate(J_Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "J_Z_four_t", CAT_GRID)
+  call tr_allocate(J_Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,     "J_Z_four_st", CAT_GRID)
+  call tr_allocate(J_phi_four, 1, n_theta, 1, n_rad, 1, n_modes,      "J_phi_four", CAT_GRID)
+  call tr_allocate(J_phi_four_s, 1, n_theta, 1, n_rad, 1, n_modes,    "J_phi_four_s", CAT_GRID)
+  call tr_allocate(J_phi_four_t, 1, n_theta, 1, n_rad, 1, n_modes,    "J_phi_four_t", CAT_GRID)
+  call tr_allocate(J_phi_four_st, 1, n_theta, 1, n_rad, 1, n_modes,   "J_phi_four_st", CAT_GRID)
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') R_four
   read(in_gvec, '(A)')
@@ -388,7 +392,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, ierr)
   enddo
 
   ! Smooth axis points - GVEC axis points are shifted from s=0 for numerical stability. The points need to be averaged onto s=0
-  do idx=1, n_tor
+  do idx=1, n_coord_tor
     R_average=0.0; Z_average=0.0; BR_average=0.0; BZ_average=0.0
     do i_node=1, n_tht
       R_average     = R_average   + node_list%node(i_node)%x(idx, 1, 1)
