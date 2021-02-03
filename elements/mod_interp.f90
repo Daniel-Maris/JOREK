@@ -668,7 +668,7 @@ subroutine interp_RZP_0(node_list,element_list,i_elm,s,t,phi,R,Z)
   do kv = 1,n_vertex_max  ! 4 vertices
     iv = element_list%element(i_elm)%vertex(kv)  ! the node number
     do kf = 1, n_order+1       ! 4 basis functions
-      do i_tor=1, n_tor
+      do i_tor=1, n_coord_tor
         xx1 = node_list%node(iv)%x(i_tor,kf,1)
         xx2 = node_list%node(iv)%x(i_tor,kf,2)
         ss  = element_list%element(i_elm)%size(kv,kf)

@@ -45,8 +45,8 @@ character             :: buffer*80, lf*1, str1*12, str2*12
 character*12, allocatable :: scalar_names(:), vector_names(:)
 real*8                :: s, t
 real*8                :: P,P_s,P_t,P_st,P_ss,P_tt
-real*8                :: R,R_s,R_t,R_st,R_ss,R_tt
-real*8                :: Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
+real*8                :: R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp
+real*8                :: Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp
 real*8                :: Ps0, Ps0_s, Ps0_t, Ps0_st, Ps0_ss, Ps0_tt, Psi, Ps_s, Ps_t, Ps_st, Ps_ss, Ps_tt
 real*8                :: ZJ0, ZJ0_s, ZJ0_t, ZJ0_st, ZJ0_ss, ZJ0_tt, ZJ,  ZJ_s, ZJ_t, ZJ_st, ZJ_ss, ZJ_tt
 real*8                :: U0,  U0_s,  U0_t,  U0_st,  U0_ss,  U0_tt,  U,   U_s,  U_t,  U_st,  U_ss,  U_tt
@@ -505,7 +505,7 @@ if (bootstrap) then
 endif
 
 ! --- You may choose to print your poloidal snapshot at a different toroidal angle
-toroidal_angle = 0.d0 ! 2*PI / 6
+toroidal_angle = (i_plane - 1) * 2 * PI / n_plane / n_period ! 2*PI / 6
 if (toroidal_angle .ne. 0.d0) then
   do k_tor=1, n_tor
     mode(k_tor) = + int(k_tor / 2) * n_period
@@ -538,7 +538,8 @@ do i=1,element_list%n_elements
 
       t = float(k-1)/float(nsub-1)
 
-      call interp_RZ(node_list,element_list,i,s,t,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
+      call interp_RZP(node_list,element_list,i,s,t,toroidal_angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
+                      Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
 
       xjac  = R_s * Z_t - R_t * Z_s
 

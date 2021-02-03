@@ -19,7 +19,7 @@ subroutine det_modes()
   end do
  
  do itor=1,n_coord_tor
-    mode_coord(itor)     = int(itor / 2) * n_field_period
+    mode_coord(itor)     = -int(itor / 2) * n_field_period
   
     if ( (itor==1) .or. (mod(itor,2)==0) ) then
       mode_coord_type(itor) = 'cos'
