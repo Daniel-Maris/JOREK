@@ -97,9 +97,9 @@ real*8                :: J_phi, J_R, J_Z, eta_T
 real*8                :: E_phi, E_R, E_Z, dU_x, dU_y, Jpol_R, Jpol_Z, FFp
 real*8                :: xjac, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, Btot, BigR
 real*8                :: particle_source, D_prof, ZK_prof, source_pellet, ZKpar_T
-integer               :: n_fluxes, n_neo, n_gvec, n_bfield, n_vfield,n_pellet,n_bootstrap, n_psi_norm, n_Efield
+integer               :: n_fluxes, n_neo, n_gvec_scal, n_gvec_vec, n_bfield, n_vfield,n_pellet,n_bootstrap, n_psi_norm, n_Efield
 integer               :: n_Jpol
-integer               :: s_fluxes, s_neo, s_gvec, s_bfield, s_vfield,s_pellet,s_bootstrap, s_psi_norm, s_Efield
+integer               :: s_fluxes, s_neo, s_gvec_scal, s_gvec_vec, s_bfield, s_vfield,s_pellet,s_bootstrap, s_psi_norm, s_Efield
 integer               :: s_Jpol
 real*8                :: Jb,rho_norm,t_norm
 integer               :: i_elm_axis, i_elm_xpoint(2), k_tor, ifail, ierr
@@ -281,9 +281,12 @@ if (include_neo) then
   n_scalars = n_scalars + n_neo
 endif
 if (include_gvec_field) then
-  n_gvec  = 2
-  s_gvec  = n_vectors
-  n_vectors = n_vectors + n_gvec
+  n_gvec_scal = 1
+  s_gvec_scal = n_scalars
+  n_scalars = n_scalars + n_gvec_scal
+  n_gvec_vec  = 2
+  s_gvec_vec  = n_vectors
+  n_vectors = n_vectors + n_gvec_vec
 endif
 if (include_magnetic_field) then
   n_bfield  = 1
@@ -461,8 +464,9 @@ endif
 #endif /*fullmhd*/
 
 if (include_gvec_field) then
-  vector_names(s_gvec+1  :s_gvec+1)      = 'B_gvec' 
-  vector_names(s_gvec+2  :s_gvec+n_gvec) = 'J_gvec' 
+  scalar_names(s_gvec_scal+1:s_gvec_scal+n_gvec_scal) =          (/ 'Pressure    '/)
+  vector_names(s_gvec_vec+1  :s_gvec_vec+1)      = 'B_gvec' 
+  vector_names(s_gvec_vec+2  :s_gvec_vec+n_gvec_vec) = 'J_gvec' 
 endif
 if (include_magnetic_field)  vector_names(s_bfield+1:s_bfield+n_bfield) = 'B_field' 
 if (include_velocity_field)  vector_names(s_vfield+1:s_vfield+n_vfield) = 'v_field'
@@ -1096,22 +1100,23 @@ do i=1,element_list%n_elements
             E_phi = E_phi - dpsi/tstep * HZ(i_tor,i_plane)/BigR - F0*(U-0.5d0*dU)*HZ_p(i_tor,i_plane)/BigR 
 
           endif ! xjac
-
         enddo  ! end loop toroidal harmonics
 
-        do i_tor=1, n_coord_tor
-          if (include_gvec_field) then
+        if (include_gvec_field) then
+          call interp(node_list,element_list,i,462,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+          scalars(inode,s_gvec_scal+1) = BRg
+          do i_tor=1, n_coord_tor
             call interp(node_list,element_list,i,456,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
             call interp(node_list,element_list,i,457,i_tor,s,t,BZg,BZg_s,BZg_t,BZg_st,BZg_ss,BZg_tt)
             call interp(node_list,element_list,i,458,i_tor,s,t,Bpg,Bpg_s,Bpg_t,Bpg_st,Bpg_ss,Bpg_tt)
-            vectors(inode,:,s_gvec + 1) =  vectors(inode,:,s_gvec + 1) + (/ BRg, BZg, BPg /) * HZ_coord(i_tor, i_plane)          
+            vectors(inode,:,s_gvec_vec + 1) =  vectors(inode,:,s_gvec_vec + 1) + (/ BRg, BZg, BPg /) * HZ_coord(i_tor, i_plane)          
             
             call interp(node_list,element_list,i,459,i_tor,s,t,JRg,JRg_s,JRg_t,JRg_st,JRg_ss,JRg_tt)
             call interp(node_list,element_list,i,460,i_tor,s,t,JZg,JZg_s,JZg_t,JZg_st,JZg_ss,JZg_tt)
             call interp(node_list,element_list,i,461,i_tor,s,t,Jpg,Jpg_s,Jpg_t,Jpg_st,Jpg_ss,Jpg_tt)
-            vectors(inode,:,s_gvec + 2) =  vectors(inode,:,s_gvec + 1) + (/ JRg, JZg, JPg /) * HZ_coord(i_tor, i_plane)         
-          end if
-        enddo
+            vectors(inode,:,s_gvec_vec + 2) =  vectors(inode,:,s_gvec_vec + 1) + (/ JRg, JZg, JPg /) * HZ_coord(i_tor, i_plane)         
+          enddo
+        end if
 
         Psi_tot = 0.d0
         do i_tor =1, n_tor

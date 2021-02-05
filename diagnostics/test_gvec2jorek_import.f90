@@ -43,8 +43,9 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   type(type_element_list), intent(in)  :: element_list
   
   real*8, allocatable    :: s(:,:,:), theta(:,:,:), phi(:,:,:)            ! Arrays for GVEC test data
-  real*8, allocatable    :: R(:,:,:,:), R_s(:,:,:,:), R_t(:,:,:,:), R_st(:,:,:,:)
-  real*8, allocatable    :: Z(:,:,:,:), Z_s(:,:,:,:), Z_t(:,:,:,:), Z_st(:,:,:,:)
+  real*8, allocatable    :: R(:,:,:,:)
+  real*8, allocatable    :: Z(:,:,:,:)
+  real*8, allocatable    :: P(:,:,:,:)
   real*8, allocatable    :: B_R(:,:,:,:), B_Z(:,:,:,:), B_phi(:,:,:,:)
   real*8, allocatable    :: J_R(:,:,:,:), J_Z(:,:,:,:), J_phi(:,:,:,:)
   character(*), intent(in)              :: file_name                          ! Test file name
@@ -109,6 +110,7 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   call tr_allocate(phi, 1, n_theta, 1, n_phi, 1, n_rad, "phi", CAT_GRID)
   call tr_allocate(R, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad,   "R", CAT_GRID)
   call tr_allocate(Z, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad,   "Z", CAT_GRID)
+  call tr_allocate(P, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad,   "P", CAT_GRID)
   call tr_allocate(B_R, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "B_R", CAT_GRID)
   call tr_allocate(B_Z, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "B_Z", CAT_GRID)
   call tr_allocate(B_phi, 1, 4, 1, n_theta, 1, n_phi, 1, n_rad, "B_phi", CAT_GRID)
@@ -129,6 +131,11 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
     read(in_gvec, '(A)')
     read(in_gvec,'(*(6(e23.15,:,1X),/))') Z(idx,:,:,:)
   enddo
+  do idx=1,2
+    read(in_gvec, '(A)')                                    ! Read Pressure and dPds
+    read(in_gvec,'(*(6(e23.15,:,1X),/))') P(idx,:,:,:)
+  enddo
+  P(3:4,:,:,:)=0                                            ! Set poloidal derivatives to zero
   do idx=1,12
     read(in_gvec, '(A)')                                    ! Skip vector potential
     read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R(idx,:,:,:)

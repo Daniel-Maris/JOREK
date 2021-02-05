@@ -37,6 +37,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   integer          :: sin_range(2), cos_range(2)       ! Indices in fourier representation for sinusoidal and cosinusoidal modes
   real, allocatable        :: R_four(:, :, :), R_four_s(:, :, :), R_four_t(:, :, :), R_four_st(:, :, :)                 ! Arrays for node positions in fourier representation (i_theta, i_rad, i_four) 
   real, allocatable        :: Z_four(:, :, :), Z_four_s(:, :, :), Z_four_t(:, :, :), Z_four_st(:, :, :)                 ! Arrays for node Z positions in fourier representation (i_theta, i_rad, i_four)
+  real, allocatable        :: P_four(:, :, :), P_four_s(:, :, :), P_four_t(:, :, :), P_four_st(:, :, :)                 ! Arrays for node scalar pressure positions in fourier representation (i_theta, i_rad, i_four)
   real, allocatable        :: B_R_four(:, :, :), B_R_four_s(:, :, :), B_R_four_t(:, :, :), B_R_four_st(:, :, :)         ! Arrays for node B_R in fourier representation (i_theta, i_rad, i_four)
   real, allocatable        :: B_Z_four(:, :, :), B_Z_four_s(:, :, :), B_Z_four_t(:, :, :), B_Z_four_st(:, :, :)         ! Arrays for node B_Z in fourier representation (i_theta, i_rad, i_four)
   real, allocatable        :: B_phi_four(:, :, :), B_phi_four_s(:, :, :), B_phi_four_t(:, :, :), B_phi_four_st(:, :, :) ! Arrays for node B_phi in fourier representation (i_theta, i_rad, i_four)
@@ -100,6 +101,10 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   call tr_allocate(Z_four_s, 1, n_theta, 1, n_rad, 1, n_modes,        "Z_four_s", CAT_GRID)
   call tr_allocate(Z_four_t, 1, n_theta, 1, n_rad, 1, n_modes,        "Z_four_t", CAT_GRID)
   call tr_allocate(Z_four_st, 1, n_theta, 1, n_rad, 1, n_modes,       "Z_four_st", CAT_GRID)
+  call tr_allocate(P_four, 1, n_theta, 1, n_rad, 1, n_modes,          "P_four", CAT_GRID)
+  call tr_allocate(P_four_s, 1, n_theta, 1, n_rad, 1, n_modes,        "P_four_s", CAT_GRID)
+  call tr_allocate(P_four_t, 1, n_theta, 1, n_rad, 1, n_modes,        "P_four_t", CAT_GRID)
+  call tr_allocate(P_four_st, 1, n_theta, 1, n_rad, 1, n_modes,       "P_four_st", CAT_GRID)
   call tr_allocate(B_R_four, 1, n_theta, 1, n_rad, 1, n_modes,        "B_R_four", CAT_GRID)
   call tr_allocate(B_R_four_s, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_four_s", CAT_GRID)
   call tr_allocate(B_R_four_t, 1, n_theta, 1, n_rad, 1, n_modes,      "B_R_four_t", CAT_GRID)
@@ -141,6 +146,16 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') Z_four_st
 
+  ! Pressure profile - really only n=0 component is needed
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') P_four
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') P_four_s
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') P_four_t
+  read(in_gvec, '(A)')
+  read(in_gvec,'(*(6(e23.15,:,1X),/))') P_four_st
+  
   ! A_phi profile - currently not read in
   read(in_gvec, '(A)')
   read(in_gvec,'(*(6(e23.15,:,1X),/))') B_R_four
@@ -276,6 +291,12 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
     do i_theta=1,n_theta
       i_node = n_node_start + n_theta*(i_rad-1) + i_theta
       
+      ! Read in pressure
+      node_list%node(i_node)%pressure(1) = P_four(i_theta, i_rad, n_max+1)  ! n_max => i_tor=1
+      node_list%node(i_node)%pressure(2) = P_four_s(i_theta, i_rad, n_max+1) * s_factor * 1.0 / 3.0
+      node_list%node(i_node)%pressure(3) = P_four_t(i_theta, i_rad, n_max+1) * theta_factor * 1.0 / 3.0
+      node_list%node(i_node)%pressure(4) = P_four_st(i_theta, i_rad, n_max+1) * s_factor * theta_factor * 1.0 / 9.0
+
       do idx=1, n_modes
         call get_gvec_mode_idx(idx, n_max, sin_range, cos_range, itor)
 

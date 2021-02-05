@@ -416,6 +416,14 @@ do kv = 1,n_vertex_max  ! 4 vertices
       P_st = P_st + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
       P_ss = P_ss + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
       P_tt = P_tt + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
+    else if (i_var == 462) then                
+      !if (i_harm .ne. 1) write(*,*) "Interpolating n!=0 harmonics of an axisymmetric profile!"; stop
+      P    = P    + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
+      P_s  = P_s  + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
+      P_t  = P_t  + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
+      P_st = P_st + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
+      P_ss = P_ss + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
+      P_tt = P_tt + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
     else    
       P    = P    + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
       P_s  = P_s  + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
