@@ -78,10 +78,10 @@ program JOREK2
 #endif
   use mpi_mod
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
   use mod_neutral_source
 #endif
-#if (JOREK_MODEL == 501)
+#ifdef WITH_Impurities
   use mod_injection_source
 #endif
 
@@ -267,7 +267,7 @@ required = 0
     gmres     = .false. 
   end if
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501)
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
   ! --- Read ADAS data and generate coronal equilibrium if needed
   call init_imp_adas(my_id)
 #endif
@@ -429,7 +429,7 @@ required = 0
     write(*,*) '  Consider testing, whether you get better performance by increasing the number'
     write(*,*) '  of MPI tasks and reducing the number of OpenMP threads in the jobscript.'
   end if
-  if ((jorek_model==199) .or. (jorek_model==303)) then
+  if (with_etaOhm) then
     if (abs(eta-eta_ohmic)/(eta+eta_ohmic+1.d-12) > 1.d-6) then
       write(*,*) 'WARNING: The resistivity eta and the resistivity used for Ohmic heating '
       write(*,*) '  eta_ohm are not the same. No problem if you know what you are doing,  ' 
@@ -541,7 +541,7 @@ required = 0
     if ( ierr /= 0 ) stop
 
     ! for variable time step Gears method
-    if ( index_now==1) then
+    if ( index_now <= 1 ) then
       tstep_prev = tstep
     else
       tstep_prev = xtime(index_start) - xtime(index_start-1)
@@ -580,10 +580,10 @@ required = 0
                                sig1, xr2, sig2, refinement)
       end if
       if ( freeboundary .and. freeb_change_indices ) call exchange_indices_for_vacuum(node_list, my_id, n_cpu)
+      
     end if
     
   end if !   if ( restart .and. (my_id == 0) ) then
-
 
   ! This is necessary for the parallel vacuum version during the code restart 
   if(restart) then
@@ -670,6 +670,9 @@ required = 0
       call plot_grid(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'initial')
     end if
     
+    ! --- Check sanity of grid
+    call check_grid(my_id, node_list, element_list)
+
 #ifdef USE_MUMPS
     ! --- Initialize MUMPS solver (used for equilibrium)
     call MPI_COMM_GROUP(MPI_COMM_WORLD,MPI_GROUP_WORLD,ierr)
@@ -745,6 +748,9 @@ required = 0
         call export_boundary(node_list, bnd_elm_list, bnd_node_list)
 
       endif ! if (my_id == 0) then        
+
+      ! --- Check sanity of grid
+      call check_grid(my_id, node_list, element_list)
 
       call broadcast_boundary(my_id,bnd_elm_list,bnd_node_list) 
       if ( freeb_equil2) then
@@ -1042,7 +1048,7 @@ required = 0
     
     tstep = tstep_n(jstep)
     ! start from t=0 
-    if ( index_now == 1 ) tstep_prev = tstep
+    if ( index_now <= 1 ) tstep_prev = tstep
     
     if ( freeboundary ) call update_response(my_id,tstep, freeboundary_equil, resistive_wall)
 
@@ -1220,13 +1226,13 @@ required = 0
 
       endif
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
       call total_neutrals(my_id,node_list,element_list)
       if (using_spi .and. t_now >= t_ns) then
         call update_spi(my_id,node_list,element_list)
       end if
 #endif
-#if (JOREK_MODEL == 501 || JOREK_MODEL == 502)
+#ifdef WITH_Impurities
       if (using_spi .and. t_now >= t_ns) then
         call update_spi(my_id,node_list,element_list)
       end if
@@ -1579,7 +1585,7 @@ required = 0
 
     	  call density(    xpoint,xcase, Zp, ES%Z_xpoint, psi,ES%psi_axis,ES%psi_bnd,	       &
     	     zn,dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2,dn_dpsi2_dz)
-    	  if ( (jorek_model .eq. 400) .or. (jorek_model .eq. 401) .or. (jorek_model .eq. 711) ) then	     
+    	  if (with_TiTe) then	     
     	    call temperature_i(xpoint,xcase, Zp, ES%Z_xpoint, psi,ES%psi_axis,ES%psi_bnd, &
     	      zTi,dTi_dpsi,dTi_dz,dTi_dpsi2,dTi_dz2,dTi_dpsi_dz,dTi_dpsi3,dTi_dpsi_dz2,dTi_dpsi2_dz)			   
     	    call temperature_e(xpoint,xcase, Zp, ES%Z_xpoint, psi,ES%psi_axis,ES%psi_bnd, &
