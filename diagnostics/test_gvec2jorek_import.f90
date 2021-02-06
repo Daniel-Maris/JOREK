@@ -313,21 +313,21 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
   
   ! Write out interpolated values for debugging against original data
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X1(R)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') R
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') R(i_var,:,:,:)
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X1_s(R)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') R_s
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') R(i_s,:,:,:)
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X1_t(R)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') R_t
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') R(i_t,:,:,:)
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X1_st(R)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') R_st
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') R(i_st,:,:,:)
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X2(Z)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z(i_var,:,:,:)
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X2_s(Z)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z_s
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z(i_s,:,:,:)
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X2_t(Z)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z_t
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z(i_t,:,:,:)
   write(in_gvec, '(A)') '##<< 3D Scalar Variable: "X2_st(Z)"'
-  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z_st
+  write(in_gvec,'(*(6(e23.15,:,1X),/))') Z(i_st,:,:,:)
   close(in_gvec)
 
   ! Clean up
