@@ -78,7 +78,7 @@ do ife =1,  element_list%n_elements
               eq_t(k,ms,mt)  = eq_t(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)
             enddo
         
-	          if (in .eq. 1) then
+            if (in .eq. 1) then
               density_eq(ms,mt) = abs(eq_g(5,ms,mt))
             endif
 

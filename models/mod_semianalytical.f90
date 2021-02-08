@@ -45,54 +45,54 @@ module mod_semianalytical
 
   ! Operators for making algebraic expressions
   interface operator (+)
-    procedure addexpr
-    procedure addexprn
-    procedure addnexpr
-    procedure addexprc
-    procedure addcexpr
-    procedure addcc
-    procedure addcn
-    procedure addnc
+    procedure addexpr  ! algexpr + algexpr
+    procedure addexprn ! algexpr + real
+    procedure addnexpr ! real + algexpr
+    procedure addexprc ! algexpr + const
+    procedure addcexpr ! const + algexpr
+    procedure addcc    ! const + const
+    procedure addcn    ! const + real
+    procedure addnc    ! real + const
   end interface operator (+)
   
   interface operator (-)
-    procedure subexpr
-    procedure subexprn
-    procedure subnexpr
-    procedure subexprc
-    procedure subcexpr
-    procedure subcc
-    procedure subcn
-    procedure subnc
-    procedure negate
-    procedure negatec
+    procedure subexpr  ! algexpr - algexpr
+    procedure subexprn ! algexpr - real
+    procedure subnexpr ! real - algexpr
+    procedure subexprc ! algexpr - const
+    procedure subcexpr ! const - algexpr
+    procedure subcc    ! const - const
+    procedure subcn    ! const - real
+    procedure subnc    ! real - const
+    procedure negate   ! -algexpr
+    procedure negatec  ! -const
   end interface operator (-)
   
   interface operator (*)
-    procedure multexpr
-    procedure multexprn
-    procedure multnexpr
-    procedure multexprc
-    procedure multcexpr
-    procedure multcc
-    procedure multcn
-    procedure multnc
+    procedure multexpr  ! algexpr*algexpr
+    procedure multexprn ! algexpr*real
+    procedure multnexpr ! real*algexpr
+    procedure multexprc ! algexpr*const
+    procedure multcexpr ! const*algexpr
+    procedure multcc    ! const*const
+    procedure multcn    ! const*real
+    procedure multnc    ! real*const
   end interface operator (*)
   
   interface operator (/)
-    procedure divexpr
-    procedure divexprn
-    procedure divnexpr
-    procedure divexprc
-    procedure divcexpr
-    procedure divcc
-    procedure divcn
-    procedure divnc
+    procedure divexpr  ! algexpr/algexpr
+    procedure divexprn ! algexpr/real
+    procedure divnexpr ! real/algexpr
+    procedure divexprc ! algexpr/const
+    procedure divcexpr ! const/algexpr
+    procedure divcc    ! const/const
+    procedure divcn    ! const/real
+    procedure divnc    ! real/const
   end interface operator (/)
   
   interface operator (**)
-    procedure powexprn
-    procedure powcn
+    procedure powexprn ! algexpr**real
+    procedure powcn    ! const**real
   end interface operator (**)
   
 #ifdef DEBUG

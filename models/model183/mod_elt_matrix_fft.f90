@@ -18,6 +18,7 @@ use phys_module
 use tr_module
 use diffusivities, only: get_dperp, get_zkperp
 use corr_neg
+use mod_elt_matrix
 
 implicit none
  
@@ -26,8 +27,10 @@ type (type_node)      :: nodes(n_vertex_max)
 
 #define DIM0 n_tor*n_vertex_max*(n_order+1)*n_var
 
-real*8, dimension (DIM0,DIM0)  :: ELM
-real*8, dimension (DIM0) :: RHS
+!real*8, dimension (DIM0,DIM0)       :: ELM
+!real*8, dimension (DIM0)            :: RHS
+real*8, dimension(:,:), allocatable :: ELM
+real*8, dimension(:),   allocatable :: RHS
 integer                , intent(in) :: tid
 integer                , intent(in) :: i_tor_min, i_tor_max
 
@@ -87,6 +90,9 @@ real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_g, eq_s, eq_t
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_p
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_ss, eq_st, eq_tt
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: delta_g, delta_s, delta_t
+
+! FFT version not implemented yet
+call element_matrix(element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, i_tor_min, i_tor_max)
 
 return
 end subroutine element_matrix_fft

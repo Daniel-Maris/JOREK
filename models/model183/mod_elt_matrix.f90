@@ -34,9 +34,8 @@ integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6
 real*8     :: wst,  xjac, xjac_x, xjac_y, xjac_s, xjac_t, BigR, r2, phi
 real*8     :: current_source(n_gauss,n_gauss),particle_source(n_gauss,n_gauss),heat_source(n_gauss,n_gauss)
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2), dj_dpsi, dj_dz
-real*8     :: psi_norm, reta
+real*8     :: psi_norm, reta, zeta, theta
 real*8     :: rhs_ij_1, rhs_ij_2, rhs_ij_3, rhs_ij_4, rhs_ij_5, rhs_ij_6
-real*8     :: delta_u_x, delta_u_y
 
 real*8     :: amat_11, amat_12, amat_13, amat_16, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_33, amat_31
 real*8     :: amat_41, amat_42, amat_43, amat_44, amat_51, amat_52, amat_55, amat_61, amat_62, amat_63, amat_65, amat_66
@@ -81,6 +80,11 @@ eq => thread_eq(tid)%eq
 
 ELM = 0.d0
 RHS = 0.d0
+
+! --- Take time evolution parameters from phys_module
+theta = time_evol_theta
+! change zeta for variable dt
+zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
 #ifdef altcs
@@ -176,6 +180,11 @@ else
   reta = 0.d0
 end if
 
+! changes deltas for variable time steps
+delta_g = delta_g * tstep / tstep_prev
+delta_s = delta_s * tstep / tstep_prev
+delta_t = delta_t * tstep / tstep_prev
+
 !--------------------------------------------------- sum over the Gaussian integration points
 do ms=1, n_gauss
 
@@ -203,7 +212,7 @@ do ms=1, n_gauss
    do mp = 1, n_plane
      phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
 
-     ! delta_u^n
+     ! Values at current time step (u^n)
      eq(1:n_var,0,0,0) = eq_g(mp,:,ms,mt)
      eq(1:n_var,1,0,0) = (y_t(ms,mt)*eq_s(mp,:,ms,mt) - y_s(ms,mt)*eq_t(mp,:,ms,mt))/xjac
      eq(1:n_var,0,1,0) = (-x_t(ms,mt)*eq_s(mp,:,ms,mt) + x_s(ms,mt)*eq_t(mp,:,ms,mt))/xjac
@@ -225,15 +234,14 @@ do ms=1, n_gauss
      eq(1:n_var,1,0,1) = (y_t(ms,mt)*eq_sp(mp,:,ms,mt) - y_s(ms,mt)*eq_tp(mp,:,ms,mt))/xjac
      eq(1:n_var,0,1,1) = (-x_t(ms,mt)*eq_sp(mp,:,ms,mt) + x_s(ms,mt)*eq_tp(mp,:,ms,mt))/xjac
      
-     ! delta_u^(n-1)
+     ! Increments since previous time step (delta_u^(n-1))
      eq(n_var+1:2*n_var,0,0,0) = delta_g(mp,:,ms,mt)
      eq(n_var+1:2*n_var,1,0,0) = (y_t(ms,mt)*delta_s(mp,:,ms,mt) - y_s(ms,mt)*delta_t(mp,:,ms,mt))/xjac
      eq(n_var+1:2*n_var,0,1,0) = (-x_t(ms,mt)*delta_s(mp,:,ms,mt) + x_s(ms,mt)*delta_t(mp,:,ms,mt))/xjac
      eq(n_var+1:2*n_var,0,0,1) = delta_p(mp,:,ms,mt)
      
-     eq(2*n_var+3,:,:,:) = get_chi(x_g(ms,mt),y_g(ms,mt),phi) ! chi
-     eq(2*n_var+4,0,0,0) = x_g(ms,mt)                         ! R
-     eq(2*n_var+4,1,0,0) = 1.d0
+     eq(2*n_var+3,:,:,:) = get_chi(x_g(ms,mt),y_g(ms,mt),phi)     ! Vacuum scalar magnetic potential (chi) and field (grad chi)
+     eq(2*n_var+4,0,0,0) = x_g(ms,mt); eq(2*n_var+4,1,0,0) = 1.d0 ! Cylindrical R coordinate
      
      psi_norm = get_psi_n(eq(1,0,0,0), y_g(ms,mt))
      
@@ -308,6 +316,7 @@ do ms=1, n_gauss
 
            index_ij = n_tor_local*n_var*(n_order+1)*(i-1) + n_tor_local*n_var*(j-1) + im - i_tor_min + 1   ! index in the ELM matrix
 
+           ! Test function (v)
            eq(2*n_var+1,0,0,0) =  H(i,j,ms,mt)*element%size(i,j)*HZ(im,mp)
            eq(2*n_var+1,1,0,0) = (y_t(ms,mt)*h_s(i,j,ms,mt) - y_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
            eq(2*n_var+1,0,1,0) = (-x_t(ms,mt)*h_s(i,j,ms,mt) + x_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
@@ -367,6 +376,7 @@ do ms=1, n_gauss
 
                do in=i_tor_min,i_tor_max
 
+                 ! Unknown increments to next time step (delta u^n)
                  eq(2*n_var+2,0,0,0) = H(k,l,ms,mt)*element%size(k,l)*HZ(in,mp)
                  eq(2*n_var+2,1,0,0) = (y_t(ms,mt)*h_s(k,l,ms,mt) - y_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
                  eq(2*n_var+2,0,1,0) = (-x_t(ms,mt)*h_s(k,l,ms,mt) + x_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac

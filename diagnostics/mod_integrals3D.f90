@@ -1094,11 +1094,6 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
         call interp(node_list,element_list,m_elm,1,in,sg,tg,PS,PS_s,PS_t,PS_st,PS_ss,PS_tt)
         psi_s = psi_s + PS_s * HZ(in,mp)
         psi_t = psi_t + PS_t * HZ(in,mp)
-        
-        call interp(node_list,element_list,m_elm,2,in,sg,tg,UU,UU_s,UU_t,UU_st,UU_ss,UU_tt)
-        u_s   = u_s   + UU_s * HZ(in,mp)
-        u_t   = u_t   + UU_t * HZ(in,mp)
-        u_p   = u_p   + UU   * HZ_p(in,mp)
 
         call interp(node_list,element_list,m_elm,2,in,sg,tg,UU,UU_s,UU_t,UU_st,UU_ss,UU_tt)
         u_s   = u_s   + UU_s * HZ(in,mp)
@@ -1187,9 +1182,6 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 
       viscopar_f  = visco_par * (F0/BigR)**2.d0 *  (vpar_x*grad_t(1) + vpar_y *grad_t(2) ) &
                   * sign_out  * BigR * vpar0
-      
-      dpsi_dt     = BigR*(psi_s*u_t - psi_t*u_s)/xjac + eta_T*(zj0-current_source) - F0*u_p 
-      poynting_tmp= dpsi_dt * (dpsidx*grad_t(1) + dpsidy*grad_t(2)) * sign_out / BigR 
 
       dpsi_dt     = BigR*(psi_s*u_t - psi_t*u_s)/xjac + eta_T*(zj0-current_source) - F0*u_p 
       poynting_tmp= dpsi_dt * (dpsidx*grad_t(1) + dpsidy*grad_t(2)) * sign_out / BigR 
@@ -1287,8 +1279,8 @@ viscopar_dissip_tot  = vpar_disp_tot
 mag_source_tot       = mag_src_tot
 V_min                = varmin
 V_max                = varmax
-Px               = momentum_x
-Py               = momentum_y
+Px                   = momentum_x
+Py                   = momentum_y
 #endif /* NOMPIVERSION */
 
 #if (JOREK_MODEL == 500 || JOREK_MODEL == 501)

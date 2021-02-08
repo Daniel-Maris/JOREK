@@ -623,8 +623,8 @@ module phys_module
   logical             :: normalized_velocity_profile !< if true, reads the normalized velocity profile as flux function, else Omega_tor is read as flux function. 
   
   !> @name Coefficients for Dommaschk potentials; needed for vacuum field representation in stellarator models (see Dommaschk, CPC 40, 203, 1986)
-  character(len=512)                               :: domm_file !< Namelist file containing the coefficients for Dommaschk potentials
-  logical                                          :: domm      !< automatically set to true if domm_file /= 'none'
+  character(len=512)                                    :: domm_file !< Namelist file containing the coefficients for Dommaschk potentials
+  logical                                               :: domm      !< automatically set to true if domm_file /= 'none'
   real*8, dimension(4,0:l_pol_domm,0:(n_coord_tor-1)/2) :: dcoef     !< Array containing the Dommaschk potential coefficients
   
   !> @name Global quantities determined in each time step

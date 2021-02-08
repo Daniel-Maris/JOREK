@@ -90,8 +90,8 @@ module mod_equations
     implicit none
     
     tstep      = const(value = Itstep,          token = "tstep")
-    zeta       = const(value = time_evol_zeta,  token = "time_evol_zeta")
-    theta      = const(value = time_evol_theta, token = "time_evol_theta")
+    zeta       = const(value = time_evol_zeta,  token = "zeta")
+    theta      = const(value = time_evol_theta, token = "theta")
     visco_num  = const(value = Ivisco_num,      token = "visco_num")
     eta_num    = const(value = Ieta_num,        token = "eta_num")
     D_perp_num = const(value = ID_perp_num,     token = "D_perp_num")
