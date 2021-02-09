@@ -1102,17 +1102,17 @@ do i=1,element_list%n_elements
         enddo  ! end loop toroidal harmonics
 
         if (include_gvec_field) then
-          call interp(node_list,element_list,i,462,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+          call interp_gvec(node_list,element_list,i,3,1,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
           scalars(inode,s_gvec_scal+1) = BRg
           do i_tor=1, n_coord_tor
-            call interp(node_list,element_list,i,456,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
-            call interp(node_list,element_list,i,457,i_tor,s,t,BZg,BZg_s,BZg_t,BZg_st,BZg_ss,BZg_tt)
-            call interp(node_list,element_list,i,458,i_tor,s,t,Bpg,Bpg_s,Bpg_t,Bpg_st,Bpg_ss,Bpg_tt)
+            call interp_gvec(node_list,element_list,i,1,1,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+            call interp_gvec(node_list,element_list,i,1,2,i_tor,s,t,BZg,BZg_s,BZg_t,BZg_st,BZg_ss,BZg_tt)
+            call interp_gvec(node_list,element_list,i,1,3,i_tor,s,t,Bpg,Bpg_s,Bpg_t,Bpg_st,Bpg_ss,Bpg_tt)
             vectors(inode,:,s_gvec_vec + 1) =  vectors(inode,:,s_gvec_vec + 1) + (/ BRg, BZg, BPg /) * HZ_coord(i_tor, i_plane)          
             
-            call interp(node_list,element_list,i,459,i_tor,s,t,JRg,JRg_s,JRg_t,JRg_st,JRg_ss,JRg_tt)
-            call interp(node_list,element_list,i,460,i_tor,s,t,JZg,JZg_s,JZg_t,JZg_st,JZg_ss,JZg_tt)
-            call interp(node_list,element_list,i,461,i_tor,s,t,Jpg,Jpg_s,Jpg_t,Jpg_st,Jpg_ss,Jpg_tt)
+            call interp_gvec(node_list,element_list,i,2,1,i_tor,s,t,JRg,JRg_s,JRg_t,JRg_st,JRg_ss,JRg_tt)
+            call interp_gvec(node_list,element_list,i,2,2,i_tor,s,t,JZg,JZg_s,JZg_t,JZg_st,JZg_ss,JZg_tt)
+            call interp_gvec(node_list,element_list,i,2,3,i_tor,s,t,Jpg,Jpg_s,Jpg_t,Jpg_st,Jpg_ss,Jpg_tt)
             vectors(inode,:,s_gvec_vec + 2) =  vectors(inode,:,s_gvec_vec + 1) + (/ JRg, JZg, JPg /) * HZ_coord(i_tor, i_plane)         
           enddo
         end if

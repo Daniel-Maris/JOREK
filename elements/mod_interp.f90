@@ -13,6 +13,7 @@ public :: interp_0_delta !< interp variable only, no derivatives at a specific p
 public :: interp_RZ !< Interpolate space only
 public :: interp_PRZ !< interp variable + pos at values or deltas
 public :: interp_RZP !< interpolate RZ for a given (s,t,phi) for a 3D configuration 
+public :: interp_gvec !< interpolate equilibrium parameters imported from GVEC
 public :: sincosperiod_moivre, mode_moivre !< public for regtesting, used by interp_PRZ
 
 interface interp_RZ
@@ -371,67 +372,17 @@ do kv = 1,n_vertex_max  ! 4 vertices
       P_st = P_st + node_list%node(iv)%psi_eq(kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
       P_ss = P_ss + node_list%node(iv)%psi_eq(kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
       P_tt = P_tt + node_list%node(iv)%psi_eq(kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-    else if (i_var == 456) then
-#else
-    if (i_var == 456) then
-#endif
-      P    = P    + node_list%node(iv)%b_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
-      P_s  = P_s  + node_list%node(iv)%b_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
-      P_t  = P_t  + node_list%node(iv)%b_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
-      P_st = P_st + node_list%node(iv)%b_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
-      P_ss = P_ss + node_list%node(iv)%b_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
-      P_tt = P_tt + node_list%node(iv)%b_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-    else if (i_var == 457) then                
-      P    = P    + node_list%node(iv)%b_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
-      P_s  = P_s  + node_list%node(iv)%b_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
-      P_t  = P_t  + node_list%node(iv)%b_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
-      P_st = P_st + node_list%node(iv)%b_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
-      P_ss = P_ss + node_list%node(iv)%b_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
-      P_tt = P_tt + node_list%node(iv)%b_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-    else if (i_var == 458) then                
-      P    = P    + node_list%node(iv)%b_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
-      P_s  = P_s  + node_list%node(iv)%b_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
-      P_t  = P_t  + node_list%node(iv)%b_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
-      P_st = P_st + node_list%node(iv)%b_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
-      P_ss = P_ss + node_list%node(iv)%b_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
-      P_tt = P_tt + node_list%node(iv)%b_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-    else if (i_var == 459) then
-      P    = P    + node_list%node(iv)%j_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
-      P_s  = P_s  + node_list%node(iv)%j_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
-      P_t  = P_t  + node_list%node(iv)%j_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
-      P_st = P_st + node_list%node(iv)%j_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
-      P_ss = P_ss + node_list%node(iv)%j_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
-      P_tt = P_tt + node_list%node(iv)%j_field(i_harm,kf,1) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-    else if (i_var == 460) then                
-      P    = P    + node_list%node(iv)%j_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
-      P_s  = P_s  + node_list%node(iv)%j_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
-      P_t  = P_t  + node_list%node(iv)%j_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
-      P_st = P_st + node_list%node(iv)%j_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
-      P_ss = P_ss + node_list%node(iv)%j_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
-      P_tt = P_tt + node_list%node(iv)%j_field(i_harm,kf,2) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-    else if (i_var == 461) then                
-      P    = P    + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
-      P_s  = P_s  + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
-      P_t  = P_t  + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
-      P_st = P_st + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
-      P_ss = P_ss + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
-      P_tt = P_tt + node_list%node(iv)%j_field(i_harm,kf,3) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-    else if (i_var == 462) then                
-      !if (i_harm .ne. 1) write(*,*) "Interpolating n!=0 harmonics of an axisymmetric profile!"; stop
-      P    = P    + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
-      P_s  = P_s  + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
-      P_t  = P_t  + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
-      P_st = P_st + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
-      P_ss = P_ss + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
-      P_tt = P_tt + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
     else    
+#endif
       P    = P    + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
       P_s  = P_s  + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
       P_t  = P_t  + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
       P_st = P_st + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
       P_ss = P_ss + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
       P_tt = P_tt + node_list%node(iv)%values(i_harm,kf,i_var) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
+#ifdef fullmhd
     endif
+#endif
   end do
 end do
 end subroutine interp
@@ -469,6 +420,56 @@ do kv = 1,n_vertex_max  ! 4 vertices
   end do
 end do
 end subroutine interp_delta
+
+!> subroutine calculates the interpolation of GVEC equilibrium conditions within one element (i_elm) for a given (s, t)
+pure subroutine interp_gvec(node_list, element_list, i_elm, i_var, i_dim, i_harm, s, t, P, P_s, P_t, P_st, P_ss, P_tt)
+type (type_node_list),    intent(in)  :: node_list
+type (type_element_list), intent(in)  :: element_list
+integer,                  intent(in)  :: i_elm
+integer,                  intent(in)  :: i_var         ! i_var: 1: B, 2: J, 3: p
+integer,                  intent(in)  :: i_dim         ! i_dim: 1: R, 2: Z, 3:, phi
+integer,                  intent(in)  :: i_harm
+real*8,                   intent(in)  :: s
+real*8,                   intent(in)  :: t
+real*8,                   intent(out) :: P, P_s, P_t, P_st, P_ss, P_tt
+
+! --- Local variables
+real*8 :: G(4,4), G_s(4,4), G_t(4,4), G_st(4,4), G_ss(4,4), G_tt(4,4)
+integer :: kv, iv, kf 
+
+call basisfunctions(s,t,G, G_s, G_t, G_st, G_ss, G_tt)
+
+P = 0.d0; P_s = 0.d0; P_t = 0.d0; P_st = 0.d0; P_ss = 0.d0; P_tt = 0.d0
+
+do kv = 1,n_vertex_max  ! 4 vertices
+  iv = element_list%element(i_elm)%vertex(kv)  ! the node number
+  do kf = 1, n_order+1       ! 4 basis functions
+    if (i_var == 1) then
+      P    = P    + node_list%node(iv)%b_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
+      P_s  = P_s  + node_list%node(iv)%b_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
+      P_t  = P_t  + node_list%node(iv)%b_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
+      P_st = P_st + node_list%node(iv)%b_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
+      P_ss = P_ss + node_list%node(iv)%b_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
+      P_tt = P_tt + node_list%node(iv)%b_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
+    else if (i_var == 2) then
+      P    = P    + node_list%node(iv)%j_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
+      P_s  = P_s  + node_list%node(iv)%j_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
+      P_t  = P_t  + node_list%node(iv)%j_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
+      P_st = P_st + node_list%node(iv)%j_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
+      P_ss = P_ss + node_list%node(iv)%j_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
+      P_tt = P_tt + node_list%node(iv)%j_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
+    else if (i_var == 3) then                
+      ! The equilibrium is a scalar, axisymmetric profile, so i_dim and i_var have no influence on the results
+      P    = P    + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
+      P_s  = P_s  + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
+      P_t  = P_t  + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
+      P_st = P_st + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
+      P_ss = P_ss + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
+      P_tt = P_tt + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
+    endif
+  end do
+end do
+end subroutine interp_gvec
 
 
 !> This subroutine interpolates some variables at a specific position within one element at a given position (s,t)
