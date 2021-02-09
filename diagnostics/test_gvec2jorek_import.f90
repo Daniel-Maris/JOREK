@@ -250,9 +250,9 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
         enddo
         B_R_loc = 0.0; B_Z_loc = 0.0;
         do i_harm=1, n_coord_tor
-          call interp(node_list, element_list, i_elm, 457, i_harm, s_loc, theta_loc, dumm_var, dumm_var_s, dumm_var_t, dumm_var_st, dumm_var_ss, dumm_var_tt)      
+          call interp_gvec(node_list, element_list, i_elm, 1, 1, i_harm, s_loc, theta_loc, dumm_var, dumm_var_s, dumm_var_t, dumm_var_st, dumm_var_ss, dumm_var_tt)      
           B_R_loc = B_R_loc+dumm_var*HZ_coord(i_harm);
-          call interp(node_list, element_list, i_elm, 458, i_harm, s_loc, theta_loc, dumm_var, dumm_var_s, dumm_var_t, dumm_var_st, dumm_var_ss, dumm_var_tt)      
+          call interp_gvec(node_list, element_list, i_elm, 1, 2, i_harm, s_loc, theta_loc, dumm_var, dumm_var_s, dumm_var_t, dumm_var_st, dumm_var_ss, dumm_var_tt)      
           B_Z_loc = B_Z_loc+dumm_var*HZ_coord(i_harm);
         enddo
 
