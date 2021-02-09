@@ -81,8 +81,8 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   read(in_gvec,*)
   read(in_gvec, *) coord_type, num_periods, asym, m_max, n_max, n_modes, sin_range(:), cos_range(:)
   write(*, *) "nfp    asym    m_max    n_max", num_periods, asym, m_max, n_max
-  if (n_field_period .ne. num_periods) then
-    write(*, *) "Number of field periods in GVEC equilibrium does not match input file: ", num_periods, n_field_period
+  if (n_coord_period .ne. num_periods) then
+    write(*, *) "Number of field periods in GVEC equilibrium does not match input file: ", num_periods, n_coord_period
     stop
   endif
 

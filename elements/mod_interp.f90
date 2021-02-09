@@ -2,7 +2,7 @@
 module mod_interp
 use data_structure
 use mod_basisfunctions
-use mod_parameters, only: n_period, n_field_period, n_tor, n_coord_tor
+use mod_parameters, only: n_period, n_coord_period, n_tor, n_coord_tor
 use phys_module, only: mode, mode_coord
 implicit none
 private

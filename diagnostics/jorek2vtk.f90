@@ -473,7 +473,7 @@ do k_tor=1, n_tor
   mode(k_tor) = + int(k_tor / 2) * n_period
 enddo
 do k_tor=1, n_coord_tor
-  mode_coord(k_tor) = + int(k_tor / 2) * n_field_period
+  mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
 enddo
 
 
@@ -518,7 +518,7 @@ if (toroidal_angle .ne. 0.d0) then
   enddo
   
   do k_tor=1, n_coord_tor
-    mode_coord(k_tor) = + int(k_tor / 2) * n_field_period
+    mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
   enddo
   HZ_coord(1,i_plane)   = 1.d0
   do i=1,(n_coord_tor-1)/2
