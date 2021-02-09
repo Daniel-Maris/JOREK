@@ -668,8 +668,8 @@ subroutine interp_RZP_0(node_list,element_list,i_elm,s,t,phi,R,Z)
   call basisfunctions(s,t,G)
   HZ_coord(1)   = 1.d0
   do i_tor=1,(n_coord_tor-1)/2
-    HZ_coord(2*i_tor)      = cos(mode_coord(2*i_tor)  *phi)
-    HZ_coord(2*i_tor+1)    = sin(mode_coord(2*i_tor+1)*phi)
+    HZ_coord(2*i_tor)      =  cos(mode_coord(2*i_tor)  *phi)
+    HZ_coord(2*i_tor+1)    = -sin(mode_coord(2*i_tor+1)*phi)
   enddo
 
   R = 0.d0; Z = 0.d0
@@ -712,11 +712,11 @@ HZ_coord_p(1)    = 0.d0
 HZ_coord_pp(1)   = 0.d0
 do i_tor=1,(n_coord_tor-1)/2
   HZ_coord(2*i_tor)        = + cos(mode_coord(2*i_tor)  *phi)
-  HZ_coord_p(2*i_tor)    = - float(mode_coord(2*i_tor))      * sin(mode_coord(2*i_tor)  *phi)
-  HZ_coord_pp(2*i_tor)   = - float(mode_coord(2*i_tor))**2   * cos(mode_coord(2*i_tor)  *phi)
-  HZ_coord(2*i_tor+1)      = + sin(mode_coord(2*i_tor+1)*phi)
-  HZ_coord_p(2*i_tor+1)  = + float(mode_coord(2*i_tor+1))    * cos(mode_coord(2*i_tor+1)*phi)
-  HZ_coord_pp(2*i_tor+1) = - float(mode_coord(2*i_tor+1))**2 * sin(mode_coord(2*i_tor+1)*phi)
+  HZ_coord_p(2*i_tor)      = - float(mode_coord(2*i_tor))      * sin(mode_coord(2*i_tor)  *phi)
+  HZ_coord_pp(2*i_tor)     = - float(mode_coord(2*i_tor))**2   * cos(mode_coord(2*i_tor)  *phi)
+  HZ_coord(2*i_tor+1)      = - sin(mode_coord(2*i_tor+1)*phi)
+  HZ_coord_p(2*i_tor+1)    = - float(mode_coord(2*i_tor+1))    * cos(mode_coord(2*i_tor+1)*phi)
+  HZ_coord_pp(2*i_tor+1)   = + float(mode_coord(2*i_tor+1))**2 * sin(mode_coord(2*i_tor+1)*phi)
 enddo
 
 R = 0.d0; R_s = 0.d0; R_t = 0.d0; R_p = 0.d0; R_st = 0.d0; R_ss = 0.d0; R_tt = 0.d0; R_sp = 0.0; R_tp=0.0; R_pp = 0.0;

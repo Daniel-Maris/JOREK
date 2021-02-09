@@ -59,6 +59,7 @@ subroutine initialise_basis()
   integer :: i,k,l
   real*8  :: s,t,phi
 
+  ! Poloidal basis functions
   do k=1,n_gauss
    s = xgauss(k)
    call basisfunctions1(s,H1(1:2,1:4,k), H1_s(1:2,1:4,k), H1_ss(1:2,1:4,k)) ! the one-D basis functions
@@ -69,7 +70,7 @@ subroutine initialise_basis()
    enddo
   enddo
 
-
+  ! Toroidal basis functions - note that the basis for physics variables and coordinates have opposite signs
   do k=1,n_plane
 
     phi = 2.d0*PI*float(k-1)/float(n_plane) / float(n_period)
@@ -92,9 +93,9 @@ subroutine initialise_basis()
       HZ_coord(2*i,k)      =                           cos(mode_coord(2*i)  *phi)
       HZ_coord_p(2*i,k)    = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *phi)
       HZ_coord_pp(2*i,k)   = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *phi)
-      HZ_coord(2*i+1,k)    =                           sin(mode_coord(2*i+1)*phi)
-      HZ_coord_p(2*i+1,k)  = + float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*phi)
-      HZ_coord_pp(2*i+1,k) = - float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*phi)
+      HZ_coord(2*i+1,k)    =                         - sin(mode_coord(2*i+1)*phi)
+      HZ_coord_p(2*i+1,k)  = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*phi)
+      HZ_coord_pp(2*i+1,k) = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*phi)
     enddo
 
   enddo

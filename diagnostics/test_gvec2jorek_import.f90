@@ -245,8 +245,8 @@ subroutine compare_gvec_data_points(node_list, element_list, file_name, ierr)
 
         HZ_coord(1)   = 1.d0
         do i_harm=1,(n_coord_tor-1)/2
-          HZ_coord(2*i_harm)      = cos(mode_coord(2*i_harm)  *phi_loc)
-          HZ_coord(2*i_harm+1)    = sin(mode_coord(2*i_harm+1)*phi_loc)
+          HZ_coord(2*i_harm)      = + cos(mode_coord(2*i_harm)  *phi_loc)
+          HZ_coord(2*i_harm+1)    = - sin(mode_coord(2*i_harm+1)*phi_loc)
         enddo
         B_R_loc = 0.0; B_Z_loc = 0.0;
         do i_harm=1, n_coord_tor

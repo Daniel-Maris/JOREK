@@ -522,8 +522,8 @@ if (toroidal_angle .ne. 0.d0) then
   enddo
   HZ_coord(1,i_plane)   = 1.d0
   do i=1,(n_coord_tor-1)/2
-    HZ_coord(2*i,i_plane)      = cos(mode_coord(2*i)   * toroidal_angle )
-    HZ_coord(2*i+1,i_plane)    = sin(mode_coord(2*i+1) * toroidal_angle )
+    HZ_coord(2*i,i_plane)      = + cos(mode_coord(2*i)   * toroidal_angle )
+    HZ_coord(2*i+1,i_plane)    = - sin(mode_coord(2*i+1) * toroidal_angle )
   enddo
 endif
 
