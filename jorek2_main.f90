@@ -534,7 +534,6 @@ required = 0
     !if ( allocated(q)                          ) deallocate(q)
     !if ( allocated(rad)                        ) deallocate(rad)
   end if ! gvec_grid_import
-  call MPI_Barrier(MPI_COMM_WORLD,ierr)
 
   if ( restart .and. (my_id == 0) ) then  
     call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr)
