@@ -422,7 +422,6 @@ end do
 end subroutine interp_delta
 
 
-
 !> This subroutine interpolates some variables at a specific position within one element at a given position (s,t)
 pure subroutine interp_0(node_list, element_list, i_elm, i_v, n_v, s, t, phi, P)
 type (type_node_list),    intent(in)  :: node_list
