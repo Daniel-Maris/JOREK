@@ -8,10 +8,10 @@ use pastix_module, only: no_zeros_pastix, pastix_smp_only, pastix_pivot, &
     pastix_maxthrd
 use vacuum
 use mpi_mod
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
   use mod_neutral_source
 #endif
-#if (JOREK_MODEL == 501)
+#ifdef WITH_Impurities
   use mod_injection_source
 #endif
 use pellet_module
@@ -248,7 +248,7 @@ if (my_id .eq. 0) then
     call MPI_PACK(tor_frequency,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(ns_phi_rotate,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   end if
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501 || JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
   call MPI_PACK(total_n_particles_inj_all,1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 #endif
   call MPI_PACK(nimp_bg,                1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -466,6 +466,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(current_pfc,           40,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   call MPI_PACK(mode,               n_tor,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(mode_coord,   n_coord_tor,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(index_start,            1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(index_now,              1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(gmres_max_iter,         1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -503,6 +504,8 @@ if (my_id .eq. 0) then
   call MPI_PACK(bc_natural_flux,        1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(bc_natural_open,        1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(use_pellet,             1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+
+  call MPI_PACK(gvec_grid_import,       1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   call MPI_PACK(tokamak_device,       512,MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(time_evol_scheme,      80,MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -832,7 +835,7 @@ if (my_id .ne. 0) then
     call MPI_UNPACK(buffer,bufsize,position,tor_frequency,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,ns_phi_rotate,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   end if
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501 || JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
   call MPI_UNPACK(buffer,bufsize,position,total_n_particles_inj_all,1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 #endif
   call MPI_UNPACK(buffer,bufsize,position,nimp_bg,                1,MPI_REAL8,MPI_COMM_WORLD,ierr)
@@ -1053,6 +1056,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,current_pfc,           40,MPI_REAL8,MPI_COMM_WORLD,ierr)
   
   call MPI_UNPACK(buffer,bufsize,position,mode,                  n_tor,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,mode_coord,      n_coord_tor,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,index_start,            1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,index_now,              1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,gmres_max_iter,         1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
@@ -1090,6 +1094,8 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,bc_natural_flux,        1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,bc_natural_open,        1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,use_pellet,             1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+
+  call MPI_UNPACK(buffer,bufsize,position,gvec_grid_import,       1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,tokamak_device,       512,MPI_CHARACTER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,time_evol_scheme,      80,MPI_CHARACTER,MPI_COMM_WORLD,ierr)

@@ -45,6 +45,7 @@ program JOREK2
   use mod_global_matrix_structure
   use mod_import_restart
   use mod_export_restart
+  use mod_import_gvec
   use mod_element_rtree, only: populate_element_rtree
   use mod_interp
   use basis_at_gaussian, only: initialise_basis
@@ -82,10 +83,10 @@ program JOREK2
 #endif
   use mpi_mod
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
   use mod_neutral_source
 #endif
-#if (JOREK_MODEL == 501)
+#ifdef WITH_Impurities
   use mod_injection_source
 #endif
 
@@ -271,7 +272,7 @@ required = 0
     gmres     = .false. 
   end if
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501)
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
   ! --- Read ADAS data and generate coronal equilibrium if needed
   call init_imp_adas(my_id)
 #endif
@@ -433,7 +434,7 @@ required = 0
     write(*,*) '  Consider testing, whether you get better performance by increasing the number'
     write(*,*) '  of MPI tasks and reducing the number of OpenMP threads in the jobscript.'
   end if
-  if ((jorek_model==199) .or. (jorek_model==303)) then
+  if (with_etaOhm) then
     if (abs(eta-eta_ohmic)/(eta+eta_ohmic+1.d-12) > 1.d-6) then
       write(*,*) 'WARNING: The resistivity eta and the resistivity used for Ohmic heating '
       write(*,*) '  eta_ohm are not the same. No problem if you know what you are doing,  ' 
@@ -482,14 +483,69 @@ required = 0
   !***********************************************************************
   !*                  read restart file                                  *
   !***********************************************************************
-  
-  if ( restart .and. (my_id == 0) ) then
+  if ((gvec_grid_import) .and. (my_id == 0)) then
+    element_list%n_elements      = 0
+    bnd_elm_list%n_bnd_elements  = 0
+    node_list%n_nodes            = 0
     
+    write(*,*)  "Reading GVEC Import..."
+    call import_gvec(node_list, element_list, 'gvec2jorek.dat', ierr)
+    if (ierr /= 0) then
+      write(*, *) 'Error in import gvec routine'
+      stop
+    end if
+    write(*,*)  "Finished GVEC Import..."
+    call plot_grid(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'axisym')
+    call plot_grid_3d(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'initial')
+    call plot_povray_3d(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.)
+    write(*,*)  "Finished GVEC plotting"
+
+    ! Initialise boundary and initial conditions for T and rho
+    call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, .false.) 
+    
+    call populate_element_rtree(node_list, element_list)
+    call update_equil_state(my_id, node_list, element_list, bnd_elm_list, xpoint, xcase)
+    call print_equil_state(.true.)
+    call save_special_points('special_equilibrium_points.dat', .false., ierr)
+    
+    !call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
+    
+    ! Get flux surfaces
+    !surface_list%n_psi = 100
+    !allocate( surface_list%psi_values(surface_list%n_psi), q(surface_list%n_psi), rad(surface_list%n_psi) )
+    !do k = 1, surface_list%n_psi-1
+    !  surface_list%psi_values(k) = equil_state%psi_axis + (equil_state%psi_bnd - equil_state%psi_axis) * real(k-1)/real(surface_list%n_psi-1)
+    !  write(*, *) surface_list%psi_values(k)
+    !end do
+    !surface_list%psi_values(surface_list%n_psi) = equil_state%psi_axis + (equil_state%psi_bnd - equil_state%psi_axis) * (1.0 - 1.d-12)
+    !call find_flux_surfaces(0,xpoint, xcase, node_list, element_list, surface_list)
+
+    !! Determine q profile
+    !call determine_q_profile_3d(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
+    !  equil_state%Z_xpoint, q, rad)
+    !open(42, file='qprofile.dat', action='write', status='replace')
+    !do i=2, surface_list%n_psi
+    !   write(42,*) (surface_list%psi_values(i)-equil_state%psi_axis)/(equil_state%psi_bnd-equil_state%psi_axis), q(i),rad(i)
+    !end do
+    !close(42)
+
+    ! Determine n.B for equilibrium
+    !call determine_boundary_flux(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
+    !  equil_state%Z_xpoint, q, rad)
+    
+    ! --- Clean up.
+    !if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)
+    !if ( allocated(surface_list%flux_surfaces) ) deallocate(surface_list%flux_surfaces)
+    !if ( allocated(q)                          ) deallocate(q)
+    !if ( allocated(rad)                        ) deallocate(rad)
+  end if ! gvec_grid_import
+
+  if ( restart .and. (my_id == 0) ) then  
     call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr)
     if ( ierr /= 0 ) stop
 
     ! for variable time step Gears method
-    if ( index_now==1) then
+    if ( index_now <= 1 ) then
       tstep_prev = tstep
     else
       tstep_prev = xtime(index_start) - xtime(index_start-1)
@@ -528,10 +584,10 @@ required = 0
                                sig1, xr2, sig2, refinement)
       end if
       if ( freeboundary .and. freeb_change_indices ) call exchange_indices_for_vacuum(node_list, my_id, n_cpu)
+      
     end if
     
   end if !   if ( restart .and. (my_id == 0) ) then
-
 
   ! This is necessary for the parallel vacuum version during the code restart 
   if(restart) then
@@ -543,8 +599,7 @@ required = 0
   !***********************************************************************
   !*                  define grid / equilibrium                          *
   !***********************************************************************
-  
-  if_not_restart: if (.not. restart) then
+  if_not_restart: if ((.not. restart) .and. (.not. gvec_grid_import)) then
     call tr_resetfile()
     element_list%n_elements      = 0
     bnd_elm_list%n_bnd_elements  = 0
@@ -619,6 +674,9 @@ required = 0
       call plot_grid(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'initial')
     end if
     
+    ! --- Check sanity of grid
+    call check_grid(my_id, node_list, element_list)
+
 #ifdef USE_MUMPS
     ! --- Initialize MUMPS solver (used for equilibrium)
     call MPI_COMM_GROUP(MPI_COMM_WORLD,MPI_GROUP_WORLD,ierr)
@@ -694,6 +752,9 @@ required = 0
         call export_boundary(node_list, bnd_elm_list, bnd_node_list)
 
       endif ! if (my_id == 0) then        
+
+      ! --- Check sanity of grid
+      call check_grid(my_id, node_list, element_list)
 
       call broadcast_boundary(my_id,bnd_elm_list,bnd_node_list) 
       if ( freeb_equil2) then
@@ -1003,7 +1064,7 @@ required = 0
     
     tstep = tstep_n(jstep)
     ! start from t=0 
-    if ( index_now == 1 ) tstep_prev = tstep
+    if ( index_now <= 1 ) tstep_prev = tstep
     
     if ( freeboundary ) call update_response(my_id,tstep, freeboundary_equil, resistive_wall)
 
@@ -1181,13 +1242,13 @@ required = 0
 
       endif
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
       call total_neutrals(my_id,node_list,element_list)
       if (using_spi .and. t_now >= t_ns) then
         call update_spi(my_id,node_list,element_list)
       end if
 #endif
-#if (JOREK_MODEL == 501 || JOREK_MODEL == 502)
+#ifdef WITH_Impurities
       if (using_spi .and. t_now >= t_ns) then
         call update_spi(my_id,node_list,element_list)
       end if
@@ -1540,7 +1601,7 @@ required = 0
 
     	  call density(    xpoint,xcase, Zp, ES%Z_xpoint, psi,ES%psi_axis,ES%psi_bnd,	       &
     	     zn,dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2,dn_dpsi2_dz)
-    	  if ( (jorek_model .eq. 400) .or. (jorek_model .eq. 401) .or. (jorek_model .eq. 711) ) then	     
+    	  if (with_TiTe) then	     
     	    call temperature_i(xpoint,xcase, Zp, ES%Z_xpoint, psi,ES%psi_axis,ES%psi_bnd, &
     	      zTi,dTi_dpsi,dTi_dz,dTi_dpsi2,dTi_dz2,dTi_dpsi_dz,dTi_dpsi3,dTi_dpsi_dz2,dTi_dpsi2_dz)			   
     	    call temperature_e(xpoint,xcase, Zp, ES%Z_xpoint, psi,ES%psi_axis,ES%psi_bnd, &

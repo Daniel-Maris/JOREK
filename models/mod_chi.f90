@@ -30,7 +30,7 @@ module mod_chi
     
     ! Construct the C^D_{m,l}(R) and C^N_{m,l}(R) functions
     do i=0,m_tor
-      m = i*n_period
+      m = i*n_coord_period
       do l=0,l_pol_domm
         allocate(CD(l,i)%coef(2*(l+1))); allocate(CD(l,i)%lcoef(l+1))
         allocate(CD(l,i)%pwr(2*(l+1)));  allocate(CD(l,i)%lpwr(l+1))
@@ -226,7 +226,7 @@ module mod_chi
       Rn = R/R_geo
       zn = z/R_geo
       do i=0,m_tor
-        m = i*n_period
+        m = i*n_coord_period
         do k_ord=0,n_order-1
           dksinmp(k_ord) = m**k_ord*(((1+(-1)**k_ord)/2)*sin(m*phi) + ((1-(-1)**k_ord)/2)*cos(m*phi))
           dkcosmp(k_ord) = m**k_ord*(((1+(-1)**k_ord)/2)*cos(m*phi) + ((1-(-1)**k_ord)/2)*sin(m*phi))

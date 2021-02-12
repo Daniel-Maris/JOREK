@@ -147,11 +147,12 @@ endef
 LIBS += $(LIBLAPACK) $(LIBBLAS) $(OPENMPLIB)
 DEFINES += -DJOREK_MODEL=$(MODEL_NUMBER) -DUSE_MPI
 
-# Use flags
+# Debug flag
 ifeq ($(DEBUG), 1)
   DEFINES := $(DEFINES) -DDEBUG
 endif
 
+# Full-MHD models flags
 ifeq (model710, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
 endif
@@ -159,13 +160,51 @@ ifeq (model711, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
 endif
 
+# Generic models flags
 CGDEP=
-ifneq (,$(filter $(MODEL), model002 model180 model181 model182 model183))
+ifeq (model083, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL
   ifneq ($(DEBUG), 1)     # should be ifeq ($(DEBUG), 0), but that doesn't work due to GNU make bug (v4.2.1)
     CGDEP = generate_code
   endif
 endif
+ifeq (model183, $(MODEL))
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL
+  ifneq ($(DEBUG), 1)     # should be ifeq ($(DEBUG), 0), but that doesn't work due to GNU make bug (v4.2.1)
+    CGDEP = generate_code
+  endif
+endif
+ifeq (model303, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_Vpar
+endif
+ifeq (model305, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_Vpar
+endif
+ifeq (model306, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_Vpar
+endif
+ifeq (model333, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_Vpar
+endif
+ifeq (model401, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_TiTe
+endif
+ifeq (model500, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_Neutrals
+endif
+ifeq (model501, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_Impurities
+endif
+ifeq (model502, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_Impurities -DWITH_TiTe
+endif
+ifeq (model711, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_TiTe
+endif
+ifeq (model712, $(MODEL))
+  DEFINES  := $(DEFINES) -DWITH_TiTe -DWITH_Neutrals
+endif
+
 
 ifeq (1, $(USE_FFTW))
   LIBS     := $(LIBS) $(LIBFFTW)

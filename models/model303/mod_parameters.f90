@@ -5,6 +5,12 @@ module mod_parameters
 
   integer, parameter :: jorek_model    = 303       !< JOREK physics model
 
+  logical, parameter :: with_TiTe       = .false.
+  logical, parameter :: with_neutrals   = .false.
+  logical, parameter :: with_impurities = .false.
+  logical, parameter :: with_Vpar       = .true.
+  logical, parameter :: with_etaOhm     = .false.
+
   integer, parameter :: var_A3   = 0                       ! place of variable psi/mag pot 3               (ps or A3)
   integer, parameter :: var_AR   = 0                       ! place of variable mag pot  1                  (AR)
   integer, parameter :: var_AZ   = 0                       ! place of variable mag pot  2                  (AZ)
@@ -32,6 +38,7 @@ module mod_parameters
   integer, parameter :: n_coord_tor    = 1         !< number of toroidal harmonics in (R, Z) coordinates
   integer, parameter :: l_pol_domm     = 0         !< highest poloidal mode in Dommaschk potential
   integer, parameter :: n_period       = 3         !< periodicity in toroidal direction
+  integer, parameter :: n_coord_period = 1         !< periodicity of device in toroidal direction: equivalent to number of field periods
   integer, parameter :: n_plane        = 32        !< number of toroidal angles
   integer, parameter :: n_vertex_max   = 4         !< maximum number of corners of an element
   integer, parameter :: n_nodes_max    = 60001     !< maximum number of nodes
