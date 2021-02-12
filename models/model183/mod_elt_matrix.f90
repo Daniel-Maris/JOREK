@@ -32,7 +32,7 @@ integer, intent(in) :: tid, i_tor_min, i_tor_max
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, xcase2
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6
 real*8     :: wst,  xjac, xjac_x, xjac_y, xjac_s, xjac_t, BigR, r2, phi
-real*8     :: current_source(n_gauss,n_gauss),particle_source(n_gauss,n_gauss),heat_source(n_gauss,n_gauss)
+real*8     :: current_source(n_plane,n_gauss,n_gauss),particle_source(n_plane,n_gauss,n_gauss),heat_source(n_plane,n_gauss,n_gauss)
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2), dj_dpsi, dj_dz
 real*8     :: psi_norm, reta, zeta, theta
 real*8     :: rhs_ij_1, rhs_ij_2, rhs_ij_3, rhs_ij_4, rhs_ij_5, rhs_ij_6
@@ -40,18 +40,16 @@ real*8     :: rhs_ij_1, rhs_ij_2, rhs_ij_3, rhs_ij_4, rhs_ij_5, rhs_ij_6
 real*8     :: amat_11, amat_12, amat_13, amat_16, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_33, amat_31
 real*8     :: amat_41, amat_42, amat_43, amat_44, amat_51, amat_52, amat_55, amat_61, amat_62, amat_63, amat_65, amat_66
 
-real*8     :: FFprime_prof, dFF_dpsi, dFF_dz, dFF_dpsi2, dFF_dz2, dFF_dpsi_dz
-
 logical    :: xpoint2
 integer    :: n_tor_local
 
-real*8, dimension(n_gauss,n_gauss)    :: x_g, x_s, x_t
-real*8, dimension(n_gauss,n_gauss)    :: x_ss, x_st, x_tt
-real*8, dimension(n_gauss,n_gauss)    :: y_g, y_s, y_t
-real*8, dimension(n_gauss,n_gauss)    :: y_ss, y_st, y_tt
+real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, x_s, x_t
+real*8, dimension(n_plane,n_gauss,n_gauss) :: x_ss, x_st, x_tt
+real*8, dimension(n_plane,n_gauss,n_gauss) :: y_g, y_s, y_t
+real*8, dimension(n_plane,n_gauss,n_gauss) :: y_ss, y_st, y_tt
 #ifdef altcs
-real*8, dimension(n_gauss,n_gauss)    :: psieq, psieq_s, psieq_t
-real*8                                :: psieq_x, psieq_y
+real*8, dimension(n_gauss,n_gauss) :: psieq, psieq_s, psieq_t
+real*8                             :: psieq_x, psieq_y
 #endif
 
 real*8, dimension(:,:,:,:) , pointer :: eq_g, eq_s, eq_t
@@ -109,20 +107,6 @@ do i=1,n_vertex_max
    do ms=1, n_gauss
      do mt=1, n_gauss
 
-       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
-       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
-       x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-       x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-       x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
-
-       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
-       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
-       y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-       y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-       y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
-       
 #ifdef altcs
        psieq(ms,mt)   = psieq(ms,mt)   + nodes(i)%psi_eq(j)*element%size(i,j)*H(i,j,ms,mt)
        psieq_s(ms,mt) = psieq_s(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_s(i,j,ms,mt)
@@ -130,6 +114,24 @@ do i=1,n_vertex_max
 #endif
 
        do mp=1,n_plane
+       
+         do in=1,n_coord_tor
+
+           x_g(mp,ms,mt)  = x_g(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
+           x_s(mp,ms,mt)  = x_s(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
+           x_t(mp,ms,mt)  = x_t(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
+           x_ss(mp,ms,mt) = x_ss(mp,ms,mt) + nodes(i)%x(in,j,1) * element%size(i,j) * H_ss(i,j,ms,mt) * HZ_coord(in,mp)
+           x_st(mp,ms,mt) = x_st(mp,ms,mt) + nodes(i)%x(in,j,1) * element%size(i,j) * H_st(i,j,ms,mt) * HZ_coord(in,mp)
+           x_tt(mp,ms,mt) = x_tt(mp,ms,mt) + nodes(i)%x(in,j,1) * element%size(i,j) * H_tt(i,j,ms,mt) * HZ_coord(in,mp)
+
+           y_g(mp,ms,mt)  = y_g(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
+           y_s(mp,ms,mt)  = y_s(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
+           y_t(mp,ms,mt)  = y_t(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
+           y_ss(mp,ms,mt) = y_ss(mp,ms,mt) + nodes(i)%x(in,j,2) * element%size(i,j) * H_ss(i,j,ms,mt) * HZ_coord(in,mp)
+           y_st(mp,ms,mt) = y_st(mp,ms,mt) + nodes(i)%x(in,j,2) * element%size(i,j) * H_st(i,j,ms,mt) * HZ_coord(in,mp)
+           y_tt(mp,ms,mt) = y_tt(mp,ms,mt) + nodes(i)%x(in,j,2) * element%size(i,j) * H_tt(i,j,ms,mt) * HZ_coord(in,mp)
+
+         end do
 
          do k=1,n_var
 
@@ -159,16 +161,16 @@ do i=1,n_vertex_max
 
          enddo
 
-       enddo
-
-       if (keep_current_prof) &
+         if (keep_current_prof) &
 #ifdef altcs
-         call current(xpoint2, xcase2, x_g(ms,mt),y_g(ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,current_source(ms,mt))
+           call current(xpoint2, xcase2, x_g(mp,ms,mt),y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,current_source(mp,ms,mt))
+         call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
 #else
-         call current(xpoint2, xcase2, x_g(ms,mt),y_g(ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,current_source(ms,mt))
+           call current(xpoint2, xcase2, x_g(mp,ms,mt),y_g(mp,ms,mt), Z_xpoint, eq_g(mp,var_Psi,ms,mt),psi_axis,psi_bnd,current_source(mp,ms,mt))
+         call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, eq_g(mp,var_Psi,ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
 #endif
-       call sources(xpoint2, xcase2, y_g(ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,particle_source(ms,mt),heat_source(ms,mt))
 
+       enddo
      enddo
    enddo
  enddo
@@ -192,58 +194,60 @@ do ms=1, n_gauss
    
    wst = wgauss(ms)*wgauss(mt)
 
-   xjac    = x_s(ms,mt)*y_t(ms,mt)  - x_t(ms,mt)*y_s(ms,mt)
-   
-   xjac_x  = (x_ss(ms,mt)*y_t(ms,mt)**2 - y_ss(ms,mt)*x_t(ms,mt)*y_t(ms,mt) - 2.d0*x_st(ms,mt)*y_s(ms,mt)*y_t(ms,mt)   &
-	         + y_st(ms,mt)*(x_s(ms,mt)*y_t(ms,mt) + x_t(ms,mt)*y_s(ms,mt))                                               &
-	         + x_tt(ms,mt)*y_s(ms,mt)**2 - y_tt(ms,mt)*x_s(ms,mt)*y_s(ms,mt)) / xjac
-
-   xjac_y  = (y_tt(ms,mt)*x_s(ms,mt)**2 - x_tt(ms,mt)*y_s(ms,mt)*x_s(ms,mt) - 2.d0*y_st(ms,mt)*x_t(ms,mt)*x_s(ms,mt)   &
-	         + x_st(ms,mt)*(y_t(ms,mt)*x_s(ms,mt) + y_s(ms,mt)*x_t(ms,mt))                                               &
-	         + y_ss(ms,mt)*x_t(ms,mt)**2 - x_ss(ms,mt)*y_t(ms,mt)*x_t(ms,mt)) / xjac
-
-   BigR = x_g(ms,mt)
-   
 #ifdef altcs
-   psieq_x = ( y_t(ms,mt)*psieq_s(ms,mt) - y_s(ms,mt)*psieq_t(ms,mt))/xjac
-   psieq_y = (-x_t(ms,mt)*psieq_s(ms,mt) + x_s(ms,mt)*psieq_t(ms,mt))/xjac
+   psieq_x = ( y_t(1,ms,mt)*psieq_s(ms,mt) - y_s(1,ms,mt)*psieq_t(ms,mt))/xjac
+   psieq_y = (-x_t(1,ms,mt)*psieq_s(ms,mt) + x_s(1,ms,mt)*psieq_t(ms,mt))/xjac
 #endif
 
    do mp = 1, n_plane
      phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
+     
+     xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
+   
+     xjac_x  = (x_ss(mp,ms,mt)*y_t(mp,ms,mt)**2 - y_ss(mp,ms,mt)*x_t(mp,ms,mt)*y_t(mp,ms,mt) - 2.d0*x_st(mp,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
+	         + y_st(mp,ms,mt)*(x_s(mp,ms,mt)*y_t(mp,ms,mt) + x_t(mp,ms,mt)*y_s(mp,ms,mt))                                                      &
+	         + x_tt(mp,ms,mt)*y_s(mp,ms,mt)**2 - y_tt(mp,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)) / xjac
+
+     xjac_y  = (y_tt(mp,ms,mt)*x_s(mp,ms,mt)**2 - x_tt(mp,ms,mt)*y_s(mp,ms,mt)*x_s(mp,ms,mt) - 2.d0*y_st(mp,ms,mt)*x_t(mp,ms,mt)*x_s(mp,ms,mt) &
+	         + x_st(mp,ms,mt)*(y_t(mp,ms,mt)*x_s(mp,ms,mt) + y_s(mp,ms,mt)*x_t(mp,ms,mt))                                                      &
+	         + y_ss(mp,ms,mt)*x_t(mp,ms,mt)**2 - x_ss(mp,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt)) / xjac
+
+     BigR = x_g(mp,ms,mt)
 
      ! Values at current time step (u^n)
      eq(1:n_var,0,0,0) = eq_g(mp,:,ms,mt)
-     eq(1:n_var,1,0,0) = (y_t(ms,mt)*eq_s(mp,:,ms,mt) - y_s(ms,mt)*eq_t(mp,:,ms,mt))/xjac
-     eq(1:n_var,0,1,0) = (-x_t(ms,mt)*eq_s(mp,:,ms,mt) + x_s(ms,mt)*eq_t(mp,:,ms,mt))/xjac
+     eq(1:n_var,1,0,0) = (y_t(mp,ms,mt)*eq_s(mp,:,ms,mt) - y_s(mp,ms,mt)*eq_t(mp,:,ms,mt))/xjac
+     eq(1:n_var,0,1,0) = (-x_t(mp,ms,mt)*eq_s(mp,:,ms,mt) + x_s(mp,ms,mt)*eq_t(mp,:,ms,mt))/xjac
      eq(1:n_var,0,0,1) = eq_p(mp,:,ms,mt)
-     eq(1:n_var,2,0,0) = (eq_ss(mp,:,ms,mt)*y_t(ms,mt)**2 - 2.d0*eq_st(mp,:,ms,mt)*y_s(ms,mt)*y_t(ms,mt)                      &
-                       + eq_tt(mp,:,ms,mt)*y_s(ms,mt)**2 + eq_s(mp,:,ms,mt)*(y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt)) &
-                       + eq_t(mp,:,ms,mt)*(y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt)))/xjac**2                          &
-                       - xjac_x*(eq_s(mp,:,ms,mt)*y_t(ms,mt) - eq_t(mp,:,ms,mt)*y_s(ms,mt))/xjac**2
-     eq(1:n_var,0,2,0) = (eq_ss(mp,:,ms,mt)*x_t(ms,mt)**2 - 2.d0*eq_st(mp,:,ms,mt)*x_s(ms,mt)*x_t(ms,mt)                      &
-                       + eq_tt(mp,:,ms,mt)*x_s(ms,mt)**2 + eq_s(mp,:,ms,mt)*(x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt)) &
-                       + eq_t(mp,:,ms,mt)*(x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt)))/xjac**2                          &
-                       - xjac_y*(-eq_s(mp,:,ms,mt)*x_t(ms,mt) + eq_t(mp,:,ms,mt)*x_s(ms,mt))/xjac**2
-     eq(1:n_var,1,1,0) = (-eq_ss(mp,:,ms,mt)*y_t(ms,mt)*x_t(ms,mt) - eq_tt(mp,:,ms,mt)*x_s(ms,mt)*y_s(ms,mt) &
-                       + eq_st(mp,:,ms,mt)*(y_s(ms,mt)*x_t(ms,mt) + y_t(ms,mt)*x_s(ms,mt))                   &
-                       - eq_s(mp,:,ms,mt)*(x_st(ms,mt)*y_t(ms,mt) - x_tt(ms,mt)*y_s(ms,mt))                  &
-                       - eq_t(mp,:,ms,mt)*(x_st(ms,mt)*y_s(ms,mt) - x_ss(ms,mt)*y_t(ms,mt)))/xjac**2         &
-                       - xjac_x*(-eq_s(mp,:,ms,mt)*x_t(ms,mt) + eq_t(mp,:,ms,mt)*x_s(ms,mt))/xjac**2
+     eq(1:n_var,2,0,0) = (eq_ss(mp,:,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*eq_st(mp,:,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
+                       + eq_tt(mp,:,ms,mt)*y_s(mp,ms,mt)**2                                                       &
+                       + eq_s(mp,:,ms,mt)*(y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt))           &
+                       + eq_t(mp,:,ms,mt)*(y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt)))/xjac**2  &
+                       - xjac_x*(eq_s(mp,:,ms,mt)*y_t(mp,ms,mt) - eq_t(mp,:,ms,mt)*y_s(mp,ms,mt))/xjac**2
+     eq(1:n_var,0,2,0) = (eq_ss(mp,:,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*eq_st(mp,:,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt) &
+                       + eq_tt(mp,:,ms,mt)*x_s(mp,ms,mt)**2                                                       &
+                       + eq_s(mp,:,ms,mt)*(x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt))           &
+                       + eq_t(mp,:,ms,mt)*(x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt)))/xjac**2  &
+                       - xjac_y*(-eq_s(mp,:,ms,mt)*x_t(mp,ms,mt) + eq_t(mp,:,ms,mt)*x_s(mp,ms,mt))/xjac**2
+     eq(1:n_var,1,1,0) = (-eq_ss(mp,:,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - eq_tt(mp,:,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt) &
+                       + eq_st(mp,:,ms,mt)*(y_s(mp,ms,mt)*x_t(mp,ms,mt) + y_t(mp,ms,mt)*x_s(mp,ms,mt))                   &
+                       - eq_s(mp,:,ms,mt)*(x_st(mp,ms,mt)*y_t(mp,ms,mt) - x_tt(mp,ms,mt)*y_s(mp,ms,mt))                  &
+                       - eq_t(mp,:,ms,mt)*(x_st(mp,ms,mt)*y_s(mp,ms,mt) - x_ss(mp,ms,mt)*y_t(mp,ms,mt)))/xjac**2         &
+                       - xjac_x*(-eq_s(mp,:,ms,mt)*x_t(mp,ms,mt) + eq_t(mp,:,ms,mt)*x_s(mp,ms,mt))/xjac**2
      eq(1:n_var,0,0,2) = eq_pp(mp,:,ms,mt)
-     eq(1:n_var,1,0,1) = (y_t(ms,mt)*eq_sp(mp,:,ms,mt) - y_s(ms,mt)*eq_tp(mp,:,ms,mt))/xjac
-     eq(1:n_var,0,1,1) = (-x_t(ms,mt)*eq_sp(mp,:,ms,mt) + x_s(ms,mt)*eq_tp(mp,:,ms,mt))/xjac
+     eq(1:n_var,1,0,1) = (y_t(mp,ms,mt)*eq_sp(mp,:,ms,mt) - y_s(mp,ms,mt)*eq_tp(mp,:,ms,mt))/xjac
+     eq(1:n_var,0,1,1) = (-x_t(mp,ms,mt)*eq_sp(mp,:,ms,mt) + x_s(mp,ms,mt)*eq_tp(mp,:,ms,mt))/xjac
      
      ! Increments since previous time step (delta_u^(n-1))
      eq(n_var+1:2*n_var,0,0,0) = delta_g(mp,:,ms,mt)
-     eq(n_var+1:2*n_var,1,0,0) = (y_t(ms,mt)*delta_s(mp,:,ms,mt) - y_s(ms,mt)*delta_t(mp,:,ms,mt))/xjac
-     eq(n_var+1:2*n_var,0,1,0) = (-x_t(ms,mt)*delta_s(mp,:,ms,mt) + x_s(ms,mt)*delta_t(mp,:,ms,mt))/xjac
+     eq(n_var+1:2*n_var,1,0,0) = (y_t(mp,ms,mt)*delta_s(mp,:,ms,mt) - y_s(mp,ms,mt)*delta_t(mp,:,ms,mt))/xjac
+     eq(n_var+1:2*n_var,0,1,0) = (-x_t(mp,ms,mt)*delta_s(mp,:,ms,mt) + x_s(mp,ms,mt)*delta_t(mp,:,ms,mt))/xjac
      eq(n_var+1:2*n_var,0,0,1) = delta_p(mp,:,ms,mt)
      
-     eq(2*n_var+3,:,:,:) = get_chi(x_g(ms,mt),y_g(ms,mt),phi)     ! Vacuum scalar magnetic potential (chi) and field (grad chi)
-     eq(2*n_var+4,0,0,0) = x_g(ms,mt); eq(2*n_var+4,1,0,0) = 1.d0 ! Cylindrical R coordinate
+     eq(2*n_var+3,:,:,:) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi)  ! Vacuum scalar magnetic potential (chi) and field (grad chi)
+     eq(2*n_var+4,0,0,0) = x_g(mp,ms,mt); eq(2*n_var+4,1,0,0) = 1.d0 ! Cylindrical R coordinate
      
-     psi_norm = get_psi_n(eq(1,0,0,0), y_g(ms,mt))
+     psi_norm = get_psi_n(eq(1,0,0,0), y_g(mp,ms,mt))
      
      ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi
      eq(1,:,:,:) = eq(1,:,:,:)/F0
@@ -265,9 +269,9 @@ do ms=1, n_gauss
      endif
      
      if (mp .eq. 1) then ! these quantities are the same on all poloidal planes
-       eq(2*n_var+7,0,0,0) = particle_source(ms,mt)    ! S_rho
-       eq(2*n_var+8,0,0,0) = heat_source(ms,mt)       ! S_e
-       eq(2*n_var+9,0,0,0) = current_source(ms,mt)/F0 ! S_j
+       eq(2*n_var+7,0,0,0) = particle_source(mp,ms,mt)   ! S_rho
+       eq(2*n_var+8,0,0,0) = heat_source(mp,ms,mt)       ! S_e
+       eq(2*n_var+9,0,0,0) = current_source(mp,ms,mt)/F0 ! S_j
      end if
      ! Resistivity
      if (eta_T_dependent) then
@@ -318,25 +322,27 @@ do ms=1, n_gauss
 
            ! Test function (v)
            eq(2*n_var+1,0,0,0) =  H(i,j,ms,mt)*element%size(i,j)*HZ(im,mp)
-           eq(2*n_var+1,1,0,0) = (y_t(ms,mt)*h_s(i,j,ms,mt) - y_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
-           eq(2*n_var+1,0,1,0) = (-x_t(ms,mt)*h_s(i,j,ms,mt) + x_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
+           eq(2*n_var+1,1,0,0) = (y_t(mp,ms,mt)*h_s(i,j,ms,mt) - y_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
+           eq(2*n_var+1,0,1,0) = (-x_t(mp,ms,mt)*h_s(i,j,ms,mt) + x_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
            eq(2*n_var+1,0,0,1) = H(i,j,ms,mt)*element%size(i,j)*HZ_p(im,mp)
-           eq(2*n_var+1,2,0,0) = (h_ss(i,j,ms,mt)*y_t(ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*y_s(ms,mt)*y_t(ms,mt)                           &
-	                             + h_tt(i,j,ms,mt)*y_s(ms,mt)**2 + h_s(i,j,ms,mt)*(y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt))      &
-                               + h_t(i,j,ms,mt)*(y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2 &
-                               - xjac_x*(h_s(i,j,ms,mt)*y_t(ms,mt) - h_t(i,j,ms,mt)*y_s(ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
-           eq(2*n_var+1,0,2,0) = (h_ss(i,j,ms,mt)*x_t(ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*x_s(ms,mt)*x_t(ms,mt)                           &
-                               + h_tt(i,j,ms,mt)*x_s(ms,mt)**2 + h_s(i,j,ms,mt)*(x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt))      &
-                               + h_t(i,j,ms,mt)*(x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2 &
-           	                   - xjac_y*(-h_s(i,j,ms,mt)*x_t(ms,mt) + h_t(i,j,ms,mt)*x_s(ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
+           eq(2*n_var+1,2,0,0) = (h_ss(i,j,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt)                             &
+	                           + h_tt(i,j,ms,mt)*y_s(mp,ms,mt)**2                                                                                 &
+	                           + h_s(i,j,ms,mt)*(y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
+                               + h_t(i,j,ms,mt)*(y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2&
+                               - xjac_x*(h_s(i,j,ms,mt)*y_t(mp,ms,mt) - h_t(i,j,ms,mt)*y_s(mp,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
+           eq(2*n_var+1,0,2,0) = (h_ss(i,j,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt)                             &
+                               + h_tt(i,j,ms,mt)*x_s(mp,ms,mt)**2                                                                                 &
+                               + h_s(i,j,ms,mt)*(x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt))                                     &
+                               + h_t(i,j,ms,mt)*(x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2&
+           	                   - xjac_y*(-h_s(i,j,ms,mt)*x_t(mp,ms,mt) + h_t(i,j,ms,mt)*x_s(mp,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
            eq(2*n_var+1,0,0,2) = H(i,j,ms,mt)*element%size(i,j)*HZ_pp(im,mp)
-           eq(2*n_var+1,1,1,0) = (-h_ss(i,j,ms,mt)*y_t(ms,mt)*x_t(ms,mt) - h_tt(i,j,ms,mt)*x_s(ms,mt)*y_s(ms,mt)                       &
-       	                       + h_st(i,j,ms,mt)*(y_s(ms,mt)*x_t(ms,mt) + y_t(ms,mt)*x_s(ms,mt))                                       &
-                               - h_s(i,j,ms,mt)*(x_st(ms,mt)*y_t(ms,mt) - x_tt(ms,mt)*y_s(ms,mt))                                      &
-                               - h_t(i,j,ms,mt)*(x_st(ms,mt)*y_s(ms,mt) - x_ss(ms,mt)*y_t(ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2 &
-                               - xjac_x*(-h_s(i,j,ms,mt)*x_t(ms,mt) + h_t(i,j,ms,mt)*x_s(ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
-           eq(2*n_var+1,1,0,1) = (y_t(ms,mt)*h_s(i,j,ms,mt) - y_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
-           eq(2*n_var+1,0,1,1) = (-x_t(ms,mt)*h_s(i,j,ms,mt) + x_s(ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
+           eq(2*n_var+1,1,1,0) = (-h_ss(i,j,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - h_tt(i,j,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)                      &
+       	                       + h_st(i,j,ms,mt)*(y_s(mp,ms,mt)*x_t(mp,ms,mt) + y_t(mp,ms,mt)*x_s(mp,ms,mt))                                      &
+                               - h_s(i,j,ms,mt)*(x_st(mp,ms,mt)*y_t(mp,ms,mt) - x_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
+                               - h_t(i,j,ms,mt)*(x_st(mp,ms,mt)*y_s(mp,ms,mt) - x_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2&
+                               - xjac_x*(-h_s(i,j,ms,mt)*x_t(mp,ms,mt) + h_t(i,j,ms,mt)*x_s(mp,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
+           eq(2*n_var+1,1,0,1) = (y_t(mp,ms,mt)*h_s(i,j,ms,mt) - y_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
+           eq(2*n_var+1,0,1,1) = (-x_t(mp,ms,mt)*h_s(i,j,ms,mt) + x_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
 
 #ifdef DEBUG
            rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
@@ -378,25 +384,27 @@ do ms=1, n_gauss
 
                  ! Unknown increments to next time step (delta u^n)
                  eq(2*n_var+2,0,0,0) = H(k,l,ms,mt)*element%size(k,l)*HZ(in,mp)
-                 eq(2*n_var+2,1,0,0) = (y_t(ms,mt)*h_s(k,l,ms,mt) - y_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
-                 eq(2*n_var+2,0,1,0) = (-x_t(ms,mt)*h_s(k,l,ms,mt) + x_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
+                 eq(2*n_var+2,1,0,0) = (y_t(mp,ms,mt)*h_s(k,l,ms,mt) - y_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
+                 eq(2*n_var+2,0,1,0) = (-x_t(mp,ms,mt)*h_s(k,l,ms,mt) + x_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
                  eq(2*n_var+2,0,0,1) = H(k,l,ms,mt)*element%size(k,l)*HZ_p(in,mp)
-                 eq(2*n_var+2,2,0,0) = (h_ss(k,l,ms,mt)*y_t(ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*y_s(ms,mt)*y_t(ms,mt) + h_tt(k,l,ms,mt)*y_s(ms,mt)**2 &
-                                     + h_s(k,l,ms,mt)*(y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt))                                            &
-                                     + h_t(k,l,ms,mt)*(y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2       &	
-                                     - xjac_x*(h_s(k,l,ms,mt)*y_t(ms,mt) - h_t(k,l,ms,mt)*y_s(ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
-                 eq(2*n_var+2,0,2,0) = (h_ss(k,l,ms,mt)*x_t(ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*x_s(ms,mt)*x_t(ms,mt) + h_tt(k,l,ms,mt)*x_s(ms,mt)**2 &
-                                     + h_s(k,l,ms,mt)*(x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt))                                            &
-                                     + h_t(k,l,ms,mt)*(x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2       &
-                                     - xjac_y*(-h_s(k,l,ms,mt)*x_t(ms,mt) + h_t(k,l,ms,mt)*x_s(ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
+                 eq(2*n_var+2,2,0,0) = (h_ss(k,l,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt)                             &
+                                     + h_tt(k,l,ms,mt)*y_s(mp,ms,mt)**2                                                                                 &
+                                     + h_s(k,l,ms,mt)*(y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
+                                     + h_t(k,l,ms,mt)*(y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2&	
+                                     - xjac_x*(h_s(k,l,ms,mt)*y_t(mp,ms,mt) - h_t(k,l,ms,mt)*y_s(mp,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
+                 eq(2*n_var+2,0,2,0) = (h_ss(k,l,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt)                             &
+                                     + h_tt(k,l,ms,mt)*x_s(mp,ms,mt)**2                                                                                 &
+                                     + h_s(k,l,ms,mt)*(x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt))                                     &
+                                     + h_t(k,l,ms,mt)*(x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2&
+                                     - xjac_y*(-h_s(k,l,ms,mt)*x_t(mp,ms,mt) + h_t(k,l,ms,mt)*x_s(mp,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
                  eq(2*n_var+2,0,0,2) = H(k,l,ms,mt)*element%size(k,l)*HZ_pp(in,mp)
-                 eq(2*n_var+2,1,1,0) = (-h_ss(k,l,ms,mt)*y_t(ms,mt)*x_t(ms,mt) - h_tt(k,l,ms,mt)*x_s(ms,mt)*y_s(ms,mt)                       &
-     	                               + h_st(k,l,ms,mt)*(y_s(ms,mt)*x_t(ms,mt)  + y_t(ms,mt)*x_s(ms,mt))                                      &
-                                     - h_s(k,l,ms,mt)*(x_st(ms,mt)*y_t(ms,mt) - x_tt(ms,mt)*y_s(ms,mt))                                      &
-                                     - h_t(k,l,ms,mt)*(x_st(ms,mt)*y_s(ms,mt) - x_ss(ms,mt)*y_t(ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2 &
-                                     - xjac_x*(-h_s(k,l,ms,mt)*x_t(ms,mt) + h_t(k,l,ms,mt)*x_s(ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
-                 eq(2*n_var+2,1,0,1) = (y_t(ms,mt)*h_s(k,l,ms,mt) - y_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
-                 eq(2*n_var+2,0,1,1) = (-x_t(ms,mt)*h_s(k,l,ms,mt) + x_s(ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
+                 eq(2*n_var+2,1,1,0) = (-h_ss(k,l,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - h_tt(k,l,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)                      &
+     	                             + h_st(k,l,ms,mt)*(y_s(mp,ms,mt)*x_t(mp,ms,mt)  + y_t(mp,ms,mt)*x_s(mp,ms,mt))                                     &
+                                     - h_s(k,l,ms,mt)*(x_st(mp,ms,mt)*y_t(mp,ms,mt) - x_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
+                                     - h_t(k,l,ms,mt)*(x_st(mp,ms,mt)*y_s(mp,ms,mt) - x_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2&
+                                     - xjac_x*(-h_s(k,l,ms,mt)*x_t(mp,ms,mt) + h_t(k,l,ms,mt)*x_s(mp,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
+                 eq(2*n_var+2,1,0,1) = (y_t(mp,ms,mt)*h_s(k,l,ms,mt) - y_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
+                 eq(2*n_var+2,0,1,1) = (-x_t(mp,ms,mt)*h_s(k,l,ms,mt) + x_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
                  
                  index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local*n_var*(l-1) + in - i_tor_min + 1   ! index in the ELM matrix
                  
