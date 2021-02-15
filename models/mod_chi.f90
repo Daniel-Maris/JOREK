@@ -1,18 +1,23 @@
 module mod_chi
 ! This module is for the calculation of the vacuum magnetic scalar potential (chi) and its derivatives via the Dommaschk potentials
 ! For more details, see
-!    W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
+! [*] W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
   use mod_parameters
   use phys_module, only: domm, dcoef, F0, R_domm
   implicit none
   
   integer, parameter :: m_tor = (n_coord_tor - 1)/2
   
+  ! Cfunc(R) = Sum_{k=1,size(coef)} coef(k)*R**pwr(k) + Sum_{k=1,size(lcoef)} lcoef(k)*log(R)*R**lpwr(k)
+  ! Cfunc(R) can be C^D_{m,l}(R), C^N_{m,l}(R) or a derivative of either of these two functions, see eqs (31) and (32) in [*]
   type type_Cfunc
     real*8,  dimension(:), allocatable :: coef, lcoef
     integer, dimension(:), allocatable :: pwr, lpwr
   end type type_Cfunc
   
+  ! Bfunc(R,z) = Sum_{k=1,size(coef)} coef(k)*rfunc(k,R)*z**zpwr(k)
+  ! Bfunc can be D_{m,l}(R,z), N_{m,l}(R,z) or a derivative of either of these two functions, see eq (2) in [*]
+  ! size(coef) = int(l/2) + 1
   type type_Bfunc
     real*8,  dimension(:), allocatable :: coef
     integer, dimension(:), allocatable :: zpwr
@@ -47,11 +52,6 @@ module mod_chi
           CN(l,i)%coef(2*k+1) = alpha(k)*gamma(l-m-k) - gamma(k)*alpha(l-m-k) + alpha(k)*beta(l-k); CN(l,i)%pwr(2*k+1)  = 2*k + m
           CN(l,i)%coef(2*k+2) = -beta(k)*alpha(l-k);                                                CN(l,i)%pwr(2*k+2)  = 2*k - m
           CN(l,i)%lcoef(k+1)  = alpha(k)*alpha(l-m-k);                                              CN(l,i)%lpwr(k+1)   = 2*k + m
-          
-!          CD(i,l) = CD(i,l) - (alpha(k)*(alpha_st(l-m-k)*lnR + gamma_st(l-m-k) - alpha(l-m-k)) - gamma(k)*alpha_st(l-m-k) &
-!                  + alpha(k)*beta_st(l-k))*R**(2*k+m) + beta(k)*alpha_st(l-k)*R**(2*k-m)
-!          CN(i,l) = CN(i,l) + (alpha(k)*(alpha(l-m-k)*lnR + gamma(l-m-k)) - gamma(k)*alpha(l-m-k) + alpha(k)*beta(l-k))*R**(2*k+m) &
-!                  - beta(k)*alpha(l-k)*R**(2*k-m)
         end do
       end do
     end do
@@ -76,14 +76,20 @@ module mod_chi
         do i_ord=1,n_order-1
           D(i_ord,0,l,i) = D(i_ord-1,0,l,i); N(i_ord,0,l,i) = N(i_ord-1,0,l,i)
           do k=0,l/2
-            clsz = size(D(i_ord,0,l,i)%rfunc(k+1)%lcoef)
-            csz  = size(D(i_ord,0,l,i)%rfunc(k+1)%coef)
+            ! Differentiate D
+            clsz = size(D(i_ord,0,l,i)%rfunc(k+1)%lcoef) ! Number of logarithm terms in the (k+1)th rfunc in D
+            csz  = size(D(i_ord,0,l,i)%rfunc(k+1)%coef)  ! Number of regular polynomial terms in the (k+1)th rfunc in D
+            ! Upon differentiation, a logarithm term produces a regular polynomial term and a logarithm term, due to the product rule
+            ! Thus, the total number of polynomial terms increases by clsz
             allocate(tmpcoef(clsz+csz)); allocate(tmppwr(clsz+csz))
             tmpcoef(clsz+1:clsz+csz) = D(i_ord,0,l,i)%rfunc(k+1)%coef; tmppwr(clsz+1:clsz+csz) = D(i_ord,0,l,i)%rfunc(k+1)%pwr
             call move_alloc(tmpcoef,D(i_ord,0,l,i)%rfunc(k+1)%coef); call move_alloc(tmppwr,D(i_ord,0,l,i)%rfunc(k+1)%pwr)
+            ! Differentiate logarithm terms
             do j=1,clsz
+              ! Calculate polynomial terms resulting from logarithm term differentiation
               D(i_ord,0,l,i)%rfunc(k+1)%coef(j) = D(i_ord,0,l,i)%rfunc(k+1)%lcoef(j)
               D(i_ord,0,l,i)%rfunc(k+1)%pwr(j)  = D(i_ord,0,l,i)%rfunc(k+1)%lpwr(j) - 1
+              ! Calculate logarithm terms resulting from logarithm term differentiation
               if (D(i_ord,0,l,i)%rfunc(k+1)%lpwr(j) .eq. 0) then
                 D(i_ord,0,l,i)%rfunc(k+1)%lcoef(j) = 0.d0
               else
@@ -91,6 +97,7 @@ module mod_chi
                 D(i_ord,0,l,i)%rfunc(k+1)%lpwr(j)  = D(i_ord,0,l,i)%rfunc(k+1)%lpwr(j) - 1
               end if
             end do
+            ! Differentiate regular polynomial terms
             do j=clsz+1,clsz+csz
               if (D(i_ord,0,l,i)%rfunc(k+1)%pwr(j) .eq. 0) then
                 D(i_ord,0,l,i)%rfunc(k+1)%coef(j) = 0.d0
@@ -100,6 +107,7 @@ module mod_chi
               end if
             end do
             
+            ! Differentiate N, same procedure as above for D
             clsz = size(N(i_ord,0,l,i)%rfunc(k+1)%lcoef)
             csz  = size(N(i_ord,0,l,i)%rfunc(k+1)%coef)
             allocate(tmpcoef(clsz+csz)); allocate(tmppwr(clsz+csz))
@@ -155,6 +163,7 @@ module mod_chi
     
     contains
     
+    ! Eq (27) in [*]
     pure real*8 function alpha(n)
       implicit none
       integer, intent(in) :: n
@@ -173,6 +182,7 @@ module mod_chi
       alpha_st = (2*n + m)*alpha(n)
     end function alpha_st
     
+    ! Eq (28) in [*]
     pure real*8 function beta(n)
       implicit none
       integer, intent(in) :: n
@@ -193,6 +203,7 @@ module mod_chi
       beta_st = (2*n - m)*beta(n)
     end function beta_st
     
+    ! Eq (33) in [*]
     pure real*8 function gamma(n)
       implicit none
       integer, intent(in) :: n
@@ -214,9 +225,9 @@ module mod_chi
   end subroutine init_chi_basis
   
   function get_chi(R,z,phi)
-  !--------------------------------------------------------------------------------------------------------
-  ! This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to second order
-  !--------------------------------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------------------------------
+  ! This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1
+  !-----------------------------------------------------------------------------------------------------
     implicit none
     real*8,  intent(in) :: R, z, phi
     real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi
@@ -233,8 +244,9 @@ module mod_chi
       do i=0,m_tor
         m = i*n_coord_period
         do k_ord=0,n_order-1
-          dksinmp(k_ord) = m**k_ord*(((1+(-1)**k_ord)/2)*sin(m*phi) + ((1-(-1)**k_ord)/2)*cos(m*phi))
-          dkcosmp(k_ord) = m**k_ord*(((1+(-1)**k_ord)/2)*cos(m*phi) + ((1-(-1)**k_ord)/2)*sin(m*phi))
+          ! k_ord-order derivatives of sin(m*phi) and cos(m*phi)
+          dksinmp(k_ord) = (-1)**int(k_ord/2)*m**k_ord*(((1+(-1)**k_ord)/2)*sin(m*phi) + ((1-(-1)**k_ord)/2)*cos(m*phi))
+          dkcosmp(k_ord) = (-1)**int((k_ord+1)/2)*m**k_ord*(((1+(-1)**k_ord)/2)*cos(m*phi) + ((1-(-1)**k_ord)/2)*sin(m*phi))
         end do
         do l=0,l_pol_domm
           do j_ord=0,n_order-1
@@ -264,7 +276,7 @@ module mod_chi
                 V_ml(k_ord) = (dcoef(1,l,i)*dkcosmp(k_ord) + dcoef(2,l,i)*dksinmp(k_ord))*D_ml &
                             + (dcoef(3,l,i)*dkcosmp(k_ord) + dcoef(4,l,i)*dksinmp(k_ord))*N_ml_1
               end do
-              get_chi(i_ord,j_ord,:) = get_chi(i_ord,j_ord,:) + V_ml/(R_domm**(i_ord+j_ord))
+              get_chi(i_ord,j_ord,:) = get_chi(i_ord,j_ord,:) + V_ml/(R_domm**(i_ord+j_ord)) ! R_domm due to chain rule (derivatives wrt R, z, not Rn, zn)
             end do
           end do
         end do
@@ -275,6 +287,9 @@ module mod_chi
   end function get_chi
   
   pure real*8 function fact(n)
+  !---------------------------
+  ! Factorial of n
+  !---------------------------
     implicit none
     integer, intent(in) :: n
     integer             :: i
