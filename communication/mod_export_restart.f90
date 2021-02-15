@@ -122,13 +122,13 @@ subroutine export_binary_restart(node_list,element_list,filename)
      write(21) pellet_particles, pellet_R, pellet_Z
   endif
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501)
   ! Radiation and ionization energy history
-  if (index_now .gt. 0) write(21) xtime_radiation(1:index_now)
-  if (index_now .gt. 0) write(21) xtime_rad_power(1:index_now)
-  if (index_now .gt. 0) write(21) xtime_E_ion(1:index_now)
-  if (index_now .gt. 0) write(21) xtime_E_ion_power(1:index_now)
-#endif
+  if (index_now .gt. 0) then
+    if (allocated(xtime_radiation))   write(21) xtime_radiation(1:index_now)
+    if (allocated(xtime_rad_power))   write(21) xtime_rad_power(1:index_now)
+    if (allocated(xtime_E_ion))       write(21) xtime_E_ion(1:index_now)
+    if (allocated(xtime_E_ion_power)) write(21) xtime_E_ion_power(1:index_now)
+  end if
 
   ! Dynamically allocate memeries for temporary arrays in order to export
   if (using_spi .and. n_spi >= 1) then
@@ -449,6 +449,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call HDF5_integer_saving(file_id,n_order,'n_order'//char(0))
   call HDF5_integer_saving(file_id,n_tor,'n_tor'//char(0))
   call HDF5_integer_saving(file_id,n_coord_tor,'n_coord_tor'//char(0))
+  call HDF5_integer_saving(file_id,l_pol_domm,'l_pol_domm'//char(0))
   call HDF5_integer_saving(file_id,n_period,'n_period'//char(0))
   call HDF5_integer_saving(file_id,n_plane,'n_plane'//char(0))
   call HDF5_integer_saving(file_id,n_vertex_max,'n_vertex_max'//char(0))
@@ -537,9 +538,15 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call HDF5_real_saving(file_id,central_density,'central_density'//char(0))
   call HDF5_real_saving(file_id,central_mass,'central_mass'//char(0))
   call HDF5_real_saving(file_id,F0,'F0'//char(0))
+  call HDF5_real_saving(file_id,R_domm,'R_domm'//char(0))
   call HDF5_real_saving(file_id,sqrt_mu0_rho0,'sqrt_mu0_rho0'//char(0))
   call HDF5_real_saving(file_id,sqrt_mu0_rho0,'t_norm'//char(0))
   call HDF5_real_saving(file_id,sqrt_mu0_over_rho0,'sqrt_mu0_over_rho0'//char(0))
+
+  if (domm) then
+    call HDF5_array3D_saving(file_id,dcoef(1:4,0:l_pol_domm,0:(n_coord_tor-1)/2), &
+         4,l_pol_domm+1,(n_coord_tor+1)/2,'dcoef'//char(0))
+  end if
 
   if (index_now .gt. 0) then
      call HDF5_array1D_saving(file_id,t_xtime,index_now,'xtime'//char(0))
@@ -646,7 +653,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      call HDF5_real_saving(file_id,pellet_Z,"pellet_Z"//char(0))
   end if
 
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501)
   ! Radiation and ionization energy history
   if (index_now .gt. 0) then
     if ( allocated(xtime_radiation)   ) call HDF5_array1D_saving(file_id,xtime_radiation, index_now,'xtime_radiation'//char(0))
@@ -654,7 +660,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
     if ( allocated(xtime_E_ion)       ) call HDF5_array1D_saving(file_id,xtime_E_ion, index_now,'xtime_E_ion'//char(0))
     if ( allocated(xtime_E_ion_power) ) call HDF5_array1D_saving(file_id,xtime_E_ion_power, index_now,'xtime_E_ion_power'//char(0))
   end if
-#endif
 
   ! Dynamically allocate memeries for temporary arrays in order to export
   if (using_spi .and. n_spi>=1) then

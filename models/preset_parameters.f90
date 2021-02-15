@@ -131,6 +131,8 @@ subroutine preset_parameters
   Z_geo     = 0.d0
   amin      = 1.d0
 
+  R_domm        = 10.d0
+
   F0        = 10.d0
   GAMMA     = 5.d0 / 3.d0
 

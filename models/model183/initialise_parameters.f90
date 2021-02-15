@@ -115,7 +115,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 vert_FB_amp_ts, vert_FB_gain, vert_pos_file,        & 
                 vert_FB_tact, start_VFB_ts, I_coils_max
                 
-namelist /dommcoef/  dcoef
+namelist /dommcoef/  R_domm, dcoef
 
 if (my_id .eq. 0) then
 
@@ -197,6 +197,7 @@ call read_num_profiles(my_id)
 ! --- Determine the derivatives of the numerical input profiles.
 call derive_num_profiles(my_id)
 
+R_domm = R_geo
 domm = ( domm_file /= 'none' )
 if (domm .and. my_id .eq. 0 ) then
   open(43, file=domm_file, status='old', action='read', iostat=ierr)

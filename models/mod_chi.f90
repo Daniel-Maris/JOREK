@@ -1,7 +1,9 @@
 module mod_chi
-  use mod_semianalytical
+! This module is for the calculation of the vacuum magnetic scalar potential (chi) and its derivatives via the Dommaschk potentials
+! For more details, see
+!    W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
   use mod_parameters
-  use phys_module, only: domm, dcoef, F0, R_geo
+  use phys_module, only: domm, dcoef, F0, R_domm
   implicit none
   
   integer, parameter :: m_tor = (n_coord_tor - 1)/2
@@ -212,6 +214,9 @@ module mod_chi
   end subroutine init_chi_basis
   
   function get_chi(R,z,phi)
+  !--------------------------------------------------------------------------------------------------------
+  ! This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to second order
+  !--------------------------------------------------------------------------------------------------------
     implicit none
     real*8,  intent(in) :: R, z, phi
     real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi
@@ -223,8 +228,8 @@ module mod_chi
     get_chi(0,0,0) = phi; get_chi(0,0,1) = 1.d0 ! Include the phi term
     
     if (domm) then
-      Rn = R/R_geo
-      zn = z/R_geo
+      Rn = R/R_domm
+      zn = z/R_domm
       do i=0,m_tor
         m = i*n_coord_period
         do k_ord=0,n_order-1
@@ -259,7 +264,7 @@ module mod_chi
                 V_ml(k_ord) = (dcoef(1,l,i)*dkcosmp(k_ord) + dcoef(2,l,i)*dksinmp(k_ord))*D_ml &
                             + (dcoef(3,l,i)*dkcosmp(k_ord) + dcoef(4,l,i)*dksinmp(k_ord))*N_ml_1
               end do
-              get_chi(i_ord,j_ord,:) = get_chi(i_ord,j_ord,:) + V_ml/(R_geo**(i_ord+j_ord))
+              get_chi(i_ord,j_ord,:) = get_chi(i_ord,j_ord,:) + V_ml/(R_domm**(i_ord+j_ord))
             end do
           end do
         end do

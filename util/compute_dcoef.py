@@ -35,8 +35,11 @@ if (M == -1 or L == -1):
     print("Usage: compute_dcoef.py -r <grid point no to integrate at> -m <toroidal modes> -l <poloidal modes> -p <no of toroidal periods> -s <no of grid points to skip> -o <output file> input_file.nc")
     sys.exit(2)
 
+# 1D integration in the toroidal direction via the trapezoid rule, which
+#   reduces to a simple unweighted summation for periodic functions
 def integrate_phi(f,dp): return dp*np.sum(f)
 
+# 2D integration via the trapezoid rule in the toroidal direction and 5th order interpolation in the z direction
 def integrate2D(f,dz,dp):
     sz = f.shape[0]
     return dz*dp*np.sum(95*(f[0,:] + f[sz-1,:])/288 + 317*(f[1,:] + f[sz-2,:])/240 + 23*(f[2,:] + f[sz-3,:])/30 + 793*(f[3,:] + f[sz-4,:])/720 + 157*(f[4,:] + f[sz-5,:])/160) + dz*dp*np.sum(f[5:(sz-5),:])

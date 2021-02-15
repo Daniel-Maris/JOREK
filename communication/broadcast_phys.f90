@@ -60,6 +60,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(GAMMA,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(Q_bar,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(sigma,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(R_domm,                 1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
    
   call MPI_PACK(zjz_0,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(zjz_1,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -646,6 +647,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,GAMMA,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,Q_bar,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,sigma,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,R_domm,                 1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,zjz_0,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,zjz_1,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
