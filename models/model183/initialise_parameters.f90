@@ -197,7 +197,6 @@ call read_num_profiles(my_id)
 ! --- Determine the derivatives of the numerical input profiles.
 call derive_num_profiles(my_id)
 
-R_domm = R_geo
 domm = ( domm_file /= 'none' )
 if (domm .and. my_id .eq. 0 ) then
   open(43, file=domm_file, status='old', action='read', iostat=ierr)
@@ -207,6 +206,11 @@ if (domm .and. my_id .eq. 0 ) then
   end if
   read(43,dommcoef)
   close(43)
+  if (R_domm .le. 0.d0) then
+    write(*,*) 'ERROR: THE VARIABLE R_DOMM IS NOT SPECIFIED IN THE FILE "', trim(domm_file), '".'
+    write(*,*) 'A POSITIVE VALUE FOR R_DOMM MUST BE SPECIFIED'
+    stop
+  end if
 end if
   
 return
