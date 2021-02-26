@@ -2,12 +2,94 @@
 !> and recombination probabilities of particles in a specific time
 module mod_ionisation_recombination
 use mod_openadas
-implicit none
-private
-public new_charge
-public fields_interp_ne_Te
+!implicit none
+!private
+!public new_charge
+!public fields_interp_ne_Te
 
+!contains
+
+  ! use mod_edge_elements
+  ! use mod_io_actions, only: io_action
+  ! use mod_sampling
+  ! use mod_particle_types
+  ! use constants, only: TWOPI, K_BOLTZ, ATOMIC_MASS_UNIT
+  ! use mod_rng, only: type_rng, setup_shared_rngs
+  ! use mod_boundary, only: wall_normal_vector
+  ! use mod_atomic_elements !mod_elements !< Chemical elements
+  ! use mod_particle_sim
+  ! use mod_event
+  ! use mod_find_rz_nearby, only: find_rz_nearby
+  use mod_parameters, only : n_vertex_max, n_elements_max, n_order,n_nodes_max
+  use nodes_elements
+  use data_structure, only : type_node, type_element
+  
+
+
+  implicit none
+
+    type (type_element)      :: element
+ type (type_node)         :: nodes(n_vertex_max)
+  
+  private
+  public rec_rate_global
+  public rec_rate_local !(ife or i_elm) ! size n_elements_max
+  public rec_mom_local
+  public rec_energy_local
+  public rec_v_R
+  public rec_v_Z  
+  public rec_v_phi
+  
+  public new_charge
+  public fields_interp_ne_Te
+  !public  :: particle_recombination
+
+  ! Extend type
+  ! type, extends(io_action) :: particle_recombination
+   
+    ! class(type_rng), dimension(:), allocatable :: rng  !< one RNG per openmp thread
+   
+    ! ! number of simulation particles/s to puff across all processes
+    ! integer :: n_puff = -1 
+    ! ! Average fueling rate: 9.7d22; max fueling rate 18d22
+    ! real*8  :: fueling_rate = -1.d0
+    ! real*8  :: R = -1.d0, Z = -1.d0, phi = -1.d0
+    ! real*8  :: valve_r = -1.d0  !< radius of gas valve
+    ! real*8  :: last_time = 0.d0 !< When did we puff last 
+    ! real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
+
+  ! contains
+    ! procedure :: do => do_particle_recombination
+  ! end type particle_recombination
+
+  ! interface particle_recombination
+    ! module procedure new_particle_recombination
+  ! end interface particle_recombination
+  
+  real*8, dimension(n_vertex_max, n_order+1, n_nodes_max) :: rec_rate_global
+  real*8, dimension(n_elements_max) :: rec_rate_local, rec_mom_local, rec_energy_local
+  real*8, dimension(n_elements_max) :: rec_v_R, rec_v_Z, rec_v_phi  
+
+
+  
 contains
+
+  	! rec_rate_local = 0.d0
+	! rec_mom_local  = 0.d0
+	! rec_energy_local= 0.d0
+	! rec_v_R= 0.d0
+	! rec_v_Z= 0.d0
+	! rec_v_phi= 0.d0
+
+
+
+
+
+
+
+
+
+! already existing --------------->>>>
 
 !> Calculate new charge state at a specific density, temperature and timestep
 function new_charge(z, ad, electron_density, electron_temperature, timestep, ran2) result(z_new)

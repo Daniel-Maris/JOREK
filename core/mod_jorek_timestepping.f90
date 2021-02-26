@@ -250,7 +250,9 @@ subroutine setup_solvers(this, sim)
   !
   call distribute_nodes_elements(id_elements,this%n_cpu_n,index_size,sim%fields%node_list,sim%fields%element_list, .false., &
                                  this%local_elms, this%n_local_elms, ndof_glob, this%index_min, this%index_max)
-                        
+  
+
+    
   sim%fields%node_list%n_dof = ndof_glob
   
   call update_deltas(sim%my_id, sim%fields%node_list) ! create list of delta values in local_matrix module

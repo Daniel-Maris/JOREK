@@ -23,6 +23,9 @@ use pellet_module
 use diffusivities, only: get_dperp, get_zkperp
 use equil_info, only : get_psi_n
 use mod_bootstrap_functions
+use mod_atomic_coeff_deuterium, only: rec_rate_to_kinetic 
+
+!  use mpi_mod
 
 implicit none
 
@@ -38,7 +41,7 @@ real*8, dimension (DIM0)       :: RHS
 integer, intent(in)            :: tid
 integer, intent(in)            :: i_tor_min, i_tor_max
 
-integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik, xcase2
+integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik, xcase2 !, my_id
 integer    :: n_tor_start, n_tor_end, n_tor_local
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, kl1, kl2, kl3, kl4, kl5, kl6, kl7
 real*8     :: wst, xjac, xjac_s, xjac_t, xjac_x, xjac_y, BigR, r2, phi, delta_phi, eps_cyl
@@ -115,7 +118,22 @@ real*8     :: eq_zne(n_gauss,n_gauss), eq_zTe(n_gauss,n_gauss)
 real*8     :: dn_dpsi(n_gauss,n_gauss),dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2,dn_dpsi2_dz
 real*8     :: dT_dpsi(n_gauss,n_gauss),dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2,dT_dpsi2_dz
 logical    :: xpoint2, use_fft
-real*8     :: w00_xx, w00_yy                                                                                                                                                                
+real*8     :: w00_xx, w00_yy           
+!====
+ ! Atomic physics coefficients:
+!   -Ionization
+real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
+!real*8     :: coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss ! Ionization rate parameters
+!real*8     :: ksiion                                          ! Ionization energy
+!   -Recombination
+real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
+real*8      :: rec_particles_this_element !< amount of recombination in this element
+!   -Radiation from injected gas/impurities	
+!real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature	
+real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T	
+real*8     :: T_rad                                           ! Temperature used in radiation rate	
+!real*8     :: coef_rad_1                                      ! Radiation rate parameters	
+real*8     :: ne_SI                                           ! Electron density used in radiation rate                                                                                                                                                          
 !======================================= NEO
 real*8     :: Btheta2
 real*8     :: epsil, Btheta2_psi
@@ -148,6 +166,9 @@ real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_ss, eq_st, eq_tt
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: delta_g, delta_s, delta_t
 
 real*8, dimension(n_tor,n_plane) :: HHZ, HHZ_p, HHZ_pp
+
+real*8, dimension(1, n_plane, n_gauss,n_gauss)  :: Nrec
+!element%n_elements n_gauss,n_gauss,nplane
 
 ELM_p = 0.d0
 ELM_n = 0.d0
@@ -350,6 +371,7 @@ enddo
 
 eq_zTe = eq_zTe / 2.d0  ! electron temperature  
 
+rec_particles_this_element = 0.d0
 !--------------------------------------------------- sum over the Gaussian integration points
 do i=1,n_vertex_max
   do j=1,n_order+1
@@ -728,6 +750,8 @@ do i=1,n_vertex_max
 
           source_pellet = 0.d0
           source_volume = 0.d0
+		  
+
 
           if (use_pellet) then
 
@@ -738,6 +762,20 @@ do i=1,n_vertex_max
                                 source_pellet, source_volume)
           endif
 
+		  !> Recombination amount per gauss point per element for kinetic particles
+          !call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT) 
+		  !Srec_T = 0.d0 
+		  !LradDcont_T = 0.d0
+		  call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
+			!aux_nodes(i)%values(:,:,n_var) = Srec_T	* r0_corr * r0_corr	
+
+							          ! --- Transform derivatives on Te to derivatives in total T	
+ !         dSion_dT      = dSion_dT      / 2.d0	
+          dSrec_dT      = dSrec_dT      / 2.d0	
+ !         dLradDrays_dT = dLradDrays_dT / 2.d0	
+          dLradDcont_dT = dLradDcont_dT / 2.d0
+			
+			
           do im=n_tor_start, n_tor_end
 
             v   =  H(i,j,ms,mt) * element%size(i,j) * HHZ(im,mp)
@@ -826,6 +864,7 @@ do i=1,n_vertex_max
 
                          + BigR**3 * (particle_source(ms,mt) + source_pellet) * (v_x * u0_x + v_y * u0_y) * xjac* tstep &
 
+						 - BigR**3*(r0_corr*r0_corr *Srec_T)*(v_x * u0_x + v_y * u0_y)  * xjac * tstep &
                          - zeta * BigR * r0_hat * (v_x * delta_u_x + v_y * delta_u_y) * xjac
             
             !------------------------------------------------------------------------ NEO
@@ -865,6 +904,8 @@ do i=1,n_vertex_max
                        - v * r0 * (vpar0_s * ps0_t - vpar0_t * ps0_s)                                    * tstep &
 
                        + v * 2.d0 * tauIC * p0_y * BigR                                           * xjac * tstep &
+					   
+					   - v * r0_corr * r0_corr  * BigR * Srec_T                                   * xjac * tstep &
 
                        + zeta * v * delta_g(mp,5,ms,mt) * BigR                                    * xjac  &
 
@@ -908,6 +949,8 @@ do i=1,n_vertex_max
                        - ZK_prof * BigR * (v_x*T0_x + v_y*T0_y                     ) * xjac * tstep &
  
                        - ZK_perp_num  *  (v_xx + v_x/Bigr + v_yy)*(T0_xx + T0_x/Bigr + T0_yy) * BigR * xjac * tstep &
+					   
+					   - v * BigR * r0_corr * r0_corr  * LradDcont_T                       * xjac * tstep  &
 
                        - TG_num6 * 0.25d0 * BigR**3 * T0 * (r0_x * u0_y - r0_y * u0_x) &
                                           * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep  &
@@ -960,7 +1003,9 @@ do i=1,n_vertex_max
                        * (-(ps0_s * v_t     - ps0_t * v_s)    /xjac                      )  * xjac * tstep * tstep &
              - TG_NUM7 * 0.25d0 * v  * Vpar0**2 * BB2 &
                        * (-(ps0_s * vpar0_t - ps0_t * vpar0_s)/xjac + F0 / BigR * vpar0_p) / BigR  &
-                       * (-(ps0_s * r0_t    - ps0_t * r0_s)   /xjac + F0 / BigR * r0_p)  * xjac * tstep * tstep 
+                       * (-(ps0_s * r0_t    - ps0_t * r0_s)   /xjac + F0 / BigR * r0_p)  * xjac * tstep * tstep &
+					   
+					   + v *(r0_corr * r0_corr  * Srec_T) * vpar0 * BB2 * BigR                        * xjac * tstep 
 
             !====================================================parallel velocity source:
             if (normalized_velocity_profile) then
@@ -990,7 +1035,34 @@ do i=1,n_vertex_max
             !###################################################################################################
             !#  RHS equations end                                                                                  #
             !###################################################################################################
-
+             
+			!============================== 
+			!Export particle recombination data
+			!> Recombination amount per gauss point per element for kinetic particles
+            !call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT) 
+			!aux_nodes(i)%values(im,j,n_var) = aux_nodes(i)%values(im,j,n_var) + v* Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep !< weak form for fine element notation
+			aux_nodes(i)%values(im,j,n_var) = aux_nodes(i)%values(im,j,n_var) + Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep
+			!write(30,*) "Srec_T, ", Srec_T
+			!<im, j , nvar
+			
+			!> momentum gained by neutrals          : (v_x * u0_x + v_y * u0_y) -> (u0_xx + u0yy)
+			aux_nodes(i)%values(im,j,n_var-1) = aux_nodes(i)%values(im,j,n_var-1) + - BigR**2*(r0_corr*r0_corr *Srec_T)*(u0_xx + u0_yy) * TWOPI * BigR * xjac * tstep !& !< how to do second derivatives?
+																				  !+ (r0_corr * r0_corr  * Srec_T) * vpar0 * BB2 * TWOPI * BigR * xjac * tstep 
+																				  
+			!> energy gained by neutrals											(  kinetic energy             +  internal energy         ) * recombination amount      * integral
+			aux_nodes(i)%values(im,j,n_var-2) = aux_nodes(i)%values(im,j,n_var-2) + (0.d50 *r0_corr* ( vpar0 )**2 +(gamma-1)*r0_corr*T0_corr )* Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep
+			
+			
+			rec_particles_this_element = rec_particles_this_element + Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep
+			!============================
+						
+			!> 3 v's +energy
+			aux_nodes(i)%values(im,j,1) = aux_nodes(i)%values(im,j,1) + (Srec_T * r0_corr * r0_corr) * (-BigR*u0_y  + vpar0/BigR * ps0_y) !rho_rec*v_R
+			aux_nodes(i)%values(im,j,2) = aux_nodes(i)%values(im,j,2) + (Srec_T * r0_corr * r0_corr) * (+ BigR*u0_x - vpar0/BigR * ps0_x) !rho_rec*v_Z
+			aux_nodes(i)%values(im,j,3) = aux_nodes(i)%values(im,j,3) + (Srec_T * r0_corr * r0_corr) * (+ F0*vpar0/BigR) !rho_rec*v_phi
+			
+			
+			
             if (use_fft) then
 
               index_ij =       n_var*(n_order+1)*(i-1) +       n_var*(j-1) + 1
@@ -1211,9 +1283,11 @@ do i=1,n_vertex_max
                                       * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep   &
                                       
                             + TG_num2 * 0.25d0 * r0_hat * BigR**3 * (w0_x * u0_y - w0_y * u0_x)     &
-                                      * ( v_x * u_y - v_y * u_x)   * xjac * theta * tstep * tstep
+                                      * ( v_x * u_y - v_y * u_x)   * xjac * theta * tstep * tstep   &
                   
-
+				  !-----------------------------Recombination to kinetic particles
+                            + BigR**3 * (r0_corr* r0_corr*Srec_T) * (v_x * u_x + v_y * u_y) * xjac * theta * tstep 
+                           
                   !---------------------------------------- NEO
                   if ( NEO ) then
                     amat_22 =  amat_22 &
@@ -1252,8 +1326,11 @@ do i=1,n_vertex_max
                             - visco_T   * bigR * W_dia_rho * (v_xx + v_x/bigR + v_yy) * xjac * theta * tstep  &
                                 
                             + TG_num2 * 0.25d0 * rho_hat * BigR**3 * (w0_x * u0_y - w0_y * u0_x)         &
-                                      * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep
-
+                                      * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep        &
+                           
+			      !-----------------------------Recombination to kinetic particles
+					        + BigR**3 * (rho * 2.d0 * r0_corr * Srec_T) * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep 
+                           				  
                   !---------------------------------------- NEO
                   if ( NEO ) then
                     amat_25 = amat_25 &
@@ -1282,9 +1359,12 @@ do i=1,n_vertex_max
                             - dvisco_dT*T   * bigR * W_dia   * (v_xx + v_x/bigR + v_yy) * xjac * theta * tstep  &
                             - dvisco_dT     * bigR * W_dia_T * (v_x*T0_x + v_y*T0_y)    * xjac * theta * tstep  &
                             - visco_T       * bigR * W_dia_T * (v_xx + v_x/bigR + v_yy) * xjac * theta * tstep  &
-                            - dvisco_dT     * bigR * W_dia   * (v_x*T_x  + v_y*T_y )    * xjac * theta * tstep  
+                            - dvisco_dT     * bigR * W_dia   * (v_x*T_x  + v_y*T_y )    * xjac * theta * tstep  &
                             
-
+                  !-----------------------------Recombination to kinetic particles
+				            + BigR**3 * (r0_corr * r0_corr  * dSrec_dT * T) * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep 
+                           
+				  
                   !---------------------------------------- NEO
                   if ( NEO ) then
                     amat_26 = amat_26 -amu_neo_prof(ms,mt)*BB2/((Btheta2+epsil)**2)*(ps0_x*v_x+ps0_y*v_y)*&
@@ -1359,6 +1439,10 @@ do i=1,n_vertex_max
                           + v * rho * F0 / BigR * vpar0_p                                               * xjac * theta * tstep &
 
                           - v * 2.d0 * tauIC * (rho_y * T0 + rho*T0_y) * BigR                           * xjac * theta * tstep &
+						  
+				   !-----------------------------Recombination to kinetic particles
+				          + v * rho * 2.d0 * r0_corr * BigR * Srec_T * xjac * theta * tstep &
+					!-------------------------------	  
 
                           + D_perp_num * (v_xx + v_x/BigR + v_yy)*(rho_xx + rho_x/BigR + rho_yy)   * BigR * xjac * theta * tstep &
 
@@ -1389,8 +1473,13 @@ do i=1,n_vertex_max
                                     * ( + F0 / BigR * rho_p)                                                          &
                                     * ( + F0 / BigR * v_p) * xjac * theta * tstep * tstep
 
-                  amat_56   = - v * 2.d0 * tauIC * (T_y * r0 + T*r0_y) * BigR                           * xjac * theta * tstep 
+                  amat_56   = - v * 2.d0 * tauIC * (T_y * r0 + T*r0_y) * BigR                           * xjac * theta * tstep &
 
+				!-----------------------------Recombination to kinetic particles  
+				              + v * BigR * r0_corr * r0_corr *  dSrec_dT * T                            * xjac * theta * tstep  
+
+				  
+				  
                   amat_57   = + v * F0 / BigR * Vpar * r0_p                                             * xjac * theta * tstep &
                               + v * Vpar * (r0_s * ps0_t - r0_t * ps0_s)                                       * theta * tstep &
                               + v * r0 * (vpar_s * ps0_t - vpar_t * ps0_s)                                     * theta * tstep &
@@ -1620,6 +1709,10 @@ do i=1,n_vertex_max
 
                             + v*(particle_source(ms,mt) + source_pellet)*vpar0* BB2_psi * BigR * xjac * theta * tstep &
   
+                  !-----------------------------Recombination to kinetic particles
+				            - v *(r0_corr * r0_corr  * Srec_T) * vpar0 * BB2_psi * BigR    * xjac * theta * tstep  &
+                             
+  
                             + TG_NUM7 * 0.25d0 * r0 * Vpar0**2 * BB2 &
                                       * (-(ps0_s * vpar0_t - ps0_t * vpar0_s)/xjac) / BigR  &
                                       * (-(psi_s * v_t     - psi_t * v_s)    /xjac)  * xjac * theta * tstep*tstep &
@@ -1671,6 +1764,10 @@ do i=1,n_vertex_max
                             + 0.5d0 * rho * vpar0**2 * BB2 * (ps0_s * v_t - ps0_t * v_s)    * theta * tstep &
                             + 0.5d0 * v   * vpar0**2 * BB2 * (ps0_s * rho_t - ps0_t * rho_s)* theta * tstep &
 
+			!-----------------------------Recombination to kinetic particles
+			                - v *(2.d0 * r0_corr * rho * Srec_T) * vpar0 * BB2 * BigR* xjac * theta * tstep &
+                           
+							
                             + TG_NUM7 * 0.25d0 * rho * Vpar0**2 * BB2 &
                                       * (-(ps0_s * vpar0_t - ps0_t * vpar0_s)/xjac + F0 / BigR * vpar0_p) / BigR  &
                                       * (-(ps0_s * v_t     - ps0_t * v_s)    /xjac          )  * xjac * theta * tstep*tstep &
@@ -1694,8 +1791,12 @@ do i=1,n_vertex_max
                   
                   amat_76 = + v * (T_s * R0 * ps0_t - T_t * R0 * ps0_s)                     * theta * tstep &
                             + v * (T * R0_s * ps0_t - T * R0_t * ps0_s)                     * theta * tstep &
-                            + v * F0 / BigR * T * R0_p                               * xjac * theta * tstep
+                            + v * F0 / BigR * T * R0_p                               * xjac * theta * tstep &
 
+					!-----------------------------Recombination to kinetic particles		
+					        - v *(r0_corr * r0_corr  * dSrec_dT * T) * vpar0 * BB2 * BigR * xjac * theta * tstep 
+                              
+					
                   amat_76_n= + v * F0 / BigR * T_p * R0                              * xjac * theta * tstep
 
                   amat_77 = v * Vpar * r0_corr * F0**2 / BigR * xjac * (1.d0 + zeta) &
@@ -1706,6 +1807,10 @@ do i=1,n_vertex_max
                           + v  * vpar0 * vpar * BB2 * (ps0_s * r0_t - ps0_t * r0_s)           * theta * tstep &
                           - v  * vpar0 * vpar * BB2 * F0 / BigR * r0_p                 * xjac * theta * tstep &
 
+				   !-----------------------------Recombination to kinetic particles	
+                          - v *(r0_corr * r0_corr  * Srec_T) * vpar * BB2 * BigR               * xjac * theta * tstep   &
+                           				   
+						  
                           + visco_par_num * (v_xx + v_x/BigR + v_yy)*(vpar_xx + vpar_x/BigR + vpar_yy) * BigR * xjac * theta * tstep&
 
                           + TG_NUM7 * 0.5d0 * r0 * Vpar * Vpar0 * BB2 &
@@ -1967,6 +2072,7 @@ do i=1,n_vertex_max
       enddo ! ms loop
     enddo ! mt loop
 
+!	write(21,*) 'element rec particles in this element',	rec_particles_this_element
 
     if (use_fft) then
 
@@ -2186,6 +2292,8 @@ do i=1,n_vertex_max
 
   enddo ! j loop (n_order+1)
 enddo ! i loop (n_vertex)
+
+write(21,*) 'element rec particles in this element,',	rec_particles_this_element
 
 if (.NOT. use_fft) return
 

@@ -75,6 +75,7 @@ do ife =1,  element_list%n_elements
               eq_g(k,ms,mt)  = eq_g(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)
               eq_s(k,ms,mt)  = eq_s(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)
               eq_t(k,ms,mt)  = eq_t(k,ms,mt)  + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)
+			  !Sum_rec(ms,mt)          = Sum_rec(ms,mt)       + rec_rate_global(i,j,element%vertex(i))
             enddo
         
 	    if (in .eq. 1) then
@@ -153,6 +154,7 @@ do ife =1,  element_list%n_elements
 !          W_kin(in) = W_kin(in) + eq_g(var_rho,ms,mt)*eq_g(var_T,ms,mt) / ( gamma - 1.d0 ) * factor
 !        endif
 
+		!array(i_element) = array(i_element) + Sum_rec(ms,mt)* wst * BigR *xjac * TWOPI
 
       enddo
     enddo

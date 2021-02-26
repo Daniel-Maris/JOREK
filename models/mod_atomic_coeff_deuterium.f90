@@ -297,7 +297,7 @@ subroutine plot_atomic_coefficients()
 
 end subroutine
 
-subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT) 
+subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT) 
 !rec_rate_to_kinetic(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, ne0 ) 
   implicit none
 
@@ -305,12 +305,14 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT)
   real*8, intent(in)    :: Te0, ne0                        ! Electron temperature in JOREK units
   real*8, intent(inout) :: Sion_T , dSion_dT           ! Normalized ionization coefficient and its temperature derivative
   real*8, intent(inout) :: Srec_T , dSrec_dT           ! Normalized recombination coefficient and its temperature derivative
-
+  real*8,intent(inout) :: LradDcont_T, dLradDcont_dT 
+  
   ! --- Local
   real*8 :: rho_norm, t_norm
   real*8 :: Te_eV, Te_evL10, dTe_eVL10_dT0, Te_eV_lim, Te_si_log10, ne_si_log10, ne_si
   real*8 :: Sion_si, dSion_si                     
-  real*8 :: Srec_si, DSrec_si                     
+  real*8 :: Srec_si, DSrec_si
+   
   real*8 :: gamma_factor
   real*8 :: ion_log10, dion_log10
   real*8 :: rec_log10, drec_log10
@@ -335,18 +337,64 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT)
 	if (deuterium_adas) then  
 	  call ad_deuterium%scd%interp( 1, ne_si_log10, Te_si_log10, Sion_T, dSion_dT)
 	  call ad_deuterium%acd%interp( 1, ne_si_log10, Te_si_log10, Srec_T, dSrec_dT)
+	  call ad_deuterium%prb%interp( 1, ne_si_log10, Te_si_log10, LradDcont_T, dLradDCont_dT) !< Power Recombination and Bremsstrahlung
+     !write(30,*) "Te_eV/10", Te_eV_lim, "Srec_T", Srec_T
+	 
+	  if ( Te_eV < 0.2d0) then  ! --- Don't radiate or ionize below 0.2 eV, recombination allowed
+      LradDcont_T   = 0.d0
+      dLradDcont_dT = 0.d0
+      !LradDrays_T   = 0.d0
+      !dLradDrays_dT = 0.d0
+      dSrec_dT      = 0.d0
+      Sion_T        = 0.d0
+      dSion_dT      = 0.d0
+    endif
 
+    if ( Te_eV > 1.d4) then   ! --- Fix values beyond 10 keV and remove derivatives
+      dLradDcont_dT = 0.d0
+      !dLradDrays_dT = 0.d0
+      dSrec_dT      = 0.d0
+      dSion_dT      = 0.d0
+    endif
+
+    ! --- Transform the coefficients to JOREK units
+    Sion_T        = Sion_T   * t_norm * central_density * 1.d20
+    Srec_T        = Srec_T   * t_norm * central_density * 1.d20
+    LradDCont_T   = LradDCont_T   * (central_density * 1.d20)**2 * MU_zero * t_norm * gamma_factor 
+    !LradDrays_T   = LradDrays_T   * (central_density * 1.d20)**2 * MU_zero * t_norm * gamma_factor 
+
+    dSion_dT      = dSion_dT * t_norm * central_density * 1.d20/ (K_BOLTZ*MU_ZERO*central_density*1.d20)
+    dSrec_dT      = dSrec_dT * t_norm * central_density * 1.d20/ (K_BOLTZ*MU_ZERO*central_density*1.d20)
+    dLradDCont_dT = dLradDCont_dT * (central_density * 1.d20)**2 * MU_zero * t_norm * gamma_factor &
+                                  / (K_BOLTZ*MU_ZERO*central_density*1.d20)
+    !dLradDrays_dT = dLradDrays_dT * (central_density * 1.d20)**2 * MU_zero * t_norm * gamma_factor & 
+    !                              / (K_BOLTZ*MU_ZERO*central_density*1.d20) ! factor to get the T derivative in JOREK units
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
 		! --- Transform the coefficients to JOREK units
-		Sion_T        = Sion_T   * t_norm * central_density * 1.d20
-		Srec_T        = Srec_T   * t_norm * central_density * 1.d20
+	!	Sion_T        = Sion_T   * t_norm * central_density * 1.d20
+	!	Srec_T        = Srec_T   * t_norm * central_density * 1.d20
 	!    dSion_dT      = dSion_dT * t_norm * central_density * 1.d20/ (K_BOLTZ*MU_ZERO*central_density*1.d20)
 	!    dSrec_dT      = dSrec_dT * t_norm * central_density * 1.d20/ (K_BOLTZ*MU_ZERO*central_density*1.d20)
 	else
-		!write(*,*) "======================== WARNING ===================="
-		!write(*,*) "Deuterium_adas = .false. , Adas coefficients are not loaded"
-		!write(*,*) "This will results in Srec = Sion = 0"
+    write(*,*) "======================== WARNING ===================="
+    write(*,*) "Deuterium_adas = .false. , Adas coefficients are not loaded"
+		write(*,*) "This will results in Srec = Sion = 0"
 		Sion_T = 0.d0
-		Srec_T = 0.d0
+		Srec_T = -10.d0 !0.d0
+	  LradDcont_T   = 0.d0
+	  dLradDcont_dT = 0.d0
+	  !LradDrays_T   = 0.d0
+	  !dLradDrays_dT = 0.d0
+	  dSrec_dT      = 0.d0
+	  !Sion_T        = 0.d0
+	  dSion_dT      = 0.d0
 	endif !deuterium_adas
   
 end subroutine !rec_rate_to_kinetic

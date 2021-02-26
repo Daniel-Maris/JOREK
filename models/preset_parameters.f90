@@ -58,6 +58,9 @@ subroutine preset_parameters
   density_reflection = 0.d0   ! reflection coefficient for outgoing density
   neutral_reflection = 0.d0   ! reflection coefficient for (fluid) neutrals
   
+  deuterium_adas        = .false. 
+  old_deuterium_atomic  = .false. 
+  
   mach_one_bnd_integral = .false. ! implement Mach one condition as boundary integral
   Vpar_smoothing        = .false. ! smooth the transitions of Vpar positive/negavtive at B.n
   Vpar_smoothing_coef   = (/0.01d0, 0.d0, 0.d0 /) !(/ 0.01d0, 0.016d0, 0.00575446347d0/)
@@ -175,6 +178,8 @@ subroutine preset_parameters
   D_prof_neg_thresh  = 0.d0 ! default is zero for keeping the old behavior
   ZK_prof_neg        = 1.d-5
   ZK_prof_neg_thresh = 0.d0 ! default is zero for keeping the old behavior
+  ne_SI_min          = 1.d18
+  Te_eV_min          = 5.
   T_min              =-1.0d20
   rho_min            =-1.0d20
   
@@ -412,6 +417,8 @@ subroutine preset_parameters
   D_neutral_p = 1.d-5
   delta_n_convection = 0
   nimp_bg = 0.
+  !n_adas = 0
+  adas_dir = ''
   !====== JET DMV-2 parameters
   L_tube = 2.d0
   K_Dmv = 4.d-2
