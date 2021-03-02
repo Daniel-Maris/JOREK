@@ -85,7 +85,14 @@ contains
     endif
     
 	rec_rate_total = 0.d0
+	rec_rate_local(ife) = 0.d0
+	rec_mom_local(ife)  = 0.d0
+	rec_energy_local(ife) = 0.d0
+	rec_v_R(ife) = 0.d0
+	rec_v_Z(ife) = 0.d0
+	rec_v_phi(ife) = 0.d0
 
+	
 	if (use_ncs) then !< indicates using kinetic particles. change to (use_ncs .or. use_pcs.or. use_ccs ) When implemented 
 		
 		do i = 1,n_vertex_max !over nodes
@@ -118,6 +125,7 @@ contains
 		
 		
 	    rec_rate_total = rec_rate_total + rec_rate_local(ife)
+		!write(20,*) 'i_elm=', ife,  'rec_rate_total=', rec_rate_total
 		write(22,*) 'i_elm=', ife,  'rec_rate_local(i_elm)=', rec_rate_local(ife)
 	    write(23,*) 'i_elm=', ife,  'rec_mom_local(i_elm)=', rec_mom_local(ife)
 		write(24,*) 'i_elm=', ife,  'rec_energy_local(i_elm)=', rec_energy_local(ife)

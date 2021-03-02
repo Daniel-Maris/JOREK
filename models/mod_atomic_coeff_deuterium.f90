@@ -383,11 +383,11 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
 	!    dSion_dT      = dSion_dT * t_norm * central_density * 1.d20/ (K_BOLTZ*MU_ZERO*central_density*1.d20)
 	!    dSrec_dT      = dSrec_dT * t_norm * central_density * 1.d20/ (K_BOLTZ*MU_ZERO*central_density*1.d20)
 	else
-    write(*,*) "======================== WARNING ===================="
-    write(*,*) "Deuterium_adas = .false. , Adas coefficients are not loaded"
-		write(*,*) "This will results in Srec = Sion = 0"
+    !write(*,*) "======================== WARNING ===================="
+    !write(*,*) "Deuterium_adas = .false. , Adas coefficients are not loaded"
+	!	write(*,*) "This will results in Srec = Sion = 0"
 		Sion_T = 0.d0
-		Srec_T = -10.d0 !0.d0
+		Srec_T = 0.d0 !0.d0 !0.d0
 	  LradDcont_T   = 0.d0
 	  dLradDcont_dT = 0.d0
 	  !LradDrays_T   = 0.d0

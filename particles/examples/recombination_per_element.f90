@@ -298,8 +298,13 @@ end do
 step_rest_time = 0.d0
 
 call with(sim, events, at=sim%time)
+!if rot_file then we can immediatly initialise recombination
+
+write(*,*) "Do 1 particle recombination"
+call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
+
 !write(*,*) "jorek_stepper%local_elms(1:10)", jorek_stepper%local_elms(1:10)
-one_rec_only = .true. !< dummy variable to make sure we only have 1 recombination event
+one_rec_only = .false. !.true. !< dummy variable to make sure we only have 1 recombination event
 do while (.not. sim%stop_now)
 
   target_time = next_event_at(sim, events) 
@@ -384,7 +389,7 @@ do while (.not. sim%stop_now)
           ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
           ion_source = 0.d0
 
-          if (particles(j)%weight .le. 1.0d7) then
+          if (particles(j)%weight .le. 1.0d10) then ! 1.0d7
 
             call rng(i_rng)%next(ion_ran)
 
@@ -529,7 +534,7 @@ do while (.not. sim%stop_now)
     if (one_rec_only) then 
     write(*,*) "Do 1 particle recombination"
     call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
-	one_rec_only = .false.
+	!one_rec_only = .false.
 	endif
 	
   end if
@@ -656,6 +661,9 @@ particles_per_element = 1
 write(*,*) "Doing 1 particle recombination over n_local_elms", element_list%n_elements
 do ife = 1, jorek_stepper%n_local_elms !element_list%n_elements !jorek_stepper%n_local_elms ! loop over all elements
    ! element_list%n_elements instead of n_local_elms?
+   
+   if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle
+   
    
 		! --- Get element
 	ielm = jorek_stepper%local_elms(ife) !< actual element number
