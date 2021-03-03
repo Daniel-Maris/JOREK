@@ -85,6 +85,12 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
     write(*, *) "Number of field periods in GVEC equilibrium does not match input file: ", num_periods, n_coord_period
     stop
   endif
+  ! For stellarators, a sub-section of the full torus can only be modeled, if it contains a whole number of stellarator field periods
+  ! e.g. for a 4 field period stellarator, n_period = 1, 2 or 4
+  if (mod(n_coord_period, n_period) .ne. 0) then
+    write(*, *) "Number of periods must be a factor of number of field periods: ", n_period, n_coord_period
+    stop
+  endif
 
   ! Check JOREK is compiled correctly from equilibrium
   if (n_coord_tor .ne. n_modes) then
