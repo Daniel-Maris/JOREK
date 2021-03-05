@@ -51,7 +51,7 @@ contains
     integer :: vertex(2), direction(2), bnd1, bnd2, side1, side2
     integer :: i_max   ! for keep_n0_const max index which should be updated
     integer :: n_tor_local
-	real*8 :: rec_rate_total
+	real*8 :: rec_rate_total, volume_local(n_local_elms)
 
 #ifdef COMPARE_ELEMENT_MATRIX
     integer  :: jvertex, jorder, jvar, jtor, ivertex, iorder, ivar, itor
@@ -91,7 +91,7 @@ contains
 	rec_v_R(ife) = 0.d0
 	rec_v_Z(ife) = 0.d0
 	rec_v_phi(ife) = 0.d0
-
+    volume_local(ife)    =0.d0
 	
 	if (use_ncs) then !< indicates using kinetic particles. change to (use_ncs .or. use_pcs.or. use_ccs ) When implemented 
 		
@@ -110,6 +110,8 @@ contains
 				rec_v_R(ife)          = rec_v_R(ife)          + aux_nodes(i)%values(im,j,1)
 				rec_v_Z(ife)          = rec_v_Z(ife)          + aux_nodes(i)%values(im,j,2)
 				rec_v_phi(ife)        = rec_v_phi(ife)        + aux_nodes(i)%values(im,j,3)
+				
+				volume_local(ife) = volume_local(ife) + aux_nodes(i)%values(im,j,4)
 				!aux_node_list%node(inode) = aux_node_list%node(inode) + aux_nodes(i)%values(im,:,n_var)
 				!rec_rate_total = rec_rate_total + rec_rate_local(i_elm)
 				  !real*8, dimension(n_vertex_max, n_order+1, n_nodes_max) :: rec_rate_global
@@ -132,6 +134,7 @@ contains
 		write(25,*) 'i_elm=', ife,  'rec_v_R(i_elm)=', rec_v_R(ife)
 		write(26,*) 'i_elm=', ife,  'rec_v_Z(i_elm)=', rec_v_Z(ife)
 		write(27,*) 'i_elm=', ife,  'rec_v_phi(i_elm)=', rec_v_phi(ife)
+		write(28,*) 'i_elm=', ife,  'volume_local(i_elm)=', volume_local(ife)
 	endif !use_ncs
 	
     ! --- Apply sheath boundary conditions at the targets

@@ -304,7 +304,7 @@ write(*,*) "Do 1 particle recombination"
 call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
 
 !write(*,*) "jorek_stepper%local_elms(1:10)", jorek_stepper%local_elms(1:10)
-one_rec_only = .false. !.true. !< dummy variable to make sure we only have 1 recombination event
+one_rec_only = .true. !.false. !.true. !< dummy variable to make sure we only have 1 recombination event
 do while (.not. sim%stop_now)
 
   target_time = next_event_at(sim, events) 
@@ -705,9 +705,9 @@ do ife = 1, jorek_stepper%n_local_elms !element_list%n_elements !jorek_stepper%n
 		particles(i_free(k))%x(1:2)  = [R, Z]!  = [R, Z, phi] no phi for axisymmetrix particles
 		
 		!> distribute directly fluid velocity?
-		particles(i_free(k))%v(1)  = rec_v_R(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
-		particles(i_free(k))%v(2)  = rec_v_Z(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
-		particles(i_free(k))%v(3)  = rec_v_phi(ife) / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
+		particles(i_free(k))%v(1)  = 0.d0 !rec_v_R(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
+		particles(i_free(k))%v(2)  = 0.d0 !rec_v_Z(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
+		particles(i_free(k))%v(3)  = 0.d0 !rec_v_phi(ife) / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
         !< v = momentum fluid lost to recombination / (mass of superparticle)
 		
 		write(32,'(A,I5,A,E10.3,A,E10.3,A,E10.3 )') "i_free(k)",i_free(k) , " p%v(1),",particles(i_free(k))%v(1), " p%v(2),",particles(i_free(k))%v(2)," p%v(3),",particles(i_free(k))%v(3)
