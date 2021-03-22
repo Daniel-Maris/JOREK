@@ -3,10 +3,10 @@ module mod_parameters
 
   implicit none
 
-  integer, parameter :: jorek_model    = 711       !< JOREK physics model
+  integer, parameter :: jorek_model    = 712       !< JOREK physics model
 
   logical, parameter :: with_TiTe       = .true.
-  logical, parameter :: with_neutrals   = .false.
+  logical, parameter :: with_neutrals   = .true.
   logical, parameter :: with_impurities = .false.
   logical, parameter :: with_Vpar       = .false.
   logical, parameter :: with_etaOhm     = .false.
@@ -24,14 +24,14 @@ module mod_parameters
   integer, parameter :: var_zj   = 0                       ! place of variable toroidal current density    (zj)
   integer, parameter :: var_w    = 0                       ! place of variable vorticity                   (w)
   integer, parameter :: var_Vpar = 0                       ! place of variable parallel velocity           (Vpar)
-  integer, parameter :: var_rhon = 0                       ! place of variable neutral or impurity density (rn)
+  integer, parameter :: var_rhon = 10                      ! place of variable neutral or impurity density (rn)
   integer, parameter :: var_Ti   = 8                       ! place of variable ion temperature             (Ti)
   integer, parameter :: var_Te   = 9                       ! place of variable electron temperature        (Te)
   integer, parameter :: var_jec  = 0                       ! place of variable ECCD current                (jec)
   integer, parameter :: var_jec1 = 0                       ! place of variable ECCD current #1             (jec1)
   integer, parameter :: var_jec2 = 0                       ! place of variable ECCD current #2             (jec2)
 
-  integer, parameter :: n_var          = 9         !< number of variables
+  integer, parameter :: n_var          = 10        !< number of variables
   integer, parameter :: n_dim          = 2         !< number of dimensions
   integer, parameter :: n_order        = 3         !< order of the polynomial basis
   integer, parameter :: n_tor          = 1         !< number of toroidal harmonics in physics variables
@@ -50,7 +50,7 @@ module mod_parameters
   !> Names of the physical variables
   character(len=11) :: variable_names(n_var) =                       &
     (/ 'A_3        ','A_R        ','A_Z        ','u_R        ',      &
-       'u_Z        ','u_phi      ','Density    ','T_ion      ','T_electron ' /)
+       'u_Z        ','u_phi      ','Density    ','T_ion      ','T_electron ','N_density  ' /)
   
   !> element_matrix and element_matrix_fft combined into a single one?
   logical, parameter :: unified_element_matrix = .true.

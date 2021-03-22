@@ -23,7 +23,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rst_hdf5, rst_hdf5_version, keep_current_prof,      &
                 restart, regrid, write_ps, time_evol_theta,         &
                 time_evol_zeta, force_horizontal_Xline,             &
-                Mach1_openBC,                                       &
+                Mach1_openBC, thermalization,                       &
                 eta_ARAZ_on, tauIC_ARAZ_on,                         &
                 n_tor_fft_thresh, fix_axis_nodes,                   &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
@@ -48,24 +48,40 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 Z_block_points_left,  Z_block_points_right,         &
                 tokamak_device, manipulate_psi_map,                 &
                 F0, gamma, gamma_stangeby,                          &
+                gamma_sheath_i, gamma_sheath_e,                     &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
                 T_0,   T_1,   T_coef, T_min,                        &
+                Ti_0,  Ti_1,  Ti_coef,                              &
+                Te_0,  Te_1,  Te_coef,                              &
                 FF_0,  FF_1,  FF_coef,                              &
                 V_0, V_1, V_coef,                                   &
-                ZK_par, ZK_perp, ZK_par_max, D_par, D_perp,         &
-                eta, visco, visco_par, ZK_perp_num,                 &
+                ZK_par, ZK_i_par, ZK_e_par, ZK_par_max,             &
+                ZK_perp, ZK_i_perp, ZK_e_perp, D_par, D_perp,       &
+                heatsource_e, heatsource_i,                         &
+                eta, visco, visco_par, ZK_i_perp_num, ZK_e_perp_num,&
                 eta_num, visco_num, visco_par_num, D_perp_num,      &
+                Dn_perp_num,                                        &
+                heatsource_psin, heatsource_sig,                    &
+                particlesource_psin, particlesource_sig,            &
+                edgeparticlesource, edgeparticlesource_psin,        &
+                edgeparticlesource_sig,                             &
+                particlesource_gauss, heatsource_gauss,             &
+                heatsource_gauss_i, heatsource_gauss_e,             &
+                heatsource_gauss_psin, heatsource_gauss_sig,        &
+                particlesource_gauss_psin, particlesource_gauss_sig,&
                 particlesource, heatsource, tauIC,                  &
                 pellet_amplitude, pellet_R, pellet_Z, pellet_phi,   &
                 pellet_radius, pellet_sig, pellet_length,           &
                 pellet_psi, pellet_delta_psi,                       &
                 central_density, central_mass,                      &
+                pellet_particles, use_pellet,                       &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint,      &
                 xcase, time_evol_scheme,                            &
                 freeboundary_equil,                                 &
                 rho_file, T_file, ffprime_file, Fprofile_file,      &
+                Ti_file, Te_file,                                   &
                 bc_natural_open, bc_natural_flux, gamma_sheath,     &
                 freeboundary, resistive_wall, freeb_change_indices, &
                 use_mumps_eq, use_pastix_eq, use_strumpack_eq,      &
@@ -81,10 +97,9 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 particlesource_psin, particlesource_sig,            &
                 edgeparticlesource, edgeparticlesource_psin,        &
                 edgeparticlesource_sig,                             &
-                particlesource_gauss, heatsource_gauss,             &
-                heatsource_gauss_psin, heatsource_gauss_sig,        &
-                particlesource_gauss_psin, particlesource_gauss_sig,&
-                particlesource, heatsource, tauIC,                  &
+                neutral_line_source,                                &
+                neutral_line_R_start, neutral_line_Z_start,         &
+                neutral_line_R_end,   neutral_line_Z_end,           &
                 produce_live_data, gmres, gmres_max_iter,           &
                 iter_precon, gmres_4, gmres_m, gmres_tol,           &
                 max_steps_noUpdate,                                 &
@@ -93,7 +108,18 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 wall_file,                                          &
                 first_target_point, last_target_point,              &
                 n_limiter, R_limiter, Z_limiter,                    &
+                spi_tor_rot, tor_frequency,                         &
                 NEO, neo_file, aki_neo_const, amu_neo_const,        &
+                D_neutral_x, D_neutral_y, D_neutral_p,              &
+                neutral_reflection,                                 &
+                ns_sig, ns_deltaphi, ksi_ion, spi_rnd_seed,         &
+                ns_amplitude, ns_R, ns_Z, ns_phi, ns_radius,        &
+                spi_Vel_Rref,spi_Vel_Zref, using_spi, n_spi,        &
+                spi_Vel_RxZref, spi_quantity, spi_abl_model,        &
+                ng_radius_ratio, ng_radius_min, spi_angle,          &
+                spi_L_inj, K_Dmv, A_Dmv, L_tube, V_Dmv, P_Dmv,      &
+                spi_Vel_diff, t_ns, JET_MGI, ASDEX_MGI,             &
+                delta_n_convection, nimp_bg,                        &
                 amix, amix_freeb, equil_accuracy,                   &
                 equil_accuracy_freeb, current_ref, FB_Ip_position,  &
                 FB_Ip_integral, Z_axis_ref, FB_Zaxis_position,      &
@@ -104,10 +130,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 starwall_equil_coils, freeb_equil_iterate_area,     &
                 psi_offset_freeb, diag_coils, rmp_coils,            &
                 voltage_coils, vert_FB_amp, find_pf_coil_currents,  &
-                pastix_maxthrd, centralize_harm_mat,                & 
-                vert_FB_amp_ts, vert_FB_gain, vert_pos_file,        & 
-                vert_FB_tact, start_VFB_ts, I_coils_max
-
+                pastix_maxthrd, centralize_harm_mat
 
 if (my_id .eq. 0) then
 
@@ -166,11 +189,19 @@ if (my_id .eq. 0) then
     CLOSE(244)
   endif
   
+  ! --- Calculate normalisation factor for MGI source (related to its toroidal shape)
+  ns_tor_norm = ns_deltaphi * PI**0.5 * ERF(PI/ns_deltaphi)
+
   ! --- Calculate JOREK gamma_sheath from gamma_stangeby if provided (otherwise the other way around)
-  if (gamma_stangeby > -1.d89) then
-    gamma_sheath = (gamma-1.d0) * (0.5d0*gamma_stangeby - 1.d0 - 0.5d0*gamma)
+  if (gamma_e_stangeby > -1.d89) then
+    gamma_sheath_e = (gamma-1.d0) * (0.5d0*gamma_e_stangeby - 1.d0)
   else
-    gamma_stangeby = 2.d0 * ( gamma_sheath / (gamma-1.d0) + 1.d0 + 0.5d0 * gamma )
+    gamma_e_stangeby = 2.d0 * ( gamma_sheath_e / (gamma-1.d0) + 1.d0 )
+  end if
+  if (gamma_i_stangeby > -1.d89) then
+    gamma_sheath_i = (gamma-1.d0) * (0.5d0*gamma_i_stangeby - 1.d0)
+  else
+    gamma_i_stangeby = 2.d0 * ( gamma_sheath_i / (gamma-1.d0) + 1.d0 )
   end if
 
   if (sum(nstep_n) .gt. 0) then
