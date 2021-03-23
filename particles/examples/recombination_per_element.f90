@@ -70,8 +70,8 @@ timesteps         = tstep_particles
 
 use_puffing       = .false. 
 use_cx            = .false.
-use_ionisation    = .false.
-use_sputtering    = .false. !false
+use_ionisation    = .true.!.false.
+use_sputtering    = .false. !.false. !false
 use_recombination = .true. 
 
 ! Set up the field reader
@@ -190,13 +190,13 @@ jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
 
 diag_time = 1.d-7 !1.0d12
 events = [ new_event_ptr(jorek_feedback,   start = sim%time),            &
-           new_event_ptr(jorek_stepper,    start = sim%time),            &
+           new_event_ptr(jorek_stepper,    start = sim%time),            & 
 !		   event(gas_puff, step = 5.d-6),                                &
-!		   event(gas_puff2, step = 5.d-6),                                &
-!          new_event_ptr(D_sputter_source, start = sim%time, step=1.d-6), &
+!		   event(gas_puff2, step = 5.d-6),                                & !
+!          new_event_ptr(D_sputter_source, start = sim%time, step=0.15d-7), & !1 sputter per jorek timestep step=1.d-6), &
 !          event(count_action(),           start = sim%time, step=1d-5), &
 !          event(write_particle_diagnostics(filename='diag.h5'), step=diag_time), &
-!         event(write_action(), step=diag_time),                        &
+         event(write_action(), step=diag_time),                        &
            new_event_ptr(project_density, step=0.11d-6),                  &
 !		   new_event_ptr(project_density, step=1.d-5),                  &
            event(stop_action(), start=1d12)                              &
@@ -256,6 +256,7 @@ real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E
 real*8    :: density_tot, density_in, density_out,  pressure, pressure_in, pressure_out
 real*8    :: mom_par_tot, mom_par_in, mom_par_out, kin_par_tot, kin_par_out, kin_par_in
 real*8    :: particles_remaining, momentum_remaining, energy_remaining, all_particles, all_momentum, all_energy
+integer   :: superparticles_remaining,all_superparticles
 integer   :: particles_per_element
 
 real*8   :: rec_time !< should be replace by run_at event statement
@@ -304,7 +305,7 @@ write(*,*) "Do 1 particle recombination"
 call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
 
 !write(*,*) "jorek_stepper%local_elms(1:10)", jorek_stepper%local_elms(1:10)
-one_rec_only = .true. !.false. !.true. !< dummy variable to make sure we only have 1 recombination event
+one_rec_only = .true. !.true. !.false. !.true. !< dummy variable to make sure we only have 1 recombination event
 do while (.not. sim%stop_now)
 
   target_time = next_event_at(sim, events) 
@@ -520,8 +521,14 @@ do while (.not. sim%stop_now)
   !write(*,*) "jorek_stepper%start",jorek_stepper%start
 
   !function run_at(this, time)
-  write(40,*) "event(2)%start", events(2)%start
-  write(40,*) "event(2)%run_at", events(2)%run_at(target_time) !< works as contruction, not necesarily correct 
+  !write(40,*) "event(2)%start", events(2)%start
+  !write(40,*) "event(2)%run_at", events(2)%run_at(target_time) !< works as contruction, not necesarily correct 
+  !write(40,*) "event(3)%start", events(3)%start
+  
+  write(40,*) "time ", target_time
+  write(40,*) "event(3)%run_at", events(3)%run_at(target_time) !< works as contruction, not necesarily correct   event_run
+  !write(40,*) "event(3)%event_run", sim%next_event_at(events)
+  !write(40,*) "sputter next_event_at", next_event_at(sim, events(3))
   !run_at(this, time)
   run_rec = events(2)%run_at(target_time) ! = target_time !target_time_old
   sim%time = target_time 
@@ -546,12 +553,14 @@ do while (.not. sim%stop_now)
   particles_remaining = 0.d0
   momentum_remaining  = 0.d0
   energy_remaining    = 0.d0
+  superparticles_remaining = 0!.d0!.d0
 
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
-
+	! reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
+  
     !$omp parallel do default(none) &
-    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining) &
+    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
     !$omp shared(sim, particles) &
     !$omp private(j, E, B, psi, U, B_norm)
     do j=1,size(particles,1)
@@ -565,30 +574,48 @@ do while (.not. sim%stop_now)
       momentum_remaining  = momentum_remaining  + particles(j)%weight * dot_product(B_norm,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT
       energy_remaining    = energy_remaining    + particles(j)%weight * dot_product(particles(j)%v,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT /2.d0
 !      energy_remaining    = energy_remaining    + particles(j)%weight * 2.18d-15
+      
+      superparticles_remaining = superparticles_remaining + 1
 
     enddo !j
-    !omp end parallel do
+	!omp end parallel do
+	!superparticles_remaining = count(sim%groups(1)%particles(:)%i_elm .gt. 0)
+
   end select
 
   call MPI_REDUCE(particles_remaining, all_particles, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(momentum_remaining,  all_momentum,  1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(energy_remaining,    all_energy,    1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+  !write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
+  !                                      mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
+  !                                      pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
   
   if (sim%my_id .eq. 0) then
     write(*,'(A,3e16.8)') 'REMAINING (START) : ',all_particles, all_momentum, all_energy
 
-    write(*,'(A,126e16.8)') ' TOTAL : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
+    write(*,'(A,126e16.8)') ' TOTAL1 : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
                                         mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
                                         pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot
 										
-	write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10),' of ', n_particles, '| in use :', &
-				real(count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10))/n_particles*100.d0,'%'	
+	!write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
+    !                                    mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
+    !                                    pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
+
+	write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', n_particles, '| in use :', &
+				real(all_superparticles)/n_particles*100.d0,'%'
+				
+	if ( all_superparticles .gt. 0 )	then
+		write(*,'(A,2E16.8)') 'Average weight of particles',(all_particles)/all_superparticles
+	endif	!real(count(
+!	write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10),' of ', n_particles, '| in use :', &
+!				real(count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10))/n_particles*100.d0,'%'	
 	
-    if ( real(count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10)) .gt. 0.d0 )	then
+    !if ( real(count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10)) .gt. 0.d0 )	then
     !                                               Average weight =       Sum of weights of particles in domain / amount of superpartiles in domain
-		write(*,'(A,2E16.8)') 'Average/Max weight of particles',( SUM(sim%groups(1)%particles(:)%weight, MASK= sim%groups(1)%particles(:)%i_elm .ge. 1.d-10) )/real(count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10)), &
-					MAXVAL(sim%groups(1)%particles(:)%weight)
-	endif	!real(count(		
+	!	write(*,'(A,2E16.8)') 'Average/Max weight of particles',( SUM(sim%groups(1)%particles(:)%weight, MASK= sim%groups(1)%particles(:)%i_elm .ge. 1.d-10) )/real(count(sim%groups(1)%particles(:)%i_elm .ge. 1.d-10)), &
+	!				MAXVAL(sim%groups(1)%particles(:)%weight)
+	!endif	!real(count(		
   endif !(sim%my_id .eq. 0)
 
 end do !while
@@ -601,7 +628,7 @@ use mod_jorek_timestepping
 use mod_ionisation_recombination, only : rec_rate_local, rec_rate_global, rec_mom_local,rec_energy_local, rec_v_R, rec_v_Z, rec_v_phi
 use particle_tracer
 !use mod_particle_diagnostics
-!use mpi
+use mpi
 use mod_atomic_elements
 use mod_particle_io
 
@@ -658,22 +685,19 @@ end do
 ! loop over all elements
 k = 0 !< first free particle
 particles_per_element = 1	
-write(*,*) "Doing 1 particle recombination over n_local_elms", element_list%n_elements
+write(*,*) "Doing 1 particle recombination over total n_elemnts", element_list%n_elements
+write(*,*) "Doing 1 particle recombination over n_local_elms", jorek_stepper%n_local_elms
 do ife = 1, jorek_stepper%n_local_elms !element_list%n_elements !jorek_stepper%n_local_elms ! loop over all elements
    ! element_list%n_elements instead of n_local_elms?
    
-   if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle
-   
-   
+   !if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle
+
 		! --- Get element
 	ielm = jorek_stepper%local_elms(ife) !< actual element number
 	!write(33,*) 'ielm,', ielm
 	element = element_list%element(ielm)
 	
 ! initialise particle in the element with Position, Weight, Energy, Momentum			
-	
-	!use particle 
-	!k = 1 !< first free particle !< before loop
     select type (particles => sim%groups(1)%particles)
     type is (particle_kinetic_leapfrog)
 	do i = 1, particles_per_element
@@ -683,7 +707,7 @@ do ife = 1, jorek_stepper%n_local_elms !element_list%n_elements !jorek_stepper%n
 		particles(i_free(k))%i_elm  = ielm  !x, i_elm, st
 		particles(i_free(k))%q      = 0
 		
-        write(31,*) "ielm,",ielm, "k,",k,"i_free(k)",i_free(k) , "particles(i_free(k))%weight,",particles(i_free(k))%weight
+        !write(31,*) "ielm,",ielm, "k,",k,"i_free(k)",i_free(k) , "particles(i_free(k))%weight,",particles(i_free(k))%weight
 		
 		call rng(1)%next(st_ran) !< i_rng should be thread dependent
 		
@@ -697,17 +721,15 @@ do ife = 1, jorek_stepper%n_local_elms !element_list%n_elements !jorek_stepper%n
 		s = particles(i_free(k))%st(1)
 		t = particles(i_free(k))%st(2)
 		
-		
-		
 		!> uses i_elm and s,t to give us R,Z
 		call interp_RZ(node_list,element_list,ielm,s,t,R,Z)
 		
 		particles(i_free(k))%x(1:2)  = [R, Z]!  = [R, Z, phi] no phi for axisymmetrix particles
 		
 		!> distribute directly fluid velocity?
-		particles(i_free(k))%v(1)  = 0.d0 !rec_v_R(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
-		particles(i_free(k))%v(2)  = 0.d0 !rec_v_Z(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
-		particles(i_free(k))%v(3)  = 0.d0 !rec_v_phi(ife) / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
+		particles(i_free(k))%v(1)  = rec_v_R(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
+		particles(i_free(k))%v(2)  = rec_v_Z(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
+		particles(i_free(k))%v(3)  = rec_v_phi(ife) / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
         !< v = momentum fluid lost to recombination / (mass of superparticle)
 		
 		write(32,'(A,I5,A,E10.3,A,E10.3,A,E10.3 )') "i_free(k)",i_free(k) , " p%v(1),",particles(i_free(k))%v(1), " p%v(2),",particles(i_free(k))%v(2)," p%v(3),",particles(i_free(k))%v(3)
@@ -719,7 +741,6 @@ enddo   !ife
 
 		
 !!!!!--------------------------------------------------------------------------
-
 end subroutine !do_1particle_recombination
 
 function initialise_sputtering(node_list, element_list, n_reflect) result(D_sputter_source)
