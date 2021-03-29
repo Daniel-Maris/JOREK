@@ -1,11 +1,12 @@
 !> Program to convert a JOREK2 restart file into binary VTK format
 program jorek2vtk
 
-use mod_parameters, only: n_var, variable_names
+use mod_parameters, only: n_var, variable_names, n_order
 use data_structure
 use phys_module
 use basis_at_gaussian
 use diffusivities, only: get_dperp, get_zkperp
+use mod_chi
 use pellet_module
 use mpi_mod
 use mod_bootstrap_functions
@@ -55,7 +56,7 @@ real*8                :: Te0, Te0_s, Te0_t, Te0_st, Te0_ss, Te0_tt, Te, Te_s,  T
 real*8                :: V0,  V0_s,  V0_t,  V0_st,  V0_ss,  V0_tt,  V, V_s, V_t, V_st, V_ss, V_tt
 real*8                :: dPsi, dPs_s, dPs_t, dPs_st, dPs_ss, dPs_tt
 real*8                :: dU,    dU_s,  dU_t,  dU_st,  dU_ss,  dU_tt
-real*8                :: ps0_x, ps0_y, psi_sum, ps_x, ps_y, ps_p
+real*8                :: ps0_x, ps0_y, psi_sum, ps_x, ps_y, ps_p, ps_x_itor, ps_y_itor
 real*8                :: u0_x,  u0_y,  u_sum,   u_x,  u_y,  u_p
 real*8                :: zj0_x, zj0_y, zj_sum,  zj_x, zj_y, zj_p
 real*8                :: w0_x,  w0_y,  w_sum,   w0_xx, w0_yy, w_x, w_y, w_p, w_xx, w_yy
@@ -94,15 +95,15 @@ real*8                :: J_phi, J_R, J_Z, eta_T
 real*8                :: E_phi, E_R, E_Z, dU_x, dU_y, Jpol_R, Jpol_Z, FFp
 real*8                :: xjac, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, Btot, BigR
 real*8                :: particle_source, D_prof, ZK_prof, source_pellet, ZKpar_T
-integer               :: n_fluxes, n_neo, n_gvec_scal, n_gvec_vec, n_bfield, n_vfield,n_pellet,n_bootstrap, n_psi_norm, n_Efield
-integer               :: n_Jpol
-integer               :: s_fluxes, s_neo, s_gvec_scal, s_gvec_vec, s_bfield, s_vfield,s_pellet,s_bootstrap, s_psi_norm, s_Efield
-integer               :: s_Jpol
+integer               :: n_fluxes, n_neo, n_gvec_scal, n_gvec_vec, n_bfield, n_vacfield, n_vacfield_sc, n_vfield,n_pellet,n_bootstrap, n_psi_norm
+integer               :: n_Efield, n_Jpol
+integer               :: s_fluxes, s_neo, s_gvec_scal, s_gvec_vec, s_bfield, s_vacfield, s_vacfield_sc, s_vfield,s_pellet,s_bootstrap, s_psi_norm
+integer               :: s_Efield, s_Jpol
 real*8                :: Jb,rho_norm,t_norm
 integer               :: i_elm_axis, i_elm_xpoint(2), k_tor, ifail, ierr
 logical               :: without_n0_mode, SI_units
-logical               :: include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_velocity_field
-logical               :: include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
+logical               :: include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_vacuum_field
+logical               :: include_velocity_field, include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
 real*8                :: toroidal_angle
 
 real*8                :: Er, psi_abs, Vtheta, Btheta, Mach_par,Mach_pol,Vsound, Vneo
@@ -119,6 +120,8 @@ real*8                :: T_corr, Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksiion,
 real*8                :: LradDrays_T, coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss
 real*8                :: r0_real8, rn0_real8
 real*8                :: T0_corr, r0_corr, rn0_corr
+
+real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
 #ifdef WITH_Impurities
 ! See https://www.jorek.eu/wiki/doku.php?id=model500_501_555 for details
@@ -164,8 +167,8 @@ real*8  :: Rp_start, Zp_start, Rp_end, Zp_end
 real*8  :: Rp, Zp, Rmin, Rmax, Zmin, Zmax, s_out, t_out, R_out, Z_out
 
 namelist /vtk_params/ nsub, i_tor, i_plane, without_n0_mode, SI_units, &
-                      include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_velocity_field,&
-                      include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
+                      include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_vacuum_field,&
+                      include_velocity_field, include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
 
 
 write(*,*) '***************************************'
@@ -177,6 +180,7 @@ write(*,*) '   -include_fluxes'
 write(*,*) '   -include_neo'
 write(*,*) '   -include_gvec_field    '
 write(*,*) '   -include_magnetic_field'
+write(*,*) '   -include_vacuum_field'
 write(*,*) '   -include_velocity_field'
 write(*,*) '   -include_electric_field'
 write(*,*) '   -include_Jpol'
@@ -205,6 +209,7 @@ include_fluxes         = .false. ! include energy and density fluxes (or not)
 include_neo            = .false. ! include neoclassical and more terms (or not)
 include_gvec_field     = .true.  ! include current and magnetic field from GVEC
 include_magnetic_field = .false. ! include vector of magnetic field (or not)
+include_vacuum_field   = .false. ! include vector of vacuum magnetic field (or not)
 include_velocity_field = .false. ! include vector of velocity field (or not)
 include_electric_field = .false. ! include vector of E-field (or not), evaluated at t-dt/2 
 include_Jpol           = .false. ! include poloidal current vector (J_phi=0 for visualization)
@@ -239,6 +244,7 @@ write(*,*) 'include_fluxes  =', include_fluxes
 write(*,*) 'include_neo     =', include_neo
 write(*,*) 'include_gvec_field     =', include_gvec_field
 write(*,*) 'include_magnetic_field =',include_magnetic_field
+write(*,*) 'include_vacuum_field   =',include_vacuum_field
 write(*,*) 'include_velocity_field =',include_velocity_field
 write(*,*) 'include_electric_field =',include_electric_field
 write(*,*) 'include_Jpol      =', include_Jpol
@@ -289,6 +295,14 @@ if (include_magnetic_field) then
   n_bfield  = 1
   s_bfield  = n_vectors
   n_vectors = n_vectors + n_bfield
+endif
+if (include_vacuum_field) then
+  n_vacfield = 1
+  s_vacfield = n_vectors
+  n_vectors  = n_vectors + n_vacfield
+  n_vacfield_sc = 1
+  s_vacfield_sc = n_scalars
+  n_scalars     = n_scalars + n_vacfield_sc
 endif
 if (include_velocity_field) then
   n_vfield  = 1
@@ -465,9 +479,13 @@ if (include_gvec_field) then
   vector_names(s_gvec_vec+1  :s_gvec_vec+1)      = 'B_gvec' 
   vector_names(s_gvec_vec+2  :s_gvec_vec+n_gvec_vec) = 'J_gvec' 
 endif
-if (include_magnetic_field)  vector_names(s_bfield+1:s_bfield+n_bfield) = 'B_field' 
-if (include_velocity_field)  vector_names(s_vfield+1:s_vfield+n_vfield) = 'v_field'
-if (include_electric_field)  vector_names(s_Efield+1:s_Efield+n_Efield) = 'E_field_tmid'
+if (include_magnetic_field)  vector_names(s_bfield+1:s_bfield+n_bfield)       = 'B_field' 
+if (include_vacuum_field) then
+  vector_names(s_vacfield+1:s_vacfield+n_vacfield) = 'grad_chi' 
+  scalar_names(s_vacfield_sc+1:s_vacfield_sc+n_vacfield_sc) = 'Lap_chi'
+end if
+if (include_velocity_field)  vector_names(s_vfield+1:s_vfield+n_vfield)       = 'v_field'
+if (include_electric_field)  vector_names(s_Efield+1:s_Efield+n_Efield)       = 'E_field_tmid'
 
 do k_tor=1, n_tor
   mode(k_tor) = + int(k_tor / 2) * n_period
@@ -480,6 +498,7 @@ enddo
 call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr, .true.)
 
 call initialise_basis                              ! define the basis functions at the Gaussian points
+call init_chi_basis
 
 nnos = nsub*nsub*element_list%n_elements
 allocate(currdens(nnos),xyz(3,nnos),scalars(nnos,1:n_scalars),vectors(nnos,3,1:n_vectors))
@@ -553,6 +572,8 @@ do i=1,element_list%n_elements
 
       xjac_y  = (Z_tt*R_s**2 - R_tt*Z_s*R_s - 2.d0*Z_st*R_t*R_s   &
               + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac
+
+      chi = get_chi(R,Z,toroidal_angle)
 
       inode = inode+1
       
@@ -1050,8 +1071,11 @@ do i=1,element_list%n_elements
              du_x = du_x  + (   Z_t * dU_s - Z_s * dU_t )   / xjac * HZ(i_tor,i_plane)
              du_y = du_y  + ( - R_t * dU_s + R_s * dU_t )   / xjac * HZ(i_tor,i_plane)
 
-             ps_x  = ps_x + (   Z_t * PS_s - Z_s * PS_t )   / xjac * HZ(i_tor,i_plane)
-             ps_y  = ps_y + ( - R_t * PS_s + R_s * PS_t )   / xjac * HZ(i_tor,i_plane)
+             ps_x_itor = (   Z_t * PS_s - Z_s * PS_t )   / xjac * HZ(i_tor,i_plane)
+             ps_y_itor = ( - R_t * PS_s + R_s * PS_t )   / xjac * HZ(i_tor,i_plane)
+             ps_x  = ps_x + ps_x_itor
+             ps_y  = ps_y + ps_y_itor
+             ps_p = ps_p + psi*HZ_p(i_tor,i_plane) - ps_x_itor*R_phi - ps_y_itor*Z_p
 
              zj_x  = zj_x + (   Z_t * ZJ_s - Z_s * ZJ_t )   / xjac * HZ(i_tor,i_plane)
              zj_y  = zj_y + ( - R_t * ZJ_s + R_s * ZJ_t )   / xjac * HZ(i_tor,i_plane)
@@ -1113,7 +1137,7 @@ do i=1,element_list%n_elements
             call interp_gvec(node_list,element_list,i,2,1,i_tor,s,t,JRg,JRg_s,JRg_t,JRg_st,JRg_ss,JRg_tt)
             call interp_gvec(node_list,element_list,i,2,2,i_tor,s,t,JZg,JZg_s,JZg_t,JZg_st,JZg_ss,JZg_tt)
             call interp_gvec(node_list,element_list,i,2,3,i_tor,s,t,Jpg,Jpg_s,Jpg_t,Jpg_st,Jpg_ss,Jpg_tt)
-            vectors(inode,:,s_gvec_vec + 2) =  vectors(inode,:,s_gvec_vec + 1) + (/ JRg, JZg, JPg /) * HZ_coord(i_tor, i_plane)         
+            vectors(inode,:,s_gvec_vec + 2) =  vectors(inode,:,s_gvec_vec + 2) + (/ JRg, JZg, JPg /) * HZ_coord(i_tor, i_plane)         
           enddo
         end if
 
@@ -1178,7 +1202,15 @@ do i=1,element_list%n_elements
         endif ! include_fluxes
 
         if (include_magnetic_field) then
-          vectors(inode,:,s_Bfield + 1) = (/ ps_y/BigR, -ps_x/BigR, F0/BigR /)          
+!          vectors(inode,:,s_Bfield + 1) = (/ ps_y/BigR, -ps_x/BigR, F0/BigR /)          
+          vectors(inode,:,s_Bfield + 1) = (/ chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*BigR), &
+                                             chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*BigR), &
+                                             chi(0,0,1)/BigR + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0         /)
+        endif
+
+        if (include_vacuum_field) then
+          vectors(inode,:,s_vacfield + 1) = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
+          scalars(inode,s_vacfield_sc + 1) = chi(2,0,0) + chi(1,0,0)/BigR + chi(0,2,0) + chi(0,0,2)/BigR**2
         endif
 
         if (include_velocity_field) then

@@ -232,11 +232,12 @@ module mod_chi
     real*8,  intent(in) :: R, z, phi
     real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi
     real*8, dimension(0:n_order-1) :: dksinmp, dkcosmp, V_ml
-    real*8  :: Rn, zn, cval, D_ml, N_ml_1
+    real*8  :: sgnF0, Rn, zn, cval, D_ml, N_ml_1
     integer :: i, j, k, m, l, i_ord, j_ord, k_ord
     
     get_chi = 0.d0
-    get_chi(0,0,0) = phi; get_chi(0,0,1) = 1.d0 ! Include the phi term
+    sgnF0 = sign(1.,F0)
+    get_chi(0,0,0) = sgnF0*phi; get_chi(0,0,1) = sgnF0 ! Include the phi term
     
     if (domm) then
       Rn = R/R_domm
@@ -283,7 +284,7 @@ module mod_chi
       end do
     end if
     
-    get_chi = F0*get_chi
+    get_chi = abs(F0)*get_chi
   end function get_chi
   
   pure real*8 function fact(n)

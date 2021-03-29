@@ -508,7 +508,7 @@ required = 0
     call print_equil_state(.true.)
     call save_special_points('special_equilibrium_points.dat', .false., ierr)
     
-    !call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
+    call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
     
     ! Get flux surfaces
     !surface_list%n_psi = 100
