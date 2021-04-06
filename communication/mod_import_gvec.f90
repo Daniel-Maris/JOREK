@@ -304,7 +304,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
       i_node = n_node_start + n_theta*(i_rad-1) + i_theta
       
       ! Read in pressure
-      node_list%node(i_node)%pressure(1) = P_four(i_theta, i_rad, n_max+1)  ! n_max => i_tor=1
+      node_list%node(i_node)%pressure(1) = P_four(i_theta, i_rad, n_max+1)  ! n_max+1 => i_tor=1
       node_list%node(i_node)%pressure(2) = P_four_s(i_theta, i_rad, n_max+1) * s_factor * 1.0 / 3.0
       node_list%node(i_node)%pressure(3) = P_four_t(i_theta, i_rad, n_max+1) * theta_factor * 1.0 / 3.0
       node_list%node(i_node)%pressure(4) = P_four_st(i_theta, i_rad, n_max+1) * s_factor * theta_factor * 1.0 / 9.0
