@@ -97,8 +97,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   if (n_coord_tor .lt. n_modes) then
     write(*,*) "WARNING: Number of modes in JOREK is less than in GVEC! (n_coord_tor, n_modes):" , n_coord_tor, n_modes
     write(*,*) "         Continuing with partial import of toroidal modes."
-  endif
-  if (n_coord_tor .gt. n_modes) then
+  else if (n_coord_tor .gt. n_modes) then
     write(*, *) "ERROR: Number of modes in JOREK must be less than or equal to GVEC representation! (n_coord_tor, n_modes):" , n_coord_tor, n_modes
     stop
   endif
