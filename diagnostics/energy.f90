@@ -138,17 +138,18 @@ do ife =1,  element_list%n_elements
         + eq_g(var_rho,ms,mt) *( eq_g1(var_uR,ms,mt)*eq_g(var_uR,ms,mt) + eq_g1(var_uZ,ms,mt)*eq_g(var_uZ,ms,mt) + eq_g1(var_up,ms,mt)*eq_g(var_up,ms,mt)  ) &
         + eq_g(var_rho,ms,mt) *( eq_g(var_uR,ms,mt) *eq_g1(var_uR,ms,mt)+ eq_g(var_uZ,ms,mt) *eq_g1(var_uZ,ms,mt)+ eq_g(var_up,ms,mt) *eq_g1(var_up,ms,mt) ) )
         endif
-#elif (JOREK_MODEL == 183)
-        W_mag(in) = W_mag(in) + (ps0_x*ps0_x + ps0_y*ps0_y)*xjac*wst/BigR
-        W_kin(in) = W_kin(in) + density_eq(ms,mt)*(u0_x*u0_x + u0_y*u0_y)*BigR**3*xjac*wst/F0**2
 #else
         ps0_x = (   y_t(ms,mt) * eq_s(var_psi,ms,mt) - y_s(ms,mt) * eq_t(var_psi,ms,mt) ) / xjac
         ps0_y = ( - x_t(ms,mt) * eq_s(var_psi,ms,mt) + x_s(ms,mt) * eq_t(var_psi,ms,mt) ) / xjac
         u0_x  = (   y_t(ms,mt) * eq_s(var_u,  ms,mt) - y_s(ms,mt) * eq_t(var_u,ms,mt) ) / xjac
         u0_y  = ( - x_t(ms,mt) * eq_s(var_u,  ms,mt) + x_s(ms,mt) * eq_t(var_u,ms,mt) ) / xjac
 
-        W_mag(in) = W_mag(in) +                     (ps0_x*ps0_x + ps0_y*ps0_y ) / BigR    * xjac * wst
+        W_mag(in) = W_mag(in) + (ps0_x*ps0_x + ps0_y*ps0_y)*xjac*wst/BigR
+#if (JOREK_MODEL == 183)
+        W_kin(in) = W_kin(in) + density_eq(ms,mt)*(u0_x*u0_x + u0_y*u0_y)*BigR**3*xjac*wst/F0**2
+#else
         W_kin(in) = W_kin(in) + density_eq(ms,mt) * (u0_x*u0_x   + u0_y*u0_y)    * BigR**3 * xjac * wst
+#endif
 #endif
 
 !        if (gamma /= 1.d0) then ! the internal energy density p/(gamma-1) may be absorbed in the kinetic energy
