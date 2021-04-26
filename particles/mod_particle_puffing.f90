@@ -118,28 +118,50 @@ subroutine do_particle_puffing(this,sim, ev)
     stop
   end if
 
-  allocate(is_free(size(sim%groups(1)%particles,1))) 
+  ! allocate(is_free(size(sim%groups(1)%particles,1))) 
 
   ! might be replaced with omp workshare, or just the array expression.
   ! there is an issue with derived type arrays in gfortran though, and this works
-  !!$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &
-  !!$omp private(j)
-  do j=1,size(sim%groups(1)%particles,1)
-    is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0 
-  end do
-  !!$omp end parallel do
-  !!$omp barrier
-  n_free = count(is_free)
-  allocate(i_free(n_free))
-  k = 1
-  do j=1,size(is_free,1)
-    if (is_free(j)) then
-      i_free(k) = j
-      k = k+1
-      !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
-    end if
-  end do
+  ! !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &
+  ! !$omp private(j)
+  ! do j=1,size(sim%groups(1)%particles,1)
+    ! is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0 
+  ! end do
+  ! !$omp end parallel do
+  ! !$omp barrier
+  ! n_free = count(is_free)
+  ! allocate(i_free(n_free))
+  ! k = 1
+  ! do j=1,size(is_free,1)
+    ! if (is_free(j)) then
+      ! i_free(k) = j
+      ! k = k+1
+      ! if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
+    ! end if
+  ! end do
 
+  !============== Finding free particles !< make into a function?
+allocate(is_free(size(sim%groups(1)%particles,1))) 
+!$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
+!$omp private(j) schedule(dynamic, 100)
+do j=1,size(sim%groups(1)%particles,1) !sim%groups(1)%particles
+	is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
+end do
+!$omp end parallel do
+!$omp barrier
+n_free = count(is_free)
+allocate(i_free(n_free))
+k = 1
+do j=1,size(is_free,1)
+	if (is_free(j)) then
+	  i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(1)%particles(j)
+	  k = k+1
+	  !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
+	end if
+end do
+! ==================
+  
+  
   n_group = 1   ! Puffing Hydrogen (or actually the element at groups(1)) only
   ! Assuming the incoming gas at T=300K and a diatomic gas
   c = sqrt((7.d0/5.d0)*300.d0*K_BOLTZ/(2.d0*sim%groups(n_group)%mass*ATOMIC_MASS_UNIT))

@@ -49,7 +49,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 tokamak_device,                                     &
                 F0,gamma_sheath,gamma_stangeby, density_reflection, &
                 mach_one_bnd_integral, Vpar_smoothing,              &
-                Vpar_smoothing_coef,                                &
+                deuterium_adas, old_deuterium_atomic,               &
+				Vpar_smoothing_coef,                                &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
                 T_0,   T_1,   T_coef,                               &
@@ -58,6 +59,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 particlesource, heatsource, tauIC,                  &
                 eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ZK_perp_num, Dn_perp_num, time_evol_scheme,         &
+				corr_neg_temp_coef,corr_neg_dens_coef,              &
                 pellet_amplitude, pellet_R, pellet_Z, pellet_phi,   &
                 pellet_radius, pellet_sig, pellet_length,           &
                 pellet_psi, pellet_delta_psi, pellet_density,       &
@@ -67,7 +69,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint,      &
                 xcase, SDN_threshold, D_perp_file, ZK_perp_file,    &
-                rho_file, T_file, ffprime_file,                     &
+                rho_file, T_file, ffprime_file,rot_file,            &
                 freeboundary_equil, freeboundary,  freeb_change_indices, &
                 resistive_wall,                                     &
                 wall_resistivity, wall_resistivity_fact,            &
@@ -135,7 +137,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
                 use_cx, use_sputtering, use_ionisation,             &
-                use_ncs, use_pcs, use_ccs
+                use_ncs, use_pcs, use_ccs,restart_particles
 
 if (my_id .eq. 0) then
 

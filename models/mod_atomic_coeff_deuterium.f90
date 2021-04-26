@@ -372,8 +372,8 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
 	  
 	  
 	  
-	  
-	  
+	!Srec_T        = Srec_T   * 100 
+	!dSrec_dT      = dSrec_dT * 100
 	  
 	  
 	  

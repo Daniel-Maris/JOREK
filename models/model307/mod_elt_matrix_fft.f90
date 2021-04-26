@@ -24,6 +24,7 @@ use diffusivities, only: get_dperp, get_zkperp
 use equil_info, only : get_psi_n
 use corr_neg
 use mod_bootstrap_functions
+use mod_atomic_coeff_deuterium, only: rec_rate_to_kinetic
 
 implicit none
 
@@ -95,6 +96,23 @@ real*8     :: t_norm
 ! Temporary variables serving the SPI module
 integer    :: spi_i
 real*8     :: ng_radius !< Radius of neutral gas cloud as a result of the ablation
+!==================================
+ ! Atomic physics coefficients:
+!   -Ionization
+real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
+!real*8     :: coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss ! Ionization rate parameters
+!real*8     :: ksiion                                          ! Ionization energy
+!   -Recombination
+real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
+! real*8      :: rec_particles_this_element !< amount of recombination in this element
+!   -Radiation from injected gas/impurities	
+!real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature	
+real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T	
+real*8     :: T_rad                                           ! Temperature used in radiation rate	
+!real*8     :: coef_rad_1                                      ! Radiation rate parameters	
+real*8     :: ne_SI                                           ! Electron density used in radiation rate        
+!==================================
+
 
 real*8     :: in_fft(1:n_plane)
 complex*16 :: out_fft(1:n_plane)
@@ -701,6 +719,23 @@ do i=1,n_vertex_max
                                 source_pellet, source_volume)
           endif
 
+		  !> Recombination amount per gauss point per element for kinetic particles
+		  if (use_ncs) then ! .and. use_recombination
+			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
+							          ! --- Transform derivatives on Te to derivatives in total T	
+ !         	dSion_dT      = dSion_dT      / 2.d0	
+			dSrec_dT      = dSrec_dT      / 2.d0	
+ !         	dLradDrays_dT = dLradDrays_dT / 2.d0	
+			dLradDcont_dT = dLradDcont_dT / 2.d0
+		  else 
+			Sion_T        = 0.d0
+			dSion_dT      = 0.d0
+			Srec_T        = 0.d0
+			dSrec_dT      = 0.d0
+			LradDcont_T   = 0.d0
+			dLradDcont_dT = 0.d0
+		  endif		  
+		  
 
           do im=n_tor_start, n_tor_end
 
@@ -839,6 +874,8 @@ do i=1,n_vertex_max
 
                        + v * 2.d0 * tauIC * p0_y * BigR                                           * xjac * tstep &
                        
+					   - v * r0_corr * r0_corr  * BigR * Srec_T                                   * xjac * tstep &
+
                        + zeta * v * delta_g(mp,5,ms,mt) * BigR                                    * xjac         &
 
                        - D_perp_num * (v_xx + v_x/Bigr + v_yy)*(r0_xx + r0_x/Bigr + r0_yy) * BigR * xjac * tstep &
@@ -890,6 +927,8 @@ do i=1,n_vertex_max
                        - ZK_par_num * (v_ps0_x  * ps0_y - v_ps0_y  * ps0_x) &
                                     * (T0_ps0_x * ps0_y - T0_ps0_y * ps0_x)               * xjac * tstep  &
 
+						!- v * BigR * r0_corr * r0_corr  * LradDcont_T                       * xjac * tstep  &
+									
                        - TG_num6 * 0.25d0 * BigR**3 * T0 * (r0_x * u0_y - r0_y * u0_x)         &
                                           * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep  &
                        - TG_num6 * 0.25d0 * BigR**3 * r0 * (T0_x * u0_y - T0_y * u0_x)         &
@@ -1301,6 +1340,10 @@ do i=1,n_vertex_max
 
                           - v * 2.d0 * tauIC * (rho_y * T0 + rho*T0_y) * BigR                           * xjac * theta * tstep &
 
+				   !-----------------------------Recombination to kinetic particles
+				          + v * rho * 2.d0 * r0_corr * BigR * Srec_T * xjac * theta * tstep &
+					!-------------------------------						  
+						  
                           + D_perp_num * (v_xx + v_x/BigR + v_yy)*(rho_xx + rho_x/BigR + rho_yy)  * BigR * xjac * theta * tstep &
 
                           + TG_num5 * 0.25d0 * BigR**3 * (rho_x * u0_y - rho_y * u0_x)                                &
@@ -1330,8 +1373,12 @@ do i=1,n_vertex_max
                                     * ( + F0 / BigR * rho_p)                                                          &
                                     * ( + F0 / BigR * v_p) * xjac * theta * tstep * tstep
 
-                  amat(5,6) = - v * 2.d0 * tauIC * (T_y * r0 + T*r0_y) * BigR                             * xjac * theta * tstep
+                  amat(5,6) = - v * 2.d0 * tauIC * (T_y * r0 + T*r0_y) * BigR                             * xjac * theta * tstep &
 
+!-----------------------------Recombination to kinetic particles  
+				              + v * BigR * r0_corr * r0_corr *  dSrec_dT * T                            * xjac * theta * tstep  
+				  
+				  
                   amat(5,7) = + v * F0 / BigR * Vpar * r0_p                                               * xjac * theta * tstep &
                               + v * Vpar * (r0_s * ps0_t - r0_t * ps0_s)                                         * theta * tstep &
                               + v * r0 * (vpar_s * ps0_t - vpar_t * ps0_s)                                       * theta * tstep &
@@ -1428,6 +1475,8 @@ do i=1,n_vertex_max
                             + v * rho * GAMMA * T0 * (vpar0_s * ps0_t - vpar0_t * ps0_s)        * theta * tstep &
                             + v * rho * GAMMA * T0 * F0 / BigR * vpar0_p                 * xjac * theta * tstep &
 
+							!+ v * BigR * rho * 2d0 * r0_corr * LradDcont_T                * xjac * theta * tstep &
+							
                          + TG_num6 * 0.25d0 * BigR**2 * T0* (rho_x * u0_y - rho_y * u0_x)      &
                                    * ( v_x * u0_y - v_y * u0_x) * xjac * theta*tstep*tstep     &
                          + TG_num6 * 0.25d0 * BigR**2 * rho * (T0_x * u0_y - T0_y * u0_x)      &
@@ -1480,6 +1529,8 @@ do i=1,n_vertex_max
 
                             -v * T * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0 * BigR * xjac * theta * tstep &
 
+                            !+ v * BigR * T * r0_corr * r0_corr  * dLradDcont_dT             * xjac * theta * tstep &
+							
                             + TG_num6 * 0.25d0 * BigR**2 * T* (r0_x * u0_y - r0_y * u0_x)         &
                                       * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep &
                             + TG_num6 * 0.25d0 * BigR**2 * r0* (T_x * u0_y - T_y * u0_x)          &

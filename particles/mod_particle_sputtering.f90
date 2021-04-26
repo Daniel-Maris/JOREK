@@ -96,7 +96,7 @@ module mod_particle_sputtering
     real*8, dimension(:), allocatable  :: background_relative_density
     integer, dimension(:), allocatable :: background_species_Z
     
-    integer :: i = 0, n_save = 100 !< used for diagnostics to see when the deposition diagnostic has to be evaluated, written
+    integer :: i = 0, n_save = 10 !100 !< used for diagnostics to see when the deposition diagnostic has to be evaluated, written
     integer :: n_sputter = -1 !< number of simulation particles to sputter from fluid-particle sputtering across all processes, across
     !< all fluid species (proportioned by sputtering yield, to get similar weights)
 
@@ -298,7 +298,7 @@ subroutine do_particle_sputter(this, sim, ev)
 
   integer :: n_fluid_groups, n_particle_groups
 
-  integer :: i, j, k, i_patch, i_scalar, n_samples, ierr
+  integer :: i, j, k, i_patch, i_scalar, n_samples, ierr,this_patch, sputtered_this_step_local, all_sputtered_this_step
   integer :: q, Z
   real*8 :: E, sputtering_yield, sputtered_energy_coeff, theta, T_eV, integral
   real*8, allocatable :: integral_i(:)
@@ -423,13 +423,14 @@ subroutine do_particle_sputter(this, sim, ev)
     
   
   
-
+  
   !=============================================PARTICLE PART============================================================
   do i = 1,n_particle_groups ! source particles, i.e. those hitting the wall
+    sputtered_this_step_local = 0
     ! For each particle we need the location, the charge and the energy.
     ! instead of selecting type here we will loop first and use functions to get the charge and energy of the particle.
     ! the location requirement is fullfilled by particle_base already
-
+	!write(*,*) "PARTICLE PART sputtering group", i
     ! gfortran wants and does not want to have the types in the shared section at the same time.... default(shared) it is
     ! be very very careful however!
 #ifdef __GFORTRAN__
@@ -438,23 +439,33 @@ subroutine do_particle_sputter(this, sim, ev)
     !$omp parallel default(none) &
 #endif
     !$omp shared(this, sim, i), private(q, velocity, theta, E, &
-    !$omp sputtering_yield, sputtered_energy_coeff, i_rng, u, i_patch,j, i_edge_nodes, vector_normal, T_eV, &
-    !$omp k, area, i_edge_elm, toroidal_offset, dphi, is_prompt_loss, Efield, B, psi, pot, T_e, n_e)
-
+    !$omp sputtering_yield, sputtered_energy_coeff, i_rng, u, i_patch,this_patch,j, i_edge_nodes, vector_normal, T_eV, &
+    !$omp k, area, i_edge_elm, toroidal_offset, dphi, is_prompt_loss, Efield, B, psi, pot, T_e, n_e)                    &
+    !$omp reduction(+:sputtered_this_step_local)
+	
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
     !$omp do schedule(dynamic, 10)
     do j = 1,size(sim%groups(i)%particles,1)
       ! Skip if this particle is not lost in a specific location (i_elm .eq. 0 means lost 'somewhere')
+	  ! if (sim%groups(i)%particles(j)%i_elm .lt. 0) write(*,*) "PARTICLE PART element at ", sim%groups(i)%particles(j)%i_elm
+	  
+	  ! if (sim%groups(i)%particles(j)%i_elm .ne. 0) write(11,*) "PARTICLE PART, particle at element", sim%groups(i)%particles(j)%i_elm
       if (sim%groups(i)%particles(j)%i_elm .ge. 0) cycle !< .not. .lt.!< if this is not a lost particle go to next particle
         
       ! Find out if this particle is lost in any of the edge domains
       do i_patch = 1,size(this%fluid_sputter_yield%patch,1)
         ! if i_elm in the i_elm list of this edge domain exit the loop
-        if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) exit
+        ! if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) exit
         ! Note that this has issues at sharp corners, where particles may be
         ! lost in a different patch but at the same element number!
+		if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) then
+			this_patch = i_patch
+			sputtered_this_step_local = sputtered_this_step_local + 1
+		endif
       end do
+	  i_patch = this_patch
+	  ! write(*,*) "i_patch", i_patch, "size fluid_sputter_yield%patch", size(this%fluid_sputter_yield%patch,1)
       if (i_patch .gt. size(this%fluid_sputter_yield%patch,1)) cycle ! particle not lost in the right area, skip it
         
         
@@ -643,6 +654,13 @@ subroutine do_particle_sputter(this, sim, ev)
     end do
     !$omp end do
     !$omp end parallel
+	
+	! sputtered_this_step_local
+	call MPI_REDUCE(sputtered_this_step_local,all_sputtered_this_step,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+	if (sim%my_id .eq. 0) then
+	write(*,'(A26,I2,A45,I7)') "Superparticles from group", i,"sputtered/reflected this sputter action = ", all_sputtered_this_step
+endif
+	
   end do
 
 
@@ -1068,7 +1086,7 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
 
   ! normalize relative densities
   n_relative = n_relative/sum(n_relative, dim =1)
-  
+  !write(*,*) "mod_particle_sputtering: do i_patch" 
   do i_patch = 1, size(fluid_sputter_yield%patch,1) !< different parts of edge domain
 #ifdef __GFORTRAN__
     !$omp parallel do default(shared) &
@@ -1141,7 +1159,7 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
             Gamma_d * delta_t * yield
         end if
       end do
-
+      !write(*,*) "mod_particle_sputtering: end do i_patch"
       ! Save electron temperature
       if (present(diagnostics)) then
         n_offset = size(sim%groups,1)*n_particle_diag + size(n_relative,1)*n_fluid_diag
