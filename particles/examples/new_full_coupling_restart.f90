@@ -168,7 +168,7 @@ use_recombination = .true.  !
  
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_sputtering) then  
-  n_reflect = int(n_particles_local * 2.d-3)
+  n_reflect = int(n_particles_local* sim%n_cpu * 2.d-3) !int(n_particles_local * 2.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
@@ -243,7 +243,7 @@ project_density = new_projection(sim%fields%node_list, sim%fields%element_list, 
                      filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
                      filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
                      f=[proj_f(proj_one, group = 1)], &
-                     fractional_digits = 9,  to_vtk=.TRUE., to_h5=.FALSE., basename='density', nsub=2)
+                     fractional_digits = 9,  to_vtk=.TRUE., to_h5=.FALSE., basename='density', nsub=5)
 
 call with(sim, project_density)
 					 
@@ -569,7 +569,7 @@ type is (particle_kinetic_leapfrog)
           ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
           ion_source = 0.d0
 
-          if (particle_tmp%weight .le. 1.0d7) then !1.0d10 1.0d7
+          if (particle_tmp%weight .le. 1.0d9) then !1.0d10 1.0d7
 
             call rng(i_rng)%next(ion_ran)
 

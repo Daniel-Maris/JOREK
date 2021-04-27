@@ -218,7 +218,7 @@ do ms=1, n_gauss
     u0_s  = eq_s(mp,2,ms)
     Vpar0 = eq_g(mp,7,ms)
 
-    T0_corr = T0 !corr_neg_temp1(T0)
+    T0_corr = max(T0,0.d0) !corr_neg_temp1(T0)
     r0_corr = r0  !corr_neg_dens(r0)
 
     cs0      = sqrt(gamma*T0_corr)

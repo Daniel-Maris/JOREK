@@ -184,8 +184,8 @@ do ms=1, n_gauss
     T0    = eq_g(mp,6,ms)
     Vpar0 = eq_g(mp,7,ms)
 
-    T0_corr = corr_neg_temp1(T0)
-    r0_corr = corr_neg_dens(r0)
+    T0_corr = T0 !corr_neg_temp1(T0)
+    r0_corr = r0 !corr_neg_dens(r0)
 
     cs0   = sqrt(gamma*T0_corr)
 

@@ -93,7 +93,7 @@ contains
 	rec_v_phi(ife) = 0.d0
     volume_local(ife)    =0.d0
 	
-	if (use_ncs) then !< indicates using kinetic particles. change to (use_ncs .or. use_pcs.or. use_ccs ) When implemented 
+	if (.false.) then !(use_ncs) then !< indicates using kinetic particles. change to (use_ncs .or. use_pcs.or. use_ccs ) When implemented 
 		
 		do i = 1,n_vertex_max !over nodes
 			inode = element%vertex(i)
@@ -126,15 +126,15 @@ contains
 		enddo	!< i
 		
 		
-	    rec_rate_total = rec_rate_total + rec_rate_local(ife)
+!!	    !rec_rate_total = rec_rate_total + rec_rate_local(ife)
 		!write(20,*) 'i_elm=', ife,  'rec_rate_total=', rec_rate_total
-		write(22,*) 'i_elm=', ife,  'rec_rate_local(i_elm)=', rec_rate_local(ife)
-	    write(23,*) 'i_elm=', ife,  'rec_mom_local(i_elm)=', rec_mom_local(ife)
-		write(24,*) 'i_elm=', ife,  'rec_energy_local(i_elm)=', rec_energy_local(ife)
-		write(25,*) 'i_elm=', ife,  'rec_v_R(i_elm)=', rec_v_R(ife)
-		write(26,*) 'i_elm=', ife,  'rec_v_Z(i_elm)=', rec_v_Z(ife)
-		write(27,*) 'i_elm=', ife,  'rec_v_phi(i_elm)=', rec_v_phi(ife)
-		write(28,*) 'i_elm=', ife,  'volume_local(i_elm)=', volume_local(ife)
+		!write(22,*) 'i_elm=', ife,  'rec_rate_local(i_elm)=', rec_rate_local(ife)
+	    !write(23,*) 'i_elm=', ife,  'rec_mom_local(i_elm)=', rec_mom_local(ife)
+		!write(24,*) 'i_elm=', ife,  'rec_energy_local(i_elm)=', rec_energy_local(ife)
+		!write(25,*) 'i_elm=', ife,  'rec_v_R(i_elm)=', rec_v_R(ife)
+		!write(26,*) 'i_elm=', ife,  'rec_v_Z(i_elm)=', rec_v_Z(ife)
+		!write(27,*) 'i_elm=', ife,  'rec_v_phi(i_elm)=', rec_v_phi(ife)
+		!write(28,*) 'i_elm=', ife,  'volume_local(i_elm)=', volume_local(ife)
 	endif !use_ncs
 	
     ! --- Apply sheath boundary conditions at the targets
@@ -506,7 +506,7 @@ subroutine construct_matrix(my_id, MPI_COMM_N, my_id_n, MPI_COMM_MASTER, my_id_m
     
     ! --- Get element
     ielm = local_elms(ife)
-	write(21,*) 'ielm,', ielm
+	!write(21,*) 'ielm,', ielm
     element = element_list%element(ielm)
     
     ! --- Define nodes (this depends on whether our element has been refined)

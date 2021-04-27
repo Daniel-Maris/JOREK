@@ -777,7 +777,7 @@ do i=1,n_vertex_max
           !call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT) 
 		  !Srec_T = 0.d0 
 		  !LradDcont_T = 0.d0
-		  if (use_ncs) then
+		  if (use_ncs) then ! .and. use_recombination
 			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
 			!aux_nodes(i)%values(:,:,n_var) = Srec_T	* r0_corr * r0_corr	
 
@@ -788,8 +788,8 @@ do i=1,n_vertex_max
 			dLradDcont_dT = dLradDcont_dT / 2.d0
 			
 			!Increase rate 100fold for testing
-			Srec_T = Srec_T*100.d0
-			dSrec_dT = dSrec_dT*100.d0
+			!Srec_T = Srec_T*100.d0
+			!dSrec_dT = dSrec_dT*100.d0
 		
 		  else 
 			Sion_T        = 0.d0
@@ -1065,32 +1065,26 @@ do i=1,n_vertex_max
 			!============================== 
 			!Export particle recombination data
 			!> Recombination amount per gauss point per element for kinetic particles
-            !call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT) 
-			!aux_nodes(i)%values(im,j,n_var) = aux_nodes(i)%values(im,j,n_var) + v* Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep !< weak form for fine element notation
-			aux_nodes(i)%values(im,j,n_var) = aux_nodes(i)%values(im,j,n_var) + Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep /n_plane *wst 
-			                                                               !  * r0_corr * r0_corr  * BigR * Srec_T * xjac * tstep &
-			!write(30,*) "Srec_T, ", Srec_T
-			!<im, j , nvar
-			
+!!!           	aux_nodes(i)%values(im,j,n_var) = aux_nodes(i)%values(im,j,n_var) + Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep /n_plane *wst 
+			                                                               
 			!> momentum gained by neutrals          : (v_x * u0_x + v_y * u0_y) -> (u0_xx + u0yy)
-			aux_nodes(i)%values(im,j,n_var-1) = aux_nodes(i)%values(im,j,n_var-1)  - BigR**2*(r0_corr*r0_corr *Srec_T)*(u0_xx + u0_yy) * TWOPI * BigR * xjac * tstep /n_plane *wst !& !< how to do second derivatives?
+			!aux_nodes(i)%values(im,j,n_var-1) = aux_nodes(i)%values(im,j,n_var-1)  - BigR**2*(r0_corr*r0_corr *Srec_T)*(u0_xx + u0_yy) * TWOPI * BigR * xjac * tstep /n_plane *wst !& !< how to do second derivatives?
 																				  !+ (r0_corr * r0_corr  * Srec_T) * vpar0 * BB2 * TWOPI * BigR * xjac * tstep 
 																				  
 			!> energy gained by neutrals											(  kinetic energy             +  internal energy         ) * recombination amount      * integral
-			aux_nodes(i)%values(im,j,n_var-2) = aux_nodes(i)%values(im,j,n_var-2) + (0.d50 *r0_corr* ( vpar0 )**2 +(gamma-1)*r0_corr*T0_corr )* Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac /n_plane	*tstep *wst
+			!aux_nodes(i)%values(im,j,n_var-2) = aux_nodes(i)%values(im,j,n_var-2) + (0.d50 *r0_corr* ( vpar0 )**2 +(gamma-1)*r0_corr*T0_corr )* Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac /n_plane	*tstep *wst
 			
-			
-			!rec_particles_this_element = rec_particles_this_element +v* Srec_T * r0_corr * r0_corr * TWOPI * BigR * xjac	*tstep /n_plane*wst
-			rec_particles_this_element = rec_particles_this_element +1.d0 * TWOPI * BigR * xjac	 /n_plane*wst
+			!>volume check
+			!rec_particles_this_element = rec_particles_this_element +1.d0 * TWOPI * BigR * xjac	 /n_plane*wst
 			!============================
 						
 			!> 3 v's +energy
-			aux_nodes(i)%values(im,j,1) = aux_nodes(i)%values(im,j,1) + (Srec_T * r0_corr * r0_corr) * (-BigR*u0_y  + vpar0/BigR * ps0_y) * TWOPI * BigR * xjac*tstep  /n_plane *wst!rho_rec*v_R
-			aux_nodes(i)%values(im,j,2) = aux_nodes(i)%values(im,j,2) + (Srec_T * r0_corr * r0_corr) * (+ BigR*u0_x - vpar0/BigR * ps0_x) * TWOPI * BigR * xjac*tstep  /n_plane *wst!rho_rec*v_Z
-			aux_nodes(i)%values(im,j,3) = aux_nodes(i)%values(im,j,3) + (Srec_T * r0_corr * r0_corr) * (+ F0*vpar0/BigR)                  * TWOPI * BigR * xjac*tstep  /n_plane *wst!rho_rec*v_phi
+!!!			aux_nodes(i)%values(im,j,1) = aux_nodes(i)%values(im,j,1) + (Srec_T * r0_corr * r0_corr) * (-BigR*u0_y  + vpar0/BigR * ps0_y) * TWOPI * BigR * xjac*tstep  /n_plane *wst!rho_rec*v_R
+!!!			aux_nodes(i)%values(im,j,2) = aux_nodes(i)%values(im,j,2) + (Srec_T * r0_corr * r0_corr) * (+ BigR*u0_x - vpar0/BigR * ps0_x) * TWOPI * BigR * xjac*tstep  /n_plane *wst!rho_rec*v_Z
+!!!			aux_nodes(i)%values(im,j,3) = aux_nodes(i)%values(im,j,3) + (Srec_T * r0_corr * r0_corr) * (+ F0*vpar0/BigR)                  * TWOPI * BigR * xjac*tstep  /n_plane *wst!rho_rec*v_phi
 			
 			!> Volume check
-			aux_nodes(i)%values(im,j,4) = aux_nodes(i)%values(im,j,4) +1.d0 * TWOPI * BigR * xjac /n_plane *wst
+!!!!			aux_nodes(i)%values(im,j,4) = aux_nodes(i)%values(im,j,4) +1.d0 * TWOPI * BigR * xjac /n_plane *wst
 			
 			end if ! i*j
 			
@@ -2331,7 +2325,7 @@ do i=1,n_vertex_max
   enddo ! j loop (n_order+1)
 enddo ! i loop (n_vertex)
 
-write(21,*) 'element rec particles in this element,',	rec_particles_this_element!  * central_density* 1.d20
+!write(21,*) 'element rec particles in this element,',	rec_particles_this_element!  * central_density* 1.d20
 
 
 if (.NOT. use_fft) return
