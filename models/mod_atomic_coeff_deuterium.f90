@@ -340,11 +340,13 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
 	  call ad_deuterium%prb%interp( 1, ne_si_log10, Te_si_log10, LradDcont_T, dLradDCont_dT) !< Power Recombination and Bremsstrahlung
      !write(30,*) "Te_eV/10", Te_eV_lim, "Srec_T", Srec_T
 	 
-	  if ( Te_eV < 0.2d0) then  ! --- Don't radiate or ionize below 0.2 eV, recombination allowed
+	  if ( Te_eV < 1.d0) then  !0.2d0 --- Don't radiate or ionize below 0.2 eV, recombination allowed
       LradDcont_T   = 0.d0
       dLradDcont_dT = 0.d0
       !LradDrays_T   = 0.d0
       !dLradDrays_dT = 0.d0
+	  !Srec_T		= 0.d0 !< crashes particles, as there are no checks in the recombination routine
+	  !< TODO : add skip particle if Srec_T or rec_this_element is too low.
       dSrec_dT      = 0.d0
       Sion_T        = 0.d0
       dSion_dT      = 0.d0
@@ -353,6 +355,7 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
     if ( Te_eV > 1.d4) then   ! --- Fix values beyond 10 keV and remove derivatives
       dLradDcont_dT = 0.d0
       !dLradDrays_dT = 0.d0
+	  !Srec_T		= 0.d0
       dSrec_dT      = 0.d0
       dSion_dT      = 0.d0
     endif

@@ -87,18 +87,21 @@ end function new_particle_puffing
 
   ! Actually puff gass
 subroutine do_particle_puffing(this,sim, ev)
+	use mpi_mod
 
   class(particle_puffing) , intent(inout) :: this
   type(particle_sim), intent(inout)       :: sim
   type(event), intent(inout), optional    :: ev !<STIJN> is this nececary?
 
-  integer :: i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff
+  integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff
   logical, allocatable, dimension(:) :: is_free
   integer, allocatable, dimension(:) :: i_free
   real*8  :: delta_t, c, R, Z, phi, s, t
   real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
   real*8  :: vector_normal(3), u(5)
 
+  integer ::	  puffed_this_step_local, all_puffed_this_step
+  real*8  ::	  puff_weight_local, all_puff_weight
 
   if (sim%my_id .eq. 0) write(*,*) "Started puffing!"
   
@@ -183,6 +186,8 @@ end do
     to_puff = this%n_puff
   end if
 
+  puffed_this_step_local = 0
+  puff_weight_local      = 0.d0
   select type (pa => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
     do j = 1, to_puff
@@ -219,11 +224,21 @@ end do
         sim%groups(1)%particles(i_p)%i_elm = 0
         cycle       
       end if
+	  puffed_this_step_local = puffed_this_step_local+1
+	  puff_weight_local      = puff_weight_local + pa(i_p)%weight 
     end do
   class default
     write(*,*) 'Particle type not impletement for gas fueling.'
     stop
   end select
 
+! puffed_this_step_local
+call MPI_REDUCE(puffed_this_step_local,all_puffed_this_step,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+call MPI_REDUCE(puff_weight_local,all_puff_weight,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
+if (sim%my_id .eq. 0) then
+write(*,'(A60,I7,E14.6)') "Superparticles, weight puffed this puffing action action = ", all_puffed_this_step, all_puff_weight
+endif
+  
+  
 end subroutine do_particle_puffing
 end module

@@ -28,6 +28,7 @@ use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 use mod_particle_sputtering, only: particle_sputter, sample_fluid_particle_energy
 use mod_projection_functions, only: proj_f_combined_density, &
                                     proj_f_combined_energy, proj_f_combined_par_momentum
+! use mod_radiation, only : proj_PLT
 use mod_particle_puffing
 use mod_edge_domain
 use mod_edge_elements
@@ -43,7 +44,7 @@ use equil_info
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event)                                       :: D_sputter_event,gas_puff_event ,gas_puff2_event
+type(event)                                       :: D_sputter_event,gas_puff_event ,gas_puff2_event!, partwriter
 type(adf11_all)                                   :: adas
 type(pcg32_rng), dimension(:), allocatable        :: rng
 type(count_action)                                :: counter
@@ -74,14 +75,14 @@ real*8  :: r_valve, R_valve_loc, Z_valve
 integer :: n_puff
 
 !use physics
-logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering
+logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
 logical  :: run_stepper, run_rec !, one_rec_only !< when recombination is used
 
 ! diagnostics
 real*8    :: density_tot, density_in, density_out,  pressure, pressure_in, pressure_out
 real*8    :: mom_par_tot, mom_par_in, mom_par_out, kin_par_tot, kin_par_out, kin_par_in
 real*8    :: particles_remaining, momentum_remaining, energy_remaining, all_particles, all_momentum, all_energy
-integer   :: superparticles_remaining,all_superparticles,closest_iteration
+integer   :: superparticles_remaining,all_superparticles,closest_iteration!, part_i_save,part_n_save
 !integer   :: particles_per_element
 
 
@@ -91,6 +92,10 @@ call sim%initialize(num_groups=1)
 !> make sure tstep from namelist doesn't get overwritten
 tstep_keep        = tstep
 timesteps         = tstep_particles
+
+!> saving part_restart every part_n_save steps
+!part_i_save = 1
+!part_n_save = 500
 
 ! Set up the field reader
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
@@ -157,11 +162,12 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 ! tstep_keep        = tstep
 
 ! selecting physics (should be done in input file)
-use_puffing       = .false. 
+use_puffing       = .true. !.false. 
 use_cx            = .true. !.true.
 use_ionisation    = .true. !.false.!.false.
 use_sputtering    = .true. !.false. !false
 use_recombination = .true.  !
+use_line_radiation= .true.
 
 ! Read Open ADAS data for plasma fluid
  if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
@@ -174,13 +180,17 @@ if (use_sputtering) then
 endif
 
 ! setting up particle puffing
-r_valve     = .005d0
-R_valve_loc = 2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+r_valve     = 0.04d0 !.005d0
+R_valve_loc = 4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = -3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+
+R_valve_loc = 4.307! touching leg
+Z_valve     = -3.7898!
 if (use_puffing) then  
-	n_puff      = int(0.001d0*n_particles_local)
-	gas_puff = particle_puffing(n_puff, 1.d21, r_valve, R_valve_loc, Z_valve)
-	gas_puff2 = particle_puffing(n_puff, 1.d21, r_valve, 2.8d0, -1.77)!-0.0) !-1.77
+	n_puff      = int(0.5d-4*n_particles_local* sim%n_cpu)
+	gas_puff = particle_puffing(n_puff, 1.5d21, r_valve, R_valve_loc, Z_valve)
+	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
+	gas_puff2 = particle_puffing(n_puff, 1.5d21, r_valve, 5.5248, -4.3725)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	gas_puff_event = event(gas_puff)
 	gas_puff2_event = event(gas_puff2)
 	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
@@ -209,6 +219,7 @@ if (sim%my_id .eq.0) then
 endif
 !< sim%time = t_start ? 
 
+!partwriter = event(write_action()) !< event writing particle restart files
 ! Set up feedback
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0=filter_par_n0,      &
@@ -241,12 +252,20 @@ jorek_feedback%rhs = 0.d0
 
 project_density = new_projection(sim%fields%node_list, sim%fields%element_list, &
                      filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
+                     filter_n0 = 1.d-3, filter_hyper_n0 = 1.d-6, filter_parallel_n0 = filter_par_n0, &
                      f=[proj_f(proj_one, group = 1)], &
-                     fractional_digits = 9,  to_vtk=.TRUE., to_h5=.FALSE., basename='density', nsub=5)
+                     fractional_digits = 9,  to_vtk=.TRUE., to_h5=.FALSE., basename='density', nsub=2)
 
 call with(sim, project_density)
-					 
+
+
+! if (use_line_radiation) then
+	! project_PLT = new_projection(sim%fields%node_list, sim%fields%element_list, &
+                     ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
+                     ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
+                     ! f=[proj_f(proj_PLT, group = 1)], &
+                     ! fractional_digits = 9,calc_integrals=.true.,  to_vtk=.TRUE., to_h5=.FALSE., basename='linerad', nsub=5)
+! endif	 !use_line_radiation				 
 !project_current = new_projection(sim%fields%node_list, sim%fields%element_list,   &
 !                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
 !                      f=[proj_f(proj_jPhi, group = 1)], fractional_digits = 9,    &
@@ -268,6 +287,7 @@ if (sim%my_id .eq. 0) write(*,*) 'tstart_jorek : ',tstart_jorek
 diag_time = 1.1*n_steps*timesteps
 events = [ new_event_ptr(jorek_feedback,   start = tstart_jorek),            &
            new_event_ptr(jorek_stepper,    start = tstart_jorek),            & 
+!		   event(D_sputter_source      ,start = tstart_jorek+tstep_si/2.d0, step=tstep_si),&
 !		   event(gas_puff, step = 5.d-6),                                &
 !		   event(gas_puff2, step = 5.d-6),                                & !
 !          new_event_ptr(D_sputter_source, start = tstart_jorek, step=diag_time), & !20.d-7 1 sputter per jorek timestep step=1.d-6), &
@@ -357,7 +377,15 @@ do while (.not. sim%stop_now)
 	closest_iteration = nint((projection_time - tstart_jorek)/(tstep_si*nout)) !< very similar to run_at function. May be put this in a function?
 	if ( (abs((tstart_jorek +closest_iteration*tstep_si*nout) -projection_time) .le. 1.d-13) .or. sim%stop_now) then !< == true every tstep * nout steps
 		call with(sim, project_density)
+		
+		 ! if (use_line_radiation) call with(sim, project_PLT)
 	endif !< write projection or diagnostics
+	
+	!if (part_i_save .ge. part_n_save) then
+	!	call with(sim, partwriter)
+	!	part_i_save = 0
+	!endif
+	!part_i_save = part_i_save + 1
 	
 	if (use_recombination) then
 	  !call recombination
@@ -474,10 +502,10 @@ real*8    :: n_norm, rho_norm, t_norm, v_norm, E_norm, M_norm
 real*8    :: t, E(3), B(3), psi, U, n_e, T_e, rz_old(2), st_old(2)
 ! real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3)!, v
 real*8    :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
-real*8    :: ion_rate, ion_source, ion_prob, ion_ran(1), cx_ran(8),st_ran(2), cx_source, cx_energy 
+real*8    :: ion_rate, ion_source, ion_prob, ion_ran(1), cx_ran(8),st_ran(2), cx_source, cx_energy ,PLT
 real*8    :: cx_prob, CX_rate
-real*8    :: kinetic_energy, ion_energy
-real*8    :: n_lost_ion, n_lost_ion_all
+real*8    :: kinetic_energy, ion_energy,line_rad_energy
+real*8    :: n_lost_ion, n_lost_ion_all, p_plt_lost,p_plt_lost_all,p_cx_lost,p_cx_lost_all,p_lost_ion,p_lost_ion_all
 real*8    :: particle_source, velocity_par_source, energy_source
 real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E
 real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
@@ -502,7 +530,15 @@ M_norm   = rho_norm * v_norm                                    ! momentum norma
 
   n_lost_ion = 0.d0
   n_lost_ion_all = 0.d0
-
+  p_lost_ion   = 0.d0
+  p_lost_ion_all   = 0.d0
+  p_plt_lost  = 0.d0
+  p_plt_lost_all  = 0.d0
+  p_cx_lost   = 0.d0
+  p_cx_lost_all   = 0.d0
+  
+  
+  
 jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + n_steps * timesteps
 
 allocate(feedback_rhs,source=jorek_feedback%rhs)
@@ -522,16 +558,16 @@ type is (particle_kinetic_leapfrog)
  !$omp schedule(dynamic,10) &
  !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,        &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_cx, use_ionisation,                                                     &
+ !$omp use_cx, use_ionisation,use_line_radiation,                                                     &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
  !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,    &
  !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
- !$omp ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy,        &  
+ !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy,       &  
  !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,    &
  !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,                        &
  !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
  !$omp E_th, v_th,sum_ran,vvector,ran_norm)                                                                 &
- !$omp reduction(+:feedback_rhs,n_lost_ion)
+ !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion)
  
  ! shared jorek_feedback
  !private 
@@ -560,8 +596,18 @@ type is (particle_kinetic_leapfrog)
 	  
 	  call sim%fields%calc_vvector(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), vvector)
 	  !vvector is fluid flow velocity [v_R, v_Z, v_phi] m/s
-	  limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1 !ADAS limits
-	  if (use_ionisation .or. .not. limits) then
+	  !TODO: add upper limits if necessary
+	  limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
+	  
+	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
+	  line_rad_energy = 0.d0
+	  if (use_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+			call sim%groups(1)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
+			! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
+			line_rad_energy = n_e * particle_tmp%weight * PLT * timesteps
+	  endif ! use_line_radiation
+	  
+	  if (use_ionisation .and. .not. limits) then
        
           call sim%groups(1)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
           ion_prob = 1.d0 - exp(-ion_rate * n_e * timesteps) ! [0] poisson point process, exponential 
@@ -569,7 +615,7 @@ type is (particle_kinetic_leapfrog)
           ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
           ion_source = 0.d0
 
-          if (particle_tmp%weight .le. 1.0d9) then !1.0d10 1.0d7
+          if (particle_tmp%weight .le. 1.0d9) then !1.0d9 !1.0d10 1.0d7
 
             call rng(i_rng)%next(ion_ran)
 
@@ -599,7 +645,7 @@ type is (particle_kinetic_leapfrog)
 	  cx_source = 0.d0
 	  cx_energy = 0.d0
 	  
-	  if (use_cx) then
+	  if (use_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
 	  
           call sim%groups(1)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), CX_rate) ! [m^3/s]
           CX_prob = 1.d0 - exp(-CX_rate * n_e * timesteps)
@@ -624,13 +670,16 @@ type is (particle_kinetic_leapfrog)
 	  endif ! use_cx
 	  
 	  ! feedback from each particle at each timestep
-	  energy_source       = ion_source * ion_energy + cx_source * cx_energy
+	  energy_source       = ion_source * ion_energy + cx_source * cx_energy - line_rad_energy
 	  particle_source     = ion_source * sim%groups(1)%mass * ATOMIC_MASS_UNIT !< mass source in SI
 	  velocity_par_source = ion_source * dot_product(B, particle_tmp%v) * sim%groups(1)%mass * ATOMIC_MASS_UNIT &	
 			+ CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(1)%mass * ATOMIC_MASS_UNIT 
 			   
 	  particle_tmp%v = v_temp 
 	  n_lost_ion = n_lost_ion + ion_source	!< local sum #particles lost due to ionisation
+	  p_lost_ion = p_lost_ion + ion_source * ion_energy
+	  p_plt_lost = p_plt_lost + line_rad_energy
+	  p_cx_lost  = p_cx_lost + cx_source * cx_energy
 	  !Calculate the projection of the ion source in real-time
 		call basisfunctions(particle_tmp%st(1), particle_tmp%st(2), HH, HH_s, HH_t)
 		call mode_moivre(particle_tmp%x(3), HZ)
@@ -683,8 +732,19 @@ else
 deallocate(feedback_rhs)
 
 call MPI_REDUCE(n_lost_ion, n_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(p_lost_ion, p_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(p_plt_lost, p_plt_lost_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(p_cx_lost, p_cx_lost_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 
-if (sim%my_id .eq. 0) write(*,*) " Lost particles at t due to ionisation: ", sim%time, n_lost_ion_all
+
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') " Lost particles at t due to ionisation: ", sim%time, n_lost_ion_all
+p_lost_ion_all = p_lost_ion_all / (timesteps * n_steps)
+p_plt_lost_all = p_plt_lost_all / (timesteps * n_steps)
+p_cx_lost_all = p_cx_lost_all / (timesteps * n_steps)
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionisation: ", sim%time, p_lost_ion_all
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to line radiation: ", sim%time, p_plt_lost_all
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
+! if (sim%my_id .eq. 0) write(*,*) " Lost energy [J] at t due to line radiation: ", sim%time, p_plt_lost_all
 !$ w1 = omp_get_wtime()
 !$ mmm = mpi_minmeanmax(w1-w0)
 !$ if (sim%my_id .eq. 0) write(*,"(f10.7,A,3f9.4,A)") sim%time, " Particle stepping complete in ", mmm, "s"
