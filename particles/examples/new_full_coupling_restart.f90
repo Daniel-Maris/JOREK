@@ -71,7 +71,7 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve
+real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2,puff_rate
 integer :: n_puff
 
 !use physics
@@ -180,20 +180,27 @@ if (use_sputtering) then
 endif
 
 ! setting up particle puffing
-r_valve     = 0.04d0 !.005d0
-R_valve_loc = 4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+puff_rate = 8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+r_valve     = 0.02d0 !0.04d0 !.005d0
+R_valve_loc = 4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = -3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
-R_valve_loc = 4.307! touching leg
-Z_valve     = -3.7898!
+R_valve_loc2 = 5.46d0
+Z_valve2     = -4.2d0
+!R_valve_loc = 4.307! touching leg
+!Z_valve     = -3.7898!
 if (use_puffing) then  
 	n_puff      = int(0.5d-4*n_particles_local* sim%n_cpu)
-	gas_puff = particle_puffing(n_puff, 1.5d21, r_valve, R_valve_loc, Z_valve)
+	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
 	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
-	gas_puff2 = particle_puffing(n_puff, 1.5d21, r_valve, 5.5248, -4.3725)!-0.0) !-1.77 ! jet 2.8d0, -1.77
+	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	gas_puff_event = event(gas_puff)
 	gas_puff2_event = event(gas_puff2)
 	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
+	
+	if (sim%my_id .eq.0) then
+	write(*,*) "Gas puffing rate [#/s] : ", puff_rate
+	endif
 else 
 	n_puff = 0.d0
 	gas_puff = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
@@ -234,7 +241,7 @@ aux_node_list => jorek_feedback%node_list
 
 !> define feedback size as function of the coupling scheme
 if (use_ncs) then
-  allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 3)) !< stacksize should be big enough
+  allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 4)) !< stacksize should be big enough
 elseif (use_pcs) then  ! not implemented yet!
   allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 1))
 elseif (use_ccs) then  ! not implemented yet!
@@ -252,7 +259,7 @@ jorek_feedback%rhs = 0.d0
 
 project_density = new_projection(sim%fields%node_list, sim%fields%element_list, &
                      filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     filter_n0 = 1.d-3, filter_hyper_n0 = 1.d-6, filter_parallel_n0 = filter_par_n0, &
+                     filter_n0 = 5.d-6, filter_hyper_n0 = 2.d-11, filter_parallel_n0 = filter_par_n0, &
                      f=[proj_f(proj_one, group = 1)], &
                      fractional_digits = 9,  to_vtk=.TRUE., to_h5=.FALSE., basename='density', nsub=2)
 
@@ -507,7 +514,7 @@ real*8    :: cx_prob, CX_rate
 real*8    :: kinetic_energy, ion_energy,line_rad_energy
 real*8    :: n_lost_ion, n_lost_ion_all, p_plt_lost,p_plt_lost_all,p_cx_lost,p_cx_lost_all,p_lost_ion,p_lost_ion_all
 real*8    :: particle_source, velocity_par_source, energy_source
-real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E
+real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,extra_proj
 real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
 !$ real*8 :: w0, w1, mmm(3)
 
@@ -564,7 +571,7 @@ type is (particle_kinetic_leapfrog)
  !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy,       &  
  !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,    &
- !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,                        &
+ !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj,                        &
  !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
  !$omp E_th, v_th,sum_ran,vvector,ran_norm)                                                                 &
  !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion)
@@ -692,11 +699,13 @@ type is (particle_kinetic_leapfrog)
 			v   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_source     * t_norm / rho_norm
 			v_E = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
 			v_v = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * velocity_par_source * t_norm / m_norm
+			extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight !1.d0 !<density proj
 
 			do i_tor=1,n_tor
 			  feedback_rhs(m,l,i_elm_old,i_tor,1) = feedback_rhs(m,l,i_elm_old,i_tor,1) + HZ(i_tor) * v
 			  feedback_rhs(m,l,i_elm_old,i_tor,2) = feedback_rhs(m,l,i_elm_old,i_tor,2) + HZ(i_tor) * v_E
 			  feedback_rhs(m,l,i_elm_old,i_tor,3) = feedback_rhs(m,l,i_elm_old,i_tor,3) + HZ(i_tor) * v_v
+			  feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj
 			enddo
 
 		  enddo
@@ -723,7 +732,9 @@ end select
 
 if (use_ncs) then
     write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-    jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
+    !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
+	jorek_feedback%rhs(:,:,:,:,1:3) = feedback_rhs(:,:,:,:,1:3) / jorek_feedback%rhs_gather_time !* TWOPI
+	jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4)
     jorek_feedback%rhs_gather_time = 0.d0
 else
     jorek_feedback%rhs = feedback_rhs 
@@ -850,6 +861,9 @@ type is (particle_kinetic_leapfrog)
 !$omp st_ran, i_rng )
 do ife = 1, size(rec_rate_local) ! loop over all local elements
 
+	if (isnan(rec_v_R(ife)) .or. isnan(rec_v_Z(ife)) .or. isnan(rec_v_phi(ife))) CYCLE !NaN check
+	if (rec_rate_local(ife) .le. 1.d3) CYCLE
+	
 	!$ i_rng = omp_get_thread_num()+1
 	!if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle
    
