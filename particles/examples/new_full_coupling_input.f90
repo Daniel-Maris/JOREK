@@ -21,7 +21,8 @@ use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-! use phys_module, only: use_sputtering , use_cx, use_ionisation, use_sputtering
+use phys_module, only: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
+use phys_module, only: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2,puff_rate !,n_puff
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
@@ -71,11 +72,11 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2,puff_rate
+!real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2,puff_rate
 integer :: n_puff
 
 !use physics
-logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
+!logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
 logical  :: run_stepper, run_rec !, one_rec_only !< when recombination is used
 
 ! diagnostics
@@ -162,12 +163,12 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 ! tstep_keep        = tstep
 
 ! selecting physics (should be done in input file)
-use_puffing       = .false. !.false. 
-use_cx            = .true. !.true.
-use_ionisation    = .true. !.false.!.false.
-use_sputtering    = .true. !.false. !false
-use_recombination = .true.  !
-use_line_radiation= .true.
+!use_puffing       = .true. !.false. 
+!use_cx            = .true. !.true.
+!use_ionisation    = .true. !.false.!.false.
+!use_sputtering    = .true. !.false. !false
+!use_recombination = .true.  !
+!use_line_radiation= .true.
 
 ! Read Open ADAS data for plasma fluid
  if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
@@ -180,13 +181,13 @@ if (use_sputtering) then
 endif
 
 ! setting up particle puffing
-puff_rate = 8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-r_valve     = 0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+!puff_rate = 8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+!r_valve     = 0.02d0 !0.04d0 !.005d0
+!R_valve_loc = 4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+!Z_valve     = -3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
-R_valve_loc2 = 5.46d0
-Z_valve2     = -4.2d0
+!R_valve_loc2 = 5.46d0
+!Z_valve2     = -4.2d0
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
 if (use_puffing) then  
@@ -675,16 +676,6 @@ type is (particle_kinetic_leapfrog)
 
           endif ! cx_ran
 	  endif ! use_cx
-	  
-	  if (isnan(ion_source * ion_energy + cx_source * cx_energy - line_rad_energy)) then
-		write(*,*) "ion_energy", ion_energy
-		write(*,*) "cx_energy", cx_energy
-		write(*,*) "line_rad_energy", line_rad_energy
-		particle_tmp%i_elm  = 0
-		CYCLE !< don't feed this particle into the feedback
-		
-	  endif
-	  
 	  
 	  ! feedback from each particle at each timestep
 	  energy_source       = ion_source * ion_energy + cx_source * cx_energy - line_rad_energy

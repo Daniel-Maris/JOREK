@@ -458,5 +458,20 @@ subroutine preset_parameters
   jw1=5.d-1 ! inner cut-off
   jw2=1.d0  ! outer cut-off
   jw3=1.d0  ! outer cut-off
+  
+  
+  !========================== kinetic particle parameters
+  restart_particles = .false.
+  use_ncs           = .false.
+  use_ccs           = .false.
+  use_pcs           = .false.
+  use_cx            = .false.
+  use_sputtering    = .false.
+  use_ionisation    = .false.
+  use_recombination = .false.
+  use_puffing       = .false.
+  use_line_radiation= .false.
+  
+  
 
 end subroutine preset_parameters

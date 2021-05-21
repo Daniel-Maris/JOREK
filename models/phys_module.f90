@@ -648,6 +648,9 @@ module phys_module
   logical :: use_cx
   logical :: use_sputtering
   logical :: use_ionisation
+  logical :: use_recombination
+  logical :: use_puffing
+  logical :: use_line_radiation
   real*8  :: n_particles      ! the number of particles (real on purpose)
   real*8  :: tstep_particles  ! the time step for the particles
   integer :: nstep_particles  ! the number of particle time steps
@@ -659,6 +662,15 @@ module phys_module
   real*8  :: filter_hyper_n0  ! particle projection smoothing parameter, poloidal plane (n=0)
   real*8  :: filter_par_n0    ! particle projection smoothing parameter, parallel direction (n=0)
 
+  real*8  :: puff_rate        ! physical atoms/sec puffed (shared over 2 places)
+  real*8  :: r_valve          ! radius of poloidal circular source
+  real*8  :: R_valve_loc      ! R position valve 1
+  real*8  :: Z_valve          ! Z position valve 1
+  real*8  :: R_valve_loc2     ! R position valve 2
+  real*8  :: Z_valve2         ! Z position valve 2
+  integer :: n_puff           ! superparticles used per puffing action per valve
+  
+  
   contains
   
 end module phys_module
