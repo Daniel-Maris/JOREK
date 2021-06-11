@@ -171,7 +171,7 @@ module mod_chi
       if (n .lt. 0) then
         alpha = 0.0
       else
-        alpha = (-1)**n/(fact(n+m)*fact(n)*2**(2*n+m))
+        alpha = (-1.d0)**n/(fact(n+m)*fact(n)*2.d0**(2*n+m))
       end if
     end function alpha
     

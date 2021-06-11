@@ -74,7 +74,7 @@ module mod_equations
   integer, parameter :: n_rhs = 6, n_amat = 22, n_aux = 5
   
   type(algexpr), private :: rhs2e, rhs3e, rhs4e, rhs5e, rhs6e
-  type(algexpr), private :: amat22e, amat25e, amat26e
+  type(algexpr), private :: amat22e, amat24e, amat25e, amat26e
   type(algexpr), private :: amat31e
   type(algexpr), private :: amat52e, amat55e
   type(algexpr), private :: amat62e, amat65e, amat66e
@@ -109,7 +109,7 @@ module mod_equations
     rhs1 = tstep*v*((Bv_parderiv(Phi0) - Bv_pbrack(Psi0,Phi0))/Bv2 + eta*(zj0 - S_j)) + tstep*eta_num*inprod(v,zj0) + zeta*v*delta_Psi
     
     rhs2 = -tstep*((Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - Bv_pbrack(v,Phi0)*rho0*w0/Bv2 - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0) &
-         + Bv_pbrack(v,rho0*T0))/Bv2 - v*Bv_parderiv(zj0) - v*Bv_pbrack(zj0,Psi0) + visco*inprod(v,w0)) &
+         + Bv_pbrack(v,rho0*T0))/Bv2 - v*Bv_parderiv(zj0) - v*Bv_pbrack(zj0,Psi0) + visco*inprod(v,w0) + visco_num*pLap(v)*pLap(w0)) &
          - zeta*(rho0*inprod(v,delta_Phi) + delta_rho*inprod(v,Phi0))/Bv2
     
     rhs3 = -Bv2*inprod(v,Psi0) - v*Bv2*zj0
@@ -132,7 +132,7 @@ module mod_equations
     amat22 = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2 + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi) - rho0*w0*Bv_pbrack(v,Phi)/Bv2 &
            - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0) - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2
     amat23 = (-tstep*theta)*v*(Bv_parderiv(zj) + Bv_pbrack(zj,Psi0))
-    amat24 = -tstep*theta*rho0*w*Bv_pbrack(v,Phi0)/(Bv2*Bv2) + tstep*theta*visco*inprod(v,w)
+    amat24 = -tstep*theta*rho0*w*Bv_pbrack(v,Phi0)/(Bv2*Bv2) + tstep*theta*(visco*inprod(v,w) + visco_num*pLap(v)*pLap(w))
     amat25 = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2 + tstep*theta*(Bv_pbrack(rho/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - rho*w0*Bv_pbrack(v,Phi0)/Bv2 &
            - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0) + Bv_pbrack(v,rho*T0))/Bv2
     amat26 = tstep*theta*Bv_pbrack(v,rho0*T)/Bv2 + tstep*theta*dvisco_dT*T*inprod(v,w0)
@@ -164,7 +164,7 @@ module mod_equations
     rhs5e = Dexpand(deepcopy(rhs5))
     rhs6e = Dexpand(deepcopy(rhs6))
     
-    amat22e = Dexpand(deepcopy(amat22)); amat25e = Dexpand(deepcopy(amat25)); amat26e = Dexpand(deepcopy(amat26))
+    amat22e = Dexpand(deepcopy(amat22)); amat24e = Dexpand(deepcopy(amat24)); amat25e = Dexpand(deepcopy(amat25)); amat26e = Dexpand(deepcopy(amat26))
     amat31e = Dexpand(deepcopy(amat31))
     amat52e = Dexpand(deepcopy(amat52)); amat55e = Dexpand(deepcopy(amat55))
     amat62e = Dexpand(deepcopy(amat62)); amat65e = Dexpand(deepcopy(amat65)); amat66e = Dexpand(deepcopy(amat66))
@@ -195,7 +195,7 @@ module mod_equations
         allocate(thread_eq(i)%amat21seq(countsubexprs(amat21)))
         allocate(thread_eq(i)%amat22seq(countsubexprs(amat22e)))
         allocate(thread_eq(i)%amat23seq(countsubexprs(amat23)))
-        allocate(thread_eq(i)%amat24seq(countsubexprs(amat24)))
+        allocate(thread_eq(i)%amat24seq(countsubexprs(amat24e)))
         allocate(thread_eq(i)%amat25seq(countsubexprs(amat25e)))
         allocate(thread_eq(i)%amat26seq(countsubexprs(amat26e)))
         allocate(thread_eq(i)%amat31seq(countsubexprs(amat31e)))
@@ -242,7 +242,7 @@ module mod_equations
       call buildsequence(amat21, thread_eq(i)%amat21seq, thread_eq(i)%eq)
       call buildsequence(amat22e, thread_eq(i)%amat22seq, thread_eq(i)%eq)
       call buildsequence(amat23, thread_eq(i)%amat23seq, thread_eq(i)%eq)
-      call buildsequence(amat24, thread_eq(i)%amat24seq, thread_eq(i)%eq)
+      call buildsequence(amat24e, thread_eq(i)%amat24seq, thread_eq(i)%eq)
       call buildsequence(amat25e, thread_eq(i)%amat25seq, thread_eq(i)%eq)
       call buildsequence(amat26e, thread_eq(i)%amat26seq, thread_eq(i)%eq)
       
@@ -286,8 +286,8 @@ module mod_equations
     type(algexpr), dimension(n_amat), intent(out) :: amat
     character(7),  dimension(n_amat), intent(out) :: varnames
     
-    amat = (/ amat11, amat12,  amat13,                  amat16, &
-              amat21, amat22e, amat23, amat24, amat25e, amat26e, &
+    amat = (/ amat11, amat12,  amat13,                   amat16, &
+              amat21, amat22e, amat23, amat24e, amat25e, amat26e, &
               amat31e,           amat33, &
                       amat42,           amat44, &
               amat51, amat52e,                   amat55e, &

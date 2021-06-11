@@ -326,7 +326,7 @@ do ms=1, n_gauss
            eq(2*n_var+1,0,1,1) = v_yp - y_p(mp,ms,mt)*eq(2*n_var+1,0,2,0) - x_p(mp,ms,mt)*eq(2*n_var+1,1,1,0)
 
 #ifdef DEBUG
-           rhs_ij_1 = 0.d0 ! eval(thread_eq(tid)%rhs1seq)*BigR*xjac
+           rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
            rhs_ij_2 = 0.d0 ! eval(thread_eq(tid)%rhs2seq)*BigR*xjac
            rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
            rhs_ij_4 = 0.d0 ! eval(thread_eq(tid)%rhs4seq)*BigR*xjac
@@ -335,12 +335,12 @@ do ms=1, n_gauss
 #else
 #include "rhs_unreadable.h"
 
-           rhs_ij_1 = 0.d0 ! rhs_ij_1*BigR*xjac
+           rhs_ij_1 = rhs_ij_1*BigR*xjac
            rhs_ij_2 = 0.d0 ! rhs_ij_2*BigR*xjac
            rhs_ij_3 = rhs_ij_3*BigR*xjac
            rhs_ij_4 = 0.d0 ! rhs_ij_4*BigR*xjac
            rhs_ij_5 = 0.d0 ! rhs_ij_5*BigR*xjac
-           rhs_ij_6 = 0.d0 ! rhs_ij_6*BigR*xjac
+           rhs_ij_6 = rhs_ij_6*BigR*xjac
 #endif
 
            ij1 = index_ij

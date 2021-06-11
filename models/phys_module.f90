@@ -398,6 +398,7 @@ module phys_module
   real*8  :: xr2               !< Grid accumulation parameter (for flux-aligned grid)
   real*8  :: sig1              !< Grid accumulation parameter (for flux-aligned grid)
   real*8  :: sig2              !< Grid accumulation parameter (for flux-aligned grid)
+  integer :: m_pol_bc          !< Number of poloidal modes for Psi boundary condition in stellarator
   
   !> @name Flux surface grid with X-point
   !! Parameters defining a flux-aligned grid with X-point in the poloidal plane.

@@ -59,6 +59,7 @@ program JOREK2
   use direct_construction_mod
   use centralization_mod
 
+  use mod_boundary_conditions
   use mod_chi
 #ifdef SEMIANALYTICAL
   use mod_equations
@@ -478,10 +479,13 @@ required = 0
   ! --- Define the basis functions at the Gaussian points
   call initialise_basis()
   
+  ! --- Initialize basis functions for the Dommaschk potentials
+  if (domm) call init_chi_basis()
+  
   call tr_print_memsize("InitStep")
 
   !***********************************************************************
-  !*                  read restart file                                  *
+  !*                     load GVEC data                                  *
   !***********************************************************************
   if ((gvec_grid_import) .and. (my_id == 0)) then
     element_list%n_elements      = 0
@@ -510,36 +514,15 @@ required = 0
     
     call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
     
-    ! Get flux surfaces
-    !surface_list%n_psi = 100
-    !allocate( surface_list%psi_values(surface_list%n_psi), q(surface_list%n_psi), rad(surface_list%n_psi) )
-    !do k = 1, surface_list%n_psi-1
-    !  surface_list%psi_values(k) = equil_state%psi_axis + (equil_state%psi_bnd - equil_state%psi_axis) * real(k-1)/real(surface_list%n_psi-1)
-    !  write(*, *) surface_list%psi_values(k)
-    !end do
-    !surface_list%psi_values(surface_list%n_psi) = equil_state%psi_axis + (equil_state%psi_bnd - equil_state%psi_axis) * (1.0 - 1.d-12)
-    !call find_flux_surfaces(0,xpoint, xcase, node_list, element_list, surface_list)
-
-    !! Determine q profile
-    !call determine_q_profile_3d(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
-    !  equil_state%Z_xpoint, q, rad)
-    !open(42, file='qprofile.dat', action='write', status='replace')
-    !do i=2, surface_list%n_psi
-    !   write(42,*) (surface_list%psi_values(i)-equil_state%psi_axis)/(equil_state%psi_bnd-equil_state%psi_axis), q(i),rad(i)
-    !end do
-    !close(42)
-
-    ! Determine n.B for equilibrium
-    !call determine_boundary_flux(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
-    !  equil_state%Z_xpoint, q, rad)
-    
-    ! --- Clean up.
-    !if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)
-    !if ( allocated(surface_list%flux_surfaces) ) deallocate(surface_list%flux_surfaces)
-    !if ( allocated(q)                          ) deallocate(q)
-    !if ( allocated(rad)                        ) deallocate(rad)
+#if (JOREK_MODEL == 083)
+    call solve_Psi_boundary_eqn(node_list, element_list, bnd_elm_list)
+    call setup_boundary_condition(node_list, bnd_node_list)
+#endif
   end if ! gvec_grid_import
 
+  !***********************************************************************
+  !*                  read restart file                                  *
+  !***********************************************************************
   if ( restart .and. (my_id == 0) ) then  
     call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr)
     if ( ierr /= 0 ) stop
@@ -588,6 +571,36 @@ required = 0
     end if
     
   end if !   if ( restart .and. (my_id == 0) ) then
+  
+  if (my_id .eq. 0) then
+    ! Get flux surfaces
+    !surface_list%n_psi = 100
+    !allocate( surface_list%psi_values(surface_list%n_psi), q(surface_list%n_psi), rad(surface_list%n_psi) )
+    !do k = 1, surface_list%n_psi-1
+    !  surface_list%psi_values(k) = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * real(k-1)/real(surface_list%n_psi-1)
+    !  write(*, *) surface_list%psi_values(k)
+    !end do
+    !surface_list%psi_values(surface_list%n_psi) = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * (1.0 - 1.d-12)
+    !call find_flux_surfaces(0,xpoint, xcase, node_list, element_list, surface_list)
+
+    !! Determine q profile
+    !call determine_q_profile_3d(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
+    !  equil_state%Z_xpoint, q, rad)
+    !open(42, file='qprofile.dat', action='write', status='replace')
+    !do i=2, surface_list%n_psi
+    !   write(42,*) (surface_list%psi_values(i)-equil_state%psi_axis)/(equil_state%psi_bnd-equil_state%psi_axis), q(i),rad(i)
+    !end do
+    !close(42)
+
+    ! Determine n.B for equilibrium
+    call determine_boundary_flux(node_list, element_list)
+    
+    ! --- Clean up.
+    !if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)
+    !if ( allocated(surface_list%flux_surfaces) ) deallocate(surface_list%flux_surfaces)
+    !if ( allocated(q)                          ) deallocate(q)
+    !if ( allocated(rad)                        ) deallocate(rad)
+  end if
 
   ! This is necessary for the parallel vacuum version during the code restart 
   if(restart) then
@@ -1046,8 +1059,6 @@ required = 0
 #elif defined(SEMIANALYTICAL)
   call init_eq_struct()
 #endif
-
-  if (domm) call init_chi_basis()
 
   jstep_loop: do jstep = 1, 10 ! Go through the different values of the tstep_n and nstep_n arrays
 #if defined(SEMIANALYTICAL) && defined(DEBUG)

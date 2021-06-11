@@ -100,7 +100,7 @@ module mod_equations
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
     a_B2 = Bv2 + Bv2*inprod(Psi0,Psi0)
     
-    rhs1 = dx(chi)*B0x_gvec + dy(chi)*B0y_gvec + dp(chi)*B0p_gvec/R
+    rhs1 = -v*Bv2*zj0 - Bv2*inprod(v,Psi0)
     ! tstep*v*((Bv_parderiv(Phi0) - Bv_pbrack(Psi0,Phi0))/Bv2 + eta*(zj0 - S_j)) + zeta*v*delta_Psi
     
 !    rhs2 = -tstep*((Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - Bv_pbrack(v,Phi0)*rho0*w0/Bv2 - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0) &
@@ -108,7 +108,8 @@ module mod_equations
 !         - zeta*(rho0*inprod(v,delta_Phi) + delta_rho*inprod(v,Phi0))/Bv2
     
 !    rhs3 = v*(dx(chi)*j0x_gvec + dy(chi)*j0y_gvec + dp(chi)*j0p_gvec/R)/Bv2 ! -Bv2*inprod(v,Psi0) - v*Bv2*zj0
-    rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
+    rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
+         - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R - v*Bv2*zj0
     
     rhs4 = -inprod(v,Phi0) - v*w0
     
@@ -119,7 +120,7 @@ module mod_equations
     
 !    amat11 = (1.d0 + zeta)*v*Psi + tstep*theta*v*Bv_pbrack(Psi,Phi0)/Bv2
     amat11 = Bv2*inprod(v,Psi)
-    amat12 = (-tstep*theta)*v*(Bv_parderiv(Phi) - Bv_pbrack(Psi0,Phi))/Bv2
+    amat12 = 0.d0*one ! (-tstep*theta)*v*(Bv_parderiv(Phi) - Bv_pbrack(Psi0,Phi))/Bv2
     amat13 = v*Bv2*zj ! (-tstep*theta)*eta*v*zj
     amat16 = 0.d0*one ! (-tstep*theta)*v*deta_dT*T*zj0
     
