@@ -3,59 +3,49 @@ module mod_equations
   use mod_parameters
   use data_structure, only: nbthreads
   implicit none
-  
+
   type type_thread_eq
 #ifdef DEBUG
-    type(action), dimension(:), allocatable :: rhs1seq, rhs2seq, rhs3seq, rhs4seq, rhs5seq, rhs6seq
-    type(action), dimension(:), allocatable :: amat11seq, amat12seq, amat13seq, amat16seq
-    type(action), dimension(:), allocatable :: amat21seq, amat22seq, amat23seq, amat24seq, amat25seq, amat26seq
-    type(action), dimension(:), allocatable :: amat31seq, amat33seq
-    type(action), dimension(:), allocatable :: amat42seq, amat44seq
-    type(action), dimension(:), allocatable :: amat51seq, amat52seq, amat55seq
-    type(action), dimension(:), allocatable :: amat61seq, amat62seq, amat63seq, amat65seq, amat66seq
-    type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq, aB2seq
+    type(action), dimension(:), allocatable :: rhs1seq, rhs3seq, rhs6seq
+    type(action), dimension(:), allocatable :: amat11seq, amat13seq
+    type(action), dimension(:), allocatable :: amat22seq
+    type(action), dimension(:), allocatable :: amat33seq
+    type(action), dimension(:), allocatable :: amat44seq
+    type(action), dimension(:), allocatable :: amat55seq
+    type(action), dimension(:), allocatable :: amat66seq
+    type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq
 #endif
-    
+
     real*8, dimension(:,:,:,:), allocatable :: eq
   end type type_thread_eq
-  
-  ! Variables at current time step
+
+  ! Values
   type(algexpr), parameter, private :: Psi0       = algexpr(basic=.true.,var=1)
   type(algexpr), parameter, private :: Phi0       = algexpr(basic=.true.,var=2)
   type(algexpr), parameter, private :: zj0        = algexpr(basic=.true.,var=3)
   type(algexpr), parameter, private :: w0         = algexpr(basic=.true.,var=4)
   type(algexpr), parameter, private :: rho0       = algexpr(basic=.true.,var=5)
   type(algexpr), parameter, private :: T0         = algexpr(basic=.true.,var=6)
-  ! Changes since previous time step
-  type(algexpr), parameter, private :: delta_Psi  = algexpr(basic=.true.,var=7)
-  type(algexpr), parameter, private :: delta_Phi  = algexpr(basic=.true.,var=8)
-  type(algexpr), parameter, private :: delta_zj   = algexpr(basic=.true.,var=9)
-  type(algexpr), parameter, private :: delta_w    = algexpr(basic=.true.,var=10)
-  type(algexpr), parameter, private :: delta_rho  = algexpr(basic=.true.,var=11)
-  type(algexpr), parameter, private :: delta_T    = algexpr(basic=.true.,var=12)
   ! Test function
-  type(algexpr), parameter, private :: v          = algexpr(basic=.true.,var=13)
+  type(algexpr), parameter, private :: v          = algexpr(basic=.true.,var=7)
   ! Unknowns
-  type(algexpr), parameter, private :: Psi        = algexpr(basic=.true.,var=14)
-  type(algexpr), parameter, private :: Phi        = algexpr(basic=.true.,var=14)
-  type(algexpr), parameter, private :: zj         = algexpr(basic=.true.,var=14)
-  type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=14)
-  type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=14)
-  type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=14)
+  type(algexpr), parameter, private :: Psi        = algexpr(basic=.true.,var=8)
+  type(algexpr), parameter, private :: Phi        = algexpr(basic=.true.,var=8)
+  type(algexpr), parameter, private :: zj         = algexpr(basic=.true.,var=8)
+  type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=8)
+  type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=8)
+  type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=8)
   ! Other quantities
-  type(algexpr), parameter, private :: chi        = algexpr(basic=.true.,var=15)
-  type(algexpr), parameter, private :: R          = algexpr(basic=.true.,var=16)
+  type(algexpr), parameter, private :: chi        = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: R          = algexpr(basic=.true.,var=10)
   ! Quantities imported from GVEC
-  type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=17)
-  type(algexpr), parameter, private :: B0x_gvec   = algexpr(basic=.true.,var=18)
-  type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=19)
-  type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=20)
+  type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=11)
+  type(algexpr), parameter, private :: B0x_gvec   = algexpr(basic=.true.,var=12)
+  type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=13)
+  type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=14)
   ! Auxiliary variables (aux)
-  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=21)
-  type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=22)
-  
-  type(const), private :: tstep, zeta, theta, visco_num, eta_num, D_perp_num, gamma, reta
-  
+  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=15)
+
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6
   type(algexpr), private :: amat11, amat12, amat13, amat16
   type(algexpr), private :: amat21, amat22, amat23, amat24, amat25, amat26
@@ -63,233 +53,136 @@ module mod_equations
   type(algexpr), private :: amat42, amat44
   type(algexpr), private :: amat51, amat52, amat55
   type(algexpr), private :: amat61, amat62, amat63, amat65, amat66
-  type(algexpr), private :: a_Bv2, a_B2
-  
-  integer, parameter :: n_rhs = 4, n_amat = 11, n_aux = 5
-  
+  type(algexpr), private :: a_Bv2
+
+  integer, parameter :: n_rhs = 3, n_amat = 7, n_aux = 4
+
   type(algexpr), private :: rhs2e, rhs3e, rhs4e, rhs5e, rhs6e
   type(algexpr), private :: amat22e, amat25e, amat26e
   type(algexpr), private :: amat31e
   type(algexpr), private :: amat52e, amat55e
   type(algexpr), private :: amat62e, amat65e, amat66e
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p
-  
+
   type(type_thread_eq), dimension(:), allocatable, target :: thread_eq
-  
+
   contains
-  
+
   subroutine init_equations()
-    use phys_module, only: time_evol_zeta, time_evol_theta, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num, Ieta_num => eta_num, &
-                           ID_perp_num => D_perp_num, Ieta => eta, eta_ohmic
     implicit none
-    
-    tstep      = const(value = Itstep,          token = "tstep")
-    zeta       = const(value = time_evol_zeta,  token = "zeta")
-    theta      = const(value = time_evol_theta, token = "theta")
-    visco_num  = const(value = Ivisco_num,      token = "visco_num")
-    eta_num    = const(value = Ieta_num,        token = "eta_num")
-    D_perp_num = const(value = ID_perp_num,     token = "D_perp_num")
-    gamma      = const(value = Igamma,          token = "gamma")
-    if (Ieta .ne. 0.d0) then
-      reta     = const(value = eta_ohmic/Ieta,  token = "reta")
-    else
-      reta     = const(value = 0.d0,            token = "reta")
-    end if
-    
-    
+
+
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
-    a_B2 = Bv2 + Bv2*inprod(Psi0,Psi0)
-    
-    rhs1 = -v*Bv2*zj0 - Bv2*inprod(v,Psi0)
-    ! tstep*v*((Bv_parderiv(Phi0) - Bv_pbrack(Psi0,Phi0))/Bv2 + eta*(zj0 - S_j)) + zeta*v*delta_Psi
-    
-!    rhs2 = -tstep*((Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - Bv_pbrack(v,Phi0)*rho0*w0/Bv2 - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0) &
-!         + Bv_pbrack(v,rho0*T0))/Bv2 - v*Bv_parderiv(zj0) - v*Bv_pbrack(zj0,Psi0) + visco*inprod(v,w0)) &
-!         - zeta*(rho0*inprod(v,delta_Phi) + delta_rho*inprod(v,Phi0))/Bv2
-    
-!    rhs3 = v*(dx(chi)*j0x_gvec + dy(chi)*j0y_gvec + dp(chi)*j0p_gvec/R)/Bv2 ! -Bv2*inprod(v,Psi0) - v*Bv2*zj0
+
+    rhs1 = (-Bv2)*inprod(v,Psi0)
+
     rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
-         - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R - v*Bv2*zj0
-    
-    rhs4 = -inprod(v,Phi0) - v*w0
-    
-!    rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho0) - S_rho*v) + zeta*v*delta_rho
-    
-    rhs6 = v*p0_gvec/rho0
-    
-    
-!    amat11 = (1.d0 + zeta)*v*Psi + tstep*theta*v*Bv_pbrack(Psi,Phi0)/Bv2
+         - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
+
+    rhs6 = v*(p0_gvec/rho0 - T0)
+
+
     amat11 = Bv2*inprod(v,Psi)
-    amat12 = 0.d0*one ! (-tstep*theta)*v*(Bv_parderiv(Phi) - Bv_pbrack(Psi0,Phi))/Bv2
-    amat13 = v*Bv2*zj ! (-tstep*theta)*eta*v*zj
-    amat16 = 0.d0*one ! (-tstep*theta)*v*deta_dT*T*zj0
-    
-!    amat21 = (-tstep*theta)*v*Bv_pbrack(zj0,Psi)
-!    amat22 = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2 + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi) - rho0*w0*Bv_pbrack(v,Phi)/Bv2 &
-!           - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0) - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2
+    amat13 = v*Bv2*zj
+
     amat22 = v*Phi
-!    amat23 = (-tstep*theta)*v*(Bv_parderiv(zj) + Bv_pbrack(zj,Psi0))
-!    amat24 = -tstep*theta*rho0*w*Bv_pbrack(v,Phi0)/(Bv2*Bv2) + tstep*theta*visco*inprod(v,w)
-!    amat25 = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2 + tstep*theta*(Bv_pbrack(rho/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - rho*w0*Bv_pbrack(v,Phi0)/Bv2 &
-!           - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0) + Bv_pbrack(v,rho*T0))/Bv2
-!    amat26 = tstep*theta*Bv_pbrack(v,rho0*T)/Bv2 + tstep*theta*dvisco_dT*T*inprod(v,w0)
-    
-    amat31 = theta*Bv2*inprod(v,Psi)
-!    amat33 = theta*v*Bv2*zj
+
     amat33 = v*Bv2*zj
-    
-#ifdef DEBUG
-    amat42 = theta*inprod(v,Phi) + 0.d0*one
-#else
-    amat42 = theta*inprod(v,Phi)
-#endif
-!    amat44 = theta*v*w
+
     amat44 = v*w
-    
-!    amat51 = (-tstep*theta)*D_perp*gradDgrad_par(v,rho0)
-!    amat52 = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)
-!    amat55 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho))
+
     amat55 = v*rho
-    
-!    amat61 = tstep*theta*((k_par - k_perp)*gradDgrad_par(v,T0) - D_perp*T0*gradDgrad_par(v,rho0))
-!    amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0,Phi) - gamma*rho0*T0*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
-!    amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj
-!    amat65 = (1.d0 + zeta)*v*rho*T0 + tstep*theta*(v*Bv_pbrack(rho*T0,Phi0)/Bv2 - gamma*v*rho*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
-!           + D_perp*T0*gradgrad_perp(v,rho))
-!    amat66 = (1.d0 + zeta)*v*rho0*T + tstep*theta*(v*Bv_pbrack(rho0*T,Phi0)/Bv2 - gamma*v*rho0*T*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
-!           + k_perp*gradprod(v,T) + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T)/B2 + dk_par_dT*T*B0_parderiv(v)*B0_parderiv(T0)/B2 &
-!           + D_perp*T*gradgrad_perp(v,rho0) - v*reta*deta_dT*T*Bv2*zj0*zj0)
+
     amat66 = v*T
 
-    amat31e = Dexpand(deepcopy(amat31))
-    
     ea_Bv2x = Dexpand(deepcopy(dx(a_Bv2))); ea_Bv2y = Dexpand(deepcopy(dy(a_Bv2))); ea_Bv2p = Dexpand(deepcopy(dp(a_Bv2)))
   end subroutine init_equations
-  
+
   subroutine init_eq_struct()
     use data_structure, only: nbthreads
     implicit none
     integer :: i
-    
+
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(2*n_var+10,0:n_order-1,0:n_order-1,0:n_order-1))
+        allocate(thread_eq(i)%eq(n_var+9,0:n_order-1,0:n_order-1,0:n_order-1))
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
-        allocate(thread_eq(i)%rhs2seq(countsubexprs(rhs2e)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
-        allocate(thread_eq(i)%rhs4seq(countsubexprs(rhs4)))
-        allocate(thread_eq(i)%rhs5seq(countsubexprs(rhs5e)))
-        allocate(thread_eq(i)%rhs6seq(countsubexprs(rhs6e)))
+        allocate(thread_eq(i)%rhs6seq(countsubexprs(rhs6)))
         allocate(thread_eq(i)%amat11seq(countsubexprs(amat11)))
-        allocate(thread_eq(i)%amat12seq(countsubexprs(amat12)))
         allocate(thread_eq(i)%amat13seq(countsubexprs(amat13)))
-        allocate(thread_eq(i)%amat16seq(countsubexprs(amat16)))
-        allocate(thread_eq(i)%amat21seq(countsubexprs(amat21)))
-        allocate(thread_eq(i)%amat22seq(countsubexprs(amat22e)))
-        allocate(thread_eq(i)%amat23seq(countsubexprs(amat23)))
-        allocate(thread_eq(i)%amat24seq(countsubexprs(amat24)))
-        allocate(thread_eq(i)%amat25seq(countsubexprs(amat25e)))
-        allocate(thread_eq(i)%amat26seq(countsubexprs(amat26e)))
-        allocate(thread_eq(i)%amat31seq(countsubexprs(amat31e)))
+        allocate(thread_eq(i)%amat22seq(countsubexprs(amat22)))
         allocate(thread_eq(i)%amat33seq(countsubexprs(amat33)))
-        allocate(thread_eq(i)%amat42seq(countsubexprs(amat42)))
         allocate(thread_eq(i)%amat44seq(countsubexprs(amat44)))
-        allocate(thread_eq(i)%amat51seq(countsubexprs(amat51)))
-        allocate(thread_eq(i)%amat52seq(countsubexprs(amat52e)))
-        allocate(thread_eq(i)%amat55seq(countsubexprs(amat55e)))
-        allocate(thread_eq(i)%amat61seq(countsubexprs(amat61)))
-        allocate(thread_eq(i)%amat62seq(countsubexprs(amat62e)))
-        allocate(thread_eq(i)%amat63seq(countsubexprs(amat63)))
-        allocate(thread_eq(i)%amat65seq(countsubexprs(amat65e)))
-        allocate(thread_eq(i)%amat66seq(countsubexprs(amat66e)))
+        allocate(thread_eq(i)%amat55seq(countsubexprs(amat55)))
+        allocate(thread_eq(i)%amat66seq(countsubexprs(amat66)))
         allocate(thread_eq(i)%aBv2seq(countsubexprs(a_Bv2)))
         allocate(thread_eq(i)%aBv2xseq(countsubexprs(ea_Bv2x)))
         allocate(thread_eq(i)%aBv2yseq(countsubexprs(ea_Bv2y)))
         allocate(thread_eq(i)%aBv2pseq(countsubexprs(ea_Bv2p)))
-        allocate(thread_eq(i)%aB2seq(countsubexprs(a_B2)))
 #endif
       end do
     end if
   end subroutine init_eq_struct
-  
+
 #ifdef DEBUG
   subroutine build_all_seq()
     use data_structure, only: nbthreads
     implicit none
     integer :: i
-    
+
     do i=1,nbthreads
       call buildsequence(rhs1, thread_eq(i)%rhs1seq, thread_eq(i)%eq)
-      call buildsequence(rhs2e, thread_eq(i)%rhs2seq, thread_eq(i)%eq)
-      call buildsequence(rhs3,  thread_eq(i)%rhs3seq, thread_eq(i)%eq)
-      call buildsequence(rhs4,  thread_eq(i)%rhs4seq, thread_eq(i)%eq)
-      call buildsequence(rhs5e, thread_eq(i)%rhs5seq, thread_eq(i)%eq)
-      call buildsequence(rhs6e, thread_eq(i)%rhs6seq, thread_eq(i)%eq)
-      
+      call buildsequence(rhs3, thread_eq(i)%rhs3seq, thread_eq(i)%eq)
+      call buildsequence(rhs6, thread_eq(i)%rhs6seq, thread_eq(i)%eq)
+
       call buildsequence(amat11, thread_eq(i)%amat11seq, thread_eq(i)%eq)
-      call buildsequence(amat12, thread_eq(i)%amat12seq, thread_eq(i)%eq)
       call buildsequence(amat13, thread_eq(i)%amat13seq, thread_eq(i)%eq)
-      call buildsequence(amat16, thread_eq(i)%amat16seq, thread_eq(i)%eq)
-      
-      call buildsequence(amat21, thread_eq(i)%amat21seq, thread_eq(i)%eq)
-      call buildsequence(amat22e, thread_eq(i)%amat22seq, thread_eq(i)%eq)
-      call buildsequence(amat23, thread_eq(i)%amat23seq, thread_eq(i)%eq)
-      call buildsequence(amat24, thread_eq(i)%amat24seq, thread_eq(i)%eq)
-      call buildsequence(amat25e, thread_eq(i)%amat25seq, thread_eq(i)%eq)
-      call buildsequence(amat26e, thread_eq(i)%amat26seq, thread_eq(i)%eq)
-      
-      call buildsequence(amat31e, thread_eq(i)%amat31seq, thread_eq(i)%eq)
+
+      call buildsequence(amat22, thread_eq(i)%amat22seq, thread_eq(i)%eq)
+
       call buildsequence(amat33, thread_eq(i)%amat33seq, thread_eq(i)%eq)
-      
-      call buildsequence(amat42, thread_eq(i)%amat42seq, thread_eq(i)%eq)
+
       call buildsequence(amat44, thread_eq(i)%amat44seq, thread_eq(i)%eq)
-      
-      call buildsequence(amat51,  thread_eq(i)%amat51seq, thread_eq(i)%eq)
-      call buildsequence(amat52e, thread_eq(i)%amat52seq, thread_eq(i)%eq)
-      call buildsequence(amat55e, thread_eq(i)%amat55seq, thread_eq(i)%eq)
-      
-      call buildsequence(amat61, thread_eq(i)%amat61seq, thread_eq(i)%eq)
-      call buildsequence(amat62e, thread_eq(i)%amat62seq, thread_eq(i)%eq)
-      call buildsequence(amat63, thread_eq(i)%amat63seq, thread_eq(i)%eq)
-      call buildsequence(amat65e, thread_eq(i)%amat65seq, thread_eq(i)%eq)
-      call buildsequence(amat66e, thread_eq(i)%amat66seq, thread_eq(i)%eq)
-      
+
+      call buildsequence(amat55, thread_eq(i)%amat55seq, thread_eq(i)%eq)
+
+      call buildsequence(amat66, thread_eq(i)%amat66seq, thread_eq(i)%eq)
+
       call buildsequence(a_Bv2, thread_eq(i)%aBv2seq, thread_eq(i)%eq)
       call buildsequence(ea_Bv2x, thread_eq(i)%aBv2xseq, thread_eq(i)%eq)
       call buildsequence(ea_Bv2y, thread_eq(i)%aBv2yseq, thread_eq(i)%eq)
       call buildsequence(ea_Bv2p, thread_eq(i)%aBv2pseq, thread_eq(i)%eq)
-      
-      call buildsequence(a_B2, thread_eq(i)%aB2seq, thread_eq(i)%eq)
     end do
   end subroutine build_all_seq
 #endif
-  
+
   subroutine get_rhs(rhs,varnames)
     implicit none
     type(algexpr), dimension(n_rhs), intent(out) :: rhs
     character(8),  dimension(n_rhs), intent(out) :: varnames
-    
-    rhs = (/ rhs1, rhs3, rhs4, rhs6 /)
-    varnames = (/ "rhs_ij_1", "rhs_ij_3", "rhs_ij_4", "rhs_ij_6" /)
+
+    rhs = (/ rhs1, rhs3, rhs6 /)
+    varnames = (/ "rhs_ij_1", "rhs_ij_3", "rhs_ij_6" /)
   end subroutine get_rhs
-  
+
   subroutine get_amat(amat,varnames)
     implicit none
     type(algexpr), dimension(n_amat), intent(out) :: amat
     character(7),  dimension(n_amat), intent(out) :: varnames
-    
-    amat = (/ amat11, amat12,  amat13,                  amat16, &
+
+    amat = (/ amat11,         amat13, &
                       amat22, &
-              amat31e,           amat33, &
-                      amat42,           amat44, &
-                                                amat55, &
-                                                        amat66 /)
-    varnames = (/ "amat_11", "amat_12", "amat_13",                       "amat_16", &
+                              amat33, &
+                                      amat44, &
+                                              amat55, &
+                                                      amat66 /)
+    varnames = (/ "amat_11",            "amat_13", &
                              "amat_22", &
-                  "amat_31",            "amat_33", &
-                             "amat_42",            "amat_44", &
+                                        "amat_33", &
+                                                   "amat_44", &
                                                               "amat_55", &
                                                                          "amat_66" /)
   end subroutine get_amat
@@ -300,78 +193,50 @@ module mod_equations
     character(12), dimension(n_aux), intent(out) :: varnames
     integer      :: i
     character(2) :: num
-    
-    aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p, a_B2 /)
-    varnames = (/ "eq(21,0,0,0)", "eq(21,1,0,0)", "eq(21,0,1,0)", "eq(21,0,0,1)", "eq(22,0,0,0)" /)
+
+    aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
+    varnames = (/ "eq(15,0,0,0)", "eq(15,1,0,0)", "eq(15,0,1,0)", "eq(15,0,0,1)" /)
   end subroutine get_aux
-  
+
   type(algexpr) function Bv_pbrack(a,b)
     implicit none
     type(algexpr), intent(in) :: a, b
-  
+
     Bv_pbrack = ((dy(a)*dp(b) - dp(a)*dy(b))*dx(chi) + (dp(a)*dx(b) - dx(a)*dp(b))*dy(chi) + (dx(a)*dy(b) - dy(a)*dx(b))*dp(chi))/R
   end function Bv_pbrack
-  
+
   type(algexpr) function Bv_parderiv(a)
     implicit none
     type(algexpr), intent(in) :: a
-    
+
     Bv_parderiv = dx(a)*dx(chi) + dy(a)*dy(chi) + dp(a)*dp(chi)/(R*R)
   end function Bv_parderiv
-  
-  type(algexpr) function B0_parderiv(a)
-    implicit none
-    type(algexpr), intent(in) :: a
-    
-    B0_parderiv = Bv_parderiv(a) + Bv_pbrack(a,Psi0)
-  end function B0_parderiv
-  
-  type(algexpr) function B_parderiv(a)
-    implicit none
-    type(algexpr), intent(in) :: a
-    
-    B_parderiv = Bv_pbrack(a,Psi)
-  end function B_parderiv
-  
+
   type(algexpr) function gradprod(a,b)
     implicit none
     type(algexpr), intent(in) :: a, b
-    
+
     gradprod = dx(a)*dx(b) + dy(a)*dy(b) + dp(a)*dp(b)/(R*R)
   end function gradprod
 
   type(algexpr) function inprod(a,b)
     implicit none
     type(algexpr), intent(in) :: a, b
-  
+
     inprod = gradprod(a,b) - Bv_parderiv(a)*Bv_parderiv(b)/Bv2
   end function inprod
-  
-  type(algexpr) function gradgrad_perp(a,b)
-    implicit none
-    type(algexpr), intent(in) :: a, b
-  
-    gradgrad_perp = gradprod(a,b) - B0_parderiv(a)*B0_parderiv(b)/B2
-  end function gradgrad_perp
-  
-  type(algexpr) function gradDgrad_par(a,b)
-    implicit none
-    type(algexpr), intent(in) :: a, b
-    
-    gradDgrad_par = (B_parderiv(a)*B0_parderiv(b) + B0_parderiv(a)*B_parderiv(b) - 2.d0*Bv2*inprod(Psi0,Psi)*B0_parderiv(a)*B0_parderiv(b)/B2)/B2
-  end function gradDgrad_par
-  
+
   type(algexpr) function Lap(a)
     implicit none
     type(algexpr), intent(in) :: a
-    
+
     Lap = dx(R*dx(a))/R + dy(dy(a)) + dp(dp(a))/(R*R)
   end function Lap
-  
+
   type(algexpr) function pLap(a)
     implicit none
     type(algexpr), intent(in) :: a
-    
+
     pLap = Lap(a) - Bv_parderiv(Bv_parderiv(a)/Bv2)
   end function pLap
 end module mod_equations

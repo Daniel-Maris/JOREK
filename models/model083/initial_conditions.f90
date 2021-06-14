@@ -6,6 +6,7 @@ use data_structure
 use phys_module
 use mod_poiss
 use mod_interp, only: interp
+use constants, only: mu_zero
 implicit none
 
 type (type_node_list)        :: node_list
@@ -14,7 +15,7 @@ type (type_surface_list)     :: surface_list
 type (type_bnd_node_list)    :: bnd_node_list
 type (type_bnd_element_list) :: bnd_elm_list
 
-integer    :: my_id, i, in, mm, i_elm_axis, i_elm_xpoint(2), ifail, i_elm, xcase2
+integer    :: my_id, i, i2, j, in, mm, i_elm_axis, i_elm_xpoint(2), ifail, i_elm, xcase2
 real*8     :: amplitude, psi, psi_axis
 real*8     :: zn, dn_dpsi, dn_dpsi2, dn_dz, dn_dz2, dn_dpsi_dz, dn_dpsi3, dn_dpsi2_dz, dn_dpsi_dz2
 real*8     :: zT, dT_dpsi, dT_dpsi2, dT_dz, dT_dz2, dT_dpsi_dz, dT_dpsi3, dT_dpsi2_dz, dT_dpsi_dz2
@@ -46,6 +47,14 @@ if (my_id .eq. 0) then
     node_list%node(i)%values(1,:,6) = 0.d0
 
   enddo
+
+  do i=1,bnd_node_list%n_bnd_nodes
+    i2 = bnd_node_list%bnd_node(i)%index_jorek
+    j  = bnd_node_list%bnd_node(i)%direction(2)
+    
+    node_list%node(i2)%values(1,1,6) = mu_zero*node_list%node(i2)%pressure(1)
+    node_list%node(i2)%values(1,j,6) = mu_zero*node_list%node(i2)%pressure(j)
+  end do
 
 endif
 
