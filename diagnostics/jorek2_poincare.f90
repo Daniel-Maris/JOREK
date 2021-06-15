@@ -10,7 +10,7 @@ use mod_import_restart
 use mod_log_params
 use equil_info, only : get_psi_n, ES
 use mod_interp
-
+use mod_chi
 implicit none
 
 character(len=512) :: s
@@ -38,15 +38,15 @@ my_id=0
 
 ! --- Initialize mode and mode_type arrays
 call det_modes()
+call initialise_basis
+call init_chi_basis
 
 call initialise_parameters(my_id,  "__NO_FILENAME__")
 call log_parameters(my_id)
 
-iplot_type = 2 ! 1: Poincare plot in (R,Z) coordinates, 2: in (R,theta) coordinates
+iplot_type = 1 ! 1: Poincare plot in (R,Z) coordinates, 2: in (R,theta) coordinates
 
 call import_restart(node_list,element_list, 'jorek_restart', rst_format, ierr, .true.)
-
-call initialise_basis
 
 allocate(element_neighbours(4,element_list%n_elements))
 
@@ -284,7 +284,7 @@ L_IL: do i_lines=1,n_lines
               t_line = t_line + small_delta * delta_t
               p_line = p_line + small_delta * delta_phi_step
 	      
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_in,Z_in)
 
 	      i_elm_prev = i_elm      
               i_elm      = element_neighbours(2,i_elm_prev)
@@ -294,7 +294,7 @@ L_IL: do i_lines=1,n_lines
 	
               s_line = 0.d0
 
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_out,Z_out)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_out,Z_out)
 	      
 	      if ( (abs(R_in - R_out) .gt. 1.d-8) .or. (abs(Z_in - Z_out) .gt. 1.d-8)) &
 	        write(*,'(A,2i6,4f8.4)') ' error in element change (1) ',i_elm_prev,i_elm,R_in,R_out,Z_in,Z_out
@@ -305,7 +305,7 @@ L_IL: do i_lines=1,n_lines
 	      t_line = t_line + small_delta * delta_t
 	      p_line = p_line + small_delta * delta_phi_step
 
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_in,Z_in)
       
 	      i_elm_prev = i_elm      
               i_elm      = element_neighbours(4,i_elm_prev)
@@ -316,7 +316,7 @@ L_IL: do i_lines=1,n_lines
 
               s_line = 1.d0
 
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_out,Z_out)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_out,Z_out)
 	      
 	      if ( (abs(R_in - R_out) .gt. 1.d-8) .or. (abs(Z_in - Z_out) .gt. 1.d-8)) &
 	        write(*,'(A,2i6,4f8.4)') ' error in element change (2) ',i_elm_prev,i_elm,R_in,R_out,Z_in,Z_out
@@ -331,7 +331,7 @@ L_IL: do i_lines=1,n_lines
               t_line = 1.d0
               p_line = p_line + small_delta * delta_phi_step
 
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_in,Z_in)
 
 	      i_elm_prev = i_elm      
               i_elm      = element_neighbours(3,i_elm_prev)
@@ -342,7 +342,7 @@ L_IL: do i_lines=1,n_lines
 	
               t_line = 0.d0
 
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_out,Z_out)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_out,Z_out)
 	      
 	      if ( (abs(R_in - R_out) .gt. 1.d-8) .or. (abs(Z_in - Z_out) .gt. 1.d-8)) &
 	        write(*,'(A,2i6,4f8.4)') ' error in element change (3) ',i_elm_prev,i_elm,R_in,R_out,Z_in,Z_out
@@ -353,7 +353,7 @@ L_IL: do i_lines=1,n_lines
 	      t_line = 0.d0
 	      p_line = p_line + small_delta * delta_phi_step
  
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_in,Z_in)
 
 	      i_elm_prev = i_elm      
               i_elm      = element_neighbours(1,i_elm_prev)
@@ -364,7 +364,7 @@ L_IL: do i_lines=1,n_lines
  
               t_line = 1.d0
 
-              call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_out,Z_out)
+              call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_out,Z_out)
 	      
 	      if ( (abs(R_in - R_out) .gt. 1.d-8) .or. (abs(Z_in - Z_out) .gt. 1.d-8)) &
 	        write(*,'(A,2i6,4f8.4)') ' error in element change (4) ',i_elm_prev,i_elm,R_in,R_out,Z_in,Z_out
@@ -397,7 +397,7 @@ L_IL: do i_lines=1,n_lines
             
     enddo ! end of a 2Pi turn
 
-    call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R,Z)
+    call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R,Z)
 
     R_line = R
     Z_line = Z
@@ -450,27 +450,36 @@ use mod_parameters
 use elements_nodes_neighbours
 use phys_module
 use mod_interp
-
+use mod_chi
 implicit none
 
 integer :: i_var_psi, i_elm, i_tor, i_harm
 
 real*8 :: s_in, t_in, p_in, delta_p, delta_s, delta_t
-real*8 :: R,R_s,R_t,Z,Z_s,Z_t
+real*8 :: R,R_s,R_t,R_p,Z,Z_s,Z_t,Z_p,dummy,BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,Bp0sin
 real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
-real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, Zjac
+real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, psi_R, psi_z, psi_p, st_psi_p, Zjac
 real*8 :: AR0_Z, AR0_p, AR0_s, AR0_t, AZ0_R, AZ0_p, AZ0_s, AZ0_t, A30_R, A30_Z, BR0, BZ0, Bp0, Fprof
+
+real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
 i_var_psi = 1
 
-call interp_RZ(node_list,element_list,i_elm,s_in,t_in,R,R_s,R_t,Z,Z_s,Z_t)
+call interp_RZP(node_list,element_list,i_elm,s_in,t_in,p_in,R,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
+                                                            Z,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
 
+chi  = get_chi(R,Z,p_in)
 Zjac = (R_s * Z_t - R_t * Z_s)
 
 call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
 
 psi_s = P0_s 
 psi_t = P0_t 
+st_psi_p = 0.d0
+
+call interp_gvec(node_list,element_list,i_elm,1,1,1,s_in,t_in,BR0,dummy,dummy,dummy,dummy,dummy)
+call interp_gvec(node_list,element_list,i_elm,1,2,1,s_in,t_in,BZ0,dummy,dummy,dummy,dummy,dummy)
+call interp_gvec(node_list,element_list,i_elm,1,3,1,s_in,t_in,Bp0,dummy,dummy,dummy,dummy,dummy)
 
 #ifdef fullmhd
   call interp(node_list,element_list,i_elm,var_AR,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
@@ -496,11 +505,13 @@ do i_tor = 1, (n_tor-1)/2
 
   psi_s = psi_s + Pcos_s * cos(mode(i_harm)*p_in)
   psi_t = psi_t + Pcos_t * cos(mode(i_harm)*p_in)
+  st_psi_p = st_psi_p - Pcos*mode(i_harm)*sin(mode(i_harm)*p_in)
 
   call interp(node_list,element_list,i_elm,i_var_psi,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
 
   psi_s = psi_s + Psin_s * sin(mode(i_harm+1)*p_in)
   psi_t = psi_t + Psin_t * sin(mode(i_harm+1)*p_in)
+  st_psi_p = st_psi_p + Psin*mode(i_harm+1)*cos(mode(i_harm+1)*p_in)
 
 #ifdef fullmhd
   call interp(node_list,element_list,i_elm,var_AR,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
@@ -524,6 +535,26 @@ do i_tor = 1, (n_tor-1)/2
 
 enddo
 
+do i_tor=1,(n_coord_tor-1)/2
+  i_harm = 2*i_tor
+  
+  call interp_gvec(node_list,element_list,i_elm,1,1,i_harm,s_in,t_in,BR0cos,dummy,dummy,dummy,dummy,dummy)
+  call interp_gvec(node_list,element_list,i_elm,1,2,i_harm,s_in,t_in,BZ0cos,dummy,dummy,dummy,dummy,dummy)
+  call interp_gvec(node_list,element_list,i_elm,1,3,i_harm,s_in,t_in,Bp0cos,dummy,dummy,dummy,dummy,dummy)
+  
+  BR0 = BR0 + BR0cos*cos(mode_coord(i_harm)*p_in)
+  BZ0 = BZ0 + BZ0cos*cos(mode_coord(i_harm)*p_in)
+  Bp0 = Bp0 + Bp0cos*cos(mode_coord(i_harm)*p_in)
+  
+  call interp_gvec(node_list,element_list,i_elm,1,1,i_harm+1,s_in,t_in,BR0sin,dummy,dummy,dummy,dummy,dummy)
+  call interp_gvec(node_list,element_list,i_elm,1,2,i_harm+1,s_in,t_in,BZ0sin,dummy,dummy,dummy,dummy,dummy)
+  call interp_gvec(node_list,element_list,i_elm,1,3,i_harm+1,s_in,t_in,Bp0sin,dummy,dummy,dummy,dummy,dummy)
+  
+  BR0 = BR0 - BR0sin*sin(mode_coord(i_harm+1)*p_in)
+  BZ0 = BZ0 - BZ0sin*sin(mode_coord(i_harm+1)*p_in)
+  Bp0 = Bp0 - Bp0sin*sin(mode_coord(i_harm+1)*p_in)
+end do
+
 #ifdef fullmhd
 AR0_Z = ( - R_t * AR0_s  + R_s * AR0_t ) / Zjac
 AZ0_R = (   Z_t * AZ0_s  - Z_s * AZ0_t ) / Zjac
@@ -533,16 +564,22 @@ A30_Z = ( - R_t * psi_s  + R_s * psi_t ) / Zjac
 BR0 = ( A30_Z - AZ0_p )/ R
 BZ0 = ( AR0_p - A30_R )/ R
 Bp0 = ( AZ0_R - AR0_Z )       +   Fprof / R
+#else
+!delta_s =   psi_t * R / (Zjac * F0) * delta_p
+!delta_t = - psi_s * R / (Zjac * F0) * delta_p
+psi_R = ( Z_t*psi_s - Z_s*psi_t)/Zjac
+psi_z = (-R_t*psi_s + R_s*psi_t)/Zjac
+psi_p = st_psi_p - R_p*psi_R - Z_p*psi_z
+
+BR0 = chi(1,0,0)   + (psi_z*chi(0,0,1) - psi_p*chi(0,1,0))/(F0*R) ! comment out these lines to use the
+BZ0 = chi(0,1,0)   - (psi_R*chi(0,0,1) - psi_p*chi(1,0,0))/(F0*R) !   GVEC magnetic field instead of
+Bp0 = chi(0,0,1)/R + (psi_R*chi(0,1,0) - psi_z*chi(1,0,0))/F0     !   the reduced MHD magnetic field
+#endif
 
 ! dR/Rdphi = B_R / B_phi ; dZ/Rdphi = B_Z / B_phi
 ! ds = (Z_t dR - R_t dZ) / Zjac ; dt = ( -Z_s dR + R_s dZ) / Zjac
 delta_s =  ( Z_t*BR0 - R_t*BZ0) / ( Bp0 * Zjac ) * R * delta_p
-delta_t =  (-Z_s*BR0 + R_s*BZ0) / ( Bp0 * Zjac ) * R * delta_p     
-
-#else
-delta_s =   psi_t * R / (Zjac * F0) * delta_p
-delta_t = - psi_s * R / (Zjac * F0) * delta_p
-#endif
+delta_t =  (-Z_s*BR0 + R_s*BZ0) / ( Bp0 * Zjac ) * R * delta_p
 
 return
 end subroutine step
