@@ -26,7 +26,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 restart, rst_format, regrid, bootstrap, write_ps,   &
                 force_horizontal_Xline,                             &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
-                n_open, n_private, n_leg, n_ext,                    &
+                n_open, n_private, n_leg, n_ext, i_plane_rtree,     &
                 n_outer, n_inner, n_up_priv, n_up_leg, m_pol_bc,    &
                 SDN_threshold,                                      &
                 psi_axis_init, XR_r, SIG_r, XR_tht, SIG_tht,        &
@@ -185,6 +185,12 @@ if (my_id .eq. 0) then
     nstep_n    = 0
     nstep_n(1) = nstep
   endif
+  
+  if (i_plane_rtree .ge. n_plane) then
+    write(*,*) 'ERROR: The variable i_plane_rtree must be less than the total number of poloidal planes'
+    write(*,'(A,I4,A,I4)') 'i_plane_rtree = ', i_plane_rtree, '; n_plane = ', n_plane
+    stop
+  end if
 
   call allocate_live_data()
 

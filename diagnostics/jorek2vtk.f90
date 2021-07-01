@@ -494,11 +494,10 @@ do k_tor=1, n_coord_tor
   mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
 enddo
 
-
-call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr, .true.)
-
 call initialise_basis                              ! define the basis functions at the Gaussian points
 call init_chi_basis
+
+call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr, .true.)
 
 nnos = nsub*nsub*element_list%n_elements
 allocate(currdens(nnos),xyz(3,nnos),scalars(nnos,1:n_scalars),vectors(nnos,3,1:n_vectors))

@@ -224,34 +224,41 @@ module mod_chi
     end function gamma_st
   end subroutine init_chi_basis
   
-  function get_chi(R,z,phi)
-  !-----------------------------------------------------------------------------------------------------
-  ! This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1
-  !-----------------------------------------------------------------------------------------------------
+  function get_chi(R,z,phi,max_ord)
+  !------------------------------------------------------------------------------------------------------
+  ! This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1,
+  !  unless a lower cutoff is requested via n
+  !------------------------------------------------------------------------------------------------------
     implicit none
     real*8,  intent(in) :: R, z, phi
+    integer, optional, intent(in) :: max_ord
     real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi
     real*8, dimension(0:n_order-1) :: dksinmp, dkcosmp, V_ml
     real*8  :: sgnF0, Rn, zn, cval, D_ml, N_ml_1
-    integer :: i, j, k, m, l, i_ord, j_ord, k_ord
+    integer :: n_ord, i, j, k, m, l, i_ord, j_ord, k_ord
     
     get_chi = 0.d0
     sgnF0 = sign(1.,F0)
     get_chi(0,0,0) = sgnF0*phi; get_chi(0,0,1) = sgnF0 ! Include the phi term
     
     if (domm) then
+      n_ord = n_order-1
+      if (present(max_ord)) then
+        if (max_ord .lt. n_order-1) n_ord = max_ord
+      end if
+      
       Rn = R/R_domm
       zn = z/R_domm
       do i=0,m_tor
         m = i*n_coord_period
-        do k_ord=0,n_order-1
+        do k_ord=0,n_ord
           ! k_ord-order derivatives of sin(m*phi) and cos(m*phi)
           dksinmp(k_ord) = (-1)**int(k_ord/2)*m**k_ord*(((1+(-1)**k_ord)/2)*sin(m*phi) + ((1-(-1)**k_ord)/2)*cos(m*phi))
           dkcosmp(k_ord) = (-1)**int((k_ord+1)/2)*m**k_ord*(((1+(-1)**k_ord)/2)*cos(m*phi) + ((1-(-1)**k_ord)/2)*sin(m*phi))
         end do
         do l=0,l_pol_domm
-          do j_ord=0,n_order-1
-            do i_ord=0,n_order-1
+          do j_ord=0,n_ord
+            do i_ord=0,n_ord
               D_ml = 0.d0; N_ml_1 = 0.d0
               do k=0,l/2
                 cval = 0.d0
@@ -273,7 +280,7 @@ module mod_chi
                 end do
                 N_ml_1 = N_ml_1 + N(i_ord,j_ord,abs(l-1),i)%coef(k+1)*cval*zn**N(i_ord,j_ord,abs(l-1),i)%zpwr(k+1)
               end do
-              do k_ord=0,n_order-1
+              do k_ord=0,n_ord
                 V_ml(k_ord) = (dcoef(1,l,i)*dkcosmp(k_ord) + dcoef(2,l,i)*dksinmp(k_ord))*D_ml &
                             + (dcoef(3,l,i)*dkcosmp(k_ord) + dcoef(4,l,i)*dksinmp(k_ord))*N_ml_1
               end do

@@ -17,7 +17,7 @@ character(len=512) :: s
 real*8,allocatable  :: rp(:), zp(:), tp(:), pp(:)
 integer, allocatable :: n_turn(:)
 integer :: my_id, nr, ntour, curr
-real*8  :: rr, zz, psi
+real*8  :: rr, zz, phi
 integer :: i, j, iside_i, iside_j, ip, i_lines, n_lines, i_tor, i_harm, i_var_psi, iplot_type
 integer :: i_elm, ifail, i_phi, n_phi, i_turn, i_elm_out, i_elm_prev, i_elm_tmp,i_steps
 real*8  :: R_line, Z_line, s_line, t_line, p_line, R_mid, Z_mid, s_mid, t_mid, p_mid, s_out, t_out
@@ -80,7 +80,7 @@ enddo
 !   +-------------------------------------------------------
 !   |# n_lines
 !   |  11
-!   |# nr   R_start   Z_start    psi_start   n_turns
+!   |# nr   R_start   Z_start    phi_start   n_turns
 !   |   1    1.700      0.000     0.000      100
 !   |  10    1.800      0.000     0.000      200
 !   |  11    1.850      0.200     0.000      800
@@ -104,12 +104,12 @@ if ( ierr == 0 ) then ! stpts file exists, use it.
   do
     if ( curr >= n_lines ) exit
     
-    read(21, *) nr, rr, zz, psi, ntour
+    read(21, *) nr, rr, zz, phi, ntour
     
     if ( ( nr == 1 ) .and. ( curr == 0 ) ) then
       R_start(1) = rr
       Z_start(1) = zz
-      P_start(1) = psi
+      P_start(1) = phi
       n_turn(1)  = ntour
     else if ( curr == 0 ) then
       write(*,*) 'ERROR in stpts file: first start point must be nr=1.'
@@ -125,7 +125,7 @@ if ( ierr == 0 ) then ! stpts file exists, use it.
       do i_lines = curr + 1, nr
         R_start(i_lines) = R_start(curr) + ( rr - R_start(curr) ) * ( real(i_lines-curr) / real(nr-curr) )
         Z_start(i_lines) = Z_start(curr) + ( zz - Z_start(curr) ) * ( real(i_lines-curr) / real(nr-curr) )
-        P_start(i_lines) = P_start(curr) + ( psi- P_start(curr) ) * ( real(i_lines-curr) / real(nr-curr) )
+        P_start(i_lines) = P_start(curr) + ( phi- P_start(curr) ) * ( real(i_lines-curr) / real(nr-curr) )
         n_turn(i_lines)  = nint( n_turn(curr) + real( ntour - n_turn(curr) ) * ( real(i_lines-curr) / real(nr-curr) ) )
       end do
       
@@ -134,6 +134,9 @@ if ( ierr == 0 ) then ! stpts file exists, use it.
     curr = nr
     
   end do
+  
+  read(21,*) s
+  if (trim(adjustl(s)) .eq. "override_phi") P_start = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
   
   close(21)
 
@@ -477,9 +480,11 @@ psi_s = P0_s
 psi_t = P0_t 
 st_psi_p = 0.d0
 
+#ifdef POINC_GVEC
 call interp_gvec(node_list,element_list,i_elm,1,1,1,s_in,t_in,BR0,dummy,dummy,dummy,dummy,dummy)
 call interp_gvec(node_list,element_list,i_elm,1,2,1,s_in,t_in,BZ0,dummy,dummy,dummy,dummy,dummy)
 call interp_gvec(node_list,element_list,i_elm,1,3,1,s_in,t_in,Bp0,dummy,dummy,dummy,dummy,dummy)
+#endif
 
 #ifdef fullmhd
   call interp(node_list,element_list,i_elm,var_AR,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
@@ -535,6 +540,7 @@ do i_tor = 1, (n_tor-1)/2
 
 enddo
 
+#ifdef POINC_GVEC
 do i_tor=1,(n_coord_tor-1)/2
   i_harm = 2*i_tor
   
@@ -554,6 +560,7 @@ do i_tor=1,(n_coord_tor-1)/2
   BZ0 = BZ0 - BZ0sin*sin(mode_coord(i_harm+1)*p_in)
   Bp0 = Bp0 - Bp0sin*sin(mode_coord(i_harm+1)*p_in)
 end do
+#endif
 
 #ifdef fullmhd
 AR0_Z = ( - R_t * AR0_s  + R_s * AR0_t ) / Zjac
@@ -565,21 +572,22 @@ BR0 = ( A30_Z - AZ0_p )/ R
 BZ0 = ( AR0_p - A30_R )/ R
 Bp0 = ( AZ0_R - AR0_Z )       +   Fprof / R
 #else
-!delta_s =   psi_t * R / (Zjac * F0) * delta_p
-!delta_t = - psi_s * R / (Zjac * F0) * delta_p
 psi_R = ( Z_t*psi_s - Z_s*psi_t)/Zjac
 psi_z = (-R_t*psi_s + R_s*psi_t)/Zjac
 psi_p = st_psi_p - R_p*psi_R - Z_p*psi_z
 
+#ifndef POINC_GVEC
 BR0 = chi(1,0,0)   + (psi_z*chi(0,0,1) - psi_p*chi(0,1,0))/(F0*R) ! comment out these lines to use the
 BZ0 = chi(0,1,0)   - (psi_R*chi(0,0,1) - psi_p*chi(1,0,0))/(F0*R) !   GVEC magnetic field instead of
 Bp0 = chi(0,0,1)/R + (psi_R*chi(0,1,0) - psi_z*chi(1,0,0))/F0     !   the reduced MHD magnetic field
 #endif
+#endif
 
-! dR/Rdphi = B_R / B_phi ; dZ/Rdphi = B_Z / B_phi
-! ds = (Z_t dR - R_t dZ) / Zjac ; dt = ( -Z_s dR + R_s dZ) / Zjac
-delta_s =  ( Z_t*BR0 - R_t*BZ0) / ( Bp0 * Zjac ) * R * delta_p
-delta_t =  (-Z_s*BR0 + R_s*BZ0) / ( Bp0 * Zjac ) * R * delta_p
+! dR/Rdphi = B_R / B_phi ; dz/Rdphi = B_z / B_phi
+! ds/dphi = s_phi + s_R dR/dphi + s_z dz/dphi = (-z_t R_p + R_t z_p + z_t dR/dphi - R_t dz/dphi)/Zjac
+! dt/dphi = t_phi + t_R dR/dphi + t_z dz/dphi = ( z_s R_p - R_s z_p - z_s dR/dphi + R_s dz/dphi)/Zjac
+delta_s = (-Z_t*R_p + R_t*Z_p + R*(Z_t*BR0 - R_t*BZ0)/Bp0)*delta_p/Zjac
+delta_t = ( Z_s*R_p - R_s*Z_p - R*(Z_s*BR0 - R_s*BZ0)/Bp0)*delta_p/Zjac
 
 return
 end subroutine step

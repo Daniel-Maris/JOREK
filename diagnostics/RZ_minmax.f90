@@ -2,6 +2,7 @@ subroutine RZ_minmax(node_list,element_list,i_elm,Rmin,Rmax,Zmin,Zmax)
 use mod_parameters, only: n_coord_tor
 use data_structure
 use basis_at_gaussian, only: HZ_coord
+use phys_module, only: i_plane_rtree
 implicit none
 
 type (type_node_list), intent(in)    :: node_list
@@ -32,17 +33,17 @@ do k=1,2
 
     if ((iv .eq. 1) .or. (iv .eq. 3)) THEN
       do i_tor=1,n_coord_tor
-        PSIM  = PSIM  + node_list%node(n1)%x(i_tor,1,k) * element_list%element(i_elm)%size(iv,1) * HZ_coord(i_tor,1)
-        PSIMR = PSIMR + node_list%node(n1)%x(i_tor,2,k) * element_list%element(i_elm)%size(iv,2) * HZ_coord(i_tor,1) * 3.d0/2.d0
-        PSIP  = PSIP  + node_list%node(n2)%x(i_tor,1,k) * element_list%element(i_elm)%size(im,1) * HZ_coord(i_tor,1)
-        PSIPR = PSIPR - node_list%node(n2)%x(i_tor,2,k) * element_list%element(i_elm)%size(im,2) * HZ_coord(i_tor,1) * 3.d0/2.d0
+        PSIM  = PSIM  + node_list%node(n1)%x(i_tor,1,k)*element_list%element(i_elm)%size(iv,1)*HZ_coord(i_tor,i_plane_rtree)
+        PSIMR = PSIMR + node_list%node(n1)%x(i_tor,2,k)*element_list%element(i_elm)%size(iv,2)*HZ_coord(i_tor,i_plane_rtree)*3.d0/2.d0
+        PSIP  = PSIP  + node_list%node(n2)%x(i_tor,1,k)*element_list%element(i_elm)%size(im,1)*HZ_coord(i_tor,i_plane_rtree)
+        PSIPR = PSIPR - node_list%node(n2)%x(i_tor,2,k)*element_list%element(i_elm)%size(im,2)*HZ_coord(i_tor,i_plane_rtree)*3.d0/2.d0
       end do
     elseif ((iv .eq. 2) .or. (iv .eq. 4)) then
       do i_tor=1,n_coord_tor
-        PSIM  = PSIM  + node_list%node(n1)%x(i_tor,1,k) * element_list%element(i_elm)%size(iv,1) * HZ_coord(i_tor,1)
-        PSIMR = PSIMR + node_list%node(n1)%x(i_tor,3,k) * element_list%element(i_elm)%size(iv,3) * HZ_coord(i_tor,1) * 3.d0/2.d0
-        PSIP  = PSIP  + node_list%node(n2)%x(i_tor,1,k) * element_list%element(i_elm)%size(im,1) * HZ_coord(i_tor,1)
-        PSIPR = PSIPR - node_list%node(n2)%x(i_tor,3,k) * element_list%element(i_elm)%size(im,3) * HZ_coord(i_tor,1) * 3.d0/2.d0
+        PSIM  = PSIM  + node_list%node(n1)%x(i_tor,1,k)*element_list%element(i_elm)%size(iv,1)*HZ_coord(i_tor,i_plane_rtree)
+        PSIMR = PSIMR + node_list%node(n1)%x(i_tor,3,k)*element_list%element(i_elm)%size(iv,3)*HZ_coord(i_tor,i_plane_rtree)*3.d0/2.d0
+        PSIP  = PSIP  + node_list%node(n2)%x(i_tor,1,k)*element_list%element(i_elm)%size(im,1)*HZ_coord(i_tor,i_plane_rtree)
+        PSIPR = PSIPR - node_list%node(n2)%x(i_tor,3,k)*element_list%element(i_elm)%size(im,3)*HZ_coord(i_tor,i_plane_rtree)*3.d0/2.d0
       end do
     endif
 

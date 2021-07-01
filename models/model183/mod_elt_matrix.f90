@@ -168,15 +168,17 @@ do i=1,n_vertex_max
 
          enddo
 
-         if (keep_current_prof) &
+         if (keep_current_prof) then
+           do in=1,n_tor
+             current_source(mp,ms,mt) = current_source(mp,ms,mt) + nodes(i)%j_source(in,j)*element%size(i,j)*H(i,j,ms,mt)*HZ(in,mp)
+           end do
+         end if
+
 #ifdef altcs
-           call current(xpoint2, xcase2, x_g(mp,ms,mt),y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,current_source(mp,ms,mt))
          call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
 #else
-           call current(xpoint2, xcase2, x_g(mp,ms,mt),y_g(mp,ms,mt), Z_xpoint, eq_g(mp,var_Psi,ms,mt),psi_axis,psi_bnd,current_source(mp,ms,mt))
          call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, eq_g(mp,var_Psi,ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
 #endif
-
        enddo
      enddo
    enddo

@@ -89,6 +89,7 @@ subroutine preset_parameters
   n_tht        = 16
   n_tht_equidistant = .false.
   m_pol_bc     = 1
+  i_plane_rtree = 1
   
   n_open       = 5
   n_outer      = 0
@@ -355,6 +356,7 @@ subroutine preset_parameters
   tgnum              = 0.d0                 ! Taylor-Galerkin Stabilisation coefficients (0.d0 == TG not used)
 
   keep_current_prof  = .true.               ! Keep the current_source term
+  init_current_prof  = .false.
   
   use_mumps          = .false.              ! Use MUMPS solver
   use_pastix         = .true.               ! Use PASTIX solver

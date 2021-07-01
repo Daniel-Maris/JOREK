@@ -105,6 +105,7 @@ module phys_module
   real*8, allocatable :: energies2(:,:,:)  !< global density and temperature at timesteps.
   real*8, allocatable :: energies3(:,:,:)  !< global currents (general and total eccd) at timesteps.
   real*8, allocatable :: energies4(:,:,:)  !< global applied eccd currents j1 and j2 at timesteps.
+  real*8, allocatable :: energies3D(:,:,:) !< Magnetic and kinetic mode family energies at time steps (stellarator).
 
   character(len=3)    :: mode_type(n_tor) !< 'cos' or 'sin'
   character(len=3)    :: mode_coord_type(n_coord_tor) !< 'cos' or 'sin'
@@ -399,6 +400,7 @@ module phys_module
   real*8  :: sig1              !< Grid accumulation parameter (for flux-aligned grid)
   real*8  :: sig2              !< Grid accumulation parameter (for flux-aligned grid)
   integer :: m_pol_bc          !< Number of poloidal modes for Psi boundary condition in stellarator
+  integer :: i_plane_rtree     !< The poloidal plane in a stellarator on which the RTree is to be built (RZ_minmax refers to this plane)
   
   !> @name Flux surface grid with X-point
   !! Parameters defining a flux-aligned grid with X-point in the poloidal plane.
@@ -659,6 +661,7 @@ module phys_module
 
   !> @name Flag to determine whether or not we keep current source term  
   logical             :: keep_current_prof !< Artificial current source to approximately keep the initial current profile, i.e., \f$\eta(j-j0)\f$?
+  logical             :: init_current_prof !< Initialize the current source from the current profile present
   
   !> @name Numerical parameters
   real*8              :: D_prof_neg         !< Particle diffusion coefficient in regions with negative density

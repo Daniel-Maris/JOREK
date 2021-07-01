@@ -212,6 +212,12 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     call tr_allocate(energies,1,n_tor,1,2,1,index_start+nstep,"energies",CAT_UNKNOWN)
     energies = 0.d0
     
+#if (JOREK_MODEL == 183)
+    if (allocated(energies3D)) call tr_deallocate(energies3D,"energies3D",CAT_UNKNOWN)
+    call tr_allocate(energies3D,1,1+int(n_coord_period/2),1,2,1,index_start+nstep,"energies3D",CAT_UNKNOWN)
+    energies3D = 0.d0
+#endif
+    
     if (allocated(R_axis_t)) call tr_deallocate(R_axis_t,"R_axis_t",CAT_UNKNOWN)
     call tr_allocate(R_axis_t,1,index_start+nstep,"R_axis_t",CAT_UNKNOWN)
     R_axis_t = 0.d0
@@ -453,6 +459,9 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   read(21) xtime(1:index_start)
   read(21) energies(1:n_tor_tmp,:,1:index_start)
+#if (JOREK_MODEL == 183)
+  read(21) energies3D(1:1+int(n_coord_period/2),:,1:index_start)
+#endif
 
 #ifdef JECCD
   read(21) energies2(1:n_tor_tmp,:,1:index_start)
@@ -832,6 +841,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   real(RKIND), allocatable :: t_pressure(:,:)
   real(RKIND), allocatable :: t_j_field(:,:,:,:)
   real(RKIND), allocatable :: t_b_field(:,:,:,:)
+  real(RKIND), allocatable :: t_j_source(:,:,:)
 
   real(RKIND), allocatable :: t_psi_eq(:,:)
   real(RKIND), allocatable :: t_Fprof_eq(:,:)
@@ -1001,6 +1011,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_allocate(t_pressure,1,node_list%n_nodes,1,n_order+1,                              "node_list%pressure",CAT_UNKNOWN)
   call tr_allocate(t_j_field,1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim+1,  "node_list%j_field",CAT_UNKNOWN)
   call tr_allocate(t_b_field,1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim+1,    "node_list%b_field",     CAT_UNKNOWN)
+  call tr_allocate(t_j_source,1,node_list%n_nodes,1,n_tor,1,n_order+1,                     "node_list%j_source",CAT_UNKNOWN)
  
 #ifdef fullmhd
   call tr_allocate(t_psi_eq,  1,node_list%n_nodes,1,n_order+1, "node_list%psi_eq",  CAT_UNKNOWN)
@@ -1039,6 +1050,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_array2D_reading(file_id,t_pressure, 'pressure')
   call HDF5_array4D_reading(file_id,t_j_field,  'j_field')
   call HDF5_array4D_reading(file_id,t_b_field,   'b_field')
+  call HDF5_array3D_reading(file_id,t_j_source, 'j_source')
 
 #ifdef fullmhd
   call HDF5_array2D_reading(file_id,t_psi_eq,   'psi_eq')
@@ -1100,6 +1112,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     node_list%node(i)%pressure = t_pressure(i,:)
     node_list%node(i)%b_field = t_b_field(i,:,:,:)
     node_list%node(i)%j_field = t_j_field(i,:,:,:)
+    node_list%node(i)%j_source = t_j_source(i,:,:)
 
     ! --- Split "total" temperature into electron and ion temperature
     if ( import_3xx_4xx ) then
@@ -1190,6 +1203,13 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         end if
       end do
     end do
+
+#if (JOREK_MODEL == 183)
+    if (allocated(energies3D))   call tr_deallocate(energies3D,"energies3D",CAT_UNKNOWN)
+    call tr_allocate(energies3D,1,1+int(n_coord_period/2),1,2,1,index_start+nstep,"energies3D",CAT_UNKNOWN)
+    energies3D = 0.d0
+    call HDF5_array3D_reading(file_id,energies3D,'energies3D')
+#endif
 
     if (allocated(R_axis_t)) call tr_deallocate(R_axis_t,"R_axis_t",CAT_UNKNOWN)
     call tr_allocate(R_axis_t,1,index_start+nstep,"R_axis_t",CAT_UNKNOWN)
@@ -1809,6 +1829,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_deallocate(t_pressure,"t_pressure",CAT_UNKNOWN)
   call tr_deallocate(t_j_field,"t_j_field",CAT_UNKNOWN)
   call tr_deallocate(t_b_field,"t_b_field",CAT_UNKNOWN)
+  call tr_deallocate(t_j_source,"t_j_source",CAT_UNKNOWN)
   call tr_deallocate(t_energies,"t_energies",CAT_UNKNOWN)
 
 #ifdef JECCD                   

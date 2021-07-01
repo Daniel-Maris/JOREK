@@ -15,6 +15,7 @@ module data_structure
     real*8     :: pressure(n_order+1)                     !< scalar pressure from GVEC
     real*8     :: j_field(n_coord_tor,n_order+1,n_dim+1)  !< current density R, Z, phi components from GVEC
     real*8     :: b_field(n_coord_tor,n_order+1,n_dim+1)  !< magnetic field  R, Z, phi components from GVEC
+    real*8     :: j_source(n_tor,n_order+1)               !< Current source in a stellarator
 #ifdef fullmhd
     real*8     :: psi_eq(n_order+1)               !< equilibrium flux at the nodes
     real*8     :: Fprof_eq(n_order+1)             !< equilibrium profile R*B_phi at the nodes
