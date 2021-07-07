@@ -1062,7 +1062,7 @@ do i=1,element_list%n_elements
             Te_sum  = Te_sum + 0.5d0*TT * HZ(i_tor,i_plane)
           endif
 
-          if ((xjac .gt. 1.d-6)) then  ! avoid the axis
+!          if ((xjac .gt. 1.d-6)) then  ! avoid the axis
 
              u_x  = u_x   + (   Z_t * U_s - Z_s * U_t )     / xjac * HZ(i_tor,i_plane)
              u_y  = u_y   + ( - R_t * U_s + R_s * U_t )     / xjac * HZ(i_tor,i_plane)
@@ -1121,7 +1121,7 @@ do i=1,element_list%n_elements
             E_Z   = E_Z   - F0*(U_y-0.5d0*dU_y)*HZ(i_tor,i_plane) 
             E_phi = E_phi - dpsi/tstep * HZ(i_tor,i_plane)/BigR - F0*(U-0.5d0*dU)*HZ_p(i_tor,i_plane)/BigR 
 
-          endif ! xjac
+!          endif ! xjac
         enddo  ! end loop toroidal harmonics
 
         if (include_gvec_field) then

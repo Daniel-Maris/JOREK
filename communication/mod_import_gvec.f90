@@ -359,6 +359,8 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
         enddo
         n_index_start = n_index_start + n_order+1
       endif
+      
+      if (fix_axis_nodes .and. (i_rad .eq. 1)) node_list%node(i_node)%axis_node = .true.
 
       node_list%node(i_node)%constrained=.false.
     enddo
@@ -409,6 +411,13 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
       element_list%element(i_elm)%size(i_vertex,2) = dir_2
       element_list%element(i_elm)%size(i_vertex,3) = dir_3
       element_list%element(i_elm)%size(i_vertex,4) = element_list%element(i_elm)%size(i_vertex,2) * element_list%element(i_elm)%size(i_vertex,3)
+      if (fix_axis_nodes) then
+        i_node = element_list%element(i_elm)%vertex(i_vertex)
+        if (node_list%node(i_node)%axis_node) then
+          element_list%element(i_elm)%size(i_vertex,3) = 0.d0
+          element_list%element(i_elm)%size(i_vertex,4) = 0.d0
+        end if
+      end if
     enddo
   enddo
 
