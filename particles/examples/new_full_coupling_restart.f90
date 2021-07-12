@@ -162,7 +162,7 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 ! tstep_keep        = tstep
 
 ! selecting physics (should be done in input file)
-use_puffing       = .false. !.false. 
+use_puffing       = .true. !.false. 
 use_cx            = .true. !.true.
 use_ionisation    = .true. !.false.!.false.
 use_sputtering    = .true. !.false. !false
@@ -181,12 +181,12 @@ endif
 
 ! setting up particle puffing
 puff_rate = 8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-r_valve     = 0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+r_valve     = 0.04d0 !0.02d0 !0.04d0 !.005d0
+R_valve_loc = 4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
-R_valve_loc2 = 5.46d0
-Z_valve2     = -4.2d0
+R_valve_loc2 = 5.4d0 !5.46d0
+Z_valve2     = -4.19d0 !-4.2d0
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
 if (use_puffing) then  
@@ -664,15 +664,18 @@ type is (particle_kinetic_leapfrog)
 
 			!============== NEW CX PARTICLE
 			  !Box-Mueller sample velocities with st.dev=1
-			  ran_norm = boxmueller_transform(cx_ran(2:4))
+			  ran_norm = boxmueller_transform(cx_ran(2:5))
 			  !>v_temp = sqrt(kT/m) * ran_norm
-			  v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(1)%mass * ATOMIC_MASS_UNIT))*ran_norm(1:3)
+			  v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(1)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
+			  !write(*,*) "vtemp", v_temp
 			  !>add bulk fluid flow
 			  v_temp = v_temp + vvector 
 
               CX_source = particle_tmp%weight
               CX_energy   = 0.5d0 * sim%groups(1)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
-
+			
+              !write(*,*) "neTe",n_e,T_e			
+			  !write(*,*) "CX", vvector
           endif ! cx_ran
 	  endif ! use_cx
 	  
@@ -872,7 +875,7 @@ type is (particle_kinetic_leapfrog)
 do ife = 1, size(rec_rate_local) ! loop over all local elements
 
 	if (isnan(rec_v_R(ife)) .or. isnan(rec_v_Z(ife)) .or. isnan(rec_v_phi(ife))) CYCLE !NaN check
-	if (rec_rate_local(ife) .le. 1.d3) CYCLE
+	!if (rec_rate_local(ife) .le. 1.d3) CYCLE
 	
 	!$ i_rng = omp_get_thread_num()+1
 	!if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle

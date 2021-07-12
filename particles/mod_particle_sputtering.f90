@@ -247,6 +247,8 @@ subroutine load_eckstein_data(this, sim)
   if (.not. allocated(this%yield) .and. .not. allocated(this%energy)) then
     allocate(this%yield(size(sim%groups,1)+size(this%background_species_Z,1))) 
     allocate(this%energy(size(sim%groups,1)+size(this%background_species_Z,1)))
+    ! TODO: add reflection probability
+	!       reflected energy
   
     !< reads eckstein sputter coefficients of all groups (such as tungsten)
     n_g = size(sim%groups,1)
@@ -1060,14 +1062,16 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
   real*8 :: m, psi, U
 
   real*8, parameter :: gamma = 5.d0 / 3.d0 !< Heat capacity ratio, for adiabatic
-  real*8 :: psi_axis, R_axis, Z_axis, s_axis, t_axis, psi_xpoint(2), psi_limit, R_xpoint, Z_xpoint, s_xpoint, t_xpoint
-  integer :: i_elm_axis, ifail, i_elm_xpoint
+  real*8 :: psi_axis, R_axis, Z_axis, s_axis, t_axis, psi_xpoint(2), psi_limit, R_xpoint(2), Z_xpoint(2), s_xpoint(2), t_xpoint(2)
+  integer :: i_elm_axis, ifail, i_elm_xpoint(2)
 
   if (present(diagnostics)) then
     ! Preparation (force my_id to 1 to suppress message)
     ! Note that this does not do proper time interpolation! We should probably
     ! have a proper function on the simulation to obtain those parameters
     ! for a rough estimate it will work however
+	!t_xpoint = 0.d0
+	!s_xpoint= 0.d0
     call find_axis(1,sim%fields%node_list,sim%fields%element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis,ifail)
 
     if (xpoint) then

@@ -101,10 +101,16 @@ VP_tot   = 0.d0
 VK_tot   = 0.d0
 VM_tot   = 0.d0
 J2_tot   = 0.d0
+TVP_int  = 0.d0
+TVP_ext  = 0.d0
+TVP_tot  = 0.d0
 
 local_pellet_particles = 0.d0
 local_plasma_particles = 0.d0
 local_pellet_volume    = 0.d0
+
+omp_nthreads= 1.d0
+omp_tid= 0.d0
 
 #if (JOREK_MODEL == 500)
 local_n_particles_inj = 0.d0
@@ -125,7 +131,12 @@ ife_delta = ceiling(float(element_list%n_elements) / n_cpu)
 ife_min   =      my_id     * ife_delta + 1
 ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 
-!$omp parallel default(none)                                                                   &
+!write(*,*) D_int, D_ext, P_int, H_int, S_int, H_ext, S_ext, P_ext, C_intern, C_ext, &
+!              TVP_int, TVP_ext, TVP_tot, VP_int, VP_ext, VP_tot, VK_tot, VK_int, VK_ext, VM_ext,                  &
+!               VM_int, VM_tot, Vol, P_tot, D_tot,J2_tot, J2_int, J2_ext
+! 11 12 13
+
+!$omp parallel default(none) , &                                                                  
 !$omp   shared(element_list,node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &
 !$omp          ES, my_id, use_pellet, psi_limit, delta_phi,                                    &
 !$omp          D_tot, D_int, D_Ext, P_tot, P_int, P_ext, Vol, C_intern, C_ext, VP_ext, VP_int, &
@@ -145,7 +156,7 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp          n_spi, using_spi,                                                               &
 !$omp          ng_radius_ratio, ng_radius_min, ng_radius, spi_shard_file,                      &
 #endif
-!$omp          wgauss_copy)                                                                    &
+!$omp          wgauss_copy) , &                                                                   
 !$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt, spi_i,                       &
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, xjac, eq_g, eq_s, eq_t, eq_p,                    &
 !$omp           wst, BigR, r0, T0, T0e, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dudx, dudy,  &

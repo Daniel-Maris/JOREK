@@ -189,7 +189,7 @@ real*8, intent(in)  :: phi !< toroidal angle
 real*8, intent(out) :: vvector(3) !v [v_R, v_Z, v_phi] in m/s
 ! Internal parameters
 integer, parameter :: i_var(3) = [1,2,7]
-real*8             :: P(2), P_s(2), P_t(2), P_phi(2), P_time(2) ! Placeholder for evaluating variables and derivatives locally
+real*8             :: P(3), P_s(3), P_t(3), P_phi(3), P_time(3) ! Placeholder for evaluating variables and derivatives locally
 ! Values
 real*8             :: R, R_s, R_t, Z, Z_s, Z_t
 ! Others
@@ -200,7 +200,7 @@ t_norm  = sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20) !
 
 ! Interpolate the fields to get psi and U at the current position (and the
 ! changes u_n - u(n-1))
-call fields%interp_PRZ(time, i_elm, i_var, 2, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
+call fields%interp_PRZ(time, i_elm, i_var, 3, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
 
 R_inv = 1.d0/R
 inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
