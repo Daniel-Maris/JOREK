@@ -37,7 +37,7 @@ real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_g, eq_s, eq_t
 real*8     :: density_eq(n_gauss,n_gauss), eq_g1(n_var,n_gauss,n_gauss), Fprofile(n_gauss,n_gauss)
 
 integer    :: i, j, k, in, ms, mt,mp, iv, inode, ife,ielm, n_elements !,n_cpu
-real*8     :: xjac, BigR, wst
+real*8     :: xjac, BigR, wst,delta_phi
 real*8     :: ps0_x, ps0_y, u0_x, u0_y, r0, T0,vpar0
 real*8     :: T0_corr, r0_corr
 
@@ -89,14 +89,14 @@ rec_v_phi(:)        = 0.d0
 !> volume check. 
 volume_check(:)     = 0.d0
 
-
+delta_phi     = 2.d0 * PI / float(n_plane) / float(n_period)
 !HZ_p,n_plane,n_gauss,n_order,n_vertex_max,TWOPI
 !$omp parallel do default(none)                                              &
 !$omp schedule(static, 100)                                               &
 !$omp   shared(local_rec_elements,my_id,n_cpu, volume_check,              &
 !$omp          rec_rate_local,rec_v_R,rec_v_Z,rec_v_phi,                  &
 !$omp          element_list,node_list, H, H_s, H_t, HZ,                   & 
-!$omp          tstep,F0                                                      &
+!$omp          tstep,F0, delta_phi                                                      &
 !$omp          )                                                          &
 !$omp   private(ife,ielm,iv,i,j,k,ms,mt,mp,in,                            &
 !$omp           inode,nodes,element,                                      &
@@ -169,6 +169,7 @@ enddo
 !------------------------end from elt_matrix_fft 
 
 !--------------------------------------------------- sum over the Gaussian integration points
+! TO DO: rec_rate_local(ife, mp), add n_plane for 3D? 
   do mp=1, n_plane
        !phi       = 2.d0*PI*float(mp-1)/float(n_plane) / float(n_period)
     do ms=1, n_gauss

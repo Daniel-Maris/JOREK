@@ -329,7 +329,8 @@ subroutine do_particle_sputter(this, sim, ev)
   !> for mpi_reduce of particle contributions
   real*4, allocatable :: scalars(:,:) !< size(st,1) by n_particle*3
   integer :: toroidal_offset !< Number of elements in the toroidal direction
-
+  !> for deuterium and neutrals reflection instead of sputtering
+  logical :: reflection, fast_reflection
   
   if (this%last_time .eq. 0.d0) then
     this%last_time = sim%time
@@ -435,14 +436,19 @@ subroutine do_particle_sputter(this, sim, ev)
 	!write(*,*) "PARTICLE PART sputtering group", i
     ! gfortran wants and does not want to have the types in the shared section at the same time.... default(shared) it is
     ! be very very careful however!
+	
+	reflection = .false.
+	fast_reflection = .false.
+	if (sim%groups(i)%Z .eq. -2) reflection = .true.
+	
 #ifdef __GFORTRAN__
     !$omp parallel default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
 #else
     !$omp parallel default(none) &
 #endif
-    !$omp shared(this, sim, i), private(q, velocity, theta, E, &
+    !$omp shared(this, sim, i,reflection), private(q, velocity, theta, E, &
     !$omp sputtering_yield, sputtered_energy_coeff, i_rng, u, i_patch,this_patch,j, i_edge_nodes, vector_normal, T_eV, &
-    !$omp k, area, i_edge_elm, toroidal_offset, dphi, is_prompt_loss, Efield, B, psi, pot, T_e, n_e)                    &
+    !$omp k, area, i_edge_elm, toroidal_offset, dphi, is_prompt_loss, Efield, B, psi, pot, T_e, n_e,fast_reflection)                    &
     !$omp reduction(+:sputtered_this_step_local)
 	
     i_rng = 1
@@ -504,23 +510,33 @@ subroutine do_particle_sputter(this, sim, ev)
           
         ! Update the particle energy from the potential drop in the sheath
         E = E + simple_potential_drop(q,T_eV)
+        
+		!> reflecting atoms of the main plasma species/ D neutrals
+		!> here we try whether neutrals bounce of the wall (fast_reflection) or they are thermally released.
+        if (reflection) then
+			call this%rng(i_rng)%next(u)
+			sputtering_yield = this%yield(i)%interp(E,theta)
+			fast_reflection = .false. 
+			
+			if (u(1) .le. sputtering_yield) fast_reflection = .true.
+				sputtering_yield = 1.d0
+		else
           
-          
-          
-        !> -------------Sputter yield---------------------------------------------------------------------     
-        ! Hard-code theta to 0 to fix issues with sputtering module at strange angles
-        ! the angle calculation should be revisited. Before using theta != 0 the
-        ! surface roughness should be estimated, as this gives a distribution of
-        ! impact angles as well
-        theta = 0.d0 
-        sputtering_yield = this%yield(i)%interp(E,theta)
+			!> -------------Sputter yield---------------------------------------------------------------------     
+			! Hard-code theta to 0 to fix issues with sputtering module at strange angles
+			! the angle calculation should be revisited. Before using theta != 0 the
+			! surface roughness should be estimated, as this gives a distribution of
+			! impact angles as well
+			theta = 0.d0 
+			sputtering_yield = this%yield(i)%interp(E,theta)
 
-        if (sputtering_yield .gt. 1) then
-          !!$omp critical
-          !write(*,"(A,f5.0,A,f8.3)") "> 1 self-sputtering detected, E=", E, "yield=", sputtering_yield
-          !!$omp end critical
-        end if
+			if (sputtering_yield .gt. 1) then
+			  !!$omp critical
+			  !write(*,"(A,f5.0,A,f8.3)") "> 1 self-sputtering detected, E=", E, "yield=", sputtering_yield
+			  !!$omp end critical
+			end if
 
+		end if
         !> Write several diagnostics for the particle-particle sputtering
         ! the projection of a variable into the edge elements is simply a weighted addition to four points around an element
         ! Calculate the weight factors first and then store the relevant diagnostics
@@ -615,13 +631,22 @@ subroutine do_particle_sputter(this, sim, ev)
           cycle
         end if
 
-        if (this%use_thompson) then
-          call this%rng(i_rng)%next(u)
-          E = sample_dist(this%E_dist, u(1))
-        else
-          sputtered_energy_coeff = this%energy(i)%interp(E,theta)
-          E = sputtered_energy_coeff * E
-        end if
+		if (reflection) then
+			if (fast_reflection) then
+				sputtered_energy_coeff = this%energy(i)%interp(E,theta)
+				E = sputtered_energy_coeff * E
+			else ! thermal release
+			    E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
+			endif	
+		else
+			if (this%use_thompson) then
+			  call this%rng(i_rng)%next(u)
+			  E = sample_dist(this%E_dist, u(1))
+			else
+			  sputtered_energy_coeff = this%energy(i)%interp(E,theta)
+			  E = sputtered_energy_coeff * E
+			end if
+		end if
       end associate
         
         
@@ -768,6 +793,9 @@ endif
     !$omp end parallel
 
     q = this%background_species_Z(i)
+	reflection = .false.
+	fast_reflection = .false.
+	if (q .le. 0) reflection = .true. !! deuterium, tritium special case
     if (q .le. 0) q = 1 ! deuterium, tritium special case
     q = min(q, 4) ! limit to 4 for divertor conditions
     Z = this%background_species_Z(i)
@@ -794,8 +822,8 @@ endif
     !$omp parallel default(none) &
 #endif
     !$omp shared(this, sim, i, k, rng_sample, xyz_sampled, st_sampled, i_elm_sampled, n_samples_fluid, i_free, &
-    !$omp integral, delta_t, q, Z, n_particle_groups) &
-    !$omp private(i_rng, j, theta, E, sputtering_yield, av_yield, sputtered_energy_coeff, u, i_p, vector_normal, T_e, T_eV, n_e)
+    !$omp integral, delta_t, q, Z, n_particle_groups,reflection) &
+    !$omp private(i_rng, j, theta, E, sputtering_yield, av_yield, sputtered_energy_coeff, u, i_p, vector_normal, T_e, T_eV, n_e, fast_reflection)
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
     !$omp do schedule(static,1)
@@ -823,11 +851,20 @@ endif
 
       ! sample from energy distribution of the plasma on the edge of the plasma sheath
       ! do not sample energies lower than E_threshold, since they will not sputter anyways
-      !call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
-      E = 2 * T_eV
-      ! add to this energy the plasma sheath potential
-      E = E + simple_potential_drop(q, T_eV)
-      
+	  if (reflection) then
+		call this%rng(i_rng)%next(u)
+		call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
+		! add to this energy the plasma sheath potential
+		E = E + simple_potential_drop(q, T_eV)
+		sputtering_yield = this%yield(i + n_particle_groups)%interp(E, theta) !this%yield(i)%interp(E,theta)
+		fast_reflection = .false. 
+		if (u(1) .le. sputtering_yield) fast_reflection = .true.
+		sputtering_yield = 1.d0
+	  else
+		E = 2 * T_eV !< 
+		! add to this energy the plasma sheath potential
+		E = E + simple_potential_drop(q, T_eV)
+      endif
       ! If sampling from the incoming energy distribution function, the
       ! sputtered energy coefficient needs to be reweighed with the sputtering
       ! yield at this energy (since the tail contributes more)
@@ -849,16 +886,26 @@ endif
       ! Workaround if sputtered energy coeff threshold is lower than sputtering
       ! threshold: use sputtered energy coeff just above threshold instead
       ! (note: all this doesn't take into account theta properly)
-      if (this%use_thompson) then
-        call this%rng(i_rng)%next(u)
-        ! Remove the highest 2% of the distribution by clipping u (hacky)
-        u = min(u, 0.98d0)
-        E = sample_dist(this%E_dist, u(1))
-      else
-        E = max(E, this%energy(i + n_particle_groups)%E_threshold + 1d0) ! add little bit to prevent zeros
-        sputtered_energy_coeff = this%energy(i + n_particle_groups)%interp(E, theta)
-        E = sputtered_energy_coeff * E
-      end if
+	  if (reflection) then
+		if (fast_reflection) then
+			E = max(E, this%energy(i + n_particle_groups)%E_threshold + 1d0)
+			sputtered_energy_coeff = this%energy(i + n_particle_groups)%interp(E, theta)
+			E = sputtered_energy_coeff * E
+		else ! thermal release
+		    E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
+			endif
+	  else !< normal sputtering
+	    if (this%use_thompson) then
+			call this%rng(i_rng)%next(u)
+			! Remove the highest 2% of the distribution by clipping u (hacky)
+			u = min(u, 0.98d0)
+			E = sample_dist(this%E_dist, u(1))
+		else
+			E = max(E, this%energy(i + n_particle_groups)%E_threshold + 1d0) ! add little bit to prevent zeros
+			sputtered_energy_coeff = this%energy(i + n_particle_groups)%interp(E, theta)
+			E = sputtered_energy_coeff * E
+        end if
+	  endif
       !av_yield = fluid_sputtering_yield(this%yield(i + n_particle), T_eV, Z, theta)
       ! we could probably avoid the calculation of fluid_sputtering_yield by
       ! using the discretisation we just sampled from (if theta is constant)

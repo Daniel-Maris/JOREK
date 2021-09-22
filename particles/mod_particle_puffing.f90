@@ -6,7 +6,8 @@ module mod_particle_puffing
   use mod_io_actions, only: io_action
   use mod_sampling
   use mod_particle_types
-  use constants, only: TWOPI, K_BOLTZ, ATOMIC_MASS_UNIT
+  use constants, only: TWOPI, K_BOLTZ, ATOMIC_MASS_UNIT!, MU_ZERO
+  ! use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
   use mod_rng, only: type_rng, setup_shared_rngs
   use mod_boundary, only: wall_normal_vector
   use mod_atomic_elements !mod_elements !< Chemical elements
@@ -35,6 +36,13 @@ module mod_particle_puffing
     real*8  :: valve_r = -1.d0  !< radius of gas valve
     real*8  :: last_time = 0.d0 !< When did we puff last 
     real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
+	
+	!Time dependent puffing
+	logical :: puff_t_dependent = .false.
+	real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
+	real*8  :: t_puff_slope = 0.d0 !<defined in SI
+	
+	
 
   contains
     procedure :: do => do_particle_puffing
@@ -45,7 +53,7 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed) result(new)
+function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope) result(new)
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
   
@@ -56,7 +64,9 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   real*8, intent(in)            :: valve_r
   real*8, intent(in)            :: R, Z
   real*8, intent(in), optional  :: phi ! If no phi is given axisymmetric puffing will be excecuted.
-
+  logical, intent(in), optional :: puff_t_dependent
+  real*8, intent(in), optional  :: t_puff_start,t_puff_slope
+  
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
   integer                               :: my_seed
@@ -68,7 +78,9 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   new%valve_r      = valve_r
   if (present(phi))  new%phi = phi
   
-
+  if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
+  if (present(t_puff_start)) new%t_puff_start = t_puff_start
+  if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
 
   !> allocate random seed for sampling
   if (present(seed)) then
@@ -93,12 +105,13 @@ subroutine do_particle_puffing(this,sim, ev)
   type(particle_sim), intent(inout)       :: sim
   type(event), intent(inout), optional    :: ev !<STIJN> is this nececary?
 
-  integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff
+  integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, n_puff_local
   logical, allocatable, dimension(:) :: is_free
   integer, allocatable, dimension(:) :: i_free
   real*8  :: delta_t, c, R, Z, phi, s, t
   real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
   real*8  :: vector_normal(3), u(5)
+  real*8  :: fueling_rate_t !< possibly time dependent fueling rate
 
   integer ::	  puffed_this_step_local, all_puffed_this_step
   real*8  ::	  puff_weight_local, all_puff_weight
@@ -120,7 +133,9 @@ subroutine do_particle_puffing(this,sim, ev)
     if (sim%my_id .eq. 0) write(*,*) 'No puf quota set, exiting. --- n_puff == 0 this will now stop the program'
     stop
   end if
-
+  
+  n_puff_local = this%n_puff / sim%n_cpu !n_puff local is the amount of superparticles that will be puffed per MPI process.
+ 
   ! allocate(is_free(size(sim%groups(1)%particles,1))) 
 
   ! might be replaced with omp workshare, or just the array expression.
@@ -179,13 +194,31 @@ end do
   vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, &
           i_elm, s, t)
 
-  if (this%n_puff .ge. n_free) then
-    write(*,*) "Warning could not puff the requested amount."
-    to_puff = n_free
+!------------- Decide how many superparticles to initiate		 
+!Adjust amount of superparticles + fueling rate if we use time dependent puffing 
+! same way as in model500
+  ! write(*,*) "puff_t_dependent", this%puff_t_dependent
+  if (this%puff_t_dependent) then
+     to_puff        = int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
+	 fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope)
+	 !write(*,*) "n_puff", this%n_puff, "to_puff", to_puff, "fueling_rate_t", fueling_rate_t
+	 !write(*,*) "to_puff_real" , maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /))
+	 if (to_puff .ge. n_free) then
+		write(*,*) "Warning could not puff the requested amount."
+		to_puff = n_free
+	  end if
   else
-    to_puff = this%n_puff
-  end if
-
+      fueling_rate_t = this%fueling_rate
+	  if (n_puff_local .ge. n_free) then
+		write(*,*) "Warning could not puff the requested amount."
+		to_puff = n_free
+	  else
+		to_puff = n_puff_local
+	  end if
+  end if !< time dependent puffing
+!-------------  
+  
+  
   puffed_this_step_local = 0
   puff_weight_local      = 0.d0
   select type (pa => sim%groups(1)%particles)
@@ -217,7 +250,7 @@ end do
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
       pa(i_p)%i_elm   = i_elm
-      pa(i_p)%weight  = real(1.d0/this%n_puff) * delta_t * this%fueling_rate
+      pa(i_p)%weight  = real(1.d0/n_puff_local) * delta_t * fueling_rate_t
       pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   ! <STIJN> Maybe this needs to be isotropic, or 1+cos like?
       pa(i_p)%q       = 0_1
       if (sim%groups(1)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
@@ -228,7 +261,7 @@ end do
 	  puff_weight_local      = puff_weight_local + pa(i_p)%weight 
     end do
   class default
-    write(*,*) 'Particle type not impletement for gas fueling.'
+    write(*,*) 'Particle type not implemented for gas fueling.'
     stop
   end select
 
@@ -241,4 +274,25 @@ endif
   
   
 end subroutine do_particle_puffing
+
+pure function time_dependent_puff(max_puff,time, t_puff_start,t_puff_slope) result(to_puff)
+real*8,intent(in)   :: max_puff
+real*8              :: to_puff
+real*8,intent(in)    :: t_puff_start,t_puff_slope
+real*8,intent(in)    :: time
+
+! real*8               :: t_norm
+
+! n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
+! rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+! t_norm    = sqrt((MU_ZERO * CENTRAL_MASS * ATOMIC_MASS_UNIT * CENTRAL_DENSITY * 1.d20    ))                           ! t_SI   = t_norm * t_jorek
+
+
+if (time-t_puff_start .ge. 0.d0) then
+	to_puff = max_puff * (time-t_puff_start)/(t_puff_slope)  
+else
+    to_puff = 0.d0
+endif
+end function time_dependent_puff
+
 end module

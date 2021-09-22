@@ -71,8 +71,10 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2,puff_rate
+real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope
 integer :: n_puff
+logical :: puff_t_dependent
+
 
 !use physics
 logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
@@ -172,34 +174,52 @@ use_line_radiation= .true.
 ! Read Open ADAS data for plasma fluid
  if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
  
+n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
+rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
+ 
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_sputtering) then  
-  n_reflect = int(n_particles_local* sim%n_cpu * 2.d-3) !int(n_particles_local * 2.d-3)
+  n_reflect = int(n_particles_local* sim%n_cpu * 1.d-3) !int(n_particles_local * 2.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
 
 ! setting up particle puffing
-puff_rate = 8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-r_valve     = 0.04d0 !0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+puff_t_dependent = .true. !< select if you want time dependent puffing
+puff_rate = 100.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+r_valve     = 0.01d0!              0.04d0 !0.02d0 !0.04d0 !.005d0
+R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
-R_valve_loc2 = 5.4d0 !5.46d0
-Z_valve2     = -4.19d0 !-4.2d0
+R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
+Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
 if (use_puffing) then  
-	n_puff      = int(0.5d-4*n_particles_local* sim%n_cpu)
+  n_puff      = int(1.d-4*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
+  if (puff_t_dependent) then
+	t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
+	t_puff_slope = 1.d-2 !< linearly ramps up the puffing during this time
+	
+	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
+	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
+    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
+	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
+  else
+
+	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
 	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
 	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
-	gas_puff_event = event(gas_puff)
-	gas_puff2_event = event(gas_puff2)
+  end if
+  gas_puff_event = event(gas_puff)
+  gas_puff2_event = event(gas_puff2)
 	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
 	
 	if (sim%my_id .eq.0) then
 	write(*,*) "Gas puffing rate [#/s] : ", puff_rate
+	write(*,*) "puff_t_dependent : ",puff_t_dependent
 	endif
 else 
 	n_puff = 0.d0
@@ -209,9 +229,9 @@ endif
 
 ! write(*,*) 'main : t_start = ',t_start
 
-n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
-t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
+! n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
+! rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+! t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
 
 tstep_si  = tstep * t_norm
 n_steps   = floor(tstep_si / timesteps)
