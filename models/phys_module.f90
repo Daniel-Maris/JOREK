@@ -105,7 +105,6 @@ module phys_module
   real*8, allocatable :: energies2(:,:,:)  !< global density and temperature at timesteps.
   real*8, allocatable :: energies3(:,:,:)  !< global currents (general and total eccd) at timesteps.
   real*8, allocatable :: energies4(:,:,:)  !< global applied eccd currents j1 and j2 at timesteps.
-  real*8, allocatable :: energies3D(:,:,:) !< Magnetic and kinetic mode family energies at time steps (stellarator).
 
   character(len=3)    :: mode_type(n_tor) !< 'cos' or 'sin'
   character(len=3)    :: mode_coord_type(n_coord_tor) !< 'cos' or 'sin'

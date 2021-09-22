@@ -45,10 +45,6 @@ module live_data
     if (allocated(energies3)) call tr_deallocate(energies3,"energies3",CAT_GRID)
     if (nstep .gt. 0) call tr_allocate(energies3,1,n_tor,1,2,1,nstep,"energies3",CAT_GRID)
 #endif
-#if (JOREK_MODEL == 183)
-    if (allocated(energies3D)) call tr_deallocate(energies3D,"energies3D",CAT_GRID)
-    if (nstep .gt. 0) call tr_allocate(energies3D,1,1+int(n_coord_period/2),1,2,1,nstep,"energies3D",CAT_GRID)
-#endif
 
     if (allocated(xtime)) call tr_deallocate(xtime,"xtime",CAT_GRID)
     if (nstep .gt. 0) call tr_allocate(xtime,1,nstep,"xtime",CAT_GRID)
@@ -716,7 +712,7 @@ module live_data
   subroutine write_live_data(index)
     
     use mod_parameters,  only: n_tor
-    use phys_module, only: xtime, energies, energies3D, produce_live_data, R_axis_t, Z_axis_t, Psi_axis_t,     &
+    use phys_module, only: xtime, energies, produce_live_data, R_axis_t, Z_axis_t, Psi_axis_t,     &
       R_xpoint_t, Z_xpoint_t, psi_xpoint_t, R_bnd_t, Z_bnd_t, Psi_bnd_t,     &
       current_t, beta_p_t, beta_t_t, beta_n_t, density_in_t, density_out_t, pressure_in_t,               &
       pressure_out_t, heat_src_in_t, heat_src_out_t, part_src_in_t, part_src_out_t, &

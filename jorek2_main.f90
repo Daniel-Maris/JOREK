@@ -141,9 +141,6 @@ program JOREK2
   end interface
   
   type (type_surface_list) :: surface_list
-#if (JOREK_MODEL == 183)
-  real*8, dimension(1+int(n_coord_period/2)) :: W3D_mag, W3D_kin
-#endif
   real*8                   :: W_mag(n_tor), W_kin(n_tor), growth_mag, growth_kin, growth_mag0, growth_kin0
 #ifdef JECCD
   real*8                   :: A_tem(n_tor), A_den(n_tor), A_jen(n_tor), A_jec(n_tor),A_jec1(n_tor), A_jec2(n_tor)
@@ -799,13 +796,8 @@ required = 0
 !      call remove_centre(node_list,element_list,n_tht,67*(n_tht-1))
 
       ! --- Determine initial energies
-#if (JOREK_MODEL == 183)
-      call energy3D(node_list,element_list,W3D_mag,W3D_kin)
-      write(*,'(A,12e16.8)') ' initial energies : ', W3D_mag, W3D_kin
-#else
       call energy(node_list,element_list,W_mag,W_kin)
       write(*,'(A,12e16.8)') ' initial energies : ', W_mag, W_kin
-#endif
 
 #ifdef JECCD
       call temp(node_list,element_list,A_tem,A_den,A_jen,A_jec,A_jec1,A_jec2)
@@ -1325,9 +1317,6 @@ required = 0
     !--------------------------------------------------------- energies
     if ( (my_id == 0) .and. (.not. bench_without_plot) ) then
        call energy(node_list,element_list,W_mag,W_kin)
-#if (JOREK_MODEL == 183)
-       call energy3D(node_list,element_list,W3D_mag,W3D_kin)
-#endif
 
        R_axis_t(index_now)       = ES%R_axis
        Z_axis_t(index_now)       = ES%Z_axis
@@ -1342,10 +1331,6 @@ required = 0
        xtime(index_now) = t_now
        energies(1:n_tor,1,index_now) = W_mag(1:n_tor)
        energies(1:n_tor,2,index_now) = W_kin(1:n_tor)
-#if (JOREK_MODEL == 183)
-       energies3D(:,1,index_now) = W3D_mag
-       energies3D(:,2,index_now) = W3D_kin
-#endif
 
 #ifdef JECCD
        call temp(node_list,element_list,A_tem,A_den,A_jen,A_jec,A_jec1,A_jec2)
@@ -1379,24 +1364,13 @@ required = 0
        write(*,130) 'After step ', istep, ' (t_now=', t_now, '):'
        write(*,132)
        write(*,133) 'min,max deltas  =', mindelta, minloc(deltas), maxdelta, maxloc(deltas)
-#if (JOREK_MODEL == 183)
-       write(*,131) 'W_mag,_kin      =', W3D_mag(1), W3D_mag(1+int(n_coord_period/2)), W3D_kin(1), W3D_kin(1+int(n_coord_period/2))
-#else
        write(*,131) 'W_mag,_kin      =', W_mag(1), W_mag(n_tor), W_kin(1), W_kin(n_tor)
-#endif
        Growth_mag  = 0.d0; Growth_kin  = 0.d0; Growth_mag0 = 0.d0; Growth_kin0 = 0.d0
        if (index_now > index_start+1) then
-#if (JOREK_MODEL == 183)
-         Growth_mag  = 0.5d0*log(abs(energies3D(1+int(n_coord_period/2),1,index_now)/energies3D(1+int(n_coord_period/2),1,index_now-1)))/tstep
-         Growth_kin  = 0.5d0*log(abs(energies3D(1+int(n_coord_period/2),2,index_now)/energies3D(1+int(n_coord_period/2),2,index_now-1)))/tstep
-         Growth_mag0 = 0.5d0*log(abs(energies3D(1,1,index_now)/energies3D(1,1,index_now-1)))/ tstep
-         Growth_kin0 = 0.5d0*log(abs(energies3D(1,2,index_now)/energies3D(1,2,index_now-1)))/ tstep
-#else
          Growth_mag  = 0.5d0*log(abs(energies(n_tor,1,index_now)/energies(n_tor,1,index_now-1)))/ tstep
          Growth_kin  = 0.5d0*log(abs(energies(n_tor,2,index_now)/energies(n_tor,2,index_now-1)))/ tstep
          Growth_mag0 = 0.5d0*log(abs(energies(1,1,index_now)/energies(1,1,index_now-1)))/ tstep
          Growth_kin0 = 0.5d0*log(abs(energies(1,2,index_now)/energies(1,2,index_now-1)))/ tstep
-#endif
          write(*,131) 'Growth_mag,_kin =', Growth_mag0, Growth_mag, Growth_kin0, Growth_kin
        endif
        write(*,132)
@@ -1710,7 +1684,6 @@ required = 0
     call export_helena(node_list,element_list,bnd_elm_list)
 #endif
     if (allocated(energies))    call tr_deallocate(energies,"energies",CAT_UNKNOWN)
-    if (allocated(energies3D))  call tr_deallocate(energies3D,"energies3D",CAT_UNKNOWN)
     if (allocated(xtime))       call tr_deallocate(xtime,"xtime",CAT_UNKNOWN)
 
 #ifdef JECCD

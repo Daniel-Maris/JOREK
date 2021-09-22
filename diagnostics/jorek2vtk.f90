@@ -778,6 +778,7 @@ do i=1,element_list%n_elements
         do i_tor = 1, n_tor
 
           if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) cycle ! Do not include the n=0 mode
+          if (n_coord_period .ne. 1 .and. without_n0_mode .and. mod(mode(i_tor),n_coord_period) .eq. 0) cycle
 
           do m=1,n_var
              call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
@@ -1022,6 +1023,7 @@ do i=1,element_list%n_elements
         do i_tor = 1, n_tor
 
           if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) cycle ! Do not include the n=0 mode
+          if (n_coord_period .ne. 1 .and. without_n0_mode .and. mod(mode(i_tor),n_coord_period) .eq. 0) cycle
 
           do m=1,n_var
              call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)

@@ -100,9 +100,6 @@ subroutine export_binary_restart(node_list,element_list,filename)
   if (index_now .gt. 0) then
      write(21) xtime(1:index_now)
      write(21) energies(:,:,1:index_now)
-#if (JOREK_MODEL == 183)
-     write(21) energies3D(:,:,1:index_now)
-#endif
 #ifdef JECCD
      write(21) energies2(:,:,1:index_now)
      write(21) energies3(:,:,1:index_now)
@@ -298,9 +295,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   ! index_now+nstep
   real(RKIND), allocatable :: t_xtime(:)                   ! nstep
   real(RKIND), allocatable :: t_energies(:,:,:)            ! n_tor,2,index_start+nstep
-#if (JOREK_MODEL == 183)
-  real(RKIND), allocatable :: t_energies3D(:,:,:)          ! 1+int(n_coord_period/2),2,index_start+nstep
-#endif
 #ifdef JECCD                                          
   real(RKIND), allocatable :: t_energies2(:,:,:)           ! n_tor,2,index_start+nstep
   real(RKIND), allocatable :: t_energies3(:,:,:)           ! n_tor,2,index_start+nstep
@@ -364,11 +358,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      if (allocated(t_energies)) call tr_deallocate(t_energies,"energies",CAT_UNKNOWN)
      call tr_allocate(t_energies,1,n_tor,1,2,1,index_now,"energies",CAT_UNKNOWN)
      t_energies(:,:,:) = energies(:,:,1:index_now)
-#if (JOREK_MODEL == 183)
-     if (allocated(t_energies3D)) call tr_deallocate(t_energies3D,"energies3D",CAT_UNKNOWN)
-     call tr_allocate(t_energies3D,1,1+int(n_coord_period/2),1,2,1,index_now,"energies3D",CAT_UNKNOWN)
-     t_energies3D(:,:,:) = energies3D(:,:,1:index_now)
-#endif
 #ifdef JECCD
      if (allocated(t_energies2)) call tr_deallocate(t_energies2,"energies2",CAT_UNKNOWN)
      call tr_allocate(t_energies2,1,n_tor,1,2,1,index_now,"energies2",CAT_UNKNOWN)
@@ -570,9 +559,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      call HDF5_array3D_saving(file_id,t_energies, &
           n_tor,2,index_now,'energies'//char(0))
      !           n_tor,2,index_now,'energies'//char(0))
-#if (JOREK_MODEL == 183)
-     call HDF5_array3D_saving(file_id,t_energies3D,1+int(n_coord_period/2),2,index_now,'energies3D'//char(0))
-#endif
      call HDF5_array1D_saving(file_id,R_axis_t(1:index_now),index_now,'R_axis_t'//char(0))
      call HDF5_array1D_saving(file_id,Z_axis_t(1:index_now),index_now,'Z_axis_t'//char(0))
      call HDF5_array1D_saving(file_id,psi_axis_t(1:index_now),index_now,'psi_axis_t'//char(0))
@@ -794,9 +780,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   if (index_now .gt. 0) then
      call tr_deallocate(t_xtime,"xtime",CAT_UNKNOWN)
      call tr_deallocate(t_energies,"energies",CAT_UNKNOWN)
-#if (JOREK_MODEL == 183)
-     call tr_deallocate(t_energies3D,"energies3D",CAT_UNKNOWN)
-#endif
 #ifdef JECCD
      call tr_deallocate(t_energies2,"energies2",CAT_UNKNOWN)
      call tr_deallocate(t_energies3,"energies3",CAT_UNKNOWN)

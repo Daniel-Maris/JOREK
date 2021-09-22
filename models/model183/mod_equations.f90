@@ -60,7 +60,7 @@ module mod_equations
   type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=28)
   type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=29)
   
-  type(const), private :: tstep, zeta, theta, visco_num, eta_num, D_perp_num, gamma, reta
+  type(const), private :: tstep, zeta, theta, visco_num, eta_num, D_perp_num, k_perp_num, gamma, reta
   
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6
   type(algexpr), private :: amat11, amat12, amat13, amat16
@@ -86,7 +86,7 @@ module mod_equations
   
   subroutine init_equations()
     use phys_module, only: time_evol_zeta, time_evol_theta, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num, Ieta_num => eta_num, &
-                           ID_perp_num => D_perp_num, Ieta => eta, eta_ohmic
+                           ID_perp_num => D_perp_num, zk_perp_num, Ieta => eta, eta_ohmic
     implicit none
     
     tstep      = const(value = Itstep,          token = "tstep")
@@ -95,6 +95,7 @@ module mod_equations
     visco_num  = const(value = Ivisco_num,      token = "visco_num")
     eta_num    = const(value = Ieta_num,        token = "eta_num")
     D_perp_num = const(value = ID_perp_num,     token = "D_perp_num")
+    k_perp_num = const(value = zk_perp_num,     token = "zk_perp_num")
     gamma      = const(value = Igamma,          token = "gamma")
     if (Ieta .ne. 0.d0) then
       reta     = const(value = eta_ohmic/Ieta,  token = "reta")
@@ -119,8 +120,8 @@ module mod_equations
     rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho0) - S_rho*v) + zeta*v*delta_rho
     
     rhs6 = -tstep*(v*Bv_pbrack(rho0*T0,Phi0)/Bv2 - gamma*v*rho0*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T0) &
-         + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T0)/B2 + D_perp*T0*gradgrad_perp(v,rho0) - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 &
-         - v*S_e) + zeta*v*(rho0*delta_T + T0*delta_rho)
+         + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T0)/B2 + k_perp_num*pLap(v)*pLap(T0) + D_perp*T0*gradgrad_perp(v,rho0) &
+         - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T + T0*delta_rho)
     
     
     amat11 = (1.d0 + zeta)*v*Psi + tstep*theta*v*Bv_pbrack(Psi,Phi0)/Bv2
@@ -158,7 +159,7 @@ module mod_equations
            + D_perp*T0*gradgrad_perp(v,rho))
     amat66 = (1.d0 + zeta)*v*rho0*T + tstep*theta*(v*Bv_pbrack(rho0*T,Phi0)/Bv2 - gamma*v*rho0*T*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
            + k_perp*gradprod(v,T) + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T)/B2 + dk_par_dT*T*B0_parderiv(v)*B0_parderiv(T0)/B2 &
-           + D_perp*T*gradgrad_perp(v,rho0) - v*reta*deta_dT*T*Bv2*zj0*zj0)
+           + k_perp_num*pLap(v)*pLap(T) + D_perp*T*gradgrad_perp(v,rho0) - v*reta*deta_dT*T*Bv2*zj0*zj0)
     
     rhs2e = Dexpand(deepcopy(rhs2))
     rhs5e = Dexpand(deepcopy(rhs5))

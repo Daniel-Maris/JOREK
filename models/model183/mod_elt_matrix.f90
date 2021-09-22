@@ -376,8 +376,8 @@ do ms=1, n_gauss
 #ifdef DEBUG
            rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
            rhs_ij_2 = eval(thread_eq(tid)%rhs2seq)*BigR*xjac
-           rhs_ij_3 = 0.d0 ! eval(thread_eq(tid)%rhs3seq)*BigR*xjac
-           rhs_ij_4 = 0.d0 ! eval(thread_eq(tid)%rhs4seq)*BigR*xjac
+           rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
+           rhs_ij_4 = eval(thread_eq(tid)%rhs4seq)*BigR*xjac
            rhs_ij_5 = eval(thread_eq(tid)%rhs5seq)*BigR*xjac
            rhs_ij_6 = eval(thread_eq(tid)%rhs6seq)*BigR*xjac
 #else

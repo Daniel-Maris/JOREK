@@ -31,7 +31,7 @@ contains
                                   A_mat, i_tor_min, i_tor_max )
 
     use data_structure
-    use phys_module, only: F0, GAMMA, keep_n0_const
+    use phys_module, only: F0, GAMMA, keep_n0_const, bc_natural_open
     use vacuum, only: is_freebound
     use mpi_mod
     use mod_locate_irn_jcn
@@ -95,6 +95,7 @@ contains
                   endif
 
                    do k=1, n_var
+                     if (bc_natural_open .and. k .eq. var_zj) cycle
 
                       !------------------------------------ the open field lines (in case of x-point grid)
                       if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
