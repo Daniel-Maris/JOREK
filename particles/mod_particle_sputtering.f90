@@ -439,7 +439,7 @@ subroutine do_particle_sputter(this, sim, ev)
 	
 	reflection = .false.
 	fast_reflection = .false.
-	if (sim%groups(i)%Z .eq. -2) reflection = .true.
+	if (sim%groups(i)%Z .le. 0) reflection = .true. !< Z .eq. -2 deuterium
 	
 #ifdef __GFORTRAN__
     !$omp parallel default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
@@ -519,8 +519,8 @@ subroutine do_particle_sputter(this, sim, ev)
 			fast_reflection = .false. 
 			
 			if (u(1) .le. sputtering_yield) fast_reflection = .true.
-				sputtering_yield = 1.d0
-		else
+			sputtering_yield = 1.d0
+		else !< normal sputtering
           
 			!> -------------Sputter yield---------------------------------------------------------------------     
 			! Hard-code theta to 0 to fix issues with sputtering module at strange angles
@@ -536,7 +536,8 @@ subroutine do_particle_sputter(this, sim, ev)
 			  !!$omp end critical
 			end if
 
-		end if
+		end if !< reflection or normal sputtering
+		
         !> Write several diagnostics for the particle-particle sputtering
         ! the projection of a variable into the edge elements is simply a weighted addition to four points around an element
         ! Calculate the weight factors first and then store the relevant diagnostics
@@ -700,10 +701,10 @@ endif
   !> And the sputtering yield per group (in atoms/m^2 during delta_t)
   if (this%n_save .ge. 1) then
     call project_sputter_vars_on_edge(sim, this%background_relative_density, this%background_species_Z, &
-        this%yield(n_particle_groups+1:n_particle_groups+n_fluid_groups), this%fluid_sputter_yield, delta_t, this%diagnostics)
+        this%yield(n_particle_groups+1:n_particle_groups+n_fluid_groups), this%fluid_sputter_yield, delta_t, sim%groups(this%target_group)%Z, this%diagnostics)
   else
     call project_sputter_vars_on_edge(sim, this%background_relative_density, this%background_species_Z, &
-        this%yield(n_particle_groups+1:n_particle_groups+n_fluid_groups), this%fluid_sputter_yield, delta_t)
+        this%yield(n_particle_groups+1:n_particle_groups+n_fluid_groups), this%fluid_sputter_yield, delta_t, sim%groups(this%target_group)%Z)
   end if
 
 
@@ -810,10 +811,10 @@ endif
     end if
 
     if (sim%my_id .eq. 0 .and. this%n_sputter .gt. 0) then
-      write(*,"(A,i3,A,i8,A,A,A,A,A,i1,A,i2,A,g12.4)") "Sputtered ", sim%n_cpu, "x", n_samples_fluid(i), &
+      write(*,"(A,i3,A,i8,A,A,A,A,A,i1,A,i2,A,g12.4,A,g12.4)") "Sputtered ", sim%n_cpu, "x", n_samples_fluid(i), &
         " ", element_symbols(sim%groups(this%target_group)%Z),&
         " from ", element_symbols(Z), " in group ", this%target_group, &
-      " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral
+      " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral, "  particles flux #/s : ", integral/delta_t
     end if
 
 #ifdef __GFORTRAN__
@@ -1088,7 +1089,7 @@ end function fluid_sputtering_yield
 !> velocity, so multiplying with the relative density is enough to get the flux of a specific species
 !>
 !> Assume that the impact angle of all particles is 0
-subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coeff, fluid_sputter_yield, delta_t, diagnostics)
+subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coeff, fluid_sputter_yield, delta_t, target_group, diagnostics) !< add target_group%Z as input, we can use it for reflection
   use mod_edge_elements, only: edge_elements
   use mod_atomic_elements, only: atomic_weights
   use phys_module, only: central_mass, xpoint, xcase
@@ -1097,6 +1098,7 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
   type(particle_sim), intent(in)                     :: sim
   real*8, dimension(:), intent(inout)                :: n_relative !< array of the fraction of density of different species in the plasma
   integer, dimension(size(n_relative,1)), intent(in) :: background_species !< array of the Z of different species in the plasma
+  integer, intent(in)                                :: target_group !Z of the kinetic particle species 
   type(eckstein_sputter_yield), intent(in)           :: coeff(size(n_relative,1)) !< eckstein sputtering yield coefficients
   type(edge_elements), intent(inout)                 :: fluid_sputter_yield !< the sputtering yield from species n
   real*8, intent(in)                                 :: delta_t
@@ -1145,7 +1147,7 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
     !$omp parallel do default(none) &
 #endif
     !$omp shared(fluid_sputter_yield, sim, n_relative, background_species, coeff, diagnostics, delta_t, &
-    !$omp i_patch, central_mass, psi_axis, psi_limit) &
+    !$omp i_patch, central_mass, psi_axis, psi_limit,target_group) &
     !$omp private(i, n_e, T_e, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, n_species, Gamma_d, &
     !$omp         n_offset, yield, Z) schedule(static)
     do i = 1, size(fluid_sputter_yield%patch(i_patch)%xyz, 2) !< over all nodes
@@ -1185,6 +1187,12 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
         ! cap ionisation level to 4
         q = min(abs(background_species(j)), 4)
         yield = fluid_sputtering_yield(coeff(j), T_e * K_BOLTZ/EL_CHG, q, 0.d0)
+		!if (reflection) yield = 1.d0 !======================================================================================================== with addition of target groupd knowledge
+		if (target_group .le. 0 .and. background_species(j) .le. 0) then !< hydrogren reflects on the wall
+			yield = 1.d0
+		else if (target_group .le. 0 .and. background_species(j) .gt. 0) then !< impurities don't turn into hydrogen
+			yield = 0.d0
+		endif	
         fluid_sputter_yield%patch(i_patch)%scalars(i,j) = Gamma_d * delta_t * yield !< particles / m^2 in this timestep
 
         n_offset = size(sim%groups,1)*n_particle_diag

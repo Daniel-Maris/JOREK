@@ -200,7 +200,7 @@ if (use_puffing) then
   n_puff      = int(1.d-4*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
   if (puff_t_dependent) then
 	t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-	t_puff_slope = 1.d-2 !< linearly ramps up the puffing during this time
+	t_puff_slope = 1.d-1 !< linearly ramps up the puffing during this time
 	
 	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
 	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
@@ -533,6 +533,7 @@ real*8    :: ion_rate, ion_source, ion_prob, ion_ran(1), cx_ran(8),st_ran(2), cx
 real*8    :: cx_prob, CX_rate
 real*8    :: kinetic_energy, ion_energy,line_rad_energy
 real*8    :: n_lost_ion, n_lost_ion_all, p_plt_lost,p_plt_lost_all,p_cx_lost,p_cx_lost_all,p_lost_ion,p_lost_ion_all
+integer   :: n_super_ionized, n_super_ionized_all
 real*8    :: particle_source, velocity_par_source, energy_source
 real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,extra_proj
 real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
@@ -564,6 +565,8 @@ M_norm   = rho_norm * v_norm                                    ! momentum norma
   p_cx_lost   = 0.d0
   p_cx_lost_all   = 0.d0
   
+  n_super_ionized = 0
+  n_super_ionized_all = 0
   
   
 jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + n_steps * timesteps
@@ -594,7 +597,7 @@ type is (particle_kinetic_leapfrog)
  !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj,                        &
  !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
  !$omp E_th, v_th,sum_ran,vvector,ran_norm)                                                                 &
- !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion)
+ !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized)
  
  ! shared jorek_feedback
  !private 
@@ -643,12 +646,12 @@ type is (particle_kinetic_leapfrog)
           ion_source = 0.d0
 
           if (particle_tmp%weight .le. 1.0d9) then !1.0d9 !1.0d10 1.0d7
-
             call rng(i_rng)%next(ion_ran)
-
             if (ion_ran(1) .le. ion_prob) then
               particle_tmp%i_elm  = 0
               ion_source = particle_tmp%weight
+			  !superparticles ionized
+			  n_super_ionized = n_super_ionized +1
             else
               ion_source = 0.d0
             endif
@@ -779,8 +782,9 @@ call MPI_REDUCE(n_lost_ion, n_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0,
 call MPI_REDUCE(p_lost_ion, p_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 call MPI_REDUCE(p_plt_lost, p_plt_lost_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 call MPI_REDUCE(p_cx_lost, p_cx_lost_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(n_super_ionized, n_super_ionized_all, 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 
-
+if (sim%my_id .eq. 0) write(*,'(A46,E14.6,I6)') "Lost superparticles at t due to ionisation: ", sim%time, n_super_ionized_all
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') " Lost particles at t due to ionisation: ", sim%time, n_lost_ion_all
 p_lost_ion_all = p_lost_ion_all / (timesteps * n_steps)
 p_plt_lost_all = p_plt_lost_all / (timesteps * n_steps)
@@ -788,6 +792,7 @@ p_cx_lost_all = p_cx_lost_all / (timesteps * n_steps)
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionisation: ", sim%time, p_lost_ion_all
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to line radiation: ", sim%time, p_plt_lost_all
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
+
 ! if (sim%my_id .eq. 0) write(*,*) " Lost energy [J] at t due to line radiation: ", sim%time, p_plt_lost_all
 !$ w1 = omp_get_wtime()
 !$ mmm = mpi_minmeanmax(w1-w0)

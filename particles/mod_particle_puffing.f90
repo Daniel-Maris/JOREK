@@ -203,6 +203,8 @@ end do
 	 fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope)
 	 !write(*,*) "n_puff", this%n_puff, "to_puff", to_puff, "fueling_rate_t", fueling_rate_t
 	 !write(*,*) "to_puff_real" , maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /))
+	 if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
+	 
 	 if (to_puff .ge. n_free) then
 		write(*,*) "Warning could not puff the requested amount."
 		to_puff = n_free
