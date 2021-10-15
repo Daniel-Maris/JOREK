@@ -289,11 +289,9 @@ do ms=1, n_gauss
        endif
      endif
      
-     if (mp .eq. 1) then ! these quantities are the same on all poloidal planes
-       eq(2*n_var+7,0,0,0) = particle_source(mp,ms,mt)   ! S_rho
-       eq(2*n_var+8,0,0,0) = heat_source(mp,ms,mt)       ! S_e
-       eq(2*n_var+9,0,0,0) = current_source(mp,ms,mt)/F0 ! S_j
-     end if
+     eq(2*n_var+7,0,0,0) = particle_source(mp,ms,mt)   ! S_rho
+     eq(2*n_var+8,0,0,0) = heat_source(mp,ms,mt)       ! S_e
+     eq(2*n_var+9,0,0,0) = current_source(mp,ms,mt)/F0 ! S_j
      ! Resistivity
      if (eta_T_dependent) then
        eq(2*n_var+10,0,0,0) = eta*(corr_neg_temp(eq(6,0,0,0))/T_0)**(-1.5d0)               ! eta
@@ -502,12 +500,14 @@ do ms=1, n_gauss
                  ELM(ij1,kl1) =  ELM(ij1,kl1) + wst*amat_11
                  ELM(ij1,kl2) =  ELM(ij1,kl2) + wst*amat_12
                  ELM(ij1,kl3) =  ELM(ij1,kl3) + wst*amat_13
+                 ELM(ij1,kl6) =  ELM(ij1,kl6) + wst*amat_16
 
                  ELM(ij2,kl1) =  ELM(ij2,kl1) + wst*amat_21
                  ELM(ij2,kl2) =  ELM(ij2,kl2) + wst*amat_22
                  ELM(ij2,kl3) =  ELM(ij2,kl3) + wst*amat_23
                  ELM(ij2,kl4) =  ELM(ij2,kl4) + wst*amat_24
                  ELM(ij2,kl5) =  ELM(ij2,kl5) + wst*amat_25
+                 ELM(ij2,kl6) =  ELM(ij2,kl6) + wst*amat_26
 
                  ELM(ij3,kl1) =  ELM(ij3,kl1) + wst*amat_31
                  ELM(ij3,kl3) =  ELM(ij3,kl3) + wst*amat_33
