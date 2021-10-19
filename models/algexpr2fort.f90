@@ -14,7 +14,7 @@ program algexpr2fort
   character(:),  allocatable       :: varname, full
   character(8),  dimension(n_rhs)  :: varname_rhs
   character(7),  dimension(n_amat) :: varname_amat
-  character(12), dimension(n_aux)  :: varname_aux
+  character(14), dimension(n_aux)  :: varname_aux
   
   type(algexpr), dimension(n_rhs)  :: rhs
   type(algexpr), dimension(n_amat) :: amat

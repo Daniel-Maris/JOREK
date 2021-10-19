@@ -934,7 +934,7 @@ contains
     type(algexpr),             intent(in) :: expr
     character(:), allocatable, intent(in) :: varname
     character(:), allocatable             :: res
-    character(10)                         :: indices
+    character(12)                         :: indices
     
     if (.not. expr%basic .and. (expr%dx .ne. 0 .or. expr%dy .ne. 0 .or. expr%dp .ne. 0)) then
       write(*,*)
@@ -944,7 +944,7 @@ contains
     end if
     
     if (expr%basic) then
-      write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ")"
+      write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ",:)"
       res = varname // indices
     else
       res = "(" // trim(gencode(expr%operand1,varname)) // expr%oprtr // trim(gencode(expr%operand2,varname)) // ")"

@@ -109,6 +109,7 @@ printsettings:
 	@echo "LIBS      = $(LIBS)"
 
 $(OBJDIR)/mod_elt_matrix.o $(MODDIR)/mod_elt_matrix.mod: $(CGDEP)
+$(OBJDIR)/mod_elt_matrix_fft.o $(MODDIR)/mod_elt_matrix_fft.mod: $(CGDEP)
 
 # For each source dir add an explicit rule with the template
 $(foreach dir,$(DIRS),$(eval $(call O_TEMPLATE,$(dir)/)))

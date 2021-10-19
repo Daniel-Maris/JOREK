@@ -209,7 +209,8 @@ contains
     if (ife .eq. n_local_elms/2) then
 
       ! --- Call both routines
-      if (     (jorek_model .eq. 303) &
+      if (     (jorek_model .eq. 183) &
+          .or. (jorek_model .eq. 303) &
           .or. (jorek_model .eq. 333) &
           .or. (jorek_model .eq. 500) &
           .or. (jorek_model .eq. 710) &
@@ -223,7 +224,8 @@ contains
         thread_struct(omp_tid)%eq_t, thread_struct(omp_tid)%eq_p, thread_struct(omp_tid)%eq_ss, thread_struct(omp_tid)%eq_st, &
         thread_struct(omp_tid)%eq_tt, thread_struct(omp_tid)%delta_g, thread_struct(omp_tid)%delta_s, &
         thread_struct(omp_tid)%delta_t, i_tor_min, i_tor_max)
-      if (     (jorek_model .eq. 303) &
+      if (     (jorek_model .eq. 183) &
+          .or. (jorek_model .eq. 303) &
           .or. (jorek_model .eq. 333) &
           .or. (jorek_model .eq. 500) &
           .or. (jorek_model .eq. 710) &
