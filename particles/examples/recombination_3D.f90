@@ -71,7 +71,7 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
+real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope
 integer :: n_puff
 logical :: puff_t_dependent
 
@@ -164,7 +164,7 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 ! tstep_keep        = tstep
 
 ! selecting physics (should be done in input file)
-use_puffing       = .true. !.false. 
+use_puffing       = .false. !.false. 
 use_cx            = .true. !.true.
 use_ionisation    = .true. !.false.!.false.
 use_sputtering    = .true. !.false. !false
@@ -180,17 +180,17 @@ t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_no
  
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_sputtering) then  
-  n_reflect = int(n_particles_local* sim%n_cpu * 1.d-3) !int(n_particles_local * 2.d-3)
+  n_reflect = 0 !< only reflection, no sputtering !int(n_particles_local* sim%n_cpu * 1.d-3) !int(n_particles_local * 2.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
 
 ! setting up particle puffing
-puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
-puff_rate = 100.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+puff_t_dependent = .false. !.true. !< select if you want time dependent puffing
+puff_rate = 5.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+r_valve     = 0.1d0!              0.04d0 !0.02d0 !0.04d0 !.005d0
+R_valve_loc = 3.66d0 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = 0.d0 !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
 R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
 Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
@@ -199,22 +199,22 @@ Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
 if (use_puffing) then  
   n_puff      = int(1.d-4*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
   if (puff_t_dependent) then
-	t_puff_start = 34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-	t_puff_slope = 1.d-1 !< linearly ramps up the puffing during this time
-	fueling_rate_start = 40.d21 !40 worked, 20 before
+	t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
+	t_puff_slope = 1.d-1 !1.d-1 !< linearly ramps up the puffing during this time
+	
 	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
 	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
-    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
+    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
+	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
   else
 
 	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
-	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
+	gas_puff = particle_puffing(n_puff, puff_rate, r_valve, R_valve_loc, Z_valve, phi=PI/2.d0) ! was 1
 	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
+	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
   end if
   gas_puff_event = event(gas_puff)
-  gas_puff2_event = event(gas_puff2)
+  !gas_puff2_event = event(gas_puff2)
 	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
 	
 	if (sim%my_id .eq.0) then
@@ -224,7 +224,7 @@ if (use_puffing) then
 else 
 	n_puff = 0.d0
 	gas_puff = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
-	gas_puff2 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
+	!gas_puff2 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
 endif
 
 ! write(*,*) 'main : t_start = ',t_start
@@ -627,8 +627,7 @@ type is (particle_kinetic_leapfrog)
 	  call sim%fields%calc_vvector(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), vvector)
 	  !vvector is fluid flow velocity [v_R, v_Z, v_phi] m/s
 	  !TODO: add upper limits if necessary
-	  limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
-	  if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
+	  limits = n_e .le. 1e14 .or. T_e/2.d0 * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
 	  
 	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
 	  line_rad_energy = 0.d0
@@ -817,8 +816,10 @@ use particle_tracer
 use mpi
 use mod_atomic_elements
 use mod_particle_io
-use mod_integrate_recomb, only : integrate_recombination
+use mod_integrate_recomb_3D, only : integrate_recombination
 !mod_integrate_recomb.f90
+use mod_parameters, only : n_period, n_plane
+
 implicit none
 
 !class(particle_sim), target, intent(inout)                :: sim
@@ -834,26 +835,35 @@ logical, allocatable, dimension(:) :: is_free
 integer, allocatable, dimension(:) :: i_free
 integer             :: Nrec_part, particles_per_element
 real*8              :: total_rec,total_rec_all ,total_volume,total_volume_all
-integer             :: n_free,i, k,ielm,ife, i_rng!, element_loc
-real*8              :: s, t,R, Z, st_ran(2)
+real*8, dimension(n_plane) :: total_rec_nplane, total_volume_nplane, total_rec_nplane_all, total_volume_nplane_all
+integer             :: n_free,i, k,ielm,ife, i_rng, mp!, element_loc
+real*8              :: s, t,R, Z, phi_plane, delta_phi, st_ran(3)
 
 !rec variables
-real*8, dimension(:), allocatable  :: rec_rate_local , rec_v_R, rec_v_Z, rec_v_phi 
-real*8, dimension(:), allocatable  :: volume_check  
+real*8, dimension(:,:), allocatable  :: rec_rate_local , rec_v_R, rec_v_Z, rec_v_phi 
+real*8, dimension(:,:), allocatable  :: volume_check  
 
 !Call mod_integrate_recombination
 call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check)
 
 
 !calculate total recombination per mpi proces
-total_volume = sum( volume_check(:) )
-total_rec = sum( rec_rate_local(:) )
+! total_volume = sum( volume_check(:) )
+! total_rec = sum( rec_rate_local(:) )
+total_volume = sum(sum( volume_check, DIM = 1 ), DIM=1)
+total_rec = sum(sum( rec_rate_local, DIM = 1 ), DIM=1)
+total_rec_nplane = sum( rec_rate_local, DIM = 1 )
+total_volume_nplane = sum( volume_check, DIM = 1 )
 ! total recombination
 call MPI_REDUCE(total_rec, total_rec_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 call MPI_REDUCE(total_volume, total_volume_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(total_rec_nplane, total_rec_nplane_all, n_plane, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(total_volume_nplane, total_volume_nplane_all, n_plane, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 if (sim%my_id .eq. 0) then
     write(*,'(A30,E14.6)') 'total recombination weight : ' , total_rec_all* central_density* 1.d20 
 	write(*,*) 'total volume : ' , total_volume_all
+    write(*,*) 'total recombination weight per plane : ' , total_rec_nplane_all* central_density* 1.d20 
+	write(*,*) 'total volume per plane: ' , total_volume_nplane_all	
 endif
 !Nrec_part amount of particles needed for this amount of recombination
 Nrec_part = int( max(n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average weight per particle (not necesarily the actual weight, as that depends on Srec)
@@ -882,6 +892,10 @@ do j=1,size(is_free,1)
 end do
 ! ==================
 
+!calc phi
+! phi_plane     = 2.d0 * PI / real(n_period,8) / real(n_plane,8) * i_plane
+delta_phi     = 2.d0 * PI / real(n_plane,8) / real(n_period,8)
+
 ! loop over all elements
 k = 0 !< first free particle
 particles_per_element = 1	
@@ -894,56 +908,66 @@ type is (particle_kinetic_leapfrog)
 !$omp parallel do default(shared) &
 !$omp schedule(dynamic,10)      &
 !$omp shared(sim, particles,jorek_stepper, element_list, node_list, rec_v_R,rec_v_Z,rec_v_phi, &
-!$omp i_free,rng,rec_rate_local, &
-!$omp CENTRAL_DENSITY, CENTRAL_MASS,sqrt_mu0_over_rho0,particles_per_element ) &
-!$omp private(ife,ielm,k,i,element,s,t,R, Z , &
-!$omp st_ran, i_rng )
-do ife = 1, size(rec_rate_local) ! loop over all local elements
-
-	if (isnan(rec_v_R(ife)) .or. isnan(rec_v_Z(ife)) .or. isnan(rec_v_phi(ife))) CYCLE !NaN check
-	if (rec_rate_local(ife)* central_density* 1.d20 .le. 1.d3) CYCLE
-	
-	!$ i_rng = omp_get_thread_num()+1
-	!if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle
-   
-	k = ife !< every OMP thread gets different values
-	!< every MPI process has it's own list of i_free.
-   
+!$omp i_free,rng,rec_rate_local,delta_phi, &
+!$omp CENTRAL_DENSITY, CENTRAL_MASS,sqrt_mu0_over_rho0,particles_per_element) &
+!$omp private(ife,ielm,k,i,element,s,t,R, Z ,mp, &
+!$omp st_ran, i_rng,phi_plane )
+do ife = 1, size(rec_rate_local,1) ! loop over all local elements
+    !write(*,*) "ife", ife
 		! --- Get element
 	!ielm = jorek_stepper%local_elms(ife) !< actual element number
 	ielm    = (sim%my_id+1) + sim%n_cpu*(ife - 1)
 	element = element_list%element(ielm)
+
 	
-	! initialise particle in the element with Position, Weight, Energy, Momentum			
-	do i = 1, particles_per_element
-	    k = k *i !< update free particle index ! at begin of loop as k is initialized at k =0
-		particles(i_free(k))%weight = rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 !< rec_rate = in jorek units?
-		particles(i_free(k))%i_elm  = ielm  !x, i_elm, st
-		particles(i_free(k))%q      = 0
+	!if (rec_rate_local(ife) .le. 1.d3) CYCLE
+	
+	
+	do mp = 1, n_plane
+		if (isnan(rec_v_R(ife,mp)) .or. isnan(rec_v_Z(ife,mp)) .or. isnan(rec_v_phi(ife,mp))) CYCLE !NaN check
+		phi_plane     = delta_phi * (mp-1)
 		
-        !write(31,*) "ielm,",ielm, "k,",k,"i_free(k)",i_free(k) , "particles(i_free(k))%weight,",particles(i_free(k))%weight
+		!$ i_rng = omp_get_thread_num()+1
+		!if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle
+	   
+		k = ife +(mp-1)* size(rec_rate_local)!< every OMP thread gets different values
+		!< every MPI process has it's own list of i_free.
+	   
+
 		
-		!call rng(1)%next(st_ran) !< i_rng should be thread dependent
-		call rng(i_rng)%next(st_ran)
-		! sample random st combination
-		!particles(i_free(k))%st(1:2) = st_ran(2)! [s, t] !< dummi for later
-		particles(i_free(k))%st(1) = 0.5d0
-		particles(i_free(k))%st(2) = 0.5d0
-		
-		s = particles(i_free(k))%st(1)
-		t = particles(i_free(k))%st(2)
-		
-		!> uses i_elm and s,t to give us R,Z
-		call interp_RZ(node_list,element_list,ielm,s,t,R,Z)
-		particles(i_free(k))%x(1:2)  = [R, Z]!  = [R, Z, phi] no phi for axisymmetrix particles
-		
-		!> distribute directly fluid velocity?
-		particles(i_free(k))%v(1)  = rec_v_R(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
-		particles(i_free(k))%v(2)  = rec_v_Z(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
-		particles(i_free(k))%v(3)  = rec_v_phi(ife) / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
-        !< v = momentum fluid lost to recombination / (mass of superparticle)
-	end do ! parts_per_element
- 
+		! initialise particle in the element with Position, Weight, Energy, Momentum			
+		do i = 1, particles_per_element
+			k = k *i !< update free particle index ! at begin of loop as k is initialized at k =0
+			particles(i_free(k))%weight = rec_rate_local(ife,mp) / real(particles_per_element)* central_density* 1.d20 !< rec_rate = in jorek units?
+			particles(i_free(k))%i_elm  = ielm  !x, i_elm, st
+			particles(i_free(k))%q      = 0
+			
+			!write(31,*) "ielm,",ielm, "k,",k,"i_free(k)",i_free(k) , "particles(i_free(k))%weight,",particles(i_free(k))%weight
+			
+			!call rng(1)%next(st_ran) !< i_rng should be thread dependent
+			call rng(i_rng)%next(st_ran)
+			! sample random st combination
+			!particles(i_free(k))%st(1:2) = st_ran(2)! [s, t] !< dummi for later
+			particles(i_free(k))%st(1) = 0.5d0
+			particles(i_free(k))%st(2) = 0.5d0
+			
+			
+			s = particles(i_free(k))%st(1)
+			t = particles(i_free(k))%st(2)
+			
+			!> uses i_elm and s,t to give us R,Z
+			call interp_RZ(node_list,element_list,ielm,s,t,R,Z)
+			particles(i_free(k))%x(1:2)  = [R, Z]!  = [R, Z, phi] no phi for axisymmetrix particles
+			particles(i_free(k))%x(3)    = phi_plane + delta_phi*(st_ran(3)-0.5d0)
+			
+			!> distribute directly fluid velocity?
+			particles(i_free(k))%v(1)  = rec_v_R(ife,mp)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
+			particles(i_free(k))%v(2)  = rec_v_Z(ife,mp)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
+			particles(i_free(k))%v(3)  = rec_v_phi(ife,mp) / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
+			!< v = momentum fluid lost to recombination / (mass of superparticle)
+		end do ! parts_per_element
+
+	end do !mp = 1, n_plane
 enddo   !ife 
 !$omp end parallel do
 end select

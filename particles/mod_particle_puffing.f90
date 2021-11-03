@@ -15,7 +15,7 @@ module mod_particle_puffing
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
 
-  
+
   
 
   implicit none
@@ -39,6 +39,7 @@ module mod_particle_puffing
 	
 	!Time dependent puffing
 	logical :: puff_t_dependent = .false.
+	real*8  :: fueling_rate_start = 0.d0
 	real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
 	real*8  :: t_puff_slope = 0.d0 !<defined in SI
 	
@@ -53,7 +54,7 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope) result(new)
+function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,fueling_rate_start) result(new)
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
   
@@ -66,6 +67,7 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   real*8, intent(in), optional  :: phi ! If no phi is given axisymmetric puffing will be excecuted.
   logical, intent(in), optional :: puff_t_dependent
   real*8, intent(in), optional  :: t_puff_start,t_puff_slope
+  real*8, intent(in), optional  :: fueling_rate_start 
   
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
@@ -81,6 +83,7 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
   if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
+  if (present(fueling_rate_start)) new%fueling_rate_start = fueling_rate_start
 
   !> allocate random seed for sampling
   if (present(seed)) then
@@ -100,12 +103,14 @@ end function new_particle_puffing
   ! Actually puff gass
 subroutine do_particle_puffing(this,sim, ev)
 	use mpi_mod
-
+    ! !$ use omp_lib
+	
+	
   class(particle_puffing) , intent(inout) :: this
   type(particle_sim), intent(inout)       :: sim
   type(event), intent(inout), optional    :: ev !<STIJN> is this nececary?
 
-  integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, n_puff_local
+  integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, n_puff_local,i_rng
   logical, allocatable, dimension(:) :: is_free
   integer, allocatable, dimension(:) :: i_free
   real*8  :: delta_t, c, R, Z, phi, s, t
@@ -199,8 +204,8 @@ end do
 ! same way as in model500
   ! write(*,*) "puff_t_dependent", this%puff_t_dependent
   if (this%puff_t_dependent) then
-     to_puff        = int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
-	 fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope)
+     to_puff        = n_puff_local !int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
+	 fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope, this%fueling_rate_start)
 	 !write(*,*) "n_puff", this%n_puff, "to_puff", to_puff, "fueling_rate_t", fueling_rate_t
 	 !write(*,*) "to_puff_real" , maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /))
 	 if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
@@ -216,6 +221,7 @@ end do
 		to_puff = n_free
 	  else
 		to_puff = n_puff_local
+		if (sim%my_id .eq.0) write(*,"(A,g12.4, A)") "fueling_rate:",fueling_rate_t, "atoms/s"
 	  end if
   end if !< time dependent puffing
 !-------------  
@@ -225,14 +231,27 @@ end do
   puff_weight_local      = 0.d0
   select type (pa => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
+! #ifdef __GFORTRAN__
+!  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
+! #else
+ ! !$omp parallel do default(shared) &
+ ! !$omp schedule(dynamic,10) &
+ ! !$omp shared(sim, pa, this,i_free,c, vector_normal,                       &
+ ! !$omp   to_puff,n_puff_local, delta_t,fueling_rate_t )                        &
+ ! !$omp private(i_p, i_rng, j,k,u , R,Z,s,t,R_new,Z_new,s_new,t_new,     &
+ ! !$omp  i_elm,i_elm_new,r_valve, theta,                                         &
+ ! !$omp ifail)                                                                    &
+ ! !$omp reduction(+:puffed_this_step_local,puff_weight_local)
     do j = 1, to_puff
       i_p = i_free(j)
       do 
-        call this%rng(1)%next(u)
+	  
+!	    !$ i_rng = omp_get_thread_num()+1
+        call this%rng(1)%next(u) !rng(1)
         r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
         theta = TWOPI * u(2)
-        R_new = R + r_valve * cos(theta)
-        Z_new = Z + r_valve * sin(theta)
+        R_new = this%R + r_valve * cos(theta)
+        Z_new = this%Z + r_valve * sin(theta)
         call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, R, Z, s, t, i_elm, &
         R_new, Z_new, s_new, t_new, i_elm_new, ifail)
         !call find_RZ(sim%fields%node_list, sim%fields%element_list, R_new, Z_new, R, Z, &
@@ -262,9 +281,11 @@ end do
 	  puffed_this_step_local = puffed_this_step_local+1
 	  puff_weight_local      = puff_weight_local + pa(i_p)%weight 
     end do
+ ! !$omp end parallel do	
   class default
     write(*,*) 'Particle type not implemented for gas fueling.'
     stop
+
   end select
 
 ! puffed_this_step_local
@@ -277,8 +298,8 @@ endif
   
 end subroutine do_particle_puffing
 
-pure function time_dependent_puff(max_puff,time, t_puff_start,t_puff_slope) result(to_puff)
-real*8,intent(in)   :: max_puff
+pure function time_dependent_puff(max_puff,time, t_puff_start,t_puff_slope, min_puff) result(to_puff)
+real*8,intent(in)   :: max_puff, min_puff
 real*8              :: to_puff
 real*8,intent(in)    :: t_puff_start,t_puff_slope
 real*8,intent(in)    :: time
@@ -290,10 +311,12 @@ real*8,intent(in)    :: time
 ! t_norm    = sqrt((MU_ZERO * CENTRAL_MASS * ATOMIC_MASS_UNIT * CENTRAL_DENSITY * 1.d20    ))                           ! t_SI   = t_norm * t_jorek
 
 
-if (time-t_puff_start .ge. 0.d0) then
-	to_puff = max_puff * (time-t_puff_start)/(t_puff_slope)  
+if (time-(t_puff_start+t_puff_slope) .ge. 0.d0) then
+	to_puff = max_puff
+elseif (time-t_puff_start .ge. 0.d0) then
+	to_puff = min_puff+ (max_puff -min_puff) * (time-t_puff_start)/(t_puff_slope)  
 else
-    to_puff = 0.d0
+    to_puff = min_puff !default = 0.d0
 endif
 end function time_dependent_puff
 

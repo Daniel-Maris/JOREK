@@ -44,7 +44,7 @@ use equil_info
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event)                                       :: D_sputter_event,gas_puff_event ,gas_puff2_event!, partwriter
+type(event)                                       :: D_sputter_event,gas_puff_event ,gas_puff2_event, gas_puff3_event!, partwriter
 type(adf11_all)                                   :: adas
 type(pcg32_rng), dimension(:), allocatable        :: rng
 type(count_action)                                :: counter
@@ -54,7 +54,7 @@ type(particle_sputter)                            :: D_sputter_source
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: D_edge
 type(particle_puffing)                            :: gas_puff
-type(particle_puffing)                            :: gas_puff2
+type(particle_puffing)                            :: gas_puff2,gas_puff3
 type(write_particle_diagnostics)                  :: diag
 
 real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
@@ -72,6 +72,7 @@ integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
 real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
+real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3
 integer :: n_puff
 logical :: puff_t_dependent
 
@@ -187,34 +188,44 @@ endif
 
 ! setting up particle puffing
 puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
-puff_rate = 100.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+puff_rate = 40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+fueling_rate_start = 10.d21 !40 worked, 20 before
 r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
 R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
 Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
 R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
 Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
+
+puff_rate3 = 160.d21!85.d21
+R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
+Z_valve3     = 4.15d0! 
+r_valve3    = 0.10d0!  .12
+
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
 if (use_puffing) then  
   n_puff      = int(1.d-4*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
   if (puff_t_dependent) then
-	t_puff_start = 34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-	t_puff_slope = 1.d-1 !< linearly ramps up the puffing during this time
-	fueling_rate_start = 40.d21 !40 worked, 20 before
+	t_puff_start = 5000*t_norm !25000*t_norm !34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
+	t_puff_slope = 4.d-3 !< linearly ramps up the puffing during this time
+	!fueling_rate_start = 5.d21 !40 worked, 20 before
 	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
 	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
     gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
 	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
+	gas_puff3 = particle_puffing(n_puff, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=20.d21)
   else
 
 	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
 	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
 	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
+	gas_puff3 = particle_puffing(n_puff, 20.d21, 0.12d0, 6.05, 4.15)
   end if
   gas_puff_event = event(gas_puff)
   gas_puff2_event = event(gas_puff2)
+  gas_puff3_event = event(gas_puff3)
 	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
 	
 	if (sim%my_id .eq.0) then
@@ -225,6 +236,7 @@ else
 	n_puff = 0.d0
 	gas_puff = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
 	gas_puff2 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
+	gas_puff3 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
 endif
 
 ! write(*,*) 'main : t_start = ',t_start
@@ -427,6 +439,7 @@ do while (.not. sim%stop_now)
 	if (use_puffing) then
       call with(sim, gas_puff_event) 
 	  call with(sim, gas_puff2_event)
+	  call with(sim, gas_puff3_event)
     endif ! use_puffing	
   endif !run_stepper
   
@@ -954,7 +967,6 @@ end select
 !!!!!--------------------------------------------------------------------------
 ! end subroutine !do_1particle_recombination
 end subroutine !do_1particle_recombination
-
 
 function initialise_sputtering(node_list, element_list, n_reflect) result(D_sputter_source)
 

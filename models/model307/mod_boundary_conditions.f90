@@ -825,6 +825,8 @@ contains
                       .or. (node_list%node(inode)%boundary .eq. 12) &
                       .or. (node_list%node(inode)%boundary .eq.  3)) then
 
+					  
+					  
 !====================================== begining RMPs at boundary ======================================================
 !================================== type 2 - boundary: only depends on 't'
 ! ======================================================================================================================
@@ -920,7 +922,7 @@ contains
                        ! decides when the boundary conditions should be applied (for freeboundary and RMP cases)
                         if (       apply_psi_BC                   &
                               .or. apply_current_BC               &
-                              .or. (( k /= 1 ) .and. ( k /= 3 ))  ) then
+                              .or. (( k /= 1 ) .and. ( k /= 3 ) .and. ( k /= 6 ))  ) then
 
                           index_node = node_list%node(inode)%index(1)
 

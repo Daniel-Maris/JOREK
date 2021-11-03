@@ -164,7 +164,7 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 ! tstep_keep        = tstep
 
 ! selecting physics (should be done in input file)
-use_puffing       = .true. !.false. 
+use_puffing       = .false. !.false. 
 use_cx            = .true. !.true.
 use_ionisation    = .true. !.false.!.false.
 use_sputtering    = .true. !.false. !false
@@ -180,7 +180,7 @@ t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_no
  
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_sputtering) then  
-  n_reflect = int(n_particles_local* sim%n_cpu * 1.d-3) !int(n_particles_local * 2.d-3)
+  n_reflect = 0!<   !int(n_particles_local* sim%n_cpu * 1.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
@@ -286,17 +286,6 @@ project_density = new_projection(sim%fields%node_list, sim%fields%element_list, 
 call with(sim, project_density)
 
 
-! if (use_line_radiation) then
-	! project_PLT = new_projection(sim%fields%node_list, sim%fields%element_list, &
-                     ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
-                     ! f=[proj_f(proj_PLT, group = 1)], &
-                     ! fractional_digits = 9,calc_integrals=.true.,  to_vtk=.TRUE., to_h5=.FALSE., basename='linerad', nsub=5)
-! endif	 !use_line_radiation				 
-!project_current = new_projection(sim%fields%node_list, sim%fields%element_list,   &
-!                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
-!                      f=[proj_f(proj_jPhi, group = 1)], fractional_digits = 9,    &
-!                      calc_integrals=.true., to_vtk=.false., to_h5=.false., basename='current', nsub=5)
 
 ! For proper timestepping, the projections need to be defined before the jorek timestepper
 jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
@@ -314,16 +303,6 @@ if (sim%my_id .eq. 0) write(*,*) 'tstart_jorek : ',tstart_jorek
 diag_time = 1.1*n_steps*timesteps
 events = [ new_event_ptr(jorek_feedback,   start = tstart_jorek),            &
            new_event_ptr(jorek_stepper,    start = tstart_jorek),            & 
-!		   event(D_sputter_source      ,start = tstart_jorek+tstep_si/2.d0, step=tstep_si),&
-!		   event(gas_puff, step = 5.d-6),                                &
-!		   event(gas_puff2, step = 5.d-6),                                & !
-!          new_event_ptr(D_sputter_source, start = tstart_jorek, step=diag_time), & !20.d-7 1 sputter per jorek timestep step=1.d-6), &
-!          event(count_action(),           start = tstart_jorek, step=1d-5), &
-!          event(write_particle_diagnostics(filename='diag.h5'), step=diag_time), &
-!         event(write_action(), step=diag_time),                        &
-!           new_event_ptr(project_density, step=0.11d-6),                  &
-!		   new_event_ptr(project_density, step=2.5d-6),                  &
-!          event(diag, step=diag_time)									 &
            event(stop_action(), start=1d12)                              &
         ]
 
@@ -628,13 +607,13 @@ type is (particle_kinetic_leapfrog)
 	  !vvector is fluid flow velocity [v_R, v_Z, v_phi] m/s
 	  !TODO: add upper limits if necessary
 	  limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
-	  if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
+
 	  
 	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
 	  line_rad_energy = 0.d0
 	  if (use_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
 			call sim%groups(1)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
-			! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
+			
 			line_rad_energy = n_e * particle_tmp%weight * PLT * timesteps
 	  endif ! use_line_radiation
 	  
@@ -691,15 +670,12 @@ type is (particle_kinetic_leapfrog)
 			  ran_norm = boxmueller_transform(cx_ran(2:5))
 			  !>v_temp = sqrt(kT/m) * ran_norm
 			  v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(1)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
-			  !write(*,*) "vtemp", v_temp
 			  !>add bulk fluid flow
 			  v_temp = v_temp + vvector 
 
               CX_source = particle_tmp%weight
               CX_energy   = 0.5d0 * sim%groups(1)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
 			
-              !write(*,*) "neTe",n_e,T_e			
-			  !write(*,*) "CX", vvector
           endif ! cx_ran
 	  endif ! use_cx
 	  
@@ -810,19 +786,14 @@ end subroutine
 !                                 RECOMBINATION
 !================================================================================
 subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng)
-use mod_jorek_timestepping !< gives us access to sim?
-! use mod_ionisation_recombination, only : rec_rate_local, rec_rate_global, rec_mom_local,rec_energy_local, rec_v_R, rec_v_Z, rec_v_phi
+use mod_jorek_timestepping 
 use particle_tracer
-!use mod_particle_diagnostics
 use mpi
 use mod_atomic_elements
 use mod_particle_io
 use mod_integrate_recomb, only : integrate_recombination
-!mod_integrate_recomb.f90
 implicit none
 
-!class(particle_sim), target, intent(inout)                :: sim
-!type(pcg32_rng), dimension(:), allocatable      :: rng
 type(pcg32_rng), dimension(:), intent(inout)    :: rng
 type(jorek_timestep_action),target           :: jorek_stepper !target
 TYPE (type_node_list),         intent(in)     :: node_list
@@ -832,7 +803,7 @@ TYPE (type_element_list),      intent(in)     :: element_list
 type (type_element)               :: element
 logical, allocatable, dimension(:) :: is_free
 integer, allocatable, dimension(:) :: i_free
-integer             :: Nrec_part, particles_per_element
+integer             :: particles_per_element
 real*8              :: total_rec,total_rec_all ,total_volume,total_volume_all
 integer             :: n_free,i, k,ielm,ife, i_rng!, element_loc
 real*8              :: s, t,R, Z, st_ran(2)
@@ -855,10 +826,6 @@ if (sim%my_id .eq. 0) then
     write(*,'(A30,E14.6)') 'total recombination weight : ' , total_rec_all* central_density* 1.d20 
 	write(*,*) 'total volume : ' , total_volume_all
 endif
-!Nrec_part amount of particles needed for this amount of recombination
-Nrec_part = int( max(n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average weight per particle (not necesarily the actual weight, as that depends on Srec)
-!< limited to 1% of the total initialized particles
-
 
 !============== Finding free particles !< make into a function?
 !> # is_free > n_elements * particles_per_element 
@@ -885,8 +852,8 @@ end do
 ! loop over all elements
 k = 0 !< first free particle
 particles_per_element = 1	
-!write(*,*) "Doing 1 particle recombination over total n_elemnts", element_list%n_elements
-!write(*,*) "Doing 1 particle recombination over n_local_elms", jorek_stepper%n_local_elms
+write(*,*) "Doing 1 particle recombination over total n_elemnts", element_list%n_elements
+write(*,*) "Doing 1 particle recombination over n_local_elms", jorek_stepper%n_local_elms
 !write(*,*) "Size rec_rate_local", SHAPE(rec_rate_local)
 select type (particles => sim%groups(1)%particles)
 type is (particle_kinetic_leapfrog)

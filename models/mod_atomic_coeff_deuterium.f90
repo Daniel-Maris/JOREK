@@ -309,7 +309,7 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
   
   ! --- Local
   real*8 :: rho_norm, t_norm
-  real*8 :: Te_eV, Te_evL10, dTe_eVL10_dT0, Te_eV_lim, Te_si_log10, ne_si_log10, ne_si
+  real*8 :: Te_eV, Te_evL10, dTe_eVL10_dT0, Te_eV_lim, Te_si_log10, ne_si_log10, ne_si,ne_si_lim
   real*8 :: Sion_si, dSion_si                     
   real*8 :: Srec_si, DSrec_si
    
@@ -330,8 +330,8 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
   Te_si_log10= log10( Te_eV_lim / K_BOLTZ * EL_CHG )
 
   ne_si = ne0 * central_density * 1.d20
-  ne_si = max(ne_si,  1.d14)    ! ADAS density is bewteen 1.d14 and 1.21 m^-3
-  ne_si = min(ne_si,  1.d21) 
+  ne_si_lim = max(ne_si,  1.d14)    ! ADAS density is bewteen 1.d14 and 1.21 m^-3
+  ne_si_lim = min(ne_si_lim,  1.d21) 
   ne_si_log10= log10(ne_si)
 
 	if (deuterium_adas) then  
@@ -345,7 +345,7 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
       dLradDcont_dT = 0.d0
       !LradDrays_T   = 0.d0
       !dLradDrays_dT = 0.d0
-	  !Srec_T		= 0.d0 !< crashes particles, as there are no checks in the recombination routine
+	  Srec_T		= 0.d0 !< crashes particles, as there are no checks in the recombination routine
 	  !< TODO : add skip particle if Srec_T or rec_this_element is too low.
       dSrec_dT      = 0.d0
       Sion_T        = 0.d0
@@ -353,13 +353,22 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
     endif
 
     if ( Te_eV > 1.d4) then   ! --- Fix values beyond 10 keV and remove derivatives
-      dLradDcont_dT = 0.d0
+      LradDcont_T   = 0.d0
+	  dLradDcont_dT = 0.d0
       !dLradDrays_dT = 0.d0
-	  !Srec_T		= 0.d0
+	  Srec_T		= 0.d0
       dSrec_dT      = 0.d0
       dSion_dT      = 0.d0
     endif
 
+    if 	( ne_si < 1.d14) then 
+	  LradDcont_T   = 0.d0
+	  dLradDcont_dT = 0.d0
+	  Srec_T		= 0.d0
+      dSrec_dT      = 0.d0
+      dSion_dT      = 0.d0
+	
+	endif 
     ! --- Transform the coefficients to JOREK units
     Sion_T        = Sion_T   * t_norm * central_density * 1.d20
     Srec_T        = Srec_T   * t_norm * central_density * 1.d20

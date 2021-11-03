@@ -263,7 +263,8 @@ do ms=1, n_gauss
 
           rhs_ij_5 = + v * density_reflection * r0_corr * vpar0 * ps0_s * normal_sign3 * tstep  & ! right hand side equation 5
                      - v * r0_corr * cs0 * BigR * dl * c_angle * tstep                          & ! particle flux at 1 degree angle  
-                     - v * r0_corr * BigR**2.d0 * u0_s * normal_sign3 * tstep                     ! reflect v_perp particle flow
+                     - v * r0_corr * BigR**2.d0 * u0_s * normal_sign3 * tstep                    ! reflect v_perp particle flow
+					 !+ v * (0.5d0* rho_min + 0.5d0*rho_min *exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -min(r0,rho_min))  * tstep     &
 					 !+ v * (0.5d0* rho_min + 0.5d0*rho_min *exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -min(r0,rho_min)) * tstep     
 					 !+ v * 1.d-5 * ( exp(- r0 / 5.d-7 ) - exp(- (r0 +5.d-7)/ 5.d-7 ) ) * xjac * tstep   
 					 ! TODO: add source
@@ -271,7 +272,7 @@ do ms=1, n_gauss
           rhs_ij_6 = - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * vpar0 * ps0_s * normal_sign3 * tstep * bnd_outflux_sign & ! right hand side equation 6
                      - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * cs0   * BigR  * dl * c_angle * tstep * bnd_outflux_sign &
                      - v *                        r0_corr * T0_corr * BigR**2.d0    * u0_s  * normal_sign3 * tstep* bnd_outflux_sign  &
-					 + v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac * tstep     
+					 + v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * tstep     
 					 !+ v * 1.d-5 * ( exp(- T0 / 5.d-7 ) - exp(- (T0 +5.d-7)/ 5.d-7 ) ) * xjac * tstep           
 
           rhs_ij_7 = - v * (vpar0 * Btot * normal_sign - cs0 * factor) * dl * Zbig                ! right hand side equation 7
@@ -327,6 +328,7 @@ do ms=1, n_gauss
                 amat_55 = - v * density_reflection * rho      * vpar0 * ps0_s * normal_sign3 * theta * tstep & 
                           + v                      * rho      * cs0   * BigR * dl * c_angle  * theta * tstep &
                           + v * rho * BigR**2.d0 * u0_s                       * normal_sign3 * theta * tstep  
+						  !- v * (exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -1.d0)*rho*   theta* tstep 
 
 
                 amat_56 = + v                      * r0_corr  * cs_T  * BigR * dl * c_angle  * theta * tstep

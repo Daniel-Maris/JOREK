@@ -901,7 +901,7 @@ do i=1,n_vertex_max
 
             rhs_ij(6) =  v * BigR * (heat_source(ms,mt) + aux_T0)                         * xjac * tstep &
 					 !+ v * 1.d-5 * ( exp(- T0 / 5.d-7 ) - exp(- (T0 +5.d-7)/ 5.d-7 ) )     * xjac * tstep     &
-					 + v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac * tstep     &
+					 + v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac * tstep *BigR    &
 !!!! terms not in 303 but 500!
                     + 0.5d0 * v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0**2 * BB2 * BigR * xjac * tstep &
                     - v * aux_Vpar0 * vpar0 * BigR                                     * xjac * tstep &
@@ -1209,7 +1209,8 @@ do i=1,n_vertex_max
                                       
                             + TG_num2 * 0.25d0 * r0_hat * BigR**3 * (w0_x * u0_y - w0_y * u0_x)     &
                                       * ( v_x * u_y - v_y * u_x)   * xjac * theta * tstep * tstep
-                     
+                    
+				   !amat(2,2) = amat(2,2) *1.d12 
                   if ( NEO ) then
                     amat(2,2) = amat(2,2) &
                               - amu_neo_prof(ms,mt)*BB2/((Btheta2+epsil)**2) * (ps0_x*v_x + ps0_y*v_y) * r0 *(ps0_x*u_x + ps0_y*u_y) &
@@ -1294,7 +1295,8 @@ do i=1,n_vertex_max
                   !#  equation 4   (vorticity definition)                                                            #
                   !###################################################################################################
 
-                  amat(4,4) =  v * w * BigR * xjac                                
+                  amat(4,4) =  v * w * BigR * xjac
+				  !amat(4,4) = amat(4,4) *1.d12				  
                   amat(4,2) = (v_x * u_x + v_y * u_y) * BigR * xjac              
 
                   !###################################################################################################
@@ -1342,6 +1344,7 @@ do i=1,n_vertex_max
 
                           - v * 2.d0 * tauIC * (rho_y * T0 + rho*T0_y) * BigR                           * xjac * theta * tstep &
 
+						  !- v * (exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -1.d0)*rho* xjac*  theta* tstep & ! CHECK IF THIS WORKS, NOT TESTED
 				   !-----------------------------Recombination to kinetic particles
 				          + v * rho * 2.d0 * r0_corr * BigR * Srec_T * xjac * theta * tstep &
 					!-------------------------------						  
@@ -1512,7 +1515,7 @@ do i=1,n_vertex_max
                             - v * r0 * BigR**2 * ( T_s  * u0_t - T_t  * u0_s)               * theta * tstep &
                             - v * T  * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)               * theta * tstep &
 							
-							- v * (exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -1.d0)*T* xjac*  theta* tstep & ! CHECK IF THIS WORKS, NOT TESTED
+							- v * (exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -1.d0)*T* xjac*  theta* tstep*BigR & ! CHECK IF THIS WORKS, NOT TESTED
 
                             - v * r0 * 2.d0* GAMMA * BigR * T * u0_y                 * xjac * theta * tstep &
 
