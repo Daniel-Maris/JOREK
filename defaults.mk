@@ -89,7 +89,7 @@ ifeq ($(COMPILER_FAMILY), intel)
     FFLAGS += -check all,noarg_temp_created
     FFLAGS += -check bounds
     FFLAGS += -check uninit
-    FFLAGS += -init=snan -init=zero
+    FFLAGS += -init=snan
     FFLAGS += -gen-interfaces -warn-interfaces
     F90FLAGS += -implicitnone
   endif
@@ -149,7 +149,7 @@ DEFINES += -DJOREK_MODEL=$(MODEL_NUMBER) -DUSE_MPI
 
 # Debug flag
 ifeq ($(DEBUG), 1)
-  DEFINES := $(DEFINES) -DDEBUG
+#  DEFINES := $(DEFINES) -DDEBUG
 endif
 
 # Full-MHD models flags

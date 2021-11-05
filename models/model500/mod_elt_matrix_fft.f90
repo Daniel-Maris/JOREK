@@ -6,8 +6,10 @@ contains
 
 #include "corr_neg_include.f90"
 
-subroutine element_matrix_fft(element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, &
-  ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k,  eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t, i_tor_min, i_tor_max)
+subroutine element_matrix_fft(element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, &
+                              ELM, RHS, tid, ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k,                               &
+                              eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t,                 &
+                              i_tor_min, i_tor_max, aux_nodes)
 !---------------------------------------------------------------
 ! calculates the matrix contribution of one element
 !---------------------------------------------------------------
@@ -24,11 +26,14 @@ use corr_neg
 use mod_neutral_source
 use mod_bootstrap_functions
 use mod_atomic_coeff_deuterium, only : atomic_coeff_deuterium
+use mod_impurity, only: radiation_function, radiation_function_linear
+use mod_sources
 
 implicit none
 
-type (type_element)   :: element
-type (type_node)      :: nodes(n_vertex_max)
+type (type_element)       :: element 
+type (type_node)          :: nodes(n_vertex_max)     ! fluid variables
+type (type_node),optional :: aux_nodes(n_vertex_max) ! particle moments
 
 #define DIM0 n_tor*n_vertex_max*(n_order+1)*n_var
 
@@ -38,7 +43,7 @@ integer, intent(in)            :: i_tor_min, i_tor_max
 real*8, dimension (DIM0,DIM0)  :: ELM
 real*8, dimension (DIM0)       :: RHS
 
-integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik, xcase2
+integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik, xcase2, i_inj, n_spi_tmp
 integer    :: n_tor_start, n_tor_end, n_tor_local
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, ij8, kl1, kl2, kl3, kl4, kl5, kl6, kl7, kl8, ij, kl
 real*8     :: wst, xjac, xjac_s, xjac_t, xjac_x, xjac_y, BigR, r2, phi, delta_phi
@@ -110,13 +115,13 @@ real*8     :: coef_rec_1                                      ! Recombination ra
 real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature
 real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T
 real*8     :: T_rad                                           ! Temperature used in radiation rate
-real*8     :: coef_rad_1                                      ! Radiation rate parameters
 real*8     :: ne_SI                                           ! Electron density used in radiation rate
 
 !   -Radiation from background impurities
 real*8     :: Arad_bg, Brad_bg, Crad_bg, frad_bg, dfrad_bg_dT ! Retain the hard-coded fitting for argon
 real*8     :: Lrad_imp, dLrad_imp_dT                          ! Radiation rate and its derivative wrt. temperature
 real*8     :: r_imp                                           ! Background impurity density in JOREK unit
+integer    :: i_imp                                           ! Loop for more than one background impurity
 
 real*8     :: in_fft(1:n_plane)
 complex*16 :: out_fft(1:n_plane)
@@ -727,7 +732,7 @@ do i=1,n_vertex_max
           endif
 
           call atomic_coeff_deuterium(0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                      LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT ) 
+                                      LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0 )
 
           ! --- Transform derivatives on Te to derivatives in total T
           dSion_dT      = dSion_dT      / 2.d0
@@ -744,100 +749,57 @@ do i=1,n_vertex_max
           !--------------------------------------------------------
           ! --- Source of neutrals, e.g. from MGI/SPI
           !--------------------------------------------------------
-      
-          source_neutral = 0.d0                    
-      
-          if (using_spi) then
-      
-            do spi_i=1, n_spi
-      
-              source_neutral_tmp = 0.d0
-      
-              if (pellets(spi_i)%spi_radius > 0.0) then
-      
-                ng_radius   = pellets(spi_i)%spi_radius * ng_radius_ratio
-      
-                if (ng_radius < ng_radius_min) then
-                  ng_radius = ng_radius_min
-                end if
-      
-                call neutral_source(pellets(spi_i)%spi_abl,pellets(spi_i)%spi_R,pellets(spi_i)%spi_Z,pellets(spi_i)%spi_phi,&
-                              ng_radius,ns_sig,ns_deltaphi,&
-                              ns_tor_norm, A_Dmv,K_Dmv,V_Dmv,P_Dmv,t_ns,0.,x_g(ms,mt),y_g(ms,mt),     &
-                              phi,source_neutral_tmp,t_now,JET_MGI,ASDEX_MGI,central_density,central_mass)
-              end if
-      
-              source_neutral = source_neutral + source_neutral_tmp
-      
-            end do
-      
-          else
-      
-            call neutral_source(ns_amplitude,ns_R,ns_Z,ns_phi,ns_radius,ns_sig,ns_deltaphi,ns_tor_norm, &
-                          A_Dmv,K_Dmv,V_Dmv,P_Dmv,t_ns,L_tube,x_g(ms,mt),y_g(ms,mt),phi,source_neutral,t_now, &
-                          JET_MGI,ASDEX_MGI,central_density,central_mass)
-      
-          end if
-          
+
+          source_neutral = 0.d0                   
+     
+          call total_neutral_source(x_g(ms,mt),y_g(ms,mt),phi,source_neutral)
+     
           source_neutral = max(source_neutral,0.)
       
          !-----------------------------------------------------------------
          ! --- Radiation from background impurity, using ADAS (by default)
          !-----------------------------------------------------------------
+
           ne_SI = r0_corr * 1.d20 * central_density !electron density (SI)
           T_rad = T0_corr/(2.d0*EL_CHG*MU_ZERO*central_density*1.d20)  ! Te in eV
 
           if (use_imp_adas) then  ! use open adas by default
-            r_imp = nimp_bg / (1.d20 * central_density)  ! Background impurity density in JU     
-            if (ne_SI > ne_SI_min .and. T_rad > Te_eV_min .and. nimp_bg > 0) then
-              ! Normalization coefficient for radiation rate from SI units (W.m^3) to JOREK units:
-              coef_rad_1 = 2.d0/3.d0*MU_ZERO**1.5d0*(central_mass*MASS_PROTON)**0.5d0&
-                    *(central_density*1.d20)**2.5d0
-
-              Lrad_imp = 0.0
-              dLrad_imp_dT = 0.0
-
-              call radiation_function_linear(imp_adas(1),imp_cor(1),log10(ne_SI),log10(T_rad*EL_CHG/K_BOLTZ),Lrad_imp,dLrad_imp_dT)
-              Lrad_imp = Lrad_imp * coef_rad_1
-
-              ! Convert gradient wrt. to T from 1/K into 1/eV
-              dLrad_imp_dT = dLrad_imp_dT * coef_rad_1 *  EL_CHG / K_BOLTZ 
-              ! ...and now from 1/eV into 1/(JOREK units)
-              dLrad_imp_dT = dLrad_imp_dT / (2.d0*EL_CHG*MU_ZERO*central_density*1.d20)
-              dLrad_imp_dT = dLrad_imp_dT * dT0_corr_dT            
-
-              if (Lrad_imp < 0.) then
+            frad_bg = 0. 
+            dfrad_bg_dT = 0.
+            do i_imp =1, n_adas
+              r_imp = nimp_bg(i_imp) / (1.d20 * central_density)  ! Background impurity density in JU     
+              if (ne_SI > ne_SI_min .and. T_rad > Te_eV_min .and. r_imp > 0) then
+                Lrad_imp = 0.0
+                dLrad_imp_dT = 0.0
+                call radiation_function_linear(imp_adas(i_imp),imp_cor(i_imp),log10(ne_SI),   & 
+                                               log10(T_rad*EL_CHG/K_BOLTZ),.true.,Lrad_imp,dLrad_imp_dT)
+                dLrad_imp_dT = dLrad_imp_dT * dT0_corr_dT            
+              else     
                 Lrad_imp = 0.
                 dLrad_imp_dT = 0.
               end if
-            else     
-              Lrad_imp = 0.
-              dLrad_imp_dT = 0.
-            end if
-   
-            ! This is to detect N/A
-            if (Lrad_imp/=Lrad_imp .or. dLrad_imp_dT/=dLrad_imp_dT) then
-              write(*,*) "WARNING: Lrad_imp, dLrad_imp_dT ", Lrad_imp, dLrad_imp_dT
-              stop
-            end if
+              if (dLrad_imp_dT/=dLrad_imp_dT) then
+                write(*,*) "WARNING: dLrad_imp_dT ", dLrad_imp_dT
+                stop
+              end if
 
-            frad_bg = r_imp * Lrad_imp
-            dfrad_bg_dT = r_imp * dLrad_imp_dT 
+              frad_bg = frad_bg + r_imp * Lrad_imp
+              dfrad_bg_dT =  dfrad_bg_dT + r_imp * dLrad_imp_dT 
 
+            end do
           else 
-
-            if ( trim(imp_type) == 'Ar') then ! Hard-coded fitting exists for argon
+            if ( trim(imp_type(1)) == 'Ar') then ! Hard-coded fitting exists for argon
               Arad_bg = 2.4d-31
               Brad_bg = 20.
               Crad_bg = 0.8
       
               frad_bg     = (2./3.)*(1./(central_mass*MASS_PROTON))*((MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**(1.5d0))            &
-                            *nimp_bg*Arad_bg*exp(-((log(T_rad)-log(Brad_bg))**2.)/Crad_bg**2.)
+                            *nimp_bg(1)*Arad_bg*exp(-((log(T_rad)-log(Brad_bg))**2.)/Crad_bg**2.)
       
               dfrad_bg_dT = -(1./3.)*((MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**(0.5d0))*(1./EL_CHG)                               &
-                            *2.*(nimp_bg*Arad_bg/Crad_bg**2.)*(log(T_rad)-log(Brad_bg))*(1./T_rad)*exp(-((log(T_rad)-log(Brad_bg))**2.)/Crad_bg**2.)
+                            *2.*(nimp_bg(1)*Arad_bg/Crad_bg**2.)*(log(T_rad)-log(Brad_bg))*(1./T_rad)*exp(-((log(T_rad)-log(Brad_bg))**2.)/Crad_bg**2.)
             else
-              write(*,*) "WARNING: hard-coded fitting doesn't exist for  ", trim(imp_type), ",use open adas instead!"
+              write(*,*) "WARNING: hard-coded fitting doesn't exist for  ", trim(imp_type(1)), ", use open adas instead!"
               stop
             end if 
 
@@ -1028,6 +990,11 @@ do i=1,n_vertex_max
                                     * (T0_ps0_x * ps0_y - T0_ps0_y * ps0_x)               * xjac * tstep &
 
                        - v * BigR * ksiion * r0_corr * rn0_corr * Sion_T                  * xjac * tstep         &
+
+!===================== Additional terms from friction terms============
+                       + v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * (r0_corr*rn0*Sion_T) * xjac * tstep &
+                       + v * BigR * ((GAMMA - 1.)/2.) * vv2 * ((r0_corr*rn0*Sion_T))          * xjac * tstep &
+!==============================End of friction terms=================
 
                        + v * (gamma-1.d0) * eta_T_ohm * (zj0 / BigR)**2.d0         * BigR  * xjac * tstep  &
                        - v * BigR * r0_corr * rn0_corr * LradDrays_T                       * xjac * tstep  &
@@ -1579,6 +1546,10 @@ do i=1,n_vertex_max
                             + v * r0 * Vpar0 * (T0_s * psi_t - T0_t * psi_s)                                     * theta * tstep &
                             + v * T0 * Vpar0 * (r0_s * psi_t - r0_t * psi_s)                                     * theta * tstep &
                             + v * r0 * GAMMA * T0 * (vpar0_s * psi_t - vpar0_t * psi_s)                          * theta * tstep &
+!===================== Additional terms from friction terms============
+                            - v * ((GAMMA - 1.) / BigR) * vpar0**2 * (psi_x * ps0_x + psi_y * ps0_y)&
+                                * (r0_corr*rn0*Sion_T)                                                    * xjac * theta * tstep &
+!==============================End of friction terms=================
 
                             + ZK_par_num * (v_psi_x  * ps0_y - v_psi_y  * ps0_x + v_ps0_x * psi_y - v_ps0_y * psi_x)          &
                                          * (T0_ps0_x * ps0_y - T0_ps0_y * ps0_x)                       * xjac * theta * tstep &
@@ -1612,6 +1583,10 @@ do i=1,n_vertex_max
                   amat(6,2) = - v * r0 * BigR**2 * ( T0_x * u_y - T0_y * u_x)           * xjac * theta * tstep &
                               - v * T0 * BigR**2 * ( r0_x * u_y - r0_y * u_x)           * xjac * theta * tstep &
                               - v * r0 * 2.d0* GAMMA * BigR * T0 * u_y                  * xjac * theta * tstep &
+!===================== Additional terms from friction terms============
+                              - v * BigR**3 * (GAMMA - 1.) * (u_x * u0_x + u_y * u0_y)  &
+                                  * (r0_corr*rn0*Sion_T)                                * xjac * theta * tstep &
+!==============================End of friction terms=================
 
                          + TG_num6 * 0.25d0 * BigR**2 * T0* (r0_x * u_y - r0_y * u_x)                &
                                             * ( v_x * u0_y - v_y * u0_x) * xjac * theta*tstep*tstep  &
@@ -1640,6 +1615,10 @@ do i=1,n_vertex_max
                            + v * BigR * rho * rn0_corr * LradDrays_T                          * xjac * theta * tstep &
                            + v * BigR * rho * 2d0 * r0_corr * LradDcont_T                * xjac * theta * tstep &
                            + v * BigR * rho * frad_bg                                    * xjac * theta * tstep &
+!===================== Additional terms from friction terms============
+                            - v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * (rho*rn0*Sion_T) * xjac * theta * tstep &
+                            - v * BigR * ((GAMMA - 1.)/2.) * vv2            * (rho*rn0*Sion_T) * xjac * theta * tstep &
+!==============================End of friction terms=================
 
                          + TG_num6 * 0.25d0 * BigR**2 * T0* (rho_x * u0_y - rho_y * u0_x)      &
                                    * ( v_x * u0_y - v_y * u0_x) * xjac * theta*tstep*tstep     &
@@ -1698,6 +1677,12 @@ do i=1,n_vertex_max
                             + v * BigR * T * r0_corr * rn0_corr * dLradDrays_dT             * xjac * theta * tstep &
                             + v * BigR * T * r0_corr * r0_corr  * dLradDcont_dT             * xjac * theta * tstep &
                             + v * BigR * T * r0_corr * dfrad_bg_dT                          * xjac * theta * tstep &
+!===================== Additional terms from friction terms============
+                            - v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 &
+                                * (r0_corr*rn0*dSion_dT) * T * xjac * theta * tstep &
+                            - v * BigR * ((GAMMA - 1.)/2.) * vv2 &
+                                * (r0_corr*rn0*dSion_dT) * T * xjac * theta * tstep &
+!==============================End of friction terms=================
 
                             + TG_num6 * 0.25d0 * BigR**2 * T* (r0_x * u0_y - r0_y * u0_x)         &
                                       * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep &
@@ -1740,6 +1725,9 @@ do i=1,n_vertex_max
                             + v * T0 * Vpar * (r0_s * ps0_t - r0_t * ps0_s)                        * theta * tstep & 
 
                             + v * r0 * GAMMA * T0 * (vpar_s * ps0_t - vpar_t * ps0_s)       * theta * tstep        &
+!===================== Additional terms from friction terms============
+                            - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * (r0_corr*rn0*Sion_T) * xjac * theta * tstep &
+!==============================End of friction terms=================
   
                             + TG_num6 * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
                                   * T0 * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                          &
@@ -1759,7 +1747,11 @@ do i=1,n_vertex_max
                   amat_n(6,7) = + v * r0 * GAMMA * T0 * F0 / BigR * vpar_p          * xjac * theta * tstep
 
                   amat(6,8) = + v * BigR * r0_corr * rhon * ksiion * Sion_T         * xjac * theta * tstep &
-                              + v * BigR * rhon * r0_corr * LradDrays_T             * xjac * theta * tstep               
+                              + v * BigR * rhon * r0_corr * LradDrays_T             * xjac * theta * tstep & 
+!===================== Additional terms from friction terms============
+                              - v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * (r0_corr*rhon*Sion_T) * xjac * theta * tstep &
+                              - v * BigR * ((GAMMA - 1.)/2.) * vv2            * (r0_corr*rhon*Sion_T) * xjac * theta * tstep 
+!==============================End of friction terms=================
 
                   !###################################################################################################
                   !#  equation 7   (parallel velocity equation)                                                      #

@@ -6,7 +6,7 @@ contains
 
 subroutine element_matrix_fft(element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, &
                               ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k,  eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t, & 
-                              i_tor_min, i_tor_max)
+                              i_tor_min, i_tor_max, aux_nodes)
 ! NOT YET IMPLEMENTED
 
 use mod_parameters
@@ -18,12 +18,14 @@ use diffusivities, only: get_dperp, get_zk_iperp, get_zk_eperp
 use equil_info, only : get_psi_n, ES
 use mod_F_profile
 use mod_bootstrap_functions
+use mod_sources
 
 implicit none
 
 ! --- Input Variables
-type (type_element)   :: element
-type (type_node)      :: nodes(n_vertex_max)
+type (type_element)        :: element
+type (type_node)           :: nodes(n_vertex_max)
+type (type_node), optional :: aux_nodes(n_vertex_max)
 
 logical, intent(in)    :: xpoint2
 integer, intent(in)    :: xcase2
@@ -941,7 +943,7 @@ do i=1,n_vertex_max
             t_norm   = sqrt(MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20)
             nu_e_bg  = nu_e_bg * t_norm    
 
-            dTe_i    = nu_e_bg * (Ti0_corr - Te0_corr)
+            dTe_i    = nu_e_bg * (Ti0_corr - Te0_corr) * rho0_corr
             dTi_e    = -dTe_i
 
             !Calculating the density and temperature derivative for amats
@@ -956,13 +958,15 @@ do i=1,n_vertex_max
 
             dnu_e_bg_drho   = 0.d0!nu_e_bg * drho0_corr_dn / rho0_corr
 
-            ddTe_i_dTi      = 0.d0!dnu_e_bg_dTi  * (Ti0_corr - Te0_corr) + nu_e_bg
-            ddTe_i_dTe      = 0.d0!dnu_e_bg_dTe  * (Ti0_corr - Te0_corr) - nu_e_bg
-            ddTe_i_drho     = 0.d0!dnu_e_bg_drho * (Ti0_corr - Te0_corr)
+            ddTe_i_dTi      = 0.d0!dnu_e_bg_dTi * (Ti0_corr - Te0_corr) * rho0_corr + nu_e_bg * dTi0_corr_dT * rho0_corr
+            ddTe_i_dTe      = 0.d0!dnu_e_bg_dTe * (Ti0_corr - Te0_corr) * rho0_corr - nu_e_bg * dTe0_corr_dT * rho0_corr
+            ddTe_i_drho     = 0.d0!dnu_e_bg_drho * (Ti0_corr - Te0_corr) * rho0_corr &
+                              !+ nu_e_bg * (Ti0_corr - Te0_corr) * drho0_corr_dn
+        
+            ddTi_e_dTi      = -ddTe_i_dTi
+            ddTi_e_dTe      = -ddTe_i_dTe
+            ddTi_e_drho     = -ddTe_i_drho
 
-            ddTi_e_dTi      = 0.d0!-ddTe_i_dTi
-            ddTi_e_dTe      = 0.d0!-ddTe_i_dTe
-            ddTi_e_drho     = 0.d0!-ddTe_i_drho
           else
             dTe_i       = 0.d0
             dTi_e       = 0.d0
