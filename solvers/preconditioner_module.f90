@@ -1,6 +1,6 @@
 module preconditioner_module
   use phys_module, only: modes_per_family, mode_families_modes, autodistribute_modes, n_mode_families, weights_per_family, &
-                         autodistribute_ranks, ranks_per_family, centralize_harm_mat, use_strumpack
+                         autodistribute_ranks, ranks_per_family, centralize_harm_mat, use_strumpack, gmres
   use mod_integer_types
 
   implicit none
@@ -229,7 +229,7 @@ module preconditioner_module
     call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
     call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)
 
-    if (n_mode_families.gt.n_cpu) then
+    if (n_mode_families.gt.n_cpu .and. gmres) then
       if (my_id.eq.0) write(*,*) "Error: number of cpu must be >= number of mode families", n_mode_families
       call MPI_Abort(MPI_COMM_WORLD, 0, ierr)
     endif
