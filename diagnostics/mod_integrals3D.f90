@@ -588,10 +588,16 @@ do ife = ife_min, ife_max
 #ifdef WITH_TiTe
         eta_T         = resistivity(eta, T0e_corr, T_max_eta, Te_0)  
         eta_T_ohm     = resistivity(eta_ohmic, T0e_corr, T_max_eta_ohm, Te_0)
+
+        if (visco_T_dependent) then
+          visco_T = visco*(T0e_corr/Te_0)**(-1.5d0)
+          if (xpoint .and. (T0e .lt. T_min)) visco_T = visco*(max(T0e,T_min)/Te_0)**(-1.5d0)
+        else
+          visco_T = visco
+        end if
 #else
         eta_T         = resistivity(eta, T0_corr, T_max_eta, T_0)  
         eta_T_ohm     = resistivity(eta_ohmic, T0_corr, T_max_eta_ohm, T_0)
-#endif
 
         if (visco_T_dependent) then
           visco_T = visco*(T0_corr/T_0)**(-1.5d0)
@@ -599,6 +605,7 @@ do ife = ife_min, ife_max
         else
           visco_T = visco
         end if
+#endif
 
         ! This is currently broken for two temperature models !
         ! Some of these do not seem to be doing anything so I'm commenting them off !
