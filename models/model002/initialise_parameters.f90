@@ -47,6 +47,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 Rmin_pfc, Rmax_pfc, Zmin_pfc, Zmax_pfc, current_pfc,&
                 n_jropes,                                           &
                 R_jropes, Z_jropes, w_jropes, current_jropes,       &
+                rho_jropes,                                         &
                 extend_existing_grid, no_mach1_bc,                  &
                 grid_to_wall, RZ_grid_inside_wall, eqdsk_psi_fact,  &
                 RZ_grid_jump_thres,                                 &
