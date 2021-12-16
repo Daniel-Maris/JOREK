@@ -16,7 +16,7 @@ module mod_equations
     type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq
 #endif
 
-    real*8, dimension(:,:,:,:), allocatable :: eq
+    real*8, dimension(:,:,:,:,:), allocatable :: eq
   end type type_thread_eq
 
   ! Values
@@ -106,7 +106,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(n_var+9,0:n_order-1,0:n_order-1,0:n_order-1))
+        allocate(thread_eq(i)%eq(n_var+9,0:n_order-1,0:n_order-1,0:n_order-1,4))
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
@@ -190,12 +190,12 @@ module mod_equations
   subroutine get_aux(aux,varnames)
     implicit none
     type(algexpr), dimension(n_aux), intent(out) :: aux
-    character(12), dimension(n_aux), intent(out) :: varnames
+    character(14), dimension(n_aux), intent(out) :: varnames
     integer      :: i
     character(2) :: num
 
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
-    varnames = (/ "eq(15,0,0,0)", "eq(15,1,0,0)", "eq(15,0,1,0)", "eq(15,0,0,1)" /)
+    varnames = (/ "eq(15,0,0,0,:)", "eq(15,1,0,0,:)", "eq(15,0,1,0,:)", "eq(15,0,0,1,:)" /)
   end subroutine get_aux
 
   type(algexpr) function Bv_pbrack(a,b)
