@@ -30,11 +30,11 @@ module mod_semianalytical
   ! An instruction to add, subtract, multiply or divide two numbers
   ! Algebraic expressions are compiled to sequences (arrays) of actions
   type action
-    real*8, pointer :: v1, v2      ! Point to two values, which are to be added, subtracted, multiplied or divided
-    integer*1       :: c1, c2, c3  ! These three constants collectively determine the type of arithmetic operation to be performed
-    real*8          :: reslt       ! Stores the result
-    real*8          :: f1, f2      ! Numerical factors individually multiplying v1 and v2
-    real*8          :: a1, a2      ! Additive constants for v1 and v2
+    real*8, dimension(:), pointer :: v1, v2     ! Point to two values, which are to be added, subtracted, multiplied or divided
+    integer*1                     :: c1, c2, c3 ! These three constants collectively determine the type of arithmetic operation to be performed
+    real*8, dimension(4)          :: reslt      ! Stores the result
+    real*8                        :: f1, f2     ! Numerical factors individually multiplying v1 and v2
+    real*8                        :: a1, a2     ! Additive constants for v1 and v2
     
     ! Points to the exact expression from which this action was obtained
     type(algexpr), pointer :: origin => NULL()
@@ -830,11 +830,11 @@ contains
   ! Use an algebraic expression to build a sequence of instructions (recursive part)
   recursive subroutine buildsequence_rec(expr, actseq, eq, last)
     implicit none
-    type(algexpr),                       target, intent(in)    :: expr
-    type(action), dimension(:),          target, intent(inout) :: actseq
-    real*8,       dimension(:,0:,0:,0:), target, intent(in)    :: eq
-    integer,                                     intent(inout) :: last
-    type(action),                        target                :: act
+    type(algexpr),                         target, intent(in)    :: expr
+    type(action), dimension(:),            target, intent(inout) :: actseq
+    real*8,       dimension(:,0:,0:,0:,:), target, intent(in)    :: eq
+    integer,                                       intent(inout) :: last
+    type(action),                          target                :: act
     
     act%origin => expr
     act%f1 = expr%operand1%factor
@@ -843,7 +843,7 @@ contains
     act%a2 = expr%operand2%add
     
     if (expr%operand1%basic) then
-      act%v1  => eq(expr%operand1%var,expr%operand1%dx,expr%operand1%dy,expr%operand1%dp)
+      act%v1  => eq(expr%operand1%var,expr%operand1%dx,expr%operand1%dy,expr%operand1%dp,:)
     else
       if (expr%operand1%dx .ne. 0 .or. expr%operand1%dy .ne. 0 .or. expr%operand1%dp .ne. 0) then
         write(*,*)
@@ -856,7 +856,7 @@ contains
     end if
     
     if (expr%operand2%basic) then
-      act%v2  => eq(expr%operand2%var,expr%operand2%dx,expr%operand2%dy,expr%operand2%dp)
+      act%v2  => eq(expr%operand2%var,expr%operand2%dx,expr%operand2%dy,expr%operand2%dp,:)
     else
       if (expr%operand2%dx .ne. 0 .or. expr%operand2%dy .ne. 0 .or. expr%operand2%dp .ne. 0) then
         write(*,*)
@@ -893,10 +893,10 @@ contains
   ! Use an algebraic expression to build a sequence of instructions (initialization part)
   subroutine buildsequence(expr, actseq, eq)
     implicit none
-    type(algexpr),                       target, intent(in)    :: expr
-    type(action), dimension(:),          target, intent(inout) :: actseq
-    real*8,       dimension(:,0:,0:,0:), target, intent(in)    :: eq
-    integer                                                    :: last
+    type(algexpr),                         target, intent(in)    :: expr
+    type(action), dimension(:),            target, intent(inout) :: actseq
+    real*8,       dimension(:,0:,0:,0:,:), target, intent(in)    :: eq
+    integer                                                      :: last
     
     ! It is impossible to represent factors and additive constants on the uppermost algexpr in an action sequence format
     ! Exit the code with an error message to avoid trouble (wrong numerical results) later
@@ -913,9 +913,10 @@ contains
 
   ! Execute the instruction sequence
   ! Only this function is called in the loops
-  real*8 function eval(actseq)
+  function eval(actseq)
     implicit none
     type(action), dimension(:), intent(inout) :: actseq
+    real*8, dimension(4)                      :: eval
     integer                                   :: i
     
     !dir$ noparallel
