@@ -198,17 +198,28 @@ else
   call nframe(1,11,1,0.d0,1.2d0,-PI,PI,'Poincare',8,'r [m]',4,'theta',5)
 endif
 
+!$omp parallel default(none) &
+!$omp shared(node_list, element_list, n_lines, R_start, Z_start, P_start, n_turn, n_phi, delta_phi, element_neighbours, ES, iplot_type) &
+!$omp private(i_lines, ip, R_out, Z_out, i_elm, s_out, t_out, ifail, R_line, Z_line, p_line, s_line, t_line, i_turn, i_phi, &
+!$omp         delta_phi_local, i_steps, delta_phi_step, delta_s, delta_t, s_mid, t_mid, p_mid, small_delta_s, small_delta_t, &
+!$omp         small_delta, R_in, Z_in, i_elm_prev, i_elm_tmp, R, Z, psi_out, Rp, Zp, Tp, Pp, i)
+
 ! --- Trace the fieldlines
+!$omp do
 L_IL: do i_lines=1,n_lines
   ip = 0
 
-  write(*,*)
+!  write(*,*)
+!$omp critical
   write(*,'(1x,2(a,i6),a,2f8.3)') 'Line',i_lines,' of',n_lines,' started at',R_start(i_lines),Z_start(i_lines)
+!$omp end critical
 
   call find_RZ(node_list,element_list,R_start(i_lines),Z_start(i_lines),R_out,Z_out,i_elm,s_out,t_out,ifail)
  
-  if (ifail .ne. 0) write(*,*) "Can not find RZ,", ifail 
-  if (ifail .ne. 0) exit
+  if (ifail .ne. 0) then
+    write(*,*) "Can not find RZ,", ifail 
+    stop
+  end if
 
   R_line = R_start(i_lines)
   Z_line = Z_start(i_lines)
@@ -218,7 +229,9 @@ L_IL: do i_lines=1,n_lines
   
   L_IT: do i_turn = 1, n_turn(i_lines)
     if ( mod(i_turn-1,max(n_turn(i_lines)/6+1,5)) == 0 ) then
-      write(*,'(3x,2(a,i6))') 'Turn',i_turn,' of',n_turn(i_lines)
+!$omp critical
+      write(*,'(1x,3(a,i6))') 'Line',i_lines,': turn',i_turn,' of',n_turn(i_lines)
+!$omp end critical
     end if
 
     do i_phi=1,n_phi
@@ -418,7 +431,8 @@ L_IL: do i_lines=1,n_lines
      
   enddo L_IT
   
-  write(*,'(3x,a,i6,a)') '=>',ip,' points'
+!$omp critical
+  write(*,'(1x,a,i6,a,i6,a)') '=> Line',i_lines,':',ip,' points'
 
   do i=1,ip
     write(21,'(4e18.8)') Rp(i),Zp(i)
@@ -437,8 +451,11 @@ L_IL: do i_lines=1,n_lines
   else
     call pplot(1,1,Pp,Tp,ip,1)
   endif
+!$omp end critical
   
 end do L_IL
+!$omp end do
+!$omp end parallel
 
 close(21)
 close(22)
