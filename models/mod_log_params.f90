@@ -164,6 +164,13 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,*) 'Preprocessor flag not set. Thus, n_gauss=', n_gauss
 #endif
 
+write(*,'(1x,a)',advance='no') ' USE_BICGSTAB : '
+#ifdef USE_BICGSTAB
+  write(*,*) 'on'
+#else
+  write(*,*) 'off'
+#endif
+
   write(*,*)
   write(*,200)
   write(*,*) '* Hard-Coded Parameters:                                                      *'
@@ -233,6 +240,10 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
     write(*,REAL_FMT) 'sig_r                 ', sig_r(:)
     write(*,REAL_FMT) 'xr_tht                ', xr_tht(:)
     write(*,REAL_FMT) 'sig_tht               ', sig_tht(:)
+    write(*,REAL_FMT) 'xr_z                  ', xr_z(:)
+    write(*,REAL_FMT) 'sig_z                 ', sig_z(:)
+    write(*,REAL_FMT) 'bgf_r                 ', bgf_r
+    write(*,REAL_FMT) 'bgf_z                 ', bgf_z
   end if
 
   write(*,INTG_FMT) 'n_tht                 ', n_tht
@@ -309,6 +320,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,REAL_FMT) 'R_end                 ', R_end
   write(*,REAL_FMT) 'Z_begin               ', Z_begin
   write(*,REAL_FMT) 'Z_end                 ', Z_end
+  write(*,REAL_FMT) 'rect_grid_vac_psi     ', rect_grid_vac_psi
   write(*,REAL_FMT) 'R_geo                 ', R_geo
   write(*,REAL_FMT) 'Z_geo                 ', Z_geo
   write(*,REAL_FMT) 'amin                  ', amin
@@ -609,6 +621,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
     write(*,REAL_FMT) 'FB_Ip_position        ', FB_Ip_position
     write(*,REAL_FMT) 'FB_Ip_integral        ', FB_Ip_integral
     write(*,REAL_FMT) 'Z_axis_ref            ', Z_axis_ref
+    write(*,REAL_FMT) 'R_axis_ref            ', R_axis_ref
     write(*,REAL_FMT) 'FB_Zaxis_position     ', FB_Zaxis_position
     write(*,REAL_FMT) 'FB_Zaxis_derivative   ', FB_Zaxis_derivative
     write(*,REAL_FMT) 'FB_Zaxis_integral     ', FB_Zaxis_integral
@@ -623,7 +636,9 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
     end do
     write(*,*)
     if ( n_pf_coils > 0 ) &
-      write(*,REAL_FMT,advance='no') 'vert_FB_amp           ', vert_FB_amp(n_pf_coils)
+        write(*,REAL_FMT) 'vert_FB_amp           ', vert_FB_amp(1:n_pf_coils)
+    if ( n_pf_coils > 0 ) &
+        write(*,REAL_FMT) 'rad_FB_amp           ', rad_FB_amp(1:n_pf_coils)
     write(*,REAL_FMT,advance='no') 'pf_coils%pert         '
     do i = 1, n_pf_coils
       write(*,'(10ES12.4)',advance='no') pf_coils(i)%pert
@@ -717,6 +732,16 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
     write(*,REA3_FMT) 'current_pfc           ', current_pfc(1:min(9,n_pfc))
   end if
 
+  write(*,INTG_FMT) 'n_jropes              ', n_jropes
+  if ( n_jropes > 0 ) then
+    write(*,REA3_FMT) 'R_jropes              ', R_jropes(1:n_jropes)
+    write(*,REA3_FMT) 'Z_jropes              ', Z_jropes(1:n_jropes)
+    write(*,REA3_FMT) 'w_jropes              ', w_jropes(1:n_jropes)
+    write(*,REA3_FMT) 'current_jropes        ', current_jropes(1:n_jropes)
+    write(*,REA3_FMT) 'rho_jropes            ', rho_jropes(1:n_jropes)
+    write(*,REA3_FMT) 'T_jropes              ', T_jropes(1:n_jropes)
+  end if
+
   write(*,LOGI_FMT) 'RMP_on                ', RMP_on
   if (RMP_on) then
      write(*,CHAR_FMT) 'RMP_psi_cos_file      ', trim(RMP_psi_cos_file)
@@ -757,6 +782,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
      write(*,REAL_FMT) 'ns_radius           ',  ns_radius
      write(*,REAL_FMT) 'ng_radius_min       ',  ng_radius_min
      write(*,REAL_FMT) 'ns_deltaphi         ',  ns_deltaphi
+     write(*,REAL_FMT) 'ns_deltaminrad      ',  ns_deltaminrad
      write(*,REAL_FMT) 'ns_tor_norm         ',  ns_tor_norm
      write(*,REAL_FMT) 'ksi_ion             ',  ksi_ion
      write(*,LOGI_FMT) 'JET_MGI             ',  JET_MGI
@@ -787,6 +813,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
    if(using_spi) then
      write(*,LOGI_FMT) 'using_spi           ',  using_spi
      write(*,LOGI_FMT) 'spi_tor_rot         ',  spi_tor_rot
+     write(*,LOGI_FMT) 'spi_num_vol         ',  spi_num_vol
      write(*,CHAR_FMT) 'adas_dir            ',  trim(adas_dir)
      write(*,INTG_FMT) 'n_adas              ',  n_adas
      write(*,INTG_FMT) 'n_spi               ',  n_spi

@@ -270,6 +270,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(ns_phi,         n_inj_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(ns_radius,              1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(ns_deltaphi,            1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(ns_deltaminrad,         1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(ns_tor_norm,            1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
 !==========================Added input for SPI model===========================================
@@ -302,6 +303,7 @@ if (my_id .eq. 0) then
     write(*,*) "packing pellets: ", ierr
 
     call MPI_PACK(spi_tor_rot,          1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(spi_num_vol,          1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(tor_frequency,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(ns_phi_rotate,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   end if
@@ -374,6 +376,7 @@ if (my_id .eq. 0) then
   call MPI_PACK (Z_begin,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (Z_end,               1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (Z_geo,               1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK (rect_grid_vac_psi,   1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (xr1,                 1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (xr2,                 1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (sig1,                1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -385,6 +388,10 @@ if (my_id .eq. 0) then
   call MPI_PACK(SIG_r(:),               2,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(XR_tht(:),              2,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(SIG_tht(:),             2,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(XR_z(:),                2,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(SIG_z(:),               2,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(bgf_r,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(bgf_z,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   
   call MPI_PACK(SIG_closed,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(SIG_open,               1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -431,6 +438,7 @@ if (my_id .eq. 0) then
   call MPI_PACK (FB_Ip_position,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (FB_Ip_integral,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (Z_axis_ref,            1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK (R_axis_ref,            1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (FB_Zaxis_position,     1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (FB_Zaxis_derivative,   1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (FB_Zaxis_integral,     1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -463,6 +471,7 @@ if (my_id .eq. 0) then
   call MPI_PACK (vert_FB_gain,               3,    MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr) 
   call MPI_PACK (vert_FB_tact,               1,    MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr) 
   call MPI_PACK (vert_FB_amp,        MAX_COILS,    MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK (rad_FB_amp,         MAX_COILS,    MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (vert_FB_amp_ts,     MAX_COILS,    MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK (I_coils_max,        MAX_COILS,    MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(vert_pos_file,             256,MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr) 
@@ -544,6 +553,14 @@ if (my_id .eq. 0) then
   call MPI_PACK(Zmin_pfc,              40,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(Zmax_pfc,              40,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(current_pfc,           40,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+
+  call MPI_PACK(n_jropes,               1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(R_jropes,              10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(Z_jropes,              10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(w_jropes,              10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(current_jropes,        10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(rho_jropes,            10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(T_jropes,              10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   call MPI_PACK(mode,               n_tor,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(mode_coord,   n_coord_tor,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -970,6 +987,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,ns_phi,         n_inj_max,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,ns_radius,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,ns_deltaphi,            1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,ns_deltaminrad,         1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,ns_tor_norm,            1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
 !==========================Added input for SPI model===========================================
@@ -1004,6 +1022,7 @@ if (my_id .ne. 0) then
     write(*,*) "unpacking pellets: ", my_id,ierr
 
     call MPI_UNPACK(buffer,bufsize,position,spi_tor_rot,          1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,spi_num_vol,          1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,tor_frequency,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,ns_phi_rotate,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   end if
@@ -1074,6 +1093,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,Z_begin,                     1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,Z_end,                       1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,Z_geo,                       1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,rect_grid_vac_psi,           1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,xr1,                         1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,xr2,                         1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,sig1,                        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
@@ -1085,6 +1105,10 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,SIG_r(:),               2,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,XR_tht(:),              2,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,SIG_tht(:),             2,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,XR_z(:),                2,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,SIG_z(:),               2,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,bgf_r,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,bgf_z,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,SIG_closed,		  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,SIG_open,		  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
@@ -1131,6 +1155,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,FB_Ip_position ,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,FB_Ip_integral ,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,Z_axis_ref ,            1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,R_axis_ref ,            1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,FB_Zaxis_position ,     1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,FB_Zaxis_derivative ,   1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,FB_Zaxis_integral ,     1,MPI_REAL8,MPI_COMM_WORLD,ierr)
@@ -1162,7 +1187,8 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,start_VFB_ts,           1,    MPI_REAL8,MPI_COMM_WORLD,ierr) 
   call MPI_UNPACK(buffer,bufsize,position,vert_FB_gain,           3,    MPI_REAL8,MPI_COMM_WORLD,ierr) 
   call MPI_UNPACK(buffer,bufsize,position,vert_FB_tact,           1,    MPI_REAL8,MPI_COMM_WORLD,ierr) 
-  call MPI_UNPACK(buffer,bufsize,position,vert_FB_amp,    MAX_COILS,    MPI_REAL8,MPI_COMM_WORLD,ierr) 
+  call MPI_UNPACK(buffer,bufsize,position,vert_FB_amp,    MAX_COILS,    MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,rad_FB_amp,     MAX_COILS,    MPI_REAL8,MPI_COMM_WORLD,ierr) 
   call MPI_UNPACK(buffer,bufsize,position,vert_FB_amp_ts, MAX_COILS,    MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,I_coils_max,    MAX_COILS,    MPI_REAL8,MPI_COMM_WORLD,ierr)  
   call MPI_UNPACK(buffer,bufsize,position,vert_pos_file,        256,MPI_CHARACTER,MPI_COMM_WORLD,ierr) 
@@ -1247,6 +1273,14 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,Zmin_pfc,              40,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,Zmax_pfc,              40,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,current_pfc,           40,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  
+  call MPI_UNPACK(buffer,bufsize,position,n_jropes,               1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,R_jropes,              10,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,Z_jropes,              10,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,Z_jropes,              10,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,current_jropes,        10,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,rho_jropes,            10,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,T_jropes,              10,MPI_REAL8,MPI_COMM_WORLD,ierr)
   
   call MPI_UNPACK(buffer,bufsize,position,mode,                  n_tor,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,mode_coord,      n_coord_tor,MPI_INTEGER,MPI_COMM_WORLD,ierr)

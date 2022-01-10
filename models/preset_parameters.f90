@@ -112,6 +112,10 @@ subroutine preset_parameters
   SIG_r(:)      = 999.d0
   XR_tht(:)     = 999.d0
   SIG_tht(:)    = 999.d0
+  XR_z(:)       = 999.d0
+  SIG_z(:)      = 999.d0
+  bgf_r         = 0.7
+  bgf_z         = 0.7
 
   SIG_closed  = 0.1d0
   SIG_open    = 0.1d0
@@ -157,6 +161,14 @@ subroutine preset_parameters
   Zmax_pfc    = 0.d0
   current_pfc = 0.d0
 
+  n_jropes       = 0
+  R_jropes       = 0.d0
+  Z_jropes       = 0.d0
+  w_jropes       = 0.d0
+  current_jropes = 0.d0
+  rho_jropes     = 0.d0
+  T_jropes       = 0.d0
+
   bootstrap = .false.
 
   ellip  = 1.d0
@@ -183,6 +195,8 @@ subroutine preset_parameters
   R_end   =  0.1d0
   Z_begin = -0.1d0
   Z_end   = 0.1d0
+
+  rect_grid_vac_psi = 0.d0
   
   ZK_perp(1:5)   = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   ZK_i_perp(1:5) = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
@@ -625,6 +639,7 @@ subroutine preset_parameters
   ns_phi    = 1.57d0
   ns_radius =   0.08d0
   ns_deltaphi =  0.5
+  ns_deltaminrad = 0.d0
   ns_tor_norm = 1.
   ksi_ion = 1.84d-24
   D_neutral_x = 1.d-5
@@ -666,6 +681,7 @@ subroutine preset_parameters
   spi_plume_file(:) = 'none'
   spi_plume_hdf5  = .false.
   spi_tor_rot     = .false.
+  spi_num_vol     = .true.
   using_spi       = .false.
 
   output_prad_phi = .false.

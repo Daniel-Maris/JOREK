@@ -911,7 +911,7 @@ do ms=1, n_gauss
      source_imp = 0.d0                    
      source_bg  = 0.d0
 
-     call total_imp_source(x_g(ms,mt),y_g(ms,mt),phi,source_bg,source_imp,m_i_over_m_imp)
+     call total_imp_source(x_g(ms,mt),y_g(ms,mt),phi,ps0,source_bg,source_imp,m_i_over_m_imp)
 
      ! This is to detect N/A
      if (source_imp /= source_imp .or. source_bg /= source_bg) then
@@ -1047,7 +1047,7 @@ do ms=1, n_gauss
                                 * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep &
 
 !====================================New TG_num terms=================================
-                      - TG_num2 * 0.25d0 * w0 * BigR**3 * BigR**2 * (r0_x * u0_y - r0_y * u0_x) &
+                      - TG_num2 * 0.25d0 * w0 * BigR**3 * (r0_x_hat * u0_y - r0_y_hat * u0_x) &
                                 * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep &
 !===============================End of NewTG_num terms==============================
 
@@ -1486,10 +1486,10 @@ do ms=1, n_gauss
                                      * ( v_x * u_y - v_y * u_x)   * xjac * theta * tstep * tstep   & 
 
 !====================================New TG_num terms=================================
-                      + TG_num2 * 0.25d0 * w0 * BigR**3 * BigR**2 * (r0_x * u_y - r0_y * u_x) &
+                      + TG_num2 * 0.25d0 * w0 * BigR**3 * (r0_x_hat * u_y - r0_y_hat * u_x) &
                                 * ( v_x * u0_y - v_y * u0_x) * theta * xjac * tstep * tstep &
 
-                      + TG_num2 * 0.25d0 * w0 * BigR**3 * BigR**2 * (r0_x * u0_y - r0_y * u0_x) &
+                      + TG_num2 * 0.25d0 * w0 * BigR**3 * (r0_x_hat * u0_y - r0_y_hat * u0_x) &
                                 * ( v_x * u_y - v_y * u_x) * theta * xjac * tstep * tstep
 
 !===============================End of NewTG_num terms==============================
@@ -1509,7 +1509,7 @@ do ms=1, n_gauss
                                    * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep &
 
 !====================================New TG_num terms=================================
-                      + TG_num2 * 0.25d0 * w * BigR**3 * BigR**2 * (r0_x * u0_y - r0_y * u0_x) &
+                      + TG_num2 * 0.25d0 * w * BigR**3 * (r0_x_hat * u0_y - r0_y_hat * u0_x) &
                                 * ( v_x * u0_y - v_y * u0_x) * theta * xjac * tstep * tstep
 
 !===============================End of NewTG_num terms==============================
@@ -1542,7 +1542,7 @@ do ms=1, n_gauss
                                   * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep &
 
 !====================================New TG_num terms=================================
-                      + TG_num2 * 0.25d0 * w * BigR**3 * BigR**2 * (r0_x * u0_y - r0_y * u0_x) &
+                      + TG_num2 * 0.25d0 * w0 * BigR**3 * BigR**2 * (rho_x_hat * u0_y - rho_y_hat * u0_x) &
                                 * ( v_x * u0_y - v_y * u0_x) * theta * xjac * tstep * tstep
 
 !===============================End of NewTG_num terms==============================
