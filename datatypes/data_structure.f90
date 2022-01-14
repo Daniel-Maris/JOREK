@@ -124,6 +124,7 @@ module data_structure
     real*8  :: spi_R                 !< R coordinate of shard (m)
     real*8  :: spi_Z                 !< Z coordinate of shard (m)
     real*8  :: spi_phi               !< Phi coordinate of shard (radian)
+    real*8  :: spi_phi_init          !< The initial phi coordinate of shard (radian) for trajectory calculation.
     real*8  :: spi_Vel_R             !< Velocity in R direction (m/s)
     real*8  :: spi_Vel_Z             !< Velocity in Z direction (m/s)
     real*8  :: spi_Vel_RxZ           !< Velocity in RxZ direction (m/s)
@@ -132,6 +133,10 @@ module data_structure
     real*8  :: spi_species           !< Fraction of impurity atoms relative to the total number of atoms (model501)
                                      !! 0.: pure background species
                                      !! 1.: pure impurity shard
+    real*8  :: spi_vol               !< Numerically integrated volume of the gas source from the shard
+    real*8  :: spi_psi               !< Psi value at the shard position
+    real*8  :: spi_grad_psi          !< Value of grad(Psi)=sqrt(PSI_R * PSI_R + PSI_Z * PSI_Z) at the shard position
+
   end type type_SPI
  
   integer                                         , public :: nbthreads

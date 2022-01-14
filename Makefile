@@ -66,6 +66,7 @@ DIRS := diagnostics			\
 	particles/examples 		\
 	particles/diagnostics 		\
 	particles/tests 		\
+	particles/projection_functions  \
 	particles/benchmarks/pusher_cartesian \
 	particles/benchmarks/pusher	\
 	particles/benchmarks/projection \
@@ -80,6 +81,7 @@ DIRS := diagnostics			\
 	non_regression_tests/unit_tests \
 	datatypes			\
 	benchmarks                      \
+	core                            \
 	.				\
 	vacuum
 DIRS+=$(EXTRA_DIRS) # Specified in Makefile.inc or commandline
@@ -131,6 +133,7 @@ all: $(basename $(notdir $(PROGRAM_SOURCES)))
 # testing to pass
 most: jorek2_connection2 \
       jorek2_connection_stan \
+      jorek2_connection_flux_aligned \
       jorek2_diagno \
       jorek2_diagno_spi \
       jorek2_fieldlines_vtk \

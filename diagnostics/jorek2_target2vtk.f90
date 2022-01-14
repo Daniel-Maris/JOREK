@@ -6,7 +6,7 @@ program jorek_diagnostics
 !-----------------------------------------------------------------------
 !
 !-----------------------------------------------------------------------
-use mod_parameters, only: n_var, variable_names
+use mod_parameters, only: n_var
 use data_structure
 use phys_module
 use basis_at_gaussian
@@ -378,7 +378,7 @@ do m=1, n_plane
 
             scalars(inode,5) = - (rho * Vpar * psi_s * normal)                  / R / sqrt(R_s**2 + Z_s**2)
 
-            scalars(inode,6) = - gamma_sheath*(rho * T * Vpar * psi_s * normal) / R / sqrt(R_s**2 + Z_s**2)
+            scalars(inode,6) = - (gamma_sheath -1.d0+gamma)*(rho * T * Vpar * psi_s * normal) / R / sqrt(R_s**2 + Z_s**2)
 
             if (abs(xjac) .gt. 1.d-7) then
 

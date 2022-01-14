@@ -5,18 +5,18 @@
 module mod_elt_matrix
 contains
 
-  subroutine element_matrix(element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, i_tor_min, i_tor_max)
-  !--------------------------------------------------------------------------
-  ! This is just a wrapper to the real routine since I combined both into one
-  !--------------------------------------------------------------------------
+  subroutine element_matrix(element,nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, i_tor_min, i_tor_max, aux_nodes)
+  !---------------------------------------------------------------
+  ! calculates the matrix contribution of one element
+  !---------------------------------------------------------------
 
     use data_structure
     use mod_elt_matrix_fft
 
     implicit none
 
-    type (type_element)                      :: element
-    type (type_node)                         :: nodes(n_vertex_max)
+    type (type_element), intent(in)          :: element
+    type (type_node),    intent(in)          :: nodes(n_vertex_max)
 
     integer                                  :: xcase2
     logical                                  :: xpoint2
@@ -24,6 +24,7 @@ contains
     real*8, dimension (:,:), allocatable     :: ELM
     real*8, dimension (:)  , allocatable     :: RHS
     integer, intent(in)                      :: tid, i_tor_min, i_tor_max
+    type (type_node), optional, intent(in)   :: aux_nodes(n_vertex_max)
 
     call element_matrix_fft(element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid,   &
                             thread_struct(tid)%ELM_p, thread_struct(tid)%ELM_n, thread_struct(tid)%ELM_k, thread_struct(tid)%ELM_kn, &

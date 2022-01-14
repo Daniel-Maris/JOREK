@@ -62,6 +62,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   integer          :: in_gvec=11                          ! Input stream from gvec
   integer          :: gvec_preamble_lines=124             ! Number of lines in gvec preamble
   integer          :: iostatus=0                          ! Error flag for reading vacuum field
+  integer          :: n_max_jorek = (n_coord_tor-1)/2     ! Maximum toroidal mode number in JOREK
 
   ! Read equilibrium parameters
   open(in_gvec, file=trim(file_name), status='old', iostat=ierr, form='formatted', access='sequential')
@@ -85,10 +86,20 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
     write(*, *) "Number of field periods in GVEC equilibrium does not match input file: ", num_periods, n_coord_period
     stop
   endif
+  ! For stellarators, a sub-section of the full torus can only be modeled, if it contains a whole number of stellarator field periods
+  ! e.g. for a 4 field period stellarator, n_period = 1, 2 or 4
+  if (mod(n_coord_period, n_period) .ne. 0) then
+    write(*, *) "Number of periods must be a factor of number of field periods: ", n_period, n_coord_period
+    stop
+  endif
 
   ! Check JOREK is compiled correctly from equilibrium
-  if (n_coord_tor .ne. n_modes) then
-    write(*,*) "Number of modes in JOREK and GVEC do not match! (n_coord_tor, n_modes):" , n_coord_tor, n_modes
+  if (n_coord_tor .lt. n_modes) then
+    write(*,*) "WARNING: Number of modes in JOREK is less than in GVEC! (n_coord_tor, n_modes):" , n_coord_tor, n_modes
+    write(*,*) "         Continuing with partial import of toroidal modes."
+  else if (n_coord_tor .gt. n_modes) then
+    write(*, *) "ERROR: Number of modes in JOREK must be less than or equal to GVEC representation! (n_coord_tor, n_modes):" , n_coord_tor, n_modes
+    stop
   endif
 
   ! Read fourier representation
@@ -292,12 +303,15 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
       i_node = n_node_start + n_theta*(i_rad-1) + i_theta
       
       ! Read in pressure
-      node_list%node(i_node)%pressure(1) = P_four(i_theta, i_rad, n_max+1)  ! n_max => i_tor=1
+      node_list%node(i_node)%pressure(1) = P_four(i_theta, i_rad, n_max+1)  ! n_max+1 => i_tor=1
       node_list%node(i_node)%pressure(2) = P_four_s(i_theta, i_rad, n_max+1) * s_factor * 1.0 / 3.0
       node_list%node(i_node)%pressure(3) = P_four_t(i_theta, i_rad, n_max+1) * theta_factor * 1.0 / 3.0
       node_list%node(i_node)%pressure(4) = P_four_st(i_theta, i_rad, n_max+1) * s_factor * theta_factor * 1.0 / 9.0
 
       do idx=1, n_modes
+        if ((idx .gt. n_max_jorek) .and. (idx .le. n_max)) cycle   ! Skip higher sinusoidal modes
+        if (idx .gt. n_max+1+n_max_jorek) cycle                   ! Skip higher cosinusoidal modes
+
         call get_gvec_mode_idx(idx, n_max, sin_range, cos_range, itor)
 
         ! Modify derivative dofs by conversion factor (1/3) for cubic hermite elements to bezier representation
@@ -482,6 +496,12 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
 
 end subroutine read_gvec_import
 
+! Convert from GVEC toroidal mode indexing to JOREK indexing
+!
+! GVEC lists sinusoidal modes from n=1 to n_max at indices n, followed by 
+!   cosinusoidal modes from n=0 to n_max at indices n_max + n
+! JOREK lists sinusoidal modes from n=1 to n_max at indices 2*n + 1, followed by
+!  cosinusoidal modes from n=0 to n_max at indices 2*n
 subroutine get_gvec_mode_idx(idx, n_max, sin_range, cos_range, itor)
   integer, intent(in)     :: idx, n_max, sin_range(2), cos_range(2)
   integer, intent(inout)  :: itor

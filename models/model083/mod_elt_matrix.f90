@@ -2,7 +2,7 @@ module mod_elt_matrix
   implicit none
 contains
 
-subroutine element_matrix(element,nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, i_tor_min, i_tor_max)
+subroutine element_matrix(element,nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, i_tor_min, i_tor_max, aux_nodes)
   !---------------------------------------------------------------
   ! calculates the matrix contribution of one element
   !---------------------------------------------------------------
@@ -19,11 +19,13 @@ use equil_info, only: get_psi_n
 use mod_semianalytical
 use mod_equations
 use mod_chi
+use mod_sources
 
 implicit none
 
-type (type_element), intent(in)   :: element
-type (type_node)   , intent(in)   :: nodes(n_vertex_max)
+type (type_element), intent(in)           :: element
+type (type_node),    intent(in)           :: nodes(n_vertex_max)
+type (type_node),    intent(in), optional :: aux_nodes(n_vertex_max)
 
 real*8, dimension (:,:), allocatable  :: ELM
 real*8, dimension (:)  , allocatable  :: RHS
