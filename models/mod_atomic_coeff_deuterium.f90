@@ -332,7 +332,7 @@ subroutine rec_rate_to_kinetic(ne0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, Lra
   ne_si = ne0 * central_density * 1.d20
   ne_si_lim = max(ne_si,  1.d14)    ! ADAS density is bewteen 1.d14 and 1.21 m^-3
   ne_si_lim = min(ne_si_lim,  1.d21) 
-  ne_si_log10= log10(ne_si)
+  ne_si_log10= log10(ne_si_lim) !< was ne_si
 
 	if (deuterium_adas) then  
 	  call ad_deuterium%scd%interp( 1, ne_si_log10, Te_si_log10, Sion_T, dSion_dT)

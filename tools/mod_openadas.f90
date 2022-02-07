@@ -77,7 +77,7 @@ do i_ADF11 = 1,size(ADF11_filenames,1)
   if (present(directory)) filename = trim(directory) // trim(filename)
   inquire(file=trim(filename), exist=file_exists)
   if (.not. file_exists) then
-    write(*,*) "File not found for", trim(filename)
+    write(*,*) "File not found for ", trim(filename)
     cycle ! Skip this type of data
   end if
 
