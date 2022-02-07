@@ -101,7 +101,7 @@ real*8     :: ng_radius !< Radius of neutral gas cloud as a result of the ablati
 !   -Ionization
 real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
 !real*8     :: coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss ! Ionization rate parameters
-!real*8     :: ksiion                                          ! Ionization energy
+real*8     :: ksiion                                          ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
 ! real*8      :: rec_particles_this_element !< amount of recombination in this element
@@ -719,9 +719,12 @@ do i=1,n_vertex_max
                                 source_pellet, source_volume)
           endif
 
+		  ksiion = central_density * 1.d20 * ksi_ion
 		  !> Recombination amount per gauss point per element for kinetic particles
-		  if (use_ncs) then ! .and. use_recombination
+		  if (use_ncs .and. .true. ) then ! .and. use_recombination
 			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
+			
+			!LradDcont_T = LradDcont_T - ksiion
 							          ! --- Transform derivatives on Te to derivatives in total T	
  !         	dSion_dT      = dSion_dT      / 2.d0	
 			dSrec_dT      = dSrec_dT      / 2.d0	
@@ -863,7 +866,7 @@ do i=1,n_vertex_max
             !###################################################################################################
 
             rhs_ij(5)  = v * BigR * (particle_source(ms,mt) + source_pellet + aux_rho0)           * xjac * tstep &
-			           !+ v * (0.5d0* rho_min + 0.5d0*rho_min *exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -min(r0,rho_min))  * xjac * tstep     &
+			           !+ v * (0.5d0* rho_min + 0.5d0*rho_min *exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -min(r0,rho_min))  *BigR* xjac * tstep     &
                        + v * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)                                      * tstep &
                        + v * 2.d0 * BigR * r0 * u0_y                                              * xjac * tstep &
                        - (D_par-D_prof) * BigR / BB2 * Bgrad_rho_star * Bgrad_rho                 * xjac * tstep &
@@ -901,10 +904,10 @@ do i=1,n_vertex_max
 
             rhs_ij(6) =  v * BigR * (heat_source(ms,mt) + aux_T0)                         * xjac * tstep &
 					 !+ v * 1.d-5 * ( exp(- T0 / 5.d-7 ) - exp(- (T0 +5.d-7)/ 5.d-7 ) )     * xjac * tstep     &
-					 + v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac * tstep *BigR    &
+					 + (gamma-1.d0)*v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac * tstep *BigR    &
 !!!! terms not in 303 but 500!
-                    + 0.5d0 * v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0**2 * BB2 * BigR * xjac * tstep &
-                    - v * aux_Vpar0 * vpar0 * BigR                                     * xjac * tstep &
+                    + (gamma-1.d0)*0.5d0 * v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0**2 * BB2 * BigR * xjac * tstep &
+                    - (gamma-1.d0)*v * aux_Vpar0 * vpar0 * BigR                                     * xjac * tstep &
 !!!!
             
                        + v * r0 * BigR**2 * ( T0_s * u0_t - T0_t * u0_s)                         * tstep &
@@ -929,7 +932,9 @@ do i=1,n_vertex_max
                        - ZK_par_num * (v_ps0_x  * ps0_y - v_ps0_y  * ps0_x) &
                                     * (T0_ps0_x * ps0_y - T0_ps0_y * ps0_x)               * xjac * tstep  &
 
-						- v * BigR * r0_corr * r0_corr  * LradDcont_T                       * xjac * tstep  &
+						- v * BigR * r0_corr * r0_corr  * LradDcont_T                       * xjac * tstep  & !< includes gamma-1
+						+ v * BigR * r0_corr * r0_corr  * (ksiion*Srec_T)                   * xjac * tstep  & !< correction term for LradDcont_T
+						- (gamma-1.d0)* v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T     * xjac * tstep  & ! 
 									
                        - TG_num6 * 0.25d0 * BigR**3 * T0 * (r0_x * u0_y - r0_y * u0_x)         &
                                           * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep  &
@@ -1141,6 +1146,7 @@ do i=1,n_vertex_max
                      - v * tauIC/(r0_corr*BB2**2) * BB2_psi * F0**2/BigR**2 * (ps0_x*p0_y - ps0_y*p0_x) * xjac * theta * tstep &
                      + v * tauIC/(r0_corr*BB2**2) * BB2_psi * F0**3/BigR**3 * p0_p           * xjac * theta * tstep
 
+			      !amat(1,1) = amat(1,1) *1.d12	
                   amat(1,2) = -  v * (ps0_s * u_t - ps0_t * u_s)                             * theta * tstep
 
                   amat_n(1,2) = + F0 / BigR * v * u_p * xjac                                 * theta * tstep
@@ -1288,7 +1294,8 @@ do i=1,n_vertex_max
                   !#  equation 3   (current definition)                                                              #
                   !###################################################################################################
 
-                  amat(3,3) = v * zj / BigR * xjac                                
+                  amat(3,3) = v * zj / BigR * xjac
+                  !amat(3,3) = amat(3,3) *1.d12					  
                   amat(3,1) = (v_x * psi_x + v_y * psi_y ) / BigR * xjac         
 
                   !###################################################################################################
@@ -1481,6 +1488,9 @@ do i=1,n_vertex_max
                             + v * rho * GAMMA * T0_corr * F0 / BigR * vpar0_p                 * xjac * theta * tstep &
 
 							+ v * BigR * rho * 2d0 * r0_corr * LradDcont_T                * xjac * theta * tstep &
+							- v * BigR * rho * 2d0 * r0_corr * Srec_T*ksiion              * xjac * theta * tstep &
+							+ (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * T0                      * xjac * theta * tstep & !
+							! - v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T          * xjac * theta * tstep & !rhs
 							
                          + TG_num6 * 0.25d0 * BigR**2 * T0_corr* (rho_x * u0_y - rho_y * u0_x)      &
                                    * ( v_x * u0_y - v_y * u0_x) * xjac * theta*tstep*tstep     &
@@ -1515,7 +1525,7 @@ do i=1,n_vertex_max
                             - v * r0 * BigR**2 * ( T_s  * u0_t - T_t  * u0_s)               * theta * tstep &
                             - v * T  * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)               * theta * tstep &
 							
-							- v * (exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -1.d0)*T* xjac*  theta* tstep*BigR & ! CHECK IF THIS WORKS, NOT TESTED
+							- (gamma-1.d0)*v * (exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -1.d0)*T* xjac*  theta* tstep*BigR & ! CHECK IF THIS WORKS, NOT TESTED
 
                             - v * r0 * 2.d0* GAMMA * BigR * T * u0_y                 * xjac * theta * tstep &
 
@@ -1537,6 +1547,8 @@ do i=1,n_vertex_max
                             -v * T * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0 * BigR * xjac * theta * tstep &
 
                             + v * BigR * T * r0_corr * r0_corr  * dLradDcont_dT             * xjac * theta * tstep &
+							- v * BigR * T * r0_corr * r0_corr  * dSrec_dT*ksiion           * xjac * theta * tstep &
+							+ (gamma-1.d0)*v * BigR *0.5d0 * T * r0_corr * r0_corr * (Srec_T +T0*dSrec_dT) * xjac * theta * tstep  & 
 							
                             + TG_num6 * 0.25d0 * BigR**2 * T* (r0_x * u0_y - r0_y * u0_x)         &
                                       * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep &
@@ -1580,8 +1592,8 @@ do i=1,n_vertex_max
 
                             + v * r0 * GAMMA * T0 * (vpar_s * ps0_t - vpar_t * ps0_s)       * theta * tstep        &
 
-                            - v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                            + v * aux_Vpar0 * vpar * BigR * xjac * theta * tstep &
+                            - (gamma-1.d0)*v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                            + (gamma-1.d0)*v * aux_Vpar0 * vpar * BigR * xjac * theta * tstep &
 
   
                             + TG_num6 * 0.25d0 / BigR * 2.d0 * vpar0*vpar &

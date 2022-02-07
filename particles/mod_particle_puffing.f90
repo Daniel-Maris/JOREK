@@ -37,6 +37,13 @@ module mod_particle_puffing
     real*8  :: last_time = 0.d0 !< When did we puff last 
     real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
 	
+	!> Should maybe go into a shape function?
+	!box volume puff, define 4 RZ points to determine volume
+	real*8  :: poly_R(4) = -1.d0
+	real*8	:: poly_Z(4) = -1.d0
+	logical :: boxpuff = .false.
+	
+	
 	!Time dependent puffing
 	logical :: puff_t_dependent = .false.
 	real*8  :: fueling_rate_start = 0.d0
@@ -54,7 +61,7 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,fueling_rate_start) result(new)
+function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,fueling_rate_start,poly_R,poly_Z,boxpuff) result(new)
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
   
@@ -68,6 +75,10 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   logical, intent(in), optional :: puff_t_dependent
   real*8, intent(in), optional  :: t_puff_start,t_puff_slope
   real*8, intent(in), optional  :: fueling_rate_start 
+  
+  real*8, intent(in), optional  :: poly_R(4)
+  real*8, intent(in), optional	:: poly_Z(4)
+  logical, intent(in), optional :: boxpuff
   
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
@@ -85,6 +96,9 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
   if (present(fueling_rate_start)) new%fueling_rate_start = fueling_rate_start
 
+  if (present(poly_R)) new%poly_R = poly_R
+  if (present(poly_Z)) new%poly_Z = poly_Z
+  if (present(boxpuff)) new%boxpuff = boxpuff
   !> allocate random seed for sampling
   if (present(seed)) then
     my_seed = seed
@@ -187,10 +201,15 @@ end do
   
   n_group = 1   ! Puffing Hydrogen (or actually the element at groups(1)) only
   ! Assuming the incoming gas at T=300K and a diatomic gas
-  c = sqrt((7.d0/5.d0)*300.d0*K_BOLTZ/(2.d0*sim%groups(n_group)%mass*ATOMIC_MASS_UNIT))
-
-  call find_RZ(sim%fields%node_list, sim%fields%element_list, this%R, this%Z, R, Z, &
-               i_elm, s, t ,ifail)
+  c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(n_group)%mass*ATOMIC_MASS_UNIT))
+	if (.not. this%boxpuff) then
+		call find_RZ(sim%fields%node_list, sim%fields%element_list, this%R, this%Z, R, Z, &
+				   i_elm, s, t ,ifail)
+				   
+	else
+		call find_RZ(sim%fields%node_list, sim%fields%element_list, sum(this%poly_R(1:2))/2.d0, sum(this%poly_Z(1:2))/2.d0, R, Z, &
+				   i_elm, s, t ,ifail)
+	endif
   if (ifail .ne. 0) then
     if (sim%my_id .eq. 0) write(*,*) "Warning: The valve location for puffing could not be found, maybe it was placed outside of the grid?"
     stop
@@ -248,10 +267,18 @@ end do
 	  
 !	    !$ i_rng = omp_get_thread_num()+1
         call this%rng(1)%next(u) !rng(1)
-        r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
-        theta = TWOPI * u(2)
-        R_new = this%R + r_valve * cos(theta)
-        Z_new = this%Z + r_valve * sin(theta)
+		if (.not. this%boxpuff) then
+			r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
+			theta = TWOPI * u(2)
+			R_new = this%R + r_valve * cos(theta)
+			Z_new = this%Z + r_valve * sin(theta)
+		else
+			s = u(1)
+			t = u(2)
+			R_new = this%poly_R(1)*(1.d0-s)*(1.d0-t) + this%poly_R(2)*s*(1.d0-t) + this%poly_R(3)*(1.d0-s)*t + this%poly_R(4)*s*t
+			Z_new = this%poly_Z(1)*(1.d0-s)*(1.d0-t) + this%poly_Z(2)*s*(1.d0-t) + this%poly_Z(3)*(1.d0-s)*t + this%poly_Z(4)*s*t
+		endif
+		
         call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, R, Z, s, t, i_elm, &
         R_new, Z_new, s_new, t_new, i_elm_new, ifail)
         !call find_RZ(sim%fields%node_list, sim%fields%element_list, R_new, Z_new, R, Z, &

@@ -4,7 +4,7 @@ implicit none
 contains
 
 #include "corr_neg_include.f90"
-subroutine integrate_recombination(my_id ,n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check)
+subroutine integrate_recombination(my_id ,n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check,energy_neutrals, energy_radiation )
 !---------------------------------------------------------------
 !
 !---------------------------------------------------------------
@@ -27,7 +27,7 @@ type (type_node)         :: nodes(n_vertex_max)
 
 integer    :: n_cpu, my_id
 real*8, dimension(:), allocatable, intent(out) :: rec_rate_local , rec_v_R, rec_v_Z, rec_v_phi 
-real*8, dimension(:), allocatable, optional, intent(out) :: volume_check  
+real*8, dimension(:), allocatable, optional, intent(out) :: volume_check,energy_neutrals, energy_radiation  
 
 real*8     :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss)
 real*8     :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
@@ -46,7 +46,7 @@ real*8     :: T0_corr, r0_corr
 real*8  :: Sion_T , dSion_dT           ! Normalized ionization coefficient and its temperature derivative
 real*8  :: Srec_T , dSrec_dT           ! Normalized recombination coefficient and its temperature derivative
 real*8 :: LradDcont_T, dLradDcont_dT 
-
+real*8  :: ksiion
 
 !real*8     :: Sum_rec(n_gauss,n_gauss)
 integer    :: missing, loc_rec_elms
@@ -78,6 +78,8 @@ if(.not. allocated(rec_rate_local)) then
 	allocate(rec_v_phi(local_rec_elements(my_id+1)  ))
 	
 	allocate(volume_check(local_rec_elements(my_id+1)))
+	allocate(energy_neutrals(local_rec_elements(my_id+1)))
+	allocate(energy_radiation(local_rec_elements(my_id+1)))  
 endif
 
 !> can now be done local?
@@ -88,15 +90,18 @@ rec_v_Z(:)          = 0.d0
 rec_v_phi(:)        = 0.d0
 !> volume check. 
 volume_check(:)     = 0.d0
+energy_neutrals(:)  = 0.d0
+energy_radiation(:) = 0.d0
 
 delta_phi     = 2.d0 * PI / float(n_plane) / float(n_period)
+ksiion = central_density * 1.d20 * ksi_ion
 !HZ_p,n_plane,n_gauss,n_order,n_vertex_max,TWOPI
 !$omp parallel do default(none)                                              &
 !$omp schedule(static, 100)                                               &
-!$omp   shared(local_rec_elements,my_id,n_cpu, volume_check,              &
+!$omp   shared(local_rec_elements,my_id,n_cpu, volume_check,energy_neutrals, energy_radiation ,              &
 !$omp          rec_rate_local,rec_v_R,rec_v_Z,rec_v_phi,                  &
 !$omp          element_list,node_list, H, H_s, H_t, HZ,                   & 
-!$omp          tstep,F0, delta_phi                                                      &
+!$omp          tstep,F0, delta_phi,ksiion, gamma                                                 &
 !$omp          )                                                          &
 !$omp   private(ife,ielm,iv,i,j,k,ms,mt,mp,in,                            &
 !$omp           inode,nodes,element,                                      &
@@ -211,7 +216,9 @@ enddo
 		rec_v_phi(ife)        = rec_v_phi(ife)     + (Srec_T * r0_corr * r0_corr) * (+ F0*vpar0/BigR)                  *TWOPI *BigR *xjac *tstep /n_plane *wst !rho_rec*v_phi
 		!> volume check. 
 		volume_check(ife)     = volume_check(ife)  + (1.d0)                                                            *TWOPI *BigR *xjac        /n_plane *wst
-
+		energy_neutrals(ife)  =energy_neutrals(ife)+ (gamma-1.d0) * 0.5d0 *T0 * r0_corr * r0_corr  * Srec_T            *TWOPI *BigR *xjac *tstep /n_plane *wst
+		energy_radiation(ife)=energy_radiation(ife)+ r0_corr * r0_corr  * (LradDcont_T -ksiion*Srec_T)                 *TWOPI *BigR *xjac *tstep /n_plane *wst       
+						              
 
       enddo !mt
     enddo !ms
