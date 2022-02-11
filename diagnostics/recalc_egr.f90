@@ -13,7 +13,7 @@ program recalc_egr
   integer, parameter :: nts = 20
   
   character*14 :: filein
-  integer      :: ts, ierr, i_mag, i_kin, imf
+  integer      :: ts, ierr, imf
   
   real*8, dimension(:), allocatable              :: res
   real*8, dimension(nts)                         :: time
@@ -30,17 +30,11 @@ program recalc_egr
   
   index_now = ts1
   
-  i_mag = get_expr_num_int(exprs_all_int,'Wmag_tot')
-  i_kin = get_expr_num_int(exprs_all_int,'Kin_perp_tot')
-  
   do ts=1,nts
     write(filein,'(A,i5.5)') 'jorek', index_now
     call import_restart(node_list,element_list, filein, rst_format, ierr, .true.)
     call energy3D(node_list,element_list,Wmag(:,ts),Wkin(:,ts))
-!    call int3d_new(0, node_list, element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
     time(ts) = xtime(index_now)
-!    Wmag(ts) = res(i_mag+1)
-!    Wkin(ts) = res(i_kin+1)
     index_now = index_now + 1
   end do
   

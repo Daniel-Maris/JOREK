@@ -103,9 +103,9 @@ do ife=1,element_list%n_elements
             psi_x = ( y_t(mp,ms,mt)*eq_s(in,var_psi,ms,mt) - y_s(mp,ms,mt)*eq_t(in,var_psi,ms,mt))*HZ(in,mp)/xjac
             psi_y = (-x_t(mp,ms,mt)*eq_s(in,var_psi,ms,mt) + x_s(mp,ms,mt)*eq_t(in,var_psi,ms,mt))*HZ(in,mp)/xjac
             psi_p = eq_g(in,var_psi,ms,mt)*HZ_p(in,mp) - psi_x*x_p(mp,ms,mt) - psi_y*y_p(mp,ms,mt)
-            Phi_x = ( y_t(mp,ms,mt)*eq_s(in,var_Phi,ms,mt) - y_s(mp,ms,mt)*eq_t(in,var_Phi,ms,mt))*HZ(in,mp)/xjac
-            Phi_y = (-x_t(mp,ms,mt)*eq_s(in,var_Phi,ms,mt) + x_s(mp,ms,mt)*eq_t(in,var_Phi,ms,mt))*HZ(in,mp)/xjac
-            Phi_p = eq_g(in,var_Phi,ms,mt)*HZ_p(in,mp) - Phi_x*x_p(mp,ms,mt) - Phi_y*y_p(mp,ms,mt)
+            Phi_x = ( y_t(mp,ms,mt)*eq_s(in,var_u,ms,mt) - y_s(mp,ms,mt)*eq_t(in,var_u,ms,mt))*HZ(in,mp)/xjac
+            Phi_y = (-x_t(mp,ms,mt)*eq_s(in,var_u,ms,mt) + x_s(mp,ms,mt)*eq_t(in,var_u,ms,mt))*HZ(in,mp)/xjac
+            Phi_p = eq_g(in,var_u,ms,mt)*HZ_p(in,mp) - Phi_x*x_p(mp,ms,mt) - Phi_y*y_p(mp,ms,mt)
           
             BR1 =  (psi_y*chi(0,0,1,mp) - psi_p*chi(0,1,0,mp))/(F0*BigR)
             Bz1 = -(psi_x*chi(0,0,1,mp) - psi_p*chi(1,0,0,mp))/(F0*BigR)
@@ -117,9 +117,9 @@ do ife=1,element_list%n_elements
             psi_x = ( y_t(mp,ms,mt)*eq_s(im,var_psi,ms,mt) - y_s(mp,ms,mt)*eq_t(im,var_psi,ms,mt))*HZ(im,mp)/xjac
             psi_y = (-x_t(mp,ms,mt)*eq_s(im,var_psi,ms,mt) + x_s(mp,ms,mt)*eq_t(im,var_psi,ms,mt))*HZ(im,mp)/xjac
             psi_p = eq_g(im,var_psi,ms,mt)*HZ_p(im,mp) - psi_x*x_p(mp,ms,mt) - psi_y*y_p(mp,ms,mt)
-            Phi_x = ( y_t(mp,ms,mt)*eq_s(im,var_Phi,ms,mt) - y_s(mp,ms,mt)*eq_t(im,var_Phi,ms,mt))*HZ(im,mp)/xjac
-            Phi_y = (-x_t(mp,ms,mt)*eq_s(im,var_Phi,ms,mt) + x_s(mp,ms,mt)*eq_t(im,var_Phi,ms,mt))*HZ(im,mp)/xjac
-            Phi_p = eq_g(im,var_Phi,ms,mt)*HZ_p(im,mp) - Phi_x*x_p(mp,ms,mt) - Phi_y*y_p(mp,ms,mt)
+            Phi_x = ( y_t(mp,ms,mt)*eq_s(im,var_u,ms,mt) - y_s(mp,ms,mt)*eq_t(im,var_u,ms,mt))*HZ(im,mp)/xjac
+            Phi_y = (-x_t(mp,ms,mt)*eq_s(im,var_u,ms,mt) + x_s(mp,ms,mt)*eq_t(im,var_u,ms,mt))*HZ(im,mp)/xjac
+            Phi_p = eq_g(im,var_u,ms,mt)*HZ_p(im,mp) - Phi_x*x_p(mp,ms,mt) - Phi_y*y_p(mp,ms,mt)
           
             BR2 =  (psi_y*chi(0,0,1,mp) - psi_p*chi(0,1,0,mp))/(F0*BigR)
             Bz2 = -(psi_x*chi(0,0,1,mp) - psi_p*chi(1,0,0,mp))/(F0*BigR)

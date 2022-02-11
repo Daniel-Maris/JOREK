@@ -1052,9 +1052,9 @@ do ife = ife_min, ife_max
                  end if
 
                  ! Compute the source shape
-                 ns_shape = source_shape(x_g(ms,mt),y_g(ms,mt),phi, &
-                      spi_R_tmp,spi_Z_tmp,spi_phi_tmp,              &
-                      ng_radius_tmp,ns_deltaphi,                    &
+                 ns_shape = source_shape(x_g(mp,ms,mt),y_g(mp,ms,mt),phi, &
+                      spi_R_tmp,spi_Z_tmp,spi_phi_tmp,                    &
+                      ng_radius_tmp,ns_deltaphi,                          &
                       ps0,spi_psi_tmp,spi_grad_psi_tmp,ns_deltaminrad)
 
                  local_source_volume(spi_i) = local_source_volume(spi_i) &
@@ -1071,7 +1071,7 @@ do ife = ife_min, ife_max
 
         source_neutral = 0.d0
 
-        call total_neutral_source(x_g(ms,mt),y_g(ms,mt),phi,ps0,source_neutral)
+        call total_neutral_source(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,ps0,source_neutral)
 
         ! Neutral injection rate in particles/s
         local_n_particles_inj = local_n_particles_inj + 0.5d0 * central_density * 1.d20 * source_neutral * bigR *&
@@ -1089,7 +1089,7 @@ do ife = ife_min, ife_max
         source_imp = 0.d0
         source_bg  = 0.d0
 
-        call total_imp_source(x_g(ms,mt),y_g(ms,mt),phi,ps0,source_bg,source_imp,m_i_over_m_imp)
+        call total_imp_source(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,ps0,source_bg,source_imp,m_i_over_m_imp)
 
         ! Frictional heat source
         fric_disp     =   0.5 * BigR**2 * (u0_x**2.0 + u0_y**2.0) * (source_bg + source_imp)&
