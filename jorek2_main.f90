@@ -558,7 +558,7 @@ required = 0
     
   end if !   if ( restart .and. (my_id == 0) ) then
   
-  if (my_id .eq. 0) then
+  if ((my_id .eq. 0) .and. (n_flux .gt. 1) .and. (n_tht .gt. 0) .and. (restart .or. gvec_grid_import)) then
     ! Get flux surfaces
     !surface_list%n_psi = 100
     !allocate( surface_list%psi_values(surface_list%n_psi), q(surface_list%n_psi), rad(surface_list%n_psi) )
