@@ -1117,17 +1117,17 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 
 end function f_toroidal_flux
 
-subroutine controller_function(use_controller)
-  implicit none 
+!subroutine controller_function(use_controller)
+!  implicit none 
 
-  logical,intent(in) :: use_controller
+!  logical,intent(in) :: use_controller
   
   ! determine what the controller does
-  if (use_controller) then
-      write(*,*) "The controller_function works. The controller is on"
-  else
-      write(*,*) "The controller_function works. The controller is off"
-  endif !(use_controller)
-end subroutine controller_function
+!  if (use_controller) then
+!      write(*,*) "The controller_function works. The controller is on"
+!  else
+!      write(*,*) "The controller_function works. The controller is off"
+!  endif !(use_controller)
+!end subroutine controller_function
 
 end program recobmination_loop
