@@ -166,12 +166,17 @@ endif ! (restart_particles)
 ! selecting use of controller
 use_controller = .true.
 
-! determine what the controller does
-if (use_controller) then
-  write(*,*) "The controller is on"
-else
-  write(*,*) "the controller is off"
-endif !(use_controller)
+call controller_function(use_controller)
+!it does not work yet to use the line below and use separate mod_controller.f90
+!controller_function(use_controller)
+
+!Lines below are commented to test the use of a separate module
+!! determine what the controller does
+!if (use_controller) then
+!  write(*,*) "The controller is on"
+!else
+!  write(*,*) "the controller is off"
+!endif !(use_controller)
 
 ! selecting physics (should be done in input file)
 use_puffing       = .true. !.false. 
@@ -1115,5 +1120,17 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 
 end function f_toroidal_flux
 
+subroutine controller_function(use_controller)
+  implicit none 
+
+  logical,intent(in) :: use_controller
+  
+  ! determine what the controller does
+  if (use_controller) then
+      write(*,*) "The controller_function works. The controller is on"
+  else
+      write(*,*) "The controller_function works. The controller is off"
+  endif !(use_controller)
+end subroutine controller_function
 
 end program recobmination_loop
