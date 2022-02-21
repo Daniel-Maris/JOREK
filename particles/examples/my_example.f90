@@ -33,9 +33,9 @@ use mod_particle_puffing
 use mod_edge_domain
 use mod_edge_elements
 
-!use mod_controller
+use mod_controller
 
- use mod_atomic_coeff_deuterium, only: ad_deuterium 
+use mod_atomic_coeff_deuterium, only: ad_deuterium 
 
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
@@ -72,15 +72,11 @@ integer   :: n_particles_local,n_reflect,ifail
 integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
-! controller parameters
-logical :: use_controller
-
 ! Puffing parameters
 real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
 integer :: n_puff
 logical :: puff_t_dependent,boxpuff
-
 
 !use physics
 logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
@@ -92,7 +88,6 @@ real*8    :: mom_par_tot, mom_par_in, mom_par_out, kin_par_tot, kin_par_out, kin
 real*8    :: particles_remaining, momentum_remaining, energy_remaining, all_particles, all_momentum, all_energy
 integer   :: superparticles_remaining,all_superparticles,closest_iteration!, part_i_save,part_n_save
 !integer   :: particles_per_element
-
 
 ! Start up MPI, jorek
 call sim%initialize(num_groups=1)
@@ -166,7 +161,9 @@ endif ! (restart_particles)
 ! selecting use of controller
 use_controller = .true.
 
+call doesthecontrollerwork(use_controller)
 call controller_function(use_controller)
+
 !it does not work yet to use the line below and use separate mod_controller.f90
 !controller_function(use_controller)
 
