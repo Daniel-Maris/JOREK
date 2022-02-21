@@ -460,6 +460,9 @@ subroutine preset_parameters
   jw3=1.d0  ! outer cut-off
   
   
+  !========================== controller parameters
+  use_controller    = .false.
+
   !========================== kinetic particle parameters
   restart_particles = .false.
   use_ncs           = .false.

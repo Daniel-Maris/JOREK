@@ -640,6 +640,9 @@ module phys_module
   real*8  :: zjz_0, zjz_1,  zj_coef(10)
   real*8  :: D_neutral
 
+  !> @name Controller-related input parameters
+  logical :: use_controller
+
   !> @name Particles-related input parameters
   logical :: restart_particles
   logical :: use_ncs

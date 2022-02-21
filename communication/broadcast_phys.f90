@@ -596,6 +596,9 @@ if (my_id .eq. 0) then
   call MPI_PACK(Z_valve,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(R_valve_loc2,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(Z_valve2,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+
+  call MPI_PACK(use_controller,            1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+
   ! --- Please leave this as last parameter
   test_value = 42
   call MPI_PACK(test_value,             1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -1177,7 +1180,8 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,R_valve_loc2,           1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,Z_valve2,               1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
-  
+  call MPI_UNPACK(buffer,bufsize,position,use_controller,         1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+
   ! --- Please leave this as last parameter
   call MPI_UNPACK(buffer,bufsize,position,test_value,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   if ( test_value /= 42 ) then

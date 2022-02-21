@@ -33,6 +33,8 @@ use mod_particle_puffing
 use mod_edge_domain
 use mod_edge_elements
 
+!use mod_controller
+
  use mod_atomic_coeff_deuterium, only: ad_deuterium 
 
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
@@ -69,6 +71,9 @@ real*8    :: rescale_coef, T_axis(1), E_axis, E_hot, rho_part, v2, tstart_jorek
 integer   :: n_particles_local,n_reflect,ifail
 integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
+
+! controller parameters
+logical :: use_controller
 
 ! Puffing parameters
 real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
@@ -140,7 +145,7 @@ else
 	allocate(particle_kinetic_leapfrog::sim%groups(1)%particles(n_particles_local))
 
 	!>initialise particles here if needed
-	! call initialise_particles_H_mu_psi 
+	! call initialise_particles_H_mu_psi
 	! call adjust weights
 
 	select type (p => sim%groups(1)%particles)
@@ -158,6 +163,15 @@ else
 
 endif ! (restart_particles)
 
+! selecting use of controller
+use_controller = .true.
+
+! determine what the controller does
+if (use_controller) then
+  write(*,*) "The controller is on"
+else
+  write(*,*) "the controller is off"
+endif !(use_controller)
 
 ! selecting physics (should be done in input file)
 use_puffing       = .true. !.false. 
@@ -221,7 +235,6 @@ poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /) ! coordinates of quadrangu
 !poly_R3 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
 !poly_Z3= (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
 boxpuff = .false. ! if true, valve is quadrangular shape, if false, valve is circular
-
 
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
