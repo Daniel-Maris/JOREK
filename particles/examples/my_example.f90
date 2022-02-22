@@ -161,8 +161,9 @@ endif ! (restart_particles)
 ! selecting use of controller
 use_controller = .true.
 
-call doesthecontrollerwork(use_controller)
-call controller_function(use_controller)
+! the lines below are moved under the line call with(sim, events,..)
+!call doesthecontrollerwork(use_controller)
+!call controller_function(use_controller)
 
 !it does not work yet to use the line below and use separate mod_controller.f90
 !controller_function(use_controller)
@@ -446,6 +447,10 @@ do while (.not. sim%stop_now)
   sim%time = target_time !< set time to exactly target_time for calling next event
   
   call with(sim, events, at=sim%time) !< gives new target time
+
+  ! Add the controller to the time loop
+  call doesthecontrollerwork(use_controller)
+  call controller_function(use_controller)
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
@@ -1116,18 +1121,5 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
   f = coeff(3)*exp(-coeff(2)/coeff(1)*(tanh((sqrt(s)-coeff(0))/coeff(2))))
 
 end function f_toroidal_flux
-
-!subroutine controller_function(use_controller)
-!  implicit none 
-
-!  logical,intent(in) :: use_controller
-  
-  ! determine what the controller does
-!  if (use_controller) then
-!      write(*,*) "The controller_function works. The controller is on"
-!  else
-!      write(*,*) "The controller_function works. The controller is off"
-!  endif !(use_controller)
-!end subroutine controller_function
 
 end program recobmination_loop
