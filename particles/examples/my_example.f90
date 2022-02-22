@@ -73,7 +73,7 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
+real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope!, fueling_rate_start
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
 integer :: n_puff
 logical :: puff_t_dependent,boxpuff
@@ -165,10 +165,7 @@ use_controller = .true.
 !call doesthecontrollerwork(use_controller)
 !call controller_function(use_controller)
 
-!it does not work yet to use the line below and use separate mod_controller.f90
-!controller_function(use_controller)
-
-!Lines below are commented to test the use of a separate module
+!Lines below are commented to test the use of a separate module. can be deleted later
 !! determine what the controller does
 !if (use_controller) then
 !  write(*,*) "The controller is on"
@@ -215,7 +212,7 @@ endif
 ! r_valve3    = 0.10d0!  .12
 
 !Bot puff
-puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
+puff_t_dependent = .false. !.true. !< select if you want time dependent puffing
 puff_rate = 70.d21 ! aangepast: keer tien voor test --> terug aangepast! final puff rate in atoms/second (it starts at fueling_rate_start) 280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
 fueling_rate_start = 40.d21 ! aangepast: keer tien voor test --> terug aangepast! atoms/second 40 40 worked, 20 before
 r_valve     = 0.05d0 !meters, radius of circular valve 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
@@ -263,7 +260,7 @@ if (use_puffing) then
 	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	!gas_puff3 = particle_puffing(n_puff, 20.d21, 0.12d0, 6.05, 4.15)
   end if
-  gas_puff_event = event(gas_puff)
+  gas_puff_event = new_event_ptr(gas_puff) !event(gas_puff) ! aangepast omdat event(gas_puff) niet toestond om waarden aan te pasen
   !gas_puff2_event = event(gas_puff2)
   !gas_puff3_event = event(gas_puff3)
 	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
@@ -449,8 +446,12 @@ do while (.not. sim%stop_now)
   call with(sim, events, at=sim%time) !< gives new target time
 
   ! Add the controller to the time loop
-  call doesthecontrollerwork(use_controller)
+  !call doesthecontrollerwork(use_controller) ! used for testing, not necessary anymore can be deleted later
   call controller_function(use_controller)
+  gas_puff%fueling_rate = 60.d21
+  !gas_puff_event%stored_action%gas_puff%fueling_rate = 60.d21
+  !gas_puff_event%stored_action%
+  !gas_puff_
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
