@@ -55,7 +55,7 @@ type(jorek_timestep_action), target               :: jorek_stepper
 type(particle_sputter)                            :: D_sputter_source
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: D_edge
-type(particle_puffing)                            :: gas_puff
+!type(particle_puffing)                            :: gas_puff
 type(particle_puffing)                            :: gas_puff2,gas_puff3
 type(write_particle_diagnostics)                  :: diag
 
@@ -73,7 +73,7 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope!, fueling_rate_start
+real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
 integer :: n_puff
 logical :: puff_t_dependent,boxpuff
@@ -448,10 +448,7 @@ do while (.not. sim%stop_now)
   ! Add the controller to the time loop
   !call doesthecontrollerwork(use_controller) ! used for testing, not necessary anymore can be deleted later
   call controller_function(use_controller)
-  gas_puff%fueling_rate = 60.d21
-  !gas_puff_event%stored_action%gas_puff%fueling_rate = 60.d21
-  !gas_puff_event%stored_action%
-  !gas_puff_
+  !gas_puff%fueling_rate = 60.d21 ! this one works when gas_puff is a pointer using new_event_ptr
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
