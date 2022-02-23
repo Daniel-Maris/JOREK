@@ -268,6 +268,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
 #ifdef USE_HDF5
   integer(HID_T)     :: file_id
   integer            :: ind, ierr
+  character          :: t_current_prof_initialized
 
   ! type_node, node_list%n_nodes
   real(RKIND), allocatable :: t_x(:,:,:,:)                 ! n_coord_tor, n_order+1, n_dim
@@ -446,6 +447,12 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      t_contain_node(i,:) = element_list%element(i)%contain_node
      t_nref(i)           = element_list%element(i)%nref
   end do
+  
+  if (current_prof_initialized) then
+    t_current_prof_initialized = 'T'
+  else
+    t_current_prof_initialized = 'F'
+  end if
 
   ! -> Create and open HDF5 file
   write (6,*) " HDF5 file ", filename
@@ -572,6 +579,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call HDF5_real_saving(file_id,sqrt_mu0_rho0,'sqrt_mu0_rho0'//char(0))
   call HDF5_real_saving(file_id,sqrt_mu0_rho0,'t_norm'//char(0))
   call HDF5_real_saving(file_id,sqrt_mu0_over_rho0,'sqrt_mu0_over_rho0'//char(0))
+  call HDF5_char_saving(file_id,t_current_prof_initialized,'current_prof_initialized'//char(0))
 
   if (domm) then
     call HDF5_array3D_saving(file_id,dcoef(1:4,0:l_pol_domm,0:(n_coord_tor-1)/2), &

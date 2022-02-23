@@ -19,7 +19,6 @@ use equil_info, only: get_psi_n
 use mod_semianalytical
 use mod_equations
 use mod_chi
-use mod_sources
 
 implicit none
 
@@ -46,7 +45,6 @@ integer    :: n_tor_local
 
 real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, x_s, x_t, x_p, x_ss, x_st, x_tt, x_sp, x_tp, x_pp
 real*8, dimension(n_plane,n_gauss,n_gauss) :: y_g, y_s, y_t, y_p, y_ss, y_st, y_tt, y_sp, y_tp, y_pp
-real*8, dimension(n_plane,n_gauss,n_gauss) :: current_source, particle_source, heat_source
 #ifdef altcs
 real*8, dimension(n_gauss,n_gauss) :: psieq, psieq_s, psieq_t
 real*8                             :: psieq_x, psieq_y
@@ -94,10 +92,6 @@ eq_p = 0.d0; eq_pp = 0.d0; eq_sp = 0.d0; eq_tp = 0.d0
 
 eq = 0.d0
 press_gvec = 0.d0; B_gvec = 0.d0
-
-current_source  = 0.d0
-particle_source = 0.d0
-heat_source     = 0.d0
 
 do i=1,n_vertex_max
  do j=1,n_order+1
@@ -161,16 +155,6 @@ do i=1,n_vertex_max
              eq_tt(mp,k,ms,mt) = eq_tt(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_tt(i,j,ms,mt)* HZ(in,mp)
            enddo
          enddo
-
-         if (keep_current_prof) &
-#ifdef altcs
-           call current(xpoint2, xcase2, x_g(mp,ms,mt),y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,current_source(mp,ms,mt))
-         call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
-#else
-           call current(xpoint2, xcase2, x_g(mp,ms,mt),y_g(mp,ms,mt), Z_xpoint, eq_g(mp,var_Psi,ms,mt),psi_axis,psi_bnd,current_source(mp,ms,mt))
-         call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, eq_g(mp,var_Psi,ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
-#endif
-
        enddo
      enddo
    enddo

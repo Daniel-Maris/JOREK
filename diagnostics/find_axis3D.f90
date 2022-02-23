@@ -1,4 +1,18 @@
 program find_axis3D
+!---------------------------------------------------------------------
+! This routine attempts to find the location of the magnetic axis in a
+! given poloidal plane of a 3D configuration (not restricted to stellarators), 
+! by field line tracing. The steps of the algorithm are:
+!  1) Guess (provided as input) a point for the magnetic axis in a poloidal plane
+!  2) Iterate over the following procedure n_iter times:
+!    1) Trace field line from guessed point for n_turn toroidal turns
+!    2) Check if the error (1/10 of geometric mean max(Rp) - min(Rp) and max(zp) - min(zp),
+!       where {(Rp(i),zp(i))} are the points where field line intersects the poloidal plane)
+!       is less than the tolerance
+!    3) If so, write out axis location, and exit; else iterate again starting from
+!       ((max(Rp)+min(Rp))/2,(max(zp)+min(zp))/2)
+!  3) If n_iter is exceeded, terminate and write out best approximation
+!---------------------------------------------------------------------
   use data_structure
   use phys_module
   use basis_at_gaussian
@@ -80,6 +94,7 @@ program find_axis3D
   success = .false.
   
   if (pos_out) open(13,file="position_R-z.dat")
+  ! Begin iterations
   L_IT: do i=1,n_iter
     ip = 0
   
@@ -97,6 +112,7 @@ program find_axis3D
     s_line = s_out
     t_line = t_out
   
+    ! Complete n_turn toroidal turns around the device
     do i_turn=1,n_turn
       do i_phi=1,n_phi
         delta_phi_local = 0.d0
@@ -281,9 +297,11 @@ program find_axis3D
     zc = (maxval(zp) + minval(zp))/2.d0
     error = sqrt((maxval(Rp) - minval(Rp))*(maxval(zp) - minval(zp)))/10.0
     write(*,'(A,I4,A,2E14.6,A,E14.6)') "Iteration ", i, "; center: ", Rc, zc, "; error: ", error
+    
+    ! If the error is less than the tolerance, the axis has been found.
     if (error .lt. tol) then
       success = .true.
-      exit
+      exit ! End the iterations, write results to a file and finish the program
     end if
     
     if (pos_out) then
@@ -295,8 +313,9 @@ program find_axis3D
     
     R_start = (1.d0 - mix)*R_start + mix*Rc
     z_start = (1.d0 - mix)*z_start + mix*zc
-  end do L_IT
+  end do L_IT ! End of one iteration
   
+  ! If the iterations have exceeded n_iter and the axis has still not been found, print an error message and the best guess
   if (.not. success) then
     write(*,*) "Failed to find axis to desired tolerance"
     write(*,*) "Best guess: ", Rc, zc

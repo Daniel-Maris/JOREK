@@ -558,35 +558,8 @@ required = 0
     
   end if !   if ( restart .and. (my_id == 0) ) then
   
-  if ((my_id .eq. 0) .and. (n_flux .gt. 1) .and. (n_tht .gt. 0) .and. (restart .or. gvec_grid_import)) then
-    ! Get flux surfaces
-    !surface_list%n_psi = 100
-    !allocate( surface_list%psi_values(surface_list%n_psi), q(surface_list%n_psi), rad(surface_list%n_psi) )
-    !do k = 1, surface_list%n_psi-1
-    !  surface_list%psi_values(k) = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * real(k-1)/real(surface_list%n_psi-1)
-    !  write(*, *) surface_list%psi_values(k)
-    !end do
-    !surface_list%psi_values(surface_list%n_psi) = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * (1.0 - 1.d-12)
-    !call find_flux_surfaces(0,xpoint, xcase, node_list, element_list, surface_list)
-
-    !! Determine q profile
-    !call determine_q_profile_3d(node_list, element_list, surface_list,equil_state%psi_axis, equil_state%psi_xpoint,    &
-    !  equil_state%Z_xpoint, q, rad)
-    !open(42, file='qprofile.dat', action='write', status='replace')
-    !do i=2, surface_list%n_psi
-    !   write(42,*) (surface_list%psi_values(i)-equil_state%psi_axis)/(equil_state%psi_bnd-equil_state%psi_axis), q(i),rad(i)
-    !end do
-    !close(42)
-
-    ! Determine n.B for equilibrium
+  if ((my_id .eq. 0) .and. (n_flux .gt. 1) .and. (n_tht .gt. 0) .and. (restart .or. gvec_grid_import)) &
     call determine_boundary_flux(node_list, element_list)
-    
-    ! --- Clean up.
-    !if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)
-    !if ( allocated(surface_list%flux_surfaces) ) deallocate(surface_list%flux_surfaces)
-    !if ( allocated(q)                          ) deallocate(q)
-    !if ( allocated(rad)                        ) deallocate(rad)
-  end if
 
   ! This is necessary for the parallel vacuum version during the code restart 
   if(restart) then
@@ -801,10 +774,14 @@ required = 0
   ! --- Print some grid information
   if ( my_id == 0 ) call log_grid_info(.false., node_list, element_list)
   
-  if (my_id .eq. 0 .and. init_current_prof) then
+  if (my_id .eq. 0 .and. init_current_prof .and. .not. current_prof_initialized) then
     do inode=1,node_list%n_nodes
       node_list%node(inode)%j_source = node_list%node(inode)%values(:,:,var_zj)
     end do
+    current_prof_initialized = .true.
+  else if (my_id .eq. 0 .and. init_current_prof .and. current_prof_initialized) then
+    write(*,*) "WARNING: init_current_prof was set to true, but this parameter will be ignored,"
+    write(*,*) "  as the current source has already been initialized"
   end if
   
   call MPI_Barrier(MPI_COMM_WORLD,ierr)

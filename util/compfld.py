@@ -77,6 +77,13 @@ print("<|B2 - B1|^2> = " + str(intdiff/vol))
 print("<(|B2 - B1|/|B1|)^2> = " + str(intdiff1/vol))
 print("<(|B2 - B1|/|B2|)^2> = " + str(intdiff2/vol))
 
+maxdiff = np.max(((Br2 - Br1[:,::sz,:])**2 + (Bz2 - Bz1[:,::sz,:])**2 + (Bp2 - Bp1[:,::sz,:])**2)[insd[:,::sz,:].astype(bool)])
+maxdiff1 = np.max((((Br2 - Br1[:,::sz,:])**2 + (Bz2 - Bz1[:,::sz,:])**2 + (Bp2 - Bp1[:,::sz,:])**2)/(Br1[:,::sz,:]**2 + Bz1[:,::sz,:]**2 + Bp1[:,::sz,:]**2))[insd[:,::sz,:].astype(bool)])
+maxdiff2 = np.max((((Br2 - Br1[:,::sz,:])**2 + (Bz2 - Bz1[:,::sz,:])**2 + (Bp2 - Bp1[:,::sz,:])**2)/(Br2**2 + Bz2**2 + Bp2**2))[insd[:,::sz,:].astype(bool)])
+print("max(B2 - B1)^2 = " + str(maxdiff))
+print("max(|B2 - B1|/|B1|)^2 = " + str(maxdiff1))
+print("max(|B2 - B1|/|B2|)^2 = " + str(maxdiff2))
+
 if (outfile):
     ds = nc.Dataset(outfile, 'w', format='NETCDF3_CLASSIC')
     ds.createDimension("rad",nr)

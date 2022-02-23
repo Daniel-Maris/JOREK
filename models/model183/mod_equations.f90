@@ -15,7 +15,9 @@ module mod_equations
     type(action), dimension(:), allocatable :: amat61seq, amat62seq, amat63seq, amat65seq, amat66seq
     type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq, aB2seq
 #endif
-    
+
+    ! Indices in eq array: variable index (see algexpr's below), R derivative order, z derivative order, phi derivative order,
+    !   separation of terms with covariant phi derivatives in test function and unknown (FFT)
     real*8, dimension(:,:,:,:,:), allocatable :: eq
   end type type_thread_eq
   

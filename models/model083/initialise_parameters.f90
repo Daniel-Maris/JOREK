@@ -89,7 +89,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 produce_live_data, gmres, gmres_max_iter,           &
                 gmres_m, gmres_4, gmres_tol, iter_precon,           &
                 tgnum,  pastix_pivot, max_steps_noUpdate,           &
-                keep_n0_const, linear_run, export_for_nemec,        &
+                export_for_nemec,                                   &
                 RMP_on, RMP_har_cos,RMP_har_sin,                    &
                 RMP_growth_rate, RMP_ramp_up_time,                  &
                 RMP_psi_cos_file, RMP_psi_sin_file,                 &
@@ -113,7 +113,11 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 voltage_coils, vert_FB_amp, find_pf_coil_currents,  &
                 pastix_maxthrd, eta_ohmic, centralize_harm_mat,     &
                 vert_FB_amp_ts, vert_FB_gain, vert_pos_file,        & 
-                vert_FB_tact, start_VFB_ts, I_coils_max
+                vert_FB_tact, start_VFB_ts, I_coils_max,            &
+                autodistribute_modes, modes_per_family,             &
+                mode_families_modes, n_mode_families,               &
+                weights_per_family, autodistribute_ranks,           &
+                ranks_per_family
                 
 namelist /dommcoef/  R_domm, dcoef
 
@@ -136,10 +140,8 @@ if (my_id .eq. 0) then
     read(42,in1)
     close(42)
   else
-
     read(5,in1)
-
- endif
+  endif
 
  !==============================R_Z_psi_bnd==========================
    if ( (n_boundary.ne.0) .and. (R_Z_psi_bnd_file /= 'none') ) then
@@ -185,9 +187,9 @@ if (my_id .eq. 0) then
     nstep_n    = 0
     nstep_n(1) = nstep
   endif
-  
-  if (i_plane_rtree .ge. n_plane) then
-    write(*,*) 'ERROR: The variable i_plane_rtree must be less than the total number of poloidal planes'
+
+  if (i_plane_rtree .gt. n_plane .or. i_plane_rtree .lt. 1) then
+    write(*,*) 'ERROR: The variable i_plane_rtree must be between 1 and the total number of poloidal planes'
     write(*,'(A,I4,A,I4)') 'i_plane_rtree = ', i_plane_rtree, '; n_plane = ', n_plane
     stop
   end if
@@ -196,7 +198,6 @@ if (my_id .eq. 0) then
 
 endif
 
-keep_n0_const  = ( keep_n0_const .or. linear_run )
 ! --- Read numerical profiles for rho, T, ff', toroidal rotation and neoclassical coefficients.
 call read_num_profiles(my_id)
 

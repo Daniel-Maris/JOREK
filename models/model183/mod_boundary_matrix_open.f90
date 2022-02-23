@@ -3,10 +3,9 @@ module mod_boundary_matrix_open
 contains
 subroutine boundary_matrix_open(vertex, direction, element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, &
                                 psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, i_tor_min, i_tor_max)
-!---------------------------------------------------------------------
-! calculates the matrix contribution of the boundaries of one element
-! implements the natural boundary conditions
-!---------------------------------------------------------------------
+!--------------------------------------------------------------------------------------------------------------------
+! implements a boundary condition for zj, which allows the values of zj on the boundary to change during a simulation
+!--------------------------------------------------------------------------------------------------------------------
 use mod_parameters
 use data_structure
 use gauss

@@ -25,6 +25,7 @@
 !*******************************************************************************
 !*                                                                             *
 !* Solve the differential equation for Psi on boundary, ensuring that n.B = 0  *
+!* (see eq 4.23 in N. Nikulsin's PhD thesis, doi:10.17617/2.3359934)           *
 !* The solution is then used as an imhomogeneous Dirichlet b.c. for Psi        *
 !*                                                                             *
 !*******************************************************************************
@@ -50,7 +51,7 @@ contains
                                   A_mat, i_tor_min, i_tor_max )
 
     use data_structure
-    use phys_module, only: F0, GAMMA, keep_n0_const, bc_natural_open
+    use phys_module, only: F0, GAMMA, bc_natural_open
     use vacuum, only: is_freebound
     use mpi_mod
     use mod_locate_irn_jcn
@@ -85,7 +86,7 @@ contains
     real*8,                allocatable, intent(inout) :: A_mat(:) 
 
     ! Internal parameters
-    real*8                :: zbig, zbig_backup
+    real*8                :: zbig
     integer               :: i, in, iv, inode, k
     integer               :: ielm
     integer               :: index_node
@@ -95,7 +96,6 @@ contains
 
     n_tor_local = i_tor_max - i_tor_min + 1
     zbig = 1.d12
-    zbig_backup = zbig
        do i=1, n_local_elms
 
           ielm = local_elms(i)
@@ -107,11 +107,6 @@ contains
              if (node_list%node(inode)%boundary .ne. 0) then
 
                 do in=i_tor_min, i_tor_max 
-                  if (keep_n0_const  .and.  in .eq. 1 ) then
-                    zbig = 1.d15
-                  else
-                    zbig = zbig_backup
-                  endif
 
                    do k=1, n_var
                       if (bc_natural_open .and. k .eq. var_zj) cycle
@@ -206,6 +201,13 @@ contains
   end subroutine boundary_conditions
   
   subroutine solve_Psi_boundary_eqn(node_list, boundary_list)
+  !---------------------------------------------------------------------------------------------------------------------------------
+  ! The Psi boundary equation is solved using the Fourier-Galerkin method here
+  ! \int\int v*dPsi/dtheta*dtheta*dchi = -\int\int v*J'grad(s).grad(chi)*dtheta*dchi
+  ! where v = Z_m(theta)*Z_n(chi) is the test function and Psi = \sum_{m,n} C_{m,n}*Z_m(theta)*Z_n(chi)
+  ! The theta integration is over [0,2*pi] and the chi integration is over [chi_0,chi_0+2*pi*F_0/N_p], where chi_0 is the value of
+  ! chi at the initial chi=const surface and N_p is the number of periods.
+  !---------------------------------------------------------------------------------------------------------------------------------
     use constants, only: pi
     use mod_parameters, only: n_period, n_plane, n_order, n_tor, n_coord_tor
     use phys_module, only: F0, m_pol_bc
@@ -276,6 +278,9 @@ contains
 
     Amat = 0.d0; RHS = 0.d0
 
+    ! Integration of the RHS: it is much easier to integrate over one period than over the manifold [0,2*pi]x[chi_0,chi_0+2*pi*F_0/N_p]
+    ! Due to periodicity, integration over the manifold above is equivalent to integration over one period
+    ! The Jacobian for dtheta*dchi -> dtheta*dphi is dchi/dphi
     do ielm=1,N_tht
       do ms=1,n_gauss
         theta = 2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht)
@@ -285,8 +290,10 @@ contains
           phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
           chi = get_chi(x_g(mp,ms,ielm),y_g(mp,ms,ielm),phi)
           grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
+          ! -e_theta x e_phi = -J*grad(psi)
           Jgrad_ps = (/ -BigR*y_s(mp,ms,ielm), BigR*x_s(mp,ms,ielm), x_p(mp,ms,ielm)*y_s(mp,ms,ielm) - x_s(mp,ms,ielm)*y_p(mp,ms,ielm) /)
-          Jgrad_ps = Jgrad_ps*N_tht/(2.d0*pi)
+          Jgrad_ps = Jgrad_ps*N_tht/(2.d0*pi) ! Multiply by dt/dtheta since J = 1/(grad(psi).(grad(theta)xgrad(phi))) and (s,t,phi) CS used above
+          ! Note that J'*dchi/dphi = J, where J' = 1/(grad(psi).(grad(theta)xgrad(chi))) and dchi/dphi is from the switch dtheta*dchi -> dtheta*dphi
 
           ind1 = 1
           do n=1,n_tor
@@ -300,19 +307,24 @@ contains
     end do
     RHS = RHS*(2.d0*pi)**2/float(n_period*n_plane*N_tht)
 
+    ! The integrals in the matrix are done analytically since they only contain sines and cosines
+    ! Here, it is better to integrate over the original manifold
     ind1 = 1
+    ! Loop over test functions (rows in the matrix)
     do n=1,n_tor
       do m=1,m_pol_bc
         ind2 = 1
+        ! Loop over basis functions in the 2D Fourier decomposition of Psi (columns in the matrix)
         do nn=1,n_tor
           do mm=1,m_pol_bc
-            if (n .eq. nn) then
-              if (mod(m,2) .eq. 1 .and. mm .eq. m + 1) then
+            if (n .eq. nn) then ! The test and basis functions are orthogonal if their chi indices are different (no chi derivatives)
+              if (mod(m,2) .eq. 1 .and. mm .eq. m + 1) then ! If theta t.f. is cos, theta b.f. must be sin w/ same mode number (derivative is cos)
                 Amat(ind1,ind2) =  pi*(mm/2)
-              else if (mod(m,2) .eq. 0 .and. mm .eq. m - 1) then
+              else if (mod(m,2) .eq. 0 .and. mm .eq. m - 1) then ! If theta t.f. is sin, theta b.f. must be cos w/ same mode number (derivative is sin)
                 Amat(ind1,ind2) = -pi*(m/2)
               end if
 
+              ! Multiply by the result of integration over chi; additional factor of 2 if both chi t.f. and b.f. are 1
               if (n .eq. 1) then
                 Amat(ind1,ind2) = Amat(ind1,ind2)*2.d0*pi*F0/n_period
               else
@@ -355,6 +367,7 @@ contains
     integer :: ielm, i, j, mp, im, in, n, m, ind
     real*8  :: R, z, R_s, z_s, phi, theta, Psi, Psi_tht, Psi_chi, chi_tht
     
+    ! Dofs for Psi at a particular boundary node -- values of Psi (Psi_dof) and its poloidal (tangential) derivative (Psi_dof2)
     real*8, dimension(n_tor) :: Psi_dof, Psi_dof2
     
     real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
@@ -371,10 +384,11 @@ contains
         R = 0.d0; R_s = 0.d0
         z = 0.d0; z_s = 0.d0
         Psi = 0.d0; Psi_tht = 0.d0; Psi_chi = 0.d0
-          
+        
+        ! Find R, z and their poloidal derivatives at the current boundary node and poloidal plane
         do im=1,n_coord_tor
           R   = R   + node_list%node(in)%x(im,1,1)*HZ_coord(im,mp)
-          R_s = R_s + node_list%node(in)%x(im,j,1)*HZ_coord(im,mp)*3.d0
+          R_s = R_s + node_list%node(in)%x(im,j,1)*HZ_coord(im,mp)*3.d0 ! Poloidal derivative at node is 3x the corresponding dof of that node
           z   = z   + node_list%node(in)%x(im,1,2)*HZ_coord(im,mp)
           z_s = z_s + node_list%node(in)%x(im,j,2)*HZ_coord(im,mp)*3.d0
         end do
@@ -382,6 +396,7 @@ contains
         chi = get_chi(R,z,phi)
         chi_tht = (R_s*chi(1,0,0) + z_s*chi(0,1,0))*bnd_node_list%n_bnd_nodes/(2.d0*pi)
         
+        ! Using the (theta,chi) 2D Fourier basis, calculate the values of Psi and its derivatives at the current point
         ind = 1
         do n=1,n_tor
           do m=1,m_pol_bc
@@ -392,21 +407,24 @@ contains
           end do
         end do
         
+        ! Now integrate Psi and its theta derivative (in the (psi,theta,phi) CS) over phi
         do im=1,n_tor
           Psi_dof(im) = Psi_dof(im) + Psi*HZn(im,phi)
           Psi_dof2(im) = Psi_dof2(im) + (Psi_tht + Psi_chi*chi_tht)*HZn(im,phi)
         end do
       end do
       
-      Psi_dof2 = Psi_dof2*2.d0*pi/bnd_node_list%n_bnd_nodes
+      Psi_dof2 = Psi_dof2*2.d0*pi/bnd_node_list%n_bnd_nodes ! Multiply by dtheta/dt to get derivative wrt element local coordinate
       
+      ! Combining two steps here (multiplying by delta_phi and dividing by integrals of 1, sin^2, cos^2 to get modes), several factors cancel
       Psi_dof(1) = Psi_dof(1)/n_plane
-      Psi_dof2(1) = Psi_dof2(1)/(3.d0*n_plane)
+      Psi_dof2(1) = Psi_dof2(1)/(3.d0*n_plane) ! divide the derivative by 3 to get the Bezier dof
       if (n_tor .gt. 1) then
         Psi_dof(2:) = Psi_dof(2:)*2.d0/n_plane
         Psi_dof2(2:) = Psi_dof2(2:)*2.d0/(3.d0*n_plane)
       end if
       
+      ! Multiply by F0 so that the internally stored Psi matches the Grad-Shafranov solution in the tokamak limit
       node_list%node(in)%values(:,1,var_Psi) = F0*Psi_dof
       node_list%node(in)%values(:,j,var_Psi) = F0*Psi_dof2
     end do

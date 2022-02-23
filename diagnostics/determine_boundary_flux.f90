@@ -46,7 +46,6 @@ delta_phi = 2 * PI / float(n_plane+1) / float(n_period)
 sum_dA = 0.d0
 sum_dA_abs = 0.d0
 ! Loop through pieces in poloidal plane
-!open(21, file='normal_points.dat')
 do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
   do i_plane=1,n_plane+1
     do ig1 = 1, 4
@@ -82,7 +81,6 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
         ! Calculate normal to boundary
         n_perp = (/-dZZgi_dt, dRRgi_dt, (dRRgi_dp*dZZgi_dt-dRRgi_dt*dZZgi_dp)/RRgi /)
         n_perp = n_perp / sqrt(sum(n_perp*n_perp))
-        !if ((i_plane .eq. 1) .and. (ig2 .eq. 1)) write(21,'(5ES16.8)') RRgi, ZZgi, n_perp
 
         ! Calculate surface area contribution from covariant components
         c_phi = cos(p)
@@ -91,7 +89,6 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
                       (-dRRgi_dt*dZZgi_dp*c_phi+(dRRgi_dp*c_phi-RRgi*s_phi)*dZZgi_dt),  &
                       (dRRgi_dt * RRgi)  /)
         dA = sqrt(cross_deriv(1)*cross_deriv(1) + cross_deriv(2)*cross_deriv(2) + cross_deriv(3)*cross_deriv(3)) 
-        !dA = sqrt(dRRgi_dt**2 + dZZgi_dt**2 + (dRRgi_dt * dZZgi_dp - dZZgi_dt * dRRgi_dp) ** 2)
 
         ! Calculate n.B
         RZjac  = DRRgi_dr * dZZgi_ds - dRRgi_ds * dZZgi_dr
@@ -104,14 +101,14 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
         ndotB = sum(n_perp*B_boundary)      
         ndotB_max = max(abs(ndotB), ndotB_max)
 
-        ! Factors of 0.5 for conversion of weights from -1 to 1 to weights between 0 and 1
+        ! Factors of 0.5 to convert the integration interval from [-1,1] to [0,1] (poloidal direction) 
+        !   and 0.5*delta_phi to convert the integration interval from [-1,1] to [phi_i,phi_i+delta_phi] (toroidal direction)
         sum_dA = sum_dA +  wgs(ig1) * 0.5 * wgs(ig2) * 0.5 * delta_phi * dA * ndotB 
         sum_dA_abs = sum_dA_abs +  wgs(ig1) * 0.5 * wgs(ig2) * 0.5 * delta_phi * dA * abs(ndotB) 
       end do
     end do
   end do
 end do
-!close(21)
 
 write(*,*) "Max n.B: ", ndotB_max
 write(*,*) "Integrated abs(n.B): ", n_period * sum_dA_abs, "Tm^2"
