@@ -63,7 +63,7 @@ real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydroge
 real*8    :: target_time, projection_time
 real*8    :: physical_particles, weight
 real*8    :: tstep_keep,oldtime, step_rest_time, particle_step_time, particle_start_time, diag_time
-real*8    :: rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, tstep_si, timesteps
+real*8    :: v_norm, E_norm, M_norm, tstep_si, timesteps!, rho_norm, t_norm, n_norm
 real*8    :: v_kin_temp, E(3), B(3), psi, U, B_norm(3)
 real*8    :: rescale_coef, T_axis(1), E_axis, E_hot, rho_part, v2, tstart_jorek
 !$ real*8 :: w0, w1, mmm(3)
@@ -212,7 +212,7 @@ endif
 ! r_valve3    = 0.10d0!  .12
 
 !Bot puff
-puff_t_dependent = .false. !.true. !< select if you want time dependent puffing
+puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
 puff_rate = 70.d21 ! aangepast: keer tien voor test --> terug aangepast! final puff rate in atoms/second (it starts at fueling_rate_start) 280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
 fueling_rate_start = 40.d21 ! aangepast: keer tien voor test --> terug aangepast! atoms/second 40 40 worked, 20 before
 r_valve     = 0.05d0 !meters, radius of circular valve 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
