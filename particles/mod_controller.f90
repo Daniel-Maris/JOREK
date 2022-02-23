@@ -5,9 +5,12 @@
 !note: all variables that you allocate here cannot be allocated at the same time in the module where you use mod_controller
 
 module mod_controller
+    
+    ! The two commented modules were used for testing and can be deleted when remaining redundant
+    !use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, tstep, tstep_particles
+    !use constants,   only: MU_ZERO, MASS_PROTON
     use mod_particle_puffing
-    use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use constants,   only: MU_ZERO, MASS_PROTON
+    use mod_particle_sim
 
     implicit none
         
@@ -16,27 +19,56 @@ module mod_controller
     
     ! usage parameters
     type(particle_puffing) :: gas_puff
-    real*8                 :: rho_norm, t_norm, n_norm
+    class(particle_puffing), pointer :: this
+    real*8                 :: t_norm!, n_norm, timesteps, tstep_si, rho_norm !!!!must be uncommented in my_example when commented here!!!!!
+    !integer                :: n_steps !!!!! must be uncommented in my_example when commented here!!!!!
+
+    !All commented variables below and above were used for testing and can later be deleted when they remain redundant
+    !real*8,intent(in)   :: max_puff, min_puff
+    !real*8              :: to_puff
+    !real*8,intent(in)    :: t_puff_start,t_puff_slope
+    !real*8,intent(in)    :: time
 
 contains
 
-subroutine controller_function(use_controller)
+subroutine controller_function(use_controller,this,sim)
     implicit none 
-  
-    logical,intent(in) :: use_controller
     
-    n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-    rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
-    t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
+    class(particle_puffing) , intent(inout) :: this
+    type(particle_sim), intent(inout)       :: sim
 
-    ! determine what the controller does
+    logical,intent(in) :: use_controller
+
+    !All commented variables below were used for testing and can later be deleted when they remain redundant
+    !real*8,intent(in)   :: max_puff, min_puff
+    !real*8              :: to_puff
+    !real*8,intent(in)    :: t_puff_start,t_puff_slope
+    !real*8,intent(in)    :: time
+    !n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
+    !rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+    !t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
+    !timesteps         = tstep_particles
+    !tstep_si          = tstep * t_norm
+    !n_steps           = floor(tstep_si / timesteps)
+    !timesteps         = tstep_si / n_steps
+    !n_steps           = tstep_si / timesteps
+
+    ! The following if-statement determines what the controller does
     ! note: if you want to change parameters that are part of an action within an event, the event must be a pointer (use new_event_ptr() instead of event())
     if (use_controller) then
         write(*,*) "The controller_function works. The controller is on"
-        gas_puff%fueling_rate = 60.d21    ! we can adjust this%fuelling_rate here depending on the required input signal
-        gas_puff%t_puff_slope = 1.d-3
-        gas_puff%t_puff_start = 10*t_norm
+        !the lines below were used for run 16 and part of commit 10
+        !gas_puff%fueling_rate = 60.d21    ! we can adjust this%fuelling_rate here depending on the required input signal
+        !gas_puff%t_puff_slope = 1.d-3
+        !gas_puff%t_puff_start = 10*t_norm
         
+        !A test to make sure sim%time works properly and is usable to make the controller function time dependent
+        write(*,"(A,g12.4)") "test voor controller, this is the time now", sim%time 
+        
+        !First test to define a certain time dependent fuelling rate signal from within the controller function. Currently it is the same function as the time-dependent_puff function within mod_particle_puffing
+        gas_puff%fueling_rate = time_dependent_puff_controller(25.d21,sim%time, 10*t_norm,500*t_norm, 20.d21)
+         
+        ! Next steps to implement in the controller function:
         ! call the setpoint on this timestep 
         ! measure value
         ! determine error
@@ -47,5 +79,20 @@ subroutine controller_function(use_controller)
         write(*,*) "The controller_function works. The controller is off"
     endif !(use_controller)
 end subroutine controller_function
+
+pure function time_dependent_puff_controller(max_puff,time, t_puff_start,t_puff_slope, min_puff) result(to_puff)
+real*8,intent(in)   :: max_puff, min_puff
+real*8              :: to_puff
+real*8,intent(in)    :: t_puff_start,t_puff_slope
+real*8,intent(in)    :: time
+
+if (time-(t_puff_start+t_puff_slope) .ge. 0.d0) then
+	to_puff = max_puff
+elseif (time-t_puff_start .ge. 0.d0) then
+	to_puff = min_puff+ (max_puff -min_puff) * (time-t_puff_start)/(t_puff_slope)  
+else
+    to_puff = min_puff !default = 0.d0
+endif
+end function time_dependent_puff_controller
 
 end module
