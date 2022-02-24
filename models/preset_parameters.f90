@@ -462,6 +462,7 @@ subroutine preset_parameters
   
   !========================== controller parameters
   use_controller    = .false.
+  controller_timedependentsignal_file = 'none'
 
   !========================== kinetic particle parameters
   restart_particles = .false.

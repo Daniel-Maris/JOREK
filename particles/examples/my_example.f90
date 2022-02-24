@@ -59,6 +59,8 @@ type(edge_elements)                               :: D_edge
 type(particle_puffing)                            :: gas_puff2,gas_puff3
 type(write_particle_diagnostics)                  :: diag
 
+type(time_dependent_signal)                        ::time_dependent_signal_controller
+
 real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
 real*8    :: target_time, projection_time
 real*8    :: physical_particles, weight
@@ -447,7 +449,7 @@ do while (.not. sim%stop_now)
 
   ! Add the controller to the time loop
   !call doesthecontrollerwork(use_controller) ! used for testing, not necessary anymore can be deleted later
-  call controller_function(use_controller,this,sim)
+  call controller_function(use_controller,this,sim, time_dependent_signal_controller)
   !gas_puff%fueling_rate = 60.d21 ! this one works when gas_puff is a pointer using new_event_ptr
 
   !> run particle source routines directly after the jorek_stepper

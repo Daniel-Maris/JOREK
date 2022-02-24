@@ -642,6 +642,7 @@ module phys_module
 
   !> @name Controller-related input parameters
   logical :: use_controller
+  character(len=256) :: controller_timedependentsignal_file
 
   !> @name Particles-related input parameters
   logical :: restart_particles
