@@ -22,17 +22,17 @@ implicit none
 
 !--- Input parameters --------------------!
 !-----------------------------------------!
-real*8, parameter  :: delta_phi = 1.d-2
-integer, parameter :: npoints = 20
+real*8, parameter  :: delta_phi = 5.d-3
+integer, parameter :: npoints = 30
 integer, parameter :: num_pol_turns = 100
-integer, parameter :: assumed_max_q = 10
+integer, parameter :: assumed_max_q = 5
 !-----------------------------------------!
 !-----------------------------------------!
 
 real*8    :: Rstart(npoints), Zstart(npoints)                      
 integer   :: i, j, k, i_elm, ifail, my_id, ierr, inode, i_cpu            
 integer   :: iside_i, iside_j
-real*8    :: Rout, Zout, polturns, torturns
+real*8    :: Rout, Zout, polturns, torturns, torturns_old
 logical   :: stop_tracing
 real*8    :: R_axis, Z_axis, R_max
 
@@ -63,6 +63,7 @@ integer   :: e_tplus   = 3
 integer   :: e_tminus  = 1
 
 integer   :: i_var_psi = 1
+real*8    :: q_thresh = 1e-1  ! Minimum value of q accepted for a local poloidal turn. For values below q_thresh the poloidal turn is ignored
 
 required = MPI_THREAD_FUNNELED
 call MPI_Init_thread(required, provided, StatInfo)
@@ -169,7 +170,7 @@ do i = 1, npoints
   ! --- Trace field line
   stop_tracing = .false.
   polturns     = 0.d0
-  torturns     = 0.d0
+  torturns     = 0.d0; torturns_old = 0.0
   j            = 0
   do while( .not. stop_tracing )
 
@@ -189,8 +190,12 @@ do i = 1, npoints
 
     ! Determine if poloidal turn is made
     if ( (RR - R_axis) > 0.d0 .and. (( ZZ - Z_axis ) * ( Zold - Z_axis )) .le. 0.d0 .and. j > 1 ) then
-      polturns = polturns + 1.d0
-      if (polturns .eq. num_pol_turns) stop_tracing = .true.
+      ! As Z_axis = Z_start may not be 0 for a stellarator, this if clause is necessary to stop small toroidal turns in the first few field steps
+      if ((torturns + phi/(2*PI) - torturns_old) .gt. q_thresh) then
+        polturns = polturns + 1.d0
+        torturns_old = torturns + phi/(2*PI)
+        if (polturns .eq. num_pol_turns) stop_tracing = .true.
+      endif
     end if  
   end do
   
