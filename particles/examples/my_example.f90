@@ -78,7 +78,7 @@ integer   :: seed, i_rng, n_stream
 real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
 integer :: n_puff
-logical :: puff_t_dependent,boxpuff
+logical :: boxpuff!, puff_t_dependent
 
 !use physics
 logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
@@ -162,6 +162,11 @@ endif ! (restart_particles)
 
 ! selecting use of controller
 use_controller = .true.
+! One of the logicals below must be true when use_controller is true
+contr_change_timedepsignal = .false.
+contr_selfdefinedsignal = .false.
+contr_usedatafile = .false.
+contr_analytical = .true.
 
 ! the lines below are moved under the line call with(sim, events,..)
 !call doesthecontrollerwork(use_controller)
@@ -448,7 +453,7 @@ do while (.not. sim%stop_now)
   call with(sim, events, at=sim%time) !< gives new target time
 
   ! Add the controller to the time loop
-  call controller_function(use_controller,this,sim, time_dependent_signal_controller)
+  call controller_function(use_controller,this,sim, time_dependent_signal_controller,contr_change_timedepsignal,contr_selfdefinedsignal,contr_usedatafile,contr_analytical)
   !gas_puff%fueling_rate = 60.d21 ! this one works when gas_puff is a pointer using new_event_ptr. This was a test for controller. can be deleted later
 
   !> run particle source routines directly after the jorek_stepper
