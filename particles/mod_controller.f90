@@ -64,7 +64,12 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
         call readProf(time_dependent_signal_controller%time, time_dependent_signal_controller%signal, &
         time_dependent_signal_controller%len, controller_timedependentsignal_file)
         write(*,"(A,g12.4,A,g12.4)") "current time signal", time_dependent_signal_controller%time(index_now), "current signal", time_dependent_signal_controller%signal(index_now) 
-        gas_puff%fueling_rate = time_dependent_signal_controller%signal(index_now)
+        if (index_now .le. time_dependent_signal_controller%len) then
+            gas_puff%fueling_rate = time_dependent_signal_controller%signal(index_now)
+        else
+            write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
+            stop
+        endif
 
         ! Next steps to implement in the controller function:
         ! call the setpoint on this timestep 
