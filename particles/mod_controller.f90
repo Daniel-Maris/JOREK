@@ -11,12 +11,14 @@ module mod_controller
     !use constants,   only: MU_ZERO, MASS_PROTON
     use mod_particle_puffing
     use mod_particle_sim
+    use phys_module, only: index_now
 
     implicit none
         
     ! controller parameters
     logical                :: use_controller
     character(len=256) :: controller_timedependentsignal_file
+    !integer :: index_now
 
     ! usage parameters
     type(particle_puffing) :: gas_puff
@@ -48,8 +50,8 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
     type(particle_sim), intent(inout)       :: sim
     type(time_dependent_signal), intent(inout) ::time_dependent_signal_controller
     logical,intent(in) :: use_controller
-    controller_timedependentsignal_file = '/home/ITER/vanhooe/Documents/Datafiles/datafile' ! Note: check the directory to the datafile
-
+    controller_timedependentsignal_file = '/home/ITER/vanhooe/Documents/Datafiles/datafile.dat' ! Note: check the directory to the datafile
+    
     !All commented variables below were used for testing and can later be deleted when they remain redundant
     !real*8,intent(in)   :: max_puff, min_puff
     !real*8              :: to_puff
@@ -75,14 +77,14 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
         
         !A test to make sure sim%time works properly and is usable to make the controller function time dependent
         write(*,"(A,g12.4)") "test voor controller, this is the time now", sim%time 
-        
+        write(*,"(A,g12.4)") "test voor controller, this is index_now", index_now 
         !First test succeeded to define a certain time dependent fuelling rate signal from within the controller function. Currently it is the same function as the time-dependent_puff function within mod_particle_puffing
         !gas_puff%fueling_rate = time_dependent_puff_controller(25.d21,sim%time, 10*t_norm,500*t_norm, 20.d21)
          
         !Test to import time trace using a datafile
         call readProf(time_dependent_signal_controller%time, time_dependent_signal_controller%signal, &
         time_dependent_signal_controller%len, controller_timedependentsignal_file)
-        write(*,"(A,g12.4,A,g12.4)") "current time signal", time_dependent_signal_controller%time, "current signal", time_dependent_signal_controller%signal 
+        write(*,"(A,g12.4,A,g12.4)") "current time signal", time_dependent_signal_controller%time(index_now), "current signal", time_dependent_signal_controller%signal(index_now) 
         
 
         ! Next steps to implement in the controller function:

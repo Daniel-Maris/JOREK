@@ -448,9 +448,8 @@ do while (.not. sim%stop_now)
   call with(sim, events, at=sim%time) !< gives new target time
 
   ! Add the controller to the time loop
-  !call doesthecontrollerwork(use_controller) ! used for testing, not necessary anymore can be deleted later
   call controller_function(use_controller,this,sim, time_dependent_signal_controller)
-  !gas_puff%fueling_rate = 60.d21 ! this one works when gas_puff is a pointer using new_event_ptr
+  !gas_puff%fueling_rate = 60.d21 ! this one works when gas_puff is a pointer using new_event_ptr. This was a test for controller. can be deleted later
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
