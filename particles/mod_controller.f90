@@ -40,6 +40,10 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
     type(time_dependent_signal), intent(inout) ::time_dependent_signal_controller
     logical,intent(in) :: use_controller
 
+    integer :: l, err
+    character(len=60) :: s, filename
+    real*8 :: r
+
     controller_timedependentsignal_file = '/home/ITER/vanhooe/Documents/Datafiles/datafile.dat' ! Note: check the directory to the datafile
     
     !> The following if-statement determines what the controller does
@@ -61,9 +65,61 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
         !gas_puff%fueling_rate = time_dependent_puff_controller(25.d21,sim%time, 10*t_norm,500*t_norm, 20.d21)
          
         !> Example of how to import a time dependent signal using a datafile
-        call readProf(time_dependent_signal_controller%time, time_dependent_signal_controller%signal, &
-        time_dependent_signal_controller%len, controller_timedependentsignal_file)
+        !call readProf(time_dependent_signal_controller%time, time_dependent_signal_controller%signal, &
+        !time_dependent_signal_controller%len, controller_timedependentsignal_file)
+        !write(*,"(A,g12.4,A,g12.4)") "current time signal", time_dependent_signal_controller%time(index_now), "current signal", time_dependent_signal_controller%signal(index_now) 
+        !if (index_now .le. time_dependent_signal_controller%len) then
+        !    gas_puff%fueling_rate = time_dependent_signal_controller%signal(index_now)
+        !else
+        !    write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
+        !    stop
+        !endif
+
+        !test to create and use a datafile for a time dependent signal using Python
+        if (index_now .eq. 2) then
+            write(*,*) "During the first timestep in the controller the datafile is made using Python."
+            ! --- Python script - copied from vacuum.f90 and adjusted afterwards
+            call random_seed()
+            err = 1
+            do while ( err /= 0 )
+                call random_number(r)
+                l = r * 99999999
+                write(s,*) l
+                filename='./jorek_controller_expr_'//trim(adjustl(s))//'.py'
+                open(42, file=trim(filename), status='new', iostat=err)
+            end do
+            111 format(2a)
+            112 format(a,i16)
+            113 format(a,es25.16)
+            !The following lines are the Python code
+            write(42,111) 'from math import *'
+            write(42,111) 'def f(t):'
+            write(42,111) '  return ', trim('1200*exp(-(t-1000.)**2/(200.)**2)')
+            write(42,112) 'len=', 144
+            write(42,113) 'tmin=', 0
+            write(42,113) 'tmax=', 1.d-4
+            write(42,111) 'for x in range(1,len):'
+            write(42,111) '  t=tmin+(x-1)/float(len-1)*(tmax-tmin)'
+            write(42,111) '  s = "%25.16e"%t'
+            write(42,111) '  s += "%25.16e"%f(t)'
+            write(42,111) '  print(s)'
+            close(42)
+        
+            ! --- Call Python
+            call system('python ./jorek_controller_expr_'//trim(adjustl(s))//'.py > ./jorek_controller_expr_'//trim(adjustl(s))//'.dat')
+        
+            ! --- Read the result
+            call readProf(time_dependent_signal_controller%time, time_dependent_signal_controller%signal, &
+            time_dependent_signal_controller%len, './jorek_controller_expr_'//trim(adjustl(s))//'.dat')
+        
+            ! --- Delete temporary files
+            call system('rm ./jorek_curr_expr_'//trim(adjustl(s))//'.py ./jorek_curr_expr_'//trim(adjustl(s))//'.dat')
+        elseif (index_now .eq. 3) then
+            write(*,*) "The first timestep in the controller has ended so the datafile is already generated and does not have to be generated again"
+        endif
+
         write(*,"(A,g12.4,A,g12.4)") "current time signal", time_dependent_signal_controller%time(index_now), "current signal", time_dependent_signal_controller%signal(index_now) 
+
         if (index_now .le. time_dependent_signal_controller%len) then
             gas_puff%fueling_rate = time_dependent_signal_controller%signal(index_now)
         else
