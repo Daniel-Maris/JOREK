@@ -22,10 +22,10 @@ implicit none
 
 !--- Input parameters --------------------!
 !-----------------------------------------!
-real*8, parameter  :: delta_phi = 5.d-3
+real*8, parameter  :: delta_phi = 1.d-2
 integer, parameter :: npoints = 30
-integer, parameter :: num_pol_turns = 100
-integer, parameter :: assumed_max_q = 5
+integer, parameter :: num_pol_turns = 25
+integer, parameter :: assumed_max_q = 8
 !-----------------------------------------!
 !-----------------------------------------!
 
@@ -38,7 +38,7 @@ real*8    :: R_axis, Z_axis, R_max
 
 real*8    :: s, t, phi, phinew, phiold, snew, tnew, sold, told
 real*8    :: RR, R_s, R_t, R_p, ZZ, Z_s, Z_t, Z_p
-real*8    :: BR, BZ, Bp, BB, xjac, Fprof
+real*8    :: BR, BZ, Bp, xjac, Fprof
 real*8    :: dummy, dum01, dum02, dum03, dum04, dum05
 real*8    :: Rold, Zold
 
@@ -63,7 +63,7 @@ integer   :: e_tplus   = 3
 integer   :: e_tminus  = 1
 
 integer   :: i_var_psi = 1
-real*8    :: q_thresh = 1e-1  ! Minimum value of q accepted for a local poloidal turn. For values below q_thresh the poloidal turn is ignored
+real*8    :: q_thresh = 0.5  ! Minimum value of q accepted for a local poloidal turn. For values below q_thresh the poloidal turn is ignored
 
 required = MPI_THREAD_FUNNELED
 call MPI_Init_thread(required, provided, StatInfo)
@@ -401,40 +401,40 @@ contains
   real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
   real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt
   real*8 :: psi_s, psi_t, psi_R, psi_z, psi_p, st_psi_p
-  real*8 :: BR, BZ, BP, BB, BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,Bp0sin
+  real*8 :: BR, BZ, BP, BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,Bp0sin
   real*8 :: Zjac
   real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
   
   ! Get current location of field line and necessary derivatives
+#ifdef POINC_GVEC
   call interp_RZP(node_list,element_list,i_elm,s_in,t_in,p_in,RR,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
                                                               ZZ,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
   chi  = get_chi(RR,ZZ,p_in)
   Zjac = (R_s * Z_t - R_t * Z_s)
 
-!  call interp_gvec(node_list,element_list,i_elm,1,1,1,s_in,t_in,BR,dummy,dummy,dummy,dummy,dummy)
-!  call interp_gvec(node_list,element_list,i_elm,1,2,1,s_in,t_in,BZ,dummy,dummy,dummy,dummy,dummy)
-!  call interp_gvec(node_list,element_list,i_elm,1,3,1,s_in,t_in,Bp,dummy,dummy,dummy,dummy,dummy)
-!  do i_tor=1,(n_coord_tor-1)/2
-!    i_harm = 2*i_tor
-!    
-!    call interp_gvec(node_list,element_list,i_elm,1,1,i_harm,s_in,t_in,BR0cos,dummy,dummy,dummy,dummy,dummy)
-!    call interp_gvec(node_list,element_list,i_elm,1,2,i_harm,s_in,t_in,BZ0cos,dummy,dummy,dummy,dummy,dummy)
-!    call interp_gvec(node_list,element_list,i_elm,1,3,i_harm,s_in,t_in,Bp0cos,dummy,dummy,dummy,dummy,dummy)
-!    
-!    BR = BR + BR0cos*cos(mode_coord(i_harm)*p_in)
-!    BZ = BZ + BZ0cos*cos(mode_coord(i_harm)*p_in)
-!    Bp = Bp + Bp0cos*cos(mode_coord(i_harm)*p_in)
-!    
-!    call interp_gvec(node_list,element_list,i_elm,1,1,i_harm+1,s_in,t_in,BR0sin,dummy,dummy,dummy,dummy,dummy)
-!    call interp_gvec(node_list,element_list,i_elm,1,2,i_harm+1,s_in,t_in,BZ0sin,dummy,dummy,dummy,dummy,dummy)
-!    call interp_gvec(node_list,element_list,i_elm,1,3,i_harm+1,s_in,t_in,Bp0sin,dummy,dummy,dummy,dummy,dummy)
-!    
-!    BR = BR - BR0sin*sin(mode_coord(i_harm+1)*p_in)
-!    BZ = BZ - BZ0sin*sin(mode_coord(i_harm+1)*p_in)
-!    Bp = Bp - Bp0sin*sin(mode_coord(i_harm+1)*p_in)
-!  end do
-
-
+  call interp_gvec(node_list,element_list,i_elm,1,1,1,s_in,t_in,BR,dummy,dummy,dummy,dummy,dummy)
+  call interp_gvec(node_list,element_list,i_elm,1,2,1,s_in,t_in,BZ,dummy,dummy,dummy,dummy,dummy)
+  call interp_gvec(node_list,element_list,i_elm,1,3,1,s_in,t_in,Bp,dummy,dummy,dummy,dummy,dummy)
+  do i_tor=1,(n_coord_tor-1)/2
+    i_harm = 2*i_tor
+    
+    call interp_gvec(node_list,element_list,i_elm,1,1,i_harm,s_in,t_in,BR0cos,dummy,dummy,dummy,dummy,dummy)
+    call interp_gvec(node_list,element_list,i_elm,1,2,i_harm,s_in,t_in,BZ0cos,dummy,dummy,dummy,dummy,dummy)
+    call interp_gvec(node_list,element_list,i_elm,1,3,i_harm,s_in,t_in,Bp0cos,dummy,dummy,dummy,dummy,dummy)
+    
+    BR = BR + BR0cos*cos(mode_coord(i_harm)*p_in)
+    BZ = BZ + BZ0cos*cos(mode_coord(i_harm)*p_in)
+    Bp = Bp + Bp0cos*cos(mode_coord(i_harm)*p_in)
+    
+    call interp_gvec(node_list,element_list,i_elm,1,1,i_harm+1,s_in,t_in,BR0sin,dummy,dummy,dummy,dummy,dummy)
+    call interp_gvec(node_list,element_list,i_elm,1,2,i_harm+1,s_in,t_in,BZ0sin,dummy,dummy,dummy,dummy,dummy)
+    call interp_gvec(node_list,element_list,i_elm,1,3,i_harm+1,s_in,t_in,Bp0sin,dummy,dummy,dummy,dummy,dummy)
+    
+    BR = BR - BR0sin*sin(mode_coord(i_harm+1)*p_in)
+    BZ = BZ - BZ0sin*sin(mode_coord(i_harm+1)*p_in)
+    Bp = Bp - Bp0sin*sin(mode_coord(i_harm+1)*p_in)
+  end do
+#else
   ! Get n=0 component of Psi and derivatives
   call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
   psi_s = P0_s 
@@ -463,8 +463,8 @@ contains
   BR = chi(1,0,0)   + (psi_z*chi(0,0,1) - psi_p*chi(0,1,0))/(F0*RR)
   BZ = chi(0,1,0)   - (psi_R*chi(0,0,1) - psi_p*chi(1,0,0))/(F0*RR) 
   Bp = chi(0,0,1)/RR + (psi_R*chi(0,1,0) - psi_z*chi(1,0,0))/F0     
-  BB = sqrt( Bp**2 + BR**2 + BZ**2 )
-  
+#endif
+
   ! Determine distance moved in s-t space
   delta_s = (-Z_t*R_p + R_t*Z_p + RR*(Z_t*BR - R_t*BZ)/Bp)*delta_p/Zjac
   delta_t = ( Z_s*R_p - R_s*Z_p - RR*(Z_s*BR - R_s*BZ)/Bp)*delta_p/Zjac
