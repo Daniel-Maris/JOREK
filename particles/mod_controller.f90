@@ -28,6 +28,14 @@ module mod_controller
     class(particle_puffing), pointer :: this
     real*8                           :: t_norm
 
+    integer :: left, right, mid
+    real*8  :: aux1, aux2, currenttime, signal_currenttime
+
+    !necessary for calculating the analytical expression using python
+    integer :: el, err
+    character(len=60) :: s, filename
+    real*8 :: r
+
     !defining a type for a general time dependent signal
     type :: time_dependent_signal
     integer            :: len      !< Number of points in numerical time trace.
@@ -52,10 +60,7 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
     logical, intent(in)                        :: contr_usedatafile 
     logical, intent(in)                        :: contr_analytical 
 
-    integer :: l, err
-    character(len=60) :: s, filename
-    real*8 :: r
-
+    ! necessary for interpolating data from a datafile
     controller_timedependentsignal_file = '/home/ITER/vanhooe/Documents/Datafiles/datafile.dat' ! Note: check the directory to the datafile
 
     !> The following if-statement determines what the controller does
@@ -73,26 +78,54 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
         !> Example how to change the defined !!time-dependent!! signal  
         else if (contr_change_t_dep .and. puff_t_dependent) then                     
             gas_puff%fueling_rate = 60.d21    
-            gas_puff%t_puff_slope = 1.d-3
+            gas_puff%t_puff_slope = 500*t_norm
             gas_puff%t_puff_start = 10*t_norm
         
         !> Example of how to define a certain time dependent fuelling rate signal from within the controller function. 
         !> Currently it is the same function as the time-dependent_puff function within mod_particle_puffing (but copied and renamed below)
         !> To use it, puff_t_dependent must be set .false. in my_example.
         else if (contr_selfdefined) then
-            gas_puff%fueling_rate = time_dependent_puff_controller(25.d21,sim%time, 10*t_norm,500*t_norm, 20.d21)
-         
+            gas_puff%fueling_rate = time_dependent_puff_controller(40.d21,sim%time, 10*t_norm,500*t_norm, 20.d21)
+            write(*,"(A,g12.4,A,g12.4)") "current time", sim%time, "current signal", gas_puff%fueling_rate !used for making datafile, redundant, can be deleted later
+
         !> Example of how to import a time dependent signal using a datafile
         else if (contr_usedatafile) then
+            !maybe reading the datafile is not necessary every time the conttroller is called...?
             call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, &
             t_dep_signal_controller%len, controller_timedependentsignal_file)
-            write(*,"(A,g12.4,A,g12.4)") "current time signal", t_dep_signal_controller%time(index_now), "current signal", t_dep_signal_controller%signal(index_now) 
-            if (index_now .le. t_dep_signal_controller%len) then
-                gas_puff%fueling_rate = t_dep_signal_controller%signal(index_now)
-            else
+            !write(*,"(A,g12.4,A,g12.4)") "current time signal", t_dep_signal_controller%time(index_now), "current signal", t_dep_signal_controller%signal(index_now) 
+            !Interpolate the data when necessary
+            left  = 1
+            right = t_dep_signal_controller%len
+            currenttime = sim%time
+            do !Search for the two datapoints in the datafile where in between the current time lies, in order for linear interpolation
+                if ( right == left + 1 ) exit
+                mid = (left + right) / 2
+                if ( t_dep_signal_controller%time(mid) >= currenttime ) then
+                  right = mid
+                else
+                left = mid
+                end if
+            end do
+            aux1 = (currenttime - t_dep_signal_controller%time(left)) / (t_dep_signal_controller%time(right) - t_dep_signal_controller%time(left))
+            aux2 = (1. - aux1)
+            signal_currenttime = t_dep_signal_controller%signal(left) * aux2 + t_dep_signal_controller%signal(right) * aux1
+            gas_puff%fueling_rate = signal_currenttime
+            write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
+            write(*,"(A,g12.4,A,g12.4)") "interpolation gedaan. current time", sim%time, "current signal", gas_puff%fueling_rate
+            write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
+            
+            if (index_now .ge. t_dep_signal_controller%len) then
                 write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
                 stop
-            endif
+            endif !index_now .ge. t_dep_signal_controller%len
+
+            !if (index_now .le. t_dep_signal_controller%len) then
+            !    gas_puff%fueling_rate = t_dep_signal_controller%signal(index_now)
+            !else
+            !    write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
+            !    stop
+            !endif
 
         !> Example of how to create and use a datafile for a time dependent signal using Python
         else if (contr_analytical) then
@@ -103,8 +136,8 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
                 err = 1
                 do while ( err /= 0 )
                     call random_number(r)
-                    l = r * 99999999
-                    write(s,*) l
+                    el = r * 99999999
+                    write(s,*) el
                     filename='./jorek_controller_expr_'//trim(adjustl(s))//'.py'
                     open(42, file=trim(filename), status='new', iostat=err)
                 end do

@@ -174,10 +174,10 @@ contr_change_t_dep = .false.
 contr_selfdefined = .false.
 
 !when puff_t_dependent = .false. this can be used to use a datafile as input for a time dependent fueling rate
-contr_usedatafile = .false.
+contr_usedatafile = .true.
 
 !when puff_t_dependent = .false. this can be used to produce a datafile based on any analytical expression for a time dependent fueling rate
-contr_analytical = .true.
+contr_analytical = .false.
 
 ! the lines below are moved under the line call with(sim, events,..)
 !call doesthecontrollerwork(use_controller)
