@@ -173,10 +173,10 @@ do i = 1, npoints
   torturns     = 0.d0; torturns_old = 0.0
   j            = 0
   do while( .not. stop_tracing )
-
+    
     call do_step()
     j = j + 1
-   
+
     if ( ABS(phi) > 2.d0*PI ) then
       if ( phi > 0.d0 ) then
         phi   = phi - 2.d0*PI
@@ -184,6 +184,10 @@ do i = 1, npoints
         phi   = phi + 2.d0*PI
       end if
       torturns = torturns + 1.d0
+      if ((i-1)*num_pol_turns*assumed_max_q+int(torturns) .gt. npoints*num_pol_turns*assumed_max_q) then
+        write(*, *) "ERROR: Assumed maximum q has been exceeded!"
+        stop
+      endif
       R_poinc_tot((i-1)*num_pol_turns*assumed_max_q+int(torturns)) = RR
       Z_poinc_tot((i-1)*num_pol_turns*assumed_max_q+int(torturns)) = ZZ
     end if
@@ -406,12 +410,12 @@ contains
   real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
   
   ! Get current location of field line and necessary derivatives
-#ifdef POINC_GVEC
   call interp_RZP(node_list,element_list,i_elm,s_in,t_in,p_in,RR,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
                                                               ZZ,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
   chi  = get_chi(RR,ZZ,p_in)
   Zjac = (R_s * Z_t - R_t * Z_s)
 
+#ifdef POINC_GVEC
   call interp_gvec(node_list,element_list,i_elm,1,1,1,s_in,t_in,BR,dummy,dummy,dummy,dummy,dummy)
   call interp_gvec(node_list,element_list,i_elm,1,2,1,s_in,t_in,BZ,dummy,dummy,dummy,dummy,dummy)
   call interp_gvec(node_list,element_list,i_elm,1,3,1,s_in,t_in,Bp,dummy,dummy,dummy,dummy,dummy)
