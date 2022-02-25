@@ -59,7 +59,7 @@ type(edge_elements)                               :: D_edge
 type(particle_puffing)                            :: gas_puff2,gas_puff3
 type(write_particle_diagnostics)                  :: diag
 
-type(time_dependent_signal)                        ::time_dependent_signal_controller
+type(time_dependent_signal)                        ::t_dep_signal_controller
 
 real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
 real*8    :: target_time, projection_time
@@ -163,9 +163,20 @@ endif ! (restart_particles)
 ! selecting use of controller
 use_controller = .true.
 ! One of the logicals below must be true when use_controller is true
-contr_change_timedepsignal = .false.
-contr_selfdefinedsignal = .false.
+
+!when puff_t_dependent = .false. this can be used to change the fueling rate using the controller
+contr_change_t_indep = .false. 
+
+!when puff_t_dependent = .true. this can be used to change the fueling rate, t_puff_start and t_puff_slope using the controller
+contr_change_t_dep = .false.   
+
+!when puff_t_dependent = .false. this can be used to change the fueling rate using any selfdefined time dependent function in the controller
+contr_selfdefined = .false.
+
+!when puff_t_dependent = .false. this can be used to use a datafile as input for a time dependent fueling rate
 contr_usedatafile = .false.
+
+!when puff_t_dependent = .false. this can be used to produce a datafile based on any analytical expression for a time dependent fueling rate
 contr_analytical = .true.
 
 ! the lines below are moved under the line call with(sim, events,..)
@@ -453,7 +464,7 @@ do while (.not. sim%stop_now)
   call with(sim, events, at=sim%time) !< gives new target time
 
   ! Add the controller to the time loop
-  call controller_function(use_controller,this,sim, time_dependent_signal_controller,contr_change_timedepsignal,contr_selfdefinedsignal,contr_usedatafile,contr_analytical)
+  call controller_function(use_controller,this,sim, t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined,contr_usedatafile,contr_analytical)
   !gas_puff%fueling_rate = 60.d21 ! this one works when gas_puff is a pointer using new_event_ptr. This was a test for controller. can be deleted later
 
   !> run particle source routines directly after the jorek_stepper

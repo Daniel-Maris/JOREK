@@ -15,8 +15,9 @@ module mod_controller
     ! controller parameters
     logical                          :: use_controller
     ! the ones below do not have to be defined as parameters in phys-module and stuf... why??
-    logical                          :: contr_change_timedepsignal 
-    logical                          :: contr_selfdefinedsignal 
+    logical                          :: contr_change_t_indep
+    logical                          :: contr_change_t_dep 
+    logical                          :: contr_selfdefined 
     logical                          :: contr_usedatafile 
     logical                          :: contr_analytical 
     logical                          :: puff_t_dependent
@@ -36,17 +37,18 @@ module mod_controller
 
 contains
 
-subroutine controller_function(use_controller,this,sim, time_dependent_signal_controller,contr_change_timedepsignal,contr_selfdefinedsignal,contr_usedatafile,contr_analytical)
+subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined,contr_usedatafile,contr_analytical)
     use profiles, only: readProf
     
     implicit none 
     
     class(particle_puffing) , intent(inout)    :: this
     type(particle_sim), intent(inout)          :: sim
-    type(time_dependent_signal), intent(inout) ::time_dependent_signal_controller
+    type(time_dependent_signal), intent(inout) :: t_dep_signal_controller
     logical,intent(in)                         :: use_controller
-    logical, intent(in)                        :: contr_change_timedepsignal 
-    logical, intent(in)                        :: contr_selfdefinedsignal 
+    logical, intent(in)                        :: contr_change_t_indep
+    logical, intent(in)                        :: contr_change_t_dep 
+    logical, intent(in)                        :: contr_selfdefined 
     logical, intent(in)                        :: contr_usedatafile 
     logical, intent(in)                        :: contr_analytical 
 
@@ -64,25 +66,29 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
         write(*,"(A,g12.4)") "test voor controller, this is the time now", sim%time 
         write(*,"(A,g12.4)") "test voor controller, this is index_now", index_now 
 
+        !> Example on how to change the fueling rate of a time independent puff
+        if (contr_change_t_indep) then
+            gas_puff%fueling_rate = 40.d21 
+
         !> Example how to change the defined !!time-dependent!! signal  
-        if (contr_change_timedepsignal .and. puff_t_dependent) then                     
-            gas_puff%fueling_rate = 60.d21    ! we can adjust this%fuelling_rate here depending on the required input signal
+        else if (contr_change_t_dep .and. puff_t_dependent) then                     
+            gas_puff%fueling_rate = 60.d21    
             gas_puff%t_puff_slope = 1.d-3
             gas_puff%t_puff_start = 10*t_norm
         
         !> Example of how to define a certain time dependent fuelling rate signal from within the controller function. 
         !> Currently it is the same function as the time-dependent_puff function within mod_particle_puffing (but copied and renamed below)
         !> To use it, puff_t_dependent must be set .false. in my_example.
-        else if (contr_selfdefinedsignal) then
+        else if (contr_selfdefined) then
             gas_puff%fueling_rate = time_dependent_puff_controller(25.d21,sim%time, 10*t_norm,500*t_norm, 20.d21)
          
         !> Example of how to import a time dependent signal using a datafile
         else if (contr_usedatafile) then
-            call readProf(time_dependent_signal_controller%time, time_dependent_signal_controller%signal, &
-            time_dependent_signal_controller%len, controller_timedependentsignal_file)
-            write(*,"(A,g12.4,A,g12.4)") "current time signal", time_dependent_signal_controller%time(index_now), "current signal", time_dependent_signal_controller%signal(index_now) 
-            if (index_now .le. time_dependent_signal_controller%len) then
-                gas_puff%fueling_rate = time_dependent_signal_controller%signal(index_now)
+            call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, &
+            t_dep_signal_controller%len, controller_timedependentsignal_file)
+            write(*,"(A,g12.4,A,g12.4)") "current time signal", t_dep_signal_controller%time(index_now), "current signal", t_dep_signal_controller%signal(index_now) 
+            if (index_now .le. t_dep_signal_controller%len) then
+                gas_puff%fueling_rate = t_dep_signal_controller%signal(index_now)
             else
                 write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
                 stop
@@ -123,8 +129,8 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
                 call system('python ./jorek_controller_expr_'//trim(adjustl(s))//'.py > ./jorek_controller_expr_'//trim(adjustl(s))//'.dat')
         
                 ! --- Read the result
-                call readProf(time_dependent_signal_controller%time, time_dependent_signal_controller%signal, &
-                time_dependent_signal_controller%len, './jorek_controller_expr_'//trim(adjustl(s))//'.dat')
+                call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, &
+                t_dep_signal_controller%len, './jorek_controller_expr_'//trim(adjustl(s))//'.dat')
         
                 ! --- Delete temporary files
                 call system('rm ./jorek_curr_expr_'//trim(adjustl(s))//'.py ./jorek_curr_expr_'//trim(adjustl(s))//'.dat')
@@ -133,15 +139,15 @@ subroutine controller_function(use_controller,this,sim, time_dependent_signal_co
             endif
 
             !test to check the working of the controller
-            write(*,"(A,g12.4,A,g12.4)") "current time signal", time_dependent_signal_controller%time(index_now), "current signal", time_dependent_signal_controller%signal(index_now) 
+            write(*,"(A,g12.4,A,g12.4)") "current time signal", t_dep_signal_controller%time(index_now), "current signal", t_dep_signal_controller%signal(index_now) 
 
-            if (index_now .le. time_dependent_signal_controller%len) then
-                gas_puff%fueling_rate = time_dependent_signal_controller%signal(index_now)
+            if (index_now .le. t_dep_signal_controller%len) then
+                gas_puff%fueling_rate = t_dep_signal_controller%signal(index_now)
             else
                 write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
                 stop
             endif
-        endif !this if statement determines change_timedepsignal / selfdefinedsignal / usedatafile or analytical
+        endif !this if statement determines change_t_indep / change_t_dep / selfdefined / usedatafile or analytical
 
         ! Next steps to implement in the controller function:
         ! call the setpoint on this timestep 
