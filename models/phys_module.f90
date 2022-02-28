@@ -641,8 +641,13 @@ module phys_module
   real*8  :: D_neutral
 
   !> @name Controller-related input parameters
-  logical :: use_controller
-  character(len=256) :: controller_timedependentsignal_file
+  logical             :: use_controller
+  character(len=256)  :: control_t_dep_signal_file
+  logical             :: contr_change_t_indep
+  logical             :: contr_change_t_dep 
+  logical             :: contr_selfdefined 
+  logical             :: contr_usedatafile 
+  logical             :: contr_analytical 
 
   !> @name Particles-related input parameters
   logical :: restart_particles

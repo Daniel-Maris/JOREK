@@ -160,37 +160,6 @@ else
 
 endif ! (restart_particles)
 
-! selecting use of controller
-use_controller = .true.
-! One of the logicals below must be true when use_controller is true
-
-!when puff_t_dependent = .false. this can be used to change the fueling rate using the controller
-contr_change_t_indep = .false. 
-
-!when puff_t_dependent = .true. this can be used to change the fueling rate, t_puff_start and t_puff_slope using the controller
-contr_change_t_dep = .false.   
-
-!when puff_t_dependent = .false. this can be used to change the fueling rate using any selfdefined time dependent function in the controller
-contr_selfdefined = .false.
-
-!when puff_t_dependent = .false. this can be used to use a datafile as input for a time dependent fueling rate
-contr_usedatafile = .false.
-
-!when puff_t_dependent = .false. this can be used to produce a datafile based on any analytical expression for a time dependent fueling rate
-contr_analytical = .true.
-
-! the lines below are moved under the line call with(sim, events,..)
-!call doesthecontrollerwork(use_controller)
-!call controller_function(use_controller)
-
-!Lines below are commented to test the use of a separate module. can be deleted later
-!! determine what the controller does
-!if (use_controller) then
-!  write(*,*) "The controller is on"
-!else
-!  write(*,*) "the controller is off"
-!endif !(use_controller)
-
 ! selecting physics (should be done in input file)
 use_puffing       = .true. !.false. 
 use_cx            = .true. !.true.
@@ -464,9 +433,8 @@ do while (.not. sim%stop_now)
   call with(sim, events, at=sim%time) !< gives new target time
 
   ! Add the controller to the time loop
-  call controller_function(use_controller,this,sim, t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined,contr_usedatafile,contr_analytical)
-  !gas_puff%fueling_rate = 60.d21 ! this one works when gas_puff is a pointer using new_event_ptr. This was a test for controller. can be deleted later
-
+  call controller_function(use_controller,this,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined,contr_usedatafile,contr_analytical)
+  
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
   !> You can put anything in here that you want to solely depend on the jorek timestep.

@@ -140,7 +140,10 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 use_ncs, use_pcs, use_ccs,restart_particles,        &
 				use_recombination, use_puffing,use_line_radiation,  &
 				puff_rate, r_valve, R_valve_loc, Z_valve,           &
-				R_valve_loc2, Z_valve2, n_puff, use_controller, controller_timedependentsignal_file
+        R_valve_loc2, Z_valve2, n_puff, &
+        use_controller, control_t_dep_signal_file, &
+        contr_change_t_indep, contr_change_t_dep, contr_selfdefined, &
+        contr_usedatafile, contr_analytical 
 
 if (my_id .eq. 0) then
 
