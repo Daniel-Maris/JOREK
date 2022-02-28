@@ -93,40 +93,32 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
             !maybe reading the datafile is not necessary every time the conttroller is called...?
             call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, &
             t_dep_signal_controller%len, controller_timedependentsignal_file)
-            !write(*,"(A,g12.4,A,g12.4)") "current time signal", t_dep_signal_controller%time(index_now), "current signal", t_dep_signal_controller%signal(index_now) 
             !Interpolate the data when necessary
-            left  = 1
-            right = t_dep_signal_controller%len
-            currenttime = sim%time
-            do !Search for the two datapoints in the datafile where in between the current time lies, in order for linear interpolation
-                if ( right == left + 1 ) exit
-                mid = (left + right) / 2
-                if ( t_dep_signal_controller%time(mid) >= currenttime ) then
-                  right = mid
-                else
-                left = mid
-                end if
-            end do
-            aux1 = (currenttime - t_dep_signal_controller%time(left)) / (t_dep_signal_controller%time(right) - t_dep_signal_controller%time(left))
-            aux2 = (1. - aux1)
-            signal_currenttime = t_dep_signal_controller%signal(left) * aux2 + t_dep_signal_controller%signal(right) * aux1
-            gas_puff%fueling_rate = signal_currenttime
-            write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
-            write(*,"(A,g12.4,A,g12.4)") "interpolation gedaan. current time", sim%time, "current signal", gas_puff%fueling_rate
-            write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
-            
-            if (index_now .ge. t_dep_signal_controller%len) then
-                write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
-                stop
-            endif !index_now .ge. t_dep_signal_controller%len
-
-            !if (index_now .le. t_dep_signal_controller%len) then
-            !    gas_puff%fueling_rate = t_dep_signal_controller%signal(index_now)
-            !else
-            !    write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
-            !    stop
-            !endif
-
+            if (currenttime .ge.t_dep_signal_controller%time(t_dep_signal_controller%len)) then
+                gas_puff%fueling_rate = t_dep_signal_controller%signal(t_dep_signal_controller%len)
+                write(*,*) "The simulation time is larger than the final datafile time. The final value in the datafile is kept as constant."
+            else
+                left  = 1
+                right = t_dep_signal_controller%len
+                currenttime = sim%time
+                do !Search for the two datapoints in the datafile where in between the current time lies, in order for linear interpolation
+                    if ( right == left + 1 ) exit
+                    mid = (left + right) / 2
+                    if ( t_dep_signal_controller%time(mid) >= currenttime ) then
+                      right = mid
+                    else
+                    left = mid
+                    end if
+                end do
+                aux1 = (currenttime - t_dep_signal_controller%time(left)) / (t_dep_signal_controller%time(right) - t_dep_signal_controller%time(left))
+                aux2 = (1. - aux1)
+                signal_currenttime = t_dep_signal_controller%signal(left) * aux2 + t_dep_signal_controller%signal(right) * aux1
+                gas_puff%fueling_rate = signal_currenttime
+                write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
+                write(*,"(A,g12.4,A,g12.4)") "interpolation gedaan. current time", sim%time, "current signal", gas_puff%fueling_rate
+                write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
+            endif 
+                
         !> Example of how to create and use a datafile for a time dependent signal using Python
         else if (contr_analytical) then
             if (index_now .eq. 2) then
