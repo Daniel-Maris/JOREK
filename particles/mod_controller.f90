@@ -67,7 +67,6 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
     !> note: if you want to change parameters that are part of an action within an event, the event must be a pointer (use new_event_ptr() instead of event())
     if (use_controller) then
         write(*,*) "The controller_function works. The controller is on"
-        !test to make sure sim%time and index_now work properly and are usable to make the controller function time dependent
         write(*,"(A,g12.4)") "test voor controller, this is the time now", sim%time 
         write(*,"(A,g12.4)") "test voor controller, this is index_now", index_now 
 
@@ -90,9 +89,13 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
 
         !> Example of how to import a time dependent signal using a datafile
         else if (contr_usedatafile) then
-            !maybe reading the datafile is not necessary every time the conttroller is called...?
-            call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, &
-            t_dep_signal_controller%len, controller_timedependentsignal_file)
+            if (index_now .eq. 2) then
+                write(*,*) "During the first timestep in the controller the datafile is imported."
+                call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, t_dep_signal_controller%len, controller_timedependentsignal_file)
+            else
+                write(*,*) "The datafile was already imported in the first timestep in which the controller was called"
+            endif
+            
             !Interpolate the data when necessary
             if (currenttime .ge.t_dep_signal_controller%time(t_dep_signal_controller%len)) then
                 gas_puff%fueling_rate = t_dep_signal_controller%signal(t_dep_signal_controller%len)
@@ -117,7 +120,7 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
                 write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
                 write(*,"(A,g12.4,A,g12.4)") "interpolation gedaan. current time", sim%time, "current signal", gas_puff%fueling_rate
                 write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
-            endif 
+            endif !use final value if simtime> datafiletime, or use interpolation
                 
         !> Example of how to create and use a datafile for a time dependent signal using Python
         else if (contr_analytical) then
@@ -161,18 +164,34 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
                 call system('rm ./jorek_curr_expr_'//trim(adjustl(s))//'.py ./jorek_curr_expr_'//trim(adjustl(s))//'.dat')
             elseif (index_now .eq. 3) then
                 write(*,*) "The first timestep in the controller has ended so the datafile is already generated and does not have to be generated again"
-            endif
+            endif ! index_now = 2 --> produce datafile using analytical expression.
 
-            !test to check the working of the controller
-            write(*,"(A,g12.4,A,g12.4)") "current time signal", t_dep_signal_controller%time(index_now), "current signal", t_dep_signal_controller%signal(index_now) 
-
-            if (index_now .le. t_dep_signal_controller%len) then
-                gas_puff%fueling_rate = t_dep_signal_controller%signal(index_now)
+            !Interpolate the data when necessary
+            if (currenttime .ge.t_dep_signal_controller%time(t_dep_signal_controller%len)) then
+                gas_puff%fueling_rate = t_dep_signal_controller%signal(t_dep_signal_controller%len)
+                write(*,*) "The simulation time is larger than the final datafile time. The final value in the datafile is kept as constant."
             else
-                write(*,*) "The datafile is not long enough for this simulation. There are no more datapoints left. Simulation is stopped."
-                stop
-            endif
-        endif !this if statement determines change_t_indep / change_t_dep / selfdefined / usedatafile or analytical
+                left  = 1
+                right = t_dep_signal_controller%len
+                currenttime = sim%time
+                do !Search for the two datapoints in the datafile where in between the current time lies, in order for linear interpolation
+                    if ( right == left + 1 ) exit
+                    mid = (left + right) / 2
+                    if ( t_dep_signal_controller%time(mid) >= currenttime ) then
+                      right = mid
+                    else
+                    left = mid
+                    end if
+                end do
+                aux1 = (currenttime - t_dep_signal_controller%time(left)) / (t_dep_signal_controller%time(right) - t_dep_signal_controller%time(left))
+                aux2 = (1. - aux1)
+                gas_puff%fueling_rate = t_dep_signal_controller%signal(left) * aux2 + t_dep_signal_controller%signal(right) * aux1
+                write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
+                write(*,"(A,g12.4,A,g12.4)") "interpolation gedaan. current time", sim%time, "current signal", gas_puff%fueling_rate
+                write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
+            endif ! use final value if simtime> datafiletime. otherwise: use interpolation        
+            
+        endif !this if statement determines the controllerfunction: change_t_indep / change_t_dep / selfdefined / usedatafile or analytical
 
         ! Next steps to implement in the controller function:
         ! call the setpoint on this timestep 
@@ -186,6 +205,7 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
     endif !(use_controller)
 end subroutine controller_function
 
+!This is the same function as defined in mod_particle_puffing. it can be adjusted to contain any other time dependent function
 pure function time_dependent_puff_controller(max_puff,time, t_puff_start,t_puff_slope, min_puff) result(to_puff)
 real*8,intent(in)   :: max_puff, min_puff
 real*8              :: to_puff
@@ -197,7 +217,7 @@ if (time-(t_puff_start+t_puff_slope) .ge. 0.d0) then
 elseif (time-t_puff_start .ge. 0.d0) then
 	to_puff = min_puff+ (max_puff -min_puff) * (time-t_puff_start)/(t_puff_slope)  
 else
-    to_puff = min_puff !default = 0.d0
+    to_puff = min_puff 
 endif
 end function time_dependent_puff_controller
 
