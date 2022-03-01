@@ -13,14 +13,14 @@ module mod_controller
     implicit none
         
     ! controller parameters
-    logical                          :: use_controller
-    logical                          :: contr_change_t_indep
-    logical                          :: contr_change_t_dep 
-    logical                          :: contr_selfdefined 
-    logical                          :: contr_usedatafile 
-    logical                          :: contr_analytical 
+    !logical                          :: use_controller
+    !logical                          :: contr_change_t_indep
+    !logical                          :: contr_change_t_dep 
+    !logical                          :: contr_selfdefined 
+    !logical                          :: contr_usedatafile 
+    !logical                          :: contr_analytical 
     logical                          :: puff_t_dependent
-    character(len=256)               :: control_t_dep_signal_file
+    !character(len=256)               :: control_t_dep_signal_file
 
     ! use-case specific parameters
     type(particle_puffing)           :: gas_puff
@@ -44,7 +44,7 @@ module mod_controller
 
 contains
 
-subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined,contr_usedatafile,contr_analytical)
+subroutine controller_function(use_controller,this,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined,contr_usedatafile,contr_analytical,control_t_dep_signal_file)
     use profiles, only: readProf
     
     implicit none 
@@ -58,6 +58,7 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
     logical, intent(in)                        :: contr_selfdefined 
     logical, intent(in)                        :: contr_usedatafile 
     logical, intent(in)                        :: contr_analytical 
+    character(len=256),intent(in)              :: control_t_dep_signal_file
 
     !> The following if-statement determines what the controller does
     !> note: if you want to change parameters that are part of an action within an event, the event must be a pointer (use new_event_ptr() instead of event())
@@ -66,17 +67,17 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
         write(*,"(A,g12.4)") "test voor controller, this is the time now", sim%time 
         write(*,"(A,g12.4)") "test voor controller, this is index_now", index_now 
 
-        if (contr_change_t_indep .and. contr_change_t_dep .or. contr_selfdefined .or. contr_usedatafile .or. contr_analytical) then
+        if (contr_change_t_indep .and. (contr_change_t_dep .or. contr_selfdefined .or. contr_usedatafile .or. contr_analytical)) then
             write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once."
             stop
         endif
           
-        if (contr_change_t_dep .and. contr_selfdefined .or. contr_usedatafile .or. contr_analytical) then
+        if (contr_change_t_dep .and. (contr_selfdefined .or. contr_usedatafile .or. contr_analytical)) then
             write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once."
             stop
         endif
           
-        if (contr_selfdefined .and. contr_usedatafile .or. contr_analytical) then
+        if (contr_selfdefined .and. (contr_usedatafile .or. contr_analytical)) then
             write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once."
             stop
         endif
@@ -111,8 +112,8 @@ subroutine controller_function(use_controller,this,sim, t_dep_signal_controller,
         !> Example of how to import a time dependent signal using a datafile
         else if (contr_usedatafile) then
             if (index_now .eq. 2) then
-                write(*,*) "During the first timestep in the controller the datafile is imported."
                 call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, t_dep_signal_controller%len, control_t_dep_signal_file)
+                write(*,*) "During the first timestep in the controller the datafile is imported."
             endif !index_now = 2 --> read datafile during first timestep in which the controller is called
             
             !Interpolate the data when necessary
