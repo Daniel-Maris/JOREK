@@ -203,10 +203,15 @@ contains
   subroutine solve_Psi_boundary_eqn(node_list, boundary_list)
   !---------------------------------------------------------------------------------------------------------------------------------
   ! The Psi boundary equation is solved using the Fourier-Galerkin method here
+  !
   ! \int\int v*dPsi/dtheta*dtheta*dchi = -\int\int v*J'grad(s).grad(chi)*dtheta*dchi
+  !
   ! where v = Z_m(theta)*Z_n(chi) is the test function and Psi = \sum_{m,n} C_{m,n}*Z_m(theta)*Z_n(chi)
-  ! The theta integration is over [0,2*pi] and the chi integration is over [chi_0,chi_0+2*pi*F_0/N_p], where chi_0 is the value of
-  ! chi at the initial chi=const surface and N_p is the number of periods.
+  !
+  ! The theta integration is over [0,2*pi] and the chi integration is over [chi_0+2*pi*F_0/N_p, chi_0], where chi_0 is the value of
+  !  chi at the initial chi=const surface and N_p is the number of periods. Note that the limits of the chi integration is from 
+  !  high to low values, because chi was calculated using a lefthand coordinate system, while JOREK is righthanded. Chi is therefore
+  !  decreasing along the integration path.
   !---------------------------------------------------------------------------------------------------------------------------------
     use constants, only: pi
     use mod_parameters, only: n_period, n_plane, n_order, n_tor, n_coord_tor
@@ -319,9 +324,9 @@ contains
           do mm=1,m_pol_bc
             if (n .eq. nn) then ! The test and basis functions are orthogonal if their chi indices are different (no chi derivatives)
               if (mod(m,2) .eq. 1 .and. mm .eq. m + 1) then ! If theta t.f. is cos, theta b.f. must be sin w/ same mode number (derivative is cos)
-                Amat(ind1,ind2) =  pi*(mm/2)
+                Amat(ind1,ind2) = -pi*(mm/2)
               else if (mod(m,2) .eq. 0 .and. mm .eq. m - 1) then ! If theta t.f. is sin, theta b.f. must be cos w/ same mode number (derivative is sin)
-                Amat(ind1,ind2) = -pi*(m/2)
+                Amat(ind1,ind2) =  pi*(m/2)
               end if
 
               ! Multiply by the result of integration over chi; additional factor of 2 if both chi t.f. and b.f. are 1
