@@ -235,7 +235,7 @@ module mod_chi
   !
   !  Chi_RH(R, Z, phi_RH) = Chi_LH(R, Z, 2*pi/N_p - phi_RH)
   !                         = 2*pi/N_p-phi_RH + Sum_m,l [a_{m,l} cos(m phi_RH) - b_{m,l} sin(m phi_RH)] D_{m,l}
-  !                                                                                      +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
+  !                                                    +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
   !
   ! This leads to the equations for Chi and its derivatives below.  
   !------------------------------------------------------------------------------------------------------
@@ -244,11 +244,10 @@ module mod_chi
     integer, optional, intent(in) :: max_ord
     real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi
     real*8, dimension(0:n_order-1) :: dksinmp, dkcosmp, V_ml
-    real*8  :: sgnF0, Rn, zn, cval, D_ml, N_ml_1
+    real*8  :: Rn, zn, cval, D_ml, N_ml_1
     integer :: n_ord, i, j, k, m, l, i_ord, j_ord, k_ord
     
     get_chi = 0.d0
-    sgnF0 = sign(1.,F0)
     get_chi(0,0,0) = 2 * PI / float(n_coord_period) - phi; get_chi(0,0,1) = -1 ! Include the phi term
     
     if (domm) then
@@ -301,7 +300,7 @@ module mod_chi
       end do
     end if
     
-    get_chi = abs(F0)*get_chi
+    get_chi = F0*get_chi
   end function get_chi
   
   pure real*8 function fact(n)
