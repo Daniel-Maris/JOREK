@@ -731,6 +731,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,LOGI_FMT) 'contr_usedatafile,  ',contr_usedatafile
   write(*,LOGI_FMT) 'contr_analytical,   ',contr_analytical
   write(*,CHAR_FMT) 'control_t_dep_signal_file,',control_t_dep_signal_file
+  write(*,CHAR_FMT) 'analytical_expression',analytical_expression
 
   write(*,*)
   write(*,200)

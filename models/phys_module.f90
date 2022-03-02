@@ -642,12 +642,13 @@ module phys_module
 
   !> @name Controller-related input parameters
   logical             :: use_controller
-  character(len=256)  :: control_t_dep_signal_file
+  character(len=512)  :: control_t_dep_signal_file
   logical             :: contr_change_t_indep
   logical             :: contr_change_t_dep 
   logical             :: contr_selfdefined 
   logical             :: contr_usedatafile 
   logical             :: contr_analytical 
+  character(len=512)  :: analytical_expression
 
   !> @name Particles-related input parameters
   logical :: restart_particles

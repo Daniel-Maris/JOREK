@@ -468,6 +468,7 @@ subroutine preset_parameters
   contr_selfdefined         = .false.
   contr_usedatafile         = .false.
   contr_analytical          = .false.
+  analytical_expression     = 'none'
 
   !========================== kinetic particle parameters
   restart_particles = .false.
