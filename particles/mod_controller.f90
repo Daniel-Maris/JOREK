@@ -38,7 +38,8 @@ contains
 
 subroutine controller_function(use_controller, this, sim, t_dep_signal_controller, contr_change_t_indep, &
                                 contr_change_t_dep, contr_selfdefined, contr_usedatafile, contr_analytical, &
-                                control_t_dep_signal_file, analytical_expression)
+                                control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
+                                controllerhasbeencalledbefore)
     use profiles, only: readProf
     
     implicit none 
@@ -54,43 +55,47 @@ subroutine controller_function(use_controller, this, sim, t_dep_signal_controlle
     logical, intent(in)                        :: contr_analytical 
     character(len=512),intent(in)              :: control_t_dep_signal_file
     character(len=512),intent(in)              :: analytical_expression
+    integer, intent(in)                        :: analytical_len
+    real*8, intent(in)                         :: analytical_tmax
+    logical, intent(inout)                     :: controllerhasbeencalledbefore
 
     !> The following if-statement determines what the controller does
     !> note: if you want to change parameters that are part of an action within an event, the event must be a pointer (use new_event_ptr() instead of event())
     if (use_controller) then
-        write(*,*) "The controller_function works. The controller is on"
-        write(*,"(A,g12.4)") "test voor controller, this is the time now", sim%time 
-        write(*,"(A,g12.4)") "test voor controller, this is index_now", index_now 
+        if (sim%my_id .eq. 0) write(*,*) "The controller_function works. The controller is on"
+        if (sim%my_id .eq. 0) write(*,"(A,g12.4)") "test voor controller, this is the time now", sim%time 
+        if (sim%my_id .eq. 0) write(*,"(A,g12.4)") "test voor controller, this is index_now", index_now 
+        if (sim%my_id .eq. 0) write(*,"(A,g12.4)") "the controller has been called before", controllerhasbeencalledbefore 
 
         if (contr_change_t_indep .and. (contr_change_t_dep .or. contr_selfdefined .or. contr_usedatafile .or. contr_analytical)) then
-            write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 1."
+            if (sim%my_id .eq. 0) write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 1."
             stop
         endif
           
         if (contr_change_t_dep .and. (contr_selfdefined .or. contr_usedatafile .or. contr_analytical)) then
-            write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 2."
+            if (sim%my_id .eq. 0) write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 2."
             stop
         endif
           
         if (contr_selfdefined .and. (contr_usedatafile .or. contr_analytical)) then
-            write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 3."
+            if (sim%my_id .eq. 0) write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 3."
             stop
         endif
           
         if (contr_usedatafile .and. contr_analytical) then
-            write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 4."
+            if (sim%my_id .eq. 0) write(*,*) "ERROR: You cannot use the controller for changing the signal in (more then) two ways at once - 4."
             stop
         endif
 
         if (contr_change_t_dep .and. .not. puff_t_dependent) then
-            write(*,*) "ERROR: If you want to change the predefined time dependent signal values using the controller, puff_t_dependent must be true."
+            if (sim%my_id .eq. 0) write(*,*) "ERROR: If you want to change the predefined time dependent signal values using the controller, puff_t_dependent must be true."
             stop
         endif 
 
         !> Example on how to change the fueling rate of a time independent puff
         if (contr_change_t_indep) then
             gas_puff%fueling_rate = 40.d21 
-
+        
         !> Example how to change the defined !!time-dependent!! signal  
         else if (contr_change_t_dep .and. puff_t_dependent) then                     
             gas_puff%fueling_rate = 60.d21    
@@ -105,15 +110,16 @@ subroutine controller_function(use_controller, this, sim, t_dep_signal_controlle
 
         !> Example of how to import a time dependent signal using a datafile
         else if (contr_usedatafile) then
-            if (index_now .eq. 2) then
+            if (.not. controllerhasbeencalledbefore) then
                 call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, t_dep_signal_controller%len, control_t_dep_signal_file)
-                write(*,*) "During the first timestep in the controller the datafile is imported."
-            endif !index_now = 2 --> read datafile during first timestep in which the controller is called
+                if (sim%my_id .eq. 0) write(*,*) "During the first timestep in the controller the datafile is imported."
+                controllerhasbeencalledbefore = .true.
+            endif ! first time controller is called --> read datafile 
             
             ! First make sure simulation will run with a constant final value when the data file time is shorter than the simulation time
             if (sim%time .ge.t_dep_signal_controller%time(t_dep_signal_controller%len)) then 
                 gas_puff%fueling_rate = t_dep_signal_controller%signal(t_dep_signal_controller%len)
-                write(*,*) "The simulation time is larger than the final datafile time. The final value in the datafile is kept as constant."
+                if (sim%my_id .eq. 0) write(*,*) "The simulation time is larger than the final datafile time. The final value in the datafile is kept as constant."
             else !Interpolate the data when necessary
                 left  = 1
                 right = t_dep_signal_controller%len
@@ -130,15 +136,14 @@ subroutine controller_function(use_controller, this, sim, t_dep_signal_controlle
                 aux1 = (currenttime - t_dep_signal_controller%time(left)) / (t_dep_signal_controller%time(right) - t_dep_signal_controller%time(left))
                 aux2 = (1. - aux1)
                 gas_puff%fueling_rate = t_dep_signal_controller%signal(left) * aux2 + t_dep_signal_controller%signal(right) * aux1
-                write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
-                write(*,"(A,g12.4,A,g12.4)") "interpolation done. current time", sim%time, "current signal", gas_puff%fueling_rate
-                write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
+                if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
+                if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4)") "interpolation done. current time", sim%time, "current signal", gas_puff%fueling_rate
+                if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
             endif !use final value if simtime> datafiletime, or use interpolation
                 
         !> Example of how to create and use a datafile for a time dependent signal using Python
         else if (contr_analytical) then
-            if (index_now .eq. 2) then
-                write(*,*) "During the first timestep in the controller the datafile is made using Python."
+            if (.not. controllerhasbeencalledbefore) then
                 ! --- Python script - copied from vacuum.f90 and adjusted 
                 call random_seed()
                 err = 1
@@ -156,9 +161,9 @@ subroutine controller_function(use_controller, this, sim, t_dep_signal_controlle
                 write(42,111) 'from math import *'
                 write(42,111) 'def f(t):'
                 write(42,111) '  return ', trim(analytical_expression) !old expression for tests: '1200*exp(-(t-1000.)**2/(200.)**2)')
-                write(42,112) 'len=', 144
+                write(42,112) 'len=', analytical_len
                 write(42,113) 'tmin=', 0
-                write(42,113) 'tmax=', 2.d-4
+                write(42,113) 'tmax=', analytical_tmax
                 write(42,111) 'for x in range(1,len):'
                 write(42,111) '  t=tmin+(x-1)/float(len-1)*(tmax-tmin)'
                 write(42,111) '  s = "%25.16e"%t'
@@ -172,15 +177,16 @@ subroutine controller_function(use_controller, this, sim, t_dep_signal_controlle
                 ! --- Read the result
                 call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, &
                                 t_dep_signal_controller%len, './jorek_controller_expr_'//trim(adjustl(s))//'.dat')
-        
-                ! --- Delete temporary files
-                call system('rm ./jorek_controller_expr_'//trim(adjustl(s))//'.py ./jorek_controller_expr_'//trim(adjustl(s))//'.dat')
-            endif ! index_now = 2 --> produce datafile using analytical expression.
+                if (sim%my_id .eq. 0) write(*,*) "During the first timestep in the controller the datafile is made using Python."
+                ! --- Delete temporary files ! not used here because it is useful to check the generated datafile
+                !call system('rm ./jorek_controller_expr_'//trim(adjustl(s))//'.py ./jorek_controller_expr_'//trim(adjustl(s))//'.dat')
+                controllerhasbeencalledbefore = .true.
+            endif ! first time controller is called --> produce datafile using analytical expression.
 
             ! First make sure simulation will run with a constant final value when the data file time is shorter than the simulation time
             if (sim%time .ge.t_dep_signal_controller%time(t_dep_signal_controller%len)) then
                 gas_puff%fueling_rate = t_dep_signal_controller%signal(t_dep_signal_controller%len)
-                write(*,*) "The simulation time is larger than the final datafile time. The final value in the datafile is kept as constant."
+                if (sim%my_id .eq. 0) write(*,*) "The simulation time is larger than the final datafile time. The final value in the datafile is kept as constant."
             else !Interpolate the data when necessary
                 left  = 1
                 right = t_dep_signal_controller%len
@@ -197,12 +203,12 @@ subroutine controller_function(use_controller, this, sim, t_dep_signal_controlle
                 aux1 = (currenttime - t_dep_signal_controller%time(left)) / (t_dep_signal_controller%time(right) - t_dep_signal_controller%time(left))
                 aux2 = (1. - aux1)
                 gas_puff%fueling_rate = t_dep_signal_controller%signal(left) * aux2 + t_dep_signal_controller%signal(right) * aux1
-                write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
-                write(*,"(A,g12.4,A,g12.4)") "interpolation done. current time", sim%time, "current signal", gas_puff%fueling_rate
-                write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
+                if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4)") "previous time", t_dep_signal_controller%time(left), "previous signal", t_dep_signal_controller%signal(left)
+                if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4)") "interpolation done. current time", sim%time, "current signal", gas_puff%fueling_rate
+                if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4)") "next time", t_dep_signal_controller%time(right), "next signal", t_dep_signal_controller%signal(right)
             endif ! use final value if simtime> datafiletime. otherwise: use interpolation        
         else
-            write(*,*) "ERROR: when you use the controller you need to specify what happens in the controller function. One of the logicals must be true"
+            if (sim%my_id .eq. 0) write(*,*) "ERROR: when you use the controller you need to specify what happens in the controller function. One of the logicals must be true"
             stop
         endif !this if statement determines the controllerfunction: change_t_indep / change_t_dep / selfdefined / usedatafile or analytical
 
@@ -214,7 +220,7 @@ subroutine controller_function(use_controller, this, sim, t_dep_signal_controlle
         ! save error and integral
         ! calculate new output = setpoint + controller_output
     else
-        write(*,*) "The controller_function works. The controller is off"
+        if (sim%my_id .eq. 0) write(*,*) "The controller_function works. The controller is off"
     endif !(use_controller)
 end subroutine controller_function
 

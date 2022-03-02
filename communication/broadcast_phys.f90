@@ -605,6 +605,8 @@ if (my_id .eq. 0) then
   call MPI_PACK(contr_usedatafile,            1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(contr_analytical,            1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(analytical_expression,            512,MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(analytical_len,             1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(analytical_tmax,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   ! --- Please leave this as last parameter
   test_value = 42
@@ -1195,6 +1197,8 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,contr_usedatafile,         1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,contr_analytical,         1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,analytical_expression,         512,MPI_CHARACTER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,analytical_len,                 1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,analytical_tmax,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
   ! --- Please leave this as last parameter
   call MPI_UNPACK(buffer,bufsize,position,test_value,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)

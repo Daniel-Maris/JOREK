@@ -649,6 +649,8 @@ module phys_module
   logical             :: contr_usedatafile 
   logical             :: contr_analytical 
   character(len=512)  :: analytical_expression
+  integer             :: analytical_len
+  real*8              :: analytical_tmax
 
   !> @name Particles-related input parameters
   logical :: restart_particles

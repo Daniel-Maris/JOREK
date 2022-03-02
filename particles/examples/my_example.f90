@@ -22,7 +22,7 @@ use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_p
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: use_controller, contr_change_t_indep, contr_change_t_dep, contr_selfdefined, contr_usedatafile, contr_analytical 
-use phys_module, only: control_t_dep_signal_file, analytical_expression
+use phys_module, only: control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax
 ! use phys_module, only: use_sputtering , use_cx, use_ionisation, use_sputtering
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
@@ -81,6 +81,9 @@ real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_p
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
 integer :: n_puff
 logical :: boxpuff!, puff_t_dependent
+
+!controller parameters
+logical :: controllerhasbeencalledbefore
 
 !use physics
 logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
@@ -210,6 +213,8 @@ Z_valve     = -3.63d0 ! in meters, angepast voor iterlikesimpleplasma ! -3.8d0 !
 poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /) ! coordinates of quadrangular valve shape, in meters
 poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /) ! coordinates of quadrangular valve shape, in meters
 
+!controller parameters
+controllerhasbeencalledbefore = .false.
 
 !R_valve_loc2 = 2.d0 !angepast voor iterlikesimpleplasma !5.5d0 !5.55d0!                  5.4d0 !5.46d0
 !Z_valve2     = -2.d0 !angepast voor iterlikesimpleplasma !-4.35d0!                  -4.19d0 !-4.2d0
@@ -436,8 +441,9 @@ do while (.not. sim%stop_now)
 
   ! Add the controller to the time loop
   call controller_function(use_controller,this,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined, &
-                          contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression)
-  
+                          contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
+                          controllerhasbeencalledbefore)
+
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
   !> You can put anything in here that you want to solely depend on the jorek timestep.

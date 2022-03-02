@@ -469,6 +469,8 @@ subroutine preset_parameters
   contr_usedatafile         = .false.
   contr_analytical          = .false.
   analytical_expression     = 'none'
+  analytical_len            = 1000
+  analytical_tmax           = 1.d-3
 
   !========================== kinetic particle parameters
   restart_particles = .false.
