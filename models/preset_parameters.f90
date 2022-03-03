@@ -471,6 +471,9 @@ subroutine preset_parameters
   analytical_expression     = 'none'
   analytical_len            = 1000
   analytical_tmax           = 1.d-3
+  controller_K_p            = 1.d0
+  controller_K_i            = 1.d0
+  controller_K_d            = 1.d0
 
   !========================== kinetic particle parameters
   restart_particles = .false.

@@ -734,6 +734,9 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,CHAR_FMT) 'analytical_expression',analytical_expression
   write(*,INTG_FMT) 'analytical_len      ',analytical_len
   write(*,REAL_FMT) 'analytical_tmax,    ',analytical_tmax
+  write(*,REAL_FMT) 'controller_K_p,     ',controller_K_p
+  write(*,REAL_FMT) 'controller_K_i,     ',controller_K_i
+  write(*,REAL_FMT) 'controller_K_d,     ',controller_K_d
 
   write(*,*)
   write(*,200)

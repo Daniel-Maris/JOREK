@@ -22,7 +22,7 @@ use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_p
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: use_controller, contr_change_t_indep, contr_change_t_dep, contr_selfdefined, contr_usedatafile, contr_analytical 
-use phys_module, only: control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax
+use phys_module, only: control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, controller_K_p, controller_K_i, controller_K_d
 ! use phys_module, only: use_sputtering , use_cx, use_ionisation, use_sputtering
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
@@ -84,6 +84,7 @@ logical :: boxpuff!, puff_t_dependent
 
 !controller parameters
 logical :: controllerhasbeencalledbefore
+real*8  :: previous_time_controller
 
 !use physics
 logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
@@ -215,6 +216,7 @@ poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /) ! coordinates of quadrangu
 
 !controller parameters
 controllerhasbeencalledbefore = .false.
+previous_time_controller = sim%time
 
 !R_valve_loc2 = 2.d0 !angepast voor iterlikesimpleplasma !5.5d0 !5.55d0!                  5.4d0 !5.46d0
 !Z_valve2     = -2.d0 !angepast voor iterlikesimpleplasma !-4.35d0!                  -4.19d0 !-4.2d0
@@ -407,6 +409,8 @@ if (.not. restart_particles) then
 	call with(sim, project_density) !< directly project the first recombination at t=0
 endif !.not. restart_particles
 
+previous_time_controller = sim%time
+
 do while (.not. sim%stop_now)
 
   target_time = next_event_at(sim, events) 
@@ -439,10 +443,10 @@ do while (.not. sim%stop_now)
   
   call with(sim, events, at=sim%time) !< gives new target time
 
-  ! Add the controller to the time loop
+  ! Call the controller function to control the fueling rate of the gas puff
   call controller_function(use_controller,this,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined, &
                           contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
-                          controllerhasbeencalledbefore)
+                          controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, controller_K_d)
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
