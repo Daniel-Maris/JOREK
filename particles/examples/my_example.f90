@@ -57,7 +57,7 @@ type(jorek_timestep_action), target               :: jorek_stepper
 type(particle_sputter)                            :: D_sputter_source
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: D_edge
-!type(particle_puffing)                            :: gas_puff
+type(particle_puffing)                            :: gas_puff
 type(particle_puffing)                            :: gas_puff2,gas_puff3
 type(write_particle_diagnostics)                  :: diag
 
@@ -67,7 +67,7 @@ real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydroge
 real*8    :: target_time, projection_time
 real*8    :: physical_particles, weight
 real*8    :: tstep_keep,oldtime, step_rest_time, particle_step_time, particle_start_time, diag_time
-real*8    :: v_norm, E_norm, M_norm, tstep_si, timesteps, rho_norm, n_norm!, t_norm
+real*8    :: v_norm, E_norm, M_norm, tstep_si, timesteps, rho_norm, n_norm, t_norm
 real*8    :: v_kin_temp, E(3), B(3), psi, U, B_norm(3)
 real*8    :: rescale_coef, T_axis(1), E_axis, E_hot, rho_part, v2, tstart_jorek
 !$ real*8 :: w0, w1, mmm(3)
@@ -80,7 +80,7 @@ integer   :: seed, i_rng, n_stream
 real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
 integer :: n_puff
-logical :: boxpuff!, puff_t_dependent
+logical :: boxpuff, puff_t_dependent
 
 !controller parameters
 logical :: controllerhasbeencalledbefore
@@ -446,7 +446,8 @@ do while (.not. sim%stop_now)
   ! Call the controller function to control the fueling rate of the gas puff
   call controller_function(use_controller,this,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined, &
                           contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
-                          controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, controller_K_d)
+                          controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, controller_K_d,node_list,&
+                          element_list,puff_t_dependent, t_norm)
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
