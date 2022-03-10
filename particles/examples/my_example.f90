@@ -444,7 +444,7 @@ do while (.not. sim%stop_now)
   call with(sim, events, at=sim%time) !< gives new target time
 
   ! Call the controller function to control the fueling rate of the gas puff
-  call controller_function(use_controller,this,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined, &
+  call controller_function(use_controller,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined, &
                           contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
                           controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, controller_K_d,node_list,&
                           element_list,puff_t_dependent, t_norm)
