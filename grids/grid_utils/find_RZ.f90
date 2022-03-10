@@ -16,17 +16,16 @@ integer, intent(out)   :: ifail
 
 integer :: k
 integer, dimension(:), allocatable :: i_elms
-write(*,"(A,2g12.4)") "test for controller, this is R and Z at start findRZ:", R_find, Z_find
+
 ielm_out = 0
 call elements_containing_point(R_find, Z_find, i_elms)
-write(*,"(A,g12.4)") "test for controller, ielms after call elementscontainingpoint:", i_elms
+
 ! then loop through all
 do k=1,size(i_elms)
   call find_RZ_single(node_list,element_list,i_elms(k),R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail)
   if (ifail .eq. 0) exit
 enddo
-write(*,"(A,2g12.4)") "test for controller, this is R and Z after call find RZ single:", R_out, Z_out
-write(*,"(A,2g12.4)") "test for controller, this is ielm_out sout tout after call find RZ single:", ielm_out, s_out, t_out
+
 if (ielm_out .eq. 0) ifail = 99
 if (ifail .eq. 999) ielm_out = 0 ! Otherwise testing ielm=0 on output does not
 ! work anymore (and we don't always check ifail)
