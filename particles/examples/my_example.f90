@@ -447,7 +447,7 @@ do while (.not. sim%stop_now)
   call controller_function(use_controller,sim,t_dep_signal_controller,contr_change_t_indep,contr_change_t_dep,contr_selfdefined, &
                           contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
                           controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, controller_K_d,node_list,&
-                          element_list,puff_t_dependent, t_norm)
+                          element_list,puff_t_dependent, t_norm,gas_puff)
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
@@ -464,7 +464,6 @@ do while (.not. sim%stop_now)
 	
 	if ( (abs((tstart_jorek +nint((projection_time - tstart_jorek)/(tstep_si*5))*tstep_si*5) -projection_time) .le. 1.d-13)) then !< == true every tstep * 100 steps. ! was eerst 500, toen 5 gemaakt voor een test
 		call write_simulation_hdf5(sim, 'interum_part_restart.h5') !trim(this%get_filename(sim%time)))
-		write(*,*) 'test: this is running' !voor test of het wel goed gaat
 
 	endif !< write interim particle restart file every 100 tsteps
 	!if (part_i_save .ge. part_n_save) then
