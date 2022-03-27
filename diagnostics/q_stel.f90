@@ -119,6 +119,9 @@ if ( my_id == 0 ) then
   write(*,*) 'num_pol_turns    = ', num_pol_turns
   write(*,*) '(R_axis, Z_axis) = ', R_axis, Z_axis
   write(*,*) '(R_max, Z_max)   = ', R_max, dummy
+#ifdef POINC_GVEC
+  write(*,*) 'Using GVEC field for tracing'
+#endif
 endif
 
 ! --- Define starting points for field lines along midplane
