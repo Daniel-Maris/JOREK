@@ -610,6 +610,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(controller_K_p,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(controller_K_i,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(controller_K_d,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(setpoint,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   ! --- Please leave this as last parameter
   test_value = 42
@@ -1205,6 +1206,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,controller_K_p,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,controller_K_i,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,controller_K_d,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,setpoint,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
   ! --- Please leave this as last parameter
   call MPI_UNPACK(buffer,bufsize,position,test_value,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)

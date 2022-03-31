@@ -737,6 +737,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,REAL_FMT) 'controller_K_p,     ',controller_K_p
   write(*,REAL_FMT) 'controller_K_i,     ',controller_K_i
   write(*,REAL_FMT) 'controller_K_d,     ',controller_K_d
+  write(*,REAL_FMT) 'setpoint,     ',setpoint
 
   write(*,*)
   write(*,200)

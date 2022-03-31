@@ -654,6 +654,7 @@ module phys_module
   real*8              :: controller_K_p
   real*8              :: controller_K_i
   real*8              :: controller_K_d
+  real*8              :: setpoint
 
   !> @name Particles-related input parameters
   logical :: restart_particles
