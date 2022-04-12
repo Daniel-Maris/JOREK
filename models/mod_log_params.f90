@@ -738,6 +738,10 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,REAL_FMT) 'controller_K_i,     ',controller_K_i
   write(*,REAL_FMT) 'controller_K_d,     ',controller_K_d
   write(*,REAL_FMT) 'setpoint,     ',setpoint
+  write(*,REAL_FMT) 'max_value,     ',max_value
+  write(*,REAL_FMT) 'min_value,     ',min_value
+  write(*,LOGI_FMT) 'no_input, ',no_input
+  write(*,LOGI_FMT) 'use_closedloop, ',use_closedloop
 
   write(*,*)
   write(*,200)

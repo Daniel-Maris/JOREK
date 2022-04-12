@@ -2,8 +2,6 @@
 !> As an example, this module will control the time-varying gas puff fueling rate at the locations where a gas valve is present
 !> But it is aimed at being usable for various other applications
 
-!note: all variables that you allocate here cannot be allocated at the same time in the module where you use mod_controller
-
 module mod_controller
     
     use mod_particle_puffing
@@ -13,7 +11,10 @@ module mod_controller
     use mod_fields
     
     implicit none
-    
+
+    !note: all variables that you allocate right here cannot be allocated at the same time in the module where you use mod_controller
+    !> so it is preferred to allocate all used variables in the subroutine itself
+
     !defining a type for a general time dependent signal
     type :: time_dependent_signal
     integer                          :: len        !< Number of points in numerical time trace.
@@ -27,13 +28,14 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
                                 contr_change_t_dep, contr_selfdefined, contr_usedatafile, contr_analytical, &
                                 control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
                                 controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, &
-                                controller_K_d,node_list,element_list,puff_t_dependent,t_norm,gas_puff,setpoint)
+                                controller_K_d,node_list,element_list,puff_t_dependent,t_norm,gas_puff,setpoint,max_value, &
+                                min_value,no_input,use_closedloop)
     
     use profiles, only: readProf, interpolProf
     
     implicit none 
     
-    ! Allocate the function arguments
+    ! Allocating the function arguments
     type(particle_sim), intent(inout)          :: sim
     type(time_dependent_signal), intent(inout) :: t_dep_signal_controller
     type(type_node_list), intent(in)           :: node_list
@@ -57,6 +59,10 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
     real*8, intent(in)                         :: setpoint
     logical,intent(in)                         :: puff_t_dependent
     real*8, intent(in)                         :: t_norm
+    real*8,intent(in)                          :: max_value
+    real*8,intent(in)                          :: min_value
+    logical, intent(in)                        :: no_input
+    logical, intent(in)                        :: use_closedloop
     
     ! parameters necessary for using function find_RZ()
     integer                                    :: i
@@ -124,7 +130,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
             stop
         endif 
 
-        !> The first part below is the open loop controller, that determines the setpoint values.
+        !> The first part below is the open loop controller, that determines the input signal.
 
         !> Example on how to change the fueling rate of a time independent puff
         if (contr_change_t_indep) then
@@ -195,7 +201,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
                 ! --- Read the result
                 call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, &
                                 t_dep_signal_controller%len, './jorek_controller_expr_'//trim(adjustl(es))//'.dat')
-                if (sim%my_id .eq. 0) write(*,*) "During the first timestep in the controller the datafile is made using Python."
+                if (sim%my_id .eq. 0) write(*,*) "During the first timestep in the controller the datafile is made using Python and imported."
                 ! --- Delete temporary files ! not used here because it is useful to check the generated datafile
                 !call system('rm ./jorek_controller_expr_'//trim(adjustl(es))//'.py ./jorek_controller_expr_'//trim(adjustl(es))//'.dat')
             endif ! first time controller is called --> produce datafile using analytical expression.
@@ -208,76 +214,86 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
                 gas_puff%fueling_rate = interpolProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, t_dep_signal_controller%len, sim%time)
                 if (sim%my_id .eq. 0) write(*,*) "controller interpolation done. current time", sim%time, "current signal", gas_puff%fueling_rate
             endif        
+        else if (no_input) then
+            gas_puff%fueling_rate = 0.d0
         else
-            if (sim%my_id .eq. 0) write(*,*) "ERROR: when you use the controller you need to specify what happens in the controller function. One of the logicals must be true"
+            if (sim%my_id .eq. 0) write(*,*) "ERROR: when you use the controller you need to specify what the input signbal is. One of the logicals must be true."
             stop
-        endif ! this if statement determines the controllerfunction: change_t_indep / change_t_dep / selfdefined / usedatafile or analytical
+        endif ! this if statement determines the input signal: change_t_indep / change_t_dep / selfdefined / usedatafile or analytical
 
-        ! test to make a list of node numbers and their respective coordinates (R,Z)
-        !!! for simple plasma, not iter plasma!!!
-        !if (.not. controllerhasbeencalledbefore) then
-        !    open(42, file=trim('./finaldatanodelistITER.dat'), status='new')
-        !    do i=1,16490 !3315=65*51 = n_radial*n_pol in my case
-        !        if (sim%my_id .eq. 0) write(42,*) i , node_list%node(i)%x(1,:)
-        !    end do
-        !    close(42)
-        !endif
+        if (use_closedloop) then
 
-        !> The part below is the closed loop controller
-        controller_tstep = sim%time - previous_time_controller ! calculate the timestep in which the controller is active
-        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is controller_tstep:", controller_tstep
+            !> The part below calculates the controller time step
+        
+            controller_tstep = sim%time - previous_time_controller ! calculate the timestep in which the controller is used
+            if (sim%my_id .eq. 0) write(*,*) "test for controller, this is controller_tstep:", controller_tstep
 
-        call find_RZ(sim%fields%node_list,sim%fields%element_list,8.173d0,-0.05d0,R_out,Z_out,i_elm_out,s_out,t_out,ifail) !make sure input for R_find and Z_find is given as a real!
-        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is R and Z after controller called findRZ:", R_out, Z_out
-        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is ielm_out t_out s_out:", i_elm_out, s_out, t_out
+            !> The part below is the measurement of the controlled parameter
+
+            call find_RZ(sim%fields%node_list,sim%fields%element_list,8.173d0,-0.05d0,R_out,Z_out,i_elm_out,s_out,t_out,ifail) !make sure input for R_find and Z_find is given as a real!
+            if (sim%my_id .eq. 0) write(*,*) "test for controller, this is R and Z after controller called findRZ:", R_out, Z_out
+            if (sim%my_id .eq. 0) write(*,*) "test for controller, this is ielm_out t_out s_out:", i_elm_out, s_out, t_out
+            ! warning bijschrijven als je een i_elm < 0 krijgt
         
-        ! warning bijschrijven als je een i_elm < 0 krijgt
+            call sim%fields%interp_PRZ(sim%time, i_elm_out, [5],1, s_out, t_out, phi, density_controller, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
         
-        ! USE statement mod_fields aan, dan:
-        call sim%fields%interp_PRZ(sim%time, i_elm_out, [5],1, s_out, t_out, phi, density_controller, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
+            if (sim%my_id .eq. 0) write(*,*) "test for controller, this is R and Z after interp_PRZ:", R, Z
+            if (sim%my_id .eq. 0) write(*,*) "this is P(in this case the density) after interp_PRZ:", density_controller
+            if (sim%my_id .eq. 0) write(*,*) sim%time, density_controller, "#time & density"
         
-        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is R and Z after interp_PRZ:", R, Z
-        if (sim%my_id .eq. 0) write(*,*) "this is P(in this case the density) after interp_PRZ:", density_controller
-        if (sim%my_id .eq. 0) write(*,*) sim%time, density_controller, "#time & density"
-        !if (sim%my_id .eq. 0) then
-        !    open(42, file=trim('./densitydata.dat'),action='write', status='old')
-        !    write(42,*) sim%time, density_controller
-        !    close(42)
-        !endif
-        if (sim%my_id .eq. 0) write(*,*) "start closed loop controller"
-        measured_value = density_controller(1) !node_list%node(541)%values(1,1,var_rho) ! let op node number
-        !if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the density at node 541 now:", measured_value
-        !if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the position (R,Z,phi):", node_list%node(541)%x(1,:)
-        if (sim%my_id .eq. 0) write(*,"(E14.8,A23)") setpoint, "this is the setpoint" 
-        controller_error = (setpoint - measured_value)*central_density*10.d20 ! determine the error between setpoint and measured value
-        if (sim%my_id .eq. 0) write(*,"(E14.8,E15.8,A40)") sim%time, controller_error, "test for controller, this is the error"
-        controller_P = controller_error ! calculate proportional term  
-        controller_I = controller_I + controller_error*controller_tstep ! calculate integral over error
-        if (sim%my_id .eq. 0) write(*,"(E14.8,E15.8,A58)") sim%time, controller_I, "test for controller, this is integral na aanpassing"
-        if (sim%my_id .eq. 0) write(*,"(E16.8,A70)") controller_error_prev, "test for controller, this is controller error previous voor D-term"
-        if (controller_error_prev .eq. 0.d0) then
-            controller_D = 0
+            !> The part below specifies the closed loop PID controller
+
+            if (sim%my_id .eq. 0) write(*,*) "start closed loop controller"
+            measured_value = density_controller(1) !node_list%node(541)%values(1,1,var_rho) ! let op node number
+            !if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the density at node 541 now:", measured_value
+            !if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the position (R,Z,phi):", node_list%node(541)%x(1,:)
+            if (sim%my_id .eq. 0) write(*,"(E16.8,A25)") setpoint, "this is the setpoint" 
+            controller_error = (setpoint - measured_value)*central_density*1.d20 ! determine the error between setpoint and measured value
+            if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A40)") sim%time, controller_error, "test for controller, this is the error"
+            controller_P = controller_error ! calculate proportional term  
+            controller_I = controller_I + controller_error*controller_tstep ! calculate integral over error
+            if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A58)") sim%time, controller_I, "test for controller, this is integral na aanpassing"
+            if (sim%my_id .eq. 0) write(*,"(E16.8,A70)") controller_error_prev, "test for controller, this is controller error previous voor D-term"
+            if (controller_error_prev .eq. 0.d0) then
+                controller_D = 0
+            else
+                controller_D = (controller_error - controller_error_prev)/controller_tstep ! calculate derivative of error
+            endif
+            if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A45)") sim%time, controller_D, "test for controller, this is the derivative"
+            controller_output = controller_K_p*controller_P + controller_K_i*controller_I + controller_K_d*controller_D ! calculate output controller
+            if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A55)") sim%time, controller_output, "test for controller, this is the controller output"
+            
+            !> The part below saved the values that are necessary in the next timestep
+            controller_error_prev = controller_error  ! save error
+            if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the saved controller_error_prev:", controller_error_prev
+            previous_time_controller = sim%time       ! save old sim%time to calculate controller_tstep
+            if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the saved previous time:", previous_time_controller
+
         else
-            controller_D = (controller_error - controller_error_prev)/controller_tstep ! calculate derivative of error
+            controller_output = 0.d0 
         endif
-        if (sim%my_id .eq. 0) write(*,"(E14.8,E15.8,A45)") sim%time, controller_D, "test for controller, this is the derivative"
-        controller_output = controller_K_p*controller_P + controller_K_i*controller_I + controller_K_d*controller_D ! calculate output controller
-        if (sim%my_id .eq. 0) write(*,"(E14.8,E15.8,A55)") sim%time, controller_output, "test for controller, this is the controller output"
-        gas_puff%fueling_rate = max(gas_puff%fueling_rate + controller_output,0.d0) ! calculate new output = setpoint + controller_output
-        if (gas_puff%fueling_rate .eq. 0.d0) then
-            if (sim%my_id .eq. 0) write(*,*) "WARNING: The output signal is set to zero because it cannot be negative"
+
+        !> The part below specified the update of the input signal
+        gas_puff%fueling_rate = max(gas_puff%fueling_rate + controller_output,min_value) ! calculate new output = setpoint + controller_output
+        gas_puff%fueling_rate = min(gas_puff%fueling_rate + controller_output,max_value) ! calculate new output = setpoint + controller_output
+           
+        if (gas_puff%fueling_rate .eq. min_value) then
+            if (sim%my_id .eq. 0) write(*,*) "WARNING: The output signal is set to the minimal value because it cannot be smaller than that"
         endif
-        if (sim%my_id .eq. 0) write(*,"(E14.8,E15.8,A52)") sim%time, gas_puff%fueling_rate, "test for controller, this is the new fueling rate"
         
-        controller_error_prev = controller_error  ! save error
-        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the saved controller_error_prev:", controller_error_prev
-        previous_time_controller = sim%time       ! save old sim%time to calculate controller_tstep
-        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the saved previous time:", previous_time_controller
+        if (gas_puff%fueling_rate .eq. max_value) then
+            if (sim%my_id .eq. 0) write(*,*) "WARNING: The output signal is set to the maximal value because it cannot be larger than that"
+        endif
+
+        if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A52)") sim%time, gas_puff%fueling_rate, "this is the time and the output signal"
+        
+        !> The part below sets controllerhasbeencalledbefore to true because importing the data file is not necessary every time step
 
         controllerhasbeencalledbefore = .true. ! set this to true so that datafiles are only read once and not during every timestep the controller is called
+
         if (sim%my_id .eq. 0) write(*,*) "test for controller, hij heeft de controller loop afgemaakt"
     else
-        if (sim%my_id .eq. 0) write(*,*) "The controller_function works. The controller is off"
+        if (sim%my_id .eq. 0) write(*,*) "The controller_function works. The controller is called but it is not used, as the controller is turned off"
     endif !(use_controller)
 end subroutine controller_function
 
@@ -285,8 +301,8 @@ end subroutine controller_function
 pure function time_dependent_puff_controller(max_puff,time, t_puff_start,t_puff_slope, min_puff) result(to_puff)
 real*8,intent(in)   :: max_puff, min_puff
 real*8              :: to_puff
-real*8,intent(in)    :: t_puff_start,t_puff_slope
-real*8,intent(in)    :: time
+real*8,intent(in)   :: t_puff_start,t_puff_slope
+real*8,intent(in)   :: time
 
 if (time-(t_puff_start+t_puff_slope) .ge. 0.d0) then
 	to_puff = max_puff

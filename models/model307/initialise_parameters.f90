@@ -144,7 +144,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
         use_controller, control_t_dep_signal_file, &
         contr_change_t_indep, contr_change_t_dep, contr_selfdefined, &
         contr_usedatafile, contr_analytical, analytical_expression, &
-        analytical_len, analytical_tmax, controller_K_p, controller_K_i, controller_K_d, setpoint
+        analytical_len, analytical_tmax, controller_K_p, controller_K_i, controller_K_d, setpoint, &
+        max_value, min_value, no_input, use_closedloop
 
 if (my_id .eq. 0) then
 
