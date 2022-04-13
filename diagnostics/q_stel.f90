@@ -49,7 +49,7 @@ logical   :: responsible(npoints)
 integer   :: status(MPI_STATUS_SIZE)
 
 real*8    :: rphin_arr(npoints) = 0.d0, polturns_arr(npoints) = 0.d0, torturns_arr(npoints) = 0.d0, phi_arr(npoints) = 0.d0, R_arr(npoints) = 0.d0
-real*8    :: rphin_arr_tot(npoints) = 0.d0, phi_arr_tot(npoints) = 0.d0, R_arr_tot(npoints) = 0.d0
+real*8    :: rphin_arr_tot(npoints) = 0.d0, polturns_arr_tor(npoints) = 0.0, torturns_arr_tor(npoints) = 0.0, phi_arr_tot(npoints) = 0.d0, R_arr_tot(npoints) = 0.d0
 real*8    :: R_poinc_tot(npoints*num_pol_turns*assumed_max_q) = 0.d0, Z_poinc_tot(npoints*num_pol_turns*assumed_max_q)
 
 ! --- Initialise constants
@@ -175,9 +175,14 @@ do i = 1, npoints
   polturns     = 0.d0
   torturns     = 0.d0; torturns_old = 0.0
   j            = 0
+  ifail = 0
   do while( .not. stop_tracing )
     
     call do_step()
+    if (ifail .ne. 0) then
+       write(*,*) 'Field line tracing failed for line: ', i
+       exit
+    endif
     j = j + 1
 
     if ( ABS(phi) > 2.d0*PI ) then
@@ -223,7 +228,7 @@ do i = 1, npoints
     end if
   end if
   torturns_arr(i) = torturns
-  polturns_arr(i) = polturns
+  polturns_arr(i) = float(polturns)
   R_arr(i)        = RR
   write(*,*) 'Finished tracing line ', i
 
@@ -233,6 +238,8 @@ call MPI_Barrier(MPI_COMM_WORLD,ierr)
 ! Fill output arrays for q profile data
 call MPI_Reduce(rphin_arr,  rphin_arr_tot,  npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 call MPI_Reduce(phi_arr,   phi_arr_tot,   npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+call MPI_Reduce(polturns_arr,   polturns_arr_tot,   npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+call MPI_Reduce(torturns_arr,   torturns_arr_tot,   npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 call MPI_Reduce(R_arr,     R_arr_tot,     npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
 ! --- Open the output files to which the Poincare data will be written in ascii format
@@ -277,9 +284,9 @@ endif
 ! --- Write out q profile result
 if ( my_id == 0 ) then
   open(99, file='q_profile.dat', action='write', status='replace')
-  write(99,*) '# SQRT{Phi_N} | Safety factor | Radius at LFS midplane [m]'
+  write(99,*) '# SQRT{Phi_N} | Safety factor | Radius at LFS midplane [m] | % Completion '
   do i = 1, npoints
-    write(99,'(3es23.5)') rphin_arr_tot(i), phi_arr_tot(i)/(2.d0*PI)/num_pol_turns, R_arr_tot(i)
+    write(99,'(4es23.5)') rphin_arr_tot(i), phi_arr_tot(i)/(2.d0*PI)/polturns_arr_tot(i), R_arr_tot(i), 100 * polturns_arr_tor(i) / float(num_pol_turns)
   end do
   close(99)
 end if
@@ -386,7 +393,7 @@ contains
   
   if (i_steps .ge. 100) then
     write(*,*) "ERROR: Maximum number of iterations exceeded in do_step!"
-    stop
+    ifail = 1
   endif
 
   end subroutine do_step
