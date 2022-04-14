@@ -30,7 +30,7 @@ implicit none
 
 type (type_element)        :: element
 type (type_node)           :: nodes(n_vertex_max)
-type (type_node), optional :: aux_nodes(n_vertex_max)
+type (type_node), optional :: aux_nodes(n_vertex_max) !< may be not optional
 
 #define DIM0 n_tor*n_vertex_max*(n_order+1)*n_var
 
@@ -721,7 +721,7 @@ do i=1,n_vertex_max
 
 		  ksiion = central_density * 1.d20 * ksi_ion
 		  !> Recombination amount per gauss point per element for kinetic particles
-		  if (use_ncs .and. .true. ) then ! .and. use_recombination
+		  if (use_ncs) then ! .and. use_recombination
 			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
 			
 			!LradDcont_T = LradDcont_T - ksiion

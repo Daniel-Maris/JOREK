@@ -72,9 +72,9 @@ integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
 real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
-real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3
+real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4)
 integer :: n_puff
-logical :: puff_t_dependent
+logical :: puff_t_dependent,boxpuff
 
 
 !use physics
@@ -181,40 +181,60 @@ t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_no
  
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_sputtering) then  
-  n_reflect = int(n_particles_local* sim%n_cpu * 1.d-3) !int(n_particles_local * 2.d-3)
+  n_reflect = int(n_particles_local* sim%n_cpu * 5.d-4) !1.d-3 int(n_particles_local * 2.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
 
-! setting up particle puffing
-puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
-puff_rate = 40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-fueling_rate_start = 10.d21 !40 worked, 20 before
-r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+! setting up particle puffing Top puff
+! puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
+! puff_rate = 40.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+! fueling_rate_start = 10.d21 !10 40 worked, 20 before
+! r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
+! R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+! Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
-R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
+! R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
+! Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
+
+! puff_rate3 = 160.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
+! R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
+! Z_valve3     = 4.15d0! 
+! r_valve3    = 0.10d0!  .12
+
+!Bot puff
+puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
+puff_rate = 40.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+fueling_rate_start = 10.d21 !10 40 worked, 20 before
+r_valve     = 0.05d0 !0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
+R_valve_loc = 4.3d0 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = -3.8d0 !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+
+R_valve_loc2 = 5.5d0 !5.55d0!                  5.4d0 !5.46d0
 Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
 
-puff_rate3 = 160.d21!85.d21
+puff_rate3 = 160.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
 R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
 Z_valve3     = 4.15d0! 
 r_valve3    = 0.10d0!  .12
+poly_R = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+poly_Z = (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+boxpuff = .true.
 
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
 if (use_puffing) then  
-  n_puff      = int(1.d-4*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
+  n_puff      = int(5.d-5*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
   if (puff_t_dependent) then
 	t_puff_start = 5000*t_norm !25000*t_norm !34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-	t_puff_slope = 4.d-3 !< linearly ramps up the puffing during this time
+	t_puff_slope = 8.d-3 !4.d-3 !< linearly ramps up the puffing during this time
 	!fueling_rate_start = 5.d21 !40 worked, 20 before
 	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
 	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
     gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
 	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
-	gas_puff3 = particle_puffing(n_puff, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=20.d21)
+	gas_puff3 = particle_puffing(n_puff, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+				fueling_rate_start=40.d21,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff) !20.d21
   else
 
 	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
@@ -346,9 +366,9 @@ events = [ new_event_ptr(jorek_feedback,   start = tstart_jorek),            &
 !< without interupting the simulation
 
 
-
+! if(.not. restart_particles) then
 jorek_stepper%extra_event => events(1) !< is used as first event before enetering particle loop (skipped if particles_restart)
-
+! endif !restart_particles
 !================================================================================================
 !                                      MAIN PARTICLE LOOP
 !================================================================================================
@@ -749,13 +769,13 @@ type is (particle_kinetic_leapfrog)
 			v   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_source     * t_norm / rho_norm
 			v_E = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
 			v_v = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * velocity_par_source * t_norm / m_norm
-			extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight !1.d0 !<density proj
+			extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(n_steps,8) !<average density over jorek timesteps!real(floor(k/n_steps))!1.d0 !<density proj
 
 			do i_tor=1,n_tor
 			  feedback_rhs(m,l,i_elm_old,i_tor,1) = feedback_rhs(m,l,i_elm_old,i_tor,1) + HZ(i_tor) * v
 			  feedback_rhs(m,l,i_elm_old,i_tor,2) = feedback_rhs(m,l,i_elm_old,i_tor,2) + HZ(i_tor) * v_E
 			  feedback_rhs(m,l,i_elm_old,i_tor,3) = feedback_rhs(m,l,i_elm_old,i_tor,3) + HZ(i_tor) * v_v
-			  feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj
+			  feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj !< buiten de steps loop
 			enddo
 
 		  enddo
@@ -977,13 +997,18 @@ function initialise_sputtering(node_list, element_list, n_reflect) result(D_sput
   type(type_element_list)             :: element_list
   type(particle_sputter)              :: D_sputter_source
   integer                             :: n_reflect
+  !real*8, allocatable, dimension(:)   :: wall_albedo
   type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 
   ! number of particles to sputter per species (should be renormalized to yield)
 
-  call find_edge_domains(node_list,element_list, edge_domains)
-
-  call D_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)
+  call find_edge_domains(node_list,element_list, edge_domains)!, discont_corner=.true.)
+  if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
+  ! allocate(wall_albedo(size(edge_domains,1)))
+  ! wall_albedo(:) = 1.d0 !0.9d0
+  ! wall_albedo(size(edge_domains,1)) = 0.1d0
+  
+  call D_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
 
   ! target group, number of particles per mpi task, densities, Zs, basename
   D_sputter_source = particle_sputter(D_edge, 1, n_reflect, basename='D_reflect')

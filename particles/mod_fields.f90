@@ -22,6 +22,7 @@ type, abstract :: fields_base
     procedure, public :: calc_NeTe
     procedure, public :: calc_EBpsiU
 	procedure, public :: calc_vvector
+	! procedure, public :: calc_vpar
     procedure, public :: calc_Qin, calc_Qin_analytic
     procedure, public :: calc_rk4, calc_RK4_analytic
     procedure, public :: calc_EBNormBGradBCurlbDbdt
@@ -221,6 +222,56 @@ v_phi = F0 * vpar * R_inv
 vvector = [v_R, v_Z, v_phi] / t_norm
 
 end subroutine calc_vvector
+
+! subroutine calc_vpar(fields, time, i_elm, st, phi, vpar) ! geen psi u vpar
+! use phys_module, only: F0, mode, central_mass, central_density
+! use constants, only: mu_zero, mass_proton
+! use mod_coordinate_transforms, only: transform_derivatives_st_to_RZ
+! ! Routine parameters
+! class(fields_base), intent(in) :: fields
+! real*8, intent(in)  :: time
+! integer, intent(in) :: i_elm !< JOREK element index
+! real*8, intent(in)  :: st(2) !< element-local coordinates
+! real*8, intent(in)  :: phi !< toroidal angle
+! ! real*8, intent(out) :: E(3) !< Electric field [V/m]
+! ! real*8, intent(out) :: B(3) !< Magnetic field [T]
+! ! real*8, intent(out) :: psi !< psi in JOREK units
+! ! real*8, intent(out) :: u !< velocity stream function in m/s
+! real*8, intent(out) :: vpar(1) !v [v_R, v_Z, v_phi] in m/s
+! ! Internal parameters
+! integer, parameter :: i_var(1) = [7]
+! real*8             :: P(1), P_s(1), P_t(1), P_phi(1), P_time(1) ! Placeholder for evaluating variables and derivatives locally
+! ! Values
+! real*8             :: R, R_s, R_t, Z, Z_s, Z_t
+! ! Others
+! real*8             :: inv_st_jac, R_inv
+! real*8             :: psi_R, psi_Z, U_R, U_Z, U_phi, t_norm
+! ! real*8             :: vpar, v_R, v_Z, v_phi
+! t_norm  = sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
+
+! ! Interpolate the fields to get psi and U at the current position (and the
+! ! changes u_n - u(n-1))
+! call fields%interp_PRZ(time, i_elm, i_var, 1, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
+
+! R_inv = 1.d0/R
+! inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
+
+! ! Calculate the derivatives to R and Z
+! psi_R    = (  P_s(1) * Z_t - P_t(1) * Z_s ) * inv_st_jac
+! psi_Z    = (- P_s(1) * R_t + P_t(1) * R_s ) * inv_st_jac
+! U_R      = (  P_s(2) * Z_t - P_t(2) * Z_s ) * inv_st_jac
+! U_Z      = (- P_s(2) * R_t + P_t(2) * R_s ) * inv_st_jac
+! U_phi    = P_phi(2)
+
+! ! Calculate the velocity vector (see http://jorek.eu/wiki/doku.php?id=reduced_mhd)
+! vpar  = P(3)
+! ! v_R   = -R * U_Z + vpar * R_inv *psi_Z
+! ! v_Z   = R * U_R - vpar * R_inv *psi_R
+! v_phi = F0 * vpar * R_inv
+
+! vvector = [v_R, v_Z, v_phi] / t_norm
+
+! end subroutine calc_vpar
 
 subroutine calc_RK4_analytic(fields, R, Z, phi, A_out, dA_out, B_out, dB_out, B_norm, dB_norm, bn, dBn, E)
   use phys_module, only: mode, central_mass, central_density

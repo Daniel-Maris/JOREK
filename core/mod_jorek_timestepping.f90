@@ -588,7 +588,8 @@ subroutine do_jorek_timestep(this, sim, ev)
   
   endif ! myid = 0
 
-  call int3d_new(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
+  ! call int3d_new(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
+  call int3d_new(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1, this%auxiliary_node_list)
 
   if (sim%my_id .eq. 0 ) then
     ! --- Output energies and growth_rates to text files during the code run

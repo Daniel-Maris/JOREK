@@ -22,6 +22,8 @@ use mod_atomic_coeff_deuterium, only: rec_rate_to_kinetic
 
 implicit none
 
+! type (type_node_list),        intent(in)    :: node_list
+! type (type_node_list),intent(in), optional  :: aux_nodes_list
 type (type_element)      :: element
 type (type_node)         :: nodes(n_vertex_max)
 

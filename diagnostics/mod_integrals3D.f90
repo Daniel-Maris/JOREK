@@ -20,6 +20,7 @@ module mod_integrals3D
   use mod_poloidal_currents, only : integrated_normal_bnd_curr 
   use corr_neg
   use equil_info, only : get_psi_n, ES
+  use mod_atomic_coeff_deuterium, only: rec_rate_to_kinetic
 
   implicit none
   
@@ -30,7 +31,7 @@ module mod_integrals3D
   contains
 
 
-subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units)
+subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units,aux_node_list)
 
 !$ use omp_lib
 #if (JOREK_MODEL == 500)
@@ -46,12 +47,14 @@ type (type_bnd_element_list), intent(in)    :: bnd_elm_list
 type (t_expr_list),           intent(in)    :: expr_list
 real*8,                    intent(inout)    :: res(:)
 integer,                      intent(in)    :: units
+type (type_node_list)        ,intent(in)    :: aux_node_list !< , optional
 
 ! --- Local variables
 type (type_element)      :: element, elm_k
 type (type_node)         :: nodes(n_vertex_max), node_k
 type (type_bnd_element)  :: bndelem
 type (type_surface_list) :: surface_list
+type (type_node) :: aux_nodes(n_vertex_max) !< may be not optional
 
 real*8  :: psi_axis, psi_bnd
 real*8  :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss),        x_ss(n_gauss,n_gauss),        x_tt(n_gauss,n_gauss),        x_st(n_gauss,n_gauss)
@@ -60,6 +63,7 @@ real*8  :: eq_g(n_plane,0:n_var,n_gauss,n_gauss), eq_s(n_plane,0:n_var,n_gauss,n
 real*8  :: eq_t(n_plane,0:n_var,n_gauss,n_gauss), eq_p(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_ss(n_plane,0:n_var,n_gauss,n_gauss), eq_tt(n_plane,0:n_var,n_gauss,n_gauss), eq_st(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_sp(n_plane,0:n_var,n_gauss,n_gauss), eq_tp(n_plane,0:n_var,n_gauss,n_gauss)
+real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p 
 real*8  :: wgauss_copy(n_gauss)
 real*8  :: psi_axisym(n_gauss,n_gauss)
 
@@ -125,6 +129,20 @@ real*8  :: u0_p, u_s, u_t, u_p
 real*8  :: viscopar_flux, viscopar_f, vpar_s, vpar_t, vpar_x, vpar_y, li3_tot, li3
 real*8  :: varmin(n_var), varmax(n_var), V_min(n_var), V_max(n_var)
 real*8  :: heating_impl_in, heating_impl_out, H_impl_int, H_impl_ext,heating_impl_tot
+real*8  :: aux_rho0, aux_T0, aux_Vpar0
+real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
+!> for use_ncs
+real*8  :: Nion, Nrec, plasmaneutral, Prec, Prb
+real*8  ::  local_Nion, local_Nrec, local_pn, local_Prec, local_Prb
+!> For model500 + use_ncs
+real*8     :: ksiion                                          ! Ionization energy
+!   -Ionization
+real*8     :: Sion_T, dSion_dT
+!   -Recombination
+real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
+!   -Radiation from injected gas/impurities
+real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T
+real*8     :: Te_eV                                           ! Temperature used in radiation rate
 
 #ifndef NOMPIVERSION
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr) ! number of MPI procs
@@ -201,6 +219,12 @@ local_pellet_volume    = 0.d0
 local_n_particles_inj = 0.d0
 local_n_particles     = 0.d0
 
+local_Nion = 0.d0
+local_Nrec = 0.d0
+local_pn   = 0.d0
+local_Prec = 0.d0
+local_Prb = 0.d0
+
 delta_phi     = 2.d0 * PI / float(n_plane) / float(n_period)
 
 psi_axis   = ES%psi_axis;        R_axis = ES%R_axis;        Z_axis = ES%Z_axis
@@ -216,7 +240,7 @@ ife_min   =      my_id     * ife_delta + 1
 ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 
 !$omp parallel default(none)                                                                   &
-!$omp   shared(element_list,node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &
+!$omp   shared(element_list,node_list,aux_node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &
 !$omp          H_ss, H_tt, H_st,                                                               &
 !$omp          R_xpoint, Z_xpoint, my_id, use_pellet, delta_phi, R_axis, Z_axis, psi_axis, psi_bnd, &
 !$omp          D_tot, D_int, D_Ext, P_tot, P_int, P_ext, Vol, C_intern, C_ext, VP_ext, VP_int, &
@@ -228,6 +252,7 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp          local_pellet_particles, local_plasma_particles, local_pellet_volume,            &
 !$omp          heli_tot,  keep_current_prof, psi_off, visco_par, thm_wk_tot,                   &
 !$omp          mag_wk_tot, vpar_disp_tot, area1, mag_src_tot,  &
+!$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, &
 #if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
 !$omp          local_n_particles_inj, local_n_particles, ns_amplitude, ns_R, ns_Z,             &
 !$omp          ns_phi, ns_radius, ns_sig, ns_deltaphi, ns_tor_norm,                            &
@@ -235,7 +260,7 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp          central_mass,                                                                   &
 #endif
 !$omp          wgauss_copy, varmin, varmax)                                                    &
-!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt,                              &
+!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt,                              &  !aux_nodes
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p,    &
 !$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,         &
 !$omp           psi_axisym,                                                                    &
@@ -249,6 +274,9 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp           thm_wk, mag_wk, eta_T, vpar_disp, p0_p, T0_corr, r0_corr, u0_p,                &
 !$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp, AZ0_Zp, A30, &
 !$omp           A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,&
+!$omp           Srec_T, dSrec_dT,ksi_ion,ksiion, LradDcont_T, dLradDcont_dT, Sion_T, dSion_dT,&
+!$omp           aux_nodes, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_T0, aux_Vpar0, &
+!$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,&
 
 #if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
 !$omp           rn0, source_ns,                                                               &
@@ -271,6 +299,7 @@ omp_tid      = 0
 !$omp                D_int, D_ext, P_int, H_int, S_int, H_ext, S_ext, P_ext, C_intern, C_ext, &
 !$omp                VP_int, VP_ext, VP_tot, VK_tot, VK_int, VK_ext, VM_ext,                  &
 !$omp                VM_int, VM_tot, Vol, P_tot, D_tot,J2_tot, J2_int, J2_ext,                &
+!$omp                local_Nion, local_Nrec, local_pn, local_Prec, local_Prb ,                &
 !$omp                heli_tot, mag_wk_tot, vpar_disp_tot, thm_wk_tot, area1, mag_src_tot,H_impl_int,H_impl_ext )
 
 
@@ -281,8 +310,17 @@ do ife = ife_min, ife_max
   do iv = 1, n_vertex_max
     inode     = element%vertex(iv)
     nodes(iv) = node_list%node(inode)
+	
+	 aux_nodes(iv) = aux_node_list%node(inode)
   enddo
 
+eq_aux_g = 0.d0; eq_aux_s = 0.d0; eq_aux_t = 0.d0; eq_aux_p = 0.d0;  
+aux_rho0  = 0.d0; aux_T0    = 0.d0; aux_Vpar0 = 0.d0
+aux_P0    = 0.d0; aux_P0_s  = 0.d0; aux_P0_t  = 0.d0; aux_P0_p  = 0.d0
+aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_pcs = 0.d0
+  
+  
+  
   x_g(:,:)    = 0.d0; x_s(:,:)    = 0.d0; x_t(:,:)    = 0.d0; x_ss(:,:)    = 0.d0; x_tt(:,:)    = 0.d0; x_st(:,:)    = 0.d0;
   y_g(:,:)    = 0.d0; y_s(:,:)    = 0.d0; y_t(:,:)    = 0.d0; y_ss(:,:)    = 0.d0; y_tt(:,:)    = 0.d0; y_st(:,:)    = 0.d0;
   psi_axisym(:,:) = 0.d0
@@ -339,6 +377,8 @@ do ife = ife_min, ife_max
                 eq_ss(mp,k,ms,mt) = eq_ss(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_ss(i,j,ms,mt)* HZ(in,mp)
                 eq_tt(mp,k,ms,mt) = eq_tt(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_tt(i,j,ms,mt)* HZ(in,mp)
                 eq_st(mp,k,ms,mt) = eq_st(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_st(i,j,ms,mt)* HZ(in,mp)
+			
+
               enddo
             enddo
 
@@ -348,6 +388,33 @@ do ife = ife_min, ife_max
 
     enddo
   enddo
+  
+  ! > loop over aux nodes seperately because they are optional
+!  if (present(aux_nodes_list))  then
+    do i=1,n_vertex_max
+    do j=1,n_order+1
+
+      do mp=1,n_plane
+        do ms=1, n_gauss
+          do mt=1, n_gauss
+
+            do k=1,n_var
+              do in=1,n_tor
+			        eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
+              eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
+              eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
+              eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
+              enddo
+            enddo
+
+	  enddo
+        enddo
+      enddo
+
+    enddo
+  enddo
+  ! endif
+  
   
   ! --- Determine smallest and largest values of the variables in the whole domain (on Gauss points and toroidal integration surfaces)
   !$omp critical
@@ -409,6 +476,13 @@ do ife = ife_min, ife_max
         vpar0   = eq_g(mp,var_Vpar,ms,mt)
         vpar_s  = eq_s(mp,var_Vpar,ms,mt)
         vpar_t  = eq_t(mp,var_Vpar,ms,mt)
+
+        
+        if (use_ncs) then
+                aux_rho0  = eq_aux_g(mp,1,ms,mt)
+                aux_T0    = eq_aux_g(mp,2,ms,mt)
+                aux_Vpar0 = eq_aux_g(mp,3,ms,mt)
+        end if
 
 #if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
         rn0    = eq_g(mp,var_rhon,ms,mt)
@@ -494,6 +568,28 @@ do ife = ife_min, ife_max
         else
           current_source = 0.d0
         endif
+
+        if(use_ncs) then 
+          ksiion = central_density * 1.d20 * ksi_ion
+          call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)
+        
+          !> coupled densities
+          !>ionization
+          local_Nion = local_Nion + aux_rho0 * BigR * xjac * delta_phi * wst
+          !> Recombination
+          local_Nrec = local_Nrec + (Srec_T * r0_corr * r0_corr)*BigR *xjac * delta_phi *wst ! rho_rec
+          
+          !> coupled energies
+          !>aux_T0 (plasma neutral interaction)
+          local_pn = local_pn + aux_T0 *BigR * xjac* delta_phi * wst !& !aux_T0
+                      !+ (gamma-1.d0)* 0.5d0 *aux_rho0 *vpar0**2 * BB2 * BigR*xjac* delta_phi *wst &
+                      !- (gamma-1.d0)* aux_Vpar0 * vpar0 * BigR *xjac* delta_phi *wst
+          !>Lost to recombination (no Brehmstralung)
+          local_Prec = local_Prec + r0_corr*r0_corr*(T0_corr*Srec_T)*BigR *xjac* delta_phi *wst
+          ! Power recombination and bremstrhalung combined
+          local_Prb = local_Prb + r0_corr*r0_corr*(LradDcont_T-ksiion*Srec_T)*BigR *xjac* delta_phi *wst
+
+        endif ! use_ncs  
  
         P_tot  = P_tot  + r0 * T0 * xjac * BigR * wst * delta_phi
         D_tot  = D_tot  + r0      * xjac * BigR * wst * delta_phi
@@ -540,7 +636,7 @@ do ife = ife_min, ife_max
           area1    = area1    +  xjac * wst * delta_phi         
           Vol   = Vol   +             xjac * BigR * wst * delta_phi
           H_int = H_int + heat_source     * xjac * BigR * wst * delta_phi
-		  H_impl_int = H_impl_int + (gamma-1)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
+		  H_impl_int = H_impl_int + (gamma-1.d0)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
           S_int = S_int + particle_source * xjac * BigR * wst * delta_phi
           VP_int = VP_int + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
           VK_int = VK_int + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
@@ -551,7 +647,7 @@ do ife = ife_min, ife_max
           P_ext = P_ext + r0   * T0  * xjac * BigR * wst * delta_phi
           C_ext = C_ext - zj0 / BigR * xjac *        wst * delta_phi  ! 2D integral
           H_ext = H_ext + heat_source     * xjac * BigR * wst * delta_phi
-		  H_impl_ext = H_impl_ext + (gamma-1)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
+		  H_impl_ext = H_impl_ext + (gamma-1.d0)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
           S_ext = S_ext + particle_source * xjac * BigR * wst * delta_phi
           VP_ext = VP_ext + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
           VK_ext = VK_ext + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
@@ -837,6 +933,11 @@ call MPI_AllReduce(vpar_disp_tot, viscopar_dissip_tot,1,MPI_DOUBLE_PRECISION,MPI
 call MPI_AllReduce(mag_src_tot, mag_source_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(varmin,V_min,n_var,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(varmax,V_max,n_var,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_Nion,Nion,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_Nrec,Nrec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_pn,plasmaneutral,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_Prec,Prec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_Prb,Prb,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 #else /* NOMPIVERSION */
 density_in           = D_int
 density_out          = D_ext
@@ -873,6 +974,11 @@ viscopar_dissip_tot  = vpar_disp_tot
 mag_source_tot       = mag_src_tot
 V_min                = varmin
 V_max                = varmax
+Nion                 = local_Nion
+Nrec                 = local_Nrec
+plasmaneutral        = local_pn
+Prec                 = local_Prec
+Prb                  = local_Prb
 #endif /* NOMPIVERSION */
 
 if (use_pellet) then
@@ -951,6 +1057,12 @@ viscopar_dissip_tot  = n_period * viscopar_dissip_tot * fact_flux
 mag_source_tot       = n_period * mag_source_tot      * fact_flux
 volume               = n_period * volume
 area                 = n_period * area / (2.d0 * PI)
+
+Nion                 = n_period * Nion         * fact_part / t_norm2
+Nrec                 = n_period * Nrec         * fact_part / t_norm2
+plasmaneutral        = n_period * plasmaneutral* fact_flux / (GAMMA-1.d0) 
+Prec                 = n_period * Prec         * fact_flux / (GAMMA-1.d0)
+Prb                  = n_period * Prb          * fact_flux / (GAMMA-1.d0)
 
 ! --- Boundary integrals
 vn_p0                =  n_period * vn_p0          * fact_flux 
@@ -1250,6 +1362,14 @@ if (my_id .eq. 0) then
   write(*,'(A,20es14.6)')  ' sum ',xt,density_tot,pressure/1.d6,kin_par_tot/1.d6,kin_perp_tot/1.d6,mag_tot/1.d6, &
                                  Ohm_tot/1.d6,heating_in/1d6+heating_out/1.d6 ,source_in+source_out
 
+  if (use_ncs) then
+    write(*,'(A)') '----------------------------------------'
+    write(*,'(A)') ' Kinetic neutral integrals on fluid side                  '
+    write(*,'(A,4es14.6,A)') ' Ion source, Recomb loss         : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
+    write(*,'(A,3es14.6,A)') ' Plasma-neutral (aux_T0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
+    write(*,'(A,4es14.6,A)') ' Prec, Prb                       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6, ' [MW]'
+    write(*,'(A)') '----------------------------------------'
+  endif !use_ncs  
 #if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
   write(*,'(A,4es14.6)')   ' Integrals_3D, MGI               : ', total_n_particles_inj, total_n_particles
 #endif

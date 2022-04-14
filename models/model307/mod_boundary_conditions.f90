@@ -714,7 +714,7 @@ contains
                             cs0_T  =   0.5d0  * gamma    / cs0
                             cs0_TT = - 0.25d0 * gamma**2 / cs0**2 
 
-                            bn     = dot_product( (/ps0_y,-ps0_x/), normal ) /  (BigR*Btot)  ! B·n/Btot
+                            bn     = dot_product( (/ps0_y,-ps0_x/), normal ) /  (BigR*Btot)  ! Bï¿½n/Btot
 !                            bn     = ps0_t/(BigR*Btot*dl)
                             bn_t   = 1.d0 / (Btot*dl*BigR) * (ps0_tt - ps0_t * dl_dt /dl )
 
@@ -1056,7 +1056,7 @@ contains
                         if (       apply_psi_BC                   &
                               .or. apply_current_BC               &
                               .or. (( k /= 1 ) .and. ( k /= 3 ))  ) then
-
+                                !> should this also be .and.  k/=6 ?
                           index_node = node_list%node(inode)%index(1)
 
                           call boundary_conditions_add_one_entry(   &

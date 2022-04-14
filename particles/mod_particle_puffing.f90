@@ -217,7 +217,7 @@ end do
 
   vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, &
           i_elm, s, t)
-
+  !vector_normal = -1.d0 * vector_normal
 !------------- Decide how many superparticles to initiate		 
 !Adjust amount of superparticles + fueling rate if we use time dependent puffing 
 ! same way as in model500
@@ -298,7 +298,7 @@ end do
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
       pa(i_p)%i_elm   = i_elm
-      pa(i_p)%weight  = real(1.d0/n_puff_local) * delta_t * fueling_rate_t
+      pa(i_p)%weight  = real(1.d0/n_puff_local) * delta_t * fueling_rate_t !< TODO: Change if particle%weights = real*8
       pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   ! <STIJN> Maybe this needs to be isotropic, or 1+cos like?
       pa(i_p)%q       = 0_1
       if (sim%groups(1)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
