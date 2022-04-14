@@ -725,8 +725,6 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,LOGI_FMT) 'use_sputtering,     ',use_sputtering    
   write(*,LOGI_FMT) 'use_cx,             ',use_cx  
   write(*,LOGI_FMT) 'use_controller,     ',use_controller
-  write(*,LOGI_FMT) 'contr_change_t_indep,',contr_change_t_indep
-  write(*,LOGI_FMT) 'contr_change_t_dep, ',contr_change_t_dep
   write(*,LOGI_FMT) 'contr_selfdefined,  ',contr_selfdefined
   write(*,LOGI_FMT) 'contr_usedatafile,  ',contr_usedatafile
   write(*,LOGI_FMT) 'contr_analytical,   ',contr_analytical

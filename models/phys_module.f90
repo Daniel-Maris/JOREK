@@ -643,8 +643,6 @@ module phys_module
   !> @name Controller-related input parameters
   logical             :: use_controller
   character(len=512)  :: control_t_dep_signal_file
-  logical             :: contr_change_t_indep
-  logical             :: contr_change_t_dep 
   logical             :: contr_selfdefined 
   logical             :: contr_usedatafile 
   logical             :: contr_analytical 

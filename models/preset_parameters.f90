@@ -463,8 +463,6 @@ subroutine preset_parameters
   !========================== controller parameters
   use_controller            = .false.
   control_t_dep_signal_file = 'none'
-  contr_change_t_indep      = .false. 
-  contr_change_t_dep        = .false.   
   contr_selfdefined         = .false.
   contr_usedatafile         = .false.
   contr_analytical          = .false.
