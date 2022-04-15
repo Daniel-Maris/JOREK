@@ -145,7 +145,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
         contr_selfdefined, &
         contr_usedatafile, contr_analytical, analytical_expression, &
         analytical_len, analytical_tmax, controller_K_p, controller_K_i, controller_K_d, setpoint, &
-        max_value, min_value, no_input, use_closedloop
+        max_value, min_value, controller_type
 
 if (my_id .eq. 0) then
 

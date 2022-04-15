@@ -655,8 +655,7 @@ module phys_module
   real*8              :: setpoint
   real*8              :: max_value
   real*8              :: min_value
-  logical             :: no_input
-  logical             :: use_closedloop
+  character(len=12)   :: controller_type
 
   !> @name Particles-related input parameters
   logical :: restart_particles

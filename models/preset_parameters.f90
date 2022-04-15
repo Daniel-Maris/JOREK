@@ -475,8 +475,7 @@ subroutine preset_parameters
   setpoint                  = 1.d0
   max_value                 = 1.d100
   min_value                 = -1.d100
-  no_input                  = .false.
-  use_closedloop            = .true.
+  controller_type           = 'closedloop'
 
   !========================== kinetic particle parameters
   restart_particles = .false.

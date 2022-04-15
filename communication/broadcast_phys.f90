@@ -611,8 +611,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(setpoint,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(max_value,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(min_value,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-  call MPI_PACK(no_input,            1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-  call MPI_PACK(use_closedloop,            1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(controller_type,            12,MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   ! --- Please leave this as last parameter
   test_value = 42
@@ -1209,8 +1208,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,setpoint,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,max_value,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,min_value,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
-  call MPI_UNPACK(buffer,bufsize,position,no_input,         1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
-  call MPI_UNPACK(buffer,bufsize,position,use_closedloop,         1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,controller_type,         12,MPI_CHARACTER,MPI_COMM_WORLD,ierr)
 
   ! --- Please leave this as last parameter
   call MPI_UNPACK(buffer,bufsize,position,test_value,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)

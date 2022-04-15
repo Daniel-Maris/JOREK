@@ -23,7 +23,7 @@ use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_r
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: use_controller, contr_selfdefined, contr_usedatafile, contr_analytical 
 use phys_module, only: control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, controller_K_p
-use phys_module, only: controller_K_i, controller_K_d, setpoint, max_value, min_value, no_input, use_closedloop
+use phys_module, only: controller_K_i, controller_K_d, setpoint, max_value, min_value, controller_type
 ! use phys_module, only: use_sputtering , use_cx, use_ionisation, use_sputtering
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
@@ -86,6 +86,7 @@ logical :: boxpuff, puff_t_dependent
 !controller parameters
 logical :: controllerhasbeencalledbefore
 real*8  :: previous_time_controller
+real*8  :: actuator_signal
 
 !use physics
 logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
@@ -448,8 +449,12 @@ do while (.not. sim%stop_now)
   call controller_function(use_controller,sim,t_dep_signal_controller,contr_selfdefined, &
                           contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
                           controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, controller_K_d,node_list,&
-                          element_list,puff_t_dependent, t_norm,gas_puff, setpoint, max_value, min_value, no_input,use_closedloop)
+                          element_list,puff_t_dependent, t_norm, &!gas_puff, 
+                          setpoint, max_value, min_value, controller_type, actuator_signal)
+  gas_puff%fueling_rate = actuator_signal
+
   if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the fueling rate after controller is called:", gas_puff%fueling_rate
+
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
   !> You can put anything in here that you want to solely depend on the jorek timestep.
