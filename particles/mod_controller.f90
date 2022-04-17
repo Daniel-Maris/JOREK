@@ -27,10 +27,8 @@ contains
 subroutine controller_function(use_controller,  sim, t_dep_signal_controller, contr_selfdefined, contr_usedatafile, &
                                 contr_analytical, control_t_dep_signal_file, analytical_expression, analytical_len, &
                                 analytical_tmax, controllerhasbeencalledbefore, previous_time_controller, controller_K_p, &
-                                controller_K_i, controller_K_d, node_list, element_list, puff_t_dependent, t_norm, &!gas_puff, &
-                                setpoint, max_value, min_value, controller_type, actuator_signal)                                
-    
-!use profiles, only: readProf, interpolProf
+                                controller_K_i, controller_K_d, node_list, element_list, puff_t_dependent, t_norm, &
+                                setpoint, max_value, min_value, controller_type, actuator_signal)
     
     implicit none 
     
@@ -39,7 +37,6 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
     type(time_dependent_signal), intent(inout) :: t_dep_signal_controller
     type(type_node_list), intent(in)           :: node_list
     type (type_element_list), intent(in)       :: element_list
-    #type(particle_puffing), intent(inout)      :: gas_puff
     logical, intent(in)                        :: use_controller
     logical, intent(in)                        :: contr_selfdefined 
     logical, intent(in)                        :: contr_usedatafile 
@@ -296,15 +293,34 @@ controller_tstep = sim%time - previous_time_controller ! calculate the timestep 
 if (sim%my_id .eq. 0) write(*,*) "this is controller_tstep:", controller_tstep
 
 !> The part below is the measurement of the controlled parameter
-call find_RZ(sim%fields%node_list,sim%fields%element_list,8.173d0,-0.05d0,R_out,Z_out,i_elm_out,s_out,t_out,ifail) !make sure input for R_find and Z_find is given as a real!
-if (sim%my_id .eq. 0) write(*,*) "this is R and Z after controller called findRZ:", R_out, Z_out
-if (sim%my_id .eq. 0) write(*,*) "this is ielm_out t_out s_out:", i_elm_out, s_out, t_out
-if ((i_elm_out .le. 0) .and. (sim%my_id .eq. 0)) write(*,*) "WARNING: i_elm_out < 0"
-call sim%fields%interp_PRZ(sim%time, i_elm_out, [5],1, s_out, t_out, phi, density_controller, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t) !old version measurement: node_list%node(541)%values(1,1,var_rho) ! note the node number
-if (sim%my_id .eq. 0) write(*,*) "this is R and Z after controller called interp_PRZ:", R, Z
-if (sim%my_id .eq. 0) write(*,*) "this is the measured value(s) after interp_PRZ:", density_controller
-if (sim%my_id .eq. 0) write(*,*) sim%time, density_controller, "#time & measured value"
+real*8 :: measurement_array_R(:)
+real*8 :: measurement_array_Z(:)
+measurement_array_R = 4.173d0 !make sure input for R_find and Z_find is given as a real!
+measurement_array_Z = -3.0d0, -3.5d0,-4.0d0 !make sure input for R_find and Z_find is given as a real!
+if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_R", measurement_array_R
+if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_Z", measurement_array_Z
+real*8 :: measurements(size(measurement_array_R),size(measurement_array_Z))
+do i=1,size(measurement_array_R)
+    do j=1,size(measurement_array_Z)
+        if (sim%my_id .eq. 0) write(*,*) "this is i", i, "this is j", j
+        if (sim%my_id .eq. 0) write(*,*) "this is R_in", measurement_array_R(i), "this is Z_in" measurement_array_Z(j)
+        call find_RZ(sim%fields%node_list,sim%fields%element_list,measurement_array_R(i),measurement_array_Z(j),R_out,Z_out,i_elm_out,s_out,t_out,ifail))
+        if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call findRZ:", R_out, Z_out
+        if (sim%my_id .eq. 0) write(*,*) "this is ielm_out, t_out, s_out:", i_elm_out, s_out, t_out
+        if ((i_elm_out .le. 0) .and. (sim%my_id .eq. 0)) write(*,*) "WARNING: i_elm_out < 0"
+        call sim%fields%interp_PRZ(sim%time, i_elm_out, [5],1, s_out, t_out, phi, density_controller, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t) !old version measurement: node_list%node(541)%values(1,1,var_rho) ! note the node number
+        if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call interp_PRZ:", R, Z
+        if (sim%my_id .eq. 0) write(*,*) "this is the measured value after interp_PRZ:", density_controller
+        if (sim%my_id .eq. 0) write(*,*) sim%time, density_controller, "#time & measured value"
+        measurements(i,j) = density_controller
+        if (sim%my_id .eq. 0) write(*,*) "this is i, j, measurement", i, j, measurements(i,j)
+    enddo
+enddo
+if (sim%my_id .eq. 0) write(*,*) "this is the measurement array", measurements
+heatflux_measurement = max(measurements) !change this when no or another condition on the measurement must hold
+if (sim%my_id .eq. 0) write(*,*) "this is the max heatflux", heatflux_measurement
 
+stop !for testing
 !> The part below specifies the closed loop PID controller
 if (sim%my_id .eq. 0) write(*,*) "start closed loop controller"
 measured_value = density_controller(1) 
