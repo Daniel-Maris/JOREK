@@ -6,9 +6,10 @@ module mod_controller
     
     use mod_particle_puffing
     use mod_particle_sim
-    use phys_module, only: index_now, central_density
+    use phys_module, only: index_now, central_density, central_mass
     use data_structure
     use mod_fields
+    use constants, only: EL_CHG, MASS_PROTON, MU_ZERO
     
     implicit none
 
@@ -55,7 +56,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
     real*8, intent(in)                         :: t_norm
     real*8, intent(in)                         :: max_value
     real*8, intent(in)                         :: min_value
-    character, intent(in)                      :: controller_type
+    character(len=12), intent(in)              :: controller_type
     real*8, intent(out)                        :: actuator_signal
 
     real*8                                     :: controller_error_prev
@@ -68,7 +69,8 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
         if (sim%my_id .eq. 0) write(*,*) "The controller_function works. The controller is on"
         if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the time now:", sim%time 
         if (sim%my_id .eq. 0) write(*,*) "test for controller, this is index_now:", index_now 
-        
+        if (sim%my_id .eq. 0) write(*,*) controller_type
+
         if (controller_type == 'openloop') then
 
             call controller_input(contr_selfdefined, contr_usedatafile, contr_analytical, sim, t_norm, &
@@ -266,6 +268,17 @@ real*8, intent(in)                         :: setpoint
 real*8, intent(out)                        :: controller_output
 real*8, intent(inout)                      :: controller_error_prev
 
+! Allocating the measurement parameters for a measurement of three parameters over a line
+real*8                                     :: measurement_array_R(1)
+real*8                                     :: measurement_array_Z(3393)
+integer                                    :: k, j, m
+!real*8, dimension(size(measurement_array_R),size(measurement_array_Z)) :: measurements ! kan weg als hij allocate
+real*8                                     :: measurements(size(measurement_array_R),size(measurement_array_Z))
+real*8                                     :: measuring(3)
+real*8                                     :: heatflux_measurement
+real*8                                     :: Z_left 
+real*8                                     :: Z_length = size(measurement_array_Z)
+
 ! Allocating parameters necessary for using function find_RZ()
 integer                                    :: i
 real*8                                     :: R_find, Z_find
@@ -274,11 +287,12 @@ integer                                    :: ifail
 
 ! Allocating parameters necessary for using function interp_PRZ()
 integer                                    :: i_elm_out, i_elm, n_v
-integer                                    :: i_v(1) !interp_PRZ is used for 1 variable here, that is why the length of i_v(1) is 1
+integer                                    :: i_v(3) !CHANGE number to number of measurements
 real*8                                     :: time, phi, s, t
-real*8                                     :: density_controller(1), P(1), P_s(1), P_t(1), P_time(1) !interp_PRZ is used for 1 variable here, that is why the length is 1
+real*8                                     :: P(3), P_s(3), P_t(3), P_time(3) !CHANGE number to number of measurements
+!real*8                                     :: density_controller(1) ! use in case of density measurement
 real*8                                     :: R, R_s, R_t, Z, Z_s, Z_t
-real*8                                     :: P_phi(1) !interp_PRZ is used for 1 variable here, that is why the length of P_phi(1) is 1
+real*8                                     :: P_phi(3) !CHANGE number to number of measurements
 
 ! closed loop controller parameters
 real*8                                     :: measured_value
@@ -293,39 +307,53 @@ controller_tstep = sim%time - previous_time_controller ! calculate the timestep 
 if (sim%my_id .eq. 0) write(*,*) "this is controller_tstep:", controller_tstep
 
 !> The part below is the measurement of the controlled parameter
-real*8 :: measurement_array_R(:)
-real*8 :: measurement_array_Z(:)
-measurement_array_R = 4.173d0 !make sure input for R_find and Z_find is given as a real!
-measurement_array_Z = -3.0d0, -3.5d0,-4.0d0 !make sure input for R_find and Z_find is given as a real!
+
+!!!!!!!!!!!!!!!!!!!!!! example of measurement over a line and finding the maximum value !!!!!!!!!!!!!!!!
+measurement_array_R = 5.56255d0 !make sure input for R_find and Z_find is given as a real!
+Z_left = -41821d0
+Z_length = size(measurement_array_Z)
+do m = 1, Z_length
+    measurement_array_Z(m) =  (Z_left-m)/10000 !make sure input for R_find and Z_find is given as a real!
+enddo
 if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_R", measurement_array_R
 if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_Z", measurement_array_Z
-real*8 :: measurements(size(measurement_array_R),size(measurement_array_Z))
-do i=1,size(measurement_array_R)
+
+do k=1,size(measurement_array_R)
     do j=1,size(measurement_array_Z)
-        if (sim%my_id .eq. 0) write(*,*) "this is i", i, "this is j", j
-        if (sim%my_id .eq. 0) write(*,*) "this is R_in", measurement_array_R(i), "this is Z_in" measurement_array_Z(j)
-        call find_RZ(sim%fields%node_list,sim%fields%element_list,measurement_array_R(i),measurement_array_Z(j),R_out,Z_out,i_elm_out,s_out,t_out,ifail))
+        if (sim%my_id .eq. 0) write(*,*) "this is k", k, "this is j", j
+        if (sim%my_id .eq. 0) write(*,*) "this is R_in", measurement_array_R(k), "this is Z_in", measurement_array_Z(j)
+        call find_RZ(sim%fields%node_list,sim%fields%element_list,measurement_array_R(k),measurement_array_Z(j),R_out,Z_out,i_elm_out,s_out,t_out,ifail)
         if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call findRZ:", R_out, Z_out
         if (sim%my_id .eq. 0) write(*,*) "this is ielm_out, t_out, s_out:", i_elm_out, s_out, t_out
         if ((i_elm_out .le. 0) .and. (sim%my_id .eq. 0)) write(*,*) "WARNING: i_elm_out < 0"
-        call sim%fields%interp_PRZ(sim%time, i_elm_out, [5],1, s_out, t_out, phi, density_controller, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t) !old version measurement: node_list%node(541)%values(1,1,var_rho) ! note the node number
+        call sim%fields%interp_PRZ(sim%time, i_elm_out, [5,6,7],3, s_out, t_out, phi, measuring, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t) !old version measurement: node_list%node(541)%values(1,1,var_rho) ! note the node number
         if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call interp_PRZ:", R, Z
-        if (sim%my_id .eq. 0) write(*,*) "this is the measured value after interp_PRZ:", density_controller
-        if (sim%my_id .eq. 0) write(*,*) sim%time, density_controller, "#time & measured value"
-        measurements(i,j) = density_controller
-        if (sim%my_id .eq. 0) write(*,*) "this is i, j, measurement", i, j, measurements(i,j)
+        if (sim%my_id .eq. 0) write(*,*) "this is the measured value(s) after interp_PRZ:", measuring 
+        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(1)*central_density, "#time & density in E20m⁻3"
+        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3 , "#time & temperature in keV"
+        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(3)/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3, "#time & V_parrallel in km/s"
+        measurements(k,j) = measuring(1)*central_density*(measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3)*(measuring(3)/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3)*2.30713789285548*1.d7 !old: density_controller
+        if (sim%my_id .eq. 0) write(*,*) "this is k, j, measurement in W/M²", k, j, measurements(k,j)
     enddo
 enddo
 if (sim%my_id .eq. 0) write(*,*) "this is the measurement array", measurements
-heatflux_measurement = max(measurements) !change this when no or another condition on the measurement must hold
-if (sim%my_id .eq. 0) write(*,*) "this is the max heatflux", heatflux_measurement
+heatflux_measurement = MAXVAL(measurements)
+if (sim%my_id .eq. 0) write(*,*) sim%time, heatflux_measurement, "this is the max heatflux"
 
-stop !for testing
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Example of measuring the upstream density at one point (R=8.1473, Z=-0.05) !!!!!!!!!!!!!!
+!call find_RZ(sim%fields%node_list,sim%fields%element_list,8.1473d0,-0.05d0,R_out,Z_out,i_elm_out,s_out,t_out,ifail) !make sure input for R_find and Z_find is given as a real!
+!if (sim%my_id .eq. 0) write(*,*) "test for controller, this is R and Z after controller called findRZ:", R_out, Z_out
+!if (sim%my_id .eq. 0) write(*,*) "test for controller, this is ielm_out t_out s_out:", i_elm_out, s_out, t_out
+!call sim%fields%interp_PRZ(sim%time, i_elm_out, [5],1, s_out, t_out, phi, density_controller, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
+!if (sim%my_id .eq. 0) write(*,*) "test for controller, this is R and Z after interp_PRZ:", R, Z
+!if (sim%my_id .eq. 0) write(*,*) "this is P(in this case the density) after interp_PRZ:", density_controller
+!if (sim%my_id .eq. 0) write(*,*) sim%time, density_controller, "#time & density"
+
 !> The part below specifies the closed loop PID controller
 if (sim%my_id .eq. 0) write(*,*) "start closed loop controller"
-measured_value = density_controller(1) 
+measured_value = heatflux_measurement ! CHANGE when appicable (e.g. in density example, this was density_controller)
 if (sim%my_id .eq. 0) write(*,"(E16.8,A25)") setpoint, "this is the setpoint" 
-controller_error = (setpoint - measured_value)*central_density*1.d20 
+controller_error = (setpoint - measured_value) !CHECK units! e.g. for density: ..*central_density*1.d20 
 if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A52)") sim%time, controller_error, "this is the error between setpoint and measurement"
 controller_P = controller_error  
 controller_I = controller_I + controller_error*controller_tstep 

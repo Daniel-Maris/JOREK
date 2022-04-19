@@ -738,7 +738,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,REAL_FMT) 'setpoint,     ',setpoint
   write(*,REAL_FMT) 'max_value,     ',max_value
   write(*,REAL_FMT) 'min_value,     ',min_value
-  write(*,CHAR_FMT) 'controller_type, ',controller_type
+  write(*,CHAR_FMT) 'controller_type ',trim(controller_type)
 
   write(*,*)
   write(*,200)
