@@ -93,7 +93,7 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi,target_gr
   new%Z            = Z
   new%valve_r      = valve_r
   if (present(phi))  new%phi = phi
-  if (present(phi))  new%target_group = target_group
+  if (present(target_group))  new%target_group = target_group
   
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
