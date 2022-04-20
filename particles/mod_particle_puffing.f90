@@ -50,6 +50,8 @@ module mod_particle_puffing
 	real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
 	real*8  :: t_puff_slope = 0.d0 !<defined in SI
 	
+	! Selecting the target particle group
+	integer :: target_group = 1
 	
 
   contains
@@ -61,7 +63,7 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,fueling_rate_start,poly_R,poly_Z,boxpuff) result(new)
+function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi,target_group, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,fueling_rate_start,poly_R,poly_Z,boxpuff) result(new)
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
   
@@ -72,6 +74,7 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   real*8, intent(in)            :: valve_r
   real*8, intent(in)            :: R, Z
   real*8, intent(in), optional  :: phi ! If no phi is given axisymmetric puffing will be excecuted.
+  integer, intent(in), optional :: target_group
   logical, intent(in), optional :: puff_t_dependent
   real*8, intent(in), optional  :: t_puff_start,t_puff_slope
   real*8, intent(in), optional  :: fueling_rate_start 
@@ -90,6 +93,7 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   new%Z            = Z
   new%valve_r      = valve_r
   if (present(phi))  new%phi = phi
+  if (present(phi))  new%target_group = target_group
   
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
@@ -137,6 +141,9 @@ subroutine do_particle_puffing(this,sim, ev)
 
   if (sim%my_id .eq. 0) write(*,*) "Started puffing!"
   
+  n_group = this%target_group   ! Puffing Hydrogen 
+  if (sim%my_id .eq. 0) write(*,*) "Target group for puffing, group =", n_group
+	
   if (this%last_time .eq. 0.d0) then
     this%last_time = sim%time
     this%last_diag_time = sim%time
@@ -176,13 +183,15 @@ subroutine do_particle_puffing(this,sim, ev)
       ! if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
     ! end if
   ! end do
+  
+  
 
   !============== Finding free particles !< make into a function?
-allocate(is_free(size(sim%groups(1)%particles,1))) 
-!$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
+allocate(is_free(size(sim%groups(n_group)%particles,1))) 
+!$omp parallel do default(none) shared(sim, n_free, i_free, is_free,n_group) &
 !$omp private(j) schedule(dynamic, 100)
-do j=1,size(sim%groups(1)%particles,1) !sim%groups(1)%particles
-	is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
+do j=1,size(sim%groups(n_group)%particles,1) !sim%groups(1)%particles
+	is_free(j) = sim%groups(n_group)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
 end do
 !$omp end parallel do
 !$omp barrier
@@ -199,7 +208,7 @@ end do
 ! ==================
   
   
-  n_group = 1   ! Puffing Hydrogen (or actually the element at groups(1)) only
+
   ! Assuming the incoming gas at T=300K and a diatomic gas
   c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(n_group)%mass*ATOMIC_MASS_UNIT))
 	if (.not. this%boxpuff) then
@@ -248,7 +257,7 @@ end do
   
   puffed_this_step_local = 0
   puff_weight_local      = 0.d0
-  select type (pa => sim%groups(1)%particles)
+  select type (pa => sim%groups(n_group)%particles)
   type is (particle_kinetic_leapfrog)
 ! #ifdef __GFORTRAN__
 !  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
@@ -301,8 +310,8 @@ end do
       pa(i_p)%weight  = real(1.d0/n_puff_local) * delta_t * fueling_rate_t !< TODO: Change if particle%weights = real*8
       pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   ! <STIJN> Maybe this needs to be isotropic, or 1+cos like?
       pa(i_p)%q       = 0_1
-      if (sim%groups(1)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
-        sim%groups(1)%particles(i_p)%i_elm = 0
+      if (sim%groups(n_group)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
+        sim%groups(n_group)%particles(i_p)%i_elm = 0
         cycle       
       end if
 	  puffed_this_step_local = puffed_this_step_local+1
