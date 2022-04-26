@@ -28,7 +28,7 @@ contains
 subroutine controller_function(use_controller,  sim, t_dep_signal_controller, contr_selfdefined, contr_usedatafile, &
                                 contr_analytical, control_t_dep_signal_file, analytical_expression, analytical_len, &
                                 analytical_tmax, controllerhasbeencalledbefore, previous_time_controller, controller_K_p, &
-                                controller_K_i, controller_K_d, node_list, element_list, puff_t_dependent, t_norm, &
+                                controller_K_i, controller_K_d, node_list, element_list, t_norm, &
                                 setpoint, max_value, min_value, controller_type, actuator_signal)
     
     implicit none 
@@ -52,7 +52,6 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
     real*8, intent(in)                         :: controller_K_i
     real*8, intent(in)                         :: controller_K_d
     real*8, intent(in)                         :: setpoint
-    logical, intent(in)                        :: puff_t_dependent
     real*8, intent(in)                         :: t_norm
     real*8, intent(in)                         :: max_value
     real*8, intent(in)                         :: min_value
@@ -69,7 +68,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
         if (sim%my_id .eq. 0) write(*,*) "The controller_function works. The controller is on"
         if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the time now:", sim%time 
         if (sim%my_id .eq. 0) write(*,*) "test for controller, this is index_now:", index_now 
-        if (sim%my_id .eq. 0) write(*,*) controller_type
+        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the controller type:", controller_type
 
         if (controller_type == 'openloop') then
 
@@ -174,7 +173,7 @@ if (contr_selfdefined) then
     input_signal = time_dependent_puff_controller(40.d21, sim%time, 10*t_norm, 500*t_norm, 20.d21) ! < change the parameters here
     if (sim%my_id .eq. 0) write(*,*) sim%time, input_signal, "#sim time & input signal selfdefined function"
 
-    !> Example of how to import a time dependent signal using a datafile
+!> Example of how to import a time dependent signal using a datafile
 else if (contr_usedatafile) then
     if (.not. controllerhasbeencalledbefore) then ! first time controller is called --> read datafile 
         call readProf(t_dep_signal_controller%time, t_dep_signal_controller%signal, t_dep_signal_controller%len, control_t_dep_signal_file)
@@ -269,13 +268,12 @@ real*8, intent(out)                        :: controller_output
 real*8, intent(inout)                      :: controller_error_prev
 
 ! Allocating the measurement parameters for a measurement of three parameters over a line
-real*8                                     :: measurement_array_R(1)
-real*8                                     :: measurement_array_Z(3393)
+real*8                                     :: measurement_array_R(1) !CHANGE length of array
+real*8                                     :: measurement_array_Z(3393) !CHANGE length of array
 integer                                    :: k, j, m
-!real*8, dimension(size(measurement_array_R),size(measurement_array_Z)) :: measurements ! kan weg als hij allocate
 real*8                                     :: measurements(size(measurement_array_R),size(measurement_array_Z))
-real*8                                     :: measuring(3)
-real*8                                     :: heatflux_measurement
+real*8                                     :: measuring(3) !CHANGE number of measurement variables
+real*8                                     :: heatflux_measurement !CHANGE name when applicable
 real*8                                     :: Z_left 
 real*8                                     :: Z_length = size(measurement_array_Z)
 
@@ -326,12 +324,14 @@ do k=1,size(measurement_array_R)
         if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call findRZ:", R_out, Z_out
         if (sim%my_id .eq. 0) write(*,*) "this is ielm_out, t_out, s_out:", i_elm_out, s_out, t_out
         if ((i_elm_out .le. 0) .and. (sim%my_id .eq. 0)) write(*,*) "WARNING: i_elm_out < 0"
+        !> CHANGE the number of the measured parameters when applicable in the line below (5=density, 6=temperature, 7=v_parrallel)
         call sim%fields%interp_PRZ(sim%time, i_elm_out, [5,6,7],3, s_out, t_out, phi, measuring, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t) !old version measurement: node_list%node(541)%values(1,1,var_rho) ! note the node number
         if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call interp_PRZ:", R, Z
         if (sim%my_id .eq. 0) write(*,*) "this is the measured value(s) after interp_PRZ:", measuring 
         if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(1)*central_density, "#time & density in E20m⁻3"
         if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3 , "#time & temperature in keV"
-        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(3)/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3, "#time & V_parrallel in km/s"
+        ! NOTE: the normalisation of v_parrallell still needs to be adjusted in the two lines below: it must be multiplied with the magnetic field
+        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(3)/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3, "#time & V_parrallel in km/s" 
         measurements(k,j) = measuring(1)*central_density*(measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3)*(measuring(3)/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3)*2.30713789285548*1.d7 !old: density_controller
         if (sim%my_id .eq. 0) write(*,*) "this is k, j, measurement in W/M²", k, j, measurements(k,j)
     enddo
@@ -353,7 +353,7 @@ if (sim%my_id .eq. 0) write(*,*) sim%time, heatflux_measurement, "this is the ma
 if (sim%my_id .eq. 0) write(*,*) "start closed loop controller"
 measured_value = heatflux_measurement ! CHANGE when appicable (e.g. in density example, this was density_controller)
 if (sim%my_id .eq. 0) write(*,"(E16.8,A25)") setpoint, "this is the setpoint" 
-controller_error = (setpoint - measured_value) !CHECK units! e.g. for density: ..*central_density*1.d20 
+controller_error = (setpoint - measured_value) !CHECK and CHANGE units when applicable e.g. for density: ..*central_density*1.d20 
 if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A52)") sim%time, controller_error, "this is the error between setpoint and measurement"
 controller_P = controller_error  
 controller_I = controller_I + controller_error*controller_tstep 

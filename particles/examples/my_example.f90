@@ -449,7 +449,7 @@ do while (.not. sim%stop_now)
   call controller_function(use_controller,sim,t_dep_signal_controller,contr_selfdefined, &
                           contr_usedatafile,contr_analytical,control_t_dep_signal_file, analytical_expression, analytical_len, analytical_tmax, &
                           controllerhasbeencalledbefore, previous_time_controller, controller_K_p, controller_K_i, controller_K_d, node_list, &
-                          element_list,puff_t_dependent, t_norm, setpoint, max_value, min_value, controller_type, actuator_signal)
+                          element_list,t_norm, setpoint, max_value, min_value, controller_type, actuator_signal)
   gas_puff%fueling_rate = actuator_signal
 
   if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the fueling rate after controller is called:", gas_puff%fueling_rate
