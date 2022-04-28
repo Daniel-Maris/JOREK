@@ -29,7 +29,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
                                 contr_analytical, control_t_dep_signal_file, analytical_expression, analytical_len, &
                                 analytical_tmax, controllerhasbeencalledbefore, previous_time_controller, controller_K_p, &
                                 controller_K_i, controller_K_d, node_list, element_list, t_norm, &
-                                setpoint, max_value, min_value, controller_type, actuator_signal)
+                                setpoint, max_value, min_value, controller_type, actuator_signal, F0)
     
     implicit none 
     
@@ -57,6 +57,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
     real*8, intent(in)                         :: min_value
     character(len=12), intent(in)              :: controller_type
     real*8, intent(out)                        :: actuator_signal
+    real*8, intent(in)                         :: F0
 
     real*8                                     :: controller_error_prev
     real*8                                     :: input_signal
@@ -86,7 +87,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
             endif
 
             call closed_loop(sim, element_list, node_list, previous_time_controller, setpoint, controller_K_p, controller_K_i, controller_K_d, &
-                            controller_output, controller_error_prev) 
+                            controller_output, controller_error_prev, F0) 
 
             actuator_signal = max(controller_output, min_value)
             actuator_signal = min(controller_output, max_value)
@@ -102,7 +103,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
             endif
 
             call closed_loop(sim, element_list, node_list, previous_time_controller, setpoint, controller_K_p, controller_K_i, controller_K_d, &
-                            controller_output, controller_error_prev) 
+                            controller_output, controller_error_prev, F0) 
 
             actuator_signal = max(input_signal + controller_output, min_value)
             actuator_signal = min(input_signal + controller_output, max_value)
@@ -251,7 +252,7 @@ endif ! this if statement determines the input signal: selfdefined / usedatafile
 end subroutine controller_input
 
 subroutine closed_loop(sim, element_list, node_list, previous_time_controller, setpoint, controller_K_p, controller_K_i, controller_K_d, controller_output, &
-                    controller_error_prev) 
+                    controller_error_prev,F0) 
 
 implicit none 
     
@@ -266,6 +267,7 @@ real*8, intent(in)                         :: controller_K_d
 real*8, intent(in)                         :: setpoint
 real*8, intent(out)                        :: controller_output
 real*8, intent(inout)                      :: controller_error_prev
+real*8, intent(in)                         :: F0
 
 ! Allocating the measurement parameters for a measurement of three parameters over a line
 real*8                                     :: measurement_array_R(1) !CHANGE length of array
@@ -330,9 +332,8 @@ do k=1,size(measurement_array_R)
         if (sim%my_id .eq. 0) write(*,*) "this is the measured value(s) after interp_PRZ:", measuring 
         if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(1)*central_density, "#time & density in E20m⁻3"
         if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3 , "#time & temperature in keV"
-        ! NOTE: the normalisation of v_parrallell still needs to be adjusted in the two lines below: it must be multiplied with the magnetic field
-        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(3)/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3, "#time & V_parrallel in km/s" 
-        measurements(k,j) = measuring(1)*central_density*(measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3)*(measuring(3)/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3)*2.30713789285548*1.d7 !old: density_controller
+        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(3)*F0/R/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3, "#time & V_parrallel in km/s" 
+        measurements(k,j) = measuring(1)*central_density*(measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3)*(measuring(3)*F0/R/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3)*2.30713789285548*1.d7 !old: density_controller
         if (sim%my_id .eq. 0) write(*,*) "this is k, j, measurement in W/M²", k, j, measurements(k,j)
     enddo
 enddo
