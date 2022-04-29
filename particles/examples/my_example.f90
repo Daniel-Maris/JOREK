@@ -452,7 +452,7 @@ do while (.not. sim%stop_now)
                           element_list,t_norm, setpoint, max_value, min_value, controller_type, actuator_signal, F0)
   gas_puff%fueling_rate = actuator_signal
 
-  if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the fueling rate after controller is called:", gas_puff%fueling_rate
+  if (sim%my_id .eq. 0) write(*,"(A74, E16.8)") "test for controller, this is the fueling rate after controller is called:", gas_puff%fueling_rate
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps

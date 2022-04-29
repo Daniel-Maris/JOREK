@@ -69,7 +69,7 @@ subroutine controller_function(use_controller,  sim, t_dep_signal_controller, co
         if (sim%my_id .eq. 0) write(*,*) "The controller_function works. The controller is on"
         if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the time now:", sim%time 
         if (sim%my_id .eq. 0) write(*,*) "test for controller, this is index_now:", index_now 
-        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the controller type:", controller_type
+        if (sim%my_id .eq. 0) write(*,*) "test for controller, this is the controller type: ", controller_type
 
         if (controller_type == 'openloop') then
 
@@ -172,7 +172,7 @@ endif
 !> Currently it is the same function as the time-dependent_puff function within mod_particle_puffing (but copied and renamed below)
 if (contr_selfdefined) then
     input_signal = time_dependent_puff_controller(40.d21, sim%time, 10*t_norm, 500*t_norm, 20.d21) ! < change the parameters here
-    if (sim%my_id .eq. 0) write(*,*) sim%time, input_signal, "#sim time & input signal selfdefined function"
+    if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A50)") sim%time, input_signal, "#sim time & input signal selfdefined function"
 
 !> Example of how to import a time dependent signal using a datafile
 else if (contr_usedatafile) then
@@ -190,7 +190,7 @@ else if (contr_usedatafile) then
         if (sim%my_id .eq. 0) write(*,*) "controller input signal data interpolation done."
     endif
         
-    if (sim%my_id .eq. 0) write(*,*) sim%time, input_signal, "#sim time & input_signal using datafile"
+    if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A50)") sim%time, input_signal, "#sim time & input_signal using datafile"
 
 !> Example of how to create and use a datafile for a time dependent signal using Python
 else if (contr_analytical) then
@@ -243,7 +243,7 @@ else if (contr_analytical) then
         if (sim%my_id .eq. 0) write(*,*) "controller input signal data interpolation done."
     endif      
     
-    if (sim%my_id .eq. 0) write(*,*) sim%time, input_signal, "#sim time & input_signal using analytical expression"  
+    if (sim%my_id .eq. 0) write(*,"(E16.8,E16.8,A59)") sim%time, input_signal, "#sim time & input_signal using analytical expression"  
 
 else
     if (sim%my_id .eq. 0) write(*,*) "ERROR: when you use the controller you need to specify what the input signal is. One of the logicals must be true."
@@ -315,29 +315,31 @@ Z_length = size(measurement_array_Z)
 do m = 1, Z_length
     measurement_array_Z(m) =  (Z_left-m)/10000 !make sure input for R_find and Z_find is given as a real!
 enddo
-if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_R", measurement_array_R
-if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_Z", measurement_array_Z
+!> The write statements below can be used to print the measurement arrays, but be careful, printing large arrays can make the output file very big
+!if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_R", measurement_array_R
+!if (sim%my_id .eq. 0) write(*,*) "this is measurement_array_Z", measurement_array_Z
 
+!> The write statements below can be uncommented when testing the code, but right now they are commented to not fill up the output file too much
 do k=1,size(measurement_array_R)
     do j=1,size(measurement_array_Z)
-        if (sim%my_id .eq. 0) write(*,*) "this is k", k, "this is j", j
-        if (sim%my_id .eq. 0) write(*,*) "this is R_in", measurement_array_R(k), "this is Z_in", measurement_array_Z(j)
+        !if (sim%my_id .eq. 0) write(*,*) "this is k", k, "this is j", j
+        !if (sim%my_id .eq. 0) write(*,*) "this is R_in", measurement_array_R(k), "this is Z_in", measurement_array_Z(j)
         call find_RZ(sim%fields%node_list,sim%fields%element_list,measurement_array_R(k),measurement_array_Z(j),R_out,Z_out,i_elm_out,s_out,t_out,ifail)
-        if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call findRZ:", R_out, Z_out
-        if (sim%my_id .eq. 0) write(*,*) "this is ielm_out, t_out, s_out:", i_elm_out, s_out, t_out
+        !if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call findRZ:", R_out, Z_out
+        !if (sim%my_id .eq. 0) write(*,*) "this is ielm_out, t_out, s_out:", i_elm_out, s_out, t_out
         if ((i_elm_out .le. 0) .and. (sim%my_id .eq. 0)) write(*,*) "WARNING: i_elm_out < 0"
         !> CHANGE the number of the measured parameters when applicable in the line below (5=density, 6=temperature, 7=v_parrallel)
         call sim%fields%interp_PRZ(sim%time, i_elm_out, [5,6,7],3, s_out, t_out, phi, measuring, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t) !old version measurement: node_list%node(541)%values(1,1,var_rho) ! note the node number
-        if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call interp_PRZ:", R, Z
-        if (sim%my_id .eq. 0) write(*,*) "this is the measured value(s) after interp_PRZ:", measuring 
-        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(1)*central_density, "#time & density in E20m⁻3"
-        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3 , "#time & temperature in keV"
-        if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(3)*F0/R/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3, "#time & V_parrallel in km/s" 
+        !if (sim%my_id .eq. 0) write(*,*) "this is R and Z after call interp_PRZ:", R, Z
+        if (sim%my_id .eq. 0) write(*,"(A48,2I5,3E16.8)") "k, j & the measured value(s) after interp_PRZ:", k, j, measuring 
+        !if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(1)*central_density, "#time & density in E20m⁻3"
+        !if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3 , "#time & temperature in keV"
+        !if (sim%my_id .eq. 0) write(*,*) sim%time, measuring(3)*F0/R/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3, "#time & V_parrallel in km/s" 
         measurements(k,j) = measuring(1)*central_density*(measuring(2)/MU_zero/(central_density*1d20)/EL_CHG/2./1.e3)*(measuring(3)*F0/R/sqrt(MU_zero*central_density*1.d20*central_mass*mass_proton)/1.e3)*2.30713789285548*1.d7 !old: density_controller
-        if (sim%my_id .eq. 0) write(*,*) "this is k, j, measurement in W/M²", k, j, measurements(k,j)
+        !if (sim%my_id .eq. 0) write(*,*) "this is k, j, measurement in W/M²", k, j, measurements(k,j)
     enddo
 enddo
-if (sim%my_id .eq. 0) write(*,*) "this is the measurement array", measurements
+!if (sim%my_id .eq. 0) write(*,*) "this is the measurement array", measurements !can be used to print the whole array but be careful, the output file will be very big
 heatflux_measurement = MAXVAL(measurements)
 if (sim%my_id .eq. 0) write(*,*) sim%time, heatflux_measurement, "this is the max heatflux"
 
