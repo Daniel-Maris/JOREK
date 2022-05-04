@@ -31,7 +31,7 @@ contains
                                   A_mat, i_tor_min, i_tor_max )
 
     use data_structure
-    use phys_module, only: F0, GAMMA, keep_n0_const, bc_natural_open
+    use phys_module, only: F0, GAMMA, bc_natural_open
     use vacuum, only: is_freebound
     use mpi_mod
     use mod_locate_irn_jcn
@@ -66,7 +66,7 @@ contains
     real*8,                allocatable, intent(inout) :: A_mat(:) 
 
     ! Internal parameters
-    real*8                :: zbig, zbig_backup
+    real*8                :: zbig
     integer               :: i, in, iv, inode, k
     integer               :: ielm
     integer               :: index_node
@@ -76,7 +76,6 @@ contains
 
     n_tor_local = i_tor_max - i_tor_min + 1
     zbig = 1.d12
-    zbig_backup = zbig
        do i=1, n_local_elms
 
           ielm = local_elms(i)
@@ -88,11 +87,6 @@ contains
              if (node_list%node(inode)%boundary .ne. 0) then
 
                 do in=i_tor_min, i_tor_max 
-                  if (keep_n0_const  .and.  in .eq. 1 ) then
-                    zbig = 1.d15
-                  else
-                    zbig = zbig_backup
-                  endif
 
                    do k=1, n_var
                      if (bc_natural_open .and. k .eq. var_zj) cycle

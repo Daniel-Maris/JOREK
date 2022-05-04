@@ -1,6 +1,8 @@
 subroutine energy3D(node_list,element_list,W_mag,W_kin)
 !---------------------------------------------------------------
-!
+! This subroutine calculates the energies of each individual mode
+! family in a stellarator by summing up the energies of all modes
+! and cross terms in the mode family.
 !---------------------------------------------------------------
 use data_structure
 use gauss
@@ -86,7 +88,9 @@ do ife=1,element_list%n_elements
       
       do in=1,n_tor
         do im=1,n_tor
+          ! Determine if modes in and im are part of the same mode family
           if (mod(mode(in)+mode(im),n_coord_period) .eq. 0 .or. mod(mode(in)-mode(im),n_coord_period) .eq. 0) then
+            ! If yes, then determine the mode family imf that the modes belong to
             imf = min(mode(in),mode(im))
             do while (imf .ge. n_coord_period)
               imf = imf - n_coord_period

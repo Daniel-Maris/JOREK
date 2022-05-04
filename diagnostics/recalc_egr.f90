@@ -1,10 +1,15 @@
 program recalc_egr
+!---------------------------------------------------------------------
+! This is a simple program to re-calculate energies and growth rates of
+! each mode family in a simulation that has already completed. For the
+! sake of simplicity, this program does not take inputs and all parameters
+! are hard-coded.
+!---------------------------------------------------------------------
   use data_structure
   use nodes_elements
   use basis_at_gaussian
   use mod_import_restart
   use mod_expression
-!  use mod_integrals3D_nompi
   use phys_module
   use mod_chi
   implicit none

@@ -543,6 +543,7 @@ subroutine preset_parameters
 
   keep_current_prof  = .true.               ! Keep the current_source term
   init_current_prof  = .false.
+  current_prof_initialized = .false.
   
   use_mumps          = .false.              ! Use MUMPS solver
   use_pastix         = .true.               ! Use PASTIX solver

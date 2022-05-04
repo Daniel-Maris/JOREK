@@ -874,6 +874,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 #ifdef USE_HDF5
   integer(HID_T)     :: file_id, datatype, dataset
   integer            :: ind, n_spi_check, n_inj_check
+  character          :: t_current_prof_initialized
   
   real(RKIND), allocatable :: t_x(:,:,:,:)
   real(RKIND), allocatable :: t_values(:,:,:,:)
@@ -1227,6 +1228,12 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_real_reading(file_id,visco_par_rst,'visco_par')
   call HDF5_integer_reading(file_id,index_start,'index_now')
   call HDF5_real_reading(file_id,t_start,'t_now')
+  call HDF5_char_reading(file_id,t_current_prof_initialized,'current_prof_initialized')
+  if (t_current_prof_initialized .eq. 'T') then
+    current_prof_initialized = .true.
+  else
+    current_prof_initialized = .false.
+  end if
   
   if (index_start .ge. 1) then
 

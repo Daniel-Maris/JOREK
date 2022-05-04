@@ -1,4 +1,9 @@
 program flux_surface
+!---------------------------------------------------------------------
+! This program plots s=const curves on a specified poloidal plane, where
+! s is one of the JOREK element-local coordinates. If the grid is flux-aligned,
+! these s=const curves correspond to flux surfaces in the initial equilibrium.
+!---------------------------------------------------------------------
   use data_structure
   use nodes_elements
   use mod_import_restart
@@ -16,6 +21,12 @@ program flux_surface
   call det_modes
   call initialise_basis
   call initialise_parameters(0,  "__NO_FILENAME__")
+  write(*,*) "****************************************"
+  write(*,*) "*             flux_surface             *"
+  write(*,*) "****************************************"
+  write(*,*) "WARNING: This program assumes that the grid in the imported restart file is flux-aligned."
+  write(*,*) "WARNING: If the grid is not flux-aligned, the output of this program will be useless."
+  
   call import_restart(node_list,element_list, 'jorek_restart', rst_format, ierr, .true.)
   
   open(21, file='stpts', status='old', action='read', iostat=ierr)

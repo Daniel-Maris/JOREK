@@ -185,7 +185,10 @@ write(*,'(1x,a)',advance='no') ' USE_BICGSTAB : '
   write(*,  112) ' n_dim          =  ', n_dim             
   write(*,  112) ' n_order        =  ', n_order           
   write(*,  112) ' n_tor          =  ', n_tor             
+  write(*,  112) ' n_coord_tor    =  ', n_coord_tor
+  write(*,  112) ' l_pol_domm     =  ', l_pol_domm
   write(*,  112) ' n_period       =  ', n_period          
+  write(*,  112) ' n_coord_period =  ', n_coord_period
   write(*,  112) ' n_plane        =  ', n_plane           
   write(*,  112) ' n_vertex_max   =  ', n_vertex_max      
   write(*,  112) ' n_nodes_max    =  ', n_nodes_max       
@@ -250,6 +253,8 @@ write(*,'(1x,a)',advance='no') ' USE_BICGSTAB : '
   write(*,LOGI_FMT) 'n_tht_equidistant     ', n_tht_equidistant
   write(*,INTG_FMT) 'n_flux                ', n_flux
   write(*,LOGI_FMT) 'xpoint                ', xpoint
+  write(*,INTG_FMT) 'm_pol_bc              ', m_pol_bc
+  write(*,INTG_FMT) 'i_plane_rtree         ', i_plane_rtree
 
   if ( xpoint ) then
     write(*,INTG_FMT) 'xcase                 ', xcase
@@ -368,6 +373,11 @@ write(*,'(1x,a)',advance='no') ' USE_BICGSTAB : '
     write(*,REAL_FMT) 'V_0                   ', V_0
     write(*,REAL_FMT) 'V_1                   ', V_1
     write(*,REAL_FMT) 'V_coeff               ', V_coef(1:10)
+  end if
+
+  if (domm) then
+    write(*,CHAR_FMT) 'domm_file             ', domm_file
+    write(*,REAL_FMT) 'R_domm                ', R_domm
   end if
 
   if ( (abs(V_0) .ge. 1.d-19) .or. (num_rot) ) then
@@ -507,6 +517,8 @@ write(*,'(1x,a)',advance='no') ' USE_BICGSTAB : '
 
 
   write(*,LOGI_FMT) 'keep_current_prof     ', keep_current_prof
+  write(*,LOGI_FMT) 'init_current_prof     ', init_current_prof
+  write(*,LOGI_FMT) 'current_prof_initialized', current_prof_initialized
   write(*,LOGI_FMT) 'linear_run            ', linear_run
   write(*,REAL_FMT) 'D_prof_neg            ', D_prof_neg
   write(*,REAL_FMT) 'D_prof_neg_thresh     ', D_prof_neg_thresh

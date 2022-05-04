@@ -308,17 +308,6 @@ do ms=1, n_gauss
 
       eq(2*n_var+5,0,0,0,:) = get_dperp(psi_norm)       ! D_perp
       eq(2*n_var+6,0,0,0,:) = get_zkperp(psi_norm)      ! k_perp
-
-      ! --- Increase diffusivity if very small density/temperature
-      if (xpoint2) then
-        if (eq(5,0,0,0,1) .lt. D_prof_neg_thresh)  then
-          eq(2*n_var+5,0,0,0,:)  = D_prof_neg
-        endif
-        if (eq(6,0,0,0,1) .lt. ZK_prof_neg_thresh) then
-          eq(2*n_var+6,0,0,0,:) = ZK_prof_neg
-        endif
-      endif
-     
       eq(2*n_var+7,0,0,0,:) = particle_source(mp,ms,mt)   ! S_rho
       eq(2*n_var+8,0,0,0,:) = heat_source(mp,ms,mt)       ! S_e
       eq(2*n_var+9,0,0,0,:) = current_source(mp,ms,mt)/F0 ! S_j
