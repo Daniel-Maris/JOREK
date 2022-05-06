@@ -22,21 +22,22 @@ implicit none
 
 !--- Input parameters --------------------!
 !-----------------------------------------!
-real*8, parameter  :: delta_phi = 1.d-2
-integer, parameter :: npoints = 30
-integer, parameter :: num_pol_turns = 25
+integer, parameter :: points_per_turn = 500
+real*8, parameter  :: delta_phi = 2*PI/float(n_coord_period*points_per_turn)
+integer, parameter :: n_lines = 20
+integer, parameter :: num_pol_turns = 30
 integer, parameter :: assumed_max_q = 8
 !-----------------------------------------!
 !-----------------------------------------!
 
-real*8    :: Rstart(npoints), Zstart(npoints)                      
+real*8    :: Rstart(n_lines), Zstart(n_lines)                      
 integer   :: i, j, k, i_elm, ifail, my_id, ierr, inode, i_cpu            
 integer   :: iside_i, iside_j
-real*8    :: Rout, Zout, polturns, torturns, torturns_old
+real*8    :: Rout, Zout, polturns, torturns
 logical   :: stop_tracing
 real*8    :: R_axis, Z_axis, R_max
 
-real*8    :: s, t, phi, phinew, phiold, snew, tnew, sold, told
+real*8    :: s, t, t_global, phi, phinew, phiold, snew, tnew, sold, told
 real*8    :: RR, R_s, R_t, R_p, ZZ, Z_s, Z_t, Z_p
 real*8    :: BR, BZ, Bp, xjac, Fprof
 real*8    :: dummy, dum01, dum02, dum03, dum04, dum05
@@ -45,12 +46,12 @@ real*8    :: Rold, Zold
 integer   :: nsend, nrecv
 integer   :: required,provided,StatInfo, n_cpu
 integer*4 :: rank, comm_size 
-logical   :: responsible(npoints)
+logical   :: responsible(n_lines)
 integer   :: status(MPI_STATUS_SIZE)
 
-real*8    :: rphin_arr(npoints) = 0.d0, polturns_arr(npoints) = 0.d0, torturns_arr(npoints) = 0.d0, phi_arr(npoints) = 0.d0, R_arr(npoints) = 0.d0
-real*8    :: rphin_arr_tot(npoints) = 0.d0, polturns_arr_tor(npoints) = 0.0, torturns_arr_tor(npoints) = 0.0, phi_arr_tot(npoints) = 0.d0, R_arr_tot(npoints) = 0.d0
-real*8    :: R_poinc_tot(npoints*num_pol_turns*assumed_max_q) = 0.d0, Z_poinc_tot(npoints*num_pol_turns*assumed_max_q)
+real*8    :: rphin_arr(n_lines) = 0.d0, polturns_arr(n_lines) = 0.d0, torturns_arr(n_lines) = 0.d0, phi_arr(n_lines) = 0.d0, R_arr(n_lines) = 0.d0
+real*8    :: rphin_arr_tot(n_lines) = 0.d0, polturns_arr_tot(n_lines) = 0.0, torturns_arr_tot(n_lines) = 0.0, phi_arr_tot(n_lines) = 0.d0, R_arr_tot(n_lines) = 0.d0
+real*8    :: R_poinc_tot(n_lines*num_pol_turns*n_coord_period*assumed_max_q) = 0.d0, Z_poinc_tot(n_lines*num_pol_turns*n_coord_period*assumed_max_q), phi_poinc_tot(n_lines*num_pol_turns*n_coord_period*assumed_max_q)
 
 ! --- Initialise constants
 integer   :: v_s0_t0   = 1    ! the vertex and edge indices follow and anti-clockwise convention
@@ -63,7 +64,6 @@ integer   :: e_tplus   = 3
 integer   :: e_tminus  = 1
 
 integer   :: i_var_psi = 1
-real*8    :: q_thresh = 0.5  ! Minimum value of q accepted for a local poloidal turn. For values below q_thresh the poloidal turn is ignored
 
 required = MPI_THREAD_FUNNELED
 call MPI_Init_thread(required, provided, StatInfo)
@@ -115,7 +115,7 @@ call interp_RZP(node_list,element_list,element_list%n_elements,1.0,1.0,phi,R_max
 if ( my_id == 0 ) then
   write(*,*) '*** ...start tracing... ***'
   write(*,*) 'delta_phi        = ', delta_phi
-  write(*,*) 'num_pts          = ', npoints
+  write(*,*) 'num_pts          = ', n_lines
   write(*,*) 'num_pol_turns    = ', num_pol_turns
   write(*,*) '(R_axis, Z_axis) = ', R_axis, Z_axis
   write(*,*) '(R_max, Z_max)   = ', R_max, dummy
@@ -126,11 +126,11 @@ endif
 
 ! --- Define starting points for field lines along midplane
 responsible = .false.
-do i = 1, npoints
+do i = 1, n_lines
   
-  if ( ( real(my_id)/real(n_cpu)*npoints < i ) .and. ( real(my_id+1)/real(n_cpu)*npoints >= i ) ) then
+  if ( ( real(my_id)/real(n_cpu)*n_lines < i ) .and. ( real(my_id+1)/real(n_cpu)*n_lines >= i ) ) then
     responsible(i) = .true.
-    Rstart(i) = R_axis + REAL(i) * 0.995 * (R_max - R_axis)/npoints
+    Rstart(i) = R_axis + float(i) * 0.95 * (R_max - R_axis)/n_lines
     Zstart(i) = Z_axis
   end if
   
@@ -140,16 +140,16 @@ end do
 do i = 0, n_cpu-1
   if ( my_id == i ) then
     write(*,*) 'Task ', my_id, 'responsible for (field line number & radius):'
-    do j = 1, npoints
-      if (responsible(j)) write(*,*) j, Rstart(j)
+    do j = 1, n_lines
+      if (responsible(j)) write(*,*) j, Rstart(j), Zstart(j)
     end do
   end if
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
 end do
 
 ! Loop through starting points, identifying which field lines MPI process is responsible for
-R_poinc_tot = 0.0; Z_poinc_tot = 0.0
-do i = 1, npoints
+R_poinc_tot = 0.0; Z_poinc_tot = 0.0; phi_poinc_tot = 0.0
+do i = 1, n_lines
   if ( .not. responsible(i) ) then
     rphin_arr(i) = 0.d0
     phi_arr(i)  = 0.d0
@@ -159,6 +159,7 @@ do i = 1, npoints
   
   ! Get starting point R, Z, phi, s and t
   phi = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
+  t_global = 0.0
   call find_RZ(node_list,element_list,Rstart(i),Zstart(i),RR,ZZ,i_elm,s,t,ifail)
   if (ifail .ne. 0) then
     write(*,*) "Can not find RZ,", ifail 
@@ -172,63 +173,49 @@ do i = 1, npoints
   
   ! --- Trace field line
   stop_tracing = .false.
-  polturns     = 0.d0
-  torturns     = 0.d0; torturns_old = 0.0
+  polturns     = 0.d0; torturns     = 0.d0
   j            = 0
   ifail = 0
   do while( .not. stop_tracing )
-    
     call do_step()
+
+    ! Check if tracing failed and exit 
     if (ifail .ne. 0) then
        write(*,*) 'Field line tracing failed for line: ', i
        exit
     endif
     j = j + 1
-
-    if ( ABS(phi) > 2.d0*PI ) then
-      if ( phi > 0.d0 ) then
-        phi   = phi - 2.d0*PI
-      else
-        phi   = phi + 2.d0*PI
-      end if
-      torturns = torturns + 1.d0
-      if ((i-1)*num_pol_turns*assumed_max_q+int(torturns) .gt. npoints*num_pol_turns*assumed_max_q) then
-        write(*, *) "ERROR: Assumed maximum q has been exceeded!"
-        stop
-      endif
-      R_poinc_tot((i-1)*num_pol_turns*assumed_max_q+int(torturns)) = RR
-      Z_poinc_tot((i-1)*num_pol_turns*assumed_max_q+int(torturns)) = ZZ
-    end if
+    
+    ! Check the assumed maximum number of toroidal turns is not exceeded
+    if (abs(phi) / (2.d0*PI) .gt. assumed_max_q*num_pol_turns) then
+      write(*, *) "ERROR: Assumed maximum q has been exceeded!"
+      stop
+    endif
+    
+    ! Include points when single field period is crossed in Poincare
+    if ( mod(j, points_per_turn) .eq. 0 ) then
+      R_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j/points_per_turn) = RR
+      Z_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j/points_per_turn) = ZZ
+      phi_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j/points_per_turn) = phi
+    endif
 
     ! Determine if poloidal turn is made
-    if ( (RR - R_axis) > 0.d0 .and. (( ZZ - Z_axis ) * ( Zold - Z_axis )) .le. 0.d0 .and. j > 1 ) then
-      ! As Z_axis = Z_start may not be 0 for a stellarator, this if clause is necessary to stop small toroidal turns in the first few field steps
-      if ((torturns + phi/(2*PI) - torturns_old) .gt. q_thresh) then
-        polturns = polturns + 1.d0
-        torturns_old = torturns + phi/(2*PI)
-        if (polturns .eq. num_pol_turns) stop_tracing = .true.
-      endif
-    end if  
+    if (abs(t_global) > n_tht) then
+      t_global = t_global - sign(float(n_tht), t_global)
+      polturns = polturns + 1.d0
+      if (polturns .eq. num_pol_turns) stop_tracing = .true.
+    endif
+
   end do
   
-  ! Get PsiN from current element and local s coordinate
+  ! Get radial coordinate from current element and local s coordinate
   inode = element_list%element(i_elm)%vertex(v_s0_t0)
   rphin_arr(i) = int((inode-1) / n_tht) / float(n_flux-1) + s * (1.0 / (n_flux - 1))
 
   ! Get total toroidal distance traced
-  if ( phi > 0.d0 ) then
-    phi_arr(i)      = phiold + (phi - phiold) * ((Zold - Z_axis)/ (Zold - ZZ)) + torturns * 2.d0 * PI
-  else if ( phi < 0.d0 ) then
-    phi_arr(i)      = phiold + (phi - phiold) * ((Zold - Z_axis)/ (Zold - ZZ)) - torturns * 2.d0 * PI
-  else
-    if ( phiold > 0.d0 ) then
-      phi_arr(i)      = phiold + (phi - phiold) * ((Zold - Z_axis)/ (Zold - ZZ)) + torturns * 2.d0 * PI
-    else
-      phi_arr(i)      = phiold + (phi - phiold) * ((Zold - Z_axis)/ (Zold - ZZ)) - torturns * 2.d0 * PI
-    end if
-  end if
-  torturns_arr(i) = torturns
-  polturns_arr(i) = float(polturns)
+  phi_arr(i)      = phi - 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
+  torturns_arr(i) = phi_arr(i)/float(n_period*n_plane)/(2.d0*PI)
+  polturns_arr(i) = polturns + t_global / float(n_tht) 
   R_arr(i)        = RR
   write(*,*) 'Finished tracing line ', i
 
@@ -236,11 +223,11 @@ end do
 call MPI_Barrier(MPI_COMM_WORLD,ierr)
 
 ! Fill output arrays for q profile data
-call MPI_Reduce(rphin_arr,  rphin_arr_tot,  npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-call MPI_Reduce(phi_arr,   phi_arr_tot,   npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-call MPI_Reduce(polturns_arr,   polturns_arr_tot,   npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-call MPI_Reduce(torturns_arr,   torturns_arr_tot,   npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-call MPI_Reduce(R_arr,     R_arr_tot,     npoints,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+call MPI_Reduce(rphin_arr,  rphin_arr_tot,  n_lines,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+call MPI_Reduce(phi_arr,   phi_arr_tot,   n_lines,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+call MPI_Reduce(polturns_arr,   polturns_arr_tot,   n_lines,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+call MPI_Reduce(torturns_arr,   torturns_arr_tot,   n_lines,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+call MPI_Reduce(R_arr,     R_arr_tot,     n_lines,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
 ! --- Open the output files to which the Poincare data will be written in ascii format
 if (my_id .eq. 0) then
@@ -248,10 +235,10 @@ if (my_id .eq. 0) then
   write(21,*) '#  R                 Z               Field Line No'
   
   ! --- Write points for local MPI (id=0)
-  do i = 1, npoints
-    do j = 1, num_pol_turns*assumed_max_q 
-      if (R_poinc_tot((i-1)*num_pol_turns*assumed_max_q+j) .ne. 0.0) then
-        write(21,'(2e18.8,i6)') R_poinc_tot((i-1)*num_pol_turns*assumed_max_q+j), Z_poinc_tot((i-1)*num_pol_turns*assumed_max_q+j), int(i)
+  do i = 1, n_lines
+    do j = 1, num_pol_turns*n_coord_period*assumed_max_q 
+      if (R_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j) .ne. 0.0) then
+        write(21,'(3e18.8,i6)') R_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j), Z_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j), phi_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j), int(i)
       endif
     enddo
     write(21,*)
@@ -260,13 +247,14 @@ if (my_id .eq. 0) then
   ! --- Write points for all other MPIs
   ! --- If this is mpi_0, we receive data from the other MPIs and print it
   do i_cpu=1,n_cpu-1
-    nrecv = npoints*num_pol_turns*assumed_max_q
+    nrecv = n_lines*num_pol_turns*n_coord_period*assumed_max_q
     call mpi_recv(R_poinc_tot,nrecv, MPI_DOUBLE_PRECISION, i_cpu, i_cpu, MPI_COMM_WORLD, status, ierr)
     call mpi_recv(Z_poinc_tot,nrecv, MPI_DOUBLE_PRECISION, i_cpu, i_cpu, MPI_COMM_WORLD, status, ierr)
-    do i = 1, npoints
-      do j = 1, num_pol_turns*assumed_max_q 
-        if (R_poinc_tot((i-1)*num_pol_turns*assumed_max_q+j) .ne. 0.0) then
-          write(21,'(2e18.8,2i6)') R_poinc_tot((i-1)*num_pol_turns*assumed_max_q+j), Z_poinc_tot((i-1)*num_pol_turns*assumed_max_q+j), int(i)
+    call mpi_recv(phi_poinc_tot,nrecv, MPI_DOUBLE_PRECISION, i_cpu, i_cpu, MPI_COMM_WORLD, status, ierr)
+    do i = 1, n_lines
+      do j = 1, num_pol_turns*n_coord_period*assumed_max_q 
+        if (R_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j) .ne. 0.0) then
+          write(21,'(3e18.8,i6)') R_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j), Z_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j), phi_poinc_tot((i-1)*num_pol_turns*n_coord_period*assumed_max_q+j), int(i)
         endif
       enddo
       write(21,*)
@@ -276,17 +264,18 @@ if (my_id .eq. 0) then
   close(21)
 else
   ! --- If this is not mpi_0, we send data to the main MPI 0
-  nsend = npoints*num_pol_turns*assumed_max_q
+  nsend = n_lines*num_pol_turns*n_coord_period*assumed_max_q
   call mpi_send(R_poinc_tot, nsend,MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
   call mpi_send(Z_poinc_tot, nsend,MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
+  call mpi_send(phi_poinc_tot, nsend,MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
 endif
 
 ! --- Write out q profile result
 if ( my_id == 0 ) then
   open(99, file='q_profile.dat', action='write', status='replace')
   write(99,*) '# SQRT{Phi_N} | Safety factor | Radius at LFS midplane [m] | % Completion '
-  do i = 1, npoints
-    write(99,'(4es23.5)') rphin_arr_tot(i), phi_arr_tot(i)/(2.d0*PI)/polturns_arr_tot(i), R_arr_tot(i), 100 * polturns_arr_tor(i) / float(num_pol_turns)
+  do i = 1, n_lines
+    write(99,'(4es23.5)') rphin_arr_tot(i), phi_arr_tot(i)/(2.d0*PI)/polturns_arr_tot(i), R_arr_tot(i), 100 * polturns_arr_tot(i) / float(num_pol_turns)
   end do
   close(99)
 end if
@@ -301,6 +290,7 @@ contains
   integer    :: i_steps   ! Number of iterations carried out in performing step
   real*8     :: delta_s, delta_t, delta_phi_local, delta_phi_step, small_delta, small_delta_s, small_delta_t
   real*8     :: s_mid, t_mid, p_mid, R_mid, Z_mid
+  logical    :: debug
 
   ! Store old location
   Rold   = RR
@@ -310,8 +300,8 @@ contains
   ! --- Loop within one element
   delta_phi_local = 0.d0
   i_steps = 0
-  do while ((abs(delta_phi_local) .lt. abs(delta_phi)) .and. (i_steps .lt. 100) )
-    ! --- Count element steps (lt 100)
+  do while ((abs(delta_phi_local) .lt. abs(delta_phi)) .and. (i_steps .le. 10) )
+    ! --- Count element steps (lt 10)
     i_steps = i_steps + 1
 
     ! --- Find the new position after element step
@@ -336,7 +326,12 @@ contains
   
     ! --- Do we require a smaller step (< 1.0) 
     small_delta = min(small_delta_s, small_delta_t)
-  
+    debug = .false.
+    if (small_delta .le. 0) then
+      write(*,*) 'ERROR: Something went wrong when calculating small_delta: ', i, i_steps, small_delta, small_delta_s, small_delta_t, s, t, delta_s, delta_t
+      debug = .true.
+    endif  
+
     if (small_delta .lt. 1.d0)  then       ! this step is crossing the boundary
       s_mid = s + 0.5d0 * small_delta * delta_s
       t_mid = t + 0.5d0 * small_delta * delta_t
@@ -348,31 +343,40 @@ contains
   
         if (s + delta_s .gt. 1.d0) then     ! crossing boundary 2 or 4 at s=1
           s = 1.0
+          t_global = t_global + small_delta * delta_t
           call find_new_element(.true., i_elm, &
                                 s, t, phi, small_delta, delta_s, delta_t, delta_phi_step, &
                                 e_splus, e_sminus, v_s1_t0, v_s1_t1)
         elseif (s + delta_s .lt. 0.d0) then ! crossing boundary 2 or 4 at s=0
           s = 0.d0
+          t_global = t_global + small_delta * delta_t
           call find_new_element(.true., i_elm, &
                                 s, t, phi, small_delta, delta_s, delta_t, delta_phi_step, &
                                 e_sminus, e_splus, v_s0_t1, v_s0_t0)
+        else !if (debug) then
+          write(*,*) 'ERROR: It should not be possible to get here!', s, delta_s, s+delta_s
         endif
       else
         if (t + delta_t .gt. 1.d0) then  ! crossing boundary 1 or 3 at t=1
           t = 1.0
+          t_global = t_global + small_delta * delta_t
           call find_new_element(.false., i_elm, &
                                 s, t, phi, small_delta, delta_s, delta_t, delta_phi_step, &
                                 e_tplus, e_tminus, v_s1_t1, v_s0_t1)
         elseif (t + delta_t .lt. 0.d0) then  ! crossing boundary 1 or 3 at t=0
           t = 0.d0
+          t_global = t_global + small_delta * delta_t
           call find_new_element(.false., i_elm, &
                                 s, t, phi, small_delta, delta_s, delta_t, delta_phi_step, &
                                 e_tminus, e_tplus, v_s0_t0, v_s0_t1)
+        else !if (debug) then
+          write(*,*) 'ERROR: It should not be possible to get here!', t, delta_t, t+delta_t
         endif
       endif
     else  ! this step remains within the element
       s = s + delta_s
       t = t + delta_t
+      t_global = t_global + delta_t
       phi = phi + delta_phi_step
   
       small_delta = 1.d0
@@ -391,8 +395,8 @@ contains
 
   enddo ! end loop for single step
   
-  if (i_steps .ge. 100) then
-    write(*,*) "ERROR: Maximum number of iterations exceeded in do_step!"
+  if (i_steps .gt. 10) then
+    write(*,*) "WARNING: Maximum number of iterations exceeded in do_step!", i, j
     ifail = 1
   endif
 
