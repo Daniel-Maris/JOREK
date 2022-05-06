@@ -207,7 +207,7 @@ else if (contr_analytical) then
         end do
         111 format(2a)
         112 format(a,i16)
-        113 format(a,es25.16) ! check of es hier es moet zijn of s
+        113 format(a,es25.16) 
         !The following lines are the Python code
         write(42,111) 'from math import *'
         write(42,111) 'import numpy as np'
