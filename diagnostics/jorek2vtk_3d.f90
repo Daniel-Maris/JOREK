@@ -16,13 +16,18 @@ real*4,allocatable    :: xyz (:,:), scalars(:,:), vectors(:,:,:)
 real*8,allocatable    :: HZ(:,:)
 integer,allocatable   :: ien (:,:)
 integer, parameter    :: ivtk = 22 ! an arbitrary unit number for the VTK output file
-integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, index, index_node, n_points
+integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, index, index_node, n_points, k_tor
 integer               :: n_toroidal
 character             :: buffer*80, lf*1, str1*10, str2*10
 character*8, allocatable :: scalar_names(:), vector_names(:)
 real*4                :: float
 real*8                :: s, t, phi, angle, cur_pert
-real*8                :: P,P_s,P_t,P_st,P_ss,P_tt,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
+real*8                :: P,P_s,P_t,P_st,P_ss,P_tt
+
+!,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
+real*8                :: R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp
+real*8                :: Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp
+
 real*8                :: Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt, ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_ss,ZJ_tt, W,W_s,W_t,W_st,W_ss,W_tt
 real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_tt, TT,TT_s,TT_t,TT_st,TT_ss,TT_tt
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
@@ -72,6 +77,9 @@ endif
 
 do i_tor=1, n_tor
   mode(i_tor) = + int(i_tor / 2) * n_period
+enddo
+do k_tor=1, n_coord_tor
+  mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
 enddo
 
 call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr, .true.)
@@ -136,17 +144,18 @@ do m=1, n_toroidal
         t = float(k-1)/float(nsub-1)
 
         ! The following 50 lines could be replaced with interp_PRZ(_1) (after adding without_n0_mode there, or manually subtracting)
-
-        call interp_RZ(node_list,element_list,i,s,t,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
+        !call interp_RZ( node_list,element_list,i,s,t,      R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
+        call interp_RZP(node_list,element_list,i,s,t,angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
+                       Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
         xjac  = R_s * Z_t - R_t * Z_s
         if ( xjac == 0.d0 ) xjac = 1.d-8 ! (workaround to avoid floating invalid)
 
         inode = inode+1
 
         if (RphiZ_coords) then
-          xyz(1:3,inode) = (/ R * cos(angle), -R*sin(angle), Z /)   !from the JOREK wiki
+          xyz(1:3,inode) = (/ R * cos(angle), -R*sin(angle),            Z /)   !from the JOREK wiki
         else
-          xyz(1:3,inode) = (/ R * cos(angle), Z, R*sin(angle) /)
+          xyz(1:3,inode) = (/ R * cos(angle),             Z, R*sin(angle) /)
         endif
 
         do i_tor = 1,n_tor
