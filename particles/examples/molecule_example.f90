@@ -919,6 +919,7 @@ use mod_interp, only: mode_moivre
 use mod_basisfunctions
 use mod_particle_types, only: copy_particle_kinetic_leapfrog
 use mod_sampling, only: boxmueller_transform,sample_chi_squared_3
+use mod_find_free_particle, only: find_free_particles
 
 implicit none
 
@@ -952,6 +953,7 @@ integer   :: seed, i_rng, n_stream, ierr, nthreads
 integer   :: i_tor, index_lm, i_elm_temp
 integer   :: n_particles, ifail
 logical   :: limits
+integer, dimension(:), allocatable ::  i_free
 real*8,allocatable :: feedback_rhs(:,:,:,:,:)
 
 !$ w0 = omp_get_wtime()
@@ -976,24 +978,7 @@ M_norm   = rho_norm * v_norm                                    ! momentum norma
   n_super_ionized_all = 0
   
     !============== Finding free particles !< make into a function?
-allocate(is_free(size(sim%groups(atoms)%particles,1))) 
-!$omp parallel do default(none) shared(sim, n_free, i_free, is_free,n_group) &
-!$omp private(j) schedule(dynamic, 100)
-do j=1,size(sim%groups(atoms)%particles,1) !sim%groups(1)%particles
-	is_free(j) = sim%groups(atoms)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
-end do
-!$omp end parallel do
-!$omp barrier
-n_free = count(is_free)
-allocate(i_free(n_free))
-k = 1
-do j=1,size(is_free,1)
-	if (is_free(j)) then
-	  i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(atoms)%particles(j)
-	  k = k+1
-	  !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
-	end if
-end do
+  i_free = find_free_particles(sim%groups(molecules)%particles)
 ! ==================
   
 jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + n_steps * timesteps !kinetische tijdstappen voor normale tijdstap
