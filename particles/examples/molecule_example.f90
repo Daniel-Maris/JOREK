@@ -1005,6 +1005,9 @@ feedback_rhs       = 0.d0
 
 call with(sim, counter)
 !omp: miltithreading. Shared: elke cpu zelfde info. Private: anders. !$omp aanroep. 
+select type (Hatom => sim%groups(atoms)%particles) !atoom maken/
+type is (particle_kinetic_leapfrog)
+
 select type (particles => sim%groups(molecules)%particles) !< group molecule (in this example it is group 2)
 type is (particle_kinetic_leapfrog)
 #ifdef __GFORTRAN__
@@ -1090,7 +1093,7 @@ type is (particle_kinetic_leapfrog)
               else !(ion_ran(1) .le. diss_ion_prob)
                 diss_source = 0.d0
               endif
-!! tot hier structuur gelijk gehouden, is dat oke??
+ !! tot hier structuur gelijk gehouden, is dat oke??
 
           else !(particle_tmp%weight .le. 1.0d9)
             diss_source = particle_tmp%weight * diss_prob !zoveel ioniseren we
@@ -1217,6 +1220,7 @@ type is (particle_kinetic_leapfrog)
   !$omp end parallel do
   
 end select
+end select 
 
 if (use_ncs) then
     write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
