@@ -67,3 +67,10 @@ RMP_start_time.dat
 shard_size.dat
 non_regression_tests_*
 /test_*
+new_*
+neutrals_3D
+sep_*
+density_scan*
+W_full*
+d_ne*
+eqdsk2jorek*

@@ -1,6 +1,6 @@
 !> Testing the coupling of the projections of particles to JOREK
 
-program recobmination_loop
+program W_full_coupling
 
 !use mod_integrate_recombination
 use particle_tracer
@@ -21,6 +21,8 @@ use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
+
+use phys_module, only: xtime, mode
 ! use phys_module, only: use_sputtering , use_cx, use_ionisation, use_sputtering
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
@@ -34,9 +36,9 @@ use mod_edge_domain
 use mod_edge_elements
 
 !tungsten
-use mod_collisions
+! use mod_collisions !<------------------------------------------------------- NEEDS GUIDOS NEW BRANCH
 use mod_coronal
-use mod_radiation, only : proj_PLT, proj_Lz
+! use mod_radiation, only : proj_PLT, proj_Lz
 use mod_sampling
 use mod_ionisation_recombination
 use mod_sobseq_rng
@@ -71,7 +73,8 @@ type(event)                                       :: W_sputter_event
 type(coronal)                                     :: cor
 type(particle_sputter)                            :: W_sputter_source
 
-real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
+! real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
+real*8    :: binding_energy   !ionization energy of an atom [J] (= 13.6 eV for hydrogen)
 real*8    :: target_time, projection_time
 real*8    :: physical_particles, weight
 real*8    :: tstep_keep,oldtime, step_rest_time, particle_step_time, particle_start_time, diag_time
@@ -92,7 +95,8 @@ integer   :: seed, i_rng, n_stream
 
 
 !use physics
-logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
+logical :: use_ionisation,use_sputtering !use_recombination, use_puffing, use_cx, use_ionisation ,use_line_radiation
+logical :: use_radiation, use_coll
 logical  :: run_stepper, run_rec !, one_rec_only !< when recombination is used
 
 ! diagnostics
@@ -134,8 +138,8 @@ else
 	if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_cpu, " cpus "
 
 	! Read Open ADAS data
-	write(*,*) "tungsten_adas (50)",  deuterium_adas
-	adas = read_adf11('50_w')
+	write(*,*) "tungsten_adas (50)" !,  deuterium_adas
+	adas = read_adf11('50_W')
 	cor = coronal(adas)
 
 	!> is this needed for neutrals?
@@ -157,35 +161,42 @@ else
 	!>initialise particles here if needed
 	! call initialise_particles_H_mu_psi 
 	! call adjust weights
-
+	call initialise_particles_H_mu_psi(sim%groups(1)%particles, &
+	sim%fields, sobseq_rng(), &
+	sim%groups(1)%mass, &
+	uniform_space=.true., uniform_space_rej_f=f_psi_normal_inside,uniform_space_rej_vars=[1], cor=cor)
+	  
+	!f_psi_normal_inside  ,f_psi_inside
+	  
 	select type (p => sim%groups(1)%particles)
 	type is (particle_kinetic_leapfrog)  
 	!> only set everything to zero when you do not initialise particles
-	p(:)%q      = 0 !< for neutrals
-	p(:)%weight = 0.0!weight
-	p(:)%i_elm  = 0
-	p(:)%v(1)   = 0.d0 
-	p(:)%v(2)   = 0.d0
-	p(:)%v(3)   = 0.d0
+	! p(:)%q      = 0 !< for neutrals
+	p(:)%weight = 1.d14 !0.0!weight
+	! p(:)%i_elm  = 0
+	! p(:)%v(1)   = 0.d0 
+	! p(:)%v(2)   = 0.d0
+	! p(:)%v(3)   = 0.d0
+	
 	! call boris_all_initial_half_step_backwards_RZPhi(p, sim%groups(1)%mass, sim%fields, sim%time, timesteps)
-
+    call boris_all_initial_half_step_backwards_RZPhi(p, sim%groups(1)%mass, &
+        sim%fields, sim%time, timesteps)
   end select
 
+  
+    !call adjust_particle_weights(sim%groups(1)%particles, 6d16) ! 60 m^3 at n_i = 10^15 /m^3
 endif ! (restart_particles)
 
-! setting up particles per MPI node and timestep
-rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in benchmark, for original profile with toroidal flux) 
-! n_particles_local = int(n_particles/sim%n_cpu) 
-! timesteps         = tstep_particles
-! tstep_keep        = tstep
 
 ! selecting physics (should be done in input file)
 ! use_puffing       = .true. !.false. 
-use_cx            = .true. !.true.
-use_ionisation    = .true. !.false.!.false.
-use_sputtering    = .true. !.false. !false
-use_recombination = .true.  !
-use_line_radiation= .true.
+! use_cx            = .true. !.true.
+use_ionisation    = .true.
+use_sputtering    = .false. 
+! use_recombination = .true.  !
+! use_line_radiation= .true.
+use_radiation     =.true.
+use_coll          = .false.
 
 ! Read Open ADAS data for plasma fluid
  ! if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
@@ -248,7 +259,7 @@ jorek_feedback%rhs = 0.d0
 
 project_density = new_projection(sim%fields%node_list, sim%fields%element_list, &
                      filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     filter_n0 = 5.d-6, filter_hyper_n0 = 2.d-11, filter_parallel_n0 = filter_par_n0, &
+                     filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
                      f=[proj_f(proj_one, group = 1)], &
                      fractional_digits = 9,  to_vtk=.TRUE., to_h5=.FALSE., basename='density', nsub=2)
 
@@ -326,8 +337,8 @@ call with(sim, events, at=sim%time)
 
 ! do recombination to initialise particles. Maintains conservation with first jorek timestep
 if (.not. restart_particles) then 
-	if (sim%my_id .eq. 0) write(*,*) "Do 1 particle recombination"
-	call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
+	!if (sim%my_id .eq. 0) write(*,*) "Do 1 particle recombination"
+	!call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
 
 	call with(sim, project_density) !< directly project the first recombination at t=0
 endif !.not. restart_particles
@@ -483,12 +494,13 @@ type(particle_kinetic_leapfrog)                           :: particle_tmp
 
 real*8, intent(in)     :: timesteps, particle_start_time 
 real*8    :: n_norm, rho_norm, t_norm, v_norm, E_norm, M_norm
-real*8    :: t, E(3), B(3), psi, U, n_e, T_e, rz_old(2), st_old(2)
+real*8    :: t, E(3), B(3), psi, U, n_e, T_e,grad_T_e(3), rz_old(2), st_old(2)
 ! real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3)!, v
 real*8    :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
-real*8    :: ion_rate, ion_source, ion_prob, ion_ran(1), cx_ran(8),st_ran(2), cx_source, cx_energy ,PLT
+real*8    :: ion_rate, ion_source, ion_prob, ion_ran(2), cx_ran(8),st_ran(2), cx_source, cx_energy ,PLT,PRB
 real*8    :: cx_prob, CX_rate
-real*8    :: kinetic_energy, ion_energy,line_rad_energy
+real*8    :: radiation_energy,binding_energy
+real*8    :: kinetic_energy, ion_energy !,line_rad_energy
 real*8    :: n_lost_ion, n_lost_ion_all, p_plt_lost,p_plt_lost_all,p_cx_lost,p_cx_lost_all,p_lost_ion,p_lost_ion_all
 integer   :: n_super_ionized, n_super_ionized_all
 real*8    :: particle_source, velocity_par_source, energy_source
@@ -497,7 +509,7 @@ real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
 !$ real*8 :: w0, w1, mmm(3)
 
 integer, intent(in)   :: n_steps
-integer   :: i, j, k, l, m, i_elm_old, i_elm 
+integer   :: i, j, k, l, m, i_elm_old, i_elm ,q_old
 integer   :: seed, i_rng, n_stream, ierr, nthreads
 integer   :: i_tor, index_lm, i_elm_temp
 integer   :: n_particles, ifail
@@ -543,13 +555,13 @@ type is (particle_kinetic_leapfrog)
  !$omp parallel do default(none) &
 #endif
  !$omp schedule(dynamic,10) &
- !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,        &
+ !$omp shared(sim, particles,ADAS, n_steps, timesteps, rng, particle_start_time,        &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_cx, use_ionisation,use_line_radiation,                                                     &
+ !$omp use_ionisation,use_radiation, use_coll,                                                     &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
  !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,    &
- !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
- !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy,       &  
+ !$omp i_elm_old, i_elm, n_e, T_e,grad_T_e,q_old,binding_energy,                                                 &
+ !$omp PLT,PRB,ion_rate, ion_prob, ion_ran, radiation_energy, ion_energy, kinetic_energy,        &  
  !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,    &
  !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj,                        &
  !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
@@ -577,9 +589,9 @@ type is (particle_kinetic_leapfrog)
 	  q_old     = particle_tmp%q 
 	  
 	  !> in use ionisation as well?
-	  call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_e, T_e, , grad_T_e)
+	  call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_e, T_e, grad_T_e)
 	  ! call calc_ U ne Te vpar
-	  ion_source = 0.d0
+	  ! ion_source = 0.d0
 	  ion_energy = 0.d0
 	  
 	  call sim%fields%calc_vvector(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), vvector)
@@ -591,18 +603,19 @@ type is (particle_kinetic_leapfrog)
 
 	  
 	  if (use_ionisation .and. .not. limits) then
-                
-		  particle_tmp%q = int(new_charge(int(q_old,4), adas, log10(n_e), log10(T_e), timesteps(i), ran(1:2)),1)
+          call rng(i_rng)%next(ion_ran)      
+		  particle_tmp%q = int(new_charge(int(q_old,4), adas, log10(n_e), log10(T_e), timesteps, ion_ran(1:2)),1)
 		  
 		  ! call sim%groups(1)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
           ! ion_prob = 1.d0 - exp(-ion_rate * n_e * timesteps) ! [0] poisson point process, exponential 
 
           ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
-          ion_source = 0.d0
+          !ion_source = 0.d0
 
-          kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT /2.d0
+          !kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT /2.d0
 
 		  if (particle_tmp%q .gt. q_old) then
+		    binding_energy = sim%groups(1)%ad%ionisation_energy(q_old) * EL_CHG ! should this be q or q_old?
 			ion_energy     =  - binding_energy * particle_tmp%weight !<binding energy should be here
 			!<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
 			! binding energy must come from ion energy.sh
@@ -610,42 +623,44 @@ type is (particle_kinetic_leapfrog)
 	  endif ! use_ionisation
 
 	  	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
-	  line_rad_energy = 0.d0
-	  if (use_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+	  radiation_energy = 0.d0
+	  if (use_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
 			call sim%groups(1)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
+			call sim%groups(1)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB) ! [J m^3/s]
 			! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
-			line_rad_energy = n_e * particle_tmp%weight * PLT * timesteps
+			!define P_brem = PRB - Srec*binding energy
+			radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB)* timesteps
 	  endif ! use_line_radiation
 
-	  if (use_line_coll) then
-	     if (particle_tmp%q .gt. 0) then
-            ! Calculate collisions
-            kTb = T_e*K_BOLTZ/EL_CHG ! assume T_e == T_i
-            n_b = n_e
-            q = q_homma2013(kTb, grad_T_e*EL_CHG/K_BOLTZ, B, n_b, m_b, q_b)
-            coulomb_log = coulomb_logarithm(kTb, n_b, particles(j)%q, q_b, sim%groups(i)%mass, m_b)
-            ! Get parallel flow velocity
-            call sim%fields%interp_PRZ(t, particles(j)%i_elm, [7], 1, particles(j)%st(1), particles(j)%st(2), &
-                particles(j)%x(3), P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
+	  if (use_coll) then
+	     ! if (particle_tmp%q .gt. 0) then
+            ! ! Calculate collisions
+            ! kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
+            ! n_b = n_e
+            ! q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+            ! coulomb_log = coulomb_logarithm(kTb, n_b, particles(j)%q, q_b, sim%groups(1)%mass, m_b)
+            ! ! Get parallel flow velocity
+            ! call sim%fields%interp_PRZ(t, particle_tmp%i_elm, [7], 1, particle_tmp%st(1), particle_tmp%st(2), &
+                ! particle_tmp%x(3), P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
 
-            do l=1,n_coll
-              call rng(i_rng)%next(ran2(:,l))
-            end do
-            call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/norm2(B)/sim%t_norm, v_b)
+            ! do l=1,n_coll
+              ! call rng(i_rng)%next(ran2(:,l))
+            ! end do
+            ! call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/norm2(B)/sim%t_norm, v_b)
 
-            do l=1,n_coll
-              call rng(i_rng)%next(ran)
-              call collide_particles(ran(1:3), particles(j)%q, sim%groups(i)%mass, particles(j)%v, &
-                  q_b, m_b, v_b(:,l), n_b, coulomb_log, timesteps(i)/real(n_coll,8))
-            end do
-          end if
-	  endif ! use_line_coll
+            ! do l=1,n_coll
+              ! call rng(i_rng)%next(ran)
+              ! call collide_particles(ran(1:3), particle_tmp%q, sim%groups(1)%mass, particle_tmp%v, &
+                  ! q_b, m_b, v_b(:,l), n_b, coulomb_log, timesteps/real(n_coll,8))
+            ! end do
+          ! end if
+	  endif ! use_coll
 	  
 	  
 	  
-	  if (isnan(ion_source * ion_energy - line_rad_energy)) then
+	  if (isnan(ion_energy - radiation_energy)) then
 		write(*,*) "ion_energy", ion_energy
-		write(*,*) "line_rad_energy", line_rad_energy
+		write(*,*) "rad_energy", radiation_energy
 		particle_tmp%i_elm  = 0
 		CYCLE !< don't feed this particle into the feedback
 		
@@ -653,15 +668,15 @@ type is (particle_kinetic_leapfrog)
 	  
 	  
 	  ! feedback from each particle at each timestep
-	  energy_source       = ion_source * ion_energy + cx_source * cx_energy - line_rad_energy
+	  energy_source       = ion_energy + radiation_energy!ion_source * ion_energy !+ cx_source * cx_energy - line_rad_energy
 	  particle_source     = 0.d0 ! left 0 to later combine with neutrals
-	  velocity_par_source = ion_source * dot_product(B, particle_tmp%v) * sim%groups(1)%mass * ATOMIC_MASS_UNIT &	
-			+ CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(1)%mass * ATOMIC_MASS_UNIT 
+	  velocity_par_source = 0.d0 !ion_source * dot_product(B, particle_tmp%v) * sim%groups(1)%mass * ATOMIC_MASS_UNIT &	
+			!+ CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(1)%mass * ATOMIC_MASS_UNIT 
 			   
 	  particle_tmp%v = v_temp 
-	  n_lost_ion = n_lost_ion + ion_source	!< local sum #particles lost due to ionisation
-	  p_lost_ion = p_lost_ion + ion_source * ion_energy
-	  p_plt_lost = p_plt_lost + line_rad_energy
+	  n_lost_ion = n_lost_ion !+ ion_source	!< local sum #particles lost due to ionisation
+	  p_lost_ion = p_lost_ion + ion_energy
+	  p_plt_lost = p_plt_lost + radiation_energy
 	  p_cx_lost  = p_cx_lost + cx_source * cx_energy
 	  !Calculate the projection of the ion source in real-time
 		call basisfunctions(particle_tmp%st(1), particle_tmp%st(2), HH, HH_s, HH_t)
@@ -730,7 +745,7 @@ p_lost_ion_all = p_lost_ion_all / (timesteps * n_steps)
 p_plt_lost_all = p_plt_lost_all / (timesteps * n_steps)
 p_cx_lost_all = p_cx_lost_all / (timesteps * n_steps)
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionisation: ", sim%time, p_lost_ion_all
-if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to line radiation: ", sim%time, p_plt_lost_all
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to radiation: ", sim%time, p_plt_lost_all
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
 
 ! if (sim%my_id .eq. 0) write(*,*) " Lost energy [J] at t due to line radiation: ", sim%time, p_plt_lost_all
@@ -747,7 +762,7 @@ end subroutine
 
 
 
-function initialise_sputtering(node_list, element_list, n_reflect) result(D_sputter_source)
+function initialise_sputtering(node_list, element_list, n_reflect) result(W_sputter_source)
 
   use mod_edge_domain
   use mod_edge_elements
@@ -765,12 +780,32 @@ function initialise_sputtering(node_list, element_list, n_reflect) result(D_sput
   call W_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)
 
   ! target group, number of particles per mpi task, densities, Zs, basename
-  D_sputter_source = particle_sputter(W_edge, 1, n_reflect, basename='W_sputter')
-  D_sputter_source%use_Yn_func = .false.
-  D_sputter_source%n_save = nout !10 ! or nout
+  W_sputter_source = particle_sputter(W_edge, 1, n_reflect, basename='W_sputter')
+  W_sputter_source%use_Yn_func = .false.
+  W_sputter_source%n_save = nout !10 ! or nout
   !
 
 end function
+
+pure function f_psi_inside(n, P, grad_P) result(f)
+  integer, intent(in) :: n
+  real*8, intent(in) :: P(n), grad_P(3,n)
+  real*4 :: f
+  f = 5e-2
+  ! if (P(1) .lt. -0.26 .and. P(1) .gt. -0.35) f = 1e0
+  if (P(1) .lt. 2.9 .and. P(1) .gt. 0.9) f = 1e0
+end function f_psi_inside
+
+pure function f_psi_normal_inside(n, P, grad_P) result(f)
+  integer, intent(in) :: n
+  real*8, intent(in) :: P(n), grad_P(3,n)
+  real*4 :: f, psi_norm
+  f = 5e-2
+  
+  psi_norm = max((P(1) - ES%Psi_axis) / ( ES%Psi_bnd - ES%Psi_axis),0.d0)
+  ! if (P(1) .lt. -0.26 .and. P(1) .gt. -0.35) f = 1e0
+  if (psi_norm .lt. 1.005 .and. P(1) .gt. 0.8) f = 1e0
+end function f_psi_normal_inside
 
 pure function f_adapted(n, P, grad_P) result(f)
   integer, intent(in) :: n
@@ -833,4 +868,4 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 end function f_toroidal_flux
 
 
-end program recobmination_loop
+end program W_full_coupling
