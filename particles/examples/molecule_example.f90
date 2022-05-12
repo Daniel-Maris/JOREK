@@ -161,6 +161,46 @@ tstep = tstep_keep !< fieldreader overwrites tstep, do this to counter that
 	! call initialise_particles_H_mu_psi 
 	! call adjust weights
 
+  ! Set up particles
+  ! sim%groups(molecules)%Z    = -2
+  ! sim%groups(molecules)%mass = atomic_weights(-2) !< atomic mass units
+  ! sim%groups(molecules)%ad   = adas
+
+  !allocate(particle_kinetic_leapfrog::sim%groups(molecules)%particles(n_particles_local))
+
+  call initialise_particles_H_mu_psi(sim%groups(molecules)%particles, sim%fields, pcg32_rng(), sim%groups(molecules)%mass, &
+            uniform_space=.true., uniform_space_rej_f=f_psi_inside, uniform_space_rej_vars=[1], charge = 0)
+
+  physical_particles = 1.d21
+  weight = physical_particles/n_particles
+
+  v_kin_temp = sqrt( (2.d0 * 1d5) / (sim%groups(molecules)%mass* ATOMIC_MASS_UNIT) / physical_particles) !kinetische temp. Kan met 0 geinitalisserd worden
+
+  select type (p => sim%groups(molecules)%particles)
+  type is (particle_kinetic_leapfrog)
+
+    p(:)%q      = 0
+    p(:)%weight = weight
+
+    do j=1,size(p,1)
+      call sim%fields%calc_EBpsiU(sim%time , p(j)%i_elm, p(j)%st, p(j)%x(3), E, B, psi, U)
+      B_norm = B/norm2(B)
+      p(j)%v(1)  = v_kin_temp * B_norm(1)
+      p(j)%v(2)  = v_kin_temp * B_norm(2)
+      p(j)%v(3)  = v_kin_temp * B_norm(3)
+
+  !    p(j)%weight = p(j)%weight* (1.d0 + 0.8d0*cos(    p(j)%x(3))  +  0.d0*sin(     p(j)%x(3)) &
+  !                                     + 11.d0*cos(2.d0*p(j)%x(3)) + 13.d0*sin(2.d0*p(j)%x(3)) &
+  !                                     + 17.d0*cos(3.d0*p(j)%x(3)) + 19.d0*sin(3.d0*p(j)%x(3)) &
+  !                                     + 23.d0*cos(4.d0*p(j)%x(3)) + 27.d0*sin(4.d0*p(j)%x(3))  )
+                                    
+    end do
+
+    call boris_all_initial_half_step_backwards_RZPhi(p, sim%groups(molecules)%mass, sim%fields, sim%time, timesteps)
+  end select
+
+
+
 	select type (p => sim%groups(atoms)%particles)
 	type is (particle_kinetic_leapfrog)  
 	!> only set everything to zero when you do not initialise particles
@@ -173,17 +213,17 @@ tstep = tstep_keep !< fieldreader overwrites tstep, do this to counter that
 	! call boris_all_initial_half_step_backwards_RZPhi(p, sim%groups(atoms)%mass, sim%fields, sim%time, timesteps)
   end select
 
-  	select type (p => sim%groups(molecules)%particles)
-	type is (particle_kinetic_leapfrog)  
-	!> only set everything to zero when you do not initialise particles
-	p(:)%q      = 0 !< for neutrals
-	p(:)%weight = 0.0!weight
-	p(:)%i_elm  = 0
-	p(:)%v(1)   = 0.d0 
-	p(:)%v(2)   = 0.d0
-	p(:)%v(3)   = 0.d0
-	! call boris_all_initial_half_step_backwards_RZPhi(p, sim%groups(atoms)%mass, sim%fields, sim%time, timesteps)
-  end select
+  ! 	select type (p => sim%groups(molecules)%particles)
+	! type is (particle_kinetic_leapfrog)  
+	! !> only set everything to zero when you do not initialise particles
+	! p(:)%q      = 0 !< for neutrals
+	! p(:)%weight = 0.0!weight
+	! p(:)%i_elm  = 0
+	! p(:)%v(1)   = 0.d0 
+	! p(:)%v(2)   = 0.d0
+	! p(:)%v(3)   = 0.d0
+	! ! call boris_all_initial_half_step_backwards_RZPhi(p, sim%groups(atoms)%mass, sim%fields, sim%time, timesteps)
+  ! end select
   
 ! endif ! (restart_particles)
 
@@ -233,12 +273,12 @@ endif
 ! r_valve3    = 0.10d0!  .12
 
 !Bot puff
-puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
+puff_t_dependent = .false. !.true. !< select if you want time dependent puffing
 puff_rate = 20.d21 !Begint op start en groeit naar puff rate. Dus met gelijk blijft hij constant. 70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
 fueling_rate_start = 20.d21 !40.d21 !40 40 worked, 20 before !amount of physical particles
-r_valve     = 0.05d0 !0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.3d0 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.8d0 !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+r_valve     = 0.2d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
+R_valve_loc = 1.d1 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = 0.d0  !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
 poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
 
@@ -268,20 +308,20 @@ if (use_puffing) then
 	!fueling_rate_start = 5.d21 !40 worked, 20 before
 	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
 	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
-    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve,target_group=2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve,target_group=molecules, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
 	           fueling_rate_start=fueling_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2,target_group=2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2,target_group=molecules, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
 	            fueling_rate_start=fueling_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
 	! gas_puff3 = particle_puffing(n_puff/2, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3,target_group=2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
 				! fueling_rate_start=0.d21,poly_R=poly_R3,poly_Z=poly_Z3,boxpuff=boxpuff) !20.d21
   else
 
-	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve,target_group=2) ! was 1
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2,target_group=2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
+	gas_puff = particle_puffing(n_puff, puff_rate, r_valve, R_valve_loc, Z_valve,target_group=molecules) ! was 1
+	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2,target_group=2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	! gas_puff3 = particle_puffing(n_puff, 20.d21, 0.12d0, 6.05, 4.15)
   end if
   gas_puff_event = new_event_ptr(gas_puff) !< new_event_ptr  allows for changing the gas puff within the even structure without redefining the event
-  gas_puff2_event = new_event_ptr(gas_puff2)
+  !gas_puff2_event = new_event_ptr(gas_puff2)
   ! gas_puff3_event = new_event_ptr(gas_puff3)
 	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
 	
@@ -521,7 +561,7 @@ do while (.not. sim%stop_now) !begin loop
 	  
 	if (use_puffing) then
       call with(sim, gas_puff_event) 
-	  call with(sim, gas_puff2_event)
+	  !call with(sim, gas_puff2_event)
 	  ! call with(sim, gas_puff3_event)
     endif ! use_puffing	
   endif !run_stepper
@@ -529,11 +569,11 @@ do while (.not. sim%stop_now) !begin loop
 
 !>  separate subroutine?
 !=======================================================================
-!                     Run diagnostics for conservation check
+!                     Run diagnostics for conservation check for atoms
 !======================================================================== 
   call Integrals_3D(sim%my_id, sim%fields%node_list, sim%fields%element_list, density_tot, density_in, density_out, &
                     pressure, pressure_in, pressure_out, kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in, mom_par_out)
-
+!======================================================================== DIT VOOR MOLECULEN GAAN DOEN
   particles_remaining = 0.d0
   momentum_remaining  = 0.d0
   energy_remaining    = 0.d0
@@ -544,7 +584,7 @@ do while (.not. sim%stop_now) !begin loop
   
     !$omp parallel do default(none) &
     !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
-    !$omp shared(sim, particles) &
+    !$omp shared(sim, particles, atoms) &
     !$omp private(j, E, B, psi, U, B_norm)
     do j=1,size(particles,1)
 
@@ -565,6 +605,7 @@ do while (.not. sim%stop_now) !begin loop
 
 
   end select
+!========================================================================
 
   call MPI_REDUCE(particles_remaining, all_particles, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(momentum_remaining,  all_momentum,  1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -594,6 +635,67 @@ do while (.not. sim%stop_now) !begin loop
 	
   endif !(sim%my_id .eq. 0)  
 !===================================================  End diagnostics for conservation  
+!======================================================= Start diagnostics for molecules
+  particles_remaining = 0.d0
+  momentum_remaining  = 0.d0
+  energy_remaining    = 0.d0
+  superparticles_remaining = 0 !< just for debugging. Use count_action in actual simulation.!.d0!.d0
+  select type (particles => sim%groups(molecules)%particles)
+  type is (particle_kinetic_leapfrog)
+  
+    !$omp parallel do default(none) &
+    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
+    !$omp shared(sim, particles, atoms,molecules) &
+    !$omp private(j, E, B, psi, U, B_norm)
+    do j=1,size(particles,1)
+
+      if (particles(j)%i_elm .le. 0) cycle
+
+      call sim%fields%calc_EBpsiU(sim%time , particles(j)%i_elm, particles(j)%st, particles(j)%x(3), E, B, psi, U)
+      B_norm = B/norm2(B)
+
+      particles_remaining = particles_remaining + particles(j)%weight
+      momentum_remaining  = momentum_remaining  + particles(j)%weight * dot_product(B_norm,particles(j)%v) *sim%groups(molecules)%mass * ATOMIC_MASS_UNIT
+      energy_remaining    = energy_remaining    + particles(j)%weight * dot_product(particles(j)%v,particles(j)%v) *sim%groups(molecules)%mass * ATOMIC_MASS_UNIT /2.d0
+!      energy_remaining    = energy_remaining    + particles(j)%weight * 2.18d-15
+      
+      superparticles_remaining = superparticles_remaining + 1
+
+    enddo !j
+	!omp end parallel do
+
+
+  end select
+!========================================================================
+
+  call MPI_REDUCE(particles_remaining, all_particles, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(momentum_remaining,  all_momentum,  1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(energy_remaining,    all_energy,    1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+  !write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
+  !                                      mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
+  !                                      pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
+  
+  if (sim%my_id .eq. 0) then
+    write(*,'(A,3e16.8)') 'REMAINING (START) : ',all_particles, all_momentum, all_energy
+
+    ! write(*,'(A,126e16.8)') ' TOTAL1 : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
+    !                                     mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
+    !                                     pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot
+										
+	!write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
+    !                                    mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
+    !                                    pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
+
+	write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Molecular superparticles in use :',all_superparticles,' of ', n_particles, '| in use :', &
+				real(all_superparticles)/n_particles*100.d0,'%'
+				
+	if ( all_superparticles .gt. 0 )	then
+		write(*,'(A,2E16.8)') 'Average weight of molecular particles',(all_particles)/all_superparticles
+	endif	!real(count(
+	
+  endif !(sim%my_id .eq. 0)  
+!===================================================  End diagnostics for conservation    
 end do ! while
 
 call write_simulation_hdf5(sim, 'part_restart.h5')
@@ -687,7 +789,7 @@ type is (particle_kinetic_leapfrog)
  !$omp schedule(dynamic,10) &
  !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,        &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_cx, use_ionisation,use_line_radiation,                                                     &
+ !$omp use_cx, use_ionisation,use_line_radiation, atoms,                                                   &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
  !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,    &
  !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
@@ -944,7 +1046,10 @@ real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,extra_pro
 real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
 
 ! moleculair specifiek
-real*8    :: electron_cooling_rate,electron_radiation_rate
+real*8    :: electron_cooling_rate,electron_radiation_rate, combined_rate, kinetic_energy_H2_initial, potential_energy_H2_eV
+real*8    :: diss_prob, diss_source, potential_energy_H2_J, atom_final_energy, atom_diss_final_speed, atom_diss_final_energy
+real*8, dimension(3)    :: rand_direc_vec
+real*8    :: random(3)
 !$ real*8 :: w0, w1, mmm(3)
 
 integer, intent(in)   :: n_steps
@@ -977,9 +1082,10 @@ M_norm   = rho_norm * v_norm                                    ! momentum norma
   n_super_ionized = 0
   n_super_ionized_all = 0
   
-    !============== Finding free particles !< make into a function?
+    !============== Finding free particles 
   i_free = find_free_particles(sim%groups(molecules)%particles)
 ! ==================
+  i_f = 1 !initialisatie voor de loop
   
 jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + n_steps * timesteps !kinetische tijdstappen voor normale tijdstap
 
@@ -1003,21 +1109,21 @@ type is (particle_kinetic_leapfrog)
  !$omp schedule(dynamic,10) &
  !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,i_free,        &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_cx, use_ionisation,use_line_radiation,                                                     &
- !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
+ !$omp use_cx, use_ionisation,use_line_radiation,atoms,molecules,                                             &
+ !$omp CENTRAL_DENSITY, CENTRAL_MASS,use_dissociation, potential_energy_H2_eV,potential_energy_H2_J,H2_NON_DISS_ION )                                              &
  !$omp private(particle_tmp, i_rng, i,j,k,l,m,i_p, i_f, t, E, B, psi, U, rz_old, st_old,    &
  !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
- !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy,       &  
+ !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, diss_prob, diss_source,       &  
  !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,    &
  !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj,                        &
  !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
  !$omp E_th, v_th,sum_ran,vvector,ran_norm,       &             
- !$omp electron_cooling_rate, electron_radiation_rate,H2_ELEC_COOL,H2_DISS,H2_ELEC_RAD)                                                             &
+ !$omp electron_cooling_rate, electron_radiation_rate,H2_ELEC_COOL,H2_DISS,H2_ELEC_RAD,combined_rate,atom_diss_final_energy,atom_diss_final_speed,random,rand_direc_vec)  &                                                           
  !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized) !Reduction: sommatie over alle CPU's. Op eind
 
  ! shared jorek_feedback
  !private reduction
- i_f = 0 !initialisatie voor de loop
+
  do j=1,size(particles,1) ! loop over alle particles,. ,1 dimensie matrix niet welk paritcle
 
     call copy_particle_kinetic_leapfrog(particles(j),particle_tmp) !particle temp/tmp: voorkomt telkens doorlopen van grote array
@@ -1051,12 +1157,12 @@ type is (particle_kinetic_leapfrog)
 	  ! ------------------------------- ADD PHYSICS REACTION HERE ---------	  
 	  !alles hierinder is nog voor atomen, moet weg maar is inspiratie. 
 	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
-	  line_rad_energy = 0.d0
-	  if (use_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
-			call sim%groups(atoms)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
-			! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
-			line_rad_energy = n_e * particle_tmp%weight * PLT * timesteps
-	  endif ! use_line_radiation
+	  ! line_rad_energy = 0.d0
+	  ! if (use_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+		! 	call sim%groups(atoms)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
+		! 	! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
+		! 	line_rad_energy = n_e * particle_tmp%weight * PLT * timesteps
+	  ! endif ! use_line_radiation
     
     
 
@@ -1083,59 +1189,77 @@ type is (particle_kinetic_leapfrog)
           else !(particle_tmp%weight .le. 1.0d9)
             diss_source = particle_tmp%weight * diss_prob !zoveel ioniseren we
             particle_tmp%weight = particle_tmp%weight * (1.d0 - diss_prob) !nieuwe particle wieght
-            Hatom(i_p)%weight = 2*diss_source  !todo: dit koppelen aan H atoom!!
+            Hatom(i_p)%weight = diss_source  
+
+            electron_cooling_rate = AMJUEL_rate_coeff_neTe(H2_ELEC_COOL,n_e,T_e)*EL_CHG ! [Js-1m-3]
+            electron_radiation_rate = AMJUEL_rate_coeff_neTe(H2_ELEC_RAD,n_e,T_e)*EL_CHG ! [Js-1m-3]
+            combined_rate = AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e)+AMJUEL_rate_coeff_neTe(H2_NON_DISS_ION,n_e,T_e)
+  
+            potential_energy_H2_eV = 4.48 ![eV]
+            potential_energy_H2_J = potential_energy_H2_eV*EL_CHG
+            atom_diss_final_energy      = 0.5d0*(electron_cooling_rate/combined_rate - electron_radiation_rate/combined_rate - potential_energy_H2_J) !<binding energy should be here !plasma meer energie: positief!
+            atom_diss_final_speed       = sqrt(2.d0*atom_diss_final_energy/(1.d0*ATOMIC_MASS_UNIT))
+     
+            call random_number(random) !array met 3 random waarden (x,y,z) richting
+            rand_direc_vec = random/sqrt((dot_product(random,random))) !normaliseer naar unit vector
+            
+            Hatom(i_p)%v = particle_tmp%v+rand_direc_vec*atom_diss_final_speed    !geef Hatom snelheid van molecuul + snelheid van botsing in random richting
+
             i_f =i_f +1
+            i_p = i_free(i_f) !switch naar nieuw vrij atoom
+            Hatom(i_p)%weight = diss_source  
+            Hatom(i_p)%v = particle_tmp%v-rand_direc_vec*atom_diss_final_speed    !geef Hatom snelheid van molecuul - snelheid van botsing in random richting (momentum cons)
+            i_f =i_f +1
+            i_p = i_free(i_f) !switch naar nieuw vrij atoom
+
+            
           endif 
           
-          electron_cooling_rate = AMJUEL_rate_coeff_neTe(H2_ELEC_COOL,n_e,T_e)*EL_CHG ! [J]
-          electron_radiation_rate = AMJUEL_rate_coeff_neTe(H2_ELEC_RAD,n_e,T_e)*EL_CHG ! [J]
-          combined_rate = AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e)+AMJUEL_rate_coeff_neTe(H2_NON_DISS_ION,n_e,T_e)
-          kinetic_energy_H2_initial = dot_product(particle_tmp%v,particle_tmp%v) *sim%groups(molecules)%mass * ATOMIC_MASS_UNIT /2.d0 !moet dit wel sim%groups(molecules) zijn???
+
+
+	  endif ! use_dissociation
+
+	            !kinetic_energy_H2_initial = dot_product(particle_tmp%v,particle_tmp%v) *sim%groups(molecules)%mass * ATOMIC_MASS_UNIT /2.d0 !moet dit wel sim%groups(molecules) zijn???
           !electron_initial = 0.5d0*5.48579909065d-4*dot_product(electron_v,electron_v)!todo!
           !electron_final_energy = electron_initial - electron_cooling_rate
           !electron_final_velocity = sqrt(2.d0*electron_final_energy*EL_CHG/(5.48579909065d-4/ATOMIC_MASS_UNIT))
-          potential_energy_H2_eV = 4.48 ![eV]
-          potential_energy_H2_J = potential_energy_H2_eV*EL_CHG
           !potential_energy_H2_rate = potential_energy_H2_J * AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e)
-          atom_final_energy     = 0.5d0*(kinetic_energy_H2_initial + electron_cooling_rate/combined_rate - electron_radiation_rate/combined_rate - potential_energy_H2_J) !<binding energy should be here !plasma meer energie: positief!
-          Hatom(i_p)%v = sqrt(2.d0*atom_final_energy*EL_CHG/(5.48579909065d-4/ATOMIC_MASS_UNIT))
-		  !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
 
-	  endif ! use_ionisation
 
+
+
+	  ! ! Charge Exchange
+	  ! ! It is assumed that we will have a exchange between hydrogen isotopes
+	  ! v_temp    = particle_tmp%v
+	  ! cx_source = 0.d0
+	  ! cx_energy = 0.d0
 	  
-	  ! Charge Exchange
-	  ! It is assumed that we will have a exchange between hydrogen isotopes
-	  v_temp    = particle_tmp%v
-	  cx_source = 0.d0
-	  cx_energy = 0.d0
+	  ! if (use_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
 	  
-	  if (use_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
-	  
-          call sim%groups(atoms)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), CX_rate) ! [m^3/s]
-          CX_prob = 1.d0 - exp(-CX_rate * n_e * timesteps)
+    !       call sim%groups(atoms)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), CX_rate) ! [m^3/s]
+    !       CX_prob = 1.d0 - exp(-CX_rate * n_e * timesteps)
 
-          call rng(i_rng)%next(cx_ran)
-           if (cx_ran(1) .le. CX_prob) then
-            ! sample boltzman, randomize velocity
-            T_eV = T_e * K_BOLTZ / EL_CHG !< T_eV = electron T in [eV]
+    !       call rng(i_rng)%next(cx_ran)
+    !        if (cx_ran(1) .le. CX_prob) then
+    !         ! sample boltzman, randomize velocity
+    !         T_eV = T_e * K_BOLTZ / EL_CHG !< T_eV = electron T in [eV]
 
-			!============== NEW CX PARTICLE
-			  !Box-Mueller sample velocities with st.dev=1
-			  ran_norm = boxmueller_transform(cx_ran(2:5))
-			  !>v_temp = sqrt(kT/m) * ran_norm
-			  v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(atoms)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
-			  !write(*,*) "vtemp", v_temp
-			  !>add bulk fluid flow
-			  v_temp = v_temp + vvector 
+		! 	!============== NEW CX PARTICLE
+		! 	  !Box-Mueller sample velocities with st.dev=1
+		! 	  ran_norm = boxmueller_transform(cx_ran(2:5))
+		! 	  !>v_temp = sqrt(kT/m) * ran_norm
+		! 	  v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(atoms)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
+		! 	  !write(*,*) "vtemp", v_temp
+		! 	  !>add bulk fluid flow
+		! 	  v_temp = v_temp + vvector 
 
-              CX_source = particle_tmp%weight
-              CX_energy   = 0.5d0 * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
+    !           CX_source = particle_tmp%weight
+    !           CX_energy   = 0.5d0 * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
 			
-              !write(*,*) "neTe",n_e,T_e			
-			  !write(*,*) "CX", vvector
-          endif ! cx_ran
-	  endif ! use_cx
+    !           !write(*,*) "neTe",n_e,T_e			
+		! 	  !write(*,*) "CX", vvector
+    !       endif ! cx_ran
+	  ! endif ! use_cx
 	  
 	  ! ------------------------------- END OF PHYSICS REACTION PART ---------	  
 	  
@@ -1151,10 +1275,10 @@ type is (particle_kinetic_leapfrog)
 	  
 	  
 	  ! feedback from each particle at each timestep
-	  energy_source       = ion_source * ion_energy + cx_source * cx_energy - line_rad_energy
-	  particle_source     = ion_source * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT !< mass source in SI
-	  velocity_par_source = ion_source * dot_product(B, particle_tmp%v) * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT &	
-			+ CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT 
+	  energy_source       = diss_source * electron_cooling_rate/combined_rate !+ cx_source * cx_energy - line_rad_energy !
+	  particle_source     = 0.d0 !ion_source * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT !< mass source in SI !=0, bij dissociatie geen H+
+	  velocity_par_source = 0.d0 !ion_source * dot_product(B, particle_tmp%v) * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT &	!=0, electronen geen mom
+			!+ CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT 
 			   
 	  particle_tmp%v = v_temp 
 	  
@@ -1266,6 +1390,7 @@ use mpi
 use mod_atomic_elements
 use mod_particle_io
 use mod_integrate_recomb, only : integrate_recombination
+use mod_find_free_particle, only: find_free_particles
 !mod_integrate_recomb.f90
 implicit none
 
@@ -1323,27 +1448,10 @@ Nrec_part = int( max(n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average 
 !< limited to 1% of the total initialized particles
 
 
-!============== Finding free particles !< make into a function?
+!============== Finding free particles 
 !> # is_free > n_elements * particles_per_element 
-allocate(is_free(size(sim%groups(atoms)%particles,1))) 
-!$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
-!$omp private(j) schedule(dynamic, 100)
-do j=1,size(sim%groups(atoms)%particles,1) !sim%groups(atoms)%particles
-	is_free(j) = sim%groups(atoms)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
-end do
-!$omp end parallel do
-!$omp barrier
-n_free = count(is_free)
-allocate(i_free(n_free))
-k = 1
-do j=1,size(is_free,1)
-	if (is_free(j)) then
-	  i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(atoms)%particles(j)
-	  k = k+1
-	  !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
-	end if
-end do
-! ==================
+i_free = find_free_particles(sim%groups(molecules)%particles)
+!==============================
 
 ! loop over all elements
 k = 0 !< first free particle
@@ -1516,5 +1624,16 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 
 end function f_toroidal_flux
 
+pure function f_psi_inside(n, P, grad_P) result(f) 
+!deeltjes te sampelen met een probability
+  integer, intent(in) :: n
+  real*8, intent(in) :: P(n), grad_P(3,n)
+  real*4 :: f, psi_norm
+  f = 5e-2 !sampling probability 
+  
+  psi_norm = max((P(1) - ES%Psi_axis) / ( ES%Psi_bnd - ES%Psi_axis),0.d0)
+  ! if (P(1) .lt. -0.26 .and. P(1) .gt. -0.35) f = 1e0
+  if (psi_norm .lt. 0.9d0 .and. psi_norm .gt. 0.d0) f = 1e0
+end function f_psi_inside
 
 end program recombination_loop
