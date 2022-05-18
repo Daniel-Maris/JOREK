@@ -141,7 +141,9 @@ tstep = tstep_keep !< fieldreader overwrites tstep, do this to counter that
 	sim%groups(atoms)%mass = atomic_weights(-2) !< atomic mass units
 	sim%groups(atoms)%ad   = adas
 	if (sim%my_id == 0) write(*,*) 'Group 1 = D'
-	
+  
+  write(*,*) "test125 size(sim%groups(atoms)%particles)", size(sim%groups(atoms)%particles)
+
   ! Set up hydrogenic molecule group characterisitcs
   molecules=2
 	sim%groups(molecules)%Z    = -2 !< for deuterium 1
@@ -181,7 +183,7 @@ tstep = tstep_keep !< fieldreader overwrites tstep, do this to counter that
 
     p(:)%q      = 0
     p(:)%weight = weight
-
+    write(*,*) 'test123 184 p-> simgroupsmoleculesparticles'
     do j=1,size(p,1)
       call sim%fields%calc_EBpsiU(sim%time , p(j)%i_elm, p(j)%st, p(j)%x(3), E, B, psi, U)
       B_norm = B/norm2(B)
@@ -468,7 +470,7 @@ allocate(rng(n_stream))
 do i=1,n_stream
   call rng(i)%initialize(1, seed, n_stream, i)
 end do
-
+write(*,*) "test123 471, stream"
 ! Call events at sim%time once to help event scheduler, before entering particle loop
 step_rest_time = 0.d0
 call with(sim, events, at=sim%time)
@@ -503,6 +505,9 @@ do while (.not. sim%stop_now) !begin loop
   endif
 
   !------------ Call Kinetic loops --------------------
+  
+  call with(sim, counter) !count particles in all groups and write diagnostic
+
   ! in this area we should call all the kinetic loops.
   ! we should be carefull to not reset the rhs to zero in every kinetic loop.
   !> may be only set it to 0.d0 here??
@@ -512,6 +517,11 @@ do while (.not. sim%stop_now) !begin loop
   !> ionisation + CX + pushing the particles + calculating the feedback
   call loop_particle_kinetic_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
   
+  if (use_molecules) then
+    write(*,*) 'test123 we are in the if molecules statement'
+    call loop_particle_kinetic_molecule_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
+  endif !use_molecules
+
   !? add molecule loop here. !
   !call loop_particle_kinetic_molecule_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
   !< Does the order matter here? First atoms than molecules? or first molecules than atoms??
@@ -525,6 +535,7 @@ do while (.not. sim%stop_now) !begin loop
   sim%time = target_time !< set time to exactly target_time for calling next event
   
   call with(sim, events, at=sim%time) !< gives new target time
+  !doet feedback en nieuwe tijdstap
 
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
@@ -571,9 +582,7 @@ do while (.not. sim%stop_now) !begin loop
     endif ! use_puffing	
   endif !run_stepper
   
-  if (use_molecules) then
-    call loop_particle_kinetic_molecule_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
-  endif !use_molecules
+
 
 !>  separate subroutine?
 !=======================================================================
@@ -594,6 +603,7 @@ do while (.not. sim%stop_now) !begin loop
     !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
     !$omp shared(sim, particles, atoms) &
     !$omp private(j, E, B, psi, U, B_norm)
+    write(*,*) 'test123 we are in the if atom diagnostics statement'
     do j=1,size(particles,1)
 
       if (particles(j)%i_elm .le. 0) cycle
@@ -624,7 +634,7 @@ do while (.not. sim%stop_now) !begin loop
   !                                      pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
   
   if (sim%my_id .eq. 0) then
-    write(*,'(A,3e16.8)') 'REMAINING (START) : ',all_particles, all_momentum, all_energy
+    write(*,'(A,3e16.8)') 'REMAINING (START) ATOMS : ',all_particles, all_momentum, all_energy
 
     write(*,'(A,126e16.8)') ' TOTAL1 : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
                                         mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
@@ -650,7 +660,7 @@ do while (.not. sim%stop_now) !begin loop
   superparticles_remaining = 0 !< just for debugging. Use count_action in actual simulation.!.d0!.d0
   select type (particles => sim%groups(molecules)%particles)
   type is (particle_kinetic_leapfrog)
-  
+  write(*,*) 'test123 we are in the if molecule diagnostics statement'
     !$omp parallel do default(none) &
     !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
     !$omp shared(sim, particles, atoms,molecules) &
@@ -685,7 +695,7 @@ do while (.not. sim%stop_now) !begin loop
   !                                      pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
   
   if (sim%my_id .eq. 0) then
-    write(*,'(A,3e16.8)') 'REMAINING (START) : ',all_particles, all_momentum, all_energy
+    write(*,'(A,3e16.8)') 'REMAINING (START) MOLECULES : ',all_particles, all_momentum, all_energy
 
     ! write(*,'(A,126e16.8)') ' TOTAL1 : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
     !                                     mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
@@ -785,7 +795,7 @@ allocate(feedback_rhs,source=jorek_feedback%rhs)
 ! jorek_feedback%rhs = 0.d0
 feedback_rhs       = 0.d0
 
-call with(sim, counter)
+!call with(sim, counter) 
 
 select type (particles => sim%groups(atoms)%particles)
 type is (particle_kinetic_leapfrog)
@@ -1061,7 +1071,7 @@ real*8    :: random(3)
 !$ real*8 :: w0, w1, mmm(3)
 
 integer, intent(in)   :: n_steps
-integer   :: i, j, k, l, m, i_p, i_f, i_elm_old, i_elm 
+integer   :: i, j, k, l, m, i_p, i_f, i_elm_old, i_elm, counter2
 integer   :: seed, i_rng, n_stream, ierr, nthreads
 integer   :: i_tor, index_lm, i_elm_temp
 integer   :: n_particles, ifail
@@ -1070,7 +1080,7 @@ integer, dimension(:), allocatable ::  i_free
 real*8,allocatable :: feedback_rhs(:,:,:,:,:)
 
 !$ w0 = omp_get_wtime()
-
+write(*,*) 'test123 passed the init'
 n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
 rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm   = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
@@ -1092,8 +1102,12 @@ M_norm   = rho_norm * v_norm                                    ! momentum norma
   
     !============== Finding free particles 
   i_free = find_free_particles(sim%groups(atoms)%particles)
+  write(*,*) 'test124 = find_free_particles(sim%groups(atoms)%particles) i_free = ', i_free(1),i_free(2)
+  write(*,*) 'test124 = find_free_particles(sim%groups(atoms)%particles)', find_free_particles(sim%groups(atoms)%particles)
+  write(*,*) 'test126 = size(sim%groups(atoms)%particles, 1)', size(sim%groups(atoms)%particles, 1)
 ! ==================
   i_f = 1 !initialisatie voor de loop
+
   
 jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + n_steps * timesteps !kinetische tijdstappen voor normale tijdstap
 
@@ -1102,7 +1116,7 @@ allocate(feedback_rhs,source=jorek_feedback%rhs)
 ! jorek_feedback%rhs = 0.d0
 feedback_rhs       = 0.d0
 
-call with(sim, counter)
+!call with(sim, counter)
 !omp: miltithreading. Shared: elke cpu zelfde info. Private: anders. !$omp aanroep. 
 select type (Hatom => sim%groups(atoms)%particles) !atoom maken/
 type is (particle_kinetic_leapfrog)
@@ -1119,7 +1133,7 @@ type is (particle_kinetic_leapfrog)
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
  !$omp use_cx, use_ionisation,use_line_radiation,atoms,molecules,                                             &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS,use_dissociation, potential_energy_H2_eV,potential_energy_H2_J,H2_NON_DISS_ION )                                              &
- !$omp private(particle_tmp, i_rng, i,j,k,l,m,i_p, i_f, t, E, B, psi, U, rz_old, st_old,    &
+ !$omp private(particle_tmp, i_rng, i,j,k,l,m,i_p, i_f, t, E, B, psi, U, rz_old, st_old, counter2,   &
  !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, diss_prob, diss_source,       &  
  !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,limitsAMJUEL    &
@@ -1131,15 +1145,28 @@ type is (particle_kinetic_leapfrog)
 
  ! shared jorek_feedback
  !private reduction
-
+write(*,*) 'test123 1139: size(particles,1)', size(particles,1)
  do j=1,size(particles,1) ! loop over alle particles,.
-
+write(*,*) "test123 in loop over all particles now: particle j =", j
+ counter2 = 1
+ write(*,*) 'test123 counter2 =', counter2
+ counter2 = counter2+1
+ write(*,*) 'test123 1140 i_f', i_f
     call copy_particle_kinetic_leapfrog(particles(j),particle_tmp) !particle temp/tmp: voorkomt telkens doorlopen van grote array
+  write(*,*) 'test123 n_steps for kinetic timesteps = ', n_steps
+  write(*,*) 'test123 particle_tmp%i_elm', particle_tmp%i_elm
+  write(*,*) 'test124 n_particles', n_particles
 !      i_rng = 1
   !$ i_rng = omp_get_thread_num()+1
 	!if (particle_tmp%i_elm .le. 0) cycle
     do k=1,n_steps !aantal kin steps per fluid timestep. 
-      if (i_f .ge. n_particles-1) exit
+      write(*,*) 'test123 in kinetic loop now'
+      write(*,*) 'test123 k =', k
+      write(*,*) 'test123 inloop i_f =', i_f
+      write(*,*) 'test123 particle_tmp%i_elm', particle_tmp%i_elm
+      if (i_f .ge. size(sim%groups(atoms)%particles, 1)) write(*,*) 'test123 exiting because i_f > n_part'
+      if (i_f .ge. size(sim%groups(atoms)%particles, 1)) exit !TODO adapt to size of atoms list:
+      if (particle_tmp%i_elm .le. 0) write (*,*) 'test123 exiting because particle tmp outside grid'
       if (particle_tmp%i_elm .le. 0) exit !zit niet in grid, dus doe er niks mee. !i_elm. Element nummer in fin element grid. 
       write(*,*) 'before find free particles function: i_f = ', i_f
       !i_f is index van deeltjes die we willen creëeren. (1 tm 1000 bijv)
@@ -1165,28 +1192,28 @@ type is (particle_kinetic_leapfrog)
 !       end do
 ! ! ==================
 
-      write(*,*) 'after find free particles function: i_p = ', i_p
+      write(*,*) 'test123 after find free particles function: i_p = ', i_p
       t = particle_start_time + (k-1)*timesteps
 	!x hieronde ris locatie in realspace. st is locatie in local space. x(3) derde richting (phi)
 	  call sim%fields%calc_EBpsiU(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), E, B, psi, U) !uitlezen background field
       rz_old    = particle_tmp%x(1:2)
       st_old    = particle_tmp%st
       i_elm_old = particle_tmp%i_elm
-	  
+	  write(*,*) 'test123 line 1192'
 	  !> in use ionisation as well?
 	  call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_e, T_e)
 	  ! call calc_ U ne Te vpar
 	  ion_source = 0.d0
 	  ion_energy = 0.d0
-	  
+	  write(*,*) 'test123 line 1198'
 	  call sim%fields%calc_vvector(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), vvector)
 	  !vvector is fluid flow velocity [v_R, v_Z, v_phi] m/s
 	  !TODO: add upper limits if necessary
     limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
     limitsAMJUEL = .false. !todo: add limits
 	  if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
-	  
-	  
+	  write(*,*) 'test123 line 1205'
+
 	  ! ------------------------------- ADD PHYSICS REACTION HERE ---------	  
 	  !alles hierinder is nog voor atomen, moet weg maar is inspiratie. 
 	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
@@ -1198,35 +1225,36 @@ type is (particle_kinetic_leapfrog)
 	  ! endif ! use_line_radiation
     
     
-write(*,*) 'before dissociation'
+write(*,*) 'test123 1 before dissociation'
     !dissociative!!!!!!
-	  if (use_molecules .and. .not. limitsAMJUEL) then
+	  if (use_molecules) then! .and. .not. limitsAMJUEL) then
       
           diss_prob = 1.d0 - exp(-AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e) * n_e * timesteps) ! [0] poisson point process, exponential !amjuel rate toegevoegd
-
+          write(*,*) 'test12 diss_prob', diss_prob
           ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
           diss_source = 0.d0
 
-          if (particle_tmp%weight .le. 1.0d9) then !1.0d9 !1.0d10 1.0d7 !als hij te laag is
-            if (i_f .ge. n_particles-1) exit
-              call rng(i_rng)%next(ion_ran)
-              if (ion_ran(1) .le. diss_prob) then ! als probability hoger dan random waarde
-                particle_tmp%i_elm  = 0 !i_elm : element waar hij in zich bevindt = 0 (0 betekent buiten domein) dan hele deeltje ioniseren. om te voorkomen dat deeltje  lage weight krigen
-                diss_source = particle_tmp%weight * 1.d0 !voor hele deeltje
-			  !superparticles ionized (hoeveel superparticles verdwijnen er, niet relevant voor werking code)
-!			    n_super_ionized = n_super_ionized +1
-              else !(ion_ran(1) .le. diss_ion_prob)
+!           if (particle_tmp%weight .le. 1.0d9) then !1.0d9 !1.0d10 1.0d7 !als hij te laag is
+!             if (i_f .ge. n_particles-1) exit
+!               call rng(i_rng)%next(ion_ran)
+!               if (ion_ran(1) .le. diss_prob) then ! als probability hoger dan random waarde
+!                 particle_tmp%i_elm  = 0 !i_elm : element waar hij in zich bevindt = 0 (0 betekent buiten domein) dan hele deeltje ioniseren. om te voorkomen dat deeltje  lage weight krigen
+!                 diss_source = particle_tmp%weight * 1.d0 !voor hele deeltje
+! 			  !superparticles ionized (hoeveel superparticles verdwijnen er, niet relevant voor werking code)
+! !			    n_super_ionized = n_super_ionized +1
+!               else !(ion_ran(1) .le. diss_ion_prob)
                 
-                diss_source = 0.d0
-              endif
- !! tot hier structuur gelijk gehouden, is dat oke??
+!                 diss_source = 0.d0
+!               endif
+!  !! tot hier structuur gelijk gehouden, is dat oke??
 
-          else !(particle_tmp%weight .le. 1.0d9)
+!           else !(particle_tmp%weight .le. 1.0d9)
             diss_source = particle_tmp%weight * diss_prob !zoveel ioniseren we
             particle_tmp%weight = particle_tmp%weight * (1.d0 - diss_prob) !nieuwe particle wieght
             !write(*,*) 'i_p', i_p
             !write(*,*) 'i_free', i_free
-            write(*,*) 'diss_source', diss_source
+            write(*,*) 'test12 diss_source', diss_source
+            i_p = i_free(i_f)
             Hatom(i_p)%weight = diss_source  
 
             electron_cooling_rate = AMJUEL_rate_coeff_neTe(H2_ELEC_COOL,n_e,T_e)*EL_CHG ! [Js-1m-3]
@@ -1253,13 +1281,13 @@ write(*,*) 'before dissociation'
             Hatom(i_p)%st    = particle_tmp%st
             Hatom(i_p)%i_elm = particle_tmp%i_elm
             i_f =i_f +1
-            if (i_f .ge. n_particles-1) exit  
+            if (i_f .ge. size(sim%groups(atoms)%particles, 1)) exit  
             i_p = i_free(i_f) !switch naar nieuw vrij atoom
 
             
 
             write(*,*) "combined_rate ", combined_rate
-          endif 
+          !endif 
           
 
 
@@ -1272,7 +1300,7 @@ write(*,*) 'before dissociation'
           !potential_energy_H2_rate = potential_energy_H2_J * AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e)
 
 
-    write(*,*) 'after dissociation'
+    write(*,*) 'test123 after dissociation'
 
 	  ! ! Charge Exchange
 	  ! ! It is assumed that we will have a exchange between hydrogen isotopes
