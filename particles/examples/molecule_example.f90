@@ -535,8 +535,8 @@ do while (.not. sim%stop_now) !begin loop
 
         lost_energy    = lost_energy    + particles(j)%weight * dot_product(particles(j)%v,particles(j)%v) * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT /2.d0
         
-        momentum_conserv = momentum_conserv + particles(j)%weight*particles(j)%v
-
+        momentum_conserv = momentum_conserv + particles(j)%weight * particles(j)%v *sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
+        
         !if (particles(j)%v(1) .ne. 0.d0) then
         !  write(*,*) 'test1256', sqrt(abs(dot_product(particles(j)%v,particles(j)%v)))
         !endif
