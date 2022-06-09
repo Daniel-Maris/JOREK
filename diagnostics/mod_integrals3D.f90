@@ -101,6 +101,8 @@ real*8  :: density_tot, density_in, density_out,  pressure, pressure_in, pressur
 real*8  :: current_in, current_out, D_int, D_ext, P_ext, C_ext, delta_phi, phi, P_tot, D_tot
 real*8  :: VP_int, VP_ext, VK_int, VK_ext, vpar0, BB2, VP_tot, VK_tot
 real*8  :: kin_par_in, kin_par_out, kin_par_tot, kin_perp_in, kin_perp_out, kin_perp_tot
+real*8  :: local_mom_par_tot, local_mom_par_int, local_mom_par_ext
+real*8  :: mom_par_tot, mom_par_int, mom_par_ext
 real*8  :: VM_int, VM_ext, VM_tot, mag_in, mag_out, mag_tot, J2_int, J2_ext, J2_tot, ohm_in, ohm_tot, ohm_out
 real*8  :: heli_tot, thm_wk, thm_wk_tot, mag_wk, mag_wk_tot, thermal_work_tot
 real*8  :: vpar_disp_tot, vpar_disp, viscopar_dissip_tot, source_tot, heating_tot
@@ -134,6 +136,8 @@ real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_
 !> for use_ncs
 real*8  :: Nion, Nrec, plasmaneutral, Prec, Prb
 real*8  ::  local_Nion, local_Nrec, local_pn, local_Prec, local_Prb
+real*8  :: local_aux_mom_par_int ,local_aux_mom_par_ext, local_aux_mom_par_tot  ! coupled parallel momentum
+real*8  :: aux_mom_par_int ,aux_mom_par_ext, aux_mom_par_tot  ! coupled parallel momentum
 !> For model500 + use_ncs
 real*8     :: ksiion                                          ! Ionization energy
 !   -Ionization
@@ -168,6 +172,7 @@ H_int    = 0.d0
 H_impl_int = 0.d0
 S_int    = 0.d0
 VP_int   = 0.d0
+local_mom_par_int = 0.d0 
 VK_int   = 0.d0
 VM_int   = 0.d0
 J2_int   = 0.d0
@@ -178,6 +183,7 @@ H_ext    = 0.d0
 H_impl_ext  = 0.d0
 S_ext    = 0.d0
 VP_ext   = 0.d0
+local_mom_par_ext = 0.d0
 VK_ext   = 0.d0
 VM_ext   = 0.d0
 J2_ext   = 0.d0
@@ -187,6 +193,7 @@ P_tot    = 0.d0
 D_tot    = 0.d0
 wgauss_copy = wgauss
 VP_tot   = 0.d0
+local_mom_par_tot = 0.d0
 VK_tot   = 0.d0
 VM_tot   = 0.d0
 J2_tot   = 0.d0
@@ -224,6 +231,10 @@ local_Nrec = 0.d0
 local_pn   = 0.d0
 local_Prec = 0.d0
 local_Prb = 0.d0
+local_aux_mom_par_int = 0.d0 
+local_aux_mom_par_ext = 0.d0 
+local_aux_mom_par_tot = 0.d0 
+
 
 delta_phi     = 2.d0 * PI / float(n_plane) / float(n_period)
 
@@ -252,7 +263,9 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp          local_pellet_particles, local_plasma_particles, local_pellet_volume,            &
 !$omp          heli_tot,  keep_current_prof, psi_off, visco_par, thm_wk_tot,                   &
 !$omp          mag_wk_tot, vpar_disp_tot, area1, mag_src_tot,  &
+!$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                        &
 !$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, &
+!$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot,&
 #if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
 !$omp          local_n_particles_inj, local_n_particles, ns_amplitude, ns_R, ns_Z,             &
 !$omp          ns_phi, ns_radius, ns_sig, ns_deltaphi, ns_tor_norm,                            &
@@ -300,6 +313,8 @@ omp_tid      = 0
 !$omp                VP_int, VP_ext, VP_tot, VK_tot, VK_int, VK_ext, VM_ext,                  &
 !$omp                VM_int, VM_tot, Vol, P_tot, D_tot,J2_tot, J2_int, J2_ext,                &
 !$omp                local_Nion, local_Nrec, local_pn, local_Prec, local_Prb ,                &
+!$omp                local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot,       &
+!$omp                local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                        &
 !$omp                heli_tot, mag_wk_tot, vpar_disp_tot, thm_wk_tot, area1, mag_src_tot,H_impl_int,H_impl_ext )
 
 
@@ -588,12 +603,15 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           local_Prec = local_Prec + r0_corr*r0_corr*(T0_corr*Srec_T)*BigR *xjac* delta_phi *wst
           ! Power recombination and bremstrhalung combined
           local_Prb = local_Prb + r0_corr*r0_corr*(LradDcont_T-ksiion*Srec_T)*BigR *xjac* delta_phi *wst
+          !> aux_vpar = dot_product(SI momentum source,B). so we  divide by |B| to obtain the integral of the SI momentum
+          local_aux_mom_par_tot=local_aux_mom_par_tot+ aux_vpar0 /sqrt(BB2) * xjac * BigR * wst * delta_phi !< * sqrt(BB2)
 
         endif ! use_ncs  
  
         P_tot  = P_tot  + r0 * T0 * xjac * BigR * wst * delta_phi
         D_tot  = D_tot  + r0      * xjac * BigR * wst * delta_phi
         VP_tot = VP_tot + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
+        local_mom_par_tot = local_mom_par_tot + r0 * vpar0 * sqrt(BB2) * xjac * BigR * wst * delta_phi
         VK_tot = VK_tot + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
         VM_tot = VM_tot + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
         J2_tot = J2_tot + eta_T *(ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
@@ -639,9 +657,15 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 		  H_impl_int = H_impl_int + (gamma-1.d0)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
           S_int = S_int + particle_source * xjac * BigR * wst * delta_phi
           VP_int = VP_int + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
+          local_mom_par_int = local_mom_par_int + r0 * vpar0 * sqrt(BB2) * xjac * BigR * wst * delta_phi
           VK_int = VK_int + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
           VM_int = VM_int + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_int = J2_int + eta_T * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
+
+          if (use_ncs) then 
+            local_aux_mom_par_int=local_aux_mom_par_int+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
+          endif 
+
         else
           D_ext = D_ext + r0         * xjac * BigR * wst * delta_phi
           P_ext = P_ext + r0   * T0  * xjac * BigR * wst * delta_phi
@@ -650,9 +674,14 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 		  H_impl_ext = H_impl_ext + (gamma-1.d0)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
           S_ext = S_ext + particle_source * xjac * BigR * wst * delta_phi
           VP_ext = VP_ext + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
+          local_mom_par_ext = local_mom_par_ext + r0 * vpar0 * sqrt(BB2) * xjac * BigR * wst * delta_phi
           VK_ext = VK_ext + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
           VM_ext = VM_ext + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_ext = J2_ext + eta_T * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
+
+          if (use_ncs) then 
+            local_aux_mom_par_ext=local_aux_mom_par_ext+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
+          endif  
         endif
 
       enddo
@@ -938,6 +967,12 @@ call MPI_AllReduce(local_Nrec,Nrec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD
 call MPI_AllReduce(local_pn,plasmaneutral,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_Prec,Prec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_Prb,Prb,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_mom_par_int,mom_par_int,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_mom_par_ext,mom_par_ext,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_mom_par_tot,mom_par_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_aux_mom_par_int,aux_mom_par_int,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_aux_mom_par_ext,aux_mom_par_ext,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_aux_mom_par_tot,aux_mom_par_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 #else /* NOMPIVERSION */
 density_in           = D_int
 density_out          = D_ext
@@ -974,11 +1009,17 @@ viscopar_dissip_tot  = vpar_disp_tot
 mag_source_tot       = mag_src_tot
 V_min                = varmin
 V_max                = varmax
+mom_par_int = local_mom_par_int
+mom_par_ext = local_mom_par_ext
+mom_par_tot = local_mom_par_tot
 Nion                 = local_Nion
 Nrec                 = local_Nrec
 plasmaneutral        = local_pn
 Prec                 = local_Prec
 Prb                  = local_Prb
+aux_mom_par_int = local_aux_mom_par_int
+aux_mom_par_ext = local_aux_mom_par_ext
+aux_mom_par_tot = local_aux_mom_par_tot
 #endif /* NOMPIVERSION */
 
 if (use_pellet) then
@@ -1057,12 +1098,18 @@ viscopar_dissip_tot  = n_period * viscopar_dissip_tot * fact_flux
 mag_source_tot       = n_period * mag_source_tot      * fact_flux
 volume               = n_period * volume
 area                 = n_period * area / (2.d0 * PI)
+mom_par_int      = n_period * mom_par_int * rho_norm / t_norm
+mom_par_ext      = n_period * mom_par_ext * rho_norm / t_norm
+mom_par_tot      = n_period * mom_par_tot * rho_norm / t_norm
 
 Nion                 = n_period * Nion         * fact_part / t_norm2
 Nrec                 = n_period * Nrec         * fact_part / t_norm2
 plasmaneutral        = n_period * plasmaneutral* fact_flux / (GAMMA-1.d0) 
 Prec                 = n_period * Prec         * fact_flux / (GAMMA-1.d0)
 Prb                  = n_period * Prb          * fact_flux / (GAMMA-1.d0)
+aux_mom_par_int      = n_period * aux_mom_par_int * rho_norm / t_norm
+aux_mom_par_ext      = n_period * aux_mom_par_ext * rho_norm / t_norm
+aux_mom_par_tot      = n_period * aux_mom_par_tot * rho_norm / t_norm
 
 ! --- Boundary integrals
 vn_p0                =  n_period * vn_p0          * fact_flux 
@@ -1347,6 +1394,7 @@ if (my_id .eq. 0) then
   write(*,'(A,4es14.6,A)') ' pressure (total/in/out)         : ',xt,pressure/1.d6, pressure_in/1.d6, pressure_out/1.d6,' [MJ]'
   write(*,'(A,4es14.6,A)') ' kinetic parallel (total/in/out) : ',xt,kin_par_tot/1.d6, kin_par_in/1.d6, kin_par_out/1.d6,' [MJ]'
   write(*,'(A,4es14.6,A)') ' kinetic perp (total/in/out)     : ',xt,kin_perp_tot/1.d6, kin_perp_in/1.d6, kin_perp_out/1.d6,' [MJ]'
+  write(*,'(A,4e14.6,A)') ' parallel momentum (total/in/out) : ',xt,mom_par_tot, mom_par_int, mom_par_ext,' [kg m/s]'
   write(*,'(A,4es14.6,A)') ' magnetic (total/in/out)         : ',xt,mag_tot/1.d6, mag_in/1.d6, mag_out/1.d6,' [MJ]'
   write(*,'(A,3es14.6,A)') ' current  (in/out)               : ',xt,current_in/1.d6, current_out/1.d6, ' [MA]'
   write(*,'(A,3es14.6,A)') ' heating  (in/out)               : ',xt,heating_in/1d6, heating_out/1.d6 ,' [MW]'
@@ -1365,8 +1413,9 @@ if (my_id .eq. 0) then
   if (use_ncs) then
     write(*,'(A)') '----------------------------------------'
     write(*,'(A)') ' Kinetic neutral integrals on fluid side                  '
-    write(*,'(A,4es14.6,A)') ' Ion source, Recomb loss         : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
-    write(*,'(A,3es14.6,A)') ' Plasma-neutral (aux_T0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
+    write(*,'(A,4es14.6,A)') ' Ion source (aux_rho0), Recomb loss                : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
+    write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_vpar0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
+    write(*,'(A,3es14.6,A)') ' Heat source (aux_T0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
     write(*,'(A,4es14.6,A)') ' Prec, Prb                       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6, ' [MW]'
     write(*,'(A)') '----------------------------------------'
   endif !use_ncs  
