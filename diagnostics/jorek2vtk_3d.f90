@@ -1,9 +1,16 @@
 !> Program to convert a JOREK2 restart file into binary VTK format
 program jorek2vtk_3d
 
+use mod_parameters, only: n_order
+
+!use data_structure
+use basis_at_gaussian
+!use equil_info
+
 use constants
 use data_structure
 use phys_module
+use mod_chi
 use mod_import_restart
 use mod_interp
 implicit none
@@ -13,7 +20,7 @@ type (type_element_list) :: element_list
 
 integer               :: nnoel, nnos, nel, nsub, inode, ielm, n_scalars, n_vectors
 real*4,allocatable    :: xyz (:,:), scalars(:,:), vectors(:,:,:)
-real*8,allocatable    :: HZ(:,:)
+!real*8,allocatable    :: HZ(:,:)
 integer,allocatable   :: ien (:,:)
 integer, parameter    :: ivtk = 22 ! an arbitrary unit number for the VTK output file
 integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, index, index_node, n_points, k_tor
@@ -26,11 +33,19 @@ real*8                :: P,P_s,P_t,P_st,P_ss,P_tt
 
 !,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
 real*8                :: R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp
+real*8                :: BigR
 real*8                :: Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp
 
 real*8                :: Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt, ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_ss,ZJ_tt, W,W_s,W_t,W_st,W_ss,W_tt
+real*8                :: ps_p, ps_x_itor, ps_y_itor
+
 real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_tt, TT,TT_s,TT_t,TT_st,TT_ss,TT_tt
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
+
+real*8                :: Bx, By, Bz
+
+real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
+
 logical               :: periodic, density_only
 integer               :: ierr, my_id
 logical               :: without_n0_mode, RphiZ_coords
@@ -43,6 +58,7 @@ write(*,*) 'jorek2vtk_3d'
 my_id     = 0
 call initialise_parameters(my_id, "__NO_FILENAME__")
 
+write(*,*) 'jorek2vtk_3d_step2'
 ! --- Preset parameters
 nsub            = 5        		! Number of subdivisions of the cubic finite elements into linear pieces
 without_n0_mode = .false.  		! If true, do not include the n=0 mode (i_tor=1)
@@ -82,6 +98,9 @@ do k_tor=1, n_coord_tor
   mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
 enddo
 
+call initialise_basis                              ! define the basis functions at the Gaussian points
+call init_chi_basis
+
 call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr, .true.)
 nnos = n_toroidal * nsub*nsub*node_list%n_nodes
 
@@ -111,7 +130,8 @@ xyz     = 0
 ien     = 0
 n_points = nsub*nsub*element_list%n_elements        ! number of points in one poloidal plane
 
-allocate(HZ(n_tor,n_toroidal))
+!allocate(HZ(n_tor,n_toroidal))
+
 
 do m=1,n_toroidal
   if (periodic) then
@@ -126,6 +146,7 @@ do m=1,n_toroidal
   enddo
 enddo
 
+
 do m=1, n_toroidal
   ! --- Print progress information as jorek2vtk_3d may run very long...
   if ( mod(m,n_toroidal/40+1) == 0 ) write(*,'(" Plane ",i4.4," of ",i4.4)') m, n_toroidal
@@ -136,21 +157,22 @@ do m=1, n_toroidal
     angle = 2.d0 * PI * float(m-1)/float(n_toroidal-1) / float(n_period)
   endif
 
-  do i=1,element_list%n_elements
 
+  do i=1,element_list%n_elements
     do j=1,nsub
       s = float(j-1)/float(nsub-1)
       do k=1,nsub
         t = float(k-1)/float(nsub-1)
-
         ! The following 50 lines could be replaced with interp_PRZ(_1) (after adding without_n0_mode there, or manually subtracting)
         !call interp_RZ( node_list,element_list,i,s,t,      R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
         call interp_RZP(node_list,element_list,i,s,t,angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
                        Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
         xjac  = R_s * Z_t - R_t * Z_s
         if ( xjac == 0.d0 ) xjac = 1.d-8 ! (workaround to avoid floating invalid)
-
+        chi = get_chi(R,Z,angle)
+        BigR = R
         inode = inode+1
+
 
         if (RphiZ_coords) then
           xyz(1:3,inode) = (/ R * cos(angle), -R*sin(angle),            Z /)   !from the JOREK wiki
@@ -158,6 +180,7 @@ do m=1, n_toroidal
           xyz(1:3,inode) = (/ R * cos(angle),             Z, R*sin(angle) /)
         endif
 
+        ps_x = 0.d0; ps_y = 0.d0; ps_p = 0.d0
         do i_tor = 1,n_tor
 
           if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) cycle ! Do not include the n=0 mode
@@ -169,15 +192,17 @@ do m=1, n_toroidal
             call interp(node_list,element_list,i,var_psi,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,1) = scalars(inode,1) + P * HZ(i_tor,m)
 
-            ps_x  = (	Z_t * P_s - Z_s * P_t ) / xjac
-            ps_y  = ( - R_t * P_s + R_s * P_t ) / xjac
+!            ps_x  = (	Z_t * P_s - Z_s * P_t ) / xjac
+!            ps_y  = ( - R_t * P_s + R_s * P_t ) / xjac
+!            vectors(inode,1:3,1) = vectors(inode,1:3,1) + (/+ ps_y * HZ(i_tor,m) / R * cos(angle),	  &
+!            						    - ps_x * HZ(i_tor,m) / R,			  &
+!            						    + ps_y * HZ(i_tor,m) / R * sin(angle)  /)
 
-            vectors(inode,1:3,1) = vectors(inode,1:3,1) + (/+ ps_y * HZ(i_tor,m) / R * cos(angle),	  &
-            						    - ps_x * HZ(i_tor,m) / R,			  &
-            						    + ps_y * HZ(i_tor,m) / R * sin(angle)  /)
-            if (i_tor .eq. 1) then
-              vectors(inode,1:3,1) = vectors(inode,1:3,1) + (/ - F0/R * sin(angle), -0.d0, F0/R *cos(angle)/)
-            endif
+            ps_x_itor = (   Z_t * P_s - Z_s * P_t )   / xjac * HZ(i_tor,m)
+            ps_y_itor = ( - R_t * P_s + R_s * P_t )   / xjac * HZ(i_tor,m)
+            ps_x  = ps_x + ps_x_itor
+            ps_y  = ps_y + ps_y_itor
+            ps_p = ps_p + P*HZ_p(i_tor,m) - ps_x_itor*R_phi - ps_y_itor*Z_p
 
             call interp(node_list,element_list,i,var_u,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,2) = scalars(inode,2) + P * HZ(i_tor,m)
@@ -203,8 +228,14 @@ do m=1, n_toroidal
 	  endif
 
 	enddo
+        Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*BigR)
+        By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*BigR)
+        Bz = chi(0,0,1)/BigR + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       
+        vectors(inode,:, 1) = (/ Bx * cos(angle) - Bz * sin(angle), &
+                                 By, &
+                                 Bx * sin(angle) + Bz * cos(angle) /)
 
-      enddo
+       enddo
     enddo
 
     if (m .lt. n_toroidal) then
