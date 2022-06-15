@@ -244,10 +244,10 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 
 ! selecting physics (should be done in input file) !working: cx, ionisation, line_rad
 use_puffing           = .false. !.false. 
-use_cx                = .true. !.true.
-use_ionisation        = .true. !.false.!.false.
+use_cx                = .false. !.true.
+use_ionisation        = .false. !.false.!.false.
 use_sputtering        = .false. !.false. !false
-use_recombination     = .true.  !
+use_recombination     = .false.  !
 use_line_radiation    = .false.
 use_molecules         = .true.
 use_dissociation      = .true.
@@ -1209,8 +1209,16 @@ Hvtemp = 0.d0
   !write(*,*) 'test124 = find_free_particles(sim%groups(atoms)%particles)', find_free_particles(sim%groups(atoms)%particles)
   !write(*,*) 'test126 = size(sim%groups(atoms)%particles, 1)', size(sim%groups(atoms)%particles, 1)
 ! ==================
-  i_f = 1 !initialisatie voor de loop
-  write(*,*) 'i_f =', i_f
+  ! i_f = 1 !initialisatie voor de loop
+
+#ifdef _OPENMP
+i_f = -1 !< if we run omp, we need a special first i_f value to then share it over the num_threads with unique values
+write(*,*) 'omp i_f =', i_f
+#else
+i_f = 1
+write(*,*) 'serial i_f =', i_f
+#endif
+  write(*,*) 'first i_f =', i_f
 
   
 jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + n_steps * timesteps !kinetische tijdstappen voor normale tijdstap
@@ -1236,13 +1244,14 @@ type is (particle_kinetic_leapfrog)
 #else
  !$omp parallel do default(none) &
 #endif
-! !$omp schedule(dynamic,10) &
+ !$omp schedule(dynamic,10) &
+ !$omp firstprivate(i_f) &
  !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,i_free,        &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
  !$omp use_cx, use_ionisation,use_line_radiation,atoms,molecules, H2ionisationenergy,use_mol_cx, USE_H2plus_DISSOCIATION,use_molecules,                      &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS,use_dissociation, potential_energy_H2_eV,potential_energy_H2_J,H2_NON_DISS_ION, use_dissionisation, use_nondissionisation,&
  !$omp H2plus_ELEC_COOL, H2plus_DISS_REC, H2plus_DISS_ION, H2plus_DISS_EXC, H2_ELEC_COOL,H2_DISS, H2_DISS_ION, H2_ion_con, H2_ELEC_RAD  )                                              &
- !$omp private(particle_tmp, H2plus_tmp, i_rng, i,ii,j,k,l,m,i_p, i_f, t, E, B, psi, U, rz_old, st_old, counter2, v_diss_ion,  &
+ !$omp private(particle_tmp, H2plus_tmp, i_rng, i,ii,j,k,l,m,i_p, t, E, B, psi, U, rz_old, st_old, counter2, v_diss_ion,  &
  !$omp i_elm_old, i_elm, n_e, T_e, Hvtemp,                                                &
  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, diss_prob, diss_source, diss_ion_prob, diss_ion_source,      &
  !$omp non_diss_ion_prob, non_diss_ion_source, electron_cooling_rate_non_diss_ion, electron_radiation_rate_non_diss_ion, MOL_CX_prob, mol_CX_source,        &
@@ -1257,7 +1266,7 @@ type is (particle_kinetic_leapfrog)
  !$omp E_th, v_th,sum_ran,vvector,ran_norm, ion_diss_exc_final_energy_coupling, ion2_diss_ion_energycoupling, ion1_diss_ion_energycoupling,      &             
  !$omp electron_cooling_rate, electron_radiation_rate, electron_cooling_rate_diss_ion, electron_radiation_rate_diss_ion,   &
  !$omp combined_rate,atom_diss_final_energy,atom_diss_final_speed,random,rand_direc_vec,rand_direc_vec_diss_ion, atom_diss_ion_final_energy, atom_diss_ion_final_speed, mol_CX_energy)  &                                                        
-!$omp reduction(+:feedback_rhs,n_lost_ion,n_lost_diss_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized) !Reduction: sommatie over alle CPU's. Op eind
+ !$omp reduction(+:feedback_rhs,n_lost_ion,n_lost_diss_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized) 
   
 ! shared jorek_feedback
  !private reduction
@@ -1266,7 +1275,7 @@ type is (particle_kinetic_leapfrog)
  
 
  do j=1,size(particles,1) ! loop over alle particles,.
- !$ if (j .le. omp_get_num_threads() ) i_f = omp_get_thread_num()+1
+  !$ if (i_f .eq. -1) i_f = omp_get_thread_num()+1
  !
   write(*,*) 'i_f = ', i_f, 'omp_get_thread_num', omp_get_thread_num(), 'j', j
 !write(*,*) "test123 in loop over all particles now: particle j =", j
@@ -1321,15 +1330,6 @@ type is (particle_kinetic_leapfrog)
       
       
 
-
-
-
-
-
-
-
-
-
       !write(*,*) 'test123 in kinetic loop now'
       !write(*,*) 'test123 k =', k
       !write(*,*) 'test123 inloop i_f =', i_f
@@ -1347,27 +1347,7 @@ type is (particle_kinetic_leapfrog)
 
       !write(*,*) 'before find free particles function: i_f = ', i_f
       !i_f is index van deeltjes die we willen creëeren. (1 tm 1000 bijv)
-!       !============== Finding free particles !< make into a function?
-!       !> # is_free > n_elements * particles_per_element 
-!       allocate(is_free(size(sim%groups(molecules)%particles,1))) 
-!       !$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
-!       !$omp private(j) schedule(dynamic, 100)
-!       do j=1,size(sim%groups(molecules)%particles,1) !sim%groups(molecules)%particles
-!         is_free(j) = sim%groups(molecules)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
-!       end do
-!       !$omp end parallel do
-!       !$omp barrier
-!       n_free = count(is_free)
-!       allocate(i_free(n_free))
-!       k = 1
-!       do j=1,size(is_free,1)
-!         if (is_free(j)) then
-!           i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(1)%particles(j)
-!           k = k+1
-!           !if (sim%my_id .eq. 0) write(,) "Adding to the list number: ", j
-!         end if
-!       end do
-! ! ==================
+
 
       !write(*,*) 'test123 after find free particles function: i_p = ', i_p
       t = particle_start_time + (k-1)*timesteps
@@ -1405,21 +1385,20 @@ type is (particle_kinetic_leapfrog)
           diss_prob = 1.d0 - exp(-AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e) * n_e * timesteps) ! [0] poisson point process, exponential !amjuel rate toegevoegd
           diss_source = particle_tmp%weight * diss_prob !zoveel ioniseren we 
           particle_tmp%weight = particle_tmp%weight * (1.d0 - diss_prob) !nieuwe particle wieght
-          write(*,*) 'i_p test', i_free(1)
+          !write(*,*) 'i_p test', i_free(1)
 
           i_p = i_free(i_f)
-          write(*,*) 'i_p,', i_p
+          !write(*,*) 'i_p,', i_p
           Hatom(i_p)%weight = diss_source  
-          write(*,*) AMJUEL_rate_coeff_neTe(H2_ELEC_COOL,n_e,T_e)*EL_CHG , H2_ELEC_COOL, n_e
-          write(*,*) n_e
+
           electron_cooling_rate = AMJUEL_rate_coeff_neTe(H2_ELEC_COOL,n_e,T_e)*EL_CHG ! [Js-1m-3]
 
-          write(*,*) 'electron_cooling_rate', electron_cooling_rate
+          ! write(*,*) 'electron_cooling_rate', electron_cooling_rate
 
 
           electron_radiation_rate = AMJUEL_rate_coeff_neTe(H2_ELEC_RAD,n_e,T_e)*EL_CHG ! [Js-1m-3]
           combined_rate = AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e)+AMJUEL_rate_coeff_neTe(H2_NON_DISS_ION,n_e,T_e)
-          write(*,*) 'after combined rate'
+          ! write(*,*) 'after combined rate'
           potential_energy_H2_eV = 4.48 ![eV]
           potential_energy_H2_J = potential_energy_H2_eV*EL_CHG
           atom_diss_final_energy      = 0.5d0*(electron_cooling_rate/combined_rate - electron_radiation_rate/combined_rate - potential_energy_H2_J) !<binding energy should be here !plasma meer energie: positief!
@@ -1427,11 +1406,11 @@ type is (particle_kinetic_leapfrog)
           atom_diss_final_speed       = sqrt(2.d0*atom_diss_final_energy/(sim%groups(atoms)%mass*ATOMIC_MASS_UNIT))
 
 
-          write(*,*) 'voor rand vec'
+          ! write(*,*) 'voor rand vec'
           !call random_number(random) !array met 3 random waarden (x,y,z) richting
           !random = random - 0.5d0
           rand_direc_vec = diss_ran(2:4)/sqrt((dot_product(diss_ran(2:4),diss_ran(2:4)))) !normaliseer naar unit vector
-          write(*,*) 'na randvec'
+          ! write(*,*) 'na randvec'
 
 
           !write(*,*) 'rand_direc_vec length = ', sqrt(rand_direc_vec(1)*rand_direc_vec(1)+rand_direc_vec(2)*rand_direc_vec(2)+rand_direc_vec(3)*rand_direc_vec(3))
