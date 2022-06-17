@@ -88,8 +88,10 @@ logical  :: run_stepper, run_rec !, one_rec_only !< when recombination is used
 ! diagnostics
 real*8    :: density_tot, density_in, density_out,  pressure, pressure_in, pressure_out
 real*8    :: mom_par_tot, mom_par_in, mom_par_out, kin_par_tot, kin_par_out, kin_par_in
-real*8    :: particles_remaining, momentum_remaining, energy_remaining, all_particles, all_momentum, all_energy, lost_particle_weights, totallostparticles, lost_energy, total_lost_energy, momentuminplasma(3), allmomentuminplasma(3), parallelmomentuminplasma
-integer   :: superparticles_remaining,all_superparticles,closest_iteration!, part_i_save,part_n_save
+real*8    :: particles_remaining, momentum_remaining, energy_remaining, all_particles, all_momentum, all_energy, lost_particle_weights
+real*8    :: totallostparticles, lost_energy, total_lost_energy, momentuminplasma(3), allmomentuminplasma(3), parallelmomentuminplasma, allparallelmomentuminplasma
+real*8    :: all_momentum_conserv(3), all_totallostparticles, all_total_lost_energy
+integer   :: superparticles_remaining,all_superparticles,closest_iteration 
 !integer   :: particles_per_element
 
 
@@ -251,10 +253,10 @@ use_recombination     = .false.  !
 use_line_radiation    = .false.
 use_molecules         = .true.
 use_dissociation      = .true.
-use_dissionisation    = .true. 
-use_nondissionisation = .true.
-use_mol_cx            = .true.
-USE_H2plus_DISSOCIATION   = .true.
+use_dissionisation    = .false. 
+use_nondissionisation = .false.
+use_mol_cx            = .false.
+USE_H2plus_DISSOCIATION   = .false.
 
 
 ! Read Open ADAS data for plasma fluid
@@ -478,7 +480,7 @@ total_lost_energy = 0.d0
 
 
 ! Set up random numbers for ionisation probability
-seed = random_seed()
+seed = 1 !random_seed()
 n_stream = 1
 !$ n_stream = omp_get_max_threads()
 allocate(rng(n_stream))
@@ -532,9 +534,12 @@ do while (.not. sim%stop_now) !begin loop
   !> ionisation + CX + pushing the particles + calculating the feedback
   call loop_particle_kinetic_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
   
-  
+  all_totallostparticles = 0.d0
+  all_total_lost_energy = 0.d0
+  all_momentum_conserv = 0.d0
   lost_particle_weights = 0.d0 
   lost_energy = 0.d0
+  momentum_conserv = 0.d0
   select type (particles => sim%groups(atoms)%particles)
   type is (particle_kinetic_leapfrog)
     do j=1,size(particles,1) 
@@ -556,14 +561,27 @@ do while (.not. sim%stop_now) !begin loop
 
         particles(j)%weight = 0.d0 !test to see if particles get overwritten
         particles(j)%v = 0.d0
+
+        
+
+          
+      
+        
+      
+      
+
       endif
+      !if (particles(j)%i_elm .gt. 0) write(*,*) 'j - weight - ielm:', j, particles(j)%weight, particles(j)%i_elm
   
     enddo
   end select
   totallostparticles = totallostparticles + lost_particle_weights
   total_lost_energy = total_lost_energy + lost_energy
+  call MPI_REDUCE(totallostparticles, all_totallostparticles, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(total_lost_energy, all_total_lost_energy, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(momentum_conserv, all_momentum_conserv, 3, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   !write(*,*) 'time',sim%time,'test213 Lost particle weights', lost_particle_weights, 'Sum lost particles: ', totallostparticles
-  write(*,'(a,1e16.8,a,1e16.8,a,1e16.8,a,3e16.8)') 'Time total diag ', sim%time, 'Total lost particles ', totallostparticles, 'Total lost energy ', total_lost_energy, 'Momentum conserv ', momentum_conserv
+  if (sim%my_id .eq. 0) write(*,'(a,1e16.8,a,1e16.8,a,1e16.8,a,3e16.8)') 'Time total diag ', sim%time, ' Total lost particles ', all_totallostparticles, ' Total lost energy ', all_total_lost_energy, ' Momentum conserv ', all_momentum_conserv
   !write(*,'(a,1e16.8,a,1e16.8)') 'Time', sim%time, 'Total lost particles', totallostparticles
   !write(*,'(a,1e16.8,a,1e16.8)') 'Time', sim%time, 'Total lost energy', total_lost_energy
   !write(*,'(a,1e16.8,a,3e16.8)') 'Time', sim%time, 'Momentum conserv', momentum_conserv
@@ -571,6 +589,8 @@ do while (.not. sim%stop_now) !begin loop
     !write(*,*) 'test123 we are in the if molecules statement'
     call loop_particle_kinetic_molecule_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
   endif !use_molecules
+
+
 
   !? add molecule loop here. !
   !call loop_particle_kinetic_molecule_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
@@ -703,8 +723,10 @@ do while (.not. sim%stop_now) !begin loop
   call MPI_REDUCE(particles_remaining, all_particles, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(momentum_remaining,  all_momentum,  1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(energy_remaining,    all_energy,    1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
-  !call MPI_REDUCE(momentuminplasma,allmomentuminplasma,3, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(momentuminplasma,allmomentuminplasma,3 , MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(parallelmomentuminplasma, allparallelmomentuminplasma,1 , MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+
    
   !write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
   !                                      mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
@@ -717,13 +739,13 @@ do while (.not. sim%stop_now) !begin loop
                                         mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
                                         pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot
 
-    write (*,'(A,3e16.8)') 'Atom momentum in plasma: ', momentuminplasma
+    write (*,'(A,3e16.8)') 'Atom momentum in plasma: ', allmomentuminplasma
 	!write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
     !                                    mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
     !                                    pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
 
 
-    write (*,'(A,3e16.8)') 'Parallel momentum given to atoms at this timestep: ', parallelmomentuminplasma
+    write (*,'(A,3e16.8)') 'Parallel momentum given to atoms at this timestep: ', allparallelmomentuminplasma
 	write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', n_particles, '| in use :', &
 				real(all_superparticles)/n_particles*100.d0,'%'
 				
@@ -1159,9 +1181,9 @@ real*8    :: electron_cooling_rate_diss_ion,electron_radiation_rate_diss_ion,  d
 real*8    :: non_diss_ion_prob, non_diss_ion_source, electron_cooling_rate_non_diss_ion, electron_radiation_rate_non_diss_ion, H2ionisationenergy
 real*8    :: mol_cx_prob, mol_cx_source, mol_CX_energy
 real*8    :: ion_diss_exc_prob, ion_diss_ion_prob, ion_diss_recomb_prob, sum_probabilities, ion_diss_exc_source(2), electron_cooling_rate_ion_diss_exc
-real*8    :: ion_diss_exc_final_energy, ion_diss_exc_final_speed, v_ion_diss_exc(6), ion_diss_recomb_source(2), electron_cooling_rate_ion_diss_recomb(2)
+real*8    :: ion_diss_exc_final_energy, ion_diss_exc_final_speed, v_ion_diss_exc(2,3), ion_diss_recomb_source(2), electron_cooling_rate_ion_diss_recomb(2)
 real*8    :: ion_diss_recomb_final_energy(2), ion_diss_recomb_final_speed(2), ion_diss_ion_source(2), electron_cooling_rate_ion_diss_ion, ion_diss_ion_final_energy
-real*8    :: ion_diss_ion_final_speed, ion1_diss_ion_velocity(6), ion2_diss_ion_velocity(6), ion_diss_exc_final_energy_coupling(2), ion2_diss_ion_energycoupling(2), ion1_diss_ion_energycoupling(2)
+real*8    :: ion_diss_ion_final_speed, ion1_diss_ion_velocity(2,3), ion2_diss_ion_velocity(2,3), ion_diss_exc_final_energy_coupling(2), ion2_diss_ion_energycoupling(2), ion1_diss_ion_energycoupling(2)
 
 
 real*8, dimension(3)    :: rand_direc_vec,  rand_direc_vec_diss_ion, v_final_atom, v_final_molecular_ion, v_Hplus_tmp, v_mol_tmp
@@ -1250,7 +1272,7 @@ type is (particle_kinetic_leapfrog)
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
  !$omp use_cx, use_ionisation,use_line_radiation,atoms,molecules, H2ionisationenergy,use_mol_cx, USE_H2plus_DISSOCIATION,use_molecules,                      &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS,use_dissociation, potential_energy_H2_eV,potential_energy_H2_J,H2_NON_DISS_ION, use_dissionisation, use_nondissionisation,&
- !$omp H2plus_ELEC_COOL, H2plus_DISS_REC, H2plus_DISS_ION, H2plus_DISS_EXC, H2_ELEC_COOL,H2_DISS, H2_DISS_ION, H2_ion_con, H2_ELEC_RAD  )                                              &
+ !$omp H2plus_ELEC_COOL, H2plus_DISS_REC, H2plus_DISS_ION, H2plus_DISS_EXC, H2_ELEC_COOL,H2_DISS, H2_DISS_ION, H2_ion_con, H2_ELEC_RAD, Hatom  )                                              &
  !$omp private(particle_tmp, H2plus_tmp, i_rng, i,ii,j,k,l,m,i_p, t, E, B, psi, U, rz_old, st_old, counter2, v_diss_ion,  &
  !$omp i_elm_old, i_elm, n_e, T_e, Hvtemp,                                                &
  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, diss_prob, diss_source, diss_ion_prob, diss_ion_source,      &
@@ -1277,7 +1299,7 @@ type is (particle_kinetic_leapfrog)
  do j=1,size(particles,1) ! loop over alle particles,.
   !$ if (i_f .eq. -1) i_f = omp_get_thread_num()+1
  !
-  write(*,*) 'i_f = ', i_f, 'omp_get_thread_num', omp_get_thread_num(), 'j', j
+  !write(*,*) 'i_f = ', i_f, 'omp_get_thread_num', omp_get_thread_num(), 'j', j
 !write(*,*) "test123 in loop over all particles now: particle j =", j
 
 
@@ -1380,7 +1402,7 @@ type is (particle_kinetic_leapfrog)
     
       !If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
 
-      if (particle_tmp%weight .gt. 5.d13) then 
+      if (particle_tmp%weight .gt. 5.d14) then 
         
           diss_prob = 1.d0 - exp(-AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e) * n_e * timesteps) ! [0] poisson point process, exponential !amjuel rate toegevoegd
           diss_source = particle_tmp%weight * diss_prob !zoveel ioniseren we 
@@ -1410,6 +1432,7 @@ type is (particle_kinetic_leapfrog)
           !call random_number(random) !array met 3 random waarden (x,y,z) richting
           !random = random - 0.5d0
           rand_direc_vec = diss_ran(2:4)/sqrt((dot_product(diss_ran(2:4),diss_ran(2:4)))) !normaliseer naar unit vector
+          write(*,*) 'randvec', rand_direc_vec
           ! write(*,*) 'na randvec'
 
 
@@ -1422,7 +1445,7 @@ type is (particle_kinetic_leapfrog)
           Hatom(i_p)%v(3) = Hatom(i_p)%v(3)!+1000.d0
           !Hvtemp(1) = 
 
-          !i_f =i_f +1 if no OMP
+          i_f =i_f +1 !if no OMP
           !$ i_f = i_f + omp_get_num_threads()
 
           i_p = i_free(i_f) !switch naar nieuw vrij atoom
@@ -1436,7 +1459,7 @@ type is (particle_kinetic_leapfrog)
           Hatom(i_p)%i_elm = i_elm_old
           Hatom(i_p)%q = 0
 
-          !i_f =i_f +1 if no OMP
+          i_f =i_f +1 !if no OMP
           !$ i_f = i_f + omp_get_num_threads()
 
           if (i_f .ge. size(sim%groups(atoms)%particles, 1)) write(*,*) 'exited because of indice outside of array'
@@ -1444,7 +1467,7 @@ type is (particle_kinetic_leapfrog)
 
 
           !write(*,'(a,2e16.8,a,3e16.8)') 'atom_diss_final_energy energie van 1 deeltje = ', atom_diss_final_energy/EL_CHG,1.d0*ATOMIC_MASS_UNIT*dot_product(Hatom(i_p)%v,Hatom(i_p)%v)/EL_CHG, 'Hatom%v',Hatom(i_p)%v
-          i_p = i_free(i_f) !switch naar nieuw vrij atoom 
+          !i_p = i_free(i_f) !switch naar nieuw vrij atoom 
            !particle_tmp%weight .gt. 1.0d15) then 
 
           else!if (particle_tmp%weight .le. 1.0d15) then 
@@ -1452,6 +1475,7 @@ type is (particle_kinetic_leapfrog)
           !call random_number(random) 
           !random(1) = 0.d0 !to always enter loop
           diss_prob = 1.d0 - exp(-AMJUEL_rate_coeff_neTe(H2_DISS,n_e,T_e) * n_e * timesteps)
+          
               if (diss_ran(1) .le. diss_prob) then !
                   diss_prob = 1.d0
                   diss_source = particle_tmp%weight * diss_prob 
@@ -1485,7 +1509,7 @@ type is (particle_kinetic_leapfrog)
                   Hatom(i_p)%q = 0
 
         
-                  !i_f =i_f +1 if no OMP
+                  i_f =i_f +1 !if no OMP
                   !$ i_f = i_f + omp_get_num_threads()
                   i_p = i_free(i_f) !switch naar nieuw vrij atoom
                   Hatom(i_p)%weight = diss_source  
@@ -1500,7 +1524,7 @@ type is (particle_kinetic_leapfrog)
                   if (i_f .ge. size(sim%groups(atoms)%particles, 1)) write(*,*) 'exited because of indice outside of array'
                   if (i_f .ge. size(sim%groups(atoms)%particles, 1)) exit  
 
-                  !i_f =i_f +1 if no OMP
+                  i_f =i_f +1 !if no OMP
                   !$ i_f = i_f + omp_get_num_threads()
         
                   !write(*,'(a,2e16.8,a,3e16.8)') 'atom_diss_final_energy energie van 1 deeltje = ', atom_diss_final_energy/EL_CHG,1.d0*ATOMIC_MASS_UNIT*dot_product(Hatom(i_p)%v,Hatom(i_p)%v)/EL_CHG, 'Hatom%v',Hatom(i_p)%v
@@ -1736,33 +1760,28 @@ type is (particle_kinetic_leapfrog)
 
 
               
-              i_p = i_free(i_f)
-              Hatom(i_p)%weight = ion_diss_exc_source(ii)  
+ 
             
               ion_diss_exc_final_energy      =  4.3d0*EL_CHG ![J]
               ion_diss_exc_final_speed       = sqrt(2.d0*ion_diss_exc_final_energy/(sim%groups(atoms)%mass*ATOMIC_MASS_UNIT))
-       
 
-
-              Hatom(i_p)%v = particle_tmp%v+rand_direc_vec*ion_diss_exc_final_speed    !geef Hatom snelheid van molecuul + snelheid van botsing in random richting
-
-
-              if (ii .eq. 1) then
-
-              v_ion_diss_exc(1:3) = particle_tmp%v-rand_direc_vec*ion_diss_exc_final_speed
-              ion_diss_exc_final_energy_coupling(ii) = 0.5d0 * dot_product(v_ion_diss_exc(1:3),v_ion_diss_exc(1:3)) * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
-
-              else
-
-              v_ion_diss_exc(4:6) = particle_tmp%v-rand_direc_vec*ion_diss_exc_final_speed
-              ion_diss_exc_final_energy_coupling(ii) = 0.5d0 * dot_product(v_ion_diss_exc(4:6),v_ion_diss_exc(4:6)) * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
-
-              endif
-              
+              i_p = i_free(i_f)
+              Hatom(i_p)%weight = ion_diss_exc_source(ii) 
               Hatom(i_p)%x(1:3)   = particle_tmp%x(1:3)
               Hatom(i_p)%st    = st_old
               Hatom(i_p)%i_elm = i_elm_old
               Hatom(i_p)%q = 0
+              Hatom(i_p)%v = particle_tmp%v+rand_direc_vec*ion_diss_exc_final_speed    !geef Hatom snelheid van molecuul + snelheid van botsing in random richting
+
+
+              
+
+              v_ion_diss_exc(ii,1:3) = particle_tmp%v-rand_direc_vec*ion_diss_exc_final_speed
+              ion_diss_exc_final_energy_coupling(ii) = 0.5d0 * dot_product(v_ion_diss_exc(ii,1:3),v_ion_diss_exc(ii,1:3)) * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
+
+              
+              
+
 
               H2plus_tmp(ii)%weight = particle_tmp%weight * (1.d0 - ion_diss_exc_prob) !nieuwe particle wieght (=0)
   
@@ -1786,7 +1805,7 @@ type is (particle_kinetic_leapfrog)
               Hatom(i_p)%i_elm = i_elm_old
               Hatom(i_p)%q = 0
 
-                        !i_f =i_f +1 if no OMP
+          !i_f =i_f +1 if no OMP
           !$ i_f = i_f + omp_get_num_threads()
               i_p = i_free(i_f)
 
@@ -1810,32 +1829,29 @@ type is (particle_kinetic_leapfrog)
               ion_diss_ion_final_energy = 2.5d-1 * EL_CHG ![J]
               ion_diss_ion_final_speed       = sqrt(2.d0*ion_diss_ion_final_energy/(sim%groups(atoms)%mass*ATOMIC_MASS_UNIT))
 
-              if (ii .eq. 1) then
-              ion1_diss_ion_velocity(1:3) = H2plus_tmp(ii)%v + ion_diss_ion_final_speed * rand_direc_vec
-              ion2_diss_ion_velocity(1:3) = H2plus_tmp(ii)%v - ion_diss_ion_final_speed * rand_direc_vec
+              
+              ion1_diss_ion_velocity(ii,1:3) = H2plus_tmp(ii)%v + ion_diss_ion_final_speed * rand_direc_vec
+              ion2_diss_ion_velocity(ii,1:3) = H2plus_tmp(ii)%v - ion_diss_ion_final_speed * rand_direc_vec
 
-              ion1_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion1_diss_ion_velocity(1:3),ion1_diss_ion_velocity(1:3))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
-              ion2_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion2_diss_ion_velocity(1:3),ion2_diss_ion_velocity(1:3))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
-              H2plus_tmp(ii)%weight = particle_tmp%weight * (1.d0 - ion_diss_ion_prob) !nieuwe particle wieght (=0)
-
-              else
-
-              ion1_diss_ion_velocity(4:6) = H2plus_tmp(ii)%v + ion_diss_ion_final_speed * rand_direc_vec
-              ion2_diss_ion_velocity(4:6) = H2plus_tmp(ii)%v - ion_diss_ion_final_speed * rand_direc_vec
-  
-              ion1_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion1_diss_ion_velocity(4:6),ion1_diss_ion_velocity(4:6))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
-              ion2_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion2_diss_ion_velocity(4:6),ion2_diss_ion_velocity(4:6))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
+              ion1_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion1_diss_ion_velocity(ii,1:3),ion1_diss_ion_velocity(ii,1:3))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
+              ion2_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion2_diss_ion_velocity(ii,1:3),ion2_diss_ion_velocity(ii,1:3))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
               H2plus_tmp(ii)%weight = particle_tmp%weight * (1.d0 - ion_diss_ion_prob) !nieuwe particle wieght (=0)
 
 
-              endif
+
+              
             endif !(random(1)*sum_probabilities .le. ion_diss_exc_prob) 
 
             enddo !ii = 1, 2
 
           endif !if (use_H2_dissociation) 
+
+
+
     
-	    endif ! use_molecules
+      endif ! use_molecules
+      
+
 
 	  
 	  ! ------------------------------- END OF PHYSICS REACTION PART ---------	  
@@ -1875,30 +1891,22 @@ type is (particle_kinetic_leapfrog)
                         + atom_diss_ion_final_energy &
                         + ion_diss_recomb_source(1) * (-electron_cooling_rate_ion_diss_recomb(1)) &
                         + ion_diss_recomb_source(2) * (-electron_cooling_rate_ion_diss_recomb(2)) &
-                         - mol_cx_source * mol_CX_energy &
-                         - non_diss_ion_source*electron_cooling_rate_non_diss_ion &
-                         + ion_diss_ion_source(1)*(ion1_diss_ion_energycoupling(1) + ion2_diss_ion_energycoupling(1) - electron_cooling_rate_ion_diss_ion) &
-                         + ion_diss_ion_source(2)*(ion1_diss_ion_energycoupling(2) + ion2_diss_ion_energycoupling(2) - electron_cooling_rate_ion_diss_ion) &
-                         + ion_diss_exc_source(1) * (ion_diss_exc_final_energy_coupling(1) - electron_cooling_rate_ion_diss_exc) &
-                         + ion_diss_exc_source(2) * (ion_diss_exc_final_energy_coupling(2) - electron_cooling_rate_ion_diss_exc)        !+ cx_source * cx_energy - line_rad_energy !
-	  particle_source     = (diss_ion_source  - mol_cx_source + ion_diss_ion_source(1)*2.d0 + ion_diss_ion_source(2)*2.d0 + ion_diss_exc_source(1)+ion_diss_exc_source(2)) * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT  !ion_source * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT !< mass source in SI !=0, bij dissociatie geen H+
+                        - mol_cx_source * mol_CX_energy &
+                        - non_diss_ion_source*electron_cooling_rate_non_diss_ion &
+                        + ion_diss_ion_source(1)*(ion1_diss_ion_energycoupling(1) + ion2_diss_ion_energycoupling(1) - electron_cooling_rate_ion_diss_ion) &
+                        + ion_diss_ion_source(2)*(ion1_diss_ion_energycoupling(2) + ion2_diss_ion_energycoupling(2) - electron_cooling_rate_ion_diss_ion) &
+                        + ion_diss_exc_source(1) * (ion_diss_exc_final_energy_coupling(1) - electron_cooling_rate_ion_diss_exc) &
+                        + ion_diss_exc_source(2) * (ion_diss_exc_final_energy_coupling(2) - electron_cooling_rate_ion_diss_exc)        
+    particle_source     = (diss_ion_source  - mol_cx_source + ion_diss_ion_source(1)*2.d0 + ion_diss_ion_source(2)*2.d0 + ion_diss_exc_source(1)+ion_diss_exc_source(2)) &
+                        * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT  !
     velocity_par_source = (diss_ion_source * dot_product(B, v_diss_ion ) &
-                        + ion_diss_ion_source(1) * (dot_product(B, ion1_diss_ion_velocity(1:3)) + dot_product(B, ion2_diss_ion_velocity(1:3) )) &
-                        + ion_diss_ion_source(2) * (dot_product(B, ion1_diss_ion_velocity(4:6)) + dot_product(B, ion2_diss_ion_velocity(4:6) )) &
-                        + ion_diss_exc_source(1) * dot_product(B,v_ion_diss_exc(1:3))+ ion_diss_exc_source(2) * dot_product(B,v_ion_diss_exc(4:6)))&
+                        + ion_diss_ion_source(1) * (dot_product(B, ion1_diss_ion_velocity(1,1:3)) + dot_product(B, ion2_diss_ion_velocity(1,1:3) )) &
+                        + ion_diss_ion_source(2) * (dot_product(B, ion1_diss_ion_velocity(2,1:3)) + dot_product(B, ion2_diss_ion_velocity(2,1:3) )) &
+                        + ion_diss_exc_source(1) * dot_product(B,v_ion_diss_exc(1,1:3))+ ion_diss_exc_source(2) * dot_product(B,v_ion_diss_exc(2,1:3)))&
                         * sim%groups(atoms)%mass * ATOMIC_MASS_UNIT !&	!=0, electronen geen mom
-			!+ CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(molecules)%mass * ATOMIC_MASS_UNIT 
-    !write(*,*) "feedback from each particle at each timestep"
-    !write(*,*) "diss_source", diss_source
-    !write(*,*) "atom_diss_final_speed", atom_diss_final_speed
-    !write(*,*) "electron_cooling_rate", electron_cooling_rate
-    !write(*,*) "rand_direc_vec", rand_direc_vec(1), rand_direc_vec(2), rand_direc_vec(3)
-    !write(*,*) "rand_direc_vefc 3", rand_direc_vec(3)
 
 
-	  !particle_tmp%v = v_temp 
-	  
-    !>TODO: specify the sums for molecule reactions
+
 !    write(*,*) 'n_lost_ion'
     n_lost_ion = n_lost_ion + ion_source	!< local sum #particles lost due to ionisation
     
