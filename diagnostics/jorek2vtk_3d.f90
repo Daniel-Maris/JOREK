@@ -94,12 +94,17 @@ endif
 do i_tor=1, n_tor
   mode(i_tor) = + int(i_tor / 2) * n_period
 enddo
+if (     (jorek_model .eq. 083) &
+                   .or. (jorek_model .eq. 183)) then
+                                                       
 do k_tor=1, n_coord_tor
   mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
 enddo
 
 call initialise_basis                              ! define the basis functions at the Gaussian points
 call init_chi_basis
+
+endif
 
 call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr, .true.)
 nnos = n_toroidal * nsub*nsub*node_list%n_nodes
@@ -129,8 +134,6 @@ vectors = 0.d0
 xyz     = 0
 ien     = 0
 n_points = nsub*nsub*element_list%n_elements        ! number of points in one poloidal plane
-
-!allocate(HZ(n_tor,n_toroidal))
 
 
 do m=1,n_toroidal
@@ -164,14 +167,23 @@ do m=1, n_toroidal
       do k=1,nsub
         t = float(k-1)/float(nsub-1)
         ! The following 50 lines could be replaced with interp_PRZ(_1) (after adding without_n0_mode there, or manually subtracting)
-        !call interp_RZ( node_list,element_list,i,s,t,      R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
+
+     if (     (jorek_model .eq. 083) &
+                 .or. (jorek_model .eq. 183)) then   
+
         call interp_RZP(node_list,element_list,i,s,t,angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
                        Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
-        xjac  = R_s * Z_t - R_t * Z_s
-        if ( xjac == 0.d0 ) xjac = 1.d-8 ! (workaround to avoid floating invalid)
         chi = get_chi(R,Z,angle)
         BigR = R
         inode = inode+1
+
+     else
+        call interp_RZ( node_list,element_list,i,s,t,      R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
+     endif   
+         
+        xjac  = R_s * Z_t - R_t * Z_s
+        
+        if ( xjac == 0.d0 ) xjac = 1.d-8 ! (workaround to avoid floating invalid)
 
 
         if (RphiZ_coords) then
@@ -192,17 +204,24 @@ do m=1, n_toroidal
             call interp(node_list,element_list,i,var_psi,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,1) = scalars(inode,1) + P * HZ(i_tor,m)
 
-!            ps_x  = (	Z_t * P_s - Z_s * P_t ) / xjac
-!            ps_y  = ( - R_t * P_s + R_s * P_t ) / xjac
-!            vectors(inode,1:3,1) = vectors(inode,1:3,1) + (/+ ps_y * HZ(i_tor,m) / R * cos(angle),	  &
-!            						    - ps_x * HZ(i_tor,m) / R,			  &
-!            						    + ps_y * HZ(i_tor,m) / R * sin(angle)  /)
-
+           if (     (jorek_model .eq. 083) &
+               .or. (jorek_model .eq. 183)) then
+ 
             ps_x_itor = (   Z_t * P_s - Z_s * P_t )   / xjac * HZ(i_tor,m)
             ps_y_itor = ( - R_t * P_s + R_s * P_t )   / xjac * HZ(i_tor,m)
             ps_x  = ps_x + ps_x_itor
             ps_y  = ps_y + ps_y_itor
             ps_p = ps_p + P*HZ_p(i_tor,m) - ps_x_itor*R_phi - ps_y_itor*Z_p
+
+           else
+
+            ps_x  = (  Z_t * P_s - Z_s * P_t ) / xjac
+            ps_y  = ( - R_t * P_s + R_s * P_t ) / xjac
+            vectors(inode,1:3,1) = vectors(inode,1:3,1) + (/+ ps_y * HZ(i_tor,m) / R * cos(angle),       &
+                                                           - ps_x * HZ(i_tor,m) / R,                     &
+                                                           + ps_y * HZ(i_tor,m) / R * sin(angle)  /)
+
+           endif
 
             call interp(node_list,element_list,i,var_u,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,2) = scalars(inode,2) + P * HZ(i_tor,m)
@@ -228,12 +247,16 @@ do m=1, n_toroidal
 	  endif
 
 	enddo
+         if (     (jorek_model .eq. 083) &
+                   .or. (jorek_model .eq. 183) )then
+
         Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*BigR)
         By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*BigR)
         Bz = chi(0,0,1)/BigR + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       
         vectors(inode,:, 1) = (/ Bx * cos(angle) - Bz * sin(angle), &
                                  By, &
                                  Bx * sin(angle) + Bz * cos(angle) /)
+         endif
 
        enddo
     enddo
