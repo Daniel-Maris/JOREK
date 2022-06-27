@@ -25,18 +25,13 @@ character*8, allocatable :: scalar_names(:), vector_names(:)
 real*4                :: float
 real*8                :: s, t, phi, angle, cur_pert
 real*8                :: P,P_s,P_t,P_st,P_ss,P_tt
-
 real*8                :: R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp
 real*8                :: Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp
-
 real*8                :: Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt, ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_ss,ZJ_tt, W,W_s,W_t,W_st,W_ss,W_tt
 real*8                :: ps_p, ps_x_itor, ps_y_itor
-
 real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_tt, TT,TT_s,TT_t,TT_st,TT_ss,TT_tt
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
-
 real*8                :: Bx, By, Bz
-
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
 logical               :: periodic, density_only
@@ -161,7 +156,6 @@ do m=1, n_toroidal
         call interp_RZP(node_list,element_list,i,s,t,angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
                        Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
         chi = get_chi(R,Z,angle)
-        !BigR = R
         inode = inode+1
          
         xjac  = R_s * Z_t - R_t * Z_s
@@ -184,7 +178,6 @@ do m=1, n_toroidal
             call interp(node_list,element_list,i,var_rho,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,1) = scalars(inode,1) + P * HZ(i_tor,m)
 	  else
-
             call interp(node_list,element_list,i,var_psi,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,1) = scalars(inode,1) + P * HZ(i_tor,m)
 
