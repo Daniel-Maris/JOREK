@@ -30,6 +30,7 @@ real*8                :: Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp
 real*8                :: Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt, ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_ss,ZJ_tt, W,W_s,W_t,W_st,W_ss,W_tt
 real*8                :: ps_p, ps_x_itor, ps_y_itor
 real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_tt, TT,TT_s,TT_t,TT_st,TT_ss,TT_tt
+real*8                :: u_x, u_y, u_p
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
 real*8                :: Bx, By, Bz
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
@@ -75,7 +76,7 @@ if(density_only) then
   n_vectors = 0
 else
   n_scalars = 7
-  n_vectors = 1
+  n_vectors = 2
 endif
 
 do i_tor=1, n_tor
@@ -97,7 +98,7 @@ if(density_only) then
   scalar_names = (/'density '/)
 else
   allocate(vector_names(n_vectors), vectors(nnos,3,1:n_vectors))
-  vector_names = (/ 'B_field '/)
+  vector_names = (/ 'B_field' , 'v_field'/)
   scalar_names = (/ 'flux    ','U       ','j       ','omega   ','density ','T       ','v_par   '/)
 endif
 
@@ -181,27 +182,23 @@ do m=1, n_toroidal
             call interp(node_list,element_list,i,var_psi,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,1) = scalars(inode,1) + P * HZ(i_tor,m)
 
-           if (     (jorek_model .eq. 083) &
-               .or. (jorek_model .eq. 183)) then
- 
-            ps_x_itor = (   Z_t * P_s - Z_s * P_t )   / xjac * HZ(i_tor,m)
-            ps_y_itor = ( - R_t * P_s + R_s * P_t )   / xjac * HZ(i_tor,m)
-            ps_x  = ps_x + ps_x_itor
-            ps_y  = ps_y + ps_y_itor
-            ps_p = ps_p + P*HZ_p(i_tor,m) - ps_x_itor*R_phi - ps_y_itor*Z_p
+            ps_x  = ps_x + (  Z_t * P_s - Z_s * P_t  ) / xjac * HZ(i_tor,m)
+            ps_y  = ps_y + ( - R_t * P_s + R_s * P_t ) / xjac * HZ(i_tor,m)
+            if ((jorek_model .eq. 083) .or. (jorek_model .eq. 183)) then
+                ps_p = ps_p + P*HZ_p(i_tor,m) - (   Z_t * P_s - Z_s * P_t ) / xjac * HZ(i_tor,m)*R_phi &
+                                              - ( - R_t * P_s + R_s * P_t ) / xjac * HZ(i_tor,m)*Z_p
+            endif
 
-           else
+            call interp(node_list,element_list,i,var_u,i_tor,s,t,U,U_s,U_t,U_st,U_ss,U_tt)
+            scalars(inode,2) = scalars(inode,2) + U * HZ(i_tor,m)
 
-            ps_x  = (  Z_t * P_s - Z_s * P_t ) / xjac
-            ps_y  = ( - R_t * P_s + R_s * P_t ) / xjac
-            vectors(inode,1:3,1) = vectors(inode,1:3,1) + (/+ ps_y * HZ(i_tor,m) / R * cos(angle),       &
-                                                           - ps_x * HZ(i_tor,m) / R,                     &
-                                                           + ps_y * HZ(i_tor,m) / R * sin(angle)  /)
+            u_x  = u_x   + (   Z_t * U_s - Z_s * U_t )     / xjac * HZ(i_tor,m)
+            u_y  = u_y   + ( - R_t * U_s + R_s * U_t )     / xjac * HZ(i_tor,m)
+            if ((jorek_model .eq. 083) .or. (jorek_model .eq. 183)) then
+                u_p = u_p + U*HZ_p(i_tor,m) - (   Z_t * U_s - Z_s * U_t ) / xjac * HZ(i_tor,m)*R_phi &
+                                            - ( - R_t * U_s + R_s * U_t ) / xjac * HZ(i_tor,m)*Z_p
+            endif
 
-           endif
-
-            call interp(node_list,element_list,i,var_u,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
-            scalars(inode,2) = scalars(inode,2) + P * HZ(i_tor,m)
 
             call interp(node_list,element_list,i,var_zj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,3) = scalars(inode,3) + P * HZ(i_tor,m)
@@ -224,16 +221,26 @@ do m=1, n_toroidal
 	  endif
 
 	enddo
-         if (     (jorek_model .eq. 083) &
-                   .or. (jorek_model .eq. 183) )then
+        if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
+            Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*R)
+            By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*R)
+            Bz = chi(0,0,1)/R    + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       
+            vectors(inode,1:3, 1) = (/ Bx * cos(angle) - Bz * sin(angle), &
+                                       By, &
+                                       Bx * sin(angle) + Bz * cos(angle) /)
 
-        Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*R)
-        By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*R)
-        Bz = chi(0,0,1)/R + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       
-        vectors(inode,:, 1) = (/ Bx * cos(angle) - Bz * sin(angle), &
-                                 By, &
-                                 Bx * sin(angle) + Bz * cos(angle) /)
-         endif
+            vectors(inode,1:3, 2) = (/ -R * u_y * cos(angle) - u_p * sin(angle), &
+                                        R * u_x, &
+                                       -R * u_y * sin(angle) + u_p * cos(angle) /)
+        else
+            vectors(inode,1:3, 1) = (/- F0/R * sin(angle) + ps_y / R * cos(angle),       &
+                                                          - ps_x / R,                     &
+                                        F0/R * cos(angle) + ps_y / R * sin(angle)/)
+
+            vectors(inode,1:3, 2) = (/                      -R * u_y * cos(angle) , &
+                                                             R * u_x, &
+                                                            -R * u_y * sin(angle)  /)
+        endif
 
       enddo
     enddo
