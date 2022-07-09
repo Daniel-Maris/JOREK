@@ -33,6 +33,8 @@ real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_
 real*8                :: u_x, u_y, u_p
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
 real*8                :: Bx, By, Bz
+real*8                :: Vx, Vy, Vz
+real*8                :: grad_chi(3), Bv2
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
 logical               :: periodic, density_only
@@ -157,6 +159,9 @@ do m=1, n_toroidal
         call interp_RZP(node_list,element_list,i,s,t,angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
                        Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
         chi = get_chi(R,Z,angle)
+        grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/R /)
+        Bv2 = dot_product(grad_chi,grad_chi)
+        
         inode = inode+1
          
         xjac  = R_s * Z_t - R_t * Z_s
@@ -170,6 +175,7 @@ do m=1, n_toroidal
         endif
 
         ps_x = 0.d0; ps_y = 0.d0; ps_p = 0.d0
+        u_x = 0.d0; u_y = 0.d0; u_p = 0.d0
         do i_tor = 1,n_tor
 
           if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) cycle ! Do not include the n=0 mode
@@ -228,10 +234,13 @@ do m=1, n_toroidal
             vectors(inode,1:3, 1) = (/ Bx * cos(angle) - Bz * sin(angle), &
                                        By, &
                                        Bx * sin(angle) + Bz * cos(angle) /)
-
-            vectors(inode,1:3, 2) = (/ -R * u_y * cos(angle) - u_p * sin(angle), &
-                                        R * u_x, &
-                                       -R * u_y * sin(angle) + u_p * cos(angle) /)
+            
+            Vx =                   ( u_y*chi(0,0,1) - u_p*chi(0,1,0))*F0/(R*Bv2) 
+            Vy =                   (-u_x*chi(0,0,1) + u_p*chi(1,0,0))*F0/(R*Bv2)
+            Vz =                   ( u_x*chi(0,1,0) - u_y*chi(1,0,0))*F0/Bv2
+            vectors(inode,1:3, 2) = (/ -Vy * cos(angle) - Vz * sin(angle), &
+                                        Vx, &
+                                       -Vy * sin(angle) + Vz * cos(angle) /)
         else
             vectors(inode,1:3, 1) = (/- F0/R * sin(angle) + ps_y / R * cos(angle),       &
                                                           - ps_x / R,                     &
