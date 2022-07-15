@@ -88,7 +88,7 @@ real*8                :: psi_xpoint(2), R_xpoint(2), Z_xpoint(2), s_xpoint(2), t
 real*8                :: psi_norm, psi_bnd, grad_psi
 real*8                :: J_phi, J_R, J_Z, eta_T
 real*8                :: E_phi, E_R, E_Z, dU_x, dU_y, Jpol_R, Jpol_Z, FFp
-real*8                :: xjac, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, Btot, BigR
+real*8                :: xjac, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, Btot, BigR, Bv2, grad_chi(3)
 real*8                :: particle_source, D_prof, ZK_prof, source_pellet, ZKpar_T
 integer               :: n_fluxes, n_neo, n_gvec_scal, n_gvec_vec, n_bfield, n_vacfield, n_vacfield_sc, n_vfield,n_pellet,n_bootstrap, n_psi_norm
 integer               :: n_Efield, n_Jpol
@@ -204,7 +204,7 @@ SI_units               = .false. ! when true, write variables in SI units
 include_fluxes         = .false. ! include energy and density fluxes (or not)
 include_neo            = .false. ! include neoclassical and more terms (or not)
 include_gvec_field     = .true.  ! include current and magnetic field from GVEC
-include_magnetic_field = .false. ! include vector of magnetic field (or not)
+include_magnetic_field = .true. ! include vector of magnetic field (or not)
 include_vacuum_field   = .false. ! include vector of vacuum magnetic field (or not)
 include_velocity_field = .false. ! include vector of velocity field (or not)
 include_electric_field = .false. ! include vector of E-field (or not), evaluated at t-dt/2 
@@ -569,9 +569,11 @@ do i=1,element_list%n_elements
               + Z_st*(R_s*Z_t + R_t*Z_s) + R_tt*Z_s**2 - Z_tt*R_s*Z_s) / xjac
 
       xjac_y  = (Z_tt*R_s**2 - R_tt*Z_s*R_s - 2.d0*Z_st*R_t*R_s   &
-              + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac
+              + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac 
 
       chi = get_chi(R,Z,toroidal_angle)
+      grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
+      Bv2 = dot_product(grad_chi,grad_chi)
 
       inode = inode+1
       
@@ -1218,7 +1220,10 @@ do i=1,element_list%n_elements
         endif
 
         if (include_velocity_field) then
-          vectors(inode,:,s_vfield + 1) = (/ -BigR*u_y + V/BigR*ps_y, BigR*u_x - V/BigR*ps_x, V*F0/BigR /)          
+!          vectors(inode,:,s_vfield + 1) = (/ -BigR*u_y + V/BigR*ps_y, BigR*u_x - V/BigR*ps_x, V*F0/BigR /)          
+          vectors(inode,:,s_vfield + 1) = (/  ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(BigR*Bv2), &
+                                              (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(BigR*Bv2), &
+                                              ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2         /)  
         endif
 
         if (include_electric_field) then
