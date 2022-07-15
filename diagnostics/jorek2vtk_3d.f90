@@ -190,21 +190,16 @@ do m=1, n_toroidal
 
             ps_x  = ps_x + (  Z_t * P_s - Z_s * P_t  ) / xjac * HZ(i_tor,m)
             ps_y  = ps_y + ( - R_t * P_s + R_s * P_t ) / xjac * HZ(i_tor,m)
-            if ((jorek_model .eq. 083) .or. (jorek_model .eq. 183)) then
                 ps_p = ps_p + P*HZ_p(i_tor,m) - (   Z_t * P_s - Z_s * P_t ) / xjac * HZ(i_tor,m)*R_phi &
                                               - ( - R_t * P_s + R_s * P_t ) / xjac * HZ(i_tor,m)*Z_p
-            endif
 
             call interp(node_list,element_list,i,var_u,i_tor,s,t,U,U_s,U_t,U_st,U_ss,U_tt)
             scalars(inode,2) = scalars(inode,2) + U * HZ(i_tor,m)
 
             u_x  = u_x   + (   Z_t * U_s - Z_s * U_t )     / xjac * HZ(i_tor,m)
             u_y  = u_y   + ( - R_t * U_s + R_s * U_t )     / xjac * HZ(i_tor,m)
-            if ((jorek_model .eq. 083) .or. (jorek_model .eq. 183)) then
                 u_p = u_p + U*HZ_p(i_tor,m) - (   Z_t * U_s - Z_s * U_t ) / xjac * HZ(i_tor,m)*R_phi &
                                             - ( - R_t * U_s + R_s * U_t ) / xjac * HZ(i_tor,m)*Z_p
-            endif
-
 
             call interp(node_list,element_list,i,var_zj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,3) = scalars(inode,3) + P * HZ(i_tor,m)
@@ -227,6 +222,7 @@ do m=1, n_toroidal
 	  endif
 
 	enddo
+        if(.not. density_only) then 
         if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
             Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*R)
             By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*R)
@@ -235,9 +231,9 @@ do m=1, n_toroidal
                                        By, &
                                        Bx * sin(angle) + Bz * cos(angle) /)
             
-            Vx =                   ( u_y*chi(0,0,1) - u_p*chi(0,1,0))*F0/(R*Bv2) 
-            Vy =                   (-u_x*chi(0,0,1) + u_p*chi(1,0,0))*F0/(R*Bv2)
-            Vz =                   ( u_x*chi(0,1,0) - u_y*chi(1,0,0))*F0/Bv2
+            Vx =                   ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(R*Bv2) 
+            Vy =                   (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(R*Bv2)
+            Vz =                   ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2
             vectors(inode,1:3, 2) = (/ -Vy * cos(angle) - Vz * sin(angle), &
                                         Vx, &
                                        -Vy * sin(angle) + Vz * cos(angle) /)
@@ -250,7 +246,7 @@ do m=1, n_toroidal
                                                              R * u_x, &
                                                             -R * u_y * sin(angle)  /)
         endif
-
+        endif  
       enddo
     enddo
 
