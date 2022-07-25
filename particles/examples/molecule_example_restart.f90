@@ -333,31 +333,31 @@ fueling_rate_start = 5.d21 !40.d21 !40 40 worked, 20 before !amount of physical 
 r_valve     = 0.2d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
 R_valve_loc = 1.d1 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
 Z_valve     = 0.d0  !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
-poly_R = (/4.0566d0 ,4.674d0 ,4.037d0 ,4.6917d0 /)
-poly_Z= (/-3.827d0 ,-3.529d0 ,-3.8738d0 ,-3.5587d0 /)
+!poly_R = (/4.0566d0 ,4.674d0 ,4.037d0 ,4.6917d0 /)
+!poly_Z= (/-3.827d0 ,-3.529d0 ,-3.8738d0 ,-3.5587d0 /)
 
-!poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
-!poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
+poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
+poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
 
 
 R_valve_loc2 = 5.5d0 !5.55d0!                  5.4d0 !5.46d0
 Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
-poly_R2 = (/5.326d0 ,5.659d0 ,5.355d0 ,5.6586d0 /)
-poly_Z2= (/-4.055d0 ,-4.5005d0 ,-4.0003d0 ,-4.430d0 /)
+!poly_R2 = (/5.326d0 ,5.659d0 ,5.355d0 ,5.6586d0 /)
+!poly_Z2= (/-4.055d0 ,-4.5005d0 ,-4.0003d0 ,-4.430d0 /)
 
-!poly_R2 = (/5.426d0 ,5.559d0 ,5.455d0 ,5.5586d0 /)
-!poly_Z2= (/-4.155d0 ,-4.4005d0 ,-4.0803d0 ,-4.330d0 /)
+poly_R2 = (/5.426d0 ,5.559d0 ,5.455d0 ,5.5586d0 /)
+poly_Z2= (/-4.155d0 ,-4.4005d0 ,-4.0803d0 ,-4.330d0 /)
 
 
 puff_rate3 = 0.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
 R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
 Z_valve3     = 4.15d0! 
 r_valve3    = 0.10d0!  .12
-poly_R3 = (/5.57d0 ,6.935d0 ,5.52d0 ,6.88d0 /)
-poly_Z3= (/4.71d0 ,3.560d0 ,4.66d0 ,3.51d0 /)
+!poly_R3 = (/5.57d0 ,6.935d0 ,5.52d0 ,6.88d0 /)
+!poly_Z3= (/4.71d0 ,3.560d0 ,4.66d0 ,3.51d0 /)
 
-!poly_R3 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
-!poly_Z3= (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+poly_R3 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+poly_Z3= (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
 
 
 boxpuff = .true.
@@ -1874,7 +1874,7 @@ type is (particle_kinetic_leapfrog)
               
 
 
-              H2plus_tmp(ii)%weight = particle_tmp%weight * (1.d0 - ion_diss_exc_prob) !nieuwe particle wieght (=0)
+              H2plus_tmp(ii)%weight = 0.d0  ! 0particle_tmp%weight * (1.d0 - ion_diss_exc_prob) !nieuwe particle wieght (=0)
   
               #ifdef _OPENMP
               !$ i_f = i_f + omp_get_num_threads() !< if we run omp, we need a special first i_f value to then share it over the num_threads with unique values
@@ -1915,7 +1915,7 @@ type is (particle_kinetic_leapfrog)
               Hatom(i_p)%i_elm = i_elm_old
               Hatom(i_p)%q = 0
 
-              H2plus_tmp(ii)%weight = particle_tmp%weight * (1.d0 - ion_diss_recomb_prob)
+              H2plus_tmp(ii)%weight = 0.d0 !particle_tmp%weight * (1.d0 - ion_diss_recomb_prob)
               
               
               #ifdef _OPENMP
@@ -1938,7 +1938,7 @@ type is (particle_kinetic_leapfrog)
 
               ion1_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion1_diss_ion_velocity(ii,1:3),ion1_diss_ion_velocity(ii,1:3))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
               ion2_diss_ion_energycoupling(ii) = 0.5d0*dot_product(ion2_diss_ion_velocity(ii,1:3),ion2_diss_ion_velocity(ii,1:3))* sim%groups(atoms)%mass * ATOMIC_MASS_UNIT
-              H2plus_tmp(ii)%weight = particle_tmp%weight * (1.d0 - ion_diss_ion_prob) !nieuwe particle wieght (=0)
+              H2plus_tmp(ii)%weight = 0.d0 !particle_tmp%weight * (1.d0 - ion_diss_ion_prob) !nieuwe particle wieght (=0)
 
 
 
