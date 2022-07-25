@@ -1796,9 +1796,13 @@ type is (particle_kinetic_leapfrog)
 
             v_Hplus_tmp = sqrt(T_e * K_BOLTZ/(sim%groups(atoms)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)+vvector
 
-            v_final_atom = v_mol_tmp * sim%groups(molecules)%mass/sim%groups(atoms)%mass
-            v_final_molecular_ion = (v_Hplus_tmp) * sim%groups(atoms)%mass/sim%groups(molecules)%mass
-            
+            !v_final_atom = v_mol_tmp * sim%groups(molecules)%mass/sim%groups(atoms)%mass
+            !v_final_molecular_ion = (v_Hplus_tmp) * sim%groups(atoms)%mass/sim%groups(molecules)%mass
+            v_final_atom = (v_Hplus_tmp) !* sim%groups(atoms)%mass/sim%groups(molecules)%mass
+            v_final_molecular_ion = v_mol_tmp !* sim%groups(molecules)%mass/sim%groups(atoms)%mass
+
+
+
             
             i_p = i_free(i_f)
 
