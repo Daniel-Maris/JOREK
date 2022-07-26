@@ -1891,7 +1891,7 @@ type is (particle_kinetic_leapfrog)
               !ion_diss_recomb_prob = 1.d0
               ion_diss_recomb_source(ii) = H2plus_tmp(ii)%weight * 1.d0 !zoveel ioniseren we 
               electron_cooling_rate_ion_diss_recomb(ii) =  (AMJUEL_rate_coeff_Te(H2plus_ELEC_COOL,T_e)/AMJUEL_rate_coeff_neTe(H2plus_DISS_REC,n_e,T_e))*EL_CHG ! [Js-1m-3]
-              ion_diss_recomb_final_energy(ii) = 0.5d0*max((electron_cooling_rate_ion_diss_recomb(ii)-(1.36d1-2.d0*4.48d0+1.539d1)*EL_CHG),0.d0) ![J] !1.5 for the estimated average state
+              ion_diss_recomb_final_energy(ii) = 0.5d0*max((electron_cooling_rate_ion_diss_recomb(ii)-(4.48d0-1.539d1)*EL_CHG),0.d0) ![J] !1.5 for the estimated average state
 
               ion_diss_recomb_final_speed(ii)       = sqrt(2.d0*ion_diss_recomb_final_energy(ii)/(sim%groups(atoms)%mass*ATOMIC_MASS_UNIT))
 
