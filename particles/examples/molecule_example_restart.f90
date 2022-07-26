@@ -328,7 +328,7 @@ endif
 
 !Bot puff
 puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
-puff_rate = 70.d21 / 2.d0 !final rate  !70.d21 / 2.d0 !Begint op start en groeit naar puff rate. Dus met gelijk blijft hij constant. 70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+puff_rate = 70.d22 / 2.d0 !final rate  !70.d21 / 2.d0 !Begint op start en groeit naar puff rate. Dus met gelijk blijft hij constant. 70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
 fueling_rate_start = 5.d21 !40.d21 !40 40 worked, 20 before !amount of physical particles
 r_valve     = 0.2d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
 R_valve_loc = 1.d1 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
@@ -1891,7 +1891,8 @@ type is (particle_kinetic_leapfrog)
               !ion_diss_recomb_prob = 1.d0
               ion_diss_recomb_source(ii) = H2plus_tmp(ii)%weight * 1.d0 !zoveel ioniseren we 
               electron_cooling_rate_ion_diss_recomb(ii) =  (AMJUEL_rate_coeff_Te(H2plus_ELEC_COOL,T_e)/AMJUEL_rate_coeff_neTe(H2plus_DISS_REC,n_e,T_e))*EL_CHG ! [Js-1m-3]
-              ion_diss_recomb_final_energy(ii) = 0.5d0*max((electron_cooling_rate_ion_diss_recomb(ii)-(1.35d0+1.36d1/(1.5d0**2))*EL_CHG),0.d0) ![J]
+              ion_diss_recomb_final_energy(ii) = 0.5d0*max((electron_cooling_rate_ion_diss_recomb(ii)-(1.36d1-2.d0*4.48+1.539d1)*EL_CHG),0.d0) ![J] !1.5 for the estimated average state
+
               ion_diss_recomb_final_speed(ii)       = sqrt(2.d0*ion_diss_recomb_final_energy(ii)/(sim%groups(atoms)%mass*ATOMIC_MASS_UNIT))
 
 
