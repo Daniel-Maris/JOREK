@@ -33,7 +33,7 @@ real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_
 real*8                :: u_x, u_y, u_p
 real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
 real*8                :: Bx, By, Bz
-real*8                :: Vx, Vy, Vz
+real*8                :: V, Vx, Vy, Vz
 real*8                :: grad_chi(3), Bv2
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
@@ -242,9 +242,10 @@ do m=1, n_toroidal
                                                           - ps_x / R,                     &
                                         F0/R * cos(angle) + ps_y / R * sin(angle)/)
 
-            vectors(inode,1:3, 2) = (/                      -R * u_y * cos(angle) , &
-                                                             R * u_x, &
-                                                            -R * u_y * sin(angle)  /)
+            V = scalars(inode,var_Vpar)
+            vectors(inode,1:3, 2) = (/ (V/R*ps_y             - R * u_y) * cos(angle) - V*F0/R * sin(angle) , &
+                                       -V/R*ps_x             + R * u_x, &
+                                        V*F0/R * cos(angle)  + (V/R*ps_y             - R * u_y) * sin(angle)  /)
         endif
         endif  
       enddo

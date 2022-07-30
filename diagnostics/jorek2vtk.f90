@@ -48,7 +48,7 @@ real*8                :: ZN0, ZN0_s, ZN0_t, ZN0_st, ZN0_ss, ZN0_tt, RHO, RHO_s,R
 real*8                :: T0,  T0_s,  T0_t,  T0_st,  T0_ss,  T0_tt,  TT,  TT_s, TT_t, TT_st, TT_ss, TT_tt
 real*8                :: Ti0, Ti0_s, Ti0_t, Ti0_st, Ti0_ss, Ti0_tt, Ti,  Ti_s, Ti_t, Ti_st, Ti_ss, Ti_tt
 real*8                :: Te0, Te0_s, Te0_t, Te0_st, Te0_ss, Te0_tt, Te, Te_s,  Te_t, Te_st, Te_ss, Te_tt
-real*8                :: V0,  V0_s,  V0_t,  V0_st,  V0_ss,  V0_tt,  V, V_s, V_t, V_st, V_ss, V_tt
+real*8                :: V0,  V0_s,  V0_t,  V0_st,  V0_ss,  V0_tt,  V, V_s, V_t, V_st, V_ss, V_tt, V_sum
 real*8                :: dPsi, dPs_s, dPs_t, dPs_st, dPs_ss, dPs_tt
 real*8                :: dU,    dU_s,  dU_t,  dU_st,  dU_ss,  dU_tt
 real*8                :: ps0_x, ps0_y, psi_sum, ps_x, ps_y, ps_p, ps_x_itor, ps_y_itor
@@ -204,7 +204,7 @@ SI_units               = .false. ! when true, write variables in SI units
 include_fluxes         = .false. ! include energy and density fluxes (or not)
 include_neo            = .false. ! include neoclassical and more terms (or not)
 include_gvec_field     = .true.  ! include current and magnetic field from GVEC
-include_magnetic_field = .true. ! include vector of magnetic field (or not)
+include_magnetic_field = .false. ! include vector of magnetic field (or not)
 include_vacuum_field   = .false. ! include vector of vacuum magnetic field (or not)
 include_velocity_field = .false. ! include vector of velocity field (or not)
 include_electric_field = .false. ! include vector of E-field (or not), evaluated at t-dt/2 
@@ -1022,6 +1022,7 @@ do i=1,element_list%n_elements
         w_sum   = 0.d0; w_x  = 0.d0; w_y  = 0.d0; w_p  = 0.d0; w_xx = 0.d0; w_yy = 0.d0
         E_R     = 0.d0; E_z  = 0.d0; E_phi= 0.d0
         dU_x    = 0.d0; dU_y = 0.d0
+        V_sum = 0.d0;
 
         do i_tor = 1, n_tor
 
@@ -1055,6 +1056,7 @@ do i=1,element_list%n_elements
              V=0; V_s=0; V_t=0; V_st=0; V_ss=0; V_tt=0
           endif
 
+          V_sum   = V_sum   + V   * HZ(i_tor,i_plane)
           psi_sum = psi_sum + psi * HZ(i_tor,i_plane)
           zj_sum  = zj_sum  + zj  * HZ(i_tor,i_plane)
           u_sum   = u_sum   + U   * HZ(i_tor,i_plane)
@@ -1208,10 +1210,13 @@ do i=1,element_list%n_elements
         endif ! include_fluxes
 
         if (include_magnetic_field) then
-!          vectors(inode,:,s_Bfield + 1) = (/ ps_y/BigR, -ps_x/BigR, F0/BigR /)          
+        if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
           vectors(inode,:,s_Bfield + 1) = (/ chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*BigR), &
                                              chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*BigR), &
                                              chi(0,0,1)/BigR + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0         /)
+        else
+          vectors(inode,:,s_Bfield + 1) = (/ ps_y/BigR, -ps_x/BigR, F0/BigR /)          
+        endif
         endif
 
         if (include_vacuum_field) then
@@ -1220,10 +1225,13 @@ do i=1,element_list%n_elements
         endif
 
         if (include_velocity_field) then
-!          vectors(inode,:,s_vfield + 1) = (/ -BigR*u_y + V/BigR*ps_y, BigR*u_x - V/BigR*ps_x, V*F0/BigR /)          
+        if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
           vectors(inode,:,s_vfield + 1) = (/  ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(BigR*Bv2), &
                                               (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(BigR*Bv2), &
                                               ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2         /)  
+        else
+          vectors(inode,:,s_vfield + 1) = (/ -BigR*u_y + V_sum/BigR*ps_y, BigR*u_x - V_sum/BigR*ps_x, V_sum*F0/BigR /)       
+        endif
         endif
 
         if (include_electric_field) then
