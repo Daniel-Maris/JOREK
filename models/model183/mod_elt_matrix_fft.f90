@@ -47,7 +47,7 @@ real*8     :: Bgrad_rho_rho_n, Bgrad_T_T_n, Bgrad_rho_k_star, Bgrad_T_k_star
 real*8     :: D_prof, ZK_prof, psi_norm
 
 real*8     :: x_p_x, x_p_y, y_p_x, y_p_y, v_px, v_py, u_px, u_py
-real*8     :: v, v_x, v_y, v_s, v_t, v_p, v_ss, v_st, v_tt, v_xx, v_yy, v_xs, v_ys, v_xt, v_yt, v_xy
+real*8     :: v, v_x, v_y, v_s, v_t, v_p, v_ss, v_st, v_tt, v_xx, v_yy, v_xs, v_ys, v_xt, v_yt, v_xy !test functions?
 real*8     :: ps0, ps0_x, ps0_y, ps0_p,ps0_s,ps0_t,  zj0, zj0_x, zj0_y, zj0_p, zj0_s, zj0_t
 real*8     :: u0, u0_x, u0_y, u0_p, u0_s, u0_t,  w0, w0_x, w0_y, w0_p, w0_s, w0_t
 real*8     :: r0, r0_x, r0_y, r0_p, r0_s, r0_t,  r0_hat, r0_x_hat, r0_y_hat, T0, T0_x, T0_y, T0_p, T0_s, T0_t
@@ -60,9 +60,20 @@ real*8     :: BigR_x, vv2, eta_T, visco_T, deta_dT, d2eta_d2T, dvisco_dT
 real*8     :: theta, zeta, reta
 logical    :: xpoint2, use_fft
 
-real*8, dimension(4) :: rhs_ij_1, rhs_ij_2, rhs_ij_3, rhs_ij_4, rhs_ij_5, rhs_ij_6
-real*8, dimension(4) :: amat_11, amat_12, amat_13, amat_16, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_31, amat_33
-real*8, dimension(4) :: amat_42, amat_44, amat_51, amat_52, amat_55, amat_61, amat_62, amat_63, amat_65, amat_66
+real*8     :: T0_i_corr, T0_e_corr                      !> temperature for T^(-1.5)
+real*8     :: T0_e_corr_eV                              !> corrected T0_e in eV
+real*8     :: rho0_corr                                 !> corresponding density
+real*8     :: ne_SI, lambda_e_bg, nu_e_bg, t_norm       !> parameters for temperature exchange term between ion and electrons
+real*8     :: dT0_i_corr_dT, dT0_e_corr_dT              !> derivatives of corrected temperatures  
+real*8     :: drho0_corr_dn                             !> derivative of corrected density
+real*8     :: dnu_e_bg_dTi, dnu_e_bg_dTe                !> derivative of dnu_e_bg
+real*8     :: dnu_e_bg_drho                             !> derivative of dnu_e_bg
+
+
+real*8, dimension(4) :: rhs_ij_1, rhs_ij_2, rhs_ij_3, rhs_ij_4, rhs_ij_5, rhs_ij_6, rhs_ij_7
+real*8, dimension(4) :: amat_11, amat_12, amat_13, amat_17, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_27,
+real*8, dimension(4) :: amat_31, amat_33, amat_42, amat_44, amat_51, amat_52, amat_55, amat_61, amat_62
+real*8, dimension(4) :: amat_63, amat_65, amat_66, amat_67, amat_71, amat_72, amat_73, amat_75, amat_76, amat_77
 
 integer*8  :: plan
 real*8     :: in_fft(1:n_plane)
@@ -82,7 +93,8 @@ real*8, dimension(DIM1, DIM2)       :: RHS_k
 
 real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, x_s, x_t, x_p, x_ss, x_st, x_tt, x_sp, x_tp, x_pp
 real*8, dimension(n_plane,n_gauss,n_gauss) :: y_g, y_s, y_t, y_p, y_ss, y_st, y_tt, y_sp, y_tp, y_pp
-real*8, dimension(n_plane,n_gauss,n_gauss) :: current_source, particle_source, heat_source
+real*8, dimension(n_plane,n_gauss,n_gauss) :: current_source, particle_source
+real*8, dimension(n_plane,n_gauss,n_gauss) :: heat_source, heat_source_i, heat_source_e
 
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, eq_pp, eq_sp, eq_tp
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: delta_g, delta_s, delta_t, delta_p
@@ -139,7 +151,10 @@ eq = 0.d0
 current_source  = 0.d0
 particle_source = 0.d0
 heat_source     = 0.d0
+heat_source_i   = 0.d0
+heat_source_e   = 0.d0
 
+! --- Integrate
 do i=1,n_vertex_max
   do j=1,n_order+1
     do ms=1, n_gauss
@@ -152,10 +167,12 @@ do i=1,n_vertex_max
 
         do mp=1,n_plane
           do in=1,n_coord_tor
+
             x_g(mp,ms,mt)  = x_g(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord(in,mp)
             x_s(mp,ms,mt)  = x_s(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H_s(i,j,ms,mt) *HZ_coord(in,mp)
             x_t(mp,ms,mt)  = x_t(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H_t(i,j,ms,mt) *HZ_coord(in,mp)
             x_p(mp,ms,mt)  = x_p(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord_p(in,mp)
+
             x_ss(mp,ms,mt) = x_ss(mp,ms,mt) + nodes(i)%x(in,j,1)*element%size(i,j)*H_ss(i,j,ms,mt)*HZ_coord(in,mp)
             x_st(mp,ms,mt) = x_st(mp,ms,mt) + nodes(i)%x(in,j,1)*element%size(i,j)*H_st(i,j,ms,mt)*HZ_coord(in,mp)
             x_tt(mp,ms,mt) = x_tt(mp,ms,mt) + nodes(i)%x(in,j,1)*element%size(i,j)*H_tt(i,j,ms,mt)*HZ_coord(in,mp)
@@ -167,20 +184,25 @@ do i=1,n_vertex_max
             y_s(mp,ms,mt)  = y_s(mp,ms,mt)  + nodes(i)%x(in,j,2)*element%size(i,j)*H_s(i,j,ms,mt) *HZ_coord(in,mp)
             y_t(mp,ms,mt)  = y_t(mp,ms,mt)  + nodes(i)%x(in,j,2)*element%size(i,j)*H_t(i,j,ms,mt) *HZ_coord(in,mp)
             y_p(mp,ms,mt)  = y_p(mp,ms,mt)  + nodes(i)%x(in,j,2)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord_p(in,mp)
+
             y_ss(mp,ms,mt) = y_ss(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_ss(i,j,ms,mt)*HZ_coord(in,mp)
             y_st(mp,ms,mt) = y_st(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_st(i,j,ms,mt)*HZ_coord(in,mp)
             y_tt(mp,ms,mt) = y_tt(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_tt(i,j,ms,mt)*HZ_coord(in,mp)
             y_sp(mp,ms,mt) = y_sp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_s(i,j,ms,mt) *HZ_coord_p(in,mp)
             y_tp(mp,ms,mt) = y_tp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_t(i,j,ms,mt) *HZ_coord_p(in,mp)
             y_pp(mp,ms,mt) = y_pp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord_pp(in,mp)
-          end do
 
+          end do
+          
+          ! --- Variables
           do k=1,n_var
             do in=1,n_tor
+
               eq_g(mp,k,ms,mt) = eq_g(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ(in,mp)
               eq_s(mp,k,ms,mt) = eq_s(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)* HZ(in,mp)
               eq_t(mp,k,ms,mt) = eq_t(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)* HZ(in,mp)
               eq_p(mp,k,ms,mt) = eq_p(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ_p(in,mp)
+
               eq_pp(mp,k,ms,mt) = eq_pp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_pp(in,mp)
               eq_sp(mp,k,ms,mt) = eq_sp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ_p(in,mp)
               eq_tp(mp,k,ms,mt) = eq_tp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ_p(in,mp)
@@ -192,6 +214,7 @@ do i=1,n_vertex_max
               delta_s(mp,k,ms,mt) = delta_s(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
               delta_t(mp,k,ms,mt) = delta_t(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
               delta_p(mp,k,ms,mt) = delta_p(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
+
             enddo
           enddo
 
@@ -201,10 +224,19 @@ do i=1,n_vertex_max
             end do
           end if
 
+          
 #ifdef altcs
-          call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
+          if (with_TiTe) then
+            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source_i(mp,ms,mt),heat_source_e(mp,ms,mt))
+          else
+            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
+          end if
 #else
-          call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psi_axis, & !eq_g(mp,var_Psi,ms,mt),
+          if (with_TiTe) then
+            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psi_axis, & !eq_g(mp,var_Psi,ms,mt),
+                       psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source_i(mp,ms,mt),heat_source_e(mp,ms,mt))
+          else
+            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psi_axis, & !eq_g(mp,var_Psi,ms,mt),
                        psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
 #endif
         enddo
@@ -235,7 +267,10 @@ do ms=1, n_gauss
 #endif
 
     do mp = 1, n_plane
+
       phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
+
+      ! --- Jacobians
       xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
       xjac_x  = (x_ss(mp,ms,mt)*y_t(mp,ms,mt)**2 - y_ss(mp,ms,mt)*x_t(mp,ms,mt)*y_t(mp,ms,mt) - 2.d0*x_st(mp,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
               + y_st(mp,ms,mt)*(x_s(mp,ms,mt)*y_t(mp,ms,mt) + x_t(mp,ms,mt)*y_s(mp,ms,mt))                                                      &
@@ -243,10 +278,12 @@ do ms=1, n_gauss
       xjac_y  = (y_tt(mp,ms,mt)*x_s(mp,ms,mt)**2 - x_tt(mp,ms,mt)*y_s(mp,ms,mt)*x_s(mp,ms,mt) - 2.d0*y_st(mp,ms,mt)*x_t(mp,ms,mt)*x_s(mp,ms,mt) &
               + x_st(mp,ms,mt)*(y_t(mp,ms,mt)*x_s(mp,ms,mt) + y_s(mp,ms,mt)*x_t(mp,ms,mt))                                                      &
               + y_ss(mp,ms,mt)*x_t(mp,ms,mt)**2 - x_ss(mp,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt)) / xjac
+
       x_p_x = (x_sp(mp,ms,mt)*y_t(mp,ms,mt) - x_tp(mp,ms,mt)*y_s(mp,ms,mt))/xjac
       x_p_y = (x_tp(mp,ms,mt)*x_s(mp,ms,mt) - x_sp(mp,ms,mt)*x_t(mp,ms,mt))/xjac
       y_p_x = (y_sp(mp,ms,mt)*y_t(mp,ms,mt) - y_tp(mp,ms,mt)*y_s(mp,ms,mt))/xjac
       y_p_y = (y_tp(mp,ms,mt)*x_s(mp,ms,mt) - y_sp(mp,ms,mt)*x_t(mp,ms,mt))/xjac
+
       BigR = x_g(mp,ms,mt)
 
       ! Values at current time step (u^n)
@@ -281,7 +318,7 @@ do ms=1, n_gauss
       eq(1:n_var,0,1,1,1) = eq_py - x_p_y*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,1,1,0,1) - y_p_y*eq(1:n_var,0,1,0,1) &
                           - y_p(mp,ms,mt)*eq(1:n_var,0,2,0,1)
 
-      ! Increments since previous time step (delta_u^(n-1))
+      ! Increments since previous time step (delta_u^(n-1)) 
       eq(n_var+1:2*n_var,0,0,0,1) = delta_g(mp,:,ms,mt)
       eq(n_var+1:2*n_var,1,0,0,1) = (y_t(mp,ms,mt)*delta_s(mp,:,ms,mt) - y_s(mp,ms,mt)*delta_t(mp,:,ms,mt))/xjac
       eq(n_var+1:2*n_var,0,1,0,1) = (-x_t(mp,ms,mt)*delta_s(mp,:,ms,mt) + x_s(mp,ms,mt)*delta_t(mp,:,ms,mt))/xjac
@@ -307,48 +344,139 @@ do ms=1, n_gauss
       eq(n_var+3,:,:,:,:) = eq(n_var+3,:,:,:,:)/F0
 
       eq(2*n_var+5,0,0,0,:) = get_dperp(psi_norm)       ! D_perp
-      eq(2*n_var+6,0,0,0,:) = get_zkperp(psi_norm)      ! k_perp
-      eq(2*n_var+7,0,0,0,:) = particle_source(mp,ms,mt)   ! S_rho
-      eq(2*n_var+8,0,0,0,:) = heat_source(mp,ms,mt)       ! S_e
-      eq(2*n_var+9,0,0,0,:) = current_source(mp,ms,mt)/F0 ! S_j
-      ! Resistivity
-      if (eta_T_dependent) then
-        eq(2*n_var+10,0,0,0,:) = eta*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! eta
-        eq(2*n_var+11,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! deta/dT
-      else
-        eq(2*n_var+10,0,0,0,:) = eta
-        eq(2*n_var+11,0,0,0,:) = 0.d0
-      end if
-      ! Viscosity
-      if (visco_T_dependent) then
-        eq(2*n_var+12,0,0,0,:) = visco*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! visco
-        eq(2*n_var+13,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! dvisco/dT
-      else
-        eq(2*n_var+12,0,0,0,:) = visco
-        eq(2*n_var+13,0,0,0,:) = 0.d0
-      end if
-      ! Parallel thermal conductivity
-      if (zkpar_T_dependent) then
-        eq(2*n_var+14,0,0,0,:) = zk_par*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(2.5d0)               ! k_par
-        eq(2*n_var+15,0,0,0,:) = 2.5d0*zk_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*T_0**(-2.5d0) ! dk_par_dT
-        if (eq(2*n_var+14,0,0,0,1) .gt. zk_par_max) then
-          eq(2*n_var+14,0,0,0,:) = zk_par_max
-          eq(2*n_var+15,0,0,0,:) = 0.d0
-        end if
-      else
-        eq(2*n_var+14,0,0,0,:) = zk_par
-        eq(2*n_var+15,0,0,0,:) = 0.d0
-      end if
+      eq(2*n_var+6,0,0,0,:) = particle_source(mp,ms,mt)   ! S_rho
+      eq(2*n_var+7,0,0,0,:) = current_source(mp,ms,mt)/F0 ! S_j
+      
+      if (with_TiTe) then
+        
+        ! Perpendicular thermal conductivity
+        eq(26,0,0,0,:)        = get_zk_iperp(psi_norm)
+        eq(27,0,0,0,:)        = get_zk_eperp(psi_norm)
 
+        ! Heat sources for ions and electrons
+        eq(28,0,0,0,:) = heat_source_i(mp,ms,mt)     
+        eq(29,0,0,0,:) = heat_source_e(mp,ms,mt)     
+        
+        ! Resistivity
+        if (eta_T_dependent) then                                                        
+          eq(2*n_var+8,0,0,0,:) = eta*(corr_neg_temp(eq(7,0,0,0,1))/T_0)**(-1.5d0)               ! eta 
+          eq(2*n_var+9,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! deta/dT 
+        else
+          eq(2*n_var+8,0,0,0,:) = eta
+          eq(2*n_var+9,0,0,0,:) = 0.d0
+        end if
+
+        ! Viscosity
+        if (visco_T_dependent) then  
+          eq(2*n_var+10,0,0,0,:) = visco*(corr_neg_temp(eq(7,0,0,0,1))/T_0)**(-1.5d0)               ! visco
+          eq(2*n_var+11,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! dvisco/dT
+        else
+          eq(2*n_var+10,0,0,0,:) = visco
+          eq(2*n_var+11,0,0,0,:) = 0.d0
+        end if
+
+        ! Parallel thermal conductivity
+        if (zkpar_T_dependent) then                                                                 
+          eq(30,0,0,0,:) = zk_par_i*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(2.5d0)                       ! k_par for ions
+          eq(32,0,0,0,:) = 2.5d0*zk_par_i*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*T_0**(-2.5d0)         ! dk_par_i_dT_i
+          eq(31,0,0,0,:) = zk_par_e*(corr_neg_temp(eq(7,0,0,0,1))/T_0)**(2.5d0)                       ! k_par for e
+          eq(33,0,0,0,:) = 2.5d0*zk_par_e*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*T_0**(-2.5d0)         ! dk_par_e_dT_e
+          if (eq(30,0,0,0,1) .gt. zk_par_max) then
+            eq(30,0,0,0,:) = zk_par_max
+            eq(32,0,0,0,:) = 0.d0
+          end if
+          if (eq(31,0,0,0,1) .gt. zk_par_max) then
+            eq(31,0,0,0,:) = zk_par_max
+            eq(33,0,0,0,:) = 0.d0
+          end if
+        else
+          eq(30,0,0,0,:) = zk_par
+          eq(32,0,0,0,:) = 0.d0
+          eq(31,0,0,0,:) = zk_par
+          eq(33,0,0,0,:) = 0.d0
+        end if
+
+        ! Thermalization in Temperature evolution
+        T0_i_corr    = corr_neg_temp(eq(6,0,0,0,1))
+        T0_e_corr    = corr_neg_temp(eq(7,0,0,0,1))
+        rho0_corr    = corr_neg_dens(eq(5,0,0,0,1))
+
+        dT0_i_corr_dT= dcorr_neg_temp_dT(eq(6,0,0,0,1))
+        dT0_e_corr_dT= dcorr_neg_temp_dT(eq(7,0,0,0,1))
+        drho0_corr_dn= dcorr_neg_dens_drho(eq(5,0,0,0,1))
+
+        T0_e_corr_eV = T0_e_corr/(EL_CHG*MU_ZERO*central_density*1.d20)
+
+        ne_SI = rho0_corr * 1.d20 * central_density
+        if (ne_SI < 1.d16) ne_SI = 1.d16   ! prevent absurd number in the coulomb lambda
+
+        lambda_e_bg  = 23. - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! 
+        nu_e_bg      = 1.8d-19*(1.d6*MASS_ELECTRON*MASS_PROTON*central_mass) ** 0.5&
+                     * (1.d14*central_density*rho0_corr) * lambda_e_bg &
+                     / (1.d3*(MASS_ELECTRON*T0_i_corr+T0_e_corr*MASS_PROTON*central_mass)&
+                     / (EL_CHG * MU_ZERO * central_density * 1.d20)) ** 1.5 ! Assuming bg_charge is 1!
+        if (nu_e_bg < 0.) nu_e_bg = 0.
+      
+        !Converting the energy transfer rate from s^-1 to JOREK unit
+        t_norm   = sqrt(MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20)
+        nu_e_bg  = nu_e_bg * t_norm
+
+        eq(34,0,0,0,:) = nu_e_bg * (T0_e_corr - T0_i_corr) * rho0_corr
+
+        ! --- derivatives of dTe_i for amats (of temperatures and density)
+        ! --- We negelect the coulomb log's derivatives due to their smallness
+
+        dnu_e_bg_dTi    = -1.5*MASS_ELECTRON*nu_e_bg*dT0_i_corr_dT / (MASS_ELECTRON*T0_i_corr + MASS_PROTON*central_mass*T0_e_corr)
+        dnu_e_bg_dTe    = -1.5*MASS_PROTON*central_mass*nu_e_bg*dT0_e_corr_dT &
+                        / (MASS_ELECTRON*T0_i_corr + MASS_PROTON*central_mass*T0_e_corr)
+
+        dnu_e_bg_drho   = nu_e_bg * drho0_corr_dn / rho0_corr
+
+        eq(35,0,0,0,:)  = dnu_e_bg_dTi * (T0_e_corr - T0_i_corr) * rho0_corr - nu_e_bg * dT0_i_corr_dT * rho0_corr
+        eq(36,0,0,0,:)  = dnu_e_bg_dTe * (T0_e_corr - T0_i_corr) * rho0_corr + nu_e_bg * dT0_e_corr_dT * rho0_corr
+        eq(37,0,0,0,:)  = dnu_e_bg_drho * (T0_e_corr - T0_i_corr) * rho0_corr &
+                        + nu_e_bg * (T0_e_corr - T0_i_corr) * drho0_corr_dn
+
+      else !>>> if not with_TiTe
+        eq(24,0,0,0,:)        = get_zkperp(psi_norm)        ! Perpendicular thermal conductivity
+        eq(25,0,0,0,:)        = heat_source(mp,ms,mt)       ! S_e
+        ! Resistivity
+        if (eta_T_dependent) then
+          eq(2*n_var+8,0,0,0,:) = eta*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! eta 
+          eq(2*n_var+9,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! deta/dT 
+        else
+          eq(2*n_var+8,0,0,0,:) = eta
+          eq(2*n_var+9,0,0,0,:) = 0.d0
+        end if
+        ! Viscosity
+        if (visco_T_dependent) then
+          eq(2*n_var+10,0,0,0,:) = visco*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! visco 
+          eq(2*n_var+11,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! dvisco/dT
+        else
+          eq(2*n_var+10,0,0,0,:) = visco
+          eq(2*n_var+11,0,0,0,:) = 0.d0
+        end if
+        ! Parallel thermal conductivity
+        if (zkpar_T_dependent) then
+          eq(26,0,0,0,:) = zk_par*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(2.5d0)               ! k_par 
+          eq(27,0,0,0,:) = 2.5d0*zk_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*T_0**(-2.5d0) ! dk_par_dT 
+          if (eq(26,0,0,0,1) .gt. zk_par_max) then
+            eq(26,0,0,0,:) = zk_par_max
+            eq(27,0,0,0,:) = 0.d0
+          end if
+        else
+          eq(26,0,0,0,:) = zk_par
+          eq(27,0,0,0,:) = 0.d0
+        end if
+      end if
       ! Auxiliary variables (aux)
 #ifdef DEBUG
-      eq(2*n_var+16,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+16,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-      eq(2*n_var+16,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+16,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
-      eq(2*n_var+17,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
+      eq(34,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(34,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
+      eq(34,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(34,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
+      eq(35,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
 #else
 #include "aux_unreadable.h"
-#endif
-
+#endif      
       do i=1,n_vertex_max
         do j=1,n_order+1
           do im=n_tor_start,n_tor_end
@@ -400,6 +528,7 @@ do ms=1, n_gauss
             rhs_ij_4 = eval(thread_eq(tid)%rhs4seq)*BigR*xjac
             rhs_ij_5 = eval(thread_eq(tid)%rhs5seq)*BigR*xjac
             rhs_ij_6 = eval(thread_eq(tid)%rhs6seq)*BigR*xjac
+            rhs_ij_7 = eval(thread_eq(tid)%rhs7seq)*BigR*xjac
 #else
 #include "rhs_unreadable.h"
 
@@ -409,6 +538,7 @@ do ms=1, n_gauss
             rhs_ij_4 = rhs_ij_4*BigR*xjac
             rhs_ij_5 = rhs_ij_5*BigR*xjac
             rhs_ij_6 = rhs_ij_6*BigR*xjac
+            rhs_ij_7 = rhs_ij_7*BigR*xjac
 #endif
 
             ij1 = index_ij
@@ -417,7 +547,8 @@ do ms=1, n_gauss
             ij4 = index_ij + 3*(n_tor_end - n_tor_start + 1)
             ij5 = index_ij + 4*(n_tor_end - n_tor_start + 1)
             ij6 = index_ij + 5*(n_tor_end - n_tor_start + 1)
-            
+            ij7 = index_ij + 6*(n_tor_end - n_tor_start + 1)
+
             ! --- Fill up the matrix
             if (use_fft) then
               RHS_p(mp,ij1) = RHS_p(mp,ij1) + rhs_ij_1(1)*wst
@@ -426,6 +557,7 @@ do ms=1, n_gauss
               RHS_p(mp,ij4) = RHS_p(mp,ij4) + rhs_ij_4(1)*wst
               RHS_p(mp,ij5) = RHS_p(mp,ij5) + rhs_ij_5(1)*wst
               RHS_p(mp,ij6) = RHS_p(mp,ij6) + rhs_ij_6(1)*wst
+              RHS_p(mp,ij7) = RHS_p(mp,ij7) + rhs_ij_7(1)*wst
 
               RHS_k(mp,ij1) = RHS_k(mp,ij1) + rhs_ij_1(2)*wst
               RHS_k(mp,ij2) = RHS_k(mp,ij2) + rhs_ij_2(2)*wst
@@ -433,6 +565,7 @@ do ms=1, n_gauss
               RHS_k(mp,ij4) = RHS_k(mp,ij4) + rhs_ij_4(2)*wst
               RHS_k(mp,ij5) = RHS_k(mp,ij5) + rhs_ij_5(2)*wst
               RHS_k(mp,ij6) = RHS_k(mp,ij6) + rhs_ij_6(2)*wst
+              RHS_k(mp,ij7) = RHS_k(mp,ij7) + rhs_ij_7(2)*wst
             else
               RHS(ij1) = RHS(ij1) + (rhs_ij_1(1)*HZ(im,mp) + rhs_ij_1(2)*HZ_p(im,mp))*wst
               RHS(ij2) = RHS(ij2) + (rhs_ij_2(1)*HZ(im,mp) + rhs_ij_2(2)*HZ_p(im,mp))*wst
@@ -440,6 +573,7 @@ do ms=1, n_gauss
               RHS(ij4) = RHS(ij4) + (rhs_ij_4(1)*HZ(im,mp) + rhs_ij_4(2)*HZ_p(im,mp))*wst
               RHS(ij5) = RHS(ij5) + (rhs_ij_5(1)*HZ(im,mp) + rhs_ij_5(2)*HZ_p(im,mp))*wst
               RHS(ij6) = RHS(ij6) + (rhs_ij_6(1)*HZ(im,mp) + rhs_ij_6(2)*HZ_p(im,mp))*wst
+              RHS(ij7) = RHS(ij7) + (rhs_ij_7(1)*HZ(im,mp) + rhs_ij_6(2)*HZ_p(im,mp))*wst
             endif
             
             do k=1,n_vertex_max
@@ -488,49 +622,86 @@ do ms=1, n_gauss
                   
 #ifdef DEBUG
 !---------------------------------------------------------------- equation 1
-                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
-                  amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
-                  amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0
-                  amat_16 = eval(thread_eq(tid)%amat16seq)*BigR*xjac
+                  if (with_TiTe) then
+                    amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
+                    amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
+                    amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0
+                    amat_17 = eval(thread_eq(tid)%amat17seq)*BigR*xjac
+                  else
+                    amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
+                    amat_12 = eval(thread_eq(tid)%amat12seq)*BigR*xjac
+                    amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0
+                    amat_16 = eval(thread_eq(tid)%amat16seq)*BigR*xjac
+                  end if
 
 !---------------------------------------------------------------- equation 2
-                  amat_21 = eval(thread_eq(tid)%amat21seq)*BigR*xjac/F0
-                  amat_22 = eval(thread_eq(tid)%amat22seq)*BigR*xjac
-                  amat_23 = eval(thread_eq(tid)%amat23seq)*BigR*xjac/F0
-                  amat_24 = eval(thread_eq(tid)%amat24seq)*BigR*xjac
-                  amat_25 = eval(thread_eq(tid)%amat25seq)*BigR*xjac
-                  amat_26 = eval(thread_eq(tid)%amat26seq)*BigR*xjac
+                    amat_21 = eval(thread_eq(tid)%amat21seq)*BigR*xjac/F0
+                    amat_22 = eval(thread_eq(tid)%amat22seq)*BigR*xjac
+                    amat_23 = eval(thread_eq(tid)%amat23seq)*BigR*xjac/F0
+                    amat_24 = eval(thread_eq(tid)%amat24seq)*BigR*xjac
+                    amat_25 = eval(thread_eq(tid)%amat25seq)*BigR*xjac
+                    amat_26 = eval(thread_eq(tid)%amat26seq)*BigR*xjac
+                  if (with_TiTe) then
+                    amat_27 = eval(thread_eq(tid)%amat27seq)*BigR*xjac
+                  end if
 
 !---------------------------------------------------------------- equation 3
-                  amat_31 = eval(thread_eq(tid)%amat31seq)*BigR*xjac/F0
-                  amat_33 = eval(thread_eq(tid)%amat33seq)*BigR*xjac/F0
+                    amat_31 = eval(thread_eq(tid)%amat31seq)*BigR*xjac/F0
+                    amat_33 = eval(thread_eq(tid)%amat33seq)*BigR*xjac/F0
 
 !---------------------------------------------------------------- equation 4
-                  amat_42 = eval(thread_eq(tid)%amat42seq)*BigR*xjac
-                  amat_44 = eval(thread_eq(tid)%amat44seq)*BigR*xjac
+                    amat_42 = eval(thread_eq(tid)%amat42seq)*BigR*xjac
+                    amat_44 = eval(thread_eq(tid)%amat44seq)*BigR*xjac
                  
 !---------------------------------------------------------------- equation 5
-                  amat_51 = eval(thread_eq(tid)%amat51seq)*BigR*xjac/F0
-                  amat_52 = eval(thread_eq(tid)%amat52seq)*BigR*xjac
-                  amat_55 = eval(thread_eq(tid)%amat55seq)*BigR*xjac
+                    amat_51 = eval(thread_eq(tid)%amat51seq)*BigR*xjac/F0
+                    amat_52 = eval(thread_eq(tid)%amat52seq)*BigR*xjac
+                    amat_55 = eval(thread_eq(tid)%amat55seq)*BigR*xjac
                  
 !---------------------------------------------------------------- equation 6
-                  amat_61 = eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
-                  amat_62 = eval(thread_eq(tid)%amat62seq)*BigR*xjac
-                  amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
-                  amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
-                  amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
+                  if (with_TiTe) then
+                    amat_61 = eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
+                    amat_62 = eval(thread_eq(tid)%amat62seq)*BigR*xjac
+                    amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
+                    amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
+                    amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
+                    amat_67 = eval(thread_eq(tid)%amat67seq)*BigR*xjac
+
+                    amat_71 = eval(thread_eq(tid)%amat71seq)*BigR*xjac/F0
+                    amat_72 = eval(thread_eq(tid)%amat72seq)*BigR*xjac
+                    amat_73 = eval(thread_eq(tid)%amat73seq)*BigR*xjac/F0
+                    amat_75 = eval(thread_eq(tid)%amat75seq)*BigR*xjac
+                    amat_76 = eval(thread_eq(tid)%amat76seq)*BigR*xjac
+                    amat_77 = eval(thread_eq(tid)%amat77seq)*BigR*xjac
+                  else
+                    amat_61 = eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
+                    amat_62 = eval(thread_eq(tid)%amat62seq)*BigR*xjac
+                    amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
+                    amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
+                    amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
 #else
 #include "amat_unreadable.h"
-
-                  amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0; amat_16 = amat_16*BigR*xjac
-                  amat_21 = amat_21*BigR*xjac/F0; amat_22 = amat_22*BigR*xjac; amat_23 = amat_23*BigR*xjac/F0; amat_24 = amat_24*BigR*xjac
-                  amat_25 = amat_25*BigR*xjac; amat_26 = amat_26*BigR*xjac
-                  amat_31 = amat_31*BigR*xjac/F0; amat_33 = amat_33*BigR*xjac/F0
-                  amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
-                  amat_51 = amat_51*BigR*xjac/F0; amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
-                  amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_63 = amat_63*BigR*xjac/F0; amat_65 = amat_65*BigR*xjac
-                  amat_66 = amat_66*BigR*xjac
+                  if (with_TiTe) then
+                    amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0; amat_17 = amat_17*BigR*xjac
+                    amat_21 = amat_21*BigR*xjac/F0; amat_22 = amat_22*BigR*xjac; amat_23 = amat_23*BigR*xjac/F0; amat_24 = amat_24*BigR*xjac
+                    amat_25 = amat_25*BigR*xjac; amat_26 = amat_26*BigR*xjac; amat_27 = amat_27*BigR*xjac
+                    amat_31 = amat_31*BigR*xjac/F0; amat_33 = amat_33*BigR*xjac/F0
+                    amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
+                    amat_51 = amat_51*BigR*xjac/F0; amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
+                    amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_63 = amat_63*BigR*xjac/F0; amat_65 = amat_65*BigR*xjac
+                    amat_66 = amat_66*BigR*xjac; amat_67 = amat_67*BigR*xjac
+                    amat_71 = amat_71*BigR*xjac/F0; amat_72 = amat_72*BigR*xjac; amat_73 = amat_73*BigR*xjac/F0; amat_75 = amat_75*BigR*xjac
+                    amat_76 = amat_76*BigR*xjac; amat_77 = amat_77*BigR*xjac
+                  else
+                    amat_11 = amat_11*BigR*xjac/F0; amat_12 = amat_12*BigR*xjac; amat_13 = amat_13*BigR*xjac/F0; amat_16 = amat_16*BigR*xjac
+                    amat_21 = amat_21*BigR*xjac/F0; amat_22 = amat_22*BigR*xjac; amat_23 = amat_23*BigR*xjac/F0; amat_24 = amat_24*BigR*xjac
+                    amat_25 = amat_25*BigR*xjac; amat_26 = amat_26*BigR*xjac
+                    amat_31 = amat_31*BigR*xjac/F0; amat_33 = amat_33*BigR*xjac/F0
+                    amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
+                    amat_51 = amat_51*BigR*xjac/F0; amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
+                    amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_63 = amat_63*BigR*xjac/F0; amat_65 = amat_65*BigR*xjac
+                    amat_66 = amat_66*BigR*xjac
+                  end if
 #endif
 
                   kl1 = index_kl
@@ -539,28 +710,37 @@ do ms=1, n_gauss
                   kl4 = index_kl + 3*(n_tor_end - n_tor_start + 1)
                   kl5 = index_kl + 4*(n_tor_end - n_tor_start + 1)
                   kl6 = index_kl + 5*(n_tor_end - n_tor_start + 1)
-                  
-                  if (use_fft) then
-                    ELM_p(mp,ij1,kl1)  =  ELM_p(mp,ij1,kl1) + wst*amat_11(1)
-                    ELM_p(mp,ij1,kl2)  =  ELM_p(mp,ij1,kl2) + wst*amat_12(1)
-                    ELM_p(mp,ij1,kl3)  =  ELM_p(mp,ij1,kl3) + wst*amat_13(1)
-                    ELM_p(mp,ij1,kl6)  =  ELM_p(mp,ij1,kl6) + wst*amat_16(1)
-                    
-                    ELM_k(mp,ij1,kl1)  =  ELM_k(mp,ij1,kl1) + wst*amat_11(2)
-                    ELM_k(mp,ij1,kl2)  =  ELM_k(mp,ij1,kl2) + wst*amat_12(2)
-                    ELM_k(mp,ij1,kl3)  =  ELM_k(mp,ij1,kl3) + wst*amat_13(2)
-                    ELM_k(mp,ij1,kl6)  =  ELM_k(mp,ij1,kl6) + wst*amat_16(2)
-                    
-                    ELM_n(mp,ij1,kl1)  =  ELM_n(mp,ij1,kl1) + wst*amat_11(3)
-                    ELM_n(mp,ij1,kl2)  =  ELM_n(mp,ij1,kl2) + wst*amat_12(3)
-                    ELM_n(mp,ij1,kl3)  =  ELM_n(mp,ij1,kl3) + wst*amat_13(3)
-                    ELM_n(mp,ij1,kl6)  =  ELM_n(mp,ij1,kl6) + wst*amat_16(3)
-                    
-                    ELM_kn(mp,ij1,kl1)  =  ELM_kn(mp,ij1,kl1) + wst*amat_11(4)
-                    ELM_kn(mp,ij1,kl2)  =  ELM_kn(mp,ij1,kl2) + wst*amat_12(4)
-                    ELM_kn(mp,ij1,kl3)  =  ELM_kn(mp,ij1,kl3) + wst*amat_13(4)
-                    ELM_kn(mp,ij1,kl6)  =  ELM_kn(mp,ij1,kl6) + wst*amat_16(4)
+                  kl7 = index_kl + 6*(n_tor_end - n_tor_start + 1)
 
+                  if (use_fft) then
+
+                      ELM_p(mp,ij1,kl1)  =  ELM_p(mp,ij1,kl1) + wst*amat_11(1)
+                      ELM_p(mp,ij1,kl2)  =  ELM_p(mp,ij1,kl2) + wst*amat_12(1)
+                      ELM_p(mp,ij1,kl3)  =  ELM_p(mp,ij1,kl3) + wst*amat_13(1)
+                      
+                      ELM_k(mp,ij1,kl1)  =  ELM_k(mp,ij1,kl1) + wst*amat_11(2)
+                      ELM_k(mp,ij1,kl2)  =  ELM_k(mp,ij1,kl2) + wst*amat_12(2)
+                      ELM_k(mp,ij1,kl3)  =  ELM_k(mp,ij1,kl3) + wst*amat_13(2)
+                    
+                      ELM_n(mp,ij1,kl1)  =  ELM_n(mp,ij1,kl1) + wst*amat_11(3)
+                      ELM_n(mp,ij1,kl2)  =  ELM_n(mp,ij1,kl2) + wst*amat_12(3)
+                      ELM_n(mp,ij1,kl3)  =  ELM_n(mp,ij1,kl3) + wst*amat_13(3)
+                    
+                      ELM_kn(mp,ij1,kl1)  =  ELM_kn(mp,ij1,kl1) + wst*amat_11(4)
+                      ELM_kn(mp,ij1,kl2)  =  ELM_kn(mp,ij1,kl2) + wst*amat_12(4)
+                      ELM_kn(mp,ij1,kl3)  =  ELM_kn(mp,ij1,kl3) + wst*amat_13(4)
+
+                    if (with_TiTe) then
+                      ELM_p(mp,ij1,kl7)  =  ELM_p(mp,ij1,kl7) + wst*amat_17(1)
+                      ELM_k(mp,ij1,kl7)  =  ELM_k(mp,ij1,kl7) + wst*amat_17(2)
+                      ELM_n(mp,ij1,kl7)  =  ELM_n(mp,ij1,kl7) + wst*amat_17(3)
+                      ELM_kn(mp,ij1,kl7)  =  ELM_kn(mp,ij1,kl7) + wst*amat_17(4)
+                    else
+                      ELM_p(mp,ij1,kl6)  =  ELM_p(mp,ij1,kl6) + wst*amat_16(1)
+                      ELM_k(mp,ij1,kl6)  =  ELM_k(mp,ij1,kl6) + wst*amat_16(2)
+                      ELM_n(mp,ij1,kl6)  =  ELM_n(mp,ij1,kl6) + wst*amat_16(3)
+                      ELM_kn(mp,ij1,kl6)  =  ELM_kn(mp,ij1,kl6) + wst*amat_16(4)
+                    end if  
 
                     ELM_p(mp,ij2,kl1)  =  ELM_p(mp,ij2,kl1) + wst*amat_21(1)
                     ELM_p(mp,ij2,kl2)  =  ELM_p(mp,ij2,kl2) + wst*amat_22(1)
@@ -590,6 +770,12 @@ do ms=1, n_gauss
                     ELM_kn(mp,ij2,kl5)  =  ELM_kn(mp,ij2,kl5) + wst*amat_25(4)
                     ELM_kn(mp,ij2,kl6)  =  ELM_kn(mp,ij2,kl6) + wst*amat_26(4)
 
+                    if (with_TiTe) then
+                      ELM_p(mp,ij2,kl7)  =  ELM_p(mp,ij2,kl7) + wst*amat_27(1)
+                      ELM_k(mp,ij2,kl7)  =  ELM_k(mp,ij2,kl7) + wst*amat_27(2)
+                      ELM_n(mp,ij2,kl7)  =  ELM_n(mp,ij2,kl7) + wst*amat_27(3)
+                      ELM_kn(mp,ij2,kl7)  =  ELM_kn(mp,ij2,kl7) + wst*amat_27(4)
+                    end if
 
                     ELM_p(mp,ij3,kl1)  =  ELM_p(mp,ij3,kl1) + wst*amat_31(1)
                     ELM_p(mp,ij3,kl3)  =  ELM_p(mp,ij3,kl3) + wst*amat_33(1)
@@ -657,6 +843,42 @@ do ms=1, n_gauss
                     ELM_kn(mp,ij6,kl3)  =  ELM_kn(mp,ij6,kl3)  + wst*amat_63(4)
                     ELM_kn(mp,ij6,kl5)  =  ELM_kn(mp,ij6,kl5)  + wst*amat_65(4)
                     ELM_kn(mp,ij6,kl6)  =  ELM_kn(mp,ij6,kl6)  + wst*amat_66(4)
+                   
+                    if (with_TiTe) then
+                      ELM_p(mp,ij6,kl7)  =  ELM_p(mp,ij6,kl7)  + wst*amat_67(1)
+                      ELM_k(mp,ij6,kl7)  =  ELM_k(mp,ij6,kl7)  + wst*amat_67(2)
+                      ELM_n(mp,ij6,kl7)  =  ELM_n(mp,ij6,kl7)  + wst*amat_67(3)
+                      ELM_kn(mp,ij6,kl7)  =  ELM_kn(mp,ij6,kl7)  + wst*amat_67(4)
+
+
+                      ELM_p(mp,ij7,kl1)  =  ELM_p(mp,ij7,kl1)  + wst*amat_71(1)
+                      ELM_p(mp,ij7,kl2)  =  ELM_p(mp,ij7,kl2)  + wst*amat_72(1)
+                      ELM_p(mp,ij7,kl3)  =  ELM_p(mp,ij7,kl3)  + wst*amat_73(1)
+                      ELM_p(mp,ij7,kl5)  =  ELM_p(mp,ij7,kl5)  + wst*amat_75(1)
+                      ELM_p(mp,ij7,kl6)  =  ELM_p(mp,ij7,kl6)  + wst*amat_76(1)
+                      ELM_p(mp,ij7,kl7)  =  ELM_p(mp,ij7,kl7)  + wst*amat_77(1)
+
+                      ELM_k(mp,ij7,kl1)  =  ELM_k(mp,ij7,kl1)  + wst*amat_71(2)
+                      ELM_k(mp,ij7,kl2)  =  ELM_k(mp,ij7,kl2)  + wst*amat_72(2)
+                      ELM_k(mp,ij7,kl3)  =  ELM_k(mp,ij7,kl3)  + wst*amat_73(2)
+                      ELM_k(mp,ij7,kl5)  =  ELM_k(mp,ij7,kl5)  + wst*amat_75(2)
+                      ELM_k(mp,ij7,kl6)  =  ELM_k(mp,ij7,kl6)  + wst*amat_76(2)
+                      ELM_k(mp,ij7,kl7)  =  ELM_k(mp,ij7,kl7)  + wst*amat_77(2)
+
+                      ELM_n(mp,ij7,kl1)  =  ELM_n(mp,ij7,kl1)  + wst*amat_71(3)
+                      ELM_n(mp,ij7,kl2)  =  ELM_n(mp,ij7,kl2)  + wst*amat_72(3)
+                      ELM_n(mp,ij7,kl3)  =  ELM_n(mp,ij7,kl3)  + wst*amat_73(3)
+                      ELM_n(mp,ij7,kl5)  =  ELM_n(mp,ij7,kl5)  + wst*amat_75(3)
+                      ELM_n(mp,ij7,kl6)  =  ELM_n(mp,ij7,kl6)  + wst*amat_76(3)
+                      ELM_n(mp,ij7,kl7)  =  ELM_n(mp,ij7,kl7)  + wst*amat_77(3)
+
+                      ELM_kn(mp,ij7,kl1)  =  ELM_kn(mp,ij7,kl1)  + wst*amat_71(4)
+                      ELM_kn(mp,ij7,kl2)  =  ELM_kn(mp,ij7,kl2)  + wst*amat_72(4)
+                      ELM_kn(mp,ij7,kl3)  =  ELM_kn(mp,ij7,kl3)  + wst*amat_73(4)
+                      ELM_kn(mp,ij7,kl5)  =  ELM_kn(mp,ij7,kl5)  + wst*amat_75(4)
+                      ELM_kn(mp,ij7,kl6)  =  ELM_kn(mp,ij7,kl6)  + wst*amat_76(4)
+                      ELM_kn(mp,ij7,kl7)  =  ELM_kn(mp,ij7,kl7)  + wst*amat_77(4)
+                    end if
                   else
                     ELM(ij1,kl1) = ELM(ij1,kl1) + (amat_11(1)*HZ(im,mp)*HZ(in,mp)   + amat_11(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_11(3)*HZ(im,mp)*HZ_p(in,mp) + amat_11(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
@@ -664,8 +886,14 @@ do ms=1, n_gauss
                                                 +  amat_12(3)*HZ(im,mp)*HZ_p(in,mp) + amat_12(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                     ELM(ij1,kl3) = ELM(ij1,kl3) + (amat_13(1)*HZ(im,mp)*HZ(in,mp)   + amat_13(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_13(3)*HZ(im,mp)*HZ_p(in,mp) + amat_13(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
-                    ELM(ij1,kl6) = ELM(ij1,kl6) + (amat_16(1)*HZ(im,mp)*HZ(in,mp)   + amat_16(2)*HZ_p(im,mp)*HZ(in,mp) &
-                                                +  amat_16(3)*HZ(im,mp)*HZ_p(in,mp) + amat_16(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+
+                    if (with_TiTe) then
+                      ELM(ij1,kl7) = ELM(ij1,kl7) + (amat_17(1)*HZ(im,mp)*HZ(in,mp)   + amat_17(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_17(3)*HZ(im,mp)*HZ_p(in,mp) + amat_17(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                    else
+                      ELM(ij1,kl6) = ELM(ij1,kl6) + (amat_16(1)*HZ(im,mp)*HZ(in,mp)   + amat_16(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_16(3)*HZ(im,mp)*HZ_p(in,mp) + amat_16(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                    end if
 
                     ELM(ij2,kl1) = ELM(ij2,kl1) + (amat_21(1)*HZ(im,mp)*HZ(in,mp)   + amat_21(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_21(3)*HZ(im,mp)*HZ_p(in,mp) + amat_21(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
@@ -679,6 +907,11 @@ do ms=1, n_gauss
                                                 +  amat_25(3)*HZ(im,mp)*HZ_p(in,mp) + amat_25(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                     ELM(ij2,kl6) = ELM(ij2,kl6) + (amat_26(1)*HZ(im,mp)*HZ(in,mp)   + amat_26(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_26(3)*HZ(im,mp)*HZ_p(in,mp) + amat_26(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+
+                    if (with_TiTe) then
+                      ELM(ij2,kl7) = ELM(ij2,kl7) + (amat_27(1)*HZ(im,mp)*HZ(in,mp)   + amat_27(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_27(3)*HZ(im,mp)*HZ_p(in,mp) + amat_27(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                    end if
 
                     ELM(ij3,kl1) = ELM(ij3,kl1) + (amat_31(1)*HZ(im,mp)*HZ(in,mp)   + amat_31(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_31(3)*HZ(im,mp)*HZ_p(in,mp) + amat_31(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
@@ -707,6 +940,24 @@ do ms=1, n_gauss
                                                 +  amat_65(3)*HZ(im,mp)*HZ_p(in,mp) + amat_65(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                     ELM(ij6,kl6) = ELM(ij6,kl6) + (amat_66(1)*HZ(im,mp)*HZ(in,mp)   + amat_66(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_66(3)*HZ(im,mp)*HZ_p(in,mp) + amat_66(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                     
+                    if (with_TiTe) then
+                      ELM(ij6,kl7) = ELM(ij6,kl7) + (amat_67(1)*HZ(im,mp)*HZ(in,mp)   + amat_67(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_67(3)*HZ(im,mp)*HZ_p(in,mp) + amat_67(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+
+                      ELM(ij7,kl1) = ELM(ij7,kl1) + (amat_71(1)*HZ(im,mp)*HZ(in,mp)   + amat_71(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_71(3)*HZ(im,mp)*HZ_p(in,mp) + amat_71(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                      ELM(ij7,kl2) = ELM(ij7,kl2) + (amat_72(1)*HZ(im,mp)*HZ(in,mp)   + amat_72(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_72(3)*HZ(im,mp)*HZ_p(in,mp) + amat_72(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                      ELM(ij7,kl3) = ELM(ij7,kl3) + (amat_73(1)*HZ(im,mp)*HZ(in,mp)   + amat_73(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_73(3)*HZ(im,mp)*HZ_p(in,mp) + amat_73(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                      ELM(ij7,kl5) = ELM(ij7,kl5) + (amat_75(1)*HZ(im,mp)*HZ(in,mp)   + amat_75(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_75(3)*HZ(im,mp)*HZ_p(in,mp) + amat_75(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                      ELM(ij7,kl6) = ELM(ij7,kl6) + (amat_76(1)*HZ(im,mp)*HZ(in,mp)   + amat_76(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_76(3)*HZ(im,mp)*HZ_p(in,mp) + amat_76(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                      ELM(ij7,kl7) = ELM(ij7,kl7) + (amat_77(1)*HZ(im,mp)*HZ(in,mp)   + amat_77(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_77(3)*HZ(im,mp)*HZ_p(in,mp) + amat_77(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                    end if
                   end if
                 end do ! in loop (n_tor, or not...)
               end do ! l loop (n_order+1)
