@@ -95,8 +95,7 @@ module mod_equations
   type(algexpr), private :: amat71, amat72, amat73, amat75, amat76, amat77
   type(algexpr), private :: a_Bv2, a_B2
   
-  integer, parameter :: n_rhs  = sum(merge( (/7/),  (/6/), with_TiTe ))
-  integer, parameter :: n_amat = sum(merge( (/30/), (/22/), with_TiTe ))
+  integer            :: n_rhs, n_amat
   integer, parameter :: n_aux  = 5
   
   type(algexpr), private :: rhs2e, rhs3e, rhs4e, rhs5e, rhs6e, rhs7e
@@ -430,11 +429,13 @@ module mod_equations
     type(algexpr), allocatable, intent(out) :: rhs(:)
     character(8),  allocatable, intent(out) :: varnames(:)
     if (with_TiTe) then
-      allocate(rhs(7), varnames(7)) 
+      n_rhs = 7
+      allocate(rhs(n_rhs), varnames(n_rhs)) 
       rhs = (/ rhs1, rhs2e, rhs3, rhs4, rhs5e, rhs6e, rhs7e /)
       varnames = (/ "rhs_ij_1", "rhs_ij_2", "rhs_ij_3", "rhs_ij_4", "rhs_ij_5", "rhs_ij_6", "rhs_ij_7" /)
     else    
-      allocate(rhs(6), varnames(6))
+      n_rhs = 6
+      allocate(rhs(n_rhs), varnames(n_rhs))
       rhs = (/ rhs1, rhs2e, rhs3, rhs4, rhs5e, rhs6e /)
       varnames = (/ "rhs_ij_1", "rhs_ij_2", "rhs_ij_3", "rhs_ij_4", "rhs_ij_5", "rhs_ij_6" /)
     end if
@@ -447,17 +448,18 @@ module mod_equations
 !    character(7),  dimension(n_amat), intent(out) :: varnames
 
     type(algexpr), allocatable, intent(out) :: amat(:)
-    character(8),  allocatable, intent(out) :: varnames(:)
+    character(7),  allocatable, intent(out) :: varnames(:)
     
     if ( with_TiTe) then
-      allocate(amat(30), varnames(30))
-      amat = (/ amat11, amat12,  amat13,                            amat17,  &
-                amat21, amat22e, amat23, amat24e, amat25e, amat26e, amat27e, &
-                amat31e,           amat33, &
-                        amat42,           amat44, &
-                amat51, amat52e,                   amat55e, &
-                amat61, amat62e, amat63,           amat65e, amat66e, amat67e, &
-                amat71, amat72e, amat73,           amat75e, amat76e, amat77e  /)
+      n_amat = 30
+      allocate(amat(n_amat), varnames(n_amat))
+      amat = (/ amat11,  amat12,  amat13,                            amat17,   &
+                amat21,  amat22e, amat23, amat24e, amat25e, amat26e, amat27e,  &
+                amat31e,          amat33,                                      &
+                         amat42,          amat44,                              &
+                amat51,  amat52e,                  amat55e,                    &
+                amat61,  amat62e, amat63,          amat65e,  amat66e, amat67e, &
+                amat71,  amat72e, amat73,          amat75e,  amat76e, amat77e  /)
       varnames = (/ "amat_11", "amat_12", "amat_13",                                  "amat_17", &
                     "amat_21", "amat_22", "amat_23", "amat_24", "amat_25", "amat_26", "amat_27", &
                     "amat_31",            "amat_33", &
@@ -466,18 +468,19 @@ module mod_equations
                     "amat_61", "amat_62", "amat_63",            "amat_65", "amat_66", "amat_67", &
                     "amat_71", "amat_72", "amat_73",            "amat_75", "amat_76", "amat_77"  /)
     else
-      allocate(amat(22), varnames(22))
-      amat = (/ amat11, amat12,  amat13,                   amat16, &
+      n_amat = 22
+      allocate(amat(n_amat), varnames(n_amat))
+      amat = (/ amat11, amat12,  amat13,                   amat16,  &
                 amat21, amat22e, amat23, amat24e, amat25e, amat26e, &
-                amat31e,           amat33, &
-                        amat42,           amat44, &
-                amat51, amat52e,                   amat55e, &
+                amat31e,           amat33,                          &
+                        amat42,           amat44,                   &
+                amat51, amat52e,                   amat55e,         &
                 amat61, amat62e, amat63,           amat65e, amat66e /)
       varnames = (/ "amat_11", "amat_12", "amat_13",                       "amat_16", &
                     "amat_21", "amat_22", "amat_23", "amat_24", "amat_25", "amat_26", &
-                    "amat_31",            "amat_33", &
-                               "amat_42",            "amat_44", &
-                    "amat_51", "amat_52",                       "amat_55", &
+                    "amat_31",            "amat_33",                                  &
+                               "amat_42",            "amat_44",                       &
+                    "amat_51", "amat_52",                       "amat_55",            &
                     "amat_61", "amat_62", "amat_63",            "amat_65", "amat_66" /)
     end if 
  end subroutine get_amat

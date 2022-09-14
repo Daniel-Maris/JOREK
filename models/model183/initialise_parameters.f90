@@ -48,7 +48,9 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rho_0, rho_1, rho_coef,                             &
                 T_0,   T_1,   T_coef,                               &
                 FF_0,  FF_1,  FF_coef,                              &
-                ZK_par, ZK_par_max, ZK_perp, D_par, D_perp,         &
+                ZK_par, ZK_par_max, ZK_perp,                        &
+                ZK_i_par, ZK_e_par,                                 &
+                D_par, D_perp,                                      &
                 particlesource, heatsource, tauIC,                  &
                 eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ZK_perp_num,                                        &

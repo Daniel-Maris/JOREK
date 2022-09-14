@@ -16,7 +16,7 @@ use gauss
 use basis_at_gaussian
 use phys_module
 use tr_module
-use diffusivities, only: get_dperp, get_zkperp
+use diffusivities, only: get_dperp, get_zkperp, get_zk_iperp, get_zk_eperp
 use corr_neg
 use equil_info, only: get_psi_n
 use mod_semianalytical
@@ -38,7 +38,7 @@ integer                , intent(in) :: tid
 integer                , intent(in) :: i_tor_min, i_tor_max
 
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik, xcase2
-integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6, n_tor_start, n_tor_end, n_tor_local
+integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, kl1, kl2, kl3, kl4, kl5, kl6, kl7, n_tor_start, n_tor_end, n_tor_local
 real*8     :: wst, xjac, xjac_x, xjac_y, xjac_s, xjac_t, BigR, r2, phi, eps_cyl
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2), dj_dpsi, dj_dz
 real*8     :: Bgrad_rho_star,     Bgrad_rho,     Bgrad_T_star,  Bgrad_T, BB2
@@ -71,7 +71,7 @@ real*8     :: dnu_e_bg_drho                             !> derivative of dnu_e_b
 
 
 real*8, dimension(4) :: rhs_ij_1, rhs_ij_2, rhs_ij_3, rhs_ij_4, rhs_ij_5, rhs_ij_6, rhs_ij_7
-real*8, dimension(4) :: amat_11, amat_12, amat_13, amat_17, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_27,
+real*8, dimension(4) :: amat_11, amat_12, amat_13, amat_16, amat_17, amat_21, amat_22, amat_23, amat_24, amat_25, amat_26, amat_27
 real*8, dimension(4) :: amat_31, amat_33, amat_42, amat_44, amat_51, amat_52, amat_55, amat_61, amat_62
 real*8, dimension(4) :: amat_63, amat_65, amat_66, amat_67, amat_71, amat_72, amat_73, amat_75, amat_76, amat_77
 
@@ -238,6 +238,7 @@ do i=1,n_vertex_max
           else
             call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psi_axis, & !eq_g(mp,var_Psi,ms,mt),
                        psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
+          end if
 #endif
         enddo
       enddo
@@ -377,10 +378,10 @@ do ms=1, n_gauss
 
         ! Parallel thermal conductivity
         if (zkpar_T_dependent) then                                                                 
-          eq(30,0,0,0,:) = zk_par_i*(corr_neg_temp(eq(6,0,0,0,1))/Ti_0)**(2.5d0)                       ! k_par for ions
-          eq(32,0,0,0,:) = 2.5d0*zk_par_i*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*Ti_0**(-2.5d0)         ! dk_par_i_dT_i
-          eq(31,0,0,0,:) = zk_par_e*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(2.5d0)                       ! k_par for e
-          eq(33,0,0,0,:) = 2.5d0*zk_par_e*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*Te_0**(-2.5d0)         ! dk_par_e_dT_e
+          eq(30,0,0,0,:) = ZK_i_par*(corr_neg_temp(eq(6,0,0,0,1))/Ti_0)**(2.5d0)                       ! k_par for ions
+          eq(32,0,0,0,:) = 2.5d0*ZK_i_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*Ti_0**(-2.5d0)         ! dk_par_i_dT_i
+          eq(31,0,0,0,:) = ZK_e_par*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(2.5d0)                       ! k_par for e
+          eq(33,0,0,0,:) = 2.5d0*ZK_e_par*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*Te_0**(-2.5d0)         ! dk_par_e_dT_e
           if (eq(30,0,0,0,1) .gt. zk_par_max) then
             eq(30,0,0,0,:) = zk_par_max
             eq(32,0,0,0,:) = 0.d0
