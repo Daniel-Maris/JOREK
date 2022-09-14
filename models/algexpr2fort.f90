@@ -12,12 +12,12 @@ program algexpr2fort
   character(3)  :: model_num
   
   character(:),  allocatable       :: varname, full
-  character(8),  dimension(n_rhs)  :: varname_rhs
-  character(7),  dimension(n_amat) :: varname_amat
+  character(8),  allocatable       :: varname_rhs(:)
+  character(7),  allocatable       :: varname_amat(:)
   character(14), dimension(n_aux)  :: varname_aux
   
-  type(algexpr), dimension(n_rhs)  :: rhs
-  type(algexpr), dimension(n_amat) :: amat
+  type(algexpr), allocatable       :: rhs(:)
+  type(algexpr), allocatable       :: amat(:)
   type(algexpr), dimension(n_aux)  :: aux
   
   varname = "eq"
@@ -26,6 +26,15 @@ program algexpr2fort
   time_evol_zeta = 0.
   time_evol_theta = 1.
   call init_equations()
+
+  if ( with_TiTe ) then
+    allocate(rhs(7), varname_rhs(7))
+    allocate(amat(30), varname_amat(30))
+  else
+    allocate(rhs(6), varname_rhs(6))
+    allocate(amat(22), varname_amat(22))
+  end if
+
   call get_rhs(rhs, varname_rhs)
   call get_amat(amat, varname_amat)
   if (n_aux .ne. 0) call get_aux(aux, varname_aux)

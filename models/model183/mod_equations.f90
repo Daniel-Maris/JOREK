@@ -95,7 +95,9 @@ module mod_equations
   type(algexpr), private :: amat71, amat72, amat73, amat75, amat76, amat77
   type(algexpr), private :: a_Bv2, a_B2
   
-  integer, parameter :: n_rhs = sum(merge( (/7/),  (/6/), with_TiTe )), n_amat = sum(merge( (/30/), (/22/), with_TiTe )), n_aux = 5
+  integer, parameter :: n_rhs  = sum(merge( (/7/),  (/6/), with_TiTe ))
+  integer, parameter :: n_amat = sum(merge( (/30/), (/22/), with_TiTe ))
+  integer, parameter :: n_aux  = 5
   
   type(algexpr), private :: rhs2e, rhs3e, rhs4e, rhs5e, rhs6e, rhs7e
   type(algexpr), private :: amat22e, amat24e, amat25e, amat26e, amat27e
@@ -113,7 +115,7 @@ module mod_equations
     use phys_module, only: time_evol_zeta, time_evol_theta, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num, Ieta_num => eta_num, &
                            ID_perp_num => D_perp_num, zk_perp_num, Ieta => eta, eta_ohmic
     implicit none
-    
+
     tstep      = const(value = Itstep,          token = "tstep")
     zeta       = const(value = time_evol_zeta,  token = "zeta")
     theta      = const(value = time_evol_theta, token = "theta")
@@ -334,7 +336,8 @@ module mod_equations
         allocate(thread_eq(i)%aBv2xseq(countsubexprs(ea_Bv2x)))
         allocate(thread_eq(i)%aBv2yseq(countsubexprs(ea_Bv2y)))
         allocate(thread_eq(i)%aBv2pseq(countsubexprs(ea_Bv2p)))
-        allocate(thread_eq(i)%aB2seq(countsubexprs(a_B2)))
+        allocate(thread_eq(i)%aB2seqtype(algexpr), allocatable, intent(out) :: rhs(:)
+    character(8),  allocatable, intent(out) :: varnames(:)(countsubexprs(a_B2)))
         if (with_TiTe) then
           allocate(thread_eq(i)%rhs7seq(countsubexprs(rhs7e)))
           allocate(thread_eq(i)%amat17seq(countsubexprs(amat17)))
@@ -420,13 +423,18 @@ module mod_equations
   
   subroutine get_rhs(rhs,varnames)
     implicit none
-    type(algexpr), dimension(n_rhs), intent(out) :: rhs
-    character(8),  dimension(n_rhs), intent(out) :: varnames
+    
+!    type(algexpr), dimension(n_rhs), intent(out) :: rhs
+!    character(8),  dimension(n_rhs), intent(out) :: varnames
 
+    type(algexpr), allocatable, intent(out) :: rhs(:)
+    character(8),  allocatable, intent(out) :: varnames(:)
     if (with_TiTe) then
+      allocate(rhs(7), varnames(7)) 
       rhs = (/ rhs1, rhs2e, rhs3, rhs4, rhs5e, rhs6e, rhs7e /)
       varnames = (/ "rhs_ij_1", "rhs_ij_2", "rhs_ij_3", "rhs_ij_4", "rhs_ij_5", "rhs_ij_6", "rhs_ij_7" /)
     else    
+      allocate(rhs(6), varnames(6))
       rhs = (/ rhs1, rhs2e, rhs3, rhs4, rhs5e, rhs6e /)
       varnames = (/ "rhs_ij_1", "rhs_ij_2", "rhs_ij_3", "rhs_ij_4", "rhs_ij_5", "rhs_ij_6" /)
     end if
@@ -434,10 +442,15 @@ module mod_equations
   
   subroutine get_amat(amat,varnames)
     implicit none
-    type(algexpr), dimension(n_amat), intent(out) :: amat
-    character(7),  dimension(n_amat), intent(out) :: varnames
     
-    if (with_TiTe) then
+!    type(algexpr), dimension(n_amat), intent(out) :: amat
+!    character(7),  dimension(n_amat), intent(out) :: varnames
+
+    type(algexpr), allocatable, intent(out) :: amat(:)
+    character(8),  allocatable, intent(out) :: varnames(:)
+    
+    if ( with_TiTe) then
+      allocate(amat(30), varnames(30))
       amat = (/ amat11, amat12,  amat13,                            amat17,  &
                 amat21, amat22e, amat23, amat24e, amat25e, amat26e, amat27e, &
                 amat31e,           amat33, &
@@ -453,6 +466,7 @@ module mod_equations
                     "amat_61", "amat_62", "amat_63",            "amat_65", "amat_66", "amat_67", &
                     "amat_71", "amat_72", "amat_73",            "amat_75", "amat_76", "amat_77"  /)
     else
+      allocate(amat(22), varnames(22))
       amat = (/ amat11, amat12,  amat13,                   amat16, &
                 amat21, amat22e, amat23, amat24e, amat25e, amat26e, &
                 amat31e,           amat33, &

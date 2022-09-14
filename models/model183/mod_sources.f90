@@ -5,7 +5,7 @@ module mod_sources
 implicit none
 
 
-interface souces
+interface sources
   module procedure sources_T, sources_TeTi
 end interface sources
 

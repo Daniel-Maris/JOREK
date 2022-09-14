@@ -359,8 +359,8 @@ do ms=1, n_gauss
         
         ! Resistivity
         if (eta_T_dependent) then                                                        
-          eq(2*n_var+8,0,0,0,:) = eta*(corr_neg_temp(eq(7,0,0,0,1))/T_0)**(-1.5d0)               ! eta 
-          eq(2*n_var+9,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! deta/dT 
+          eq(2*n_var+8,0,0,0,:) = eta*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(-1.5d0)               ! eta 
+          eq(2*n_var+9,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*Te_0**(1.5d0) ! deta/dT 
         else
           eq(2*n_var+8,0,0,0,:) = eta
           eq(2*n_var+9,0,0,0,:) = 0.d0
@@ -368,8 +368,8 @@ do ms=1, n_gauss
 
         ! Viscosity
         if (visco_T_dependent) then  
-          eq(2*n_var+10,0,0,0,:) = visco*(corr_neg_temp(eq(7,0,0,0,1))/T_0)**(-1.5d0)               ! visco
-          eq(2*n_var+11,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! dvisco/dT
+          eq(2*n_var+10,0,0,0,:) = visco*(corr_neg_temp(eq(7,0,0,0,1))/Ti_0)**(-1.5d0)               ! visco
+          eq(2*n_var+11,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*Ti_0**(1.5d0) ! dvisco/dT
         else
           eq(2*n_var+10,0,0,0,:) = visco
           eq(2*n_var+11,0,0,0,:) = 0.d0
@@ -377,10 +377,10 @@ do ms=1, n_gauss
 
         ! Parallel thermal conductivity
         if (zkpar_T_dependent) then                                                                 
-          eq(30,0,0,0,:) = zk_par_i*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(2.5d0)                       ! k_par for ions
-          eq(32,0,0,0,:) = 2.5d0*zk_par_i*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*T_0**(-2.5d0)         ! dk_par_i_dT_i
-          eq(31,0,0,0,:) = zk_par_e*(corr_neg_temp(eq(7,0,0,0,1))/T_0)**(2.5d0)                       ! k_par for e
-          eq(33,0,0,0,:) = 2.5d0*zk_par_e*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*T_0**(-2.5d0)         ! dk_par_e_dT_e
+          eq(30,0,0,0,:) = zk_par_i*(corr_neg_temp(eq(6,0,0,0,1))/Ti_0)**(2.5d0)                       ! k_par for ions
+          eq(32,0,0,0,:) = 2.5d0*zk_par_i*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*Ti_0**(-2.5d0)         ! dk_par_i_dT_i
+          eq(31,0,0,0,:) = zk_par_e*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(2.5d0)                       ! k_par for e
+          eq(33,0,0,0,:) = 2.5d0*zk_par_e*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*Te_0**(-2.5d0)         ! dk_par_e_dT_e
           if (eq(30,0,0,0,1) .gt. zk_par_max) then
             eq(30,0,0,0,:) = zk_par_max
             eq(32,0,0,0,:) = 0.d0
@@ -679,6 +679,7 @@ do ms=1, n_gauss
                     amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
                     amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
                     amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
+                  end if
 #else
 #include "amat_unreadable.h"
                   if (with_TiTe) then
