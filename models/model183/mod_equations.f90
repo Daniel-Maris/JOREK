@@ -132,63 +132,85 @@ module mod_equations
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
     a_B2 = Bv2 + Bv2*inprod(Psi0,Psi0)
     
+    ! --- RHS
+    rhs1 = tstep*v*((Bv_parderiv(Phi0) - Bv_pbrack(Psi0,Phi0))/Bv2 + eta*(zj0 - S_j)) + tstep*eta_num*inprod(v,zj0) + zeta*v*delta_Psi
+    
     if (with_TiTe) then
-      
-      ! --- RHS
-      rhs1 = tstep*v*((Bv_parderiv(Phi0) - Bv_pbrack(Psi0,Phi0))/Bv2 + eta*(zj0 - S_j)) + tstep*eta_num*inprod(v,zj0) + zeta*v*delta_Psi
-      
       rhs2 = -tstep*((Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - Bv_pbrack(v,Phi0)*rho0*w0/Bv2 - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0) &
            + Bv_pbrack(v,rho0*(T0_i+T0_e)))/Bv2 - v*Bv_parderiv(zj0) - v*Bv_pbrack(zj0,Psi0) + visco*inprod(v,w0) + visco_num*Lap(v)*Lap(w0)) &
            - zeta*(rho0*inprod(v,delta_Phi) + delta_rho*inprod(v,Phi0))/Bv2
+    else
+      rhs2 = -tstep*((Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - Bv_pbrack(v,Phi0)*rho0*w0/Bv2 - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0) &
+           + Bv_pbrack(v,rho0*T0))/Bv2 - v*Bv_parderiv(zj0) - v*Bv_pbrack(zj0,Psi0) + visco*inprod(v,w0) + visco_num*Lap(v)*Lap(w0)) &
+           - zeta*(rho0*inprod(v,delta_Phi) + delta_rho*inprod(v,Phi0))/Bv2
+    end if
 
-      rhs3 = -Bv2*inprod(v,Psi0) - v*Bv2*zj0
+    rhs3 = -Bv2*inprod(v,Psi0) - v*Bv2*zj0
 
-      rhs4 = -inprod(v,Phi0) - v*w0
+    rhs4 = -inprod(v,Phi0) - v*w0
 
-      rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho0) - S_rho*v) + zeta*v*delta_rho
+    rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho0) - S_rho*v) + zeta*v*delta_rho
 
+    if (with_TiTe) then
       rhs6 = -tstep*(v*Bv_pbrack(rho0*T0_i, Phi0)/Bv2 - gamma*v*rho0*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp_i*gradprod(v,T0_i) &
-           + (k_par_i-k_perp_i)*B0_parderiv(v)*B0_parderiv(T0_i)/B2 + k_perp_num*Lap(v)*Lap(T0_i) + D_perp*T0_i*gradgrad_perp(v, rho0) &
-           - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T_i + T0_i*delta_rho) &
-           + v*dTe_i
+             + (k_par_i-k_perp_i)*B0_parderiv(v)*B0_parderiv(T0_i)/B2 + k_perp_num*Lap(v)*Lap(T0_i) + D_perp*T0_i*gradgrad_perp(v, rho0) &
+             - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T_i + T0_i*delta_rho) &
+             + v*dTe_i
+    
       rhs7 = -tstep*(v*Bv_pbrack(rho0*T0_e, Phi0)/Bv2 - gamma*v*rho0*T0_e*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp_i*gradprod(v,T0_e) &
            + (k_par_e-k_perp_e)*B0_parderiv(v)*B0_parderiv(T0_e)/B2 + k_perp_num*Lap(v)*Lap(T0_e) + D_perp*T0_e*gradgrad_perp(v, rho0) &
            - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T_e + T0_e*delta_rho) &
            - v*dTe_i
-     
-      ! --- LHS
-      amat11 = (1.d0 + zeta)*v*Psi + tstep*theta*v*Bv_pbrack(Psi,Phi0)/Bv2
-      amat12 = (-tstep*theta)*v*(Bv_parderiv(Phi) - Bv_pbrack(Psi0,Phi))/Bv2
-      amat13 = (-tstep*theta)*(eta*v*zj + eta_num*inprod(v,zj))
-      amat17 = (-tstep*theta)*v*deta_dT*T_e*zj0
+    else
+      rhs6 = -tstep*(v*Bv_pbrack(rho0*T0,Phi0)/Bv2 - gamma*v*rho0*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T0) &
+           + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T0)/B2 + k_perp_num*Lap(v)*Lap(T0) + D_perp*T0*gradgrad_perp(v,rho0) &
+           - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T + T0*delta_rho)
+    end if
 
-      amat21 = (-tstep*theta)*v*Bv_pbrack(zj0,Psi)
-      amat22 = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2 + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi) - rho0*w0*Bv_pbrack(v,Phi)/Bv2 &
-             - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0) - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2
-      amat23 = (-tstep*theta)*v*(Bv_parderiv(zj) + Bv_pbrack(zj,Psi0))
-      amat24 = -tstep*theta*rho0*w*Bv_pbrack(v,Phi0)/(Bv2*Bv2) + tstep*theta*(visco*inprod(v,w) + visco_num*Lap(v)*Lap(w))
+    ! --- LHS
+    amat11 = (1.d0 + zeta)*v*Psi + tstep*theta*v*Bv_pbrack(Psi,Phi0)/Bv2
+    amat12 = (-tstep*theta)*v*(Bv_parderiv(Phi) - Bv_pbrack(Psi0,Phi))/Bv2
+    amat13 = (-tstep*theta)*(eta*v*zj + eta_num*inprod(v,zj))
+    if (with_TiTe) then
+      amat17 = (-tstep*theta)*v*deta_dT*T_e*zj0
+    else
+      amat16 = (-tstep*theta)*v*deta_dT*T*zj0
+    end if
+
+    amat21 = (-tstep*theta)*v*Bv_pbrack(zj0,Psi)
+    amat22 = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2 + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi) - rho0*w0*Bv_pbrack(v,Phi)/Bv2 &
+           - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0) - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2
+    amat23 = (-tstep*theta)*v*(Bv_parderiv(zj) + Bv_pbrack(zj,Psi0))
+    amat24 = -tstep*theta*rho0*w*Bv_pbrack(v,Phi0)/(Bv2*Bv2) + tstep*theta*(visco*inprod(v,w) + visco_num*Lap(v)*Lap(w))
+    if (with_TiTe) then
       amat25 = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2 + tstep*theta*(Bv_pbrack(rho/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - rho*w0*Bv_pbrack(v,Phi0)/Bv2 &
              - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0) + Bv_pbrack(v,rho*(T0_i+T0_e)))/Bv2
       amat26 = tstep*theta*Bv_pbrack(v,rho0*T_i)/Bv2 
       amat27 = tstep*theta*Bv_pbrack(v,rho0*T_e)/Bv2 + tstep*theta*dvisco_dT*T_e*inprod(v,w0)
+    else
+      amat25 = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2 + tstep*theta*(Bv_pbrack(rho/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - rho*w0*Bv_pbrack(v,Phi0)/Bv2 &
+             - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0) + Bv_pbrack(v,rho*T0))/Bv2
+      amat26 = tstep*theta*Bv_pbrack(v,rho0*T)/Bv2 + tstep*theta*dvisco_dT*T*inprod(v,w0)
+    end if
 
-      amat31 = theta*Bv2*inprod(v,Psi)
-      amat33 = theta*v*Bv2*zj
+    amat31 = theta*Bv2*inprod(v,Psi)
+    amat33 = theta*v*Bv2*zj
 
 #ifdef DEBUG
-      amat42 = theta*inprod(v,Phi) + 0.d0*one
+    amat42 = theta*inprod(v,Phi) + 0.d0*one
 #else
-      amat42 = theta*inprod(v,Phi)
+    amat42 = theta*inprod(v,Phi)
 #endif
-      amat44 = theta*v*w
+    amat44 = theta*v*w
 
-      amat51 = (-tstep*theta)*D_perp*gradDgrad_par(v,rho0)
-      amat52 = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)
-      amat55 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho))
+    amat51 = (-tstep*theta)*D_perp*gradDgrad_par(v,rho0)
+    amat52 = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)
+    amat55 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho))
    
-      amat61 = tstep*theta*((k_par_i - k_perp_i)*gradDgrad_par(v,T0_i) - D_perp*T0_i*gradDgrad_par(v,rho0))
-      amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0_i,Phi) - gamma*rho0*T0_i*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
-      amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj
+    amat61 = tstep*theta*((k_par_i - k_perp_i)*gradDgrad_par(v,T0_i) - D_perp*T0_i*gradDgrad_par(v,rho0))
+    amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0_i,Phi) - gamma*rho0*T0_i*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
+    amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj
+    if (with_TiTe) then
       amat65 = (1.d0 + zeta)*v*rho*T0_i + tstep*theta*(v*Bv_pbrack(rho*T0_i,Phi0)/Bv2 - gamma*v*rho*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
              + D_perp*T0_i*gradgrad_perp(v,rho)) + ddTe_i_drho
       amat66 = (1.d0 + zeta)*v*rho0*T_i + tstep*theta*(v*Bv_pbrack(rho0*T_i,Phi0)/Bv2 - gamma*v*rho0*T_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
@@ -196,7 +218,7 @@ module mod_equations
              + dk_par_dT_i*T_i*B0_parderiv(v)*B0_parderiv(T0_i)/B2 + k_perp_num*Lap(v)*Lap(T_i) &
              + D_perp*T_i*gradgrad_perp(v,rho0) + ddTe_i_dT_i)
       amat67 = tstep*theta*ddTe_i_dT_e
-
+      
       amat71 = tstep*theta*((k_par_e - k_perp_e)*gradDgrad_par(v,T0_e) - D_perp*T0_e*gradDgrad_par(v,rho0))
       amat72 = tstep*theta*v*(Bv_pbrack(rho0*T0_e,Phi) - gamma*rho0*T0_e*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
       amat73 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj
@@ -207,84 +229,30 @@ module mod_equations
              + k_perp_e*gradprod(v,T_e) + (k_par_e - k_perp_e)*B0_parderiv(v)*B0_parderiv(T_e)/B2 &
              + dk_par_dT_e*T_e*B0_parderiv(v)*B0_parderiv(T0_e)/B2 + k_perp_num*Lap(v)*Lap(T_e) &
              + D_perp*T_e*gradgrad_perp(v,rho0) - v*reta*deta_dT*T_e*Bv2*zj0*zj0 - ddTe_i_dT_e)
-
-      rhs2e = Dexpand(deepcopy(rhs2))
-      rhs5e = Dexpand(deepcopy(rhs5))
-      rhs6e = Dexpand(deepcopy(rhs6))
-      rhs7e = Dexpand(deepcopy(rhs7))
-
-      amat22e = Dexpand(deepcopy(amat22)); amat24e = Dexpand(deepcopy(amat24)); amat25e = Dexpand(deepcopy(amat25)); 
-      amat26e = Dexpand(deepcopy(amat26)); amat27e = Dexpand(deepcopy(amat27))
-      amat31e = Dexpand(deepcopy(amat31))
-      amat52e = Dexpand(deepcopy(amat52)); amat55e = Dexpand(deepcopy(amat55))
-      amat62e = Dexpand(deepcopy(amat62)); amat65e = Dexpand(deepcopy(amat65)); amat66e = Dexpand(deepcopy(amat66));  
-      amat67e = Dexpand(deepcopy(amat67))
-      amat72e = Dexpand(deepcopy(amat72)); amat75e = Dexpand(deepcopy(amat75)); amat76e = Dexpand(deepcopy(amat76));
-      amat77e = Dexpand(deepcopy(amat77))
-    else     
-      ! --- RHS
-      rhs1 = tstep*v*((Bv_parderiv(Phi0) - Bv_pbrack(Psi0,Phi0))/Bv2 + eta*(zj0 - S_j)) + tstep*eta_num*inprod(v,zj0) + zeta*v*delta_Psi
-
-      rhs2 = -tstep*((Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - Bv_pbrack(v,Phi0)*rho0*w0/Bv2 - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0) &
-           + Bv_pbrack(v,rho0*T0))/Bv2 - v*Bv_parderiv(zj0) - v*Bv_pbrack(zj0,Psi0) + visco*inprod(v,w0) + visco_num*Lap(v)*Lap(w0)) &
-           - zeta*(rho0*inprod(v,delta_Phi) + delta_rho*inprod(v,Phi0))/Bv2
-
-      rhs3 = -Bv2*inprod(v,Psi0) - v*Bv2*zj0
-
-      rhs4 = -inprod(v,Phi0) - v*w0
-
-      rhs5 = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho0) - S_rho*v) + zeta*v*delta_rho
-
-      rhs6 = -tstep*(v*Bv_pbrack(rho0*T0,Phi0)/Bv2 - gamma*v*rho0*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T0) &
-           + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T0)/B2 + k_perp_num*Lap(v)*Lap(T0) + D_perp*T0*gradgrad_perp(v,rho0) &
-           - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T + T0*delta_rho)
-
-      ! --- RHS
-      amat11 = (1.d0 + zeta)*v*Psi + tstep*theta*v*Bv_pbrack(Psi,Phi0)/Bv2
-      amat12 = (-tstep*theta)*v*(Bv_parderiv(Phi) - Bv_pbrack(Psi0,Phi))/Bv2
-      amat13 = (-tstep*theta)*(eta*v*zj + eta_num*inprod(v,zj))
-      amat16 = (-tstep*theta)*v*deta_dT*T*zj0
-
-      amat21 = (-tstep*theta)*v*Bv_pbrack(zj0,Psi)
-      amat22 = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2 + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi) - rho0*w0*Bv_pbrack(v,Phi)/Bv2 &
-             - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0) - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2
-      amat23 = (-tstep*theta)*v*(Bv_parderiv(zj) + Bv_pbrack(zj,Psi0))
-      amat24 = -tstep*theta*rho0*w*Bv_pbrack(v,Phi0)/(Bv2*Bv2) + tstep*theta*(visco*inprod(v,w) + visco_num*Lap(v)*Lap(w))
-      amat25 = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2 + tstep*theta*(Bv_pbrack(rho/Bv2,v)*inprod(Phi0,Phi0)/2.d0 - rho*w0*Bv_pbrack(v,Phi0)/Bv2 &
-             - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0) + Bv_pbrack(v,rho*T0))/Bv2
-      amat26 = tstep*theta*Bv_pbrack(v,rho0*T)/Bv2 + tstep*theta*dvisco_dT*T*inprod(v,w0)
-
-      amat31 = theta*Bv2*inprod(v,Psi)
-      amat33 = theta*v*Bv2*zj
-
-#ifdef DEBUG
-      amat42 = theta*inprod(v,Phi) + 0.d0*one
-#else
-      amat42 = theta*inprod(v,Phi)
-#endif
-      amat44 = theta*v*w
-
-      amat51 = (-tstep*theta)*D_perp*gradDgrad_par(v,rho0)
-      amat52 = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)
-      amat55 = (1.d0 + zeta)*v*rho + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0) + D_perp*gradgrad_perp(v,rho))
-
-      amat61 = tstep*theta*((k_par - k_perp)*gradDgrad_par(v,T0) - D_perp*T0*gradDgrad_par(v,rho0))
-      amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0,Phi) - gamma*rho0*T0*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
-      amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj
+    else
       amat65 = (1.d0 + zeta)*v*rho*T0 + tstep*theta*(v*Bv_pbrack(rho*T0,Phi0)/Bv2 - gamma*v*rho*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
              + D_perp*T0*gradgrad_perp(v,rho))
       amat66 = (1.d0 + zeta)*v*rho0*T + tstep*theta*(v*Bv_pbrack(rho0*T,Phi0)/Bv2 - gamma*v*rho0*T*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
              + k_perp*gradprod(v,T) + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T)/B2 + dk_par_dT*T*B0_parderiv(v)*B0_parderiv(T0)/B2 &
              + k_perp_num*Lap(v)*Lap(T) + D_perp*T*gradgrad_perp(v,rho0) - v*reta*deta_dT*T*Bv2*zj0*zj0)
+    end if
 
-      rhs2e = Dexpand(deepcopy(rhs2))
-      rhs5e = Dexpand(deepcopy(rhs5))
-      rhs6e = Dexpand(deepcopy(rhs6))
+    rhs2e = Dexpand(deepcopy(rhs2))
+    rhs5e = Dexpand(deepcopy(rhs5))
+    rhs6e = Dexpand(deepcopy(rhs6))
+    if (with_TiTe) then
+      rhs7e = Dexpand(deepcopy(rhs7))
+    end if
 
-      amat22e = Dexpand(deepcopy(amat22)); amat24e = Dexpand(deepcopy(amat24)); amat25e = Dexpand(deepcopy(amat25)); amat26e = Dexpand(deepcopy(amat26))
-      amat31e = Dexpand(deepcopy(amat31))
-      amat52e = Dexpand(deepcopy(amat52)); amat55e = Dexpand(deepcopy(amat55))
-      amat62e = Dexpand(deepcopy(amat62)); amat65e = Dexpand(deepcopy(amat65)); amat66e = Dexpand(deepcopy(amat66))
+    amat22e = Dexpand(deepcopy(amat22)); amat24e = Dexpand(deepcopy(amat24)); amat25e = Dexpand(deepcopy(amat25)); amat26e = Dexpand(deepcopy(amat26))
+    amat31e = Dexpand(deepcopy(amat31))
+    amat52e = Dexpand(deepcopy(amat52)); amat55e = Dexpand(deepcopy(amat55))
+    amat62e = Dexpand(deepcopy(amat62)); amat65e = Dexpand(deepcopy(amat65)); amat66e = Dexpand(deepcopy(amat66))
+    if (with_TiTe) then
+      amat27e = Dexpand(deepcopy(amat27))
+      amat67e = Dexpand(deepcopy(amat67))
+      amat72e = Dexpand(deepcopy(amat72)); amat75e = Dexpand(deepcopy(amat75)); amat76e = Dexpand(deepcopy(amat76));
+      amat77e = Dexpand(deepcopy(amat77))
     end if
   
     ea_Bv2x = Dexpand(deepcopy(dx(a_Bv2))); ea_Bv2y = Dexpand(deepcopy(dy(a_Bv2))); ea_Bv2p = Dexpand(deepcopy(dp(a_Bv2)))

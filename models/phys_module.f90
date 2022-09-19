@@ -597,7 +597,9 @@ module phys_module
   real*8  :: Te_0           !< Central ion normalized temperature
   real*8  :: Te_1           !< SOL ion normalized temperature
   real*8  :: Te_coef(10)    !< Ion temperature profile coefficients
-  
+ 
+  real*8  :: t_rat          !< ratio between ion and electron temperature (model083) 
+
   !> @name Numerical input profile for the temperature
   character(len=512)  :: T_file          !< ASCII file the temperature profile is read from.
   logical             :: num_T           !< automatically set true if T_file /= 'none'
