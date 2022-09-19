@@ -1,0 +1,22 @@
+ *************************************************
+ *   3D Reduced MHD : JOREK_2.0                  *
+ *************************************************
+  MPI processes       :            3
+  OpenMP threads      :           13
+  GIT revision        : v2.21.12.0-206-gfa2ed201f-dirty
+  GIT revision label  : 
+ model183 and model083 are compiling and have two temperature option (HEAD -> fe
+ ature/two_temperatures_Te_Ti, origin/feature/two_temperatures_Te_Ti)
+  GIT revision time   : Mon Sep 19 09:33:38 2022 +0200
+  compile_user        : tscha
+  compile_machine     : cobra02
+  compile_dir         : /u/tscha/jorek
+  compile_command     : mpiifort
+  compile_flags       : -g -O0 -xCORE-AVX512  -diag-disable 8889 -qopenmp -align -warn all -warn nointerfaces -warn nounused -fpp -r8 -module .mod  -lstdc++
+  compile_includes    : -I.mod -I/mpcdf/soft/SLE_12/packages/skylake/fftw/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/3.3.8/include -I/u/ihol/bin/pastix_5.2.3/src/../install -I/mpcdf/soft/SLE_12/packages/x86_64/intel_parallel_studio/2020.1/mkl/include -I/mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/include -Itools  -Imodels
+  compile_defines     : -DJOREK_MODEL=083 -DUSE_MPI -DSEMIANALYTICAL -DWITH_TiTe -DMODEL_FAMILY -DUSE_FFTW -DUSE_PASTIX -DMEMORY_USAGE -DUSE_HDF5 -DUSE_BLOCK
+  compile_libs        : /mpcdf/soft/SLE_12/packages/skylake/fftw/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/3.3.8/lib/libfftw3.a -L/u/ihol/bin/pastix_5.2.3/src/../install -lpastix -lifcore -lm -lrt -L/u/ihol/bin/scotch_5.1.12/lib -lscotch -lscotcherrexit -L/u/ihol/bin/scotch_5.1.12/lib -lptscotch -lscotcherrexit -lpthread -L/mpcdf/soft/SLE_12/packages/x86_64/intel_parallel_studio/2020.1/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core  /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5hl_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_hl.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5.a -lz -lstdc++
+  compile_modules     : git/2.35:gnuplot/5.4:mkl/2020.1:intel/19.1.1:impi/2019.7:anaconda/3/2020.02:hdf5-mpi/1.8.21:netcdf-mpi/4.7.0:petsc-real/3.13.5:gsl/2.4:fftw-mpi/3.3.8
+  #MPI id, ProcessorName     0: co5410                                                                                                                         
+  #MPI id, ProcessorName     1: co5410                                                                                                                         
+  #MPI id, ProcessorName     2: co5410                                                                                                                         

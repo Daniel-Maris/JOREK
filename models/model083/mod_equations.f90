@@ -86,12 +86,16 @@ module mod_equations
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
 
     rhs1 = (-Bv2)*inprod(v,Psi0)
+    
+    write(*,*) 'check condition'
 
     rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
          - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
     if (with_TiTe) then
+      write(*,*) 'condition accepted'
       rhs6 = v*(t_rat*p0_gvec/rho0 - T0_i)
       rhs7 = v*((1-t_rat)*p0_gvec/rho0 - T0_e)
+      write(*,*) 't_rat=', t_rat
     else
       rhs6 = v*(p0_gvec/rho0 - T0)
     end if

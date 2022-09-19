@@ -222,11 +222,11 @@ do ms=1, n_gauss
      eq(1:n_var,1,0,1,1) = eq_px - x_p_x*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,2,0,0,1) - y_p_x*eq(1:n_var,0,1,0,1) - y_p(mp,ms,mt)*eq(1:n_var,1,1,0,1)
      eq(1:n_var,0,1,1,1) = eq_py - x_p_y*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,1,1,0,1) - y_p_y*eq(1:n_var,0,1,0,1) - y_p(mp,ms,mt)*eq(1:n_var,0,2,0,1)
 
-     eq(n_var+3,:,:,:,1) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi)  ! Vacuum scalar magnetic potential (chi) and field (grad chi)
-     eq(n_var+4,0,0,0,1) = x_g(mp,ms,mt); eq(n_var+4,1,0,0,1) = 1.d0 ! Cylindrical R coordinate
+     eq(10,:,:,:,1) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi)  ! Vacuum scalar magnetic potential (chi) and field (grad chi)
+     eq(11,0,0,0,1) = x_g(mp,ms,mt); eq(n_var+4,1,0,0,1) = 1.d0 ! Cylindrical R coordinate
      
-     eq(n_var+5,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
-     eq(n_var+6:n_var+8,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
+     eq(15,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
+     eq(12:14,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
      
      psi_norm = get_psi_n(eq(1,0,0,0,1), y_g(mp,ms,mt))
      
@@ -236,8 +236,8 @@ do ms=1, n_gauss
 
      ! Auxiliary variables (aux)
 #ifdef DEBUG
-     eq(n_var+9,0,0,0,:) = eval(thread_eq(tid)%aBv2seq);  eq(n_var+9,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-     eq(n_var+9,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(n_var+9,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
+     eq(17,0,0,0,:) = eval(thread_eq(tid)%aBv2seq);  eq(17,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
+     eq(17,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(17,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
 #else
 #include "aux_unreadable.h"
 #endif
@@ -295,7 +295,7 @@ do ms=1, n_gauss
            rhs_ij_3 = rhs_ij_3*BigR*xjac
            rhs_ij_6 = rhs_ij_6*BigR*xjac
            if (with_TiTe) then
-           rhs_ij_7 = rhs_ij_7*BigR*xjac
+             rhs_ij_7 = rhs_ij_7*BigR*xjac
            end if
 #endif
 
