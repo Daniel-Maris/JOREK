@@ -397,6 +397,8 @@ write(*,'(1x,a)',advance='no') ' USE_BICGSTAB : '
       write(*,REAL_FMT) 'Ti_0                   ', Ti_0
       write(*,REAL_FMT) 'Ti_1                   ', Ti_1
       write(*,REAL_FMT) 'Ti_coef                ', Ti_coef(1:5)
+
+      write(*,REAL_FMT) 't_rat                  ', t_rat
     else
       write(*,CHAR_FMT) 'Ti_file                ', trim(Ti_file)
     end if

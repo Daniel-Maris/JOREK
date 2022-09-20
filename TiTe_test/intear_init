@@ -16,7 +16,6 @@
  keep_current_prof = .f.
  fix_axis_nodes = .t.
  bc_natural_open = .t.
- with_TiTe = .t.
 
  F0    = 4.72593206453746
  t_rat = 0.6

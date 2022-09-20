@@ -225,6 +225,8 @@ subroutine preset_parameters
   ZK_prof_neg_thresh = 0.d0 ! default is zero for keeping the old behavior
   ZK_par_neg_thresh  = 0.d0
 
+  t_rat = 0.6
+
   ne_SI_min          = 1.d18
   Te_eV_min          = 5.
   rn0_min            = 1.d-8

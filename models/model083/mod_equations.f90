@@ -51,6 +51,7 @@ module mod_equations
   type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=15)
  ! Auxiliary variables (aux)
   type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=17)
+  type(const), private :: rat !> temperature ratio ions/electrons
 
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6, rhs7
   type(algexpr), private :: amat11, amat12, amat13, amat16, amat17
@@ -75,13 +76,14 @@ module mod_equations
 
   type(type_thread_eq), dimension(:), allocatable, target :: thread_eq
 
-  real*8    :: t_rat !> defines ratio of ion to electron temperature
- 
   contains
 
   subroutine init_equations()
-    implicit none
+    use phys_module, only: t_rat
 
+    implicit none
+ 
+    rat = const(value = t_rat,   token = "t_rat") !> ratio between ion and electron temperature
 
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
 
@@ -93,13 +95,12 @@ module mod_equations
          - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
     if (with_TiTe) then
       write(*,*) 'condition accepted'
-      rhs6 = v*(t_rat*p0_gvec/rho0 - T0_i)
-      rhs7 = v*((1-t_rat)*p0_gvec/rho0 - T0_e)
+      rhs6 = v*(rat*p0_gvec/rho0 - T0_i)
+      rhs7 = v*((1.0-rat)*p0_gvec/rho0 - T0_e)
       write(*,*) 't_rat=', t_rat
     else
       rhs6 = v*(p0_gvec/rho0 - T0)
     end if
-
     amat11 = Bv2*inprod(v,Psi)
     amat13 = v*Bv2*zj
 
@@ -211,7 +212,7 @@ module mod_equations
     character(7),  allocatable, intent(out) :: varnames(:)
 
     if (with_TiTe) then
-      n_amat = 7
+      n_amat = 8
       allocate(amat(n_amat), varnames(n_amat))
       amat = (/ amat11,         amat13, &
                         amat22, &
@@ -253,7 +254,7 @@ module mod_equations
     character(2) :: num
 
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
-    varnames = (/ "eq(15,0,0,0,:)", "eq(15,1,0,0,:)", "eq(15,0,1,0,:)", "eq(15,0,0,1,:)" /)
+    varnames = (/ "eq(17,0,0,0,:)", "eq(17,1,0,0,:)", "eq(17,0,1,0,:)", "eq(17,0,0,1,:)" /)
   end subroutine get_aux
 
   type(algexpr) function Bv_pbrack(a,b)
