@@ -1,0 +1,465 @@
+ *************************************************
+ *   3D Reduced MHD : JOREK_2.0                  *
+ *************************************************
+  MPI processes       :            3
+  OpenMP threads      :           13
+  GIT revision        : v2.21.12.0-208-g35b73cc76-dirty
+  GIT revision label  : 
+ 083 is now running (HEAD -> feature/two_temperatures_Te_Ti, origin/feature/two_
+ temperatures_Te_Ti)
+  GIT revision time   : Tue Sep 20 14:15:21 2022 +0200
+  compile_user        : tscha
+  compile_machine     : cobra02
+  compile_dir         : /u/tscha/jorek
+  compile_command     : mpiifort
+  compile_flags       : -g -O0 -xCORE-AVX512  -diag-disable 8889 -qopenmp -align -warn all -warn nointerfaces -warn nounused -fpp -r8 -module .mod  -lstdc++
+  compile_includes    : -I.mod -I/mpcdf/soft/SLE_12/packages/skylake/fftw/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/3.3.8/include -I/u/ihol/bin/pastix_5.2.3/src/../install -I/mpcdf/soft/SLE_12/packages/x86_64/intel_parallel_studio/2020.1/mkl/include -I/mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/include -Itools  -Imodels
+  compile_defines     : -DJOREK_MODEL=183 -DUSE_MPI -DSEMIANALYTICAL -DMODEL_FAMILY -DUSE_FFTW -DUSE_PASTIX -DMEMORY_USAGE -DUSE_HDF5 -DUSE_BLOCK
+  compile_libs        : /mpcdf/soft/SLE_12/packages/skylake/fftw/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/3.3.8/lib/libfftw3.a -L/u/ihol/bin/pastix_5.2.3/src/../install -lpastix -lifcore -lm -lrt -L/u/ihol/bin/scotch_5.1.12/lib -lscotch -lscotcherrexit -L/u/ihol/bin/scotch_5.1.12/lib -lptscotch -lscotcherrexit -lpthread -L/mpcdf/soft/SLE_12/packages/x86_64/intel_parallel_studio/2020.1/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core  /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5hl_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_hl.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5.a -lz -lstdc++
+  compile_modules     : git/2.35:gnuplot/5.4:mkl/2020.1:intel/19.1.1:impi/2019.7:anaconda/3/2020.02:hdf5-mpi/1.8.21:netcdf-mpi/4.7.0:petsc-real/3.13.5:gsl/2.4:fftw-mpi/3.3.8
+  #MPI id, ProcessorName     1: co6217                                                                                                                         
+  #MPI id, ProcessorName     2: co6217                                                                                                                         
+  #MPI id, ProcessorName     0: co6217                                                                                                                         
+ *************************************
+ *        Broadcast_phys             *
+   Buffer usage: 1205548 of 2500000
+ *************************************
+ 
+ *******************************************************************************
+ * Preprocessor Options                                                        *
+ *******************************************************************************
+  USE_MUMPS           :  off
+  USE_FFTW            :  on
+  USE_PASTIX          :  on
+  USE_WSMP            :  off
+  USE_HIPS            :  off
+  USE_BLOCK           :  on
+  USE_HDF5            :  on
+  MEMTRACE            :  off
+  JECCD               :  off
+  COMPARE_ELEMENT_MATRIX :  off
+  CONSTRUCT_MATRIX_OMP_ATOMIC :  off
+  PRINT_ELM_RHS :  off
+  DIRECT_CONSTRUCTION :  off
+  USE_COMPLEX_PRECOND          :  off
+  GAUSS_ORDER :  Preprocessor flag not set. Thus, n_gauss=           4
+  USE_BICGSTAB :  off
+ 
+ *******************************************************************************
+ * Hard-Coded Parameters:                                                      *
+ *******************************************************************************
+ jorek_model    =           183
+ n_var          =             6
+ variable_names = Psi u zj omega rho T
+ n_dim          =             2
+ n_order        =             3
+ n_tor          =             5
+ n_coord_tor    =            21
+ l_pol_domm     =             9
+ n_period       =             5
+ n_coord_period =             5
+ n_plane        =             8
+ n_vertex_max   =             4
+ n_nodes_max    =         60001
+ n_elements_max =         60001
+ n_boundary_max =          1001
+ n_pieces_max   =          6001
+ n_degrees      =             4
+ nref_max       =            10
+ n_ref_list     =            10
+ 
+ *******************************************************************************
+ * NAMELIST INPUT PARAMETERS                                                   *
+ *******************************************************************************
+ time_evol_scheme       = "implicit Euler"
+ n_tor_fft_thresh       =            2
+   => fft version of element_matrix is used
+ tstep                  =   1.0000E+00
+ nstep                  =           21
+ tstep_n                =   3.0000E-01  1.0000E+00  1.0000E+00  1.0000E+00  1.0000E+00  1.0000E+00  1.0000E+00  1.0000E+00  1.0000E+00  1.0000E+00
+ nstep_n                =           20           1           0           0           0           0           0           0           0           0
+ eta_T_dependent        =            F
+ eta                    =   1.0000E-07
+ eta_ohmic              =   0.0000E+00
+ eta_Spitzer (not input parameter; printed for reference in JOREK units) =   2.9557E-02
+ T_max_eta              =   1.0000E+03
+ T_max_eta_ohm          =   1.0000E+03
+ visco_T_dependent      =            F
+ visco                  =   0.0000E+00
+ visco_par              =   1.0000E-05
+ restart                =            T
+ rst_format             =            0
+ rst_hdf5               =            1
+ rst_hdf5_version       =            2
+ regrid                 =            F
+ write_ps               =            T
+ n_R                    =            0
+ n_Z                    =            0
+ n_radial               =           11
+ n_pol                  =           16
+ psi_axis_init          =  -1.0000E-01
+ xr_r                   =   9.9900E+02  9.9900E+02
+ sig_r                  =   9.9900E+02  9.9900E+02
+ xr_tht                 =   9.9900E+02  9.9900E+02
+ sig_tht                =   9.9900E+02  9.9900E+02
+ xr_z                   =   9.9900E+02  9.9900E+02
+ sig_z                  =   9.9900E+02  9.9900E+02
+ bgf_r                  =   7.0000E-01
+ bgf_z                  =   7.0000E-01
+ n_tht                  =           72
+ n_tht_equidistant      =            F
+ n_flux                 =           61
+ xpoint                 =            F
+ m_pol_bc               =            1
+ i_plane_rtree          =            1
+ nout                   =            1
+ xr1                    =   9.9990E+03
+ sig1                   =   9.9990E+03
+ xr2                    =   9.9999E+04
+ sig2                   =   9.9999E+04
+ R_begin                =  -1.0000E-01
+ R_end                  =   1.0000E-01
+ Z_begin                =  -1.0000E-01
+ Z_end                  =   1.0000E-01
+ rect_grid_vac_psi      =   0.0000E+00
+ R_geo                  =   1.0000E+01
+ Z_geo                  =   0.0000E+00
+ amin                   =   1.0000E+00
+ mf                     =            2
+ fbnd                   =   2.0000E+00  0.0000E+00
+ fpsi                   =   0.0000E+00  0.0000E+00
+ F0                     =   4.7259E+00
+ zjz_0                  =   1.1730E-01
+ zjz_1                  =   0.0000E+00
+ zj_coef                =  -1.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+ FF_0                   =   1.0000E+00
+ FF_1                   =   0.0000E+00
+ FF_coef                =  -1.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+ rho_0                  =   1.0000E+00
+ rho_1                  =   1.0000E+00
+ rho_coef               =   0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+ V_0                    =   0.0000E+00
+ V_1                    =   0.0000E+00
+ V_coeff                =   0.0000E+00  0.0000E+00  0.0000E+00  1.0000E-01  1.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+ domm_file              = "dc_W7A_unst_10kPa                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "
+ R_domm                 =   1.9905E+00
+ T_0                    =   1.0000E-06
+ T_1                    =   1.0000E-08
+ T_coef                 =  -1.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+ ZK_perp                =   0.0000E+00  0.0000E+00  0.0000E+00  9.9000E+01  9.9000E+01  0.0000E+00
+ ZK_par                 =   0.0000E+00
+ ZK_par_max             =   1.0000E+20
+ ZK_par_SpitzerHaerm (not input parameter; printed for reference in JOREK units) =   1.6394E-08
+ ZKpar_T_dependent      =            F
+ heatsource             =   0.0000E+00
+ heatsource_psin        =   1.0000E+00
+ heatsource_sig         =   1.0000E-01
+ heatsource_gauss       =   0.0000E+00
+ heatsource_gauss_psin  =   9.0000E-01
+ heatsource_gauss_sig   =   1.0000E-01
+ D_par                  =   0.0000E+00
+ D_perp                 =   0.0000E+00  0.0000E+00  0.0000E+00  9.9000E+01  9.9000E+01  0.0000E+00
+ particlesource         =   0.0000E+00
+ particlesource_psin    =   1.0000E+02
+ particlesource_sig     =   1.0000E-01
+ edgeparticlesource     =   0.0000E+00
+ edgeparticlesource_psin =   9.8000E-01
+ edgeparticlesource_sig =   1.0000E-02
+ particlesource_gauss   =   0.0000E+00
+ particlesource_gauss_psin =   9.0000E-01
+ particlesource_gauss_sig  =   1.0000E-01
+ gamma                  =   1.6667E+00
+ tauIC                  =   0.0000E+00
+ tauIC_nominal (not input parameter; printed for reference in JOREK units) =   3.4071E-03
+ Wdia                   =            F
+ eta_num                =   0.0000E+00
+ eta_num_T_dependent    =            F
+ visco_num              =   2.5000E-15
+ visco_num_T_dependent  =            F
+ visco_par_num          =   0.0000E+00
+ D_perp_num             =   0.0000E+00
+ Dn_perp_num            =   0.0000E+00
+ ZK_perp_num            =   0.0000E+00
+ tgnum                  =   0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+ tgnum_psi              =   0.0000E+00
+ tgnum_u                =   0.0000E+00
+ tgnum_zj               =   0.0000E+00
+ tgnum_w                =   0.0000E+00
+ tgnum_rho              =   0.0000E+00
+ tgnum_T                =   0.0000E+00
+ tgnum_vpar             =   0.0000E+00
+ tgnum_rhon             =   0.0000E+00
+ tgnum_nre              =   0.0000E+00
+ tgnum_AR               =   0.0000E+00
+ tgnum_AZ               =   0.0000E+00
+ tgnum_A3               =   0.0000E+00
+ keep_current_prof      =            T
+ init_current_prof      =            T
+ current_prof_initialized =            F
+ linear_run             =            F
+ D_prof_neg             =   1.0000E-05
+ D_prof_neg_thresh      =   0.0000E+00
+ ZK_prof_neg            =   1.0000E-05
+ ZK_par_neg             =   1.0000E-03
+ ZK_prof_neg_thresh     =   0.0000E+00
+ ZK_par_neg_thresh      =   0.0000E+00
+ D_imp_extra_R          =   0.0000E+00
+ D_imp_extra_Z          =   0.0000E+00
+ D_imp_extra_p          =   0.0000E+00
+ D_imp_extra_neg        =   1.0000E-06
+ D_imp_extra_neg_thresh =  -1.0000E+03
+ T_min                  =   1.0000E-20
+ ne_SI_min              =   1.0000E+18
+ Te_eV_min              =   5.0000E+00
+ rn0_min                =   1.0000E-08
+ rho_min                =   1.0000E-20
+ use_pellet             =            F
+ corr_neg_temp_coef     =   5.0000E-01  5.0000E-01
+ corr_neg_dens_coef     =   5.0000E-01  5.0000E-01
+ tokamak_device         = "none"
+ ellip                  =   1.0000E+00
+ tria_u                 =   0.0000E+00
+ tria_l                 =   0.0000E+00
+ quad_u                 =   0.0000E+00
+ quad_l                 =   0.0000E+00
+ xampl                  =   0.0000E+00
+ xwidth                 =   0.0000E+00
+ xsig                   =   1.0000E+00
+ xtheta                 =   0.0000E+00
+ xshift                 =   0.0000E+00
+ xleft                  =   0.0000E+00
+ R_Z_psi_bnd_file       = "none"
+ wall_file              = "none"
+ n_boundary             =            0
+ n_limiter              =            0
+ freeboundary_equil     =            F
+ freeboundary           =            F
+ freeb_change_indices   =            T
+ amix                   =   0.0000E+00
+ equil_accuracy         =   1.0000E-06
+ axis_srch_radius       =   9.9000E+01
+ delta_psi_GS           =   1.0000E+04
+ newton_GS_fixbnd       =            F
+ newton_GS_freebnd      =            T
+ Q_bar                  =   0.0000E+00
+ sigma                  =   0.0000E+00
+ density_reflection     =   0.0000E+00
+ central_density        =   1.0000E+00
+ central_mass           =   2.0000E+00
+ gamma_sheath           =   4.5000E+00
+ gamma_stangeby         =  -1.0000E+99
+ vpar_smoothing         =            F
+ min_sheath_angle       =   1.0000E+00
+ bc_natural_open        =            F
+ produce_live_data      =            T
+ export_for_nemec       =            F
+ keep_n0_const          =            F
+ gmres                  =            T
+ gmres_max_iter         =          400
+ gmres tolerance        =   1.0000E-08
+ iter_precon            =           22
+ max_steps_noUpdate     =     10000000
+ gmres_m                =         1000
+ gmres_4                =   1.0000E+00
+ centralize_harm_mat    =            T
+ use_mumps              =            F
+ use_wsmp               =            F
+ use_pastix             =            T
+ use_strumpack          =            F
+ use_mumps_eq           =            F
+ use_pastix_eq          =            T
+ use_strumpack_eq       =            F
+ pastix_smp_only        =            F
+ pastix_pivot           =   1.0000E-64
+ pastix_maxthrd         =         1024
+ refinement             =            F
+ force_central_node     =            T
+ fix_axis_nodes         =            T
+ grid_to_wall           =            F
+ adaptive_time          =            F
+ equil                  =            T
+ bench_without_plot     =            F
+ no_zeros_mumps         =            F
+ no_zeros_pastix        =            F
+ mach_one_bnd_integral  =            F
+ deuterium_adas         =            F
+ deuterium_adas_1e20    =            F
+ old_deuterium_atomic   =            F
+ no_mach1_bc            =            F
+ use_BLR_compression    =            F
+ n_pfc                  =            0
+ n_jropes               =            0
+ RMP_on                 =            F
+ output_bnd_elements    =            F
+ bootstrap              =            F
+ NEO                    =            F
+ restart_particles    =            F
+ n_particles          =   0.0000E+00
+ nstep_particles      =            0
+ nsubstep_particles   =            1
+ tstep_particles      =   1.0000E-09
+ filter_perp,         =   0.0000E+00
+ filter_hyper,        =   1.0000E-10
+ filter_par,          =   0.0000E+00
+ filter_perp_n0,      =   0.0000E+00
+ filter_hyper_n0,     =   1.0000E-10
+ filter_par_n0,       =   0.0000E+00
+ use_ncs,             =            F
+ use_ccs,             =            F
+ use_pcs,             =            F
+ use_ionisation,      =            T
+ use_sputtering,      =            F
+ use_cx,              =            T
+ 
+ *******************************************************************************
+ * NORMALIZATION FACTORS                                                       *
+ *******************************************************************************
+ sqrt(mu0*rho0)       =   6.4836E-07
+ sqrt(mu0/rho0)       =   1.9382E+00
+ 
+ WARNING: The resistivity eta and the resistivity used for Ohmic heating 
+   eta_ohm are not the same. No problem if you know what you are doing,  
+   but with this setup you are not conserving energy.   
+ WARNING: The resistivity eta and the resistivity used for Ohmic heating 
+   eta_ohm are not the same. No problem if you know what you are doing,  
+   but with this setup you are not conserving energy.   
+ WARNING: The resistivity eta and the resistivity used for Ohmic heating 
+   eta_ohm are not the same. No problem if you know what you are doing,  
+   but with this setup you are not conserving energy.   
+  Restart from HDF5 file jorek_restart.h5
+ Importing HDF5 restart file "jorek_restart.h5".
+ Restart file has rst_hdf5_version=           2
+  OLD format (0) : 
+ previous modenumbers :    0   5   5  10  10
+ new mode numbers     :    0   5   5  10  10
+ ************* restart ******************
+ *  restart time :      1      1.000000 *
+ ****************************************
+ Initializing RTree
+ 
+   -----------------------------------------------------------------------------
+   BOUNDARY INFORMATION:
+   -----------------------------------------------------------------------------
+     n_bnd_elements=        72
+     n_bnd_nodes   =        72
+   -----------------------------------------------------------------------------
+ 
+  
+  The equilibrium state has been updated 
+ *********************************
+ *    Determine Boundary Flux    *
+ *********************************
+ Max n.B:   3.826342984469683E-004
+ Integrated abs(n.B):   1.697630402590841E-003 Tm^2
+ Total Boundary Flux:  -3.504791640442128E-014 Tm^2
+ *************************************
+ *        Broadcast_phys             *
+   Buffer usage: 1205548 of 2500000
+ *************************************
+ Initializing RTree
+ Initializing RTree
+ Initializing RTree
+ 
+ Number of grid nodes    / Max:         4392       60001
+ Number of grid elements / Max:         4320       60001
+ 
+ R range of grid nodes:    1.88590000000015        2.09589999999993     
+ Z range of grid nodes:  -0.103999999999903       0.103999999999903     
+ Number of nodes per boundary type:
+ type           0 :         4320  nodes
+ type           2 :           72  nodes
+ 
+   -----------------------------------------------------------------------------
+   BOUNDARY INFORMATION:
+   -----------------------------------------------------------------------------
+     n_bnd_elements=        72
+     n_bnd_nodes   =        72
+   -----------------------------------------------------------------------------
+ 
+ Initializing RTree
+ Initializing RTree
+ Initializing RTree
+ *************************************
+ *        Broadcast_phys             *
+   Buffer usage: 1205548 of 2500000
+ *************************************
+ 
+ ==============================================================
+ Plasma_type        = Limiter Plasma
+ Psi_axis           = Minimum
+ Psi_bnd            =  -0.00229
+ --- Magnetic Axis --------------------------------------------
+ R_axis             =   2.01335
+ Z_axis             =   0.00043
+ Psi_axis           =  -0.00627
+ i_elm_axis         =       505
+ s_axis             =   0.58598
+ t_axis             =   0.37836
+ ifail_axis         =         0
+ --- Limiter Point --------------------------------------------
+ R_lim              =   2.09590
+ Z_lim              =   0.00000
+ Psi_lim            =  -0.00229
+ i_elm_lim          =      4249
+ s_lim              =   1.00000
+ t_lim              =   0.00000
+ ifail_lim          =        99
+ --- Boundary point (point defining LCFS) -------------------------
+ R_bnd              =   2.09590
+ Z_bnd              =   0.00000
+ Psi_bnd            =  -0.00229
+ i_elm_bnd          =      4249
+ s_bnd              =   1.00000
+ t_bnd              =   0.00000
+ ifail_bnd          =        99
+ --- Midplane Points ------------------------------------------
+ R_midpl1           =   1.89996
+ R_midpl2           =   2.08262
+ ==============================================================
+ 
+ ranks_per_family           1           1           1
+ my_id, my_id_n           2           0
+ my_family_id:           3 my_mode_set:           4           5
+ mode_families_ranks           1           0
+ mode_families_ranks           2           1
+ mode_families_ranks           3           2
+ my_id, my_id_n           0           0
+ my_family_id:           1 my_mode_set:           1
+ ************************************
+ * distributing nodes global matrix *
+ ************************************
+ my_id, my_id_n           1           0
+ my_family_id:           2 my_mode_set:           2           3
+ **********************************
+ * global_matrix_structure        *
+ **********************************
+     2     0 size matrices : n, nz =               174990           185878800
+     1     0 size matrices : n, nz =               174960           188956800
+     0     0 size matrices : n, nz =               174960           186138900
+ my_family_id my_row_factor           1   1.00000000000000     
+ my_family_id my_row_factor           3  0.000000000000000E+000
+ my_family_id my_row_factor           2  0.000000000000000E+000
+ ******************************************************
+ *   time step :       1      1      2       0.30000       1.00000  *
+ ******************************************************
+ 
+ ==============================================================
+ Plasma_type        = Limiter Plasma
+ Psi_bnd            =  -0.00229
+ --- Magnetic Axis --------------------------------------------
+ R_axis             =   2.01335
+ Z_axis             =   0.00043
+ Psi_axis           =  -0.00627
+ --- Limiter Point --------------------------------------------
+ R_lim              =   2.09590
+ Z_lim              =   0.00000
+ Psi_lim            =  -0.00229
+ --- Boundary point (point defining LCFS) -------------------------
+ R_bnd              =   2.09590
+ Z_bnd              =   0.00000
+ Psi_bnd            =  -0.00229
+ ==============================================================
+ 
+ ****************************************
+ *  construct global matrix             *
+ ****************************************

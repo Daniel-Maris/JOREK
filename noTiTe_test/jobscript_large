@@ -1,0 +1,23 @@
+#!/bin/bash -l
+#SBATCH -D ./
+#SBATCH -J jorek_test
+#SBATCH --partition=general
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=11
+#SBATCH --cpus-per-task=3
+#SBATCH --time=23:55:00
+#SBATCH --mem=320000
+
+module list |&tee modules
+
+export OMP_NUM_THREADS=3
+export OMP_PLACES=cores
+
+#cp ./restart/jorek_restart.h5 .
+#wait
+srun ../jorek_model183 < namelist_eccd3  > logfile_w7x_eccd2_new2.out
+#wait
+#cp jorek_restart.h5 ./restart/
+#wait
+
+scontrol show job $SLURM_JOB_ID
