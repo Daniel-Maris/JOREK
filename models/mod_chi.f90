@@ -341,8 +341,10 @@ module mod_chi
     real*8                                     :: phi
     type (type_element)                        :: element
     type (type_node)                           :: nodes(n_vertex_max)
-    
+ 
+    write (*,*) 
     write (*,*) "Storing vacuum field on gaussian points..."
+    write (*,*) 
     if (.not. domm_initialised) then
       write(*,*) "Cannot comput vacuum field because Dommaschk potentials have not been initialised!"
       stop
