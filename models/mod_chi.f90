@@ -346,7 +346,7 @@ module mod_chi
     write (*,*) "Storing vacuum field on gaussian points..."
     write (*,*) 
     if (.not. domm_initialised) then
-      write(*,*) "Cannot comput vacuum field because Dommaschk potentials have not been initialised!"
+      write(*,*) "Cannot compute vacuum field because Dommaschk potentials have not been initialised!"
       stop
     endif
     
