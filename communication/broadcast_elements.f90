@@ -35,7 +35,7 @@ call MPI_PACK_SIZE(1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,IDBL_EXT,ierr)
 #if STELLARATOR_MODEL
 bufsize = element_list%n_elements * ((2*n_vertex_max+8+5)*INT_EXT + n_vertex_max*(n_order+1)*IDBL_EXT + n_plane*(n_order)*(n_order)*(n_order)*n_gauss*n_gauss*IDBL_EXT)
 #else
-bufsize = element_list%n_elements * ((2*n_vertex_max+8+5)*INT_EXT + n_vertex_max*(n_order+1)*IDBL_EXT
+bufsize = element_list%n_elements * ((2*n_vertex_max+8+5)*INT_EXT + n_vertex_max*(n_order+1)*IDBL_EXT)
 #endif
 
 allocate(buffer(bufsize))
