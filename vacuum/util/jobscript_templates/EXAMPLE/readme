@@ -1,3 +1,0 @@
-Example for the application of prepare_run.sh script.
-
-Execute '../../prepare_run.sh config.run' to generate the binaries, input files and job scripts.

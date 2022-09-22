@@ -6,13 +6,14 @@ module mod_equations
 
   type type_thread_eq
 #ifdef DEBUG
-    type(action), dimension(:), allocatable :: rhs1seq, rhs3seq, rhs6seq
+    type(action), dimension(:), allocatable :: rhs1seq, rhs3seq, rhs6seq, rhs7seq
     type(action), dimension(:), allocatable :: amat11seq, amat13seq
     type(action), dimension(:), allocatable :: amat22seq
     type(action), dimension(:), allocatable :: amat33seq
     type(action), dimension(:), allocatable :: amat44seq
     type(action), dimension(:), allocatable :: amat55seq
     type(action), dimension(:), allocatable :: amat66seq
+    type(action), dimension(:), allocatable :: amat77seq
     type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq
 #endif
 
@@ -31,16 +32,16 @@ module mod_equations
   type(algexpr), parameter, private :: T0_i       = algexpr(basic=.true.,var=6)
   type(algexpr), parameter, private :: T0_e       = algexpr(basic=.true.,var=7)
   ! Test function
-  type(algexpr), parameter, private :: v          = algexpr(basic=.true.,var=n_var+1)
+  type(algexpr), parameter, private :: v          = algexpr(basic=.true.,var=8)
   ! Unknowns
-  type(algexpr), parameter, private :: Psi        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: Phi        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: zj         = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=n_var+2)
+  type(algexpr), parameter, private :: Psi        = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: Phi        = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: zj         = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=9)
+  type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=9)
   ! Other quantities
   type(algexpr), parameter, private :: chi        = algexpr(basic=.true.,var=10)
   type(algexpr), parameter, private :: R          = algexpr(basic=.true.,var=11)
@@ -50,7 +51,7 @@ module mod_equations
   type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=14)
   type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=15)
  ! Auxiliary variables (aux)
-  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=17)
+  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=16)
   type(const), private :: rat !> temperature ratio ions/electrons
 
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6, rhs7
@@ -88,19 +89,16 @@ module mod_equations
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
 
     rhs1 = (-Bv2)*inprod(v,Psi0)
-    
-    write(*,*) 'check condition'
 
     rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
          - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
     if (with_TiTe) then
-      write(*,*) 'condition accepted'
       rhs6 = v*(rat*p0_gvec/rho0 - T0_i)
       rhs7 = v*((1.0-rat)*p0_gvec/rho0 - T0_e)
-      write(*,*) 't_rat=', t_rat
     else
       rhs6 = v*(p0_gvec/rho0 - T0)
     end if
+
     amat11 = Bv2*inprod(v,Psi)
     amat13 = v*Bv2*zj
 
@@ -130,7 +128,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(17,0:n_order-1,0:n_order-1,0:n_order-1,4))
+        allocate(thread_eq(i)%eq(16,0:n_order-1,0:n_order-1,0:n_order-1,4))
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
@@ -143,7 +141,7 @@ module mod_equations
         allocate(thread_eq(i)%amat44seq(countsubexprs(amat44)))
         allocate(thread_eq(i)%amat55seq(countsubexprs(amat55)))
         allocate(thread_eq(i)%amat66seq(countsubexprs(amat66)))
-        allocate(thread_eq(i)%amat66seq(countsubexprs(amat77)))
+        allocate(thread_eq(i)%amat77seq(countsubexprs(amat77)))
         allocate(thread_eq(i)%aBv2seq(countsubexprs(a_Bv2)))
         allocate(thread_eq(i)%aBv2xseq(countsubexprs(ea_Bv2x)))
         allocate(thread_eq(i)%aBv2yseq(countsubexprs(ea_Bv2y)))
@@ -254,7 +252,7 @@ module mod_equations
     character(2) :: num
 
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
-    varnames = (/ "eq(17,0,0,0,:)", "eq(17,1,0,0,:)", "eq(17,0,1,0,:)", "eq(17,0,0,1,:)" /)
+    varnames = (/ "eq(16,0,0,0,:)", "eq(16,1,0,0,:)", "eq(16,0,1,0,:)", "eq(16,0,0,1,:)" /)
   end subroutine get_aux
 
   type(algexpr) function Bv_pbrack(a,b)

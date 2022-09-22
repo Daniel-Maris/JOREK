@@ -367,3 +367,3334 @@
  *********************************
  *    Determine Boundary Flux    *
  *********************************
+ Max n.B:   3.826342984392453E-004
+ Integrated abs(n.B):   1.697630402590541E-003 Tm^2
+ Total Boundary Flux:  -3.504578005746095E-014 Tm^2
+ *************************************
+ *        Broadcast_phys             *
+   Buffer usage: 1205556 of 2500000
+ *************************************
+ Initializing RTree
+ Initializing RTree
+ Initializing RTree
+ 
+ Number of grid nodes    / Max:         4392       60001
+ Number of grid elements / Max:         4320       60001
+ 
+ R range of grid nodes:    1.88590000000015        2.09589999999993     
+ Z range of grid nodes:  -0.103999999999903       0.103999999999903     
+ Number of nodes per boundary type:
+ type           0 :         4320  nodes
+ type           2 :           72  nodes
+ WARNING: init_current_prof was set to true, but this parameter will be ignored,
+   as the current source has already been initialized
+ 
+   -----------------------------------------------------------------------------
+   BOUNDARY INFORMATION:
+   -----------------------------------------------------------------------------
+     n_bnd_elements=        72
+     n_bnd_nodes   =        72
+   -----------------------------------------------------------------------------
+ 
+ Initializing RTree
+ Initializing RTree
+ Initializing RTree
+ *************************************
+ *        Broadcast_phys             *
+   Buffer usage: 1205556 of 2500000
+ *************************************
+ 
+ ==============================================================
+ Plasma_type        = Limiter Plasma
+ Psi_axis           = Minimum
+ Psi_bnd            =  -0.00229
+ --- Magnetic Axis --------------------------------------------
+ R_axis             =   2.01381
+ Z_axis             =  -0.00000
+ Psi_axis           =  -0.00674
+ i_elm_axis         =       576
+ s_axis             =   0.84991
+ t_axis             =   0.99943
+ ifail_axis         =         0
+ --- Limiter Point --------------------------------------------
+ R_lim              =   2.09590
+ Z_lim              =   0.00000
+ Psi_lim            =  -0.00229
+ i_elm_lim          =      4249
+ s_lim              =   1.00000
+ t_lim              =   0.00000
+ ifail_lim          =        99
+ --- Boundary point (point defining LCFS) -------------------------
+ R_bnd              =   2.09590
+ Z_bnd              =   0.00000
+ Psi_bnd            =  -0.00229
+ i_elm_bnd          =      4249
+ s_bnd              =   1.00000
+ t_bnd              =   0.00000
+ ifail_bnd          =        99
+ --- Midplane Points ------------------------------------------
+ R_midpl1           =   1.89996
+ R_midpl2           =   2.08261
+ ==============================================================
+ 
+ ranks_per_family           1           1           1
+ my_id, my_id_n           1           0
+ my_family_id:           2 my_mode_set:           2           3
+ my_id, my_id_n           2           0
+ my_family_id:           3 my_mode_set:           4           5
+ mode_families_ranks           1           0
+ mode_families_ranks           2           1
+ mode_families_ranks           3           2
+ my_id, my_id_n           0           0
+ my_family_id:           1 my_mode_set:           1
+ ************************************
+ * distributing nodes global matrix *
+ ************************************
+ **********************************
+ * global_matrix_structure        *
+ **********************************
+     2     0 size matrices : n, nz =               204155           253001700
+     1     0 size matrices : n, nz =               204120           257191200
+     0     0 size matrices : n, nz =               204120           253355725
+ my_family_id my_row_factor           1   1.00000000000000     
+ my_family_id my_row_factor           2  0.000000000000000E+000
+ my_family_id my_row_factor           3  0.000000000000000E+000
+ ******************************************************
+ *   time step :       1      1      3       0.30000       1.00000  *
+ ******************************************************
+ 
+ ==============================================================
+ Plasma_type        = Limiter Plasma
+ Psi_bnd            =  -0.00229
+ --- Magnetic Axis --------------------------------------------
+ R_axis             =   2.01381
+ Z_axis             =  -0.00000
+ Psi_axis           =  -0.00674
+ --- Limiter Point --------------------------------------------
+ R_lim              =   2.09590
+ Z_lim              =   0.00000
+ Psi_lim            =  -0.00229
+ --- Boundary point (point defining LCFS) -------------------------
+ R_bnd              =   2.09590
+ Z_bnd              =   0.00000
+ Psi_bnd            =  -0.00229
+ ==============================================================
+ 
+ ****************************************
+ *  construct global matrix             *
+ ****************************************
+  0# Elapsed time in construct global matri         415.2318190
+           0 *********************************
+           0 *      distributing matrix      *
+           0 *********************************
+  0             # Elapsed time distribute :          33.0936880
+           0 *********************************
+           0 *      solve local matrix  (n)  *
+           0 *********************************
+           0 *       using solver PastiX     *
+           0 *********************************
+   0   0 COLUMN SCALING :   0.1892E-06  0.3466E+20
+   1   0 COLUMN SCALING :   0.9335E-07  0.1835E+20
+   2   0 COLUMN SCALING :   0.9461E-07  0.1734E+20
+  0               ### Elapsed time coicsr :           1.4118640
+  1               ### Elapsed time coicsr :           1.4118640
+  2               ### Elapsed time coicsr :           1.4118650
+    0 PastiX n_threads :    13
+ +--------------------------------------------------------------------+
+ +              PaStiX : Parallel Sparse matriX package               +
+ +--------------------------------------------------------------------+
+ +--------------------------------------------------------------------+
+ +              PaStiX : Parallel Sparse matriX package               +
+ +--------------------------------------------------------------------+
+ +--------------------------------------------------------------------+
+ +              PaStiX : Parallel Sparse matriX package               +
+ +--------------------------------------------------------------------+
+  Matrix size                                   17497 x 17497
+  Number of nonzeros in A                       623305
+  Matrix size                                   17497 x 17497
+  Number of nonzeros in A                       623305
+ +--------------------------------------------------------------------+
+ +--------------------------------------------------------------------+
+ +  Options                                                           +
+ +--------------------------------------------------------------------+
+        Version             :                   
+        SMP_SOPALIN         :                   Defined
+        VERSION MPI         :                   Defined
+        PASTIX_DYNSCHED     :                   Not defined
+        STATS_SOPALIN       :                   Defined
+        NAPA_SOPALIN        :                   Defined
+        TEST_IRECV          :                   Not defined
+        TEST_ISEND          :                   Defined
+        TAG                 :                   Exact Thread
+        FORCE_CONSO         :                   Not defined
+        RECV_FANIN_OR_BLOCK :                   Not defined
+        OUT_OF_CORE         :                   Not defined
+  Matrix size                                   17497 x 17497
+  Number of nonzeros in A                       623305
+ +--------------------------------------------------------------------+
+ +  Options                                                           +
+ +--------------------------------------------------------------------+
+        Version             :                   
+        SMP_SOPALIN         :                   Defined
+        VERSION MPI         :                   Defined
+        PASTIX_DYNSCHED     :                   Not defined
+        STATS_SOPALIN       :                   Defined
+        NAPA_SOPALIN        :                   Defined
+        TEST_IRECV          :                   Not defined
+        TEST_ISEND          :                   Defined
+        TAG                 :                   Exact Thread
+        FORCE_CONSO         :                   Not defined
+        RECV_FANIN_OR_BLOCK :                   Not defined
+        OUT_OF_CORE         :                   Not defined
+        DISTRIBUTED         :                   Defined
+        METIS               :                   Not defined
+        WITH_SCOTCH         :                   Defined
+        INTEGER TYPE        :                   int32_t
+        PASTIX_FLOAT TYPE   :                   double 
+ +--------------------------------------------------------------------+
+ +  Options                                                           +
+ +--------------------------------------------------------------------+
+        Version             :                   
+        SMP_SOPALIN         :                   Defined
+        VERSION MPI         :                   Defined
+        PASTIX_DYNSCHED     :                   Not defined
+        STATS_SOPALIN       :                   Defined
+        NAPA_SOPALIN        :                   Defined
+        TEST_IRECV          :                   Not defined
+        TEST_ISEND          :                   Defined
+        TAG                 :                   Exact Thread
+        FORCE_CONSO         :                   Not defined
+        RECV_FANIN_OR_BLOCK :                   Not defined
+        OUT_OF_CORE         :                   Not defined
+        DISTRIBUTED         :                   Defined
+        METIS               :                   Not defined
+        WITH_SCOTCH         :                   Defined
+        INTEGER TYPE        :                   int32_t
+        PASTIX_FLOAT TYPE   :                   double 
+ +--------------------------------------------------------------------+
+Check : Numbering		OK
+        DISTRIBUTED         :                   Defined
+        METIS               :                   Not defined
+        WITH_SCOTCH         :                   Defined
+        INTEGER TYPE        :                   int32_t
+        PASTIX_FLOAT TYPE   :                   double 
+ +--------------------------------------------------------------------+
+Check : Numbering		OK
+Check : Numbering		OK
+Check : Sort CSC		OK
+Check : Sort CSC		OK
+Check : Sort CSC		OK
+Check : Duplicates		OK
+Check : Graph symmetry		OK
+   Time to compute ordering                     0.0675 s
+Check : Duplicates		OK
+   Time to analyze                              0.0113 s
+   Number of nonzeros in factorized matrix      198622844
+   Fill-in                                      6.50328
+   Number of operations (LU)                    3.23696e+11
+   Prediction Time to factorize (AMD 6180  MKL) 3.98 s
+Check : Duplicates		OK
+Check : Graph symmetry		OK
+Check : Graph symmetry		OK
+   Time to compute ordering                     0.066 s
+   Time to analyze                              0.011 s
+   Number of nonzeros in factorized matrix      794736334
+   Fill-in                                      6.50529
+   Number of operations (LU)                    2.58725e+12
+   Prediction Time to factorize (AMD 6180  MKL) 30.8 s
+   Time to compute ordering                     0.0669 s
+  0             ## Elapsed time, analysis :           1.6758600
+  1             ## Elapsed time, analysis :           1.6758600
+   Time to analyze                              0.0121 s
+   Number of nonzeros in factorized matrix      794736334
+   Fill-in                                      6.50529
+   Number of operations (LU)                    2.58725e+12
+   Prediction Time to factorize (AMD 6180  MKL) 30.8 s
+  2             ## Elapsed time, analysis :           1.6758590
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+ 0 - Local number of terms allocated	 Cblk+Ftgt :  105007049,	 Cblk :  105007049,	 Overhead : 1.00 (0.00%)
+Maximum number of terms allocated	 Cblk+Ftgt :  105007049,	 Cblk :  105007049,	 Overhead : 1.00 (0.00%)
+Total number of terms allocated		 Cblk+Ftgt :  105007049,	 Cblk :  105007049,	 Overhead : 1.00 (0.00%)
+   Max memory used after factorization          2.31 GB
+   Memory used after factorization              1.91 GB
+   Static pivoting                              0
+   Time to factorize                            11.3 s
+   FLOPS during factorization                   26.635 GFLOPS
+ 0 - Local number of terms allocated	 Cblk+Ftgt :  419481356,	 Cblk :  419481356,	 Overhead : 1.00 (0.00%)
+Maximum number of terms allocated	 Cblk+Ftgt :  419481356,	 Cblk :  419481356,	 Overhead : 1.00 (0.00%)
+Total number of terms allocated		 Cblk+Ftgt :  419481356,	 Cblk :  419481356,	 Overhead : 1.00 (0.00%)
+   Max memory used after factorization          9.21 GB
+   Memory used after factorization              7.62 GB
+   Static pivoting                              0
+   Time to factorize                            62.6 s
+   FLOPS during factorization                   38.463 GFLOPS
+ 0 - Local number of terms allocated	 Cblk+Ftgt :  419481356,	 Cblk :  419481356,	 Overhead : 1.00 (0.00%)
+Maximum number of terms allocated	 Cblk+Ftgt :  419481356,	 Cblk :  419481356,	 Overhead : 1.00 (0.00%)
+Total number of terms allocated		 Cblk+Ftgt :  419481356,	 Cblk :  419481356,	 Overhead : 1.00 (0.00%)
+  0                ## Elapsed time, facto :          78.0101680
+  1                ## Elapsed time, facto :          78.0101680
+   Max memory used after factorization          9.21 GB
+   Memory used after factorization              7.62 GB
+   Static pivoting                              0
+   Time to factorize                            64.1 s
+   FLOPS during factorization                   37.587 GFLOPS
+  2                ## Elapsed time, facto :          78.0101680
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.294 s
+   Time to solve                                0.713 s
+  0                ## Elapsed time, solve :           0.7980700
+  1                ## Elapsed time, solve :           0.7980710
+   Time to solve                                0.781 s
+  2                ## Elapsed time, solve :           0.7980710
+  0            # Elapsed time first solve :          82.6782130
+ residu test before :   0.30484488E+16  0.47699772E+15  0.86668414E+15  0.20046117E+03
+ 
+  WARNING GMRES : 
+        For M =         1000  optimal value 
+        for LWORK =     616462976
+ 
+                    CONVERGENCE HISTORY FOR GMRES
+ 
+Errors are displayed in unit:  6
+Warnings are displayed in unit:  6
+Matrix size:               612395
+Local matrix size:               612395
+Restart:                 1000
+Left preconditioning
+Iterative classical Gram-Schmidt
+User supplied initial guess
+True residual computed at restart
+Maximum number of iterations:   400
+Tolerance for convergence:  0.10E-07
+Backward error on the unpreconditioned system Ax = b:
+    the residual is normalised by          0.10E+01 * ||x|| +  0.10E+01
+Backward error on the preconditioned system (P1)A(P2)y = (P1)b:
+    the preconditioned residual is normalised by  0.10E+01 * ||(P2)y|| +  0.10E+01
+Optimal size for the local workspace:           616462976
+ 
+Convergence history: b.e. on the preconditioned system
+ Iteration   Arnoldi b.e.    True b.e.
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.811 s
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.671 s
+   Time to solve                                0.697 s
+                   1            0.22E+02       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.207 s
+   Time to solve                                0.68 s
+   Time to solve                                0.675 s
+                   2            0.67E+01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.679 s
+                   3            0.70E+01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.666 s
+   Time to solve                                0.673 s
+                   4            0.96E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.838 s
+                   5            0.96E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.664 s
+                   6            0.79E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.712 s
+                   7            0.79E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.655 s
+   Time to solve                                0.698 s
+                   8            0.73E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.702 s
+                   9            0.73E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.672 s
+                  10            0.66E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.679 s
+                  11            0.63E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.704 s
+                  12            0.50E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.729 s
+                  13            0.49E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.676 s
+                  14            0.43E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.681 s
+                  15            0.43E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.699 s
+                  16            0.43E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.678 s
+   Time to solve                                0.713 s
+                  17            0.42E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.678 s
+                  18            0.40E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.65 s
+   Time to solve                                0.712 s
+                  19            0.40E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.65 s
+   Time to solve                                0.712 s
+                  20            0.40E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.665 s
+   Time to solve                                0.681 s
+                  21            0.38E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.667 s
+   Time to solve                                0.677 s
+                  22            0.35E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.699 s
+                  23            0.33E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.274 s
+   Time to solve                                0.68 s
+   Time to solve                                0.698 s
+                  24            0.33E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.672 s
+                  25            0.33E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.754 s
+                  26            0.33E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.684 s
+                  27            0.32E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.67 s
+   Time to solve                                0.665 s
+                  28            0.30E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.664 s
+   Time to solve                                0.696 s
+                  29            0.29E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.665 s
+   Time to solve                                0.696 s
+                  30            0.29E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.66 s
+   Time to solve                                0.662 s
+                  31            0.28E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.277 s
+   Time to solve                                0.635 s
+   Time to solve                                0.655 s
+                  32            0.28E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.641 s
+   Time to solve                                0.665 s
+                  33            0.28E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.674 s
+   Time to solve                                0.656 s
+                  34            0.27E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.659 s
+   Time to solve                                0.675 s
+                  35            0.27E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.236 s
+   Time to solve                                0.641 s
+   Time to solve                                0.715 s
+                  36            0.27E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.674 s
+   Time to solve                                0.718 s
+                  37            0.27E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.264 s
+   Time to solve                                0.659 s
+   Time to solve                                0.666 s
+                  38            0.26E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.237 s
+   Time to solve                                0.678 s
+   Time to solve                                0.704 s
+                  39            0.25E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.671 s
+                  40            0.25E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.642 s
+   Time to solve                                0.697 s
+                  41            0.25E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.674 s
+                  42            0.24E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.702 s
+                  43            0.24E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                  44            0.23E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.672 s
+   Time to solve                                0.712 s
+                  45            0.23E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.702 s
+                  46            0.23E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.207 s
+   Time to solve                                0.639 s
+   Time to solve                                0.704 s
+                  47            0.23E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.7 s
+                  48            0.23E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.273 s
+   Time to solve                                0.645 s
+   Time to solve                                0.738 s
+                  49            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.696 s
+   Time to solve                                0.677 s
+                  50            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.676 s
+   Time to solve                                0.674 s
+                  51            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                  52            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.673 s
+                  53            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.67 s
+                  54            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.703 s
+                  55            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.642 s
+   Time to solve                                0.705 s
+                  56            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.261 s
+   Time to solve                                0.686 s
+   Time to solve                                0.764 s
+                  57            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.232 s
+   Time to solve                                0.713 s
+   Time to solve                                0.746 s
+                  58            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.643 s
+   Time to solve                                0.671 s
+                  59            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.668 s
+   Time to solve                                0.681 s
+                  60            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.647 s
+   Time to solve                                0.713 s
+                  61            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.232 s
+   Time to solve                                0.713 s
+   Time to solve                                0.703 s
+                  62            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.639 s
+   Time to solve                                0.767 s
+                  63            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.673 s
+                  64            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.283 s
+   Time to solve                                0.647 s
+   Time to solve                                0.671 s
+                  65            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.687 s
+                  66            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                  67            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.232 s
+   Time to solve                                0.713 s
+   Time to solve                                0.733 s
+                  68            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.715 s
+                  69            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.705 s
+                  70            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.683 s
+                  71            0.22E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.315 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                  72            0.21E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.714 s
+   Time to solve                                0.689 s
+                  73            0.21E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.647 s
+   Time to solve                                0.685 s
+                  74            0.21E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.667 s
+                  75            0.21E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.636 s
+   Time to solve                                0.686 s
+                  76            0.21E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.643 s
+   Time to solve                                0.703 s
+                  77            0.21E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.728 s
+                  78            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.632 s
+   Time to solve                                0.721 s
+                  79            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.295 s
+   Time to solve                                0.67 s
+   Time to solve                                0.698 s
+                  80            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.632 s
+   Time to solve                                0.675 s
+                  81            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.643 s
+   Time to solve                                0.713 s
+                  82            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.665 s
+                  83            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.681 s
+                  84            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.714 s
+   Time to solve                                0.746 s
+                  85            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.25 s
+   Time to solve                                0.67 s
+   Time to solve                                0.67 s
+                  86            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.632 s
+   Time to solve                                0.674 s
+                  87            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.688 s
+                  88            0.20E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.713 s
+   Time to solve                                0.696 s
+                  89            0.19E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.645 s
+   Time to solve                                0.671 s
+                  90            0.19E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                  91            0.19E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.674 s
+                  92            0.19E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.702 s
+   Time to solve                                0.676 s
+                  93            0.18E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.661 s
+   Time to solve                                0.713 s
+                  94            0.18E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.638 s
+   Time to solve                                0.671 s
+                  95            0.18E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.662 s
+   Time to solve                                0.721 s
+                  96            0.18E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.666 s
+                  97            0.18E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.668 s
+   Time to solve                                0.675 s
+                  98            0.18E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.713 s
+                  99            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.665 s
+                 100            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.699 s
+                 101            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.671 s
+   Time to solve                                0.705 s
+                 102            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.643 s
+   Time to solve                                0.713 s
+                 103            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.703 s
+                 104            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.674 s
+                 105            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.699 s
+                 106            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.713 s
+                 107            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.724 s
+                 108            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 109            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.703 s
+                 110            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.703 s
+                 111            0.17E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.681 s
+   Time to solve                                0.675 s
+                 112            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.675 s
+   Time to solve                                0.698 s
+                 113            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.76 s
+                 114            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.672 s
+   Time to solve                                0.715 s
+                 115            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.647 s
+   Time to solve                                0.667 s
+                 116            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.677 s
+   Time to solve                                0.711 s
+                 117            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.675 s
+                 118            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.666 s
+   Time to solve                                0.671 s
+                 119            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.768 s
+                 120            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.647 s
+   Time to solve                                0.703 s
+                 121            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 122            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.673 s
+                 123            0.16E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.699 s
+                 124            0.15E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.651 s
+   Time to solve                                0.698 s
+                 125            0.15E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.646 s
+   Time to solve                                0.729 s
+                 126            0.14E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.698 s
+                 127            0.14E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.709 s
+                 128            0.14E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.684 s
+   Time to solve                                0.685 s
+                 129            0.14E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.676 s
+                 130            0.14E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.683 s
+                 131            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.692 s
+                 132            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.681 s
+                 133            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.675 s
+                 134            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.672 s
+   Time to solve                                0.671 s
+                 135            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.665 s
+                 136            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.681 s
+   Time to solve                                0.674 s
+                 137            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.7 s
+                 138            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.677 s
+   Time to solve                                0.702 s
+                 139            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 140            0.13E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.687 s
+                 141            0.12E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.682 s
+   Time to solve                                0.673 s
+                 142            0.12E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 143            0.12E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.695 s
+                 144            0.12E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.668 s
+   Time to solve                                0.683 s
+                 145            0.11E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.664 s
+                 146            0.11E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.674 s
+   Time to solve                                0.665 s
+                 147            0.11E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.668 s
+                 148            0.11E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.733 s
+   Time to solve                                0.748 s
+                 149            0.10E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.641 s
+   Time to solve                                0.713 s
+                 150            0.10E+00       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.713 s
+                 151            0.99E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.673 s
+                 152            0.99E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.698 s
+                 153            0.98E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.713 s
+                 154            0.97E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.663 s
+   Time to solve                                0.733 s
+                 155            0.95E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.643 s
+   Time to solve                                0.724 s
+                 156            0.95E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.648 s
+   Time to solve                                0.681 s
+                 157            0.95E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.647 s
+   Time to solve                                0.698 s
+                 158            0.94E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.661 s
+   Time to solve                                0.713 s
+                 159            0.94E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.703 s
+                 160            0.94E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.712 s
+                 161            0.94E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.667 s
+   Time to solve                                0.682 s
+                 162            0.94E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.713 s
+                 163            0.94E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.681 s
+   Time to solve                                0.676 s
+                 164            0.94E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.673 s
+                 165            0.93E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 166            0.93E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.63 s
+   Time to solve                                0.674 s
+                 167            0.92E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.634 s
+   Time to solve                                0.674 s
+                 168            0.92E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.675 s
+                 169            0.91E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.703 s
+                 170            0.91E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.676 s
+   Time to solve                                0.671 s
+                 171            0.90E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.675 s
+                 172            0.90E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.667 s
+   Time to solve                                0.713 s
+                 173            0.90E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.675 s
+                 174            0.90E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.665 s
+   Time to solve                                0.673 s
+                 175            0.90E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.698 s
+   Time to solve                                0.711 s
+                 176            0.88E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.23 s
+   Time to solve                                0.679 s
+   Time to solve                                0.698 s
+                 177            0.88E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.681 s
+                 178            0.88E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.699 s
+                 179            0.88E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.683 s
+                 180            0.88E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.67 s
+                 181            0.87E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.7 s
+                 182            0.86E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.671 s
+                 183            0.86E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.713 s
+                 184            0.86E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.654 s
+   Time to solve                                0.68 s
+                 185            0.85E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.679 s
+                 186            0.85E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.679 s
+   Time to solve                                0.714 s
+                 187            0.85E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.672 s
+   Time to solve                                0.699 s
+                 188            0.85E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.651 s
+   Time to solve                                0.713 s
+                 189            0.84E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.698 s
+                 190            0.84E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.661 s
+   Time to solve                                0.698 s
+                 191            0.84E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.665 s
+                 192            0.83E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.666 s
+   Time to solve                                0.67 s
+                 193            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.649 s
+   Time to solve                                0.705 s
+                 194            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.666 s
+                 195            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.659 s
+   Time to solve                                0.713 s
+                 196            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.67 s
+   Time to solve                                0.718 s
+                 197            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.675 s
+                 198            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.667 s
+                 199            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.654 s
+   Time to solve                                0.667 s
+                 200            0.82E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.655 s
+   Time to solve                                0.671 s
+                 201            0.79E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.663 s
+   Time to solve                                0.677 s
+                 202            0.79E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.201 s
+   Time to solve                                0.663 s
+   Time to solve                                0.698 s
+                 203            0.79E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.654 s
+   Time to solve                                0.703 s
+                 204            0.79E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.632 s
+   Time to solve                                0.675 s
+                 205            0.77E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.67 s
+                 206            0.77E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.683 s
+                 207            0.76E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.668 s
+   Time to solve                                0.677 s
+                 208            0.75E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.649 s
+   Time to solve                                0.713 s
+                 209            0.75E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.675 s
+                 210            0.75E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.703 s
+                 211            0.72E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.671 s
+   Time to solve                                0.672 s
+                 212            0.71E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.64 s
+   Time to solve                                0.674 s
+                 213            0.71E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.701 s
+                 214            0.71E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.671 s
+   Time to solve                                0.664 s
+                 215            0.69E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.672 s
+   Time to solve                                0.713 s
+                 216            0.69E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.666 s
+   Time to solve                                0.673 s
+                 217            0.67E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.703 s
+                 218            0.67E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.236 s
+   Time to solve                                0.68 s
+   Time to solve                                0.703 s
+                 219            0.67E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.663 s
+   Time to solve                                0.703 s
+                 220            0.67E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.639 s
+   Time to solve                                0.676 s
+                 221            0.66E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.713 s
+                 222            0.66E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.666 s
+   Time to solve                                0.667 s
+                 223            0.66E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.703 s
+                 224            0.66E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.713 s
+                 225            0.65E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.703 s
+                 226            0.65E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 227            0.64E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 228            0.64E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 229            0.64E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.68 s
+                 230            0.64E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 231            0.63E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.68 s
+   Time to solve                                0.703 s
+                 232            0.63E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.65 s
+   Time to solve                                0.683 s
+                 233            0.63E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.677 s
+                 234            0.63E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.642 s
+   Time to solve                                0.677 s
+                 235            0.63E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 236            0.62E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 237            0.62E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.675 s
+                 238            0.62E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.667 s
+   Time to solve                                0.665 s
+                 239            0.61E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.664 s
+                 240            0.61E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.652 s
+   Time to solve                                0.664 s
+                 241            0.61E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.639 s
+   Time to solve                                0.667 s
+                 242            0.61E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.657 s
+   Time to solve                                0.667 s
+                 243            0.58E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.67 s
+   Time to solve                                0.694 s
+                 244            0.58E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.236 s
+   Time to solve                                0.674 s
+   Time to solve                                0.668 s
+                 245            0.58E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.673 s
+   Time to solve                                0.693 s
+                 246            0.58E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.629 s
+   Time to solve                                0.658 s
+                 247            0.56E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.674 s
+   Time to solve                                0.707 s
+                 248            0.55E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.673 s
+   Time to solve                                0.693 s
+                 249            0.55E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.683 s
+                 250            0.55E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.673 s
+                 251            0.55E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.646 s
+   Time to solve                                0.674 s
+                 252            0.54E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.666 s
+   Time to solve                                0.683 s
+                 253            0.54E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.703 s
+                 254            0.53E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.665 s
+                 255            0.53E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 256            0.53E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.678 s
+                 257            0.52E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.671 s
+                 258            0.50E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.643 s
+   Time to solve                                0.698 s
+                 259            0.50E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.643 s
+   Time to solve                                0.668 s
+                 260            0.49E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.681 s
+   Time to solve                                0.671 s
+                 261            0.49E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.639 s
+   Time to solve                                0.68 s
+                 262            0.48E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.698 s
+                 263            0.48E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.688 s
+                 264            0.46E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 265            0.46E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.676 s
+                 266            0.46E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.683 s
+                 267            0.46E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.674 s
+                 268            0.46E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.671 s
+                 269            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.674 s
+                 270            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.669 s
+                 271            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.671 s
+                 272            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.675 s
+                 273            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.684 s
+                 274            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.663 s
+   Time to solve                                0.664 s
+                 275            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.671 s
+                 276            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.674 s
+                 277            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.698 s
+                 278            0.45E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.681 s
+   Time to solve                                0.674 s
+                 279            0.44E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.672 s
+                 280            0.43E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.683 s
+                 281            0.43E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.655 s
+   Time to solve                                0.672 s
+                 282            0.42E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.235 s
+   Time to solve                                0.668 s
+   Time to solve                                0.681 s
+                 283            0.42E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 284            0.42E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.667 s
+   Time to solve                                0.673 s
+                 285            0.42E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.674 s
+                 286            0.39E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.655 s
+   Time to solve                                0.7 s
+                 287            0.39E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.679 s
+                 288            0.39E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.683 s
+                 289            0.39E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.667 s
+   Time to solve                                0.681 s
+                 290            0.39E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.712 s
+                 291            0.39E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.669 s
+   Time to solve                                0.713 s
+                 292            0.38E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.703 s
+                 293            0.38E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.647 s
+   Time to solve                                0.699 s
+                 294            0.38E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.681 s
+   Time to solve                                0.673 s
+                 295            0.38E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.713 s
+                 296            0.37E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.705 s
+                 297            0.37E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 298            0.37E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 299            0.37E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.677 s
+                 300            0.37E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.664 s
+                 301            0.37E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 302            0.36E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.682 s
+   Time to solve                                0.675 s
+                 303            0.36E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.669 s
+   Time to solve                                0.705 s
+                 304            0.36E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.713 s
+                 305            0.36E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.679 s
+                 306            0.35E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.675 s
+   Time to solve                                0.673 s
+                 307            0.35E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.644 s
+   Time to solve                                0.729 s
+                 308            0.35E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.698 s
+                 309            0.35E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 310            0.35E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.672 s
+                 311            0.34E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.639 s
+   Time to solve                                0.677 s
+                 312            0.34E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.699 s
+                 313            0.34E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.672 s
+   Time to solve                                0.663 s
+                 314            0.34E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.665 s
+                 315            0.33E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.636 s
+   Time to solve                                0.68 s
+                 316            0.33E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.683 s
+                 317            0.33E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.643 s
+   Time to solve                                0.684 s
+                 318            0.33E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.677 s
+   Time to solve                                0.673 s
+                 319            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.664 s
+   Time to solve                                0.672 s
+                 320            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.683 s
+                 321            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.675 s
+                 322            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.675 s
+                 323            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.699 s
+                 324            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.703 s
+                 325            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.655 s
+   Time to solve                                0.703 s
+                 326            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.698 s
+                 327            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 328            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.712 s
+                 329            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.672 s
+                 330            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.673 s
+                 331            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.683 s
+                 332            0.32E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.678 s
+                 333            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 334            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.683 s
+                 335            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.667 s
+   Time to solve                                0.673 s
+                 336            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.671 s
+   Time to solve                                0.678 s
+                 337            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.686 s
+                 338            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 339            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.676 s
+                 340            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.703 s
+                 341            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.703 s
+                 342            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.688 s
+                 343            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.647 s
+   Time to solve                                0.677 s
+                 344            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.665 s
+                 345            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.673 s
+                 346            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.68 s
+   Time to solve                                0.703 s
+                 347            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.671 s
+                 348            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.688 s
+                 349            0.31E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.232 s
+   Time to solve                                0.666 s
+   Time to solve                                0.698 s
+                 350            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.676 s
+                 351            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.655 s
+   Time to solve                                0.675 s
+                 352            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.673 s
+                 353            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.667 s
+   Time to solve                                0.685 s
+                 354            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.288 s
+   Time to solve                                0.665 s
+   Time to solve                                0.68 s
+                 355            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.639 s
+   Time to solve                                0.681 s
+                 356            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.671 s
+                 357            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.663 s
+   Time to solve                                0.676 s
+                 358            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.681 s
+   Time to solve                                0.705 s
+                 359            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.288 s
+   Time to solve                                0.666 s
+   Time to solve                                0.703 s
+                 360            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.67 s
+   Time to solve                                0.675 s
+                 361            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.688 s
+                 362            0.30E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.671 s
+                 363            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.698 s
+                 364            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.674 s
+                 365            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.295 s
+   Time to solve                                0.67 s
+   Time to solve                                0.686 s
+                 366            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 367            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.639 s
+   Time to solve                                0.703 s
+                 368            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.666 s
+   Time to solve                                0.703 s
+                 369            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 370            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.272 s
+   Time to solve                                0.665 s
+   Time to solve                                0.703 s
+                 371            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.683 s
+                 372            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.672 s
+                 373            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.651 s
+   Time to solve                                0.703 s
+                 374            0.29E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.667 s
+                 375            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.272 s
+   Time to solve                                0.665 s
+   Time to solve                                0.713 s
+                 376            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.221 s
+   Time to solve                                0.642 s
+   Time to solve                                0.713 s
+                 377            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.679 s
+   Time to solve                                0.672 s
+                 378            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.674 s
+                 379            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.672 s
+                 380            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.714 s
+                 381            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.259 s
+   Time to solve                                0.665 s
+   Time to solve                                0.667 s
+                 382            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.666 s
+   Time to solve                                0.675 s
+                 383            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.713 s
+                 384            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.665 s
+   Time to solve                                0.684 s
+                 385            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.703 s
+                 386            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.299 s
+   Time to solve                                0.67 s
+   Time to solve                                0.68 s
+                 387            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.666 s
+   Time to solve                                0.671 s
+                 388            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.667 s
+   Time to solve                                0.672 s
+                 389            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.207 s
+   Time to solve                                0.67 s
+   Time to solve                                0.698 s
+                 390            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.641 s
+   Time to solve                                0.679 s
+                 391            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.698 s
+                 392            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.3 s
+   Time to solve                                0.679 s
+   Time to solve                                0.698 s
+                 393            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.665 s
+   Time to solve                                0.663 s
+                 394            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.679 s
+   Time to solve                                0.675 s
+                 395            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.232 s
+   Time to solve                                0.672 s
+   Time to solve                                0.751 s
+                 396            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.67 s
+   Time to solve                                0.676 s
+                 397            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.67 s
+   Time to solve                                0.674 s
+                 398            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.234 s
+   Time to solve                                0.646 s
+   Time to solve                                0.705 s
+                 399            0.28E-01       --
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.233 s
+   Time to solve                                0.642 s
+   Time to solve                                0.698 s
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   --- Sopalin : Threads are binded                 ---
+   Time to solve                                0.232 s
+   Time to solve                                0.712 s
+   Time to solve                                0.788 s
+                 400            0.28E-01        0.28E-01
+ 
+  WARNING GMRES : 
+        No convergence after 
+         400  iterations 
+ 
+ 
+  WARNING GMRES :
+        No convergence after 
+         400  iterations 
+ 
+B.E. on the preconditioned system:    0.28E-01
+B.E. on the unpreconditioned system:  0.43E+12
+info(1) = -4
+Number of iterations (info(2)):   400
+ check work :       612395   46.9587651671405     
+ residu test after :   0.19233607E+15  0.24462131E+14  0.86668414E+15  0.44434589E+03
+  0            # Elapsed time gmres/solve :         508.0674650
+ 
+>>>>> NO CONVERGENCE AFTER 000400 ITERATIONS. ABORTING <<<<<
+ 
+   Max memory used after clean                  2.31 GB
+   Memory used after clean                      0 B
+  =============>, jorek2, filename = jorek_restart.h5 
+   Max memory used after clean                  9.21 GB
+   Memory used after clean                      0 B
+  HDF5 file jorek_restart.h5 
+   Max memory used after clean                  9.21 GB
+   Memory used after clean                      0 B
+ Exporting HDF5 restart file with rst_hdf5_version=           2
+ ****************************************************
+ * plotting solution : Psi                                                                -1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  total            1           1
+  min/max :  -6.670018834095548E-003  1.469261841842080E-003
+ ****************************************************
+ * plotting solution : u                                                                  -1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  total            2           1
+  min/max :  -3.686296434000697E-004  3.686024354837790E-004
+ ****************************************************
+ * plotting solution : zj                                                                 -1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  total            3           1
+  min/max :   -9.72000484243770        13.5829100465817     
+ ****************************************************
+ * plotting solution : omega                                                              -1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  total            4           1
+  min/max :   -12.5731754908082        12.5976491077267     
+ ****************************************************
+ * plotting solution : rho                                                                -1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  total            5           1
+  min/max :   0.986135720342952        1.00730044856317     
+ ****************************************************
+ * plotting solution : T_i                                                                -1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  total            6           1
+  min/max :  -0.160003589904491       0.114796550018725     
+ ****************************************************
+ * plotting solution : T_e                                                                -1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  total            7           1
+  min/max :  -0.102748452522551       0.172198419779521     
+ ****************************************************
+ * plotting solution : Psi                                                             (n =  0)    1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -6.744530216115712E-003  2.323716139188217E-003
+ ****************************************************
+ * plotting solution : u                                                               (n =  0)    1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -3.638885743436083E-004  3.639056946645490E-004
+ ****************************************************
+ * plotting solution : rho                                                             (n =  0)    1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :   0.984185266088980        1.00830831395854     
+ ****************************************************
+ * plotting solution : T_i                                                             (n =  0)    1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -5.204231909751284E-003  6.080174547192254E-002
+ ****************************************************
+ * plotting solution : T_e                                                             (n =  0)    1    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -2.355724921288751E-002  1.794517161863301E-002
+ ****************************************************
+ * plotting solution : Psi                                                             (n =  5)    3    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -8.090787030585417E-004  8.090786924014563E-004
+ ****************************************************
+ * plotting solution : u                                                               (n =  5)    3    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -9.286821270035010E-006  1.563255864152859E-005
+ ****************************************************
+ * plotting solution : rho                                                             (n =  5)    3    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -1.223745033776140E-003  1.212324302865277E-003
+ ****************************************************
+ * plotting solution : T_i                                                             (n =  5)    3    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -0.243898149568645       0.155371815723690     
+ ****************************************************
+ * plotting solution : T_e                                                             (n =  5)    3    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -0.155336443218416       0.243907261596898     
+ ****************************************************
+ * plotting solution : Psi                                                             (n = 10)    5    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -1.767596730121597E-005  1.767597594599558E-005
+ ****************************************************
+ * plotting solution : u                                                               (n = 10)    5    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -8.425490288056791E-007  9.279141998099823E-007
+ ****************************************************
+ * plotting solution : rho                                                             (n = 10)    5    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -5.934401333920492E-005  5.933022265386821E-005
+ ****************************************************
+ * plotting solution : T_i                                                             (n = 10)    5    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -1.131332094808432E-002  1.120755249649598E-002
+ ****************************************************
+ * plotting solution : T_e                                                             (n = 10)    5    1
+ ****************************************************
+  elements :         4320
+  nodes    :         4392
+  min/max :  -1.120744769323002E-002  1.131225542480323E-002
+ ***************************************
+ * export_helena                       *
+ ***************************************
+ *********************************
+ *     find_axis                 *
+ *********************************
+ magnetic axis :    576    2.01381025   -0.00000068   -0.00674455
+ *********************************
+ *     find_limiter              *
+ *********************************
+ R_lim   =      2.0959000
+ Z_lim   =      0.0000000
+ Psi_lim =     -0.0022882
+ LIMITER PLASMA   -0.002   2.096   0.000
+  NOT an x-point plasma
+ ***********************************
+ *   find_flux_surfaces            *
+ ***********************************
+ amin :  0.07763 m
+ Rgeo :  2.01820 m
+ Bgeo :  2.34165 T
+ ***************************************
+ * Integrals                           *
+ ***************************************
+ psi_limit        :       -0.0022926
+ current          :       -0.0163445 MA
+ beta_p           :        6.3788196
+ beta_t           :        0.0495458
+ beta_n           :       11.1212712 [%]
+ Area             :        0.0193513 m^2
+ Volume           :        0.2453797 m^3
+ Heat.src (in/out):      2.3400055E-08     9.5186541E-09/ sqrt((mu_0)^3 rho_0) W
+ Part.src (in/out):      0.0000000E+00     0.0000000E+00
+ density  (total/in/out)  :    0.42914   0.24538   0.18376
+ pressure (total/in/out)  :    0.00125   0.00134  -0.00010
+ current  (in/out)        :   -0.25990  -0.04289
+ ***********************************
+ *   find_flux_surfaces            *
+ ***********************************
+  end export_helena

@@ -16,7 +16,7 @@ use gauss
 use basis_at_gaussian
 use phys_module
 use tr_module
-use diffusivities, only: get_dperp, get_zkperp
+use diffusivities, only: get_dperp, get_zkperp, get_zk_iperp, get_zk_eperp
 use corr_neg
 use mod_elt_matrix
 
@@ -38,13 +38,14 @@ integer                , intent(in) :: i_tor_min, i_tor_max
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, index_k, index_m, m, ik, xcase2
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, kl1, kl2, kl3, kl4, kl5, kl6, kl7
 real*8     :: wst, xjac, xjac_x, xjac_y, xjac_s, xjac_t, BigR, r2, phi, eps_cyl
-real*8     :: current_source(n_gauss,n_gauss),particle_source(n_gauss,n_gauss),heat_source(n_gauss,n_gauss)
+real*8     :: current_source(n_gauss,n_gauss),particle_source(n_gauss,n_gauss)
+real*8     :: heat_source(n_gauss,n_gauss), heat_source_i(n_gauss,n_gauss), heat_source_e(n_gauss,n_gauss)
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2), dj_dpsi, dj_dz
 real*8     :: Bgrad_rho_star,     Bgrad_rho,     Bgrad_T_star,  Bgrad_T, BB2
 real*8     :: Bgrad_rho_star_psi, Bgrad_rho_psi, Bgrad_rho_rho, Bgrad_T_star_psi, Bgrad_T_psi, Bgrad_T_T, BB2_psi
 real*8     :: Bgrad_rho_rho_n, Bgrad_T_T_n, Bgrad_rho_k_star, Bgrad_T_k_star
-real*8     :: D_prof, ZK_prof, psi_norm
-real*8     :: rhs_ij_1,   rhs_ij_2,   rhs_ij_3,   rhs_ij_4,   rhs_ij_5,   rhs_ij_6, rhs_ij_7
+real*8     :: D_prof, ZK_prof, ZK_i_prof, ZK_e_prof, psi_norm
+real*8     :: rhs_ij_1,   rhs_ij_2,   rhs_ij_3,   rhs_ij_4,   rhs_ij_5,   rhs_ij_6,   rhs_ij_7
 real*8     :: rhs_ij_5_k, rhs_ij_6_k, rhs_ij_7_k
 real*8     :: rhs_stab_1, rhs_stab_2, rhs_stab_3, rhs_stab_4, rhs_stab_5, rhs_stab_6, rhs_stab_7
 
