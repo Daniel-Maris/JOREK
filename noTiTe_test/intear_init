@@ -1,5 +1,4 @@
 &in1
- with_TiTe = .f.
 
  restart = .f.
  regrid  = .f.

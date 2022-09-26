@@ -50,9 +50,9 @@ module mod_equations
   type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=13)
   type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=14)
   type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=15)
+  type(algexpr), parameter, private :: t_rat      = algexpr(basic=.true.,var=16)
  ! Auxiliary variables (aux)
-  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=16)
-  type(const), private :: rat !> temperature ratio ions/electrons
+  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=17)
 
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6, rhs7
   type(algexpr), private :: amat11, amat12, amat13, amat16, amat17
@@ -80,12 +80,9 @@ module mod_equations
   contains
 
   subroutine init_equations()
-    use phys_module, only: t_rat
 
     implicit none
  
-    rat = const(value = t_rat,   token = "t_rat") !> ratio between ion and electron temperature
-
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
 
     rhs1 = (-Bv2)*inprod(v,Psi0)
@@ -93,8 +90,8 @@ module mod_equations
     rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
          - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
     if (with_TiTe) then
-      rhs6 = v*(rat*p0_gvec/rho0 - T0_i)
-      rhs7 = v*((1.0-rat)*p0_gvec/rho0 - T0_e)
+      rhs6 = v*(t_rat*p0_gvec/rho0 - T0_i)
+      rhs7 = v*((1.d0*p0_gvec-t_rat*p0_gvec)/rho0 - T0_e)
     else
       rhs6 = v*(p0_gvec/rho0 - T0)
     end if
@@ -128,7 +125,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(16,0:n_order-1,0:n_order-1,0:n_order-1,4))
+        allocate(thread_eq(i)%eq(17,0:n_order-1,0:n_order-1,0:n_order-1,4))
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
@@ -252,7 +249,7 @@ module mod_equations
     character(2) :: num
 
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
-    varnames = (/ "eq(16,0,0,0,:)", "eq(16,1,0,0,:)", "eq(16,0,1,0,:)", "eq(16,0,0,1,:)" /)
+    varnames = (/ "eq(17,0,0,0,:)", "eq(17,1,0,0,:)", "eq(17,0,1,0,:)", "eq(17,0,0,1,:)" /)
   end subroutine get_aux
 
   type(algexpr) function Bv_pbrack(a,b)

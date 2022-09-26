@@ -334,7 +334,7 @@ do ms=1, n_gauss
         eq(17,:,:,:,m) = eq(17,:,:,:,1)
       end do
       
-      eq(18,0,0,0,:) = x_g(mp,ms,mt); eq(2*n_var+4,1,0,0,:) = 1.d0 ! Cylindrical R coordinate
+      eq(18,0,0,0,:) = x_g(mp,ms,mt); eq(18,1,0,0,:) = 1.d0 ! Cylindrical R coordinate
 
       psi_norm = get_psi_n(eq(1,0,0,0,1), y_g(mp,ms,mt))
 
@@ -382,7 +382,7 @@ do ms=1, n_gauss
           eq(36,0,0,0,:) = 2.5d0*ZK_i_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*Ti_0**(-2.5d0)         ! dk_par_i_dT_i
           eq(34,0,0,0,:) = ZK_e_par*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(2.5d0)                       ! k_par for e
           eq(37,0,0,0,:) = 2.5d0*ZK_e_par*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*Te_0**(-2.5d0)         ! dk_par_e_dT_e
-          if (eq(30,0,0,0,1) .gt. zk_par_max) then
+          if (eq(33,0,0,0,1) .gt. zk_par_max) then
             eq(33,0,0,0,:) = zk_par_max
             eq(36,0,0,0,:) = 0.d0
           end if
@@ -462,7 +462,7 @@ do ms=1, n_gauss
           eq(32,0,0,0,:) = zk_par*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(2.5d0)               ! k_par 
           eq(35,0,0,0,:) = 2.5d0*zk_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*T_0**(-2.5d0) ! dk_par_dT 
           if (eq(32,0,0,0,1) .gt. zk_par_max) then
-            eq(35,0,0,0,:) = zk_par_max
+            eq(32,0,0,0,:) = zk_par_max
             eq(35,0,0,0,:) = 0.d0
           end if
         else
@@ -850,7 +850,7 @@ do ms=1, n_gauss
                       ELM_p(mp,ij6,kl7)  =  ELM_p(mp,ij6,kl7)  + wst*amat_67(1)
                       ELM_k(mp,ij6,kl7)  =  ELM_k(mp,ij6,kl7)  + wst*amat_67(2)
                       ELM_n(mp,ij6,kl7)  =  ELM_n(mp,ij6,kl7)  + wst*amat_67(3)
-                      ELM_kn(mp,ij6,kl7)  =  ELM_kn(mp,ij6,kl7)  + wst*amat_67(4)
+                      ELM_kn(mp,ij6,kl7) =  ELM_kn(mp,ij6,kl7) + wst*amat_67(4)
 
 
                       ELM_p(mp,ij7,kl1)  =  ELM_p(mp,ij7,kl1)  + wst*amat_71(1)

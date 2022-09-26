@@ -3,11 +3,11 @@
  *************************************************
   MPI processes       :            3
   OpenMP threads      :           13
-  GIT revision        : v2.21.12.0-208-g35b73cc76-dirty
+  GIT revision        : v2.21.12.0-210-gfc852d1c4-dirty
   GIT revision label  : 
- 083 is now running (HEAD -> feature/two_temperatures_Te_Ti, origin/feature/two_
- temperatures_Te_Ti)
-  GIT revision time   : Tue Sep 20 14:15:21 2022 +0200
+ some corrections (HEAD -> feature/two_temperatures_Te_Ti, origin/feature/two_te
+ mperatures_Te_Ti)
+  GIT revision time   : Thu Sep 22 17:12:20 2022 +0200
   compile_user        : tscha
   compile_machine     : cobra02
   compile_dir         : /u/tscha/jorek
@@ -17,9 +17,9 @@
   compile_defines     : -DJOREK_MODEL=083 -DUSE_MPI -DSEMIANALYTICAL -DMODEL_FAMILY -DUSE_FFTW -DUSE_PASTIX -DMEMORY_USAGE -DUSE_HDF5 -DUSE_BLOCK
   compile_libs        : /mpcdf/soft/SLE_12/packages/skylake/fftw/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/3.3.8/lib/libfftw3.a -L/u/ihol/bin/pastix_5.2.3/src/../install -lpastix -lifcore -lm -lrt -L/u/ihol/bin/scotch_5.1.12/lib -lscotch -lscotcherrexit -L/u/ihol/bin/scotch_5.1.12/lib -lptscotch -lscotcherrexit -lpthread -L/mpcdf/soft/SLE_12/packages/x86_64/intel_parallel_studio/2020.1/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core  /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5hl_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_hl.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5.a -lz -lstdc++
   compile_modules     : git/2.35:gnuplot/5.4:mkl/2020.1:intel/19.1.1:impi/2019.7:anaconda/3/2020.02:hdf5-mpi/1.8.21:netcdf-mpi/4.7.0:petsc-real/3.13.5:gsl/2.4:fftw-mpi/3.3.8
-  #MPI id, ProcessorName     0: co5635                                                                                                                         
-  #MPI id, ProcessorName     1: co5635                                                                                                                         
-  #MPI id, ProcessorName     2: co5635                                                                                                                         
+  #MPI id, ProcessorName     0: co4467                                                                                                                         
+  #MPI id, ProcessorName     1: co4467                                                                                                                         
+  #MPI id, ProcessorName     2: co4467                                                                                                                         
  *************************************
  *        Broadcast_phys             *
    Buffer usage: 1205548 of 2500000
@@ -509,10 +509,10 @@ Poloidal modes:   36
  ****************************************
  *  construct global matrix             *
  ****************************************
-  0# Elapsed time in construct global matri         246.9210920
-  0                 ## Elapsed time scale :           2.7229410
-  0            ## Elapsed time mpi_gather :          10.3954220
-  0                ## Elapsed time coicsr :           6.1143870
+  0# Elapsed time in construct global matri         245.7975820
+  0                 ## Elapsed time scale :           2.7050930
+  0            ## Elapsed time mpi_gather :          10.4104780
+  0                ## Elapsed time coicsr :           6.1568540
     0 PastiX n_threads :    13
  ***********************************
  * initialise PastiX               *
@@ -550,37 +550,37 @@ Check : Numbering		OK
 Check : Sort CSC		OK
 Check : Duplicates		OK
 Check : Graph symmetry		OK
-   Time to compute ordering                     0.0668 s
+   Time to compute ordering                     0.0662 s
    Time to analyze                              0.127 s
    Number of nonzeros in factorized matrix      -645067906
    Fill-in                                      -1.14991
    Number of operations (LU)                    2.46544e+13
    Prediction Time to factorize (AMD 6180  MKL) 95.6 s
-  0              ## Elapsed time analysis :           0.8134030
+  0              ## Elapsed time analysis :           0.7815310
  ***********************************
  * call PastiX                     *
  ***********************************
    --- Sopalin : Threads are binded                 ---
  0 - Local number of terms allocated	 Cblk+Ftgt :  777537000,	 Cblk :  653586300,	 Overhead : 1.19 (18.96%)
-Maximum number of terms allocated	 Cblk+Ftgt :  957960000,	 Cblk :  653586300,	 Overhead : 1.47 (46.57%)
-Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 Overhead : -0.96 (-196.01%)
- 1 - Local number of terms allocated	 Cblk+Ftgt :  925938000,	 Cblk :  621564300,	 Overhead : 1.49 (48.97%)
+Maximum number of terms allocated	 Cblk+Ftgt :  958313700,	 Cblk :  653586300,	 Overhead : 1.47 (46.62%)
+Total number of terms allocated		 Cblk+Ftgt : 2474599500,	 Cblk : 1896320700,	 Overhead : -0.96 (-195.99%)
+ 1 - Local number of terms allocated	 Cblk+Ftgt :  926291700,	 Cblk :  621564300,	 Overhead : 1.49 (49.03%)
  2 - Local number of terms allocated	 Cblk+Ftgt :  770770800,	 Cblk :  621170100,	 Overhead : 1.24 (24.08%)
-   Max memory used after factorization          32.9 GB
+   Max memory used after factorization          33 GB
    Memory used after factorization              11.9 GB
    Static pivoting                              0
-   Time to factorize                            259 s
-   FLOPS during factorization                   88.523 GFLOPS
-   Time to solve                                7.62 s
-  0                ## Elapsed facto/solve :         288.6702120
-  0            # Elapsed time gmres/solve :           0.0000030
-  0           #  Elapsed time Final Update:           0.0442510
+   Time to factorize                            268 s
+   FLOPS during factorization                   85.742 GFLOPS
+   Time to solve                                7.22 s
+  0                ## Elapsed facto/solve :         296.9272430
+  0            # Elapsed time gmres/solve :           0.0000020
+  0           #  Elapsed time Final Update:           0.0467410
  
  -------------------------------------------------------------------
  After step 00001 (t_now= 1.000E+00):
  -------------------------------------------------------------------
- min,max deltas  = -2.79E+00 at     520632,  3.35E+00 at      14081,
- W_mag,_kin      =  9.06E-05 ...  9.17E-09,  0.00E+00 ...  0.00E+00,
+ min,max deltas  = -5.30E-01 at     511961,  3.89E+00 at         11,
+ W_mag,_kin      =  1.03E-04 ...  3.35E-10,  0.00E+00 ...  0.00E+00,
  -------------------------------------------------------------------
  
  ***************************************
@@ -590,32 +590,32 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
  *   find_flux_surfaces            *
  ***********************************
  Time :   0.100000E+01  0.648364E-06  0.648364E-06 [s]
- Volume                          :   1.000000E+00  2.037550E-01 [m^3]
- density  (total/in/out)         :   1.000000E+00  4.219180E+19  2.037550E+19  2.181630E+19[ 10^20/m^3]
- pressure (total/in/out)         :   1.000000E+00  3.179837E-03  9.820062E-04  2.197831E-03 [MJ]
+ Volume                          :   1.000000E+00  1.785693E-01 [m^3]
+ density  (total/in/out)         :   1.000000E+00  4.219180E+19  1.785693E+19  2.433487E+19[ 10^20/m^3]
+ pressure (total/in/out)         :   1.000000E+00  3.179837E-03  7.355775E-04  2.444260E-03 [MJ]
  kinetic parallel (total/in/out) :   1.000000E+00  0.000000E+00  0.000000E+00  0.000000E+00 [MJ]
  kinetic perp (total/in/out)     :   1.000000E+00  0.000000E+00  0.000000E+00  0.000000E+00 [MJ]
- magnetic (total/in/out)         :   1.000000E+00  2.675420E-04  1.290811E-04  1.384609E-04 [MJ]
- current  (in/out)               :   1.000000E+00 -1.668056E-03 -1.440785E-02 [MA]
- heating  (in/out)               :   1.000000E+00  1.836950E-02  6.108153E-04 [MW]
- source   (in/out)               :   1.000000E+00  1.872142E+25  2.616488E+25 [10^20/m^3/s]
+ magnetic (total/in/out)         :   1.000000E+00  2.544225E-04  1.271159E-04  1.273066E-04 [MJ]
+ current  (in/out)               :   1.000000E+00 -2.265620E-03 -1.669123E-02 [MA]
+ heating  (in/out)               :   1.000000E+00  1.599078E-02  4.771300E-04 [MW]
+ source   (in/out)               :   1.000000E+00  1.675971E+25  2.962706E+25 [10^20/m^3/s]
  Ohmic    (in/out)               :   1.000000E+00  0.000000E+00  0.000000E+00  0.000000E+00 [MW]
- li(3)                           :   1.000000E+00  1.476698E+01
- betap(1)                        :   1.000000E+00  7.489486E+01
+ li(3)                           :   1.000000E+00  7.882714E+00
+ betap(1)                        :   1.000000E+00  3.040977E+01
  sum ,time ,density_tot, pressure, Wkin_par, Wkin_perp, Wmag, Ohm, heating, source
- sum   1.000000E+00  4.219180E+19  3.179837E-03  0.000000E+00  0.000000E+00  2.675420E-04  0.000000E+00  1.898032E-02  4.488630E+25
- min/max  1                 Psi -9.445898E-03  3.196299E-03
+ sum   1.000000E+00  4.219180E+19  3.179837E-03  0.000000E+00  0.000000E+00  2.544225E-04  0.000000E+00  1.646791E-02  4.638677E+25
+ min/max  1                 Psi -6.781981E-03  3.163226E-03
  min/max  2                   u  0.000000E+00  0.000000E+00
- min/max  3                  zj -2.316410E+00  4.608866E+00
+ min/max  3                  zj -5.851680E-01  3.883893E+00
  min/max  4               omega  0.000000E+00  0.000000E+00
  min/max  5                 rho  1.000000E+00  1.000000E+00
  min/max  6                   T  3.032037E-05  1.256635E-02
-  0           #  Elapsed time Diagnostics :           3.0929000
+  0           #  Elapsed time Diagnostics :           3.1016900
   =============>, jorek2, filename = jorek00001.h5    
   HDF5 file jorek00001.h5    
  Exporting HDF5 restart file with rst_hdf5_version=           2
-  0              # Elapsed time ITERATION :         578.3951390
-   Max memory used after clean                  32.9 GB
+  0              # Elapsed time ITERATION :         566.5458650
+   Max memory used after clean                  33 GB
    Memory used after clean                      0 B
   =============>, jorek2, filename = jorek_restart.h5 
   HDF5 file jorek_restart.h5 
@@ -626,7 +626,7 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
   elements :         4320
   nodes    :         4392
   total            1           1
-  min/max :  -9.445897871425442E-003  1.459620428498705E-003
+  min/max :  -6.640404339735255E-003  1.469475794177264E-003
  ****************************************************
  * plotting solution : u                                                                  -1    1
  ****************************************************
@@ -640,7 +640,7 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
   elements :         4320
   nodes    :         4392
   total            3           1
-  min/max :  -1.818973867681615E-002   4.60886642543045     
+  min/max :  -0.539910352548067        3.88242622749443     
  ****************************************************
  * plotting solution : omega                                                              -1    1
  ****************************************************
@@ -661,13 +661,13 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
   elements :         4320
   nodes    :         4392
   total            6           1
-  min/max :   3.032037217529736E-005  1.256635317373103E-002
+  min/max :   3.032037217529740E-005  1.256635317373099E-002
  ****************************************************
  * plotting solution : Psi                                                             (n =  0)    1    1
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -6.270873460288342E-003  2.325015302882435E-003
+  min/max :  -6.710919404373067E-003  2.324000645888424E-003
  ****************************************************
  * plotting solution : u                                                               (n =  0)    1    1
  ****************************************************
@@ -685,13 +685,13 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :   3.032037217529735E-005  1.256635317373104E-002
+  min/max :   3.032037217529739E-005  1.256635317373100E-002
  ****************************************************
  * plotting solution : Psi                                                             (n =  5)    3    1
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -8.091321445166308E-004  8.109355507021252E-004
+  min/max :  -8.091235380520797E-004  8.091235401514044E-004
  ****************************************************
  * plotting solution : u                                                               (n =  5)    3    1
  ****************************************************
@@ -709,13 +709,13 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -4.085378845676539E-018  3.650771874220626E-018
+  min/max :  -4.084730261658093E-018  3.651472941429207E-018
  ****************************************************
  * plotting solution : Psi                                                             (n = 10)    5    1
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -3.586671508674290E-005  4.660326221786298E-005
+  min/max :  -1.767517609860554E-005  1.767517591386349E-005
  ****************************************************
  * plotting solution : u                                                               (n = 10)    5    1
  ****************************************************
@@ -733,14 +733,14 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -3.090625572019032E-018  6.928264867920907E-018
+  min/max :  -3.090608280791756E-018  6.928341033341802E-018
  ***************************************
  * export_helena                       *
  ***************************************
  *********************************
  *     find_axis                 *
  *********************************
- magnetic axis :    505    2.01334741    0.00043199   -0.00627089
+ magnetic axis :    505    2.01245704    0.00000000   -0.00671092
  *********************************
  *     find_limiter              *
  *********************************
@@ -752,24 +752,24 @@ Total number of terms allocated		 Cblk+Ftgt : 2474245800,	 Cblk : 1896320700,	 O
  ***********************************
  *   find_flux_surfaces            *
  ***********************************
- amin :  0.03589 m
- Rgeo :  1.95376 m
- Bgeo :  2.41889 T
+ amin :  0.03685 m
+ Rgeo :  1.95277 m
+ Bgeo :  2.42011 T
  ***************************************
  * Integrals                           *
  ***************************************
- psi_limit        :       -0.0000063
- current          :       -0.0167603 MA
- beta_p           :       11.5167850
- beta_t           :        0.0642430
- beta_n           :        6.5014654 [%]
- Area             :        0.0283338 m^2
- Volume           :        0.3571052 m^3
- Heat.src (in/out):      3.4756000E-08     3.6900557E-09/ sqrt((mu_0)^3 rho_0) W
- Part.src (in/out):      3.5710523E-06     7.2037498E-07
- density  (total/in/out)  :    0.42914   0.35711   0.07204
- pressure (total/in/out)  :    0.00271   0.00255   0.00016
- current  (in/out)        :   -0.26587   0.00551
+ psi_limit        :       -0.0000067
+ current          :       -0.0197026 MA
+ beta_p           :        8.3866168
+ beta_t           :        0.0639879
+ beta_n           :        5.6558426 [%]
+ Area             :        0.0286267 m^2
+ Volume           :        0.3606568 m^3
+ Heat.src (in/out):      3.5076061E-08     3.5163224E-09/ sqrt((mu_0)^3 rho_0) W
+ Part.src (in/out):      3.6065678E-06     6.8485945E-07
+ density  (total/in/out)  :    0.42914   0.36066   0.06849
+ pressure (total/in/out)  :    0.00271   0.00257   0.00014
+ current  (in/out)        :   -0.31254   0.00607
  ***********************************
  *   find_flux_surfaces            *
  ***********************************
