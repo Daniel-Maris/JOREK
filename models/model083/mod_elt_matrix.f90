@@ -222,11 +222,11 @@ do ms=1, n_gauss
      eq(1:n_var,1,0,1,1) = eq_px - x_p_x*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,2,0,0,1) - y_p_x*eq(1:n_var,0,1,0,1) - y_p(mp,ms,mt)*eq(1:n_var,1,1,0,1)
      eq(1:n_var,0,1,1,1) = eq_py - x_p_y*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,1,1,0,1) - y_p_y*eq(1:n_var,0,1,0,1) - y_p(mp,ms,mt)*eq(1:n_var,0,2,0,1)
 
-     eq(10,:,:,:,1) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi)  ! Vacuum scalar magnetic potential (chi) and field (grad chi)
-     eq(11,0,0,0,1) = x_g(mp,ms,mt); eq(11,1,0,0,1) = 1.d0 ! Cylindrical R coordinate
+     eq(n_var+3,:,:,:,1) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi)  ! Vacuum scalar magnetic potential (chi) and field (grad chi)
+     eq(n_var+4,0,0,0,1) = x_g(mp,ms,mt); eq(n_var+4,1,0,0,1) = 1.d0 ! Cylindrical R coordinate
      
-     eq(15,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
-     eq(12:14,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
+     eq(n_var+8,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
+     eq(n_var+5:n_var+7,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
      
      psi_norm = get_psi_n(eq(1,0,0,0,1), y_g(mp,ms,mt))
      
@@ -252,34 +252,34 @@ do ms=1, n_gauss
            index_ij = n_tor_local*n_var*(n_order+1)*(i-1) + n_tor_local*n_var*(j-1) + im - i_tor_min + 1   ! index in the ELM matrix
 
            ! Test function (v)
-           eq(8,0,0,0,1) =  H(i,j,ms,mt)*element%size(i,j)*HZ(im,mp)
-           eq(8,1,0,0,1) = (y_t(mp,ms,mt)*h_s(i,j,ms,mt) - y_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
-           eq(8,0,1,0,1) = (-x_t(mp,ms,mt)*h_s(i,j,ms,mt) + x_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
-           eq(8,0,0,1,1) = H(i,j,ms,mt)*element%size(i,j)*HZ_p(im,mp) - eq(8,1,0,0,1)*x_p(mp,ms,mt) - eq(8,0,1,0,1)*y_p(mp,ms,mt)
-           eq(8,2,0,0,1) = (h_ss(i,j,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt)                             &
+           eq(n_var+1,0,0,0,1) =  H(i,j,ms,mt)*element%size(i,j)*HZ(im,mp)
+           eq(n_var+1,1,0,0,1) = (y_t(mp,ms,mt)*h_s(i,j,ms,mt) - y_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
+           eq(n_var+1,0,1,0,1) = (-x_t(mp,ms,mt)*h_s(i,j,ms,mt) + x_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac
+           eq(n_var+1,0,0,1,1) = H(i,j,ms,mt)*element%size(i,j)*HZ_p(im,mp) - eq(n_var+1,1,0,0,1)*x_p(mp,ms,mt) - eq(n_var+1,0,1,0,1)*y_p(mp,ms,mt)
+           eq(n_var+1,2,0,0,1) = (h_ss(i,j,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt)                             &
 	                 + h_tt(i,j,ms,mt)*y_s(mp,ms,mt)**2                                                                                 &
 	                 + h_s(i,j,ms,mt)*(y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
                          + h_t(i,j,ms,mt)*(y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2&
                          - xjac_x*(h_s(i,j,ms,mt)*y_t(mp,ms,mt) - h_t(i,j,ms,mt)*y_s(mp,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
-           eq(8,0,2,0,1) = (h_ss(i,j,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt)                             &
+           eq(n_var+1,0,2,0,1) = (h_ss(i,j,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*h_st(i,j,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt)                             &
                          + h_tt(i,j,ms,mt)*x_s(mp,ms,mt)**2                                                                                 &
                          + h_s(i,j,ms,mt)*(x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt))                                     &
                          + h_t(i,j,ms,mt)*(x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2&
            	         - xjac_y*(-h_s(i,j,ms,mt)*x_t(mp,ms,mt) + h_t(i,j,ms,mt)*x_s(mp,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
-           eq(8,1,1,0,1) = (-h_ss(i,j,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - h_tt(i,j,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)                      &
+           eq(n_var+1,1,1,0,1) = (-h_ss(i,j,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - h_tt(i,j,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)                      &
        	                 + h_st(i,j,ms,mt)*(y_s(mp,ms,mt)*x_t(mp,ms,mt) + y_t(mp,ms,mt)*x_s(mp,ms,mt))                                      &
                          - h_s(i,j,ms,mt)*(x_st(mp,ms,mt)*y_t(mp,ms,mt) - x_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
                          - h_t(i,j,ms,mt)*(x_st(mp,ms,mt)*y_s(mp,ms,mt) - x_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(i,j)*HZ(im,mp)/xjac**2&
                          - xjac_x*(-h_s(i,j,ms,mt)*x_t(mp,ms,mt) + h_t(i,j,ms,mt)*x_s(mp,ms,mt))*element%size(i,j)*HZ(im,mp)/xjac**2
            v_px          = (y_t(mp,ms,mt)*h_s(i,j,ms,mt) - y_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
            v_py          = (-x_t(mp,ms,mt)*h_s(i,j,ms,mt) + x_s(mp,ms,mt)*h_t(i,j,ms,mt))*element%size(i,j)*HZ_p(im,mp)/xjac
-           eq(8,0,0,2,1) = H(i,j,ms,mt)*element%size(i,j)*HZ_pp(im,mp) - x_pp(mp,ms,mt)*eq(8,1,0,0,1) - 2.d0*(x_p(mp,ms,mt)*v_px &
-                         + y_p(mp,ms,mt)*v_py) - y_pp(mp,ms,mt)*eq(8,0,1,0,1) + 2.d0*(x_p(mp,ms,mt)*x_p_x*eq(8,1,0,0,1) &
-                         + x_p(mp,ms,mt)*y_p_x*eq(8,0,1,0,1) + y_p(mp,ms,mt)*x_p_y*eq(8,1,0,0,1) + y_p(mp,ms,mt)*y_p_y*eq(8,0,1,0,1)) &
-                         + x_p(mp,ms,mt)**2*eq(8,2,0,0,1) + 2.d0*x_p(mp,ms,mt)*y_p(mp,ms,mt)*eq(8,1,1,0,1) &
-                         + y_p(mp,ms,mt)**2*eq(8,0,2,0,1)
-           eq(8,1,0,1,1) = v_px - x_p_x*eq(8,1,0,0,1) - x_p(mp,ms,mt)*eq(8,2,0,0,1) - y_p_x*eq(8,0,1,0,1) - y_p(mp,ms,mt)*eq(8,1,1,0,1)
-           eq(8,0,1,1,1) = v_py - x_p_y*eq(8,1,0,0,1) - y_p(mp,ms,mt)*eq(8,0,2,0,1) - y_p_y*eq(8,0,1,0,1) - x_p(mp,ms,mt)*eq(8,1,1,0,1)
+           eq(n_var+1,0,0,2,1) = H(i,j,ms,mt)*element%size(i,j)*HZ_pp(im,mp) - x_pp(mp,ms,mt)*eq(n_var+1,1,0,0,1) - 2.d0*(x_p(mp,ms,mt)*v_px &
+                         + y_p(mp,ms,mt)*v_py) - y_pp(mp,ms,mt)*eq(n_var+1,0,1,0,1) + 2.d0*(x_p(mp,ms,mt)*x_p_x*eq(n_var+1,1,0,0,1) &
+                         + x_p(mp,ms,mt)*y_p_x*eq(n_var+1,0,1,0,1) + y_p(mp,ms,mt)*x_p_y*eq(n_var+1,1,0,0,1) + y_p(mp,ms,mt)*y_p_y*eq(n_var+1,0,1,0,1)) &
+                         + x_p(mp,ms,mt)**2*eq(n_var+1,2,0,0,1) + 2.d0*x_p(mp,ms,mt)*y_p(mp,ms,mt)*eq(n_var+1,1,1,0,1) &
+                         + y_p(mp,ms,mt)**2*eq(n_var+1,0,2,0,1)
+           eq(n_var+1,1,0,1,1) = v_px - x_p_x*eq(n_var+1,1,0,0,1) - x_p(mp,ms,mt)*eq(n_var+1,2,0,0,1) - y_p_x*eq(n_var+1,0,1,0,1) - y_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
+           eq(n_var+1,0,1,1,1) = v_py - x_p_y*eq(n_var+1,1,0,0,1) - y_p(mp,ms,mt)*eq(n_var+1,0,2,0,1) - y_p_y*eq(n_var+1,0,1,0,1) - x_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
 
 #ifdef DEBUG
            rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
@@ -329,36 +329,36 @@ do ms=1, n_gauss
                do in=i_tor_min,i_tor_max
 
                  ! Unknown increments to next time step (delta u^n)
-                 eq(9,0,0,0,1) = H(k,l,ms,mt)*element%size(k,l)*HZ(in,mp)
-                 eq(9,1,0,0,1) = (y_t(mp,ms,mt)*h_s(k,l,ms,mt) - y_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
-                 eq(9,0,1,0,1) = (-x_t(mp,ms,mt)*h_s(k,l,ms,mt) + x_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
-                 eq(9,0,0,1,1) = H(k,l,ms,mt)*element%size(k,l)*HZ_p(in,mp) - eq(9,1,0,0,1)*x_p(mp,ms,mt) - eq(9,0,1,0,1)*y_p(mp,ms,mt)
-                 eq(9,2,0,0,1) = (h_ss(k,l,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt)                             &
+                 eq(n_var+2,0,0,0,1) = H(k,l,ms,mt)*element%size(k,l)*HZ(in,mp)
+                 eq(n_var+2,1,0,0,1) = (y_t(mp,ms,mt)*h_s(k,l,ms,mt) - y_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
+                 eq(n_var+2,0,1,0,1) = (-x_t(mp,ms,mt)*h_s(k,l,ms,mt) + x_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac
+                 eq(n_var+2,0,0,1,1) = H(k,l,ms,mt)*element%size(k,l)*HZ_p(in,mp) - eq(n_var+2,1,0,0,1)*x_p(mp,ms,mt) - eq(n_var+2,0,1,0,1)*y_p(mp,ms,mt)
+                 eq(n_var+2,2,0,0,1) = (h_ss(k,l,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt)                             &
                                + h_tt(k,l,ms,mt)*y_s(mp,ms,mt)**2                                                                                 &
                                + h_s(k,l,ms,mt)*(y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
                                + h_t(k,l,ms,mt)*(y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2&	
                                - xjac_x*(h_s(k,l,ms,mt)*y_t(mp,ms,mt) - h_t(k,l,ms,mt)*y_s(mp,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
-                 eq(9,0,2,0,1) = (h_ss(k,l,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt)                             &
+                 eq(n_var+2,0,2,0,1) = (h_ss(k,l,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*h_st(k,l,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt)                             &
                                + h_tt(k,l,ms,mt)*x_s(mp,ms,mt)**2                                                                                 &
                                + h_s(k,l,ms,mt)*(x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt))                                     &
                                + h_t(k,l,ms,mt)*(x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2&
                                - xjac_y*(-h_s(k,l,ms,mt)*x_t(mp,ms,mt) + h_t(k,l,ms,mt)*x_s(mp,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
-                 eq(9,1,1,0,1) = (-h_ss(k,l,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - h_tt(k,l,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)                      &
+                 eq(n_var+2,1,1,0,1) = (-h_ss(k,l,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - h_tt(k,l,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)                      &
      	                       + h_st(k,l,ms,mt)*(y_s(mp,ms,mt)*x_t(mp,ms,mt)  + y_t(mp,ms,mt)*x_s(mp,ms,mt))                                     &
                                - h_s(k,l,ms,mt)*(x_st(mp,ms,mt)*y_t(mp,ms,mt) - x_tt(mp,ms,mt)*y_s(mp,ms,mt))                                     &
                                - h_t(k,l,ms,mt)*(x_st(mp,ms,mt)*y_s(mp,ms,mt) - x_ss(mp,ms,mt)*y_t(mp,ms,mt)))*element%size(k,l)*HZ(in,mp)/xjac**2&
                                - xjac_x*(-h_s(k,l,ms,mt)*x_t(mp,ms,mt) + h_t(k,l,ms,mt)*x_s(mp,ms,mt))*element%size(k,l)*HZ(in,mp)/xjac**2
                  u_px          = (y_t(mp,ms,mt)*h_s(k,l,ms,mt) - y_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
                  u_py          = (-x_t(mp,ms,mt)*h_s(k,l,ms,mt) + x_s(mp,ms,mt)*h_t(k,l,ms,mt))*element%size(k,l)*HZ_p(in,mp)/xjac
-                 eq(9,0,0,2,1) = H(k,l,ms,mt)*element%size(k,l)*HZ_pp(in,mp) - x_pp(mp,ms,mt)*eq(9,1,0,0,1) - 2.d0*(x_p(mp,ms,mt)*u_px &
-                               + y_p(mp,ms,mt)*u_py) - y_pp(mp,ms,mt)*eq(9,0,1,0,1) + 2.d0*(x_p(mp,ms,mt)*x_p_x*eq(9,1,0,0,1) &
-                               + x_p(mp,ms,mt)*y_p_x*eq(9,0,1,0,1) + y_p(mp,ms,mt)*x_p_y*eq(9,1,0,0,1) &
-                               + y_p(mp,ms,mt)*y_p_y*eq(9,0,1,0,1)) + x_p(mp,ms,mt)**2*eq(9,2,0,0,1)             &
-                               + 2.d0*x_p(mp,ms,mt)*y_p(mp,ms,mt)*eq(9,1,1,0,1) + y_p(mp,ms,mt)**2*eq(9,0,2,0,1)
-                 eq(9,1,0,1,1) = u_px - x_p_x*eq(9,1,0,0,1) - x_p(mp,ms,mt)*eq(9,2,0,0,1) - y_p_x*eq(9,0,1,0,1) &
-                               - y_p(mp,ms,mt)*eq(9,1,1,0,1)
-                 eq(9,0,1,1,1) = u_py - x_p_y*eq(9,1,0,0,1) - y_p(mp,ms,mt)*eq(9,0,2,0,1) - y_p_y*eq(9,0,1,0,1) &
-                               - x_p(mp,ms,mt)*eq(9,1,1,0,1)
+                 eq(n_var+2,0,0,2,1) = H(k,l,ms,mt)*element%size(k,l)*HZ_pp(in,mp) - x_pp(mp,ms,mt)*eq(n_var+2,1,0,0,1) - 2.d0*(x_p(mp,ms,mt)*u_px &
+                               + y_p(mp,ms,mt)*u_py) - y_pp(mp,ms,mt)*eq(n_var+2,0,1,0,1) + 2.d0*(x_p(mp,ms,mt)*x_p_x*eq(n_var+2,1,0,0,1) &
+                               + x_p(mp,ms,mt)*y_p_x*eq(n_var+2,0,1,0,1) + y_p(mp,ms,mt)*x_p_y*eq(n_var+2,1,0,0,1) &
+                               + y_p(mp,ms,mt)*y_p_y*eq(n_var+2,0,1,0,1)) + x_p(mp,ms,mt)**2*eq(n_var+2,2,0,0,1)             &
+                               + 2.d0*x_p(mp,ms,mt)*y_p(mp,ms,mt)*eq(n_var+2,1,1,0,1) + y_p(mp,ms,mt)**2*eq(n_var+2,0,2,0,1)
+                 eq(n_var+2,1,0,1,1) = u_px - x_p_x*eq(n_var+2,1,0,0,1) - x_p(mp,ms,mt)*eq(n_var+2,2,0,0,1) - y_p_x*eq(n_var+2,0,1,0,1) &
+                               - y_p(mp,ms,mt)*eq(n_var+2,1,1,0,1)
+                 eq(n_var+2,0,1,1,1) = u_py - x_p_y*eq(n_var+2,1,0,0,1) - y_p(mp,ms,mt)*eq(n_var+2,0,2,0,1) - y_p_y*eq(n_var+2,0,1,0,1) &
+                               - x_p(mp,ms,mt)*eq(n_var+2,1,1,0,1)
                  
                  index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local*n_var*(l-1) + in - i_tor_min + 1   ! index in the ELM matrix
                  

@@ -18,7 +18,7 @@
  bc_natural_open = .t.
 
  F0    = 4.72593206453746
- t_rat = 0.6
+ t_rat = 1.d0
 
  n_flux   = 61
  n_tht    = 72

@@ -3,7 +3,7 @@ module mod_model_settings
 
   implicit none
 
-  logical, parameter :: with_TiTe       = .false. 
+  logical, parameter :: with_TiTe       = .true. 
 
 ! ##################################################################################################
 ! ####  @USERS: This file should not be modified ###################################################

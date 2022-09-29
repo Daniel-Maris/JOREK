@@ -3,13 +3,13 @@
  *************************************************
   MPI processes       :            3
   OpenMP threads      :           13
-  GIT revision        : v2.21.12.0-210-gfc852d1c4-dirty
+  GIT revision        : v2.21.12.0-211-g71b011fd5-dirty
   GIT revision label  : 
- some corrections (HEAD -> feature/two_temperatures_Te_Ti, origin/feature/two_te
- mperatures_Te_Ti)
-  GIT revision time   : Thu Sep 22 17:12:20 2022 +0200
+ very kaputt (HEAD -> feature/two_temperatures_Te_Ti, origin/feature/two_tempera
+ tures_Te_Ti)
+  GIT revision time   : Mon Sep 26 17:27:31 2022 +0200
   compile_user        : tscha
-  compile_machine     : cobra02
+  compile_machine     : cobra01
   compile_dir         : /u/tscha/jorek
   compile_command     : mpiifort
   compile_flags       : -g -O0 -xCORE-AVX512  -diag-disable 8889 -qopenmp -align -warn all -warn nointerfaces -warn nounused -fpp -r8 -module .mod  -lstdc++
@@ -17,9 +17,9 @@
   compile_defines     : -DJOREK_MODEL=083 -DUSE_MPI -DSEMIANALYTICAL -DMODEL_FAMILY -DUSE_FFTW -DUSE_PASTIX -DMEMORY_USAGE -DUSE_HDF5 -DUSE_BLOCK
   compile_libs        : /mpcdf/soft/SLE_12/packages/skylake/fftw/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/3.3.8/lib/libfftw3.a -L/u/ihol/bin/pastix_5.2.3/src/../install -lpastix -lifcore -lm -lrt -L/u/ihol/bin/scotch_5.1.12/lib -lscotch -lscotcherrexit -L/u/ihol/bin/scotch_5.1.12/lib -lptscotch -lscotcherrexit -lpthread -L/mpcdf/soft/SLE_12/packages/x86_64/intel_parallel_studio/2020.1/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core  /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5hl_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_hl.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5_fortran.a /mpcdf/soft/SLE_12/packages/skylake/hdf5/intel_19.1.1-19.1.1-impi_2019.7-2019.7.217/1.8.21/lib/libhdf5.a -lz -lstdc++
   compile_modules     : git/2.35:gnuplot/5.4:mkl/2020.1:intel/19.1.1:impi/2019.7:anaconda/3/2020.02:hdf5-mpi/1.8.21:netcdf-mpi/4.7.0:petsc-real/3.13.5:gsl/2.4:fftw-mpi/3.3.8
-  #MPI id, ProcessorName     0: co4467                                                                                                                         
-  #MPI id, ProcessorName     1: co4467                                                                                                                         
-  #MPI id, ProcessorName     2: co4467                                                                                                                         
+  #MPI id, ProcessorName     0: co5001                                                                                                                         
+  #MPI id, ProcessorName     1: co5001                                                                                                                         
+  #MPI id, ProcessorName     2: co5001                                                                                                                         
  *************************************
  *        Broadcast_phys             *
    Buffer usage: 1205548 of 2500000
@@ -509,10 +509,10 @@ Poloidal modes:   36
  ****************************************
  *  construct global matrix             *
  ****************************************
-  0# Elapsed time in construct global matri         245.7975820
-  0                 ## Elapsed time scale :           2.7050930
-  0            ## Elapsed time mpi_gather :          10.4104780
-  0                ## Elapsed time coicsr :           6.1568540
+  0# Elapsed time in construct global matri         246.9659640
+  0                 ## Elapsed time scale :           2.7063210
+  0            ## Elapsed time mpi_gather :          10.3201990
+  0                ## Elapsed time coicsr :           6.1247420
     0 PastiX n_threads :    13
  ***********************************
  * initialise PastiX               *
@@ -550,31 +550,31 @@ Check : Numbering		OK
 Check : Sort CSC		OK
 Check : Duplicates		OK
 Check : Graph symmetry		OK
-   Time to compute ordering                     0.0662 s
-   Time to analyze                              0.127 s
+   Time to compute ordering                     0.0658 s
+   Time to analyze                              0.121 s
    Number of nonzeros in factorized matrix      -645067906
    Fill-in                                      -1.14991
    Number of operations (LU)                    2.46544e+13
    Prediction Time to factorize (AMD 6180  MKL) 95.6 s
-  0              ## Elapsed time analysis :           0.7815310
+  0              ## Elapsed time analysis :           0.7576360
  ***********************************
  * call PastiX                     *
  ***********************************
    --- Sopalin : Threads are binded                 ---
  0 - Local number of terms allocated	 Cblk+Ftgt :  777537000,	 Cblk :  653586300,	 Overhead : 1.19 (18.96%)
-Maximum number of terms allocated	 Cblk+Ftgt :  958313700,	 Cblk :  653586300,	 Overhead : 1.47 (46.62%)
-Total number of terms allocated		 Cblk+Ftgt : 2474599500,	 Cblk : 1896320700,	 Overhead : -0.96 (-195.99%)
- 1 - Local number of terms allocated	 Cblk+Ftgt :  926291700,	 Cblk :  621564300,	 Overhead : 1.49 (49.03%)
+Maximum number of terms allocated	 Cblk+Ftgt :  955854000,	 Cblk :  653586300,	 Overhead : 1.46 (46.25%)
+Total number of terms allocated		 Cblk+Ftgt : 2472139800,	 Cblk : 1896320700,	 Overhead : -0.96 (-196.12%)
+ 1 - Local number of terms allocated	 Cblk+Ftgt :  923832000,	 Cblk :  621564300,	 Overhead : 1.49 (48.63%)
  2 - Local number of terms allocated	 Cblk+Ftgt :  770770800,	 Cblk :  621170100,	 Overhead : 1.24 (24.08%)
-   Max memory used after factorization          33 GB
+   Max memory used after factorization          32.9 GB
    Memory used after factorization              11.9 GB
    Static pivoting                              0
-   Time to factorize                            268 s
-   FLOPS during factorization                   85.742 GFLOPS
-   Time to solve                                7.22 s
-  0                ## Elapsed facto/solve :         296.9272430
+   Time to factorize                            257 s
+   FLOPS during factorization                   89.222 GFLOPS
+   Time to solve                                7.36 s
+  0                ## Elapsed facto/solve :         287.2719810
   0            # Elapsed time gmres/solve :           0.0000020
-  0           #  Elapsed time Final Update:           0.0467410
+  0           #  Elapsed time Final Update:           0.0455310
  
  -------------------------------------------------------------------
  After step 00001 (t_now= 1.000E+00):
@@ -610,12 +610,12 @@ Total number of terms allocated		 Cblk+Ftgt : 2474599500,	 Cblk : 1896320700,	 O
  min/max  4               omega  0.000000E+00  0.000000E+00
  min/max  5                 rho  1.000000E+00  1.000000E+00
  min/max  6                   T  3.032037E-05  1.256635E-02
-  0           #  Elapsed time Diagnostics :           3.1016900
+  0           #  Elapsed time Diagnostics :           3.0932190
   =============>, jorek2, filename = jorek00001.h5    
   HDF5 file jorek00001.h5    
  Exporting HDF5 restart file with rst_hdf5_version=           2
-  0              # Elapsed time ITERATION :         566.5458650
-   Max memory used after clean                  33 GB
+  0              # Elapsed time ITERATION :         557.9124570
+   Max memory used after clean                  32.9 GB
    Memory used after clean                      0 B
   =============>, jorek2, filename = jorek_restart.h5 
   HDF5 file jorek_restart.h5 
@@ -626,7 +626,7 @@ Total number of terms allocated		 Cblk+Ftgt : 2474599500,	 Cblk : 1896320700,	 O
   elements :         4320
   nodes    :         4392
   total            1           1
-  min/max :  -6.640404339735255E-003  1.469475794177264E-003
+  min/max :  -6.640404339735254E-003  1.469475794177264E-003
  ****************************************************
  * plotting solution : u                                                                  -1    1
  ****************************************************
@@ -661,13 +661,13 @@ Total number of terms allocated		 Cblk+Ftgt : 2474599500,	 Cblk : 1896320700,	 O
   elements :         4320
   nodes    :         4392
   total            6           1
-  min/max :   3.032037217529740E-005  1.256635317373099E-002
+  min/max :   3.032037217529739E-005  1.256635317373100E-002
  ****************************************************
  * plotting solution : Psi                                                             (n =  0)    1    1
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -6.710919404373067E-003  2.324000645888424E-003
+  min/max :  -6.710919404373065E-003  2.324000645888424E-003
  ****************************************************
  * plotting solution : u                                                               (n =  0)    1    1
  ****************************************************
@@ -709,7 +709,7 @@ Total number of terms allocated		 Cblk+Ftgt : 2474599500,	 Cblk : 1896320700,	 O
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -4.084730261658093E-018  3.651472941429207E-018
+  min/max :  -4.085373895030535E-018  3.651244603167140E-018
  ****************************************************
  * plotting solution : Psi                                                             (n = 10)    5    1
  ****************************************************
@@ -733,7 +733,7 @@ Total number of terms allocated		 Cblk+Ftgt : 2474599500,	 Cblk : 1896320700,	 O
  ****************************************************
   elements :         4320
   nodes    :         4392
-  min/max :  -3.090608280791756E-018  6.928341033341802E-018
+  min/max :  -3.090609680241994E-018  6.928161244099556E-018
  ***************************************
  * export_helena                       *
  ***************************************
