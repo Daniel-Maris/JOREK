@@ -3,7 +3,7 @@
  restart = .t.
  regrid  = .f.
  refinement=.false.
- tstep_n = .3 
+ tstep_n = .3
  nstep_n = 100
 
  nout = 1
@@ -27,10 +27,10 @@
  n_tht    = 72
 
  eta   = 0.d0
- visco = 0.d0
+ visco = 0.d-9
 
- eta_num = 0.d0
- visco_num = 0.d0
+ eta_num = 0.d-19
+ visco_num = 0.d-15
 
  D_par  = 0.d0
  D_perp = 0.d-7

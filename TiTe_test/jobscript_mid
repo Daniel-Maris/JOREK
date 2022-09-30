@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=3
 #SBATCH --cpus-per-task=13
-#SBATCH --time=23:59:00
+#SBATCH --time=23:59:59
 #SBATCH --mem=150000
 
 module list |&tee modules
