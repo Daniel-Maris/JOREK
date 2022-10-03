@@ -81,8 +81,8 @@ module mod_equations
   type(algexpr), parameter, private :: ddTe_i_drho= algexpr(basic=.true.,var=2*n_var+27)
 
   ! Auxiliary variables (aux)
-  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=42)
-  type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=43)
+  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=2*n_var+28)
+  type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=2*n_var+29)
   type(const), private :: tstep, zeta, theta, visco_num, eta_num, D_perp_num, k_perp_num, gamma, reta
   
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6, rhs7
@@ -155,12 +155,12 @@ module mod_equations
       rhs6 = -tstep*(v*Bv_pbrack(rho0*T0_i, Phi0)/Bv2 - gamma*v*rho0*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T0_i) &
              + (k_par-k_perp)*B0_parderiv(v)*B0_parderiv(T0_i)/B2 + k_perp_num*Lap(v)*Lap(T0_i) + D_perp*T0_i*gradgrad_perp(v, rho0) &
              - (gamma - 1.d0)*reta*0.d0*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T_i + T0_i*delta_rho) &
-             + tstep*v*dTe_i
+             + tstep*v*dTe_i*0.d0
     
       rhs7 = -tstep*(v*Bv_pbrack(rho0*T0_e, Phi0)/Bv2 - gamma*v*rho0*T0_e*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T0_e) &
            + (k_par-k_perp)*B0_parderiv(v)*B0_parderiv(T0_e)/B2 + k_perp_num*Lap(v)*Lap(T0_e) + D_perp*T0_e*gradgrad_perp(v, rho0) &
            - (gamma - 1.d0)*reta*0.d0*v*Bv2*zj0*zj0 - v*S_e) + zeta*v*(rho0*delta_T_e + T0_e*delta_rho) &
-           - tstep*v*dTe_i
+           - tstep*v*dTe_i*0.d0
     else
       rhs6 = -tstep*(v*Bv_pbrack(rho0*T0,Phi0)/Bv2 - gamma*v*rho0*T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp*gradprod(v,T0) &
            + (k_par - k_perp)*B0_parderiv(v)*B0_parderiv(T0)/B2 + k_perp_num*Lap(v)*Lap(T0) + D_perp*T0*gradgrad_perp(v,rho0) &
@@ -272,7 +272,7 @@ module mod_equations
         if (with_TiTe) then !> better to reduce for no TiTe?
           allocate(thread_eq(i)%eq(43,0:n_order-1,0:n_order-1,0:n_order-1,4))
         else
-          allocate(thread_eq(i)%eq(43,0:n_order-1,0:n_order-1,0:n_order-1,4))
+          allocate(thread_eq(i)%eq(41,0:n_order-1,0:n_order-1,0:n_order-1,4))
         end if
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
@@ -468,7 +468,11 @@ module mod_equations
     character(2) :: num
     
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p, a_B2 /)
+    if (with_TiTe) then
     varnames = (/ "eq(42,0,0,0,:)", "eq(42,1,0,0,:)", "eq(42,0,1,0,:)", "eq(42,0,0,1,:)", "eq(43,0,0,0,:)" /)
+    else
+    varnames = (/ "eq(40,0,0,0,:)", "eq(40,1,0,0,:)", "eq(40,0,1,0,:)", "eq(40,0,0,1,:)", "eq(41,0,0,0,:)" /)
+    endif
   end subroutine get_aux
   
   type(algexpr) function Bv_pbrack(a,b)

@@ -539,7 +539,7 @@ do ms=1, n_gauss
             rhs_ij_4 = rhs_ij_4*BigR*xjac
             rhs_ij_5 = rhs_ij_5*BigR*xjac
             rhs_ij_6 = rhs_ij_6*BigR*xjac
-            rhs_ij_7 = rhs_ij_7*BigR*xjac
+            if (with_TiTe) rhs_ij_7 = rhs_ij_7*BigR*xjac
 #endif
 
             ij1 = index_ij
@@ -548,7 +548,7 @@ do ms=1, n_gauss
             ij4 = index_ij + 3*(n_tor_end - n_tor_start + 1)
             ij5 = index_ij + 4*(n_tor_end - n_tor_start + 1)
             ij6 = index_ij + 5*(n_tor_end - n_tor_start + 1)
-            ij7 = index_ij + 6*(n_tor_end - n_tor_start + 1)
+            if (with_TiTe) ij7 = index_ij + 6*(n_tor_end - n_tor_start + 1)
 
             ! --- Fill up the matrix
             if (use_fft) then
@@ -558,7 +558,7 @@ do ms=1, n_gauss
               RHS_p(mp,ij4) = RHS_p(mp,ij4) + rhs_ij_4(1)*wst
               RHS_p(mp,ij5) = RHS_p(mp,ij5) + rhs_ij_5(1)*wst
               RHS_p(mp,ij6) = RHS_p(mp,ij6) + rhs_ij_6(1)*wst
-              RHS_p(mp,ij7) = RHS_p(mp,ij7) + rhs_ij_7(1)*wst
+              if (with_TiTe) RHS_p(mp,ij7) = RHS_p(mp,ij7) + rhs_ij_7(1)*wst
 
               RHS_k(mp,ij1) = RHS_k(mp,ij1) + rhs_ij_1(2)*wst
               RHS_k(mp,ij2) = RHS_k(mp,ij2) + rhs_ij_2(2)*wst
@@ -566,7 +566,8 @@ do ms=1, n_gauss
               RHS_k(mp,ij4) = RHS_k(mp,ij4) + rhs_ij_4(2)*wst
               RHS_k(mp,ij5) = RHS_k(mp,ij5) + rhs_ij_5(2)*wst
               RHS_k(mp,ij6) = RHS_k(mp,ij6) + rhs_ij_6(2)*wst
-              RHS_k(mp,ij7) = RHS_k(mp,ij7) + rhs_ij_7(2)*wst
+              if (with_TiTe) RHS_k(mp,ij7) = RHS_k(mp,ij7) + rhs_ij_7(2)*wst
+             
             else
               RHS(ij1) = RHS(ij1) + (rhs_ij_1(1)*HZ(im,mp) + rhs_ij_1(2)*HZ_p(im,mp))*wst
               RHS(ij2) = RHS(ij2) + (rhs_ij_2(1)*HZ(im,mp) + rhs_ij_2(2)*HZ_p(im,mp))*wst
@@ -574,7 +575,7 @@ do ms=1, n_gauss
               RHS(ij4) = RHS(ij4) + (rhs_ij_4(1)*HZ(im,mp) + rhs_ij_4(2)*HZ_p(im,mp))*wst
               RHS(ij5) = RHS(ij5) + (rhs_ij_5(1)*HZ(im,mp) + rhs_ij_5(2)*HZ_p(im,mp))*wst
               RHS(ij6) = RHS(ij6) + (rhs_ij_6(1)*HZ(im,mp) + rhs_ij_6(2)*HZ_p(im,mp))*wst
-              RHS(ij7) = RHS(ij7) + (rhs_ij_7(1)*HZ(im,mp) + rhs_ij_6(2)*HZ_p(im,mp))*wst
+              if (with_TiTe) RHS(ij7) = RHS(ij7) + (rhs_ij_7(1)*HZ(im,mp) + rhs_ij_6(2)*HZ_p(im,mp))*wst
             endif
             
             do k=1,n_vertex_max
