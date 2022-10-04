@@ -197,12 +197,10 @@ do i=1,n_vertex_max
           ! --- Variables
           do k=1,n_var
             do in=1,n_tor
-
               eq_g(mp,k,ms,mt) = eq_g(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ(in,mp)
               eq_s(mp,k,ms,mt) = eq_s(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)* HZ(in,mp)
               eq_t(mp,k,ms,mt) = eq_t(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)* HZ(in,mp)
               eq_p(mp,k,ms,mt) = eq_p(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ_p(in,mp)
-
               eq_pp(mp,k,ms,mt) = eq_pp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_pp(in,mp)
               eq_sp(mp,k,ms,mt) = eq_sp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ_p(in,mp)
               eq_tp(mp,k,ms,mt) = eq_tp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ_p(in,mp)
@@ -214,7 +212,6 @@ do i=1,n_vertex_max
               delta_s(mp,k,ms,mt) = delta_s(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
               delta_t(mp,k,ms,mt) = delta_t(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
               delta_p(mp,k,ms,mt) = delta_p(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
-
             enddo
           enddo
 
@@ -472,9 +469,15 @@ do ms=1, n_gauss
       end if
       ! Auxiliary variables (aux)
 #ifdef DEBUG
-      eq(42,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(42,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-      eq(42,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(42,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
-      eq(43,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
+      if (with_TiTe) then
+        eq(42,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(42,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
+        eq(42,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(42,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
+        eq(43,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
+      else
+        eq(40,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(40,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
+        eq(40,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(40,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
+        eq(41,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
+      end if
 #else
 #include "aux_unreadable.h"
 #endif      
