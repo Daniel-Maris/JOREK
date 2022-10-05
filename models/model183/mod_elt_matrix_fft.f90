@@ -47,7 +47,7 @@ real*8     :: Bgrad_rho_rho_n, Bgrad_T_T_n, Bgrad_rho_k_star, Bgrad_T_k_star
 real*8     :: D_prof, ZK_prof, psi_norm
 
 real*8     :: x_p_x, x_p_y, y_p_x, y_p_y, v_px, v_py, u_px, u_py
-real*8     :: v, v_x, v_y, v_s, v_t, v_p, v_ss, v_st, v_tt, v_xx, v_yy, v_xs, v_ys, v_xt, v_yt, v_xy !test functions?
+real*8     :: v, v_x, v_y, v_s, v_t, v_p, v_ss, v_st, v_tt, v_xx, v_yy, v_xs, v_ys, v_xt, v_yt, v_xy
 real*8     :: ps0, ps0_x, ps0_y, ps0_p,ps0_s,ps0_t,  zj0, zj0_x, zj0_y, zj0_p, zj0_s, zj0_t
 real*8     :: u0, u0_x, u0_y, u0_p, u0_s, u0_t,  w0, w0_x, w0_y, w0_p, w0_s, w0_t
 real*8     :: r0, r0_x, r0_y, r0_p, r0_s, r0_t,  r0_hat, r0_x_hat, r0_y_hat, T0, T0_x, T0_y, T0_p, T0_s, T0_t
@@ -167,12 +167,10 @@ do i=1,n_vertex_max
 
         do mp=1,n_plane
           do in=1,n_coord_tor
-
             x_g(mp,ms,mt)  = x_g(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord(in,mp)
             x_s(mp,ms,mt)  = x_s(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H_s(i,j,ms,mt) *HZ_coord(in,mp)
             x_t(mp,ms,mt)  = x_t(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H_t(i,j,ms,mt) *HZ_coord(in,mp)
             x_p(mp,ms,mt)  = x_p(mp,ms,mt)  + nodes(i)%x(in,j,1)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord_p(in,mp)
-
             x_ss(mp,ms,mt) = x_ss(mp,ms,mt) + nodes(i)%x(in,j,1)*element%size(i,j)*H_ss(i,j,ms,mt)*HZ_coord(in,mp)
             x_st(mp,ms,mt) = x_st(mp,ms,mt) + nodes(i)%x(in,j,1)*element%size(i,j)*H_st(i,j,ms,mt)*HZ_coord(in,mp)
             x_tt(mp,ms,mt) = x_tt(mp,ms,mt) + nodes(i)%x(in,j,1)*element%size(i,j)*H_tt(i,j,ms,mt)*HZ_coord(in,mp)
@@ -184,17 +182,14 @@ do i=1,n_vertex_max
             y_s(mp,ms,mt)  = y_s(mp,ms,mt)  + nodes(i)%x(in,j,2)*element%size(i,j)*H_s(i,j,ms,mt) *HZ_coord(in,mp)
             y_t(mp,ms,mt)  = y_t(mp,ms,mt)  + nodes(i)%x(in,j,2)*element%size(i,j)*H_t(i,j,ms,mt) *HZ_coord(in,mp)
             y_p(mp,ms,mt)  = y_p(mp,ms,mt)  + nodes(i)%x(in,j,2)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord_p(in,mp)
-
             y_ss(mp,ms,mt) = y_ss(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_ss(i,j,ms,mt)*HZ_coord(in,mp)
             y_st(mp,ms,mt) = y_st(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_st(i,j,ms,mt)*HZ_coord(in,mp)
             y_tt(mp,ms,mt) = y_tt(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_tt(i,j,ms,mt)*HZ_coord(in,mp)
             y_sp(mp,ms,mt) = y_sp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_s(i,j,ms,mt) *HZ_coord_p(in,mp)
             y_tp(mp,ms,mt) = y_tp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_t(i,j,ms,mt) *HZ_coord_p(in,mp)
             y_pp(mp,ms,mt) = y_pp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord_pp(in,mp)
-
           end do
           
-          ! --- Variables
           do k=1,n_var
             do in=1,n_tor
               eq_g(mp,k,ms,mt) = eq_g(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ(in,mp)
@@ -220,7 +215,6 @@ do i=1,n_vertex_max
               current_source(mp,ms,mt) = current_source(mp,ms,mt) + nodes(i)%j_source(in,j)*element%size(i,j)*H(i,j,ms,mt)*HZ(in,mp)
             end do
           end if
-
           
 #ifdef altcs
           if (with_TiTe) then
@@ -265,10 +259,7 @@ do ms=1, n_gauss
 #endif
 
     do mp = 1, n_plane
-
       phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
-
-      ! --- Jacobians
       xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
       xjac_x  = (x_ss(mp,ms,mt)*y_t(mp,ms,mt)**2 - y_ss(mp,ms,mt)*x_t(mp,ms,mt)*y_t(mp,ms,mt) - 2.d0*x_st(mp,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
               + y_st(mp,ms,mt)*(x_s(mp,ms,mt)*y_t(mp,ms,mt) + x_t(mp,ms,mt)*y_s(mp,ms,mt))                                                      &
@@ -276,12 +267,10 @@ do ms=1, n_gauss
       xjac_y  = (y_tt(mp,ms,mt)*x_s(mp,ms,mt)**2 - x_tt(mp,ms,mt)*y_s(mp,ms,mt)*x_s(mp,ms,mt) - 2.d0*y_st(mp,ms,mt)*x_t(mp,ms,mt)*x_s(mp,ms,mt) &
               + x_st(mp,ms,mt)*(y_t(mp,ms,mt)*x_s(mp,ms,mt) + y_s(mp,ms,mt)*x_t(mp,ms,mt))                                                      &
               + y_ss(mp,ms,mt)*x_t(mp,ms,mt)**2 - x_ss(mp,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt)) / xjac
-
       x_p_x = (x_sp(mp,ms,mt)*y_t(mp,ms,mt) - x_tp(mp,ms,mt)*y_s(mp,ms,mt))/xjac
       x_p_y = (x_tp(mp,ms,mt)*x_s(mp,ms,mt) - x_sp(mp,ms,mt)*x_t(mp,ms,mt))/xjac
       y_p_x = (y_sp(mp,ms,mt)*y_t(mp,ms,mt) - y_tp(mp,ms,mt)*y_s(mp,ms,mt))/xjac
       y_p_y = (y_tp(mp,ms,mt)*x_s(mp,ms,mt) - y_sp(mp,ms,mt)*x_t(mp,ms,mt))/xjac
-
       BigR = x_g(mp,ms,mt)
 
       ! Values at current time step (u^n)
@@ -316,7 +305,7 @@ do ms=1, n_gauss
       eq(1:n_var,0,1,1,1) = eq_py - x_p_y*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,1,1,0,1) - y_p_y*eq(1:n_var,0,1,0,1) &
                           - y_p(mp,ms,mt)*eq(1:n_var,0,2,0,1)
 
-      ! Increments since previous time step (delta_u^(n-1)) 
+      ! Increments since previous time step (delta_u^(n-1))
       eq(n_var+1:2*n_var,0,0,0,1) = delta_g(mp,:,ms,mt)
       eq(n_var+1:2*n_var,1,0,0,1) = (y_t(mp,ms,mt)*delta_s(mp,:,ms,mt) - y_s(mp,ms,mt)*delta_t(mp,:,ms,mt))/xjac
       eq(n_var+1:2*n_var,0,1,0,1) = (-x_t(mp,ms,mt)*delta_s(mp,:,ms,mt) + x_s(mp,ms,mt)*delta_t(mp,:,ms,mt))/xjac
@@ -348,12 +337,12 @@ do ms=1, n_gauss
       if (with_TiTe) then
         
         ! Perpendicular thermal conductivity
-        eq(2*n_var+13,0,0,0,:)        = get_zk_iperp(psi_norm)
-        eq(2*n_var+14,0,0,0,:)        = get_zk_eperp(psi_norm)
+        eq(2*n_var+13,0,0,0,:)        = get_zk_iperp(psi_norm)  ! k_i_perp
+        eq(2*n_var+14,0,0,0,:)        = get_zk_eperp(psi_norm)  ! k_e_perp
 
         ! Heat sources for ions and electrons
-        eq(2*n_var+16,0,0,0,:) = heat_source_i(mp,ms,mt)     
-        eq(2*n_var+17,0,0,0,:) = heat_source_e(mp,ms,mt)     
+        eq(2*n_var+16,0,0,0,:) = heat_source_i(mp,ms,mt)        ! S_e_i
+        eq(2*n_var+17,0,0,0,:) = heat_source_e(mp,ms,mt)        ! S_e_e
         
         ! Resistivity
         if (eta_T_dependent) then                                                        
@@ -395,31 +384,31 @@ do ms=1, n_gauss
         end if
 
         ! Thermalization in Temperature evolution
-        T0_i_corr    = corr_neg_temp(eq(6,0,0,0,1))
-        T0_e_corr    = corr_neg_temp(eq(7,0,0,0,1))
-        rho0_corr    = corr_neg_dens(eq(5,0,0,0,1))
+        T0_i_corr    = corr_neg_temp(eq(6,0,0,0,1))  ! corrected ion temperature
+        T0_e_corr    = corr_neg_temp(eq(7,0,0,0,1))  ! corrected electron temperature
+        rho0_corr    = corr_neg_dens(eq(5,0,0,0,1))  ! corrected density
 
-        dT0_i_corr_dT= dcorr_neg_temp_dT(eq(6,0,0,0,1))
-        dT0_e_corr_dT= dcorr_neg_temp_dT(eq(7,0,0,0,1))
-        drho0_corr_dn= dcorr_neg_dens_drho(eq(5,0,0,0,1))
+        dT0_i_corr_dT= dcorr_neg_temp_dT(eq(6,0,0,0,1))   ! derivative of corrected ion temperature
+        dT0_e_corr_dT= dcorr_neg_temp_dT(eq(7,0,0,0,1))   ! derivative of corrected electron temperature
+        drho0_corr_dn= dcorr_neg_dens_drho(eq(5,0,0,0,1)) ! dericative of corrected density
 
-        T0_e_corr_eV = T0_e_corr/(EL_CHG*MU_ZERO*central_density*1.d20)
+        T0_e_corr_eV = T0_e_corr/(EL_CHG*MU_ZERO*central_density*1.d20) ! electron temperature in eV
 
-        ne_SI = rho0_corr * 1.d20 * central_density
+        ne_SI = rho0_corr * 1.d20 * central_density  ! density in SI units
         if (ne_SI < 1.d16) ne_SI = 1.d16   ! prevent absurd number in the coulomb lambda
 
-        lambda_e_bg  = 23. - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! 
+        lambda_e_bg  = 23. - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! --> Coulomb lambda
         nu_e_bg      = 1.8d-19*(1.d6*MASS_ELECTRON*MASS_PROTON*central_mass) ** 0.5&
                      * (1.d14*central_density*rho0_corr) * lambda_e_bg &
                      / (1.d3*(MASS_ELECTRON*T0_i_corr+T0_e_corr*MASS_PROTON*central_mass)&
-                     / (EL_CHG * MU_ZERO * central_density * 1.d20)) ** 1.5 ! Assuming bg_charge is 1!
+                     / (EL_CHG * MU_ZERO * central_density * 1.d20)) ** 1.5 ! Assuming bg_charge is 1! --> collision frequency
         if (nu_e_bg < 0.) nu_e_bg = 0.
       
         !Converting the energy transfer rate from s^-1 to JOREK unit
-        t_norm   = sqrt(MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20)
-        nu_e_bg  = nu_e_bg * t_norm
+        t_norm   = sqrt(MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20) ! normalization coefficient
+        nu_e_bg  = nu_e_bg * t_norm                                                     ! normalised collision frequency
 
-        eq(2*n_var+24,0,0,0,:) = nu_e_bg * (T0_e_corr - T0_i_corr) * rho0_corr
+        eq(2*n_var+24,0,0,0,:) = nu_e_bg * (T0_e_corr - T0_i_corr) * rho0_corr          ! dTe_i - temperature exchange term
 
         ! --- derivatives of dTe_i for amats (of temperatures and density)
         ! --- We negelect the coulomb log's derivatives due to their smallness
@@ -480,7 +469,8 @@ do ms=1, n_gauss
       end if
 #else
 #include "aux_unreadable.h"
-#endif      
+#endif
+ 
       do i=1,n_vertex_max
         do j=1,n_order+1
           do im=n_tor_start,n_tor_end

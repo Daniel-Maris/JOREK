@@ -33,7 +33,6 @@ module mod_model_settings
   integer, parameter :: n_var_ext(n_mod_ext) = (/ n_var_TiTe /)   
   integer, parameter :: n_var = n_var_base + sum(n_var_ext)       !< total number of variables
   
-  
 ! --- variable indices in general
   integer, parameter :: var_A3   = 0                       ! place of variable psi/mag pot 3               (ps or A3)
   integer, parameter :: var_AR   = 0                       ! place of variable mag pot  1                  (AR)
@@ -62,11 +61,7 @@ module mod_model_settings
   !> element_matrix and element_matrix_fft combined into a single one?
   logical, parameter :: unified_element_matrix = .true.
 
-
-
   contains
-
-
 
 !> is the extension available?
   elemental pure logical function ext_available(i_ext)
@@ -85,8 +80,6 @@ module mod_model_settings
     end if
 
   end function ext_available
-
-
 
 !> Are two extensions compatible?
 ! --- not necessary for only one extension
@@ -114,6 +107,5 @@ module mod_model_settings
     ! --- exceptions for compatibility (--> at the moment none)
 
   end function ext_compatible
-
 
 end module mod_model_settings

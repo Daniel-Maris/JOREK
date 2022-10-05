@@ -225,8 +225,8 @@ do ms=1, n_gauss
      eq(n_var+3,:,:,:,1) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi)  ! Vacuum scalar magnetic potential (chi) and field (grad chi)
      eq(n_var+4,0,0,0,1) = x_g(mp,ms,mt); eq(n_var+4,1,0,0,1) = 1.d0 ! Cylindrical R coordinate
      
-     eq(n_var+8,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
-     eq(n_var+5:n_var+7,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
+     eq(n_var+5,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
+     eq(n_var+6:n_var+8,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
      
      psi_norm = get_psi_n(eq(1,0,0,0,1), y_g(mp,ms,mt))
      
@@ -367,7 +367,7 @@ do ms=1, n_gauss
                  
 !---------------------------------------------------------------- equation 6
                  amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
-!---------------------------------------------------------------- equation 6
+!---------------------------------------------------------------- equation 7
                  if (with_TiTe) amat_77 = eval(thread_eq(tid)%amat77seq)*BigR*xjac
 
 #else

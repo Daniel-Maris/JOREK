@@ -45,10 +45,10 @@ module mod_equations
   type(algexpr), parameter, private :: chi        = algexpr(basic=.true.,var=n_var+3)
   type(algexpr), parameter, private :: R          = algexpr(basic=.true.,var=n_var+4)
   ! Quantities imported from GVEC
-  type(algexpr), parameter, private :: B0x_gvec   = algexpr(basic=.true.,var=n_var+5)
-  type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=n_var+6)
-  type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=n_var+7)
-  type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=n_var+8)
+  type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=n_var+5)
+  type(algexpr), parameter, private :: B0x_gvec   = algexpr(basic=.true.,var=n_var+6)
+  type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=n_var+7)
+  type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=n_var+8)
  ! Auxiliary variables (aux)
   type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=16)
 

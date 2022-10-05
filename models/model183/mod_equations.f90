@@ -2,8 +2,6 @@ module mod_equations
   use mod_semianalytical
   use mod_parameters
   use data_structure, only: nbthreads
-
-
   implicit none
   
   type type_thread_eq
@@ -83,6 +81,7 @@ module mod_equations
   ! Auxiliary variables (aux)
   type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=2*n_var+28)
   type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=2*n_var+29)
+
   type(const), private :: tstep, zeta, theta, visco_num, eta_num, D_perp_num, k_perp_num, gamma, reta
   
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6, rhs7
@@ -105,16 +104,16 @@ module mod_equations
   type(algexpr), private :: amat62e, amat65e, amat66e, amat67e
   type(algexpr), private :: amat72e, amat75e, amat76e, amat77e
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p
-
+  
   type(type_thread_eq), dimension(:), allocatable, target :: thread_eq
   
   contains
-
+  
   subroutine init_equations()
     use phys_module, only: time_evol_zeta, time_evol_theta, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num, Ieta_num => eta_num, &
                            ID_perp_num => D_perp_num, zk_perp_num, Ieta => eta, eta_ohmic
     implicit none
-
+    
     tstep      = const(value = Itstep,          token = "tstep")
     zeta       = const(value = time_evol_zeta,  token = "zeta")
     theta      = const(value = time_evol_theta, token = "theta")
@@ -128,7 +127,7 @@ module mod_equations
     else
       reta     = const(value = 0.d0,            token = "reta")
     end if
-
+    
     
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
     a_B2 = Bv2 + Bv2*inprod(Psi0,Psi0)
@@ -242,6 +241,7 @@ module mod_equations
     rhs2e = Dexpand(deepcopy(rhs2))
     rhs5e = Dexpand(deepcopy(rhs5))
     rhs6e = Dexpand(deepcopy(rhs6))
+
     if (with_TiTe) then
       rhs7e = Dexpand(deepcopy(rhs7))
     end if
@@ -250,6 +250,7 @@ module mod_equations
     amat31e = Dexpand(deepcopy(amat31))
     amat52e = Dexpand(deepcopy(amat52)); amat55e = Dexpand(deepcopy(amat55))
     amat62e = Dexpand(deepcopy(amat62)); amat65e = Dexpand(deepcopy(amat65)); amat66e = Dexpand(deepcopy(amat66))
+
     if (with_TiTe) then
       amat27e = Dexpand(deepcopy(amat27))
       amat67e = Dexpand(deepcopy(amat67))
