@@ -61,7 +61,7 @@ real*8     :: theta, zeta, reta
 logical    :: xpoint2, use_fft
 
 real*8     :: T0_i_corr, T0_e_corr                      !> temperature for T^(-1.5)
-real*8     :: T0_e_corr_eV                              !> corrected T0_e in eV
+real*8     :: T0_e_corr_eV, dT0_e_corr_eV_dT            !> corrected T0_e in eV, and derivative
 real*8     :: rho0_corr                                 !> corresponding density
 real*8     :: ne_SI, lambda_e_bg, nu_e_bg, t_norm       !> parameters for temperature exchange term between ion and electrons
 real*8     :: dT0_i_corr_dT, dT0_e_corr_dT              !> derivatives of corrected temperatures  
@@ -393,6 +393,7 @@ do ms=1, n_gauss
         drho0_corr_dn= dcorr_neg_dens_drho(eq(5,0,0,0,1)) ! dericative of corrected density
 
         T0_e_corr_eV = T0_e_corr/(EL_CHG*MU_ZERO*central_density*1.d20) ! electron temperature in eV
+        dT0_e_corr_eV_dT = dT0_e_corr_dT/(EL_CHG*MU_ZERO*central_density*1.d20)
 
         ne_SI = rho0_corr * 1.d20 * central_density  ! density in SI units
         if (ne_SI < 1.d16) ne_SI = 1.d16   ! prevent absurd number in the coulomb lambda
