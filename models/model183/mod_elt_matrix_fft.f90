@@ -398,7 +398,7 @@ do ms=1, n_gauss
         ne_SI = rho0_corr * 1.d20 * central_density  ! density in SI units
         if (ne_SI < 1.d16) ne_SI = 1.d16   ! prevent absurd number in the coulomb lambda
 
-        lambda_e_bg  = 23. - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! --> Coulomb lambda
+        lambda_e_bg  = 23.d0 - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! --> Coulomb lambda
         nu_e_bg      = 1.8d-19*(1.d6*MASS_ELECTRON*MASS_PROTON*central_mass) ** 0.5&
                      * (1.d14*central_density*rho0_corr) * lambda_e_bg &
                      / (1.d3*(MASS_ELECTRON*T0_i_corr+T0_e_corr*MASS_PROTON*central_mass)&
@@ -423,7 +423,7 @@ do ms=1, n_gauss
         eq(2*n_var+25,0,0,0,:)  = dnu_e_bg_dTi * (T0_e_corr - T0_i_corr) * rho0_corr - nu_e_bg * dT0_i_corr_dT * rho0_corr
         eq(2*n_var+26,0,0,0,:)  = dnu_e_bg_dTe * (T0_e_corr - T0_i_corr) * rho0_corr + nu_e_bg * dT0_e_corr_dT * rho0_corr
         eq(2*n_var+27,0,0,0,:)  = dnu_e_bg_drho * (T0_e_corr - T0_i_corr) * rho0_corr &
-                        + nu_e_bg * (T0_e_corr - T0_i_corr) * drho0_corr_dn
+                                + nu_e_bg * (T0_e_corr - T0_i_corr) * drho0_corr_dn
 
       else !>>> if not with_TiTe
         eq(2*n_var+12,0,0,0,:)        = get_zkperp(psi_norm)        ! Perpendicular thermal conductivity

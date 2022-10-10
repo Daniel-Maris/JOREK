@@ -210,23 +210,23 @@ module mod_equations
       amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0_i,Phi) - gamma*rho0*T0_i*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
       amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj
       amat65 = (1.d0 + zeta)*v*rho*T0_i + tstep*theta*(v*Bv_pbrack(rho*T0_i,Phi0)/Bv2 - gamma*v*rho*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
-             + D_perp*T0_i*gradgrad_perp(v,rho) + v*ddTe_i_drho)
+             + D_perp*T0_i*gradgrad_perp(v,rho) + v*ddTe_i_drho*rho)
       amat66 = (1.d0 + zeta)*v*rho0*T_i + tstep*theta*(v*Bv_pbrack(rho0*T_i,Phi0)/Bv2 - gamma*v*rho0*T_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
              + k_perp_i*gradprod(v,T_i) + (k_par_i - k_perp_i)*B0_parderiv(v)*B0_parderiv(T_i)/B2 &
              + dk_par_dT_i*T_i*B0_parderiv(v)*B0_parderiv(T0_i)/B2 + k_perp_num*Lap(v)*Lap(T_i) &
-             + D_perp*T_i*gradgrad_perp(v,rho0) + v*ddTe_i_dT_i)
-      amat67 = tstep*theta*v*ddTe_i_dT_e
+             + D_perp*T_i*gradgrad_perp(v,rho0) + v*ddTe_i_dT_i*T_i)
+      amat67 = tstep*theta*v*ddTe_i_dT_e*T_e
 
       amat71 = tstep*theta*((k_par_e - k_perp_e)*gradDgrad_par(v,T0_e) - D_perp*T0_e*gradDgrad_par(v,rho0))
       amat72 = tstep*theta*v*(Bv_pbrack(rho0*T0_e,Phi) - gamma*rho0*T0_e*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
       amat73 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj
       amat75 = (1.d0 + zeta)*v*rho*T0_e + tstep*theta*(v*Bv_pbrack(rho*T0_e,Phi0)/Bv2 - gamma*v*rho*T0_e*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
-             + D_perp*T0_e*gradgrad_perp(v,rho) + v*ddTe_i_drho)
-      amat76 = - tstep * theta * v * ddTe_i_dT_i
+             + D_perp*T0_e*gradgrad_perp(v,rho) + v*ddTe_i_drho*rho)
+      amat76 = - tstep * theta * v * ddTe_i_dT_i * T_i
       amat77 = (1.d0 + zeta)*v*rho0*T_e + tstep*theta*(v*Bv_pbrack(rho0*T_e,Phi0)/Bv2 - gamma*v*rho0*T_e*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
              + k_perp_e*gradprod(v,T_e) + (k_par_e - k_perp_e)*B0_parderiv(v)*B0_parderiv(T_e)/B2 &
              + dk_par_dT_e*T_e*B0_parderiv(v)*B0_parderiv(T0_e)/B2 + k_perp_num*Lap(v)*Lap(T_e) &
-             + D_perp*T_e*gradgrad_perp(v,rho0) - v*reta*deta_dT*T_e*Bv2*zj0*zj0 - v*ddTe_i_dT_e)
+             + D_perp*T_e*gradgrad_perp(v,rho0) - v*reta*deta_dT*T_e*Bv2*zj0*zj0 - v*ddTe_i_dT_e*T_e)
     else
       amat61 = tstep*theta*((k_par - k_perp)*gradDgrad_par(v,T0) - D_perp*T0*gradDgrad_par(v,rho0))
       amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0,Phi) - gamma*rho0*T0*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
