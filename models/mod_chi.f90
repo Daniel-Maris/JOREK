@@ -1,7 +1,7 @@
 module mod_chi
-! This module is for the calculation of the vacuum magnetic scalar potential (chi) and its derivatives via the Dommaschk potentials
-! For more details, see
-! [*] W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
+!> This module is for the calculation of the vacuum magnetic scalar potential (chi) and its derivatives via the Dommaschk potentials
+!! For more details, see
+!! [*] W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
   use mod_parameters
   use phys_module, only: domm, dcoef, F0, R_domm, domm_initialised, PI
   implicit none
@@ -226,21 +226,19 @@ module mod_chi
     end function gamma_st
   end subroutine init_chi_basis
   
+  !> This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1,
+  !!  unless a lower cutoff is requested via n
+  !! 
+  !! The Dommaschk potentials are calculated from EXTENDER, which uses a lefthand (LH) coordinate 
+  !!  system. In JOREK, the coordinate system is righthanded (RH), and so the equation for the  
+  !!  Dommaschk potential needs to be modified to:
+  !!
+  !!  Chi_RH(R, Z, phi_RH) = Chi_LH(R, Z, 2*pi/N_p - phi_RH)
+  !!                         = 2*pi/N_p-phi_RH + Sum_m,l [a_{m,l} cos(m phi_RH) - b_{m,l} sin(m phi_RH)] D_{m,l}
+  !!                                                    +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
+  !!
+  !! This leads to the equations for Chi and its derivatives below.  
   function get_chi(R,z,phi,max_ord)
-  !------------------------------------------------------------------------------------------------------
-  ! This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1,
-  !  unless a lower cutoff is requested via n
-  ! 
-  ! The Dommaschk potentials are calculated from EXTENDER, which uses a lefthand (LH) coordinate 
-  !  system. In JOREK, the coordinate system is righthanded (RH), and so the equation for the  
-  !  Dommaschk potential needs to be modified to:
-  !
-  !  Chi_RH(R, Z, phi_RH) = Chi_LH(R, Z, 2*pi/N_p - phi_RH)
-  !                         = 2*pi/N_p-phi_RH + Sum_m,l [a_{m,l} cos(m phi_RH) - b_{m,l} sin(m phi_RH)] D_{m,l}
-  !                                                    +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
-  !
-  ! This leads to the equations for Chi and its derivatives below.  
-  !------------------------------------------------------------------------------------------------------
     implicit none
     real*8,  intent(in) :: R, z, phi
     integer, optional, intent(in) :: max_ord
@@ -305,10 +303,10 @@ module mod_chi
     get_chi = F0*get_chi
   end function get_chi
   
+  !>---------------------------
+  !! Factorial of n
+  !!---------------------------
   pure real*8 function fact(n)
-  !---------------------------
-  ! Factorial of n
-  !---------------------------
     implicit none
     integer, intent(in) :: n
     integer             :: i
@@ -319,13 +317,11 @@ module mod_chi
     end do
   end function fact
   
+  !>-----------------------------------------------------------------------------------------------------
+  !! mod_chi::get_chi is used to compute the vacuum field representation on all gaussian points in all
+  !! planes of the simulated configuration to avoid their repeated calculation.
+  !!-----------------------------------------------------------------------------------------------------
   subroutine compute_chi_on_gauss_points(element_list,node_list)
-  !------------------------------------------------------------------------------------------------------
-  ! mod_chi::get_chi is used to compute the vacuum field representation on all gaussian points in all
-  ! planes of the simulated configuration to avoid their repeated calculation.
-  !------------------------------------------------------------------------------------------------------
-
-       
     use basis_at_gaussian
     use data_structure
 
@@ -400,6 +396,6 @@ module mod_chi
   stop
 #endif
 
-  end subroutine
+  end subroutine compute_chi_on_gauss_points
 
 end module mod_chi
