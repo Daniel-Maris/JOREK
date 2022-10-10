@@ -342,6 +342,7 @@ module mod_chi
     type (type_element)                        :: element
     type (type_node)                           :: nodes(n_vertex_max)
  
+#if STELLARATOR_MODEL
     write (*,*) 
     write (*,*) "Storing vacuum field on gaussian points..."
     write (*,*) 
@@ -394,6 +395,10 @@ module mod_chi
     enddo
     !$omp end do
     !$omp end parallel
+#else
+  write(*,*) 'This function should not be called for tokamak models!'
+  stop
+#endif
 
   end subroutine
 
