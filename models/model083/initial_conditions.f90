@@ -41,7 +41,7 @@ if (my_id .eq. 0) then
     psi = node_list%node(i)%values(1,1,1)
     R   = node_list%node(i)%x(1,1,1)
     Z   = node_list%node(i)%x(1,1,2)
-    s_norm = node_list%node(i)%s_eq(1)
+    s_norm = node_list%node(i)%r_tor_eq(1)
 
     ! Initialise density
     call density(    xpoint2, xcase2, Z, Z_xpoint, s_norm, 0.0, 1.0, zn, dn_dpsi, dn_dz, dn_dpsi2, dn_dz2, dn_dpsi_dz, dn_dpsi3, dn_dpsi_dz2, dn_dpsi2_dz)

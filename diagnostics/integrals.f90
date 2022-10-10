@@ -127,7 +127,7 @@ do ife =1, element_list%n_elements
       do ms=1, n_gauss
         do mt=1, n_gauss
 #if (JOREK_MODEL == 83) || (JOREK_MODEL == 183)
-          s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%s_eq(j)*element%size(i,j)*H(i,j,ms,mt)
+          s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
 #endif
 
           do in=1, n_coord_tor

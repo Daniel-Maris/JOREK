@@ -59,7 +59,7 @@ if (my_id .eq. 0) then
     call MPI_PACK(anode%b_field        ,n_coord_tor*(n_order+1)*(n_dim+1),MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(anode%j_source       ,n_tor*(n_order+1),MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(anode%pressure       ,(n_order+1),MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-    call MPI_PACK(anode%s_eq           ,(n_order+1),MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%r_tor_eq           ,(n_order+1),MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 #ifdef fullmhd
     call MPI_PACK(anode%Fprof_eq       ,n_order+1,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(anode%psi_eq         ,n_order+1,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -95,7 +95,7 @@ if (my_id .ne. 0) then
     call MPI_UNPACK(buffer,bufsize,position,anode%b_field        ,n_coord_tor*(n_order+1)*(n_dim+1)  ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,anode%j_source       ,n_tor*(n_order+1)                  ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,anode%pressure       ,(n_order+1)                        ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-    call MPI_UNPACK(buffer,bufsize,position,anode%s_eq           ,(n_order+1)                        ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%r_tor_eq           ,(n_order+1)                        ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
 #ifdef fullmhd
     call MPI_UNPACK(buffer,bufsize,position,anode%Fprof_eq       ,n_order+1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,anode%psi_eq         ,n_order+1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)

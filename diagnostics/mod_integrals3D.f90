@@ -486,7 +486,7 @@ do ife = ife_min, ife_max
 #endif
 
 #if (JOREK_MODEL == 83) || (JOREK_MODEL == 183)
-             s_norm(ms, mt) = s_norm(ms,mt) + nodes(i)%s_eq(j)*element%size(i,j)*H(i,j,ms,mt)
+             s_norm(ms, mt) = s_norm(ms,mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
 #endif
 
         enddo
