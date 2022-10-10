@@ -716,11 +716,11 @@ end do
 end subroutine interp_RZP_2
 
 !> subroutine calculates the interpolation of GVEC equilibrium conditions within one element (i_elm) for a given (s, t).
-!> The interpolated variable is controlled by the value of i_var: 
-!>   1: magnetic field
-!>   2: plasma current
-!>   3: pressure
-!>   4: radial coordinate (in GVEC, this is the square root of the normalised toroidal flux)
+!! The interpolated variable is controlled by the value of i_var: 
+!!   1: magnetic field
+!!   2: plasma current
+!!   3: pressure
+!!   4: radial coordinate (in GVEC, this is the square root of the normalised toroidal flux)
 pure subroutine interp_gvec(node_list, element_list, i_elm, i_var, i_dim, i_harm, s, t, P, P_s, P_t, P_st, P_ss, P_tt)
 type (type_node_list),    intent(in)  :: node_list
 type (type_element_list), intent(in)  :: element_list
