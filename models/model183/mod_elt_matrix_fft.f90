@@ -189,7 +189,7 @@ do i=1,n_vertex_max
             y_tp(mp,ms,mt) = y_tp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H_t(i,j,ms,mt) *HZ_coord_p(in,mp)
             y_pp(mp,ms,mt) = y_pp(mp,ms,mt) + nodes(i)%x(in,j,2)*element%size(i,j)*H(i,j,ms,mt)   *HZ_coord_pp(in,mp)
           end do
-          
+ 
           do k=1,n_var
             do in=1,n_tor
               eq_g(mp,k,ms,mt) = eq_g(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)  * HZ(in,mp)
@@ -215,7 +215,7 @@ do i=1,n_vertex_max
               current_source(mp,ms,mt) = current_source(mp,ms,mt) + nodes(i)%j_source(in,j)*element%size(i,j)*H(i,j,ms,mt)*HZ(in,mp)
             end do
           end if
-          
+
 #ifdef altcs
           if (with_TiTe) then
             call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psieq(ms,mt),psi_axis,psi_bnd,particle_source(mp,ms,mt),heat_source_i(mp,ms,mt),heat_source_e(mp,ms,mt))
@@ -471,7 +471,7 @@ do ms=1, n_gauss
 #else
 #include "aux_unreadable.h"
 #endif
- 
+
       do i=1,n_vertex_max
         do j=1,n_order+1
           do im=n_tor_start,n_tor_end
@@ -561,7 +561,6 @@ do ms=1, n_gauss
               RHS_k(mp,ij5) = RHS_k(mp,ij5) + rhs_ij_5(2)*wst
               RHS_k(mp,ij6) = RHS_k(mp,ij6) + rhs_ij_6(2)*wst
               if (with_TiTe) RHS_k(mp,ij7) = RHS_k(mp,ij7) + rhs_ij_7(2)*wst
-             
             else
               RHS(ij1) = RHS(ij1) + (rhs_ij_1(1)*HZ(im,mp) + rhs_ij_1(2)*HZ_p(im,mp))*wst
               RHS(ij2) = RHS(ij2) + (rhs_ij_2(1)*HZ(im,mp) + rhs_ij_2(2)*HZ_p(im,mp))*wst

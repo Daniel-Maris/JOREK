@@ -18,7 +18,7 @@ program algexpr2fort
   
   type(algexpr), allocatable       :: rhs(:)
   type(algexpr), allocatable       :: amat(:)
-    
+ 
   type(algexpr), dimension(n_aux)  :: aux
   
   varname = "eq"

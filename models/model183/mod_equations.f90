@@ -241,7 +241,7 @@ module mod_equations
     rhs2e = Dexpand(deepcopy(rhs2))
     rhs5e = Dexpand(deepcopy(rhs5))
     rhs6e = Dexpand(deepcopy(rhs6))
-
+     
     if (with_TiTe) then
       rhs7e = Dexpand(deepcopy(rhs7))
     end if
@@ -250,7 +250,7 @@ module mod_equations
     amat31e = Dexpand(deepcopy(amat31))
     amat52e = Dexpand(deepcopy(amat52)); amat55e = Dexpand(deepcopy(amat55))
     amat62e = Dexpand(deepcopy(amat62)); amat65e = Dexpand(deepcopy(amat65)); amat66e = Dexpand(deepcopy(amat66))
-
+    
     if (with_TiTe) then
       amat27e = Dexpand(deepcopy(amat27))
       amat67e = Dexpand(deepcopy(amat67))
