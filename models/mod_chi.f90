@@ -5,7 +5,9 @@ module mod_chi
   use mod_parameters
   use phys_module, only: domm, dcoef, F0, R_domm, domm_initialised, PI
   implicit none
-  
+  private 
+  public init_chi_basis, get_chi, compute_chi_on_gauss_points
+
   integer, parameter :: m_tor = (n_coord_tor - 1)/2
   
   ! Cfunc(R) = Sum_{k=1,size(coef)} coef(k)*R**pwr(k) + Sum_{k=1,size(lcoef)} lcoef(k)*log(R)*R**lpwr(k)
@@ -44,14 +46,14 @@ module mod_chi
         allocate(CN(l,i)%coef(2*(l+1))); allocate(CN(l,i)%lcoef(l+1))
         allocate(CN(l,i)%pwr(2*(l+1)));  allocate(CN(l,i)%lpwr(l+1))
         do k=0,l
-          CD(l,i)%coef(2*k+1) = -(alpha(k)*(gamma_st(l-m-k) - alpha(l-m-k)) - gamma(k)*alpha_st(l-m-k) + alpha(k)*beta_st(l-k))
+          CD(l,i)%coef(2*k+1) = -(alpha(k,m)*(gamma_st(l-m-k,m) - alpha(l-m-k,m)) - gamma(k,m)*alpha_st(l-m-k,m) + alpha(k,m)*beta_st(l-k,m))
           CD(l,i)%pwr(2*k+1)  = 2*k + m
-          CD(l,i)%coef(2*k+2) = beta(k)*alpha_st(l-k);     CD(l,i)%pwr(2*k+2) = 2*k - m
-          CD(l,i)%lcoef(k+1)  = -alpha(k)*alpha_st(l-m-k); CD(l,i)%lpwr(k+1)  = 2*k + m
+          CD(l,i)%coef(2*k+2) = beta(k,m)*alpha_st(l-k,m);     CD(l,i)%pwr(2*k+2) = 2*k - m
+          CD(l,i)%lcoef(k+1)  = -alpha(k,m)*alpha_st(l-m-k,m); CD(l,i)%lpwr(k+1)  = 2*k + m
           
-          CN(l,i)%coef(2*k+1) = alpha(k)*gamma(l-m-k) - gamma(k)*alpha(l-m-k) + alpha(k)*beta(l-k); CN(l,i)%pwr(2*k+1)  = 2*k + m
-          CN(l,i)%coef(2*k+2) = -beta(k)*alpha(l-k);                                                CN(l,i)%pwr(2*k+2)  = 2*k - m
-          CN(l,i)%lcoef(k+1)  = alpha(k)*alpha(l-m-k);                                              CN(l,i)%lpwr(k+1)   = 2*k + m
+          CN(l,i)%coef(2*k+1) = alpha(k,m)*gamma(l-m-k,m) - gamma(k,m)*alpha(l-m-k,m) + alpha(k,m)*beta(l-k,m); CN(l,i)%pwr(2*k+1)  = 2*k + m
+          CN(l,i)%coef(2*k+2) = -beta(k,m)*alpha(l-k,m);                                                CN(l,i)%pwr(2*k+2)  = 2*k - m
+          CN(l,i)%lcoef(k+1)  = alpha(k,m)*alpha(l-m-k,m);                                              CN(l,i)%lpwr(k+1)   = 2*k + m
         end do
       end do
     end do
@@ -162,69 +164,67 @@ module mod_chi
     end do  
     
     domm_initialised = .true.
-
-    contains
-    
-    ! Eq (27) in [*]
-    pure real*8 function alpha(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      if (n .lt. 0) then
-        alpha = 0.0
-      else
-        alpha = (-1.d0)**n/(fact(n+m)*fact(n)*2.d0**(2*n+m))
-      end if
-    end function alpha
-    
-    pure real*8 function alpha_st(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      alpha_st = (2*n + m)*alpha(n)
-    end function alpha_st
-    
-    ! Eq (28) in [*]
-    pure real*8 function beta(n)
-      implicit none
-      integer, intent(in) :: n
-      integer :: pwr
-      
-      if (n .lt. 0 .or. n .ge. m) then
-        beta = 0.0
-      else
-        pwr = 2*n-m+1
-        beta = fact(m-n-1)/(fact(n)*(2.d0**pwr))
-      end if
-    end function beta
-    
-    pure real*8 function beta_st(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      beta_st = (2*n - m)*beta(n)
-    end function beta_st
-    
-    ! Eq (33) in [*]
-    pure real*8 function gamma(n)
-      implicit none
-      integer, intent(in) :: n
-      integer             :: i
-      
-      gamma = 0.0
-      do i=1,n
-        gamma = gamma + 1.0/i + 1.0/(m+i)
-      end do
-      gamma = gamma*alpha(n)/2.0
-    end function gamma
-    
-    pure real*8 function gamma_st(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      gamma_st = (2*n + m)*gamma(n)
-    end function gamma_st
   end subroutine init_chi_basis
+    
+  ! Eq (27) in [*]
+  pure real*8 function alpha(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    if (n .lt. 0) then
+      alpha = 0.0
+    else
+      alpha = (-1.d0)**n/(fact(n+m)*fact(n)*2.d0**(2*n+m))
+    end if
+  end function alpha
+  
+  pure real*8 function alpha_st(n, m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    alpha_st = (2*n + m)*alpha(n,m)
+  end function alpha_st
+  
+  ! Eq (28) in [*]
+  pure real*8 function beta(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    integer :: pwr
+    
+    if (n .lt. 0 .or. n .ge. m) then
+      beta = 0.0
+    else
+      pwr = 2*n-m+1
+      beta = fact(m-n-1)/(fact(n)*(2.d0**pwr))
+    end if
+  end function beta
+  
+  pure real*8 function beta_st(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    beta_st = (2*n - m)*beta(n,m)
+  end function beta_st
+  
+  ! Eq (33) in [*]
+  pure real*8 function gamma(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    integer             :: i
+    
+    gamma = 0.0
+    do i=1,n
+      gamma = gamma + 1.0/i + 1.0/(m+i)
+    end do
+    gamma = gamma*alpha(n,m)/2.0
+  end function gamma
+  
+  pure real*8 function gamma_st(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    gamma_st = (2*n + m)*gamma(n,m)
+  end function gamma_st
   
   !> This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1,
   !!  unless a lower cutoff is requested via n
