@@ -167,6 +167,7 @@ CGDEP=
 ifeq (model083, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL
   DEFINES := $(DEFINES) -DSTELLARATOR_MODEL
+  FFLAGS  := $(FFLAGS) -mcmodel=large
   ifneq ($(DEBUG), 1)     # should be ifeq ($(DEBUG), 0), but that doesn't work due to GNU make bug (v4.2.1)
     CGDEP = generate_code
   endif
@@ -174,6 +175,7 @@ endif
 ifeq (model183, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL
   DEFINES := $(DEFINES) -DSTELLARATOR_MODEL
+  FFLAGS  := $(FFLAGS) -mcmodel=large
   ifneq ($(DEBUG), 1)     # should be ifeq ($(DEBUG), 0), but that doesn't work due to GNU make bug (v4.2.1)
     CGDEP = generate_code
   endif
