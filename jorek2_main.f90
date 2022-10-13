@@ -783,6 +783,11 @@ required = 0
     write(*,*) "WARNING: init_current_prof was set to true, but this parameter will be ignored,"
     write(*,*) "  as the current source has already been initialized"
   end if
+
+#if STELLARATOR_MODEL
+  ! Add chi representation to element data structure using imported node representation
+  if (my_id .eq. 0) call compute_chi_on_gauss_points(element_list,node_list)
+#endif
   
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   

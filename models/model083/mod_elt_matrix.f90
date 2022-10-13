@@ -222,7 +222,7 @@ do ms=1, n_gauss
      eq(1:n_var,1,0,1,1) = eq_px - x_p_x*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,2,0,0,1) - y_p_x*eq(1:n_var,0,1,0,1) - y_p(mp,ms,mt)*eq(1:n_var,1,1,0,1)
      eq(1:n_var,0,1,1,1) = eq_py - x_p_y*eq(1:n_var,1,0,0,1) - x_p(mp,ms,mt)*eq(1:n_var,1,1,0,1) - y_p_y*eq(1:n_var,0,1,0,1) - y_p(mp,ms,mt)*eq(1:n_var,0,2,0,1)
 
-     eq(n_var+3,:,:,:,1) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi)  ! Vacuum scalar magnetic potential (chi) and field (grad chi)
+     eq(n_var+3,:,:,:,1) = element%chi(mp,ms,mt,:,:,:) ! Vacuum scalar magnetic potential (chi) and field (grad chi)
      eq(n_var+4,0,0,0,1) = x_g(mp,ms,mt); eq(n_var+4,1,0,0,1) = 1.d0 ! Cylindrical R coordinate
      
      eq(n_var+5,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
