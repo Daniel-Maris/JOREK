@@ -545,6 +545,8 @@ subroutine preset_parameters
   init_current_prof  = .false.
   current_prof_initialized = .false.
   
+  domm_initialised   = .false.
+  
   use_mumps          = .false.              ! Use MUMPS solver
   use_pastix         = .true.               ! Use PASTIX solver
   use_strumpack      = .false.              ! Use STRUMPACK solver  

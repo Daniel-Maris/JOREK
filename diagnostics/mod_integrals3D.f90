@@ -568,8 +568,8 @@ do ife = ife_min, ife_max
                - x_ss(mp,ms,mt)*x_t(mp,ms,mt)))/xjac
         BigR = x_g(mp,ms,mt)
 
-#if (JOREK_MODEL == 183)
-        chi = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,1)
+#if STELLARATOR_MODEL
+        chi = element%chi(mp,ms,mt,:,:,:) 
         Bv2 = chi(1,0,0)**2 + chi(0,1,0)**2 + chi(0,0,1)**2/BigR**2
 #endif
 
@@ -987,7 +987,7 @@ do ife = ife_min, ife_max
         vpar_disp  = visco_par * (F0/BigR)**2.d0 * (vpar_x**2.d0+vpar_y**2.d0 ) 
 
         VP_tot = VP_tot + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
-#if (JOREK_MODEL == 183)
+#if STELLARATOR_MODEL
         VK_tot = VK_tot + r0*((dudx**2 + dudy**2 + dudp**2/BigR**2)/Bv2 &
                - (chi(1,0,0)*dudx + chi(0,1,0)*dudy + chi(0,0,1)*dudp/BigR**2)**2/Bv2**2)*xjac*BigR*wst*delta_phi
         VM_tot = VM_tot + (Bv2*(dpsidx**2 + dpsidy**2 + dpsidp**2/BigR**2) &
@@ -1146,7 +1146,7 @@ do ife = ife_min, ife_max
           H_int = H_int + heat_source     * xjac * BigR * wst * delta_phi
           S_int = S_int + particle_source * xjac * BigR * wst * delta_phi
           VP_int = VP_int + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
-#if (JOREK_MODEL == 183)
+#if STELLARATOR_MODEL
           VK_int = VK_int + r0*(dudx**2 + dudy**2)*BigR**2*xjac*BigR*wst*delta_phi/F0**2
 #else
           VK_int = VK_int + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi
@@ -1181,7 +1181,7 @@ do ife = ife_min, ife_max
           H_ext = H_ext + heat_source     * xjac * BigR * wst * delta_phi
           S_ext = S_ext + particle_source * xjac * BigR * wst * delta_phi
           VP_ext = VP_ext + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
-#if (JOREK_MODEL == 183)
+#if STELLARATOR_MODEL
           VK_ext = VK_ext + r0*(dudx**2 + dudy**2)*BigR**2*xjac*BigR*wst*delta_phi/F0**2
 #else
           VK_ext = VK_ext + r0 * (dudx**2 + dudy**2) * BigR**2 * xjac * BigR * wst * delta_phi

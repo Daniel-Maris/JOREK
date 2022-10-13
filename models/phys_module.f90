@@ -731,6 +731,7 @@ module phys_module
   logical                                               :: domm      !< automatically set to true if domm_file /= 'none'
   real*8                                                :: R_domm    !< Toroidally averaged radial position of the vacuum magnetic axis
   real*8, dimension(4,0:l_pol_domm,0:(n_coord_tor-1)/2) :: dcoef     !< Array containing the Dommaschk potential coefficients
+  logical                                               :: domm_initialised !< Flag that is set to true once init_chi_basis is called at run time to avoid using the vacuum field before initialisation
   
   !> @name Global quantities determined in each time step
   real*8, allocatable :: R_axis_t(:), Z_axis_t(:), psi_axis_t(:), R_xpoint_t(:,:), Z_xpoint_t(:,:),           &

@@ -1,11 +1,13 @@
 module mod_chi
-! This module is for the calculation of the vacuum magnetic scalar potential (chi) and its derivatives via the Dommaschk potentials
-! For more details, see
-! [*] W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
+!> This module is for the calculation of the vacuum magnetic scalar potential (chi) and its derivatives via the Dommaschk potentials
+!! For more details, see
+!! [*] W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
   use mod_parameters
-  use phys_module, only: domm, dcoef, F0, R_domm, PI
+  use phys_module, only: domm, dcoef, F0, R_domm, domm_initialised, PI
   implicit none
-  
+  private 
+  public init_chi_basis, get_chi, compute_chi_on_gauss_points
+
   integer, parameter :: m_tor = (n_coord_tor - 1)/2
   
   ! Cfunc(R) = Sum_{k=1,size(coef)} coef(k)*R**pwr(k) + Sum_{k=1,size(lcoef)} lcoef(k)*log(R)*R**lpwr(k)
@@ -44,14 +46,14 @@ module mod_chi
         allocate(CN(l,i)%coef(2*(l+1))); allocate(CN(l,i)%lcoef(l+1))
         allocate(CN(l,i)%pwr(2*(l+1)));  allocate(CN(l,i)%lpwr(l+1))
         do k=0,l
-          CD(l,i)%coef(2*k+1) = -(alpha(k)*(gamma_st(l-m-k) - alpha(l-m-k)) - gamma(k)*alpha_st(l-m-k) + alpha(k)*beta_st(l-k))
+          CD(l,i)%coef(2*k+1) = -(alpha(k,m)*(gamma_st(l-m-k,m) - alpha(l-m-k,m)) - gamma(k,m)*alpha_st(l-m-k,m) + alpha(k,m)*beta_st(l-k,m))
           CD(l,i)%pwr(2*k+1)  = 2*k + m
-          CD(l,i)%coef(2*k+2) = beta(k)*alpha_st(l-k);     CD(l,i)%pwr(2*k+2) = 2*k - m
-          CD(l,i)%lcoef(k+1)  = -alpha(k)*alpha_st(l-m-k); CD(l,i)%lpwr(k+1)  = 2*k + m
+          CD(l,i)%coef(2*k+2) = beta(k,m)*alpha_st(l-k,m);     CD(l,i)%pwr(2*k+2) = 2*k - m
+          CD(l,i)%lcoef(k+1)  = -alpha(k,m)*alpha_st(l-m-k,m); CD(l,i)%lpwr(k+1)  = 2*k + m
           
-          CN(l,i)%coef(2*k+1) = alpha(k)*gamma(l-m-k) - gamma(k)*alpha(l-m-k) + alpha(k)*beta(l-k); CN(l,i)%pwr(2*k+1)  = 2*k + m
-          CN(l,i)%coef(2*k+2) = -beta(k)*alpha(l-k);                                                CN(l,i)%pwr(2*k+2)  = 2*k - m
-          CN(l,i)%lcoef(k+1)  = alpha(k)*alpha(l-m-k);                                              CN(l,i)%lpwr(k+1)   = 2*k + m
+          CN(l,i)%coef(2*k+1) = alpha(k,m)*gamma(l-m-k,m) - gamma(k,m)*alpha(l-m-k,m) + alpha(k,m)*beta(l-k,m); CN(l,i)%pwr(2*k+1)  = 2*k + m
+          CN(l,i)%coef(2*k+2) = -beta(k,m)*alpha(l-k,m);                                                CN(l,i)%pwr(2*k+2)  = 2*k - m
+          CN(l,i)%lcoef(k+1)  = alpha(k,m)*alpha(l-m-k,m);                                              CN(l,i)%lpwr(k+1)   = 2*k + m
         end do
       end do
     end do
@@ -161,84 +163,82 @@ module mod_chi
       end do
     end do  
     
-    contains
-    
-    ! Eq (27) in [*]
-    pure real*8 function alpha(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      if (n .lt. 0) then
-        alpha = 0.0
-      else
-        alpha = (-1.d0)**n/(fact(n+m)*fact(n)*2.d0**(2*n+m))
-      end if
-    end function alpha
-    
-    pure real*8 function alpha_st(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      alpha_st = (2*n + m)*alpha(n)
-    end function alpha_st
-    
-    ! Eq (28) in [*]
-    pure real*8 function beta(n)
-      implicit none
-      integer, intent(in) :: n
-      integer :: pwr
-      
-      if (n .lt. 0 .or. n .ge. m) then
-        beta = 0.0
-      else
-        pwr = 2*n-m+1
-        beta = fact(m-n-1)/(fact(n)*(2.d0**pwr))
-      end if
-    end function beta
-    
-    pure real*8 function beta_st(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      beta_st = (2*n - m)*beta(n)
-    end function beta_st
-    
-    ! Eq (33) in [*]
-    pure real*8 function gamma(n)
-      implicit none
-      integer, intent(in) :: n
-      integer             :: i
-      
-      gamma = 0.0
-      do i=1,n
-        gamma = gamma + 1.0/i + 1.0/(m+i)
-      end do
-      gamma = gamma*alpha(n)/2.0
-    end function gamma
-    
-    pure real*8 function gamma_st(n)
-      implicit none
-      integer, intent(in) :: n
-      
-      gamma_st = (2*n + m)*gamma(n)
-    end function gamma_st
+    domm_initialised = .true.
   end subroutine init_chi_basis
+    
+  ! Eq (27) in [*]
+  pure real*8 function alpha(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    if (n .lt. 0) then
+      alpha = 0.0
+    else
+      alpha = (-1.d0)**n/(fact(n+m)*fact(n)*2.d0**(2*n+m))
+    end if
+  end function alpha
   
+  pure real*8 function alpha_st(n, m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    alpha_st = (2*n + m)*alpha(n,m)
+  end function alpha_st
+  
+  ! Eq (28) in [*]
+  pure real*8 function beta(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    integer :: pwr
+    
+    if (n .lt. 0 .or. n .ge. m) then
+      beta = 0.0
+    else
+      pwr = 2*n-m+1
+      beta = fact(m-n-1)/(fact(n)*(2.d0**pwr))
+    end if
+  end function beta
+  
+  pure real*8 function beta_st(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    beta_st = (2*n - m)*beta(n,m)
+  end function beta_st
+  
+  ! Eq (33) in [*]
+  pure real*8 function gamma(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    integer             :: i
+    
+    gamma = 0.0
+    do i=1,n
+      gamma = gamma + 1.0/i + 1.0/(m+i)
+    end do
+    gamma = gamma*alpha(n,m)/2.0
+  end function gamma
+  
+  pure real*8 function gamma_st(n,m)
+    implicit none
+    integer, intent(in) :: n, m
+    
+    gamma_st = (2*n + m)*gamma(n,m)
+  end function gamma_st
+  
+  !> This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1,
+  !!  unless a lower cutoff is requested via n
+  !! 
+  !! The Dommaschk potentials are calculated from EXTENDER, which uses a lefthand (LH) coordinate 
+  !!  system. In JOREK, the coordinate system is righthanded (RH), and so the equation for the  
+  !!  Dommaschk potential needs to be modified to:
+  !!
+  !!  Chi_RH(R, Z, phi_RH) = Chi_LH(R, Z, 2*pi/N_p - phi_RH)
+  !!                         = 2*pi/N_p-phi_RH + Sum_m,l [a_{m,l} cos(m phi_RH) - b_{m,l} sin(m phi_RH)] D_{m,l}
+  !!                                                    +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
+  !!
+  !! This leads to the equations for Chi and its derivatives below.  
   function get_chi(R,z,phi,max_ord)
-  !------------------------------------------------------------------------------------------------------
-  ! This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1,
-  !  unless a lower cutoff is requested via n
-  ! 
-  ! The Dommaschk potentials are calculated from EXTENDER, which uses a lefthand (LH) coordinate 
-  !  system. In JOREK, the coordinate system is righthanded (RH), and so the equation for the  
-  !  Dommaschk potential needs to be modified to:
-  !
-  !  Chi_RH(R, Z, phi_RH) = Chi_LH(R, Z, 2*pi/N_p - phi_RH)
-  !                         = 2*pi/N_p-phi_RH + Sum_m,l [a_{m,l} cos(m phi_RH) - b_{m,l} sin(m phi_RH)] D_{m,l}
-  !                                                    +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
-  !
-  ! This leads to the equations for Chi and its derivatives below.  
-  !------------------------------------------------------------------------------------------------------
     implicit none
     real*8,  intent(in) :: R, z, phi
     integer, optional, intent(in) :: max_ord
@@ -303,10 +303,10 @@ module mod_chi
     get_chi = F0*get_chi
   end function get_chi
   
+  !>---------------------------
+  !! Factorial of n
+  !!---------------------------
   pure real*8 function fact(n)
-  !---------------------------
-  ! Factorial of n
-  !---------------------------
     implicit none
     integer, intent(in) :: n
     integer             :: i
@@ -317,4 +317,85 @@ module mod_chi
     end do
   end function fact
   
+  !>-----------------------------------------------------------------------------------------------------
+  !! mod_chi::get_chi is used to compute the vacuum field representation on all gaussian points in all
+  !! planes of the simulated configuration to avoid their repeated calculation.
+  !!-----------------------------------------------------------------------------------------------------
+  subroutine compute_chi_on_gauss_points(element_list,node_list)
+    use basis_at_gaussian
+    use data_structure
+
+    implicit none
+  
+    ! --- Routine parameters
+    type(type_node_list),    intent(inout) :: node_list
+    type(type_element_list), intent(inout) :: element_list
+    
+    ! --- Variables for chi calculation
+    integer                                    :: i_elm, i_vertex, i_node, i, j, mp, ms, mt, i_tor
+    real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, y_g
+    real*8                                     :: phi
+    type (type_element)                        :: element
+    type (type_node)                           :: nodes(n_vertex_max)
+ 
+#if STELLARATOR_MODEL
+    write (*,*) 
+    write (*,*) "Storing vacuum field on gaussian points..."
+    write (*,*) 
+    if (.not. domm_initialised) then
+      write(*,*) "Cannot compute vacuum field because Dommaschk potentials have not been initialised!"
+      stop
+    endif
+    
+    ! --- Declare shared and private variables for omp
+    !$omp parallel default(none) &
+    !$omp   shared(element_list,node_list, H, HZ_coord) &
+    !$omp   private(i_elm,i_vertex,i_node,i_tor,element,nodes, i, j, ms, mt, mp, x_g, y_g, phi)
+    
+    !$omp do schedule(runtime)
+    do i_elm = 1, element_list%n_elements
+      element = element_list%element(i_elm)
+    
+      do i_vertex = 1, n_vertex_max
+        i_node     = element%vertex(i_vertex)
+        nodes(i_vertex) = node_list%node(i_node)
+      enddo
+      
+      x_g = 0.d0; y_g = 0.d0;  
+      do i=1,n_vertex_max
+        do j=1,n_order+1
+          do ms=1, n_gauss
+            do mt=1, n_gauss
+              do mp=1,n_plane
+                do i_tor=1,n_coord_tor
+                  x_g(mp,ms,mt) = x_g(mp,ms,mt) + nodes(i)%x(i_tor,j,1) * element%size(i,j) * H(i,j,ms,mt) * HZ_coord(i_tor,mp)
+                  y_g(mp,ms,mt) = y_g(mp,ms,mt) + nodes(i)%x(i_tor,j,2) * element%size(i,j) * H(i,j,ms,mt) * HZ_coord(i_tor,mp)
+                enddo
+              enddo
+            enddo
+          enddo
+        enddo
+      enddo
+      do ms=1, n_gauss
+        do mt=1, n_gauss
+          do mp=1,n_plane
+            phi = 2.d0*PI*float(mp-1)/float(n_plane) / float(n_period)
+            element%chi(mp,ms,mt,:,:,:) = get_chi(x_g(mp,ms,mt), y_g(mp,ms,mt), phi)
+          enddo
+        enddo
+      enddo
+    
+      !$omp critical
+      element_list%element(i_elm) = element
+      !$omp end critical
+    enddo
+    !$omp end do
+    !$omp end parallel
+#else
+  write(*,*) 'This function should not be called for tokamak models!'
+  stop
+#endif
+
+  end subroutine compute_chi_on_gauss_points
+
 end module mod_chi
