@@ -284,15 +284,11 @@ do ms=1, n_gauss
 #ifdef DEBUG
            rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
            rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
-           rhs_ij_6 = eval(thread_eq(tid)%rhs6seq)*BigR*xjac
-           if (with_TiTe) rhs_ij_7 = eval(thread_eq(tid)%rhs7seq)*BigR*xjac
 #else
 #include "rhs_unreadable.h"
 
            rhs_ij_1 = rhs_ij_1*BigR*xjac
            rhs_ij_3 = rhs_ij_3*BigR*xjac
-           rhs_ij_6 = rhs_ij_6*BigR*xjac
-           if (with_TiTe) rhs_ij_7 = rhs_ij_7*BigR*xjac
 #endif
 
            ij1 = index_ij
@@ -305,8 +301,6 @@ do ms=1, n_gauss
 
            RHS(ij1) = RHS(ij1) + rhs_ij_1(1)*wst
            RHS(ij3) = RHS(ij3) + rhs_ij_3(1)*wst
-           RHS(ij6) = RHS(ij6) + rhs_ij_6(1)*wst
-           if (with_TiTe) RHS(ij7) = RHS(ij7) + rhs_ij_7(1)*wst
 
            do k=1,n_vertex_max
 

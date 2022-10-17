@@ -51,11 +51,22 @@ if (my_id .eq. 0) then
     node_list%node(i)%values(1,4,5) = 0.d0
     
     ! Initialise temperature based on density and pressure
-    node_list%node(i)%values(1,1,6) = mu_zero*node_list%node(i)%pressure(1) / zn
-    node_list%node(i)%values(1,2,6) = mu_zero * (node_list%node(i)%pressure(2) - node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
-    node_list%node(i)%values(1,3,6) = 0.d0
-    node_list%node(i)%values(1,4,6) = 0.d0
+    if (with_TiTe) then
+      node_list%node(i)%values(1,1,6) = t_rat*mu_zero*node_list%node(i)%pressure(1) / zn
+      node_list%node(i)%values(1,2,6) = t_rat*mu_zero * (node_list%node(i)%pressure(2) - t_rat*node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
+      node_list%node(i)%values(1,3,6) = 0.d0
+      node_list%node(i)%values(1,4,6) = 0.d0
 
+      node_list%node(i)%values(1,1,7) = (1.d0-t_rat)*mu_zero*node_list%node(i)%pressure(1) / zn
+      node_list%node(i)%values(1,2,7) = (1.d0-t_rat)*mu_zero * (node_list%node(i)%pressure(2) - (1.d0-t_rat)*node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
+      node_list%node(i)%values(1,3,7) = 0.d0
+      node_list%node(i)%values(1,4,7) = 0.d0
+    else
+      node_list%node(i)%values(1,1,6) = mu_zero*node_list%node(i)%pressure(1) / zn
+      node_list%node(i)%values(1,2,6) = mu_zero * (node_list%node(i)%pressure(2) - node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
+      node_list%node(i)%values(1,3,6) = 0.d0
+      node_list%node(i)%values(1,4,6) = 0.d0
+    end if
   enddo
 
   do i=1,bnd_node_list%n_bnd_nodes

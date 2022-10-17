@@ -132,8 +132,6 @@ module mod_equations
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
-        allocate(thread_eq(i)%rhs6seq(countsubexprs(rhs6)))
-        if (with_TiTe) allocate(thread_eq(i)%rhs7seq(countsubexprs(rhs7)))
         allocate(thread_eq(i)%amat11seq(countsubexprs(amat11)))
         allocate(thread_eq(i)%amat13seq(countsubexprs(amat13)))
         allocate(thread_eq(i)%amat22seq(countsubexprs(amat22)))
@@ -160,8 +158,6 @@ module mod_equations
     do i=1,nbthreads
       call buildsequence(rhs1, thread_eq(i)%rhs1seq, thread_eq(i)%eq)
       call buildsequence(rhs3, thread_eq(i)%rhs3seq, thread_eq(i)%eq)
-      call buildsequence(rhs6, thread_eq(i)%rhs6seq, thread_eq(i)%eq)
-      if (with_TiTe) call buildsequence(rhs7, thread_eq(i)%rhs7seq, thread_eq(i)%eq)
 
       call buildsequence(amat11, thread_eq(i)%amat11seq, thread_eq(i)%eq)
       call buildsequence(amat13, thread_eq(i)%amat13seq, thread_eq(i)%eq)
