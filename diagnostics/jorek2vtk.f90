@@ -1154,8 +1154,12 @@ do i=1,element_list%n_elements
            call interp(node_list,element_list,i,1,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
            Psi_tot = Psi_tot + P * HZ(i_tor,i_plane)
         enddo
- 
-        psi_norm = get_psi_n(Psi_tot, Z)
+        
+        if (mod(jorek_model, 100) .eq. 83) then
+          call interp_gvec(node_list,element_list,i,4,1,i_tor,s,t,psi_norm,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+        else
+          psi_norm = get_psi_n(Psi_tot, Z)
+        endif
 
         if (include_bootstrap) then
           call bootstrap_current(R, Z, ES%R_axis, ES%Z_axis, ES%psi_axis, ES%R_xpoint, ES%Z_xpoint, ES%psi_bnd, psi_norm,&

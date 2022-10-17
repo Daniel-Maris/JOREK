@@ -6,7 +6,7 @@ module mod_equations
 
   type type_thread_eq
 #ifdef DEBUG
-    type(action), dimension(:), allocatable :: rhs1seq, rhs3seq, rhs6seq
+    type(action), dimension(:), allocatable :: rhs1seq, rhs3seq
     type(action), dimension(:), allocatable :: amat11seq, amat13seq
     type(action), dimension(:), allocatable :: amat22seq
     type(action), dimension(:), allocatable :: amat33seq
@@ -62,8 +62,7 @@ module mod_equations
   type(algexpr), private :: amat71, amat72, amat73, amat75, amat76, amat77
   type(algexpr), private :: a_Bv2
 
-  integer            :: n_rhs, n_amat
-  integer, parameter :: n_aux = 4
+  integer, parameter :: n_rhs = 2, n_amat = 7, n_aux = 4
 
   type(const), private :: t_rat
 
@@ -160,8 +159,11 @@ module mod_equations
     do i=1,nbthreads
       call buildsequence(rhs1, thread_eq(i)%rhs1seq, thread_eq(i)%eq)
       call buildsequence(rhs3, thread_eq(i)%rhs3seq, thread_eq(i)%eq)
+<<<<<<< HEAD
       call buildsequence(rhs6, thread_eq(i)%rhs6seq, thread_eq(i)%eq)
       if (with_TiTe) call buildsequence(rhs7, thread_eq(i)%rhs7seq, thread_eq(i)%eq)
+=======
+>>>>>>> develop_3d
 
       call buildsequence(amat11, thread_eq(i)%amat11seq, thread_eq(i)%eq)
       call buildsequence(amat13, thread_eq(i)%amat13seq, thread_eq(i)%eq)
@@ -188,6 +190,7 @@ module mod_equations
 
   subroutine get_rhs(rhs,varnames)
     implicit none
+<<<<<<< HEAD
     type(algexpr), allocatable, intent(out) :: rhs(:)
     character(8),  allocatable, intent(out) :: varnames(:)
 
@@ -202,6 +205,13 @@ module mod_equations
       rhs = (/ rhs1, rhs3, rhs6 /)
       varnames = (/ "rhs_ij_1", "rhs_ij_3", "rhs_ij_6" /)
     end if
+=======
+    type(algexpr), dimension(n_rhs), intent(out) :: rhs
+    character(8),  dimension(n_rhs), intent(out) :: varnames
+
+    rhs = (/ rhs1, rhs3 /)
+    varnames = (/ "rhs_ij_1", "rhs_ij_3" /)
+>>>>>>> develop_3d
   end subroutine get_rhs
 
   subroutine get_amat(amat,varnames)

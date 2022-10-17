@@ -60,7 +60,6 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   real*8           :: JR_average, JZ_average, Jphi_average
 
   integer          :: in_gvec=11                          ! Input stream from gvec
-  integer          :: gvec_preamble_lines=124             ! Number of lines in gvec preamble
   integer          :: iostatus=0                          ! Error flag for reading vacuum field
   integer          :: n_max_jorek = (n_coord_tor-1)/2     ! Maximum toroidal mode number in JOREK
 
@@ -70,10 +69,15 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
     write(*, *) "Cannot open GVEC file..."
     stop
   end if
-  do idx=1, gvec_preamble_lines
-    read(in_gvec, *)
+  ! Skip header lines
+  do idx=1, 1000
+    read(in_gvec, *, iostat=ierr) n_rad, n_theta, n_phi
+    if (ierr .eq. 0) exit
   enddo
-  read(in_gvec, *) n_rad, n_theta, n_phi
+  if (idx .gt. 1000) then 
+    write(*,*) "Number of header lines in GVEC import is > 1000 - something must be wrong."
+    stop
+  endif
   write(*, *)  "n_rad    n_theta    n_phi: ", n_rad, n_theta, n_phi
   if ((.not. is_test) .and. ((n_theta .ne. n_tht) .or. (n_rad .ne. n_flux))) then
     write(*, *) "Number of radial and poloidal points does not match values in input file: ", n_rad, n_flux, n_theta, n_tht
@@ -307,6 +311,12 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
       node_list%node(i_node)%pressure(2) = P_four_s(i_theta, i_rad, n_max+1) * s_factor * 1.0 / 3.0
       node_list%node(i_node)%pressure(3) = P_four_t(i_theta, i_rad, n_max+1) * theta_factor * 1.0 / 3.0
       node_list%node(i_node)%pressure(4) = P_four_st(i_theta, i_rad, n_max+1) * s_factor * theta_factor * 1.0 / 9.0
+
+      ! Read in radial coordinate - Assumes that the imported GVEC data is uniform radially
+      node_list%node(i_node)%r_tor_eq(1) = (i_rad-1) / float(n_flux-1)
+      node_list%node(i_node)%r_tor_eq(2) = s_factor * 1.0 / 3.0
+      node_list%node(i_node)%r_tor_eq(3) = 0.0
+      node_list%node(i_node)%r_tor_eq(4) = 0.0
 
       do idx=1, n_modes
         if ((idx .gt. n_max_jorek) .and. (idx .le. n_max)) cycle   ! Skip higher sinusoidal modes
