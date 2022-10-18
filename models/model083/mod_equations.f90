@@ -50,7 +50,7 @@ module mod_equations
   type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=n_var+7)
   type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=n_var+8)
  ! Auxiliary variables (aux)
-  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=16)
+  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=n_var+9)
 
   type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6, rhs7
   type(algexpr), private :: amat11, amat12, amat13, amat16, amat17
@@ -92,13 +92,6 @@ module mod_equations
     rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
          - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
 
-    if (with_TiTe) then
-      rhs6 = v*(t_rat*p0_gvec/rho0 - T0_i)
-      rhs7 = v*((1.d0-t_rat)*p0_gvec/rho0 - T0_e)
-    else
-      rhs6 = v*(p0_gvec/rho0 - T0)
-    end if
-
     amat11 = Bv2*inprod(v,Psi)
     amat13 = v*Bv2*zj
 
@@ -128,7 +121,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(16,0:n_order-1,0:n_order-1,0:n_order-1,4))
+        allocate(thread_eq(i)%eq(n_var+9,0:n_order-1,0:n_order-1,0:n_order-1,4))
 #ifdef DEBUG
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
@@ -240,9 +233,13 @@ module mod_equations
     character(14), dimension(n_aux), intent(out) :: varnames
     integer      :: i
     character(2) :: num
-
+  
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
-    varnames = (/ "eq(16,0,0,0,:)", "eq(16,1,0,0,:)", "eq(16,0,1,0,:)", "eq(16,0,0,1,:)" /)
+    if (with_TiTe) then
+      varnames = (/ "eq(16,0,0,0,:)", "eq(16,1,0,0,:)", "eq(16,0,1,0,:)", "eq(16,0,0,1,:)" /)
+    else
+      varnames = (/ "eq(15,0,0,0,:)", "eq(15,1,0,0,:)", "eq(15,0,1,0,:)", "eq(15,0,0,1,:)" /)
+    end if
   end subroutine get_aux
 
   type(algexpr) function Bv_pbrack(a,b)

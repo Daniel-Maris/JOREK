@@ -69,22 +69,6 @@ if (my_id .eq. 0) then
     end if
   enddo
 
-  do i=1,bnd_node_list%n_bnd_nodes
-    i2 = bnd_node_list%bnd_node(i)%index_jorek
-    j  = bnd_node_list%bnd_node(i)%direction(2)
-    
-    if (with_TiTe) then
-      node_list%node(i2)%values(1,1,6) = t_rat*mu_zero*node_list%node(i2)%pressure(1)
-      node_list%node(i2)%values(1,j,6) = t_rat*mu_zero*node_list%node(i2)%pressure(j)
-
-      node_list%node(i2)%values(1,1,7) = (1.d0-t_rat)*mu_zero*node_list%node(i2)%pressure(1)
-      node_list%node(i2)%values(1,j,7) = (1.d0-t_rat)*mu_zero*node_list%node(i2)%pressure(j)
-    else
-      node_list%node(i2)%values(1,1,6) = mu_zero*node_list%node(i2)%pressure(1)
-      node_list%node(i2)%values(1,j,6) = mu_zero*node_list%node(i2)%pressure(j)
-    end if
-  end do
-
 endif
 
 !---------------------------- initialise perturbations

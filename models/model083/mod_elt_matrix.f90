@@ -236,8 +236,8 @@ do ms=1, n_gauss
 
      ! Auxiliary variables (aux)
 #ifdef DEBUG
-     eq(16,0,0,0,:) = eval(thread_eq(tid)%aBv2seq);  eq(16,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-     eq(16,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(16,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
+     eq(n_var+9,0,0,0,:) = eval(thread_eq(tid)%aBv2seq);  eq(n_var+9,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
+     eq(n_var+9,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(n_var+9,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
 #else
 #include "aux_unreadable.h"
 #endif

@@ -10,7 +10,7 @@ program algexpr2fort
   integer, parameter :: line_length = 130
   
   character(3)  :: model_num
-
+  
   character(:),  allocatable       :: varname, full
   character(8),  allocatable       :: varname_rhs(:)
   character(7),  allocatable       :: varname_amat(:)
