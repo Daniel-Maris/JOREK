@@ -922,7 +922,11 @@ contains
     !dir$ noparallel
     !dir$ novector
     do i=1,size(actseq)
+#if (JOREK_MODEL == 83)
+      actseq(i)%reslt(1) = (actseq(i)%f1*actseq(i)%v1(1) + actseq(i)%a1)*((1 - actseq(i)%c1)*(actseq(i)%f2*actseq(i)%v2(1) + actseq(i)%a2) + actseq(i)%c1)/((1 - actseq(i)%c2)*(actseq(i)%f2*actseq(i)%v2(1) + actseq(i)%a2) + actseq(i)%c2) + actseq(i)%c3*(actseq(i)%f2*actseq(i)%v2(1) + actseq(i)%a2)
+#else
       actseq(i)%reslt = (actseq(i)%f1*actseq(i)%v1 + actseq(i)%a1)*((1 - actseq(i)%c1)*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2) + actseq(i)%c1)/((1 - actseq(i)%c2)*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2) + actseq(i)%c2) + actseq(i)%c3*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2)
+#endif
     end do
     
     eval = actseq(size(actseq))%reslt
@@ -945,7 +949,11 @@ contains
     end if
     
     if (expr%basic) then
+#if (JOREK_MODEL == 83)
+      write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ",1)"
+#else
       write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ",:)"
+#endif
       res = varname // indices
     else
       res = "(" // trim(gencode(expr%operand1,varname)) // expr%oprtr // trim(gencode(expr%operand2,varname)) // ")"

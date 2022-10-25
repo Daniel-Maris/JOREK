@@ -192,7 +192,7 @@ module mod_equations
     character(2) :: num
 
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
-    varnames = (/ "eq(15,0,0,0,:)", "eq(15,1,0,0,:)", "eq(15,0,1,0,:)", "eq(15,0,0,1,:)" /)
+    varnames = (/ "eq(15,0,0,0,1)", "eq(15,1,0,0,1)", "eq(15,0,1,0,1)", "eq(15,0,0,1,1)" /)
   end subroutine get_aux
 
   type(algexpr) function Bv_pbrack(a,b)
