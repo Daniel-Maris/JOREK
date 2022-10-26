@@ -384,6 +384,8 @@ do ms=1, n_gauss
         end if
 
         ! Thermalization in Temperature evolution
+
+        ! see corr_neg page in the jorek wiki, short explanation in models/corr_neg_include.f90 
         T0_i_corr    = corr_neg_temp(eq(6,0,0,0,1))  ! corrected ion temperature
         T0_e_corr    = corr_neg_temp(eq(7,0,0,0,1))  ! corrected electron temperature
         rho0_corr    = corr_neg_dens(eq(5,0,0,0,1))  ! corrected density
@@ -568,7 +570,7 @@ do ms=1, n_gauss
               RHS(ij4) = RHS(ij4) + (rhs_ij_4(1)*HZ(im,mp) + rhs_ij_4(2)*HZ_p(im,mp))*wst
               RHS(ij5) = RHS(ij5) + (rhs_ij_5(1)*HZ(im,mp) + rhs_ij_5(2)*HZ_p(im,mp))*wst
               RHS(ij6) = RHS(ij6) + (rhs_ij_6(1)*HZ(im,mp) + rhs_ij_6(2)*HZ_p(im,mp))*wst
-              if (with_TiTe) RHS(ij7) = RHS(ij7) + (rhs_ij_7(1)*HZ(im,mp) + rhs_ij_6(2)*HZ_p(im,mp))*wst
+              if (with_TiTe) RHS(ij7) = RHS(ij7) + (rhs_ij_7(1)*HZ(im,mp) + rhs_ij_7(2)*HZ_p(im,mp))*wst
             endif
             
             do k=1,n_vertex_max
