@@ -400,6 +400,8 @@ do ms=1, n_gauss
         ne_SI = rho0_corr * 1.d20 * central_density  ! density in SI units
         if (ne_SI < 1.d16) ne_SI = 1.d16   ! prevent absurd number in the coulomb lambda
 
+        ! the equations for collision frequency nu_e_bg and Coulomb lambda were taken from NRL plasmaformulary 2013 p.34
+        ! equations were written down in cgs in the source and were modfied to match SI units below 
         lambda_e_bg  = 23.d0 - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! --> Coulomb lambda
         nu_e_bg      = 1.8d-19*(1.d6*MASS_ELECTRON*MASS_PROTON*central_mass) ** 0.5&
                      * (1.d14*central_density*rho0_corr) * lambda_e_bg &

@@ -9,6 +9,9 @@ module mod_model_settings
 ! ####  @USERS: This file should not be modified ###################################################
 ! ##################################################################################################
 
+  ! The following line is needed by ./util/config.sh:
+  ! #SETTINGS# with_TiTe
+
   integer, parameter :: jorek_model    = 083       !< JOREK physics model
 
   logical, parameter :: hydrodynamics   = .false.

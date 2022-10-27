@@ -3,11 +3,14 @@ module mod_model_settings
 
   implicit none
 
-  logical, parameter :: with_TiTe       = .false. 
+  logical, parameter :: with_TiTe       = .true. 
 
 ! ##################################################################################################
 ! ####  @USERS: This file should not be modified ###################################################
 ! ##################################################################################################
+
+  ! The following line is needed by ./util/config.sh:
+  ! #SETTINGS# with_TiTe
 
   integer, parameter :: jorek_model    = 183       !< JOREK physics model
 
