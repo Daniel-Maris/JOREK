@@ -46,7 +46,9 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 F0, gamma_sheath, density_reflection,               &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
-                T_0,   T_1,   T_coef, t_rat,                        &
+                T_0,   T_1,   T_coef,                               &
+                Ti_0, Ti_1, Ti_coef,                                &
+                Te_0, Te_1, Te_coef, t_rat,                         &
                 FF_0,  FF_1,  FF_coef,                              &
                 ZK_par, ZK_par_max, ZK_perp, D_par, D_perp,         &
                 particlesource, heatsource, tauIC,                  &
