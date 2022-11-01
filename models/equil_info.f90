@@ -338,12 +338,8 @@ module equil_info
     
     ! --- Find random point (R,Z) coordinates at computational boundary
     i_elm = bnd_elm_list%bnd_element(1)%element 
-#if STELLARATOR_MODEL
   phi = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
   call interp_RZP(node_list,element_list,i_elm,0.d0,0.d0,phi,R1,Z1)
-#else  
-  call interp_RZ(node_list, element_list, i_elm, 0.d0, 0.d0, R1, R_s, R_t, Z1, Z_s, Z_t)
-#endif
 
     ! --- Find point between axis and bnd point (located 25% away from axis on the connecting line)
     R2 = R_axis + 0.25d0*(R1-R_axis)
