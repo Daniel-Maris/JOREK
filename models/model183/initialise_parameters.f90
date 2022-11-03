@@ -130,6 +130,9 @@ if (my_id .eq. 0) then
   ! --- Model-specific presets
   particlesource_psin = 100.d0
   
+  ! Set false because temperature profiles are not valid in stellarator models
+  write_ps = .false.
+  
   ! --- Read input parameters from namelist.
   if (trim(filename) .ne. "__NO_FILENAME__" ) then
      open(42, file=filename, status='old', action='read', iostat=ierr)
