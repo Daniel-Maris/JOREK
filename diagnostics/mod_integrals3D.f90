@@ -82,7 +82,6 @@ real*8  :: s_norm_1D(n_plane, n_gauss)
 
 real*8  :: current_source, particle_source, heat_source, heat_source_i, heat_source_e, rotation_source
 real*8  :: xt, t_norm, rho_norm, t_norm2
-real*8  :: eq_zne(n_gauss,n_gauss), eq_zTe(n_gauss,n_gauss)
 real*8  :: dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz
 real*8  :: dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz
 
@@ -382,7 +381,7 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp           psi_axisym, s_norm,                                                            &
 !$omp           wst, BigR, r0, T0, T0e, zj0, w0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy, dudp, &
 !$omp           dpdx, dpdy, phi, T0i, psi_as_coord,                                            &
-!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, chi, Bv2, BB2,            &
+!$omp           source_pellet, source_volume, vpar0, chi, Bv2, BB2,                            &
 !$omp           heat_source, heat_source_i, heat_source_e, particle_source, current_source, rotation_source, &
 !$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,    &
 !$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,    &
@@ -533,22 +532,6 @@ do ife = ife_min, ife_max
     varmax(k) = max( varmax(k), maxval(eq_g(:,k,:,:)) )
   end do
   !$omp end critical
-  
-  do ms=1, n_gauss
-    do mt=1, n_gauss
-      call density(xpoint, xcase, y_g(1,ms,mt), Z_xpoint, eq_g(1,var_psi,ms,mt),psi_axis,psi_bnd,eq_zne(ms,mt), &
-                   dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz)
-
-#ifdef WITH_TiTe
-      call temperature_e(xpoint, xcase, y_g(1,ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,eq_zTe(ms,mt), &
-                       dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz)
-#else
-      call temperature(xpoint, xcase, y_g(1,ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,eq_zTe(ms,mt),   &
-                       dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz)
-      eq_zTe(ms,mt) = eq_zTe(ms,mt) / 2.d0	! electron temperature
-#endif
-    enddo
-  enddo
 
   !--------------------------------------------------- sum over the Gaussian integration points
   do mp=1,n_plane
