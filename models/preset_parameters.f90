@@ -437,10 +437,11 @@ subroutine preset_parameters
   FF_1  =  0.d0
   
   zj_coef     = 0.d0;  zj_coef(1)  = -1.d0
-  T_coef      = 0.d0;  T_coef(1)   = -1.d0
-  Te_coef     = 0.d0;  Te_coef(1)  = -1.d0
-  Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0
-  rho_coef    = 0.d0;  rho_coef(1) =  0.d0
+  ! Default transport barrier set by coefficient 4 and 5 is far away from simulation domain
+  T_coef      = 0.d0;  T_coef(1)   = -1.d0; T_coef(4)   = 0.01;  T_coef(5)   = 99.d0   
+  Te_coef     = 0.d0;  Te_coef(1)  = -1.d0; Te_coef(4)  = 0.01;  Te_coef(5)  = 99.d0
+  Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0; Ti_coef(4)  = 0.01;  Ti_coef(5)  = 99.d0
+  rho_coef    = 0.d0;  rho_coef(1) =  0.d0; rho_coef(4) = 0.01;  rho_coef(5) = 99.d0
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
   dcoef       = 0.d0
 
