@@ -212,8 +212,6 @@ include_Jpol           = .false. ! include poloidal current vector (J_phi=0 for 
 include_bootstrap      = .false. ! include bootstrap current and averaged current
 include_psi_norm       = .true.  ! include normalized flux
 RphiZ_coords           = .false. ! use xyz transformation (R,0,Z) instead of (R,Z,0)
-include_radiation      = .false.
-include_neutral_dens   = .false.
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 include_radiation = .true.
@@ -392,7 +390,7 @@ if ( SI_units ) then
 #endif
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
-   scalar_names(var_rhon)='N_dens_1d20  '
+   scalar_names(var_rhon)='N_dens_1d20 '
 #endif
 
 endif
@@ -462,7 +460,7 @@ endif
 #ifdef WITH_Impurities
  if (include_radiation) then
      scalar_names(s_radiation+1:s_radiation+n_radiation) &
-                  = (/ 'Ionis_Jm-3  ', 'Coronal_radWm-3 ', 'Joule_Wm-3  ', 'Z_imp   ', 'Z_eff       '/)
+                  = (/ 'Ionis_Jm-3  ', 'Coronal_radWm-3 ', 'Joule_Wm-3  ', 'Z_imp       ', 'Z_eff       '/)
  endif
 #endif
 
