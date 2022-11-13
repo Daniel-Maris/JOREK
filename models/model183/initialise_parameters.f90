@@ -88,11 +88,14 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 edgeparticlesource_sig,                             &
                 particlesource_gauss, heatsource_gauss,             &
                 heatsource_gauss_psin, heatsource_gauss_sig,        &
+                heatsource_gauss_i, heatsource_gauss_e,             &
+                heatsource_gauss_i_psin, heatsource_gauss_e_psin,   &
+                heatsource_gauss_i_sig, heatsource_gauss_e_sig,     &
                 particlesource_gauss_psin, particlesource_gauss_sig,&
                 produce_live_data, gmres, gmres_max_iter,           &
                 gmres_m, gmres_4, gmres_tol, iter_precon,           &
                 tgnum,  pastix_pivot, max_steps_noUpdate,           &
-                export_for_nemec,        &
+                export_for_nemec,                                   &
                 RMP_on, RMP_har_cos,RMP_har_sin,                    &
                 RMP_growth_rate, RMP_ramp_up_time,                  &
                 RMP_psi_cos_file, RMP_psi_sin_file,                 &

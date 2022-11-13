@@ -61,7 +61,8 @@ real*8     :: theta, zeta, reta
 logical    :: xpoint2, use_fft
 
 real*8     :: T0_i_corr, T0_e_corr                      !> temperature for T^(-1.5)
-real*8     :: T0_e_corr_eV, dT0_e_corr_eV_dT            !> corrected T0_e in eV, and derivative
+real*8     :: T0_e_corr_eV, dT0_e_corr_eV_dT            !> corrected T0_e in eV and derivative
+real*8     :: T0_i_corr_eV, dT0_i_corr_eV_dT            !> corrected T0_i in eV and derivative
 real*8     :: rho0_corr                                 !> corresponding density
 real*8     :: ne_SI, lambda_e_bg, nu_e_bg, t_norm       !> parameters for temperature exchange term between ion and electrons
 real*8     :: dT0_i_corr_dT, dT0_e_corr_dT              !> derivatives of corrected temperatures  
@@ -395,14 +396,22 @@ do ms=1, n_gauss
         drho0_corr_dn= dcorr_neg_dens_drho(eq(5,0,0,0,1)) ! dericative of corrected density
 
         T0_e_corr_eV = T0_e_corr/(EL_CHG*MU_ZERO*central_density*1.d20) ! electron temperature in eV
+        T0_i_corr_eV = T0_i_corr/(EL_CHG*MU_ZERO*central_density*1.d20) ! ion temperature in eV
         dT0_e_corr_eV_dT = dT0_e_corr_dT/(EL_CHG*MU_ZERO*central_density*1.d20)
+        dT0_i_corr_eV_dT = dT0_i_corr_dT/(EL_CHG*MU_ZERO*central_density*1.d20)
 
         ne_SI = rho0_corr * 1.d20 * central_density  ! density in SI units
         if (ne_SI < 1.d16) ne_SI = 1.d16   ! prevent absurd number in the coulomb lambda
 
         ! the equations for collision frequency nu_e_bg and Coulomb lambda were taken from NRL plasmaformulary 2013 p.34
-        ! equations were written down in cgs in the source and were modfied to match SI units below 
-        lambda_e_bg  = 23.d0 - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! --> Coulomb lambda
+        ! equations were written down in cgs in the source and were modfied to match SI units below
+        if ((T0_i_corr*MASS_ELECTRON/(central_mass*MASS_PROTON)<T0_e_corr) .and. (T0_e_corr_eV<10)) then 
+          lambda_e_bg  = 23.d0 - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.5)) ! Assuming bg_charge is 1! --> Coulomb lambda
+        else if ((T0_i_corr_eV*MASS_ELECTRON/(central_mass*MASS_PROTON) < 10) .and. (10<T0_e_corr_eV)) then
+          lambda_e_bg  = 24.d0 - log((ne_SI*1.d-6)**0.5*T0_e_corr_eV**(-1.0))
+        else
+          lambda_e_bg  = 30.d0 - log((ne_SI*1.d-6)**0.5*T0_i_corr_eV**(-1.5)/MU_ZERO)
+        end if
         nu_e_bg      = 1.8d-19*(1.d6*MASS_ELECTRON*MASS_PROTON*central_mass) ** 0.5&
                      * (1.d14*central_density*rho0_corr) * lambda_e_bg &
                      / (1.d3*(MASS_ELECTRON*T0_i_corr+T0_e_corr*MASS_PROTON*central_mass)&
