@@ -236,9 +236,9 @@ module mod_equations
   
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
     if (with_TiTe) then
-      varnames = (/ "eq(16,0,0,0,:)", "eq(16,1,0,0,:)", "eq(16,0,1,0,:)", "eq(16,0,0,1,:)" /)
+      varnames = (/ "eq(16,0,0,0,1)", "eq(16,1,0,0,1)", "eq(16,0,1,0,1)", "eq(16,0,0,1,1)" /)
     else
-      varnames = (/ "eq(15,0,0,0,:)", "eq(15,1,0,0,:)", "eq(15,0,1,0,:)", "eq(15,0,0,1,:)" /)
+      varnames = (/ "eq(15,0,0,0,1)", "eq(15,1,0,0,1)", "eq(15,0,1,0,1)", "eq(15,0,0,1,1)" /)
     end if
   end subroutine get_aux
 

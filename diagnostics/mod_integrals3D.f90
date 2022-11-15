@@ -78,10 +78,10 @@ real*8  :: x_g_1D(n_plane,n_gauss),  x_s_1D(n_plane,n_gauss),   x_t_1D(n_plane,n
 real*8  :: y_g_1D(n_plane,n_gauss),  y_s_1D(n_plane,n_gauss),   y_t_1D(n_plane,n_gauss)
 real*8  :: eq_g_1D(n_plane,0:n_var,n_gauss), eq_s_1D(n_plane,0:n_var,n_gauss)
 real*8  :: eq_t_1D(n_plane,0:n_var,n_gauss), eq_p_1D(n_plane,0:n_var,n_gauss)
+real*8  :: s_norm_1D(n_plane, n_gauss)
 
 real*8  :: current_source, particle_source, heat_source, heat_source_i, heat_source_e, rotation_source
 real*8  :: xt, t_norm, rho_norm, t_norm2
-real*8  :: eq_zne(n_gauss,n_gauss), eq_zTe(n_gauss,n_gauss)
 real*8  :: dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz
 real*8  :: dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz
 
@@ -381,7 +381,7 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp           psi_axisym, s_norm,                                                            &
 !$omp           wst, BigR, r0, T0, T0e, zj0, w0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy, dudp, &
 !$omp           dpdx, dpdy, phi, T0i, psi_as_coord,                                            &
-!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, chi, Bv2, BB2,            &
+!$omp           source_pellet, source_volume, vpar0, chi, Bv2, BB2,                            &
 !$omp           heat_source, heat_source_i, heat_source_e, particle_source, current_source, rotation_source, &
 !$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,    &
 !$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,    &
@@ -485,7 +485,7 @@ do ife = ife_min, ife_max
           psi_axisym(ms,mt) = psi_axisym(ms,mt) + nodes(i)%values(1,j,var_A3) * element%size(i,j) * H(i,j,ms,mt)
 #endif
 
-#if (JOREK_MODEL == 83) || (JOREK_MODEL == 183)
+#if STELLARATOR_MODEL
              s_norm(ms, mt) = s_norm(ms,mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
 #endif
 
@@ -532,22 +532,6 @@ do ife = ife_min, ife_max
     varmax(k) = max( varmax(k), maxval(eq_g(:,k,:,:)) )
   end do
   !$omp end critical
-  
-  do ms=1, n_gauss
-    do mt=1, n_gauss
-      call density(xpoint, xcase, y_g(1,ms,mt), Z_xpoint, eq_g(1,var_psi,ms,mt),psi_axis,psi_bnd,eq_zne(ms,mt), &
-                   dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz)
-
-#ifdef WITH_TiTe
-      call temperature_e(xpoint, xcase, y_g(1,ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,eq_zTe(ms,mt), &
-                       dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz)
-#else
-      call temperature(xpoint, xcase, y_g(1,ms,mt), Z_xpoint, eq_g(1,1,ms,mt),psi_axis,psi_bnd,eq_zTe(ms,mt),   &
-                       dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz)
-      eq_zTe(ms,mt) = eq_zTe(ms,mt) / 2.d0	! electron temperature
-#endif
-    enddo
-  enddo
 
   !--------------------------------------------------- sum over the Gaussian integration points
   do mp=1,n_plane
@@ -1112,7 +1096,7 @@ do ife = ife_min, ife_max
         local_n_particles     = local_n_particles + central_density * 1.d20 * rn0 * m_i_over_m_imp * bigR * xjac * wst * delta_phi
 #endif
 
-#if (JOREK_MODEL == 83) || (JOREK_MODEL == 183)
+#if STELLARATOR_MODEL
         if (s_norm(ms,mt) <= 1.d0) then
 #else
         if ( get_psi_n(psi_as_coord, y_g(mp,ms,mt)) <= 1.d0 ) then   !inside LCFS
@@ -1212,6 +1196,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
   y_g_1D(:,:)  = 0.d0; y_s_1D(:,:)  = 0.d0;  y_t_1D(:,:)    = 0.d0;
 
   eq_g_1D(:,:,:) = 0.d0; eq_s_1D(:,:,:) = 0.d0;
+  s_norm_1D(:,:) = 0.0
 
   do k_vertex = 1, 2
     do k_dof = 1, 2
@@ -1228,6 +1213,11 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
           y_s_1D(mp,:)   = y_s_1D(mp,:)  + node_k%x(in,k_dir,2) * k_size * H1_s(k_vertex,k_dof,:) *HZ_coord(in,mp)
         enddo
       enddo
+#if STELLARATOR_MODEL
+      do mp=1,n_plane
+        s_norm_1D(mp,:) = s_norm_1D(mp,:) + node_k%r_tor_eq(k_dof)*k_size*H1(k_vertex,k_dof,:)
+      enddo
+#endif
 
       do k=1,n_var
         do mp=1, n_plane 
@@ -1420,8 +1410,8 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       BB2    = (F0*F0 + dpsidx*dpsidx + dpsidy*dpsidy) / BigR**2
 
       ! --- get normalized flux 
-#if (JOREK_MODEL == 83) || (JOREK_MODEL == 183)
-      psi_n = s_norm(ms, mt)
+#if STELLARATOR_MODEL
+      psi_n = s_norm_1D(mp,ms)
 #else
       psi_n = get_psi_n(ps0,Z)
 #endif

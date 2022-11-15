@@ -437,10 +437,10 @@ subroutine preset_parameters
   FF_1  =  0.d0
   
   zj_coef     = 0.d0;  zj_coef(1)  = -1.d0
-  T_coef      = 0.d0;  T_coef(1)   = -1.d0
-  Te_coef     = 0.d0;  Te_coef(1)  = -1.d0
-  Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0
-  rho_coef    = 0.d0;  rho_coef(1) =  0.d0
+  T_coef      = 0.d0;  T_coef(1)   = -1.d0;
+  Te_coef     = 0.d0;  Te_coef(1)  = -1.d0;
+  Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0;
+  rho_coef    = 0.d0;  rho_coef(1) =  0.d0;
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
   dcoef       = 0.d0
 

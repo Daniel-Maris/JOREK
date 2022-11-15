@@ -9,9 +9,9 @@ module equil_info
   
   
   
-  use constants,      only: LOWER_XPOINT, UPPER_XPOINT, DOUBLE_NULL,SYMMETRIC_XPOINT
+  use constants,      only: PI, LOWER_XPOINT, UPPER_XPOINT, DOUBLE_NULL,SYMMETRIC_XPOINT
   use data_structure, only: type_node_list, type_element_list, type_bnd_element_list
-  use phys_module,    only: R_geo, Z_geo, FF_0, psi_axis_t, psi_bnd_t, Z_xpoint_t, index_now, SDN_threshold
+  use phys_module,    only: i_plane_rtree, n_plane, n_period, R_geo, Z_geo, FF_0, psi_axis_t, psi_bnd_t, Z_xpoint_t, index_now, SDN_threshold
   use mod_interp
   
   
@@ -315,7 +315,6 @@ module equil_info
   
   !> Estimate if psi_axis is a minimum or a maximum of flux
   subroutine is_axis_psi_mininum(node_list, element_list, bnd_elm_list)
-    
     ! --- Routine variables
     type(type_node_list),        intent(in)    :: node_list
     type(type_element_list),     intent(in)    :: element_list
@@ -324,7 +323,7 @@ module equil_info
     ! --- Local variables.
     real*8  :: P, P_s, P_t, P_st, P_ss, P_tt, R_t, Z_t, R_s, Z_s
     real*8  :: R_out, Z_out, s_out, t_out, R1, Z1, R2, Z2     
-    real*8  :: psi_axis, R_axis, Z_axis, s_axis, t_axis
+    real*8  :: phi, psi_axis, R_axis, Z_axis, s_axis, t_axis
     integer :: i_elm, i_elm_out, i_elm_axis, ifail  
     
     ! --- Get coordinates of the magnetic axis
@@ -339,7 +338,8 @@ module equil_info
     
     ! --- Find random point (R,Z) coordinates at computational boundary
     i_elm = bnd_elm_list%bnd_element(1)%element 
-    call interp_RZ(node_list, element_list, i_elm, 0.d0, 0.d0, R1, R_s, R_t, Z1, Z_s, Z_t)
+  phi = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
+  call interp_RZP(node_list,element_list,i_elm,0.d0,0.d0,phi,R1,Z1)
 
     ! --- Find point between axis and bnd point (located 25% away from axis on the connecting line)
     R2 = R_axis + 0.25d0*(R1-R_axis)
