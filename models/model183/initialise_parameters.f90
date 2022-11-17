@@ -52,7 +52,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 ZK_par, ZK_par_max, ZK_perp,                        &
                 ZK_i_par, ZK_e_par, ZK_i_perp, ZK_e_perp,           &
                 D_par, D_perp,                                      &
-                particlesource, heatsource, tauIC,                  &
+                particlesource, heatsource,                         &
+                heatsource_i, heatsource_e, tauIC,                  &
                 eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ZK_perp_num,                                        &
                 pellet_amplitude, pellet_R, pellet_Z, pellet_phi,   &
