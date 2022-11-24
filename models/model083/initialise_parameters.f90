@@ -231,10 +231,11 @@ if (domm .and. my_id .eq. 0 ) then
   end if
 end if
   
-! --- Coulomb lambda has different form if T_e/T_i < m_e/m_i, also t_rat has to be between 1 and 0
+! --- T_rat has to be between 1 and 0
 if ((with_TiTe) .and. (my_id .eq. 0)) then
   if ((t_rat .ge. 1.0) .or. (t_rat<0.d0)) then
-    write(*,*) "WARNING! The temperaute ratio coefficient should be 0<=t_rat<1.0 but is ", t_rat
+    write(*,*) 'ERROR: The temperature ratio coefficient should be 0<=t_rat<1.0 but is ', t_rat
+    stop
   end if
 end if
 
