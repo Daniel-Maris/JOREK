@@ -472,15 +472,9 @@ do ms=1, n_gauss
       end if
       ! Auxiliary variables (aux)
 #ifdef DEBUG
-      if (with_TiTe) then
-        eq(42,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(42,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-        eq(42,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(42,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
-        eq(43,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
-      else
-        eq(40,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(40,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-        eq(40,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(40,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
-        eq(41,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
-      end if
+      eq(2*n_var+28,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+28,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
+      eq(2*n_var+28,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+28,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
+      eq(2*n_var+29,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
 #else
 #include "aux_unreadable.h"
 #endif
@@ -536,7 +530,7 @@ do ms=1, n_gauss
             rhs_ij_4 = eval(thread_eq(tid)%rhs4seq)*BigR*xjac
             rhs_ij_5 = eval(thread_eq(tid)%rhs5seq)*BigR*xjac
             rhs_ij_6 = eval(thread_eq(tid)%rhs6seq)*BigR*xjac
-            rhs_ij_7 = eval(thread_eq(tid)%rhs7seq)*BigR*xjac
+            if (with_TiTe) rhs_ij_7 = eval(thread_eq(tid)%rhs7seq)*BigR*xjac
 #else
 #include "rhs_unreadable.h"
 

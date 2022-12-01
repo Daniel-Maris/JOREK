@@ -13,6 +13,7 @@ module mod_equations
     type(action), dimension(:), allocatable :: amat44seq
     type(action), dimension(:), allocatable :: amat55seq
     type(action), dimension(:), allocatable :: amat66seq
+    type(action), dimension(:), allocatable :: amat77seq
     type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq
 #endif
 

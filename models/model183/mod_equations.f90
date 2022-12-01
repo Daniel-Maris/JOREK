@@ -6,9 +6,9 @@ module mod_equations
   
   type type_thread_eq
 #ifdef DEBUG
-    type(action), dimension(:), allocatable :: rhs1seq, rhs2seq, rhs3seq, rhs4seq, rhs5seq, rhs6seq
-    type(action), dimension(:), allocatable :: amat11seq, amat12seq, amat13seq, amat16seq
-    type(action), dimension(:), allocatable :: amat21seq, amat22seq, amat23seq, amat24seq, amat25seq, amat26seq
+    type(action), dimension(:), allocatable :: rhs1seq, rhs2seq, rhs3seq, rhs4seq, rhs5seq, rhs6seq, rhs7seq
+    type(action), dimension(:), allocatable :: amat11seq, amat12seq, amat13seq, amat16seq, amat17seq
+    type(action), dimension(:), allocatable :: amat21seq, amat22seq, amat23seq, amat24seq, amat25seq, amat26seq, amat27seq
     type(action), dimension(:), allocatable :: amat31seq, amat33seq
     type(action), dimension(:), allocatable :: amat42seq, amat44seq
     type(action), dimension(:), allocatable :: amat51seq, amat52seq, amat55seq
