@@ -36,7 +36,7 @@ subroutine preset_parameters
   eta_ohmic     = 0.d0
   T_max_eta_ohm = 1.d3
   
-  T_rat         = 0.5d0
+  t_rat         = 0.5d0
 
   visco = 1.d-5
   visco_par = 1.d-5
