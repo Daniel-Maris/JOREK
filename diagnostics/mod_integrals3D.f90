@@ -243,6 +243,11 @@ if (my_id .eq. 0) then
   !write(*,*) ' n_cpu   : ',n_cpu
 endif
 
+#if STELLARATOR_MODEL
+if (.not. present(local_elms))   stop 'local_elms needs to be present for stellarator models'
+if (.not. present(n_local_elms)) stop 'n_local_elms needs to be present for stellarator models'
+#endif
+
 density_tot  = 0.d0
 pressure = 0.d0
 pressure_i = 0.d0
