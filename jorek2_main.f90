@@ -136,7 +136,7 @@ program JOREK2
   type(clcktype)           :: t_itstart, t0, t1
   real*8                   :: mindelta, maxdelta
   integer                  :: my_id, my_id_n, my_id_master
-  integer                  :: istep,jstep,ierr,i,itor,inode, i_elm_axis, i_elm_xpoint(2)
+  integer                  :: istep,jstep,ierr,i,itor,inode, i_elm_loc, i_elm_axis, i_elm_xpoint(2)
   integer                  :: n_local_ELMs
   integer                  :: i_rank(n_tor), n_cpu, n_cpu_n, n_cpu_master, m_cpu, n_masters, n_cpu_trans, my_id_trans
   integer                  :: iter_gmres
@@ -783,11 +783,6 @@ required = 0
     write(*,*) "WARNING: init_current_prof was set to true, but this parameter will be ignored,"
     write(*,*) "  as the current source has already been initialized"
   end if
-
-#if STELLARATOR_MODEL
-  ! Add chi representation to element data structure using imported node representation
-  if (my_id .eq. 0) call compute_chi_on_gauss_points(element_list,node_list)
-#endif
   
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   
@@ -938,6 +933,11 @@ required = 0
 
   endif ! (nstep >0)
   
+#if STELLARATOR_MODEL
+  ! Add chi representation to element data structure using imported node representation
+  call compute_chi_on_gauss_points(my_id, element_list,node_list, local_elms, n_local_elms)
+#endif
+
   ! --- Export a restart file before the first timestep
   if ( (my_id == 0) .and. (.not. restart) ) then
     if ( freeboundary .and. freeb_change_indices ) call exchange_indices(node_list, my_id, n_cpu, .true.)
@@ -1333,7 +1333,7 @@ required = 0
        write(*,*)
     endif   !--- my_id=0
 
-    call int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
+    call int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1, local_elms, n_local_elms)
 
     if (my_id .eq. 0 ) then
       ! --- Output energies and growth_rates to text files during the code run

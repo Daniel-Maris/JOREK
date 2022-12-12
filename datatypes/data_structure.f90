@@ -43,9 +43,6 @@ module data_structure
 
   type type_element                               !< type definition for one elements
     integer :: vertex(n_vertex_max)               !< nodes of the corners
-#if STELLARATOR_MODEL
-    real*8  :: chi(n_plane, n_gauss, n_gauss, 0:n_order-1, 0:n_order-1, 0:n_order-1)   !< chi on gaussian points
-#endif
     integer :: neighbours(n_vertex_max)           !< neighbouring elements
     real*8  :: size(n_vertex_max,n_order+1)       !< size of vectors at each vertex of the element
     integer :: father                             !< index of father element (0 if no father)"refinement"
@@ -54,6 +51,9 @@ module data_structure
     integer :: sons(4)                            !< Sons of the element (=0 if no son)"refinement"
     integer :: contain_node(5)                    !< nodes belonging to the element"refinement"
     integer :: nref                               !< How the element has been refined (if so)"refinement"
+#if STELLARATOR_MODEL
+    real*8,dimension(:,:,:,:,:,:),allocatable :: chi       !< chi on gaussian points
+#endif
   end type type_element
 
   type type_element_list                          !< type definition for a list of elements

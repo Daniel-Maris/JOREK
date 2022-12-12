@@ -42,7 +42,7 @@ module mod_integrals3D
   contains
 
 
-subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units)
+subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units, local_elms, n_local_elms)
 
 !$ use omp_lib
  
@@ -55,6 +55,8 @@ type (type_bnd_element_list), intent(in)    :: bnd_elm_list
 type (t_expr_list),           intent(in)    :: expr_list
 real*8,                    intent(inout)    :: res(:)
 integer,                      intent(in)    :: units
+integer, optional,            intent(in)    :: local_elms(*)
+integer, optional,            intent(in)    :: n_local_elms
 
 ! --- Local variables
 type (type_element)      :: element, elm_k
@@ -72,13 +74,13 @@ real*8  :: eq_ss(n_plane,0:n_var,n_gauss,n_gauss), eq_tt(n_plane,0:n_var,n_gauss
 real*8  :: eq_sp(n_plane,0:n_var,n_gauss,n_gauss), eq_tp(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: wgauss_copy(n_gauss)
 real*8  :: psi_axisym(n_gauss,n_gauss)
-real*8  :: s_norm(n_gauss, n_gauss)
+real*8  :: s_norm(n_gauss, n_gauss), stel_current_source(n_plane,n_gauss,n_gauss)
 
 real*8  :: x_g_1D(n_plane,n_gauss),  x_s_1D(n_plane,n_gauss),   x_t_1D(n_plane,n_gauss)
 real*8  :: y_g_1D(n_plane,n_gauss),  y_s_1D(n_plane,n_gauss),   y_t_1D(n_plane,n_gauss)
 real*8  :: eq_g_1D(n_plane,0:n_var,n_gauss), eq_s_1D(n_plane,0:n_var,n_gauss)
 real*8  :: eq_t_1D(n_plane,0:n_var,n_gauss), eq_p_1D(n_plane,0:n_var,n_gauss)
-real*8  :: s_norm_1D(n_plane, n_gauss)
+real*8  :: s_norm_1D(n_plane, n_gauss), stel_current_source_1D(n_plane,n_gauss)
 
 real*8  :: current_source, particle_source, heat_source, heat_source_i, heat_source_e, rotation_source
 real*8  :: xt, t_norm, rho_norm, t_norm2
@@ -86,7 +88,7 @@ real*8  :: dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dps
 real*8  :: dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz
 
 integer :: i, j, k, in, ms, mt, mp, iv, inode, ife, n_elements, i_elm_axis, i_elm_xpoint(2), ifail
-integer :: ierr, n_cpu, my_id, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
+integer :: ierr, n_cpu, my_id, ife_delta, ife_min, ife_max, ife_loc, omp_nthreads, omp_tid
 integer :: k_vertex, k_dof, k_node, k_dir, k_dir_perp, m_bndelem, dir_perp(2), mv1, m_elm
 integer :: iexpr
 real*8  :: R_c, Z_c, vec_inside(2), grad_t(2)
@@ -345,8 +347,10 @@ ife_delta = ceiling(float(element_list%n_elements) / n_cpu)
 ife_min   =      my_id     * ife_delta + 1
 ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 
+
 !$omp parallel default(none)                                                                   &
-!$omp   shared(element_list,node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &
+!$omp   shared(element_list,node_list, n_local_elms, local_elms, H, H_s, H_t, HZ, HZ_p,        &
+!$omp          ife_min, ife_max, xpoint, xcase,                                       &
 !$omp          H_ss, H_tt, H_st, HZ_coord, HZ_coord_p,                                         &
 !$omp          R_xpoint, Z_xpoint, my_id, use_pellet, delta_phi, R_axis, Z_axis, psi_axis, psi_bnd, &
 !$omp          D_tot, D_int, D_Ext, P_tot, P_int, P_ext, Vol, surface_area, C_intern, C_ext, VP_ext, VP_int, &
@@ -375,10 +379,10 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 #endif
 !$omp          T_1, T_max_eta, T_max_eta_ohm, eta_T_dependent,                                 &
 !$omp          wgauss_copy, varmin, varmax)                                                    &
-!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt,                              &
+!$omp   private(ife_loc, ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt,                              &
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p, &
 !$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,         &
-!$omp           psi_axisym, s_norm,                                                            &
+!$omp           psi_axisym, s_norm, stel_current_source,                                       &
 !$omp           wst, BigR, r0, T0, T0e, zj0, w0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy, dudp, &
 !$omp           dpdx, dpdy, phi, T0i, psi_as_coord,                                            &
 !$omp           source_pellet, source_volume, vpar0, chi, Bv2, BB2,                            &
@@ -440,9 +444,12 @@ omp_tid      = 0
 !$omp                VM_int, VM_tot, Vol, surface_area, P_tot, D_tot,J2_tot, J2_int, J2_ext,                &
 !$omp                heli_tot, mag_wk_tot, vperp_disp_tot, vpar_disp_tot, thm_wk_tot, area1, mag_src_tot, momentum_x, momentum_y, &
 !$omp                fric_disp_tot, R2curr_tmp, Zcurr_tmp)
-
+#if STELLARATOR_MODEL
+do ife_loc = 1, n_local_elms
+  ife = local_elms(ife_loc)
+#else
 do ife = ife_min, ife_max
-
+#endif
   element = element_list%element(ife)
 
   do iv = 1, n_vertex_max
@@ -452,7 +459,7 @@ do ife = ife_min, ife_max
 
   x_g = 0.d0; x_s = 0.d0; x_t = 0.d0; x_p = 0.d0; x_ss = 0.d0; x_tt = 0.d0; x_st = 0.d0;
   y_g = 0.d0; y_s = 0.d0; y_t = 0.d0; y_p = 0.d0; y_ss = 0.d0; y_tt = 0.d0; y_st = 0.d0;
-  psi_axisym(:,:) = 0.d0; s_norm(:,:) = 0.d0
+  psi_axisym(:,:) = 0.d0; s_norm(:,:) = 0.d0; stel_current_source(:,:,:) = 0.d0
 
   do i=1,n_vertex_max
     do j=1,n_order+1
@@ -486,7 +493,12 @@ do ife = ife_min, ife_max
 #endif
 
 #if STELLARATOR_MODEL
-             s_norm(ms, mt) = s_norm(ms,mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
+          s_norm(ms, mt) = s_norm(ms,mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
+          do mp=1,n_plane
+            do in=1,n_tor
+              stel_current_source(mp,ms,mt) = stel_current_source(mp,ms,mt) + nodes(i)%j_source(in,j)*element%size(i,j)*H(i,j,ms,mt)*HZ(in,mp)
+            end do
+          end do
 #endif
 
         enddo
@@ -691,8 +703,12 @@ do ife = ife_min, ife_max
                      particle_source,heat_source)
 #endif
         if (keep_current_prof) then
+#if STELLARATOR_MODEL
+          current_source = stel_current_source(mp,ms,mt)
+#else
           call current(xpoint, xcase, x_g(mp,ms,mt),y_g(mp,ms,mt), Z_xpoint, psi_as_coord,&
                        psi_axis,psi_bnd,current_source)
+#endif
         else
           current_source = 0.d0
         endif
@@ -1196,7 +1212,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
   y_g_1D(:,:)  = 0.d0; y_s_1D(:,:)  = 0.d0;  y_t_1D(:,:)    = 0.d0;
 
   eq_g_1D(:,:,:) = 0.d0; eq_s_1D(:,:,:) = 0.d0;
-  s_norm_1D(:,:) = 0.0
+  s_norm_1D(:,:) = 0.0; stel_current_source_1D(:,:) = 0.d0
 
   do k_vertex = 1, 2
     do k_dof = 1, 2
@@ -1216,6 +1232,9 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 #if STELLARATOR_MODEL
       do mp=1,n_plane
         s_norm_1D(mp,:) = s_norm_1D(mp,:) + node_k%r_tor_eq(k_dof)*k_size*H1(k_vertex,k_dof,:)
+        do in=1,n_tor
+          stel_current_source_1D(mp,:) = stel_current_source_1D(mp,:) + node_k%j_source(in,k_dir)*k_size*H1(k_vertex,k_dof,:)*HZ(in,mp)
+        enddo
       enddo
 #endif
 
@@ -1316,7 +1335,11 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 #endif
 
       if (keep_current_prof) then
+#if STELLARATOR_MODEL
+        current_source = stel_current_source_1D(mp, ms)
+#else
         call current(xpoint, xcase, R, Z, Z_xpoint, ps0, psi_axis, psi_bnd, current_source)
+#endif
       else
         current_source = 0.d0
       endif

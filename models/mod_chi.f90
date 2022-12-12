@@ -321,27 +321,33 @@ module mod_chi
   !! mod_chi::get_chi is used to compute the vacuum field representation on all gaussian points in all
   !! planes of the simulated configuration to avoid their repeated calculation.
   !!-----------------------------------------------------------------------------------------------------
-  subroutine compute_chi_on_gauss_points(element_list,node_list)
+  subroutine compute_chi_on_gauss_points(my_id, element_list,node_list, local_elms, n_local_elms)
     use basis_at_gaussian
     use data_structure
 
     implicit none
   
     ! --- Routine parameters
-    type(type_node_list),    intent(inout) :: node_list
+    integer, intent(in)                    :: my_id
+    type(type_node_list),    intent(in)    :: node_list
     type(type_element_list), intent(inout) :: element_list
-    
+    integer, intent(in)                    :: local_elms(*)
+    integer, intent(in)                    :: n_local_elms
+
     ! --- Variables for chi calculation
-    integer                                    :: i_elm, i_vertex, i_node, i, j, mp, ms, mt, i_tor
+    integer                                    :: i_elm, i_elm_loc, i_vertex, i_node, i, j, mp, ms, mt, i_tor
     real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, y_g
     real*8                                     :: phi
     type (type_element)                        :: element
     type (type_node)                           :: nodes(n_vertex_max)
+    real*8, dimension(n_plane,n_gauss,n_gauss,0:n_order-1,0:n_order-1,0:n_order-1) :: chi
  
 #if STELLARATOR_MODEL
     write (*,*) 
-    write (*,*) "Storing vacuum field on gaussian points..."
-    write (*,*) 
+    if (my_id .eq. 0) then
+      write (*,*) "Storing vacuum field on gaussian points..."
+      write (*,*) 
+    endif
     if (.not. domm_initialised) then
       write(*,*) "Cannot compute vacuum field because Dommaschk potentials have not been initialised!"
       stop
@@ -349,13 +355,16 @@ module mod_chi
     
     ! --- Declare shared and private variables for omp
     !$omp parallel default(none) &
-    !$omp   shared(element_list,node_list, H, HZ_coord) &
-    !$omp   private(i_elm,i_vertex,i_node,i_tor,element,nodes, i, j, ms, mt, mp, x_g, y_g, phi)
+    !$omp   shared(element_list,node_list, H, HZ_coord, local_elms, n_local_elms) &
+    !$omp   private(i_elm, i_elm_loc,i_vertex,i_node,i_tor,element,nodes, i, j, ms, mt, mp, x_g, y_g, phi, chi)
     
     !$omp do schedule(runtime)
-    do i_elm = 1, element_list%n_elements
+    do i_elm_loc = 1, n_local_elms
+      i_elm = local_elms(i_elm_loc)
       element = element_list%element(i_elm)
-    
+      !$omp critical
+      allocate(element_list%element(i_elm)%chi(n_plane,n_gauss,n_gauss,0:n_order-1,0:n_order-1,0:n_order-1))
+      !$omp end critical
       do i_vertex = 1, n_vertex_max
         i_node     = element%vertex(i_vertex)
         nodes(i_vertex) = node_list%node(i_node)
@@ -380,13 +389,14 @@ module mod_chi
         do mt=1, n_gauss
           do mp=1,n_plane
             phi = 2.d0*PI*float(mp-1)/float(n_plane) / float(n_period)
-            element%chi(mp,ms,mt,:,:,:) = get_chi(x_g(mp,ms,mt), y_g(mp,ms,mt), phi)
+            chi(mp,ms,mt,:,:,:) = get_chi(x_g(mp,ms,mt), y_g(mp,ms,mt), phi)
           enddo
         enddo
       enddo
-    
+
+
       !$omp critical
-      element_list%element(i_elm) = element
+      element_list%element(i_elm)%chi(:,:,:,:,:,:) = chi(:,:,:,:,:,:)
       !$omp end critical
     enddo
     !$omp end do

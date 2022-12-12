@@ -198,7 +198,21 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     enddo
   enddo
 
+#if STELLARATOR_MODEL
+  do i = 1, element_list%n_elements
+    read(21) element_list%element(i)%vertex             
+    read(21) element_list%element(i)%neighbours
+    read(21) element_list%element(i)%size
+    read(21) element_list%element(i)%father
+    read(21) element_list%element(i)%n_sons
+    read(21) element_list%element(i)%n_gen
+    read(21) element_list%element(i)%sons
+    read(21) element_list%element(i)%contain_node
+    read(21) element_list%element(i)%nref
+  enddo
+#else
   read(21) element_list%element(1:element_list%n_elements)
+#endif
   read(21) tstep,eta_rst,visco_rst,visco_par_rst
   read(21) index_start
   read(21) t_start

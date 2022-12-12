@@ -167,13 +167,13 @@ CGDEP=
 ifeq (model083, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL
   DEFINES := $(DEFINES) -DSTELLARATOR_MODEL
-  FFLAGS  := $(FFLAGS) -mcmodel=large
+  FFLAGS  := $(FFLAGS) -heap-arrays
   CGDEP = generate_code
 endif
 ifeq (model183, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL
   DEFINES := $(DEFINES) -DSTELLARATOR_MODEL
-  FFLAGS  := $(FFLAGS) -mcmodel=large
+  FFLAGS  := $(FFLAGS) -heap-arrays
   CGDEP = generate_code
 endif
 ifeq (.true., $(shell ./util/config.sh -p with_vpar))

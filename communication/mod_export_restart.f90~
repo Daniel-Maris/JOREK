@@ -96,21 +96,7 @@ subroutine export_binary_restart(node_list,element_list,filename)
      write(21) node_list%node(i)%constrained
   enddo
 
-#if STELLARATOR_MODEL
-  do i=1,element_list%n_elements
-    write(21) element_list%element(i)%vertex             
-    write(21) element_list%element(i)%neighbours
-    write(21) element_list%element(i)%size
-    write(21) element_list%element(i)%father
-    write(21) element_list%element(i)%n_sons
-    write(21) element_list%element(i)%n_gen
-    write(21) element_list%element(i)%sons
-    write(21) element_list%element(i)%contain_node
-    write(21) element_list%element(i)%nref
-  enddo
-#else
   write(21) element_list%element(1:element_list%n_elements)
-#endif
   write(21) tstep,eta,visco,visco_par
   write(21) index_now
   write(21) t_now
