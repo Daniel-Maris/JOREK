@@ -1333,8 +1333,9 @@ required = 0
        write(*,*)
     endif   !--- my_id=0
 
-    call int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1, local_elms, n_local_elms)
-
+#ifndef STELLARATOR_MODEL
+    call int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
+#endif
     if (my_id .eq. 0 ) then
       ! --- Output energies and growth_rates to text files during the code run
       call write_live_data(index_now)
