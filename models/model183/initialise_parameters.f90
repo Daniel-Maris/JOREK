@@ -47,9 +47,13 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
                 T_0,   T_1,   T_coef,                               &
+                Ti_0, Ti_1, Ti_coef, Te_0, Te_1, Te_coef,           &
                 FF_0,  FF_1,  FF_coef,                              &
-                ZK_par, ZK_par_max, ZK_perp, D_par, D_perp,         &
-                particlesource, heatsource, tauIC,                  &
+                ZK_par, ZK_par_max, ZK_perp,                        &
+                ZK_i_par, ZK_e_par, ZK_i_perp, ZK_e_perp,           &
+                D_par, D_perp,                                      &
+                particlesource, heatsource,                         &
+                heatsource_i, heatsource_e, tauIC,                  &
                 eta_num, visco_num, visco_par_num, D_perp_num,      &
                 ZK_perp_num,                                        &
                 pellet_amplitude, pellet_R, pellet_Z, pellet_phi,   &
@@ -85,11 +89,14 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 edgeparticlesource_sig,                             &
                 particlesource_gauss, heatsource_gauss,             &
                 heatsource_gauss_psin, heatsource_gauss_sig,        &
+                heatsource_gauss_i, heatsource_gauss_e,             &
+                heatsource_gauss_i_psin, heatsource_gauss_e_psin,   &
+                heatsource_gauss_i_sig, heatsource_gauss_e_sig,     &
                 particlesource_gauss_psin, particlesource_gauss_sig,&
                 produce_live_data, gmres, gmres_max_iter,           &
                 gmres_m, gmres_4, gmres_tol, iter_precon,           &
                 tgnum,  pastix_pivot, max_steps_noUpdate,           &
-                export_for_nemec,        &
+                export_for_nemec,                                   &
                 RMP_on, RMP_har_cos,RMP_har_sin,                    &
                 RMP_growth_rate, RMP_ramp_up_time,                  &
                 RMP_psi_cos_file, RMP_psi_sin_file,                 &

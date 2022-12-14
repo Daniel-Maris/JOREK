@@ -31,14 +31,14 @@ real*8, dimension (:)  , allocatable  :: RHS
 integer, intent(in) :: tid, i_tor_min, i_tor_max
 
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, xcase2
-integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, kl1, kl2, kl3, kl4, kl5, kl6
+integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, kl1, kl2, kl3, kl4, kl5, kl6, kl7
 real*8     :: wst,  xjac, xjac_x, xjac_y, x_p_x, x_p_y, y_p_x, y_p_y, BigR, phi
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2)
 real*8     :: psi_norm, reta, zeta, theta
 real*8     :: v_px, v_py, u_px, u_py
 
-real*8, dimension(4) :: rhs_ij_1, rhs_ij_3
-real*8, dimension(4) :: amat_11, amat_13, amat_22, amat_33, amat_44, amat_55, amat_66
+real*8, dimension(4) :: rhs_ij_1, rhs_ij_3, rhs_ij_6, rhs_ij_7
+real*8, dimension(4) :: amat_11, amat_13, amat_22, amat_33, amat_44, amat_55, amat_66, amat_77
 
 logical    :: xpoint2
 integer    :: n_tor_local
@@ -297,6 +297,7 @@ do ms=1, n_gauss
            ij4 = index_ij + 3*n_tor_local
            ij5 = index_ij + 4*n_tor_local
            ij6 = index_ij + 5*n_tor_local
+           if (with_TiTe) ij7 = index_ij + 6*n_tor_local
 
            RHS(ij1) = RHS(ij1) + rhs_ij_1(1)*wst
            RHS(ij3) = RHS(ij3) + rhs_ij_3(1)*wst
@@ -360,6 +361,9 @@ do ms=1, n_gauss
                  
 !---------------------------------------------------------------- equation 6
                  amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
+!---------------------------------------------------------------- equation 7
+                 if (with_TiTe) amat_77 = eval(thread_eq(tid)%amat77seq)*BigR*xjac
+
 #else
 #include "amat_unreadable.h"
 
@@ -370,6 +374,7 @@ do ms=1, n_gauss
                  amat_44 = amat_44*BigR*xjac
                  amat_55 = amat_55*BigR*xjac
                  amat_66 = amat_66*BigR*xjac
+                 if (with_TiTe) amat_77 = amat_77*BigR*xjac
 #endif
 
                  kl1 = index_kl
@@ -378,6 +383,7 @@ do ms=1, n_gauss
                  kl4 = index_kl + 3*n_tor_local
                  kl5 = index_kl + 4*n_tor_local
                  kl6 = index_kl + 5*n_tor_local
+                 if (with_TiTe) kl7 = index_kl + 6*n_tor_local
 
                  ELM(ij1,kl1) =  ELM(ij1,kl1) + wst*amat_11(1)
                  ELM(ij1,kl3) =  ELM(ij1,kl3) + wst*amat_13(1)
@@ -391,6 +397,9 @@ do ms=1, n_gauss
                  ELM(ij5,kl5) =  ELM(ij5,kl5) + wst*amat_55(1)
 
                  ELM(ij6,kl6) =  ELM(ij6,kl6) + wst*amat_66(1)
+
+                 if (with_TiTe) ELM(ij7,kl7) =  ELM(ij7,kl7) + wst*amat_77(1)
+
                enddo
              enddo
            enddo

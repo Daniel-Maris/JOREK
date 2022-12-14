@@ -12,12 +12,12 @@ program algexpr2fort
   character(3)  :: model_num
   
   character(:),  allocatable       :: varname, full
-  character(8),  dimension(n_rhs)  :: varname_rhs
-  character(7),  dimension(n_amat) :: varname_amat
+  character(8),  allocatable       :: varname_rhs(:)
+  character(7),  allocatable       :: varname_amat(:)
   character(14), dimension(n_aux)  :: varname_aux
   
-  type(algexpr), dimension(n_rhs)  :: rhs
-  type(algexpr), dimension(n_amat) :: amat
+  type(algexpr), allocatable       :: rhs(:)
+  type(algexpr), allocatable       :: amat(:)
   type(algexpr), dimension(n_aux)  :: aux
   
   varname = "eq"

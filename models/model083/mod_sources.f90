@@ -4,14 +4,16 @@ module mod_sources
 
 implicit none
 
-
+interface sources
+  module procedure sources_T, sources_TeTi
+end interface sources
 
 contains
 
 
 
 !> Determine the heat and particle sources at a given position.
-subroutine sources(xpoint2, xcase2, Z, Z_xpoint, psi, psi_axis, psi_bnd, particle_source, heat_source)
+subroutine sources_T(xpoint2, xcase2, Z, Z_xpoint, psi, psi_axis, psi_bnd, particle_source, heat_source)
 
 use phys_module
 
@@ -46,8 +48,46 @@ heat_source     = heatsource     * (0.5d0 - 0.5d0*tanh((psi_n - heatsource_psin 
     + heatsource_gauss * exp(-(psi_n - heatsource_gauss_psin)**2/(heatsource_gauss_sig**2))
 
 return
-end subroutine sources
+end subroutine sources_T
 
+!> Determine the heat and particle sources at a given position. for two temperatures
+subroutine sources_TeTi(xpoint2, xcase2, Z, Z_xpoint, psi, psi_axis, psi_bnd, particle_source, heat_source_i, heat_source_e)
 
+use phys_module
+
+implicit none
+
+! --- Routine parameters.
+logical, intent(in)   :: xpoint2
+integer, intent(in)   :: xcase2
+real*8,  intent(in)   :: Z
+real*8,  intent(in)   :: Z_xpoint(2)
+real*8,  intent(in)   :: psi
+real*8,  intent(in)   :: psi_axis
+real*8,  intent(in)   :: psi_bnd
+real*8,  intent(out)  :: particle_source
+real*8,  intent(out)  :: heat_source_i
+real*8,  intent(out)  :: heat_source_e
+
+! --- Local variables
+real*8 :: psi_n
+
+psi_n = (psi - psi_axis) / (psi_bnd - psi_axis)
+
+if (xpoint2) then
+  if ((Z .lt. Z_xpoint(1)) .and. (psi_n .lt. 1.d0) ) then
+     psi_n = 2.d0 - psi_n
+  endif
+endif
+
+particle_source = particlesource * (0.5d0 - 0.5d0*tanh((psi_n - particlesource_psin)/particlesource_sig)) &
+    + edgeparticlesource * (0.5d0 + 0.5d0*tanh((psi_n - edgeparticlesource_psin)/edgeparticlesource_sig)) &
+    + particlesource_gauss * exp(-(psi_n - particlesource_gauss_psin)**2/(particlesource_gauss_sig**2))
+heat_source_i     = heatsource_i     * (0.5d0 - 0.5d0*tanh((psi_n - heatsource_i_psin    )/heatsource_i_sig    )) &
+    + heatsource_gauss_i * exp(-(psi_n - heatsource_gauss_i_psin)**2/(heatsource_gauss_i_sig**2))
+heat_source_e     = heatsource_e     * (0.5d0 - 0.5d0*tanh((psi_n - heatsource_e_psin    )/heatsource_e_sig    )) &
+    + heatsource_gauss_e * exp(-(psi_n - heatsource_gauss_e_psin)**2/(heatsource_gauss_e_sig**2))
+return
+end subroutine sources_TeTi
 
 end module mod_sources

@@ -115,7 +115,7 @@ contains
                       if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
                          if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
-                              (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) ) then
+                              (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) .or. (k .eq. 7)) then
  
                           if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
 
