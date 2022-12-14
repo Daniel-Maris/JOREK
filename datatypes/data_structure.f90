@@ -52,7 +52,7 @@ module data_structure
     integer :: contain_node(5)                    !< nodes belonging to the element"refinement"
     integer :: nref                               !< How the element has been refined (if so)"refinement"
 #if STELLARATOR_MODEL
-    real*8,dimension(:,:,:,:,:,:),allocatable :: chi       !< chi on gaussian points
+    real*8,dimension(:,:,:,:,:,:),allocatable :: chi       !< Vacuum field potential chi on Gaussian points
 #endif
   end type type_element
 
