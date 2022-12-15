@@ -72,6 +72,7 @@ module vacuum
   real*8              :: FB_Zaxis_position               !< Amplification factor for Zaxis feedback (see [[jorek-starwall-faqs|fbnd_eq_FAQs]])
   real*8              :: FB_Zaxis_derivative             !< Amplification factor for Zaxis feedback (see [[jorek-starwall-faqs|fbnd_eq_FAQs]])
   real*8              :: FB_Zaxis_integral               !< Amplification factor for Zaxis feedback (see [[jorek-starwall-faqs|fbnd_eq_FAQs]])
+  real*8              :: cte_current_FB_fact             !< Constant factor that scales FF'& T profiles before freebnd GS iterations (switches off current FB) 
   integer             :: start_VFB                       !< Iteration for starting vertical feedback (see [[jorek-starwall-faqs|fbnd_eq_FAQs]])
   integer             :: n_feedback_current              !< Feedback will be performed each n_... iterations (see [[jorek-starwall-faqs|fbnd_eq_FAQs]])
   integer             :: n_feedback_vertical             !< Feedback will be performed each n_... iterations (see [[jorek-starwall-faqs|fbnd_eq_FAQs]])
@@ -203,7 +204,7 @@ module vacuum
   subroutine set_coil_curr_time_trace()
     use profiles, only: readProf
     
-    integer :: i, j, k, l, err
+    integer :: i, j, k, l, i_start_coil, i_end_coil, err
     character(len=60) :: s, filename
     real*8 :: r
     class(t_coil_curr_input), pointer :: coil_curr_input
@@ -213,7 +214,16 @@ module vacuum
       n_coils = sr%ncoil
       if (.not. allocated(I_coils)) then 
         allocate(I_coils(n_coils))
-        I_coils = 0.d0
+        I_coils(:)                =  0.d0
+        i_start_coil = sr%ind_start_pol_coils
+        i_end_coil   = i_start_coil + sr%n_pol_coils - 1
+        I_coils(i_start_coil:i_end_coil) =  pf_coils(1:sr%n_pol_coils)%current
+        
+        i_start_coil = sr%ind_start_rmp_coils
+        i_end_coil   = i_start_coil + sr%n_rmp_coils - 1
+        I_coils(i_start_coil:i_end_coil) =  rmp_coils(1:sr%n_rmp_coils)%current 
+        n_coils                   =  sr%ncoil
+          
       endif
     endif
         
@@ -420,6 +430,7 @@ module vacuum
     wall_resistivity_fact= 1.d0
         
     current_ref          = 1.d22
+    cte_current_FB_fact  = -1d99
     FB_Ip_position       = 0.2d0
     FB_Ip_integral       = 0.01d0
     n_feedback_current   = 2
