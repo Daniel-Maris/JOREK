@@ -463,9 +463,10 @@ if (include_projections) then
   end if
 end if
 
+call initialise_basis                              ! define the basis functions at the Gaussian points
+
 call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr, .true.)
 
-call initialise_basis                              ! define the basis functions at the Gaussian points
 call init_chi_basis
 
 nnos = nsub*nsub*element_list%n_elements
