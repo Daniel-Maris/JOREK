@@ -63,6 +63,10 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   integer          :: iostatus=0                          ! Error flag for reading vacuum field
   integer          :: n_max_jorek = (n_coord_tor-1)/2     ! Maximum toroidal mode number in JOREK
 
+#ifndef STELLARATOR_MODEL
+  write(*,*) 'This function should not be called for tokamak models!'
+  stop
+#else
   ! Read equilibrium parameters
   open(in_gvec, file=trim(file_name), status='old', iostat=ierr, form='formatted', access='sequential')
   if (ierr /= 0) then
@@ -503,6 +507,7 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   call tr_deallocate(B_Phi_four_s,    "J_Phi_four_s", CAT_GRID)
   call tr_deallocate(B_Phi_four_t,    "J_Phi_four_t", CAT_GRID)
   call tr_deallocate(B_Phi_four_st,   "J_Phi_four_st", CAT_GRID)
+#endif
 
 end subroutine read_gvec_import
 

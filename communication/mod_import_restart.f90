@@ -41,9 +41,7 @@ subroutine import_restart(node_list, element_list, filename, format_rst, ierr, n
   ! --- Required initializations to update equilibrium state
   call initialise_basis
   call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, .false.)
-#ifndef STELLARATOR_MODEL
-    call update_equil_state(0,node_list, element_list, bnd_elm_list, xpoint, xcase)
-#endif
+  call update_equil_state(0,node_list, element_list, bnd_elm_list, xpoint, xcase)
   write(*,*) " "
   write(*,*) " The equilibrium state has been updated "
   
@@ -1202,7 +1200,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
     node_list%node(i)%values = 0.d0 
     node_list%node(i)%deltas = 0.d0
-    node_list%node(i)%j_source = 0.d0 
 
     do m=1,n_tor_tmp,2
       do k=1, n_tor,2
@@ -1211,14 +1208,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
             if ((m .eq. 1) .and. (k.eq.1)) then
               node_list%node(i)%values(k,j,1:n_var_tmp)   = t_values(i,m,j,1:n_var_tmp)
               node_list%node(i)%deltas(k,j,1:n_var_tmp)   = t_deltas(i,m,j,1:n_var_tmp)
-              node_list%node(i)%j_source(k,j)             = t_j_source(i,m,j)
             else
               node_list%node(i)%values(k-1,j,1:n_var_tmp) = t_values(i,m-1,j,1:n_var_tmp)
               node_list%node(i)%deltas(k-1,j,1:n_var_tmp) = t_deltas(i,m-1,j,1:n_var_tmp) 
-              node_list%node(i)%j_source(k-1,j)           = t_j_source(i,m-1,j)
               node_list%node(i)%values(k,j,1:n_var_tmp)   = t_values(i,m,j,1:n_var_tmp) 
               node_list%node(i)%deltas(k,j,1:n_var_tmp)   = t_deltas(i,m,j,1:n_var_tmp)
-              node_list%node(i)%j_source(k,j)               = t_j_source(i,m,j)
             end if
           end if
         enddo
@@ -1230,6 +1224,21 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     node_list%node(i)%r_tor_eq = t_r_tor_eq(i,:)
     node_list%node(i)%b_field  = t_b_field(i,:,:,:)
     node_list%node(i)%j_field  = t_j_field(i,:,:,:)
+    node_list%node(i)%j_source = 0.d0 
+    do m=1,n_tor_tmp,2
+      do k=1, n_tor,2
+        do j=1,n_degrees_tmp 
+          if (mode_tmp(m) .eq. mode(k)) then
+            if ((m .eq. 1) .and. (k.eq.1)) then
+              node_list%node(i)%j_source(k,j)             = t_j_source(i,m,j)
+            else
+              node_list%node(i)%j_source(k-1,j)           = t_j_source(i,m-1,j)
+              node_list%node(i)%j_source(k,j)               = t_j_source(i,m,j)
+            end if
+          end if
+        enddo
+      end do
+    end do
 #endif
 
     ! --- Split "total" temperature into electron and ion temperature
@@ -2093,11 +2102,15 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_deallocate(t_x,"t_x",CAT_UNKNOWN)
   call tr_deallocate(t_values,"t_values",CAT_UNKNOWN)
   call tr_deallocate(t_deltas,"t_deltas",CAT_UNKNOWN)
+
+#if STELLARATOR_MODEL
   call tr_deallocate(t_pressure,"t_pressure",CAT_UNKNOWN)
   call tr_deallocate(t_r_tor_eq,"t_r_tor_eq",CAT_UNKNOWN)
   call tr_deallocate(t_j_field,"t_j_field",CAT_UNKNOWN)
   call tr_deallocate(t_b_field,"t_b_field",CAT_UNKNOWN)
   call tr_deallocate(t_j_source,"t_j_source",CAT_UNKNOWN)
+#endif
+
   call tr_deallocate(t_energies,"t_energies",CAT_UNKNOWN)
 
 #ifdef JECCD                   

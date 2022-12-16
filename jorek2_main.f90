@@ -512,6 +512,7 @@ mpi_required = 0
   ! --- Print some grid information
   if ( my_id == 0 ) call log_grid_info(.false., node_list, element_list)
   
+#if STELLARATOR_MODEL
   if (my_id .eq. 0 .and. init_current_prof .and. .not. current_prof_initialized) then
     do inode=1,node_list%n_nodes
       node_list%node(inode)%j_source = node_list%node(inode)%values(:,:,var_zj)
@@ -521,6 +522,7 @@ mpi_required = 0
     write(*,*) "WARNING: init_current_prof was set to true, but this parameter will be ignored,"
     write(*,*) "  as the current source has already been initialized"
   end if
+#endif
   
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   

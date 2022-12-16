@@ -897,12 +897,13 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call tr_deallocate(t_x,"x",CAT_UNKNOWN)
   call tr_deallocate(t_values,"values",CAT_UNKNOWN)
   call tr_deallocate(t_deltas,"deltas",CAT_UNKNOWN)
+#if STELLARATOR_MODEL
   call tr_deallocate(t_pressure,"pressure",CAT_UNKNOWN)
   call tr_deallocate(t_r_tor_eq,"r_tor_eq",CAT_UNKNOWN)
   call tr_deallocate(t_j_field,"j_field",CAT_UNKNOWN)
   call tr_deallocate(t_b_field,"b_field",CAT_UNKNOWN)
   call tr_deallocate(t_j_source,"j_source",CAT_UNKNOWN)
-#ifdef fullmhd
+#elif fullmhd
   call tr_deallocate(t_psi_eq,"psi_eq",CAT_UNKNOWN)
   call tr_deallocate(t_Fprof_eq,"Fprof_eq",CAT_UNKNOWN)
 #elif altcs

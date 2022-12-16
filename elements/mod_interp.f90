@@ -773,7 +773,7 @@ end subroutine interp_RZP_2
 !!   2: plasma current
 !!   3: pressure
 !!   4: radial coordinate (in GVEC, this is the square root of the normalised toroidal flux)
-pure subroutine interp_gvec(node_list, element_list, i_elm, i_var, i_dim, i_harm, s, t, P, P_s, P_t, P_st, P_ss, P_tt)
+subroutine interp_gvec(node_list, element_list, i_elm, i_var, i_dim, i_harm, s, t, P, P_s, P_t, P_st, P_ss, P_tt)
 type (type_node_list),    intent(in)  :: node_list
 type (type_element_list), intent(in)  :: element_list
 integer,                  intent(in)  :: i_elm
@@ -788,6 +788,10 @@ real*8,                   intent(out) :: P, P_s, P_t, P_st, P_ss, P_tt
 real*8 :: G(4,4), G_s(4,4), G_t(4,4), G_st(4,4), G_ss(4,4), G_tt(4,4)
 integer :: kv, iv, kf 
 
+#ifndef STELLARATOR_MODEL
+  write(*,*) 'This function should not be called for tokamak models!'
+  stop
+#else
 call basisfunctions(s,t,G, G_s, G_t, G_st, G_ss, G_tt)
 
 P = 0.d0; P_s = 0.d0; P_t = 0.d0; P_st = 0.d0; P_ss = 0.d0; P_tt = 0.d0
@@ -828,6 +832,8 @@ do kv = 1,n_vertex_max  ! 4 vertices
     endif
   end do
 end do
+#endif
+
 end subroutine interp_gvec
 
 end module mod_interp
