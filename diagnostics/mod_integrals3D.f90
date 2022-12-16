@@ -555,6 +555,7 @@ do ife = ife_min, ife_max
   end do
   !$omp end critical
   
+  mp = 1   ! eq_zne and eq_zTe are only used in tokamak models
   do ms=1, n_gauss
     do mt=1, n_gauss
       call density(xpoint, xcase, y_g(mp,ms,mt), Z_xpoint, eq_g(1,var_psi,ms,mt),psi_axis,psi_bnd,eq_zne(ms,mt), &
