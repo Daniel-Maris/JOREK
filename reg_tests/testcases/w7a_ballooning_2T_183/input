@@ -51,6 +51,14 @@
  heatsource_e     = 5.d-8
  particlesource = 1.d-7
 
+ rho_0 = 1.
+ rho_1 = 1.
+ rho_coef(1)  =  0.0
+ rho_coef(2)  =  0.0
+ rho_coef(3)  =  0.0
+ rho_coef(4)  =  1.d0
+ rho_coef(5)  =  5.d0
+
  iter_precon = 22
  gmres_m = 20
  gmres_4 = 1.d0
