@@ -12,12 +12,12 @@ extra_remote_files="dc_W7A_unst_10kPa gvec2jorek.dat"
 # --- Compile the code for the test case
 function compile_jorek () {
   if [ "$initialrun" == "yes" ]; then
-    ./util/config.sh model=$jorek_equilibrium_model n_tor=5 n_coord_tor=21 l_pol_domm=9 n_plane=32 n_period=5 n_coord_period=5 with_TiTe=.true. || exit 1
+    ./util/config.sh model=$jorek_equilibrium_model n_tor=5 n_coord_tor=21 l_pol_domm=9 n_plane=8 n_period=5 n_coord_period=5 with_TiTe=.true. || exit 1
     make $compilopt $debugoptions jorek_model${jorek_equilibrium_model}                                                        || exit 1
     mv jorek_model${jorek_equilibrium_model} jorek_model${jorek_equilibrium_model}_1                                           || exit 1
     make cleanall                                                                                                              || exit 1
   fi
-  ./util/config.sh model=$jorekmodel n_tor=5 n_coord_tor=21 l_pol_domm=9 n_plane=32 n_period=5 n_coord_period=5 with_TiTe=.true.              || exit 1
+  ./util/config.sh model=$jorekmodel n_tor=5 n_coord_tor=21 l_pol_domm=9 n_plane=8 n_period=5 n_coord_period=5 with_TiTe=.true.              || exit 1
   make $compilopt $debugoptions jorek_model${jorekmodel}                                                                       || exit 1
   mv jorek_model${jorekmodel} jorek_model${jorekmodel}_1                                                                       || exit 1
 }
