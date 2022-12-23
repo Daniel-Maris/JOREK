@@ -2,7 +2,7 @@
 jorekmodel="183"
 jorek_equilibrium_model="083"
 description="Ballooning mode, classical stellarator, model$jorekmodel, n_tor=5."
-mpitasks=3
+mpitasks=9
 binaries="jorek_model${jorekmodel}_1"
 binaries_initial="jorek_model${jorek_equilibrium_model}_1"
 requiredfiles="input input_init dc_W7A_unst_10kPa gvec2jorek.dat"
