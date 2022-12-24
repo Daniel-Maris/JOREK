@@ -19,8 +19,8 @@
 
  F0    = 4.72593206453746
 
- n_flux   = 61
- n_tht    = 72
+ n_flux   = 31
+ n_tht    = 48
 
  m_pol_bc = 36
 
