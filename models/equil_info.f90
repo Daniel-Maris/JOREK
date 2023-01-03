@@ -107,7 +107,7 @@ module equil_info
   !> Re-calculate the equilibrium state.
   subroutine update_equil_state(my_id, node_list, element_list, bnd_elm_list, xpoint, xcase)
     
-    use phys_module,    only: freeboundary
+    use phys_module,    only: freeboundary, R_domm
 
     ! --- Routine parameters.
     integer,                     intent(in)    :: my_id
@@ -121,9 +121,47 @@ module equil_info
     integer :: my_id_fake, i_out, ifail, i, mv1
     real*8  :: R_out, Z_out, s_out, t_out, R1, R2, dR, R_s, R_t, Z_s, Z_t
     real*8  :: P_s, P_t, P_st, P_ss, P_tt
+    real*8  :: toroidal_angle, dummy
     
     my_id_fake  = 9999
     
+#if STELLARATOR_MODEL
+     ! find_limiter and find_axis routines do not work for stellarators currently, so we assume the axis and boundary points from
+     ! the imported GVEC grid
+     ES%i_elm_axis = 1
+     ES%s_axis = 0.d0
+     ES%t_axis = 0.d0
+     ES%ifail_axis = 0
+     toroidal_angle = 2.d0*PI*float(i_plane_rtree - 1)/float(n_period*n_plane)
+     call interp_RZP(node_list,element_list,ES%i_elm_axis,ES%s_axis,ES%t_axis,toroidal_angle, ES%R_axis, ES%Z_axis)
+     call interp(node_list,element_list,ES%i_elm_axis,1,1,ES%s_axis,ES%t_axis, ES%psi_axis, dummy, dummy, dummy, dummy, dummy)
+     
+     ES%axis_is_psi_minimum   = .false.
+    
+     ES%limiter_plasma        = .true.
+     ES%active_xpoint  = 0
+     ES%R_xpoint(:)    = R_geo
+     ES%Z_xpoint(1)    = -99.d0
+     ES%Z_xpoint(2)    =  99.d0
+     
+     ES%i_elm_lim     = element_list%n_elements
+     ES%s_lim         = 1.0
+     ES%t_lim         = 1.d0
+     call interp_RZP(node_list,element_list,ES%i_elm_lim,1.0,1.0,toroidal_angle, ES%R_lim, ES%Z_lim)
+     call interp(node_list,element_list,ES%i_elm_lim,1,1,ES%s_lim,ES%t_lim, ES%psi_lim, dummy, dummy, dummy, dummy, dummy)
+     ES%ifail_lim = 0
+    
+     ES%R_bnd      =  ES%R_lim
+     ES%Z_bnd      =  ES%Z_lim
+     ES%Psi_bnd    =  ES%Psi_lim
+     ES%i_elm_bnd  =  ES%i_elm_lim
+     ES%s_bnd      =  ES%s_lim
+     ES%t_bnd      =  ES%t_lim
+     ES%ifail_bnd  =  ES%ifail_lim
+     
+     ES%xpoint     = xpoint
+     ES%xcase      = xcase
+#else
     ! --- Find the magnetic axis.
     call find_axis(my_id_fake, node_list, element_list, ES%psi_axis, ES%R_axis, ES%Z_axis,              &
       ES%i_elm_axis, ES%s_axis, ES%t_axis, ES%ifail_axis)
@@ -256,6 +294,7 @@ module equil_info
         ES%ifail_bnd  =  ES%ifail_xpoint
       endif
     endif  
+#endif
     
     ! --- Strike points.
     ES%num_strike          = 0
@@ -317,7 +356,7 @@ module equil_info
 
     ! --- Calculate shape parameters of the LCFS
     call LCFS_shape_parameters(node_list,element_list)
-    
+
     ES%initialized = .true.
     
   end subroutine update_equil_state
@@ -747,7 +786,7 @@ module equil_info
   subroutine LCFS_shape_parameters(node_list,element_list)
   
     use data_structure
-    use phys_module, only: xcase, xpoint
+    use phys_module, only: xcase, xpoint, n_tht
     use mod_interp
     
     implicit none
@@ -769,74 +808,82 @@ module equil_info
     type (type_surface_list) :: surface_list
     
     
+    Rmax = -1.d99;   Zmax = -1.d99
+    Rmin =  1.d99;   Zmin =  1.d99
+
+    npoints = 40
+    
+#if STELLARATOR_MODEL
+    ! Assume LCFS is the simulation boundary and take shape parameters from the n=0 boundary
+    do i_elm = element_list%n_elements - (n_tht-1), element_list%n_elements
+      do ig = 1, npoints
+        t = float(ig-1)/float(npoints-1)
+        
+        call interp_RZ(node_list,element_list,i_elm,1.0,t,RRgi,dRRgi_dr,dRRgi_ds,dRRgi_drs,dRRgi_drr,dRRgi_dss, &
+                                                          ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_drs,dZZgi_drr,dZZgi_dss)
+#else
+    ! Compute approximate LCFS from n=0 Psi values
     surface_list%n_psi = 1 
     allocate( surface_list%psi_values(surface_list%n_psi) )
     surface_list%psi_values(1) = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * 0.9999d0 ! Not 1 to avoid legs
     
     call find_flux_surfaces(99, xpoint, xcase, node_list, element_list, surface_list)
-    
-    Rmax = -1.d99;   Zmax = -1.d99
-    Rmin =  1.d99;   Zmin =  1.d99
 
-
-    npoints = 40
+    i=surface_list%n_psi
+    do k=1, surface_list%flux_surfaces(i)%n_pieces
+      do ig = 1, npoints
+        t = -1.0 + 2.0*float(ig-1)/float(npoints-1)
     
-    do i=1, surface_list%n_psi
-      do k=1, surface_list%flux_surfaces(i)%n_pieces
-        do ig = 1, npoints
-          t = -1.0 + 2.0*float(ig-1)/float(npoints-1)
+        rr1  = surface_list%flux_surfaces(i)%s(1,k)
+        drr1 = surface_list%flux_surfaces(i)%s(2,k)
+        rr2  = surface_list%flux_surfaces(i)%s(3,k)
+        drr2 = surface_list%flux_surfaces(i)%s(4,k)
     
-          rr1  = surface_list%flux_surfaces(i)%s(1,k)
-          drr1 = surface_list%flux_surfaces(i)%s(2,k)
-          rr2  = surface_list%flux_surfaces(i)%s(3,k)
-          drr2 = surface_list%flux_surfaces(i)%s(4,k)
+        ss1  = surface_list%flux_surfaces(i)%t(1,k)
+        dss1 = surface_list%flux_surfaces(i)%t(2,k)
+        ss2  = surface_list%flux_surfaces(i)%t(3,k)
+        dss2 = surface_list%flux_surfaces(i)%t(4,k)
     
-          ss1  = surface_list%flux_surfaces(i)%t(1,k)
-          dss1 = surface_list%flux_surfaces(i)%t(2,k)
-          ss2  = surface_list%flux_surfaces(i)%t(3,k)
-          dss2 = surface_list%flux_surfaces(i)%t(4,k)
+        call CUB1D(rr1, drr1, rr2, drr2, t, ri, dri)
+        call CUB1D(ss1, dss1, ss2, dss2, t, si, dsi)
     
-          call CUB1D(rr1, drr1, rr2, drr2, t, ri, dri)
-          call CUB1D(ss1, dss1, ss2, dss2, t, si, dsi)
+        i_elm = surface_list%flux_surfaces(i)%elm(k)
     
-          i_elm = surface_list%flux_surfaces(i)%elm(k)
+        call interp(node_list,element_list,i_elm,1,1,ri,si,PSgi,dPSgi_dr,dPSgi_ds,dPSgi_drs,dPSgi_drr,dPSgi_dss)
     
-          call interp(node_list,element_list,i_elm,1,1,ri,si,PSgi,dPSgi_dr,dPSgi_ds,dPSgi_drs,dPSgi_drr,dPSgi_dss)
+        call interp_RZ(node_list,element_list,i_elm,ri,si,RRgi,dRRgi_dr,dRRgi_ds,dRRgi_drs,dRRgi_drr,dRRgi_dss, &
+                                                          ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_drs,dZZgi_drr,dZZgi_dss)
+                                                          
+        ! --- Ignore open and private field line regions
+        if ( get_psi_n(PSgi, ZZgi) > 1.d0 ) cycle
     
-          call interp_RZ(node_list,element_list,i_elm,ri,si,RRgi,dRRgi_dr,dRRgi_ds,dRRgi_drs,dRRgi_drr,dRRgi_dss, &
-                                                            ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_drs,dZZgi_drr,dZZgi_dss)
-                                                            
-          ! --- Ignore open and private field line regions
-          if ( get_psi_n(PSgi, ZZgi) > 1.d0 ) cycle
+#endif
+        if (RRgi > Rmax) then
+          Rmax   = RRgi;    Z_Rmax = ZZgi;
+        endif 
     
-          if (RRgi > Rmax) then
-            Rmax   = RRgi;    Z_Rmax = ZZgi;
-          endif 
+        if (ZZgi > Zmax) then
+          R_Zmax = RRgi;    Zmax = ZZgi;
+        endif 
     
-          if (ZZgi > Zmax) then
-            R_Zmax = RRgi;    Zmax = ZZgi;
-          endif 
+        if (RRgi < Rmin) then
+          Rmin   = RRgi;    Z_Rmin = ZZgi;
+        endif 
     
-          if (RRgi < Rmin) then
-            Rmin   = RRgi;    Z_Rmin = ZZgi;
-          endif 
+        if (ZZgi < Zmin) then
+          R_Zmin = RRgi;    Zmin = ZZgi;
+        endif 
     
-          if (ZZgi < Zmin) then
-            R_Zmin = RRgi;    Zmin = ZZgi;
-          endif 
-    
-        end do
       end do
-    
-      ! --- As defined in T. Luce, PPCF 55 (2013) 095009, equations (1-6)
-      ES%LCFS_Rgeo    = (Rmax + Rmin) / 2.0 
-      ES%LCFS_a       = (Rmax - Rmin) / 2.0
-      ES%LCFS_epsilon =  ES%LCFS_a / ES%LCFS_Rgeo
-      ES%LCFS_kappa   = (Zmax - Zmin) / (2.0 * ES%LCFS_a ) 
-      ES%LCFS_deltaU  = (ES%LCFS_Rgeo - R_Zmax) / ES%LCFS_a
-      ES%LCFS_deltaL  = (ES%LCFS_Rgeo - R_Zmin) / ES%LCFS_a
-    
     end do
+    
+    ! --- As defined in T. Luce, PPCF 55 (2013) 095009, equations (1-6)
+    ES%LCFS_Rgeo    = (Rmax + Rmin) / 2.0 
+    ES%LCFS_a       = (Rmax - Rmin) / 2.0
+    ES%LCFS_epsilon =  ES%LCFS_a / ES%LCFS_Rgeo
+    ES%LCFS_kappa   = (Zmax - Zmin) / (2.0 * ES%LCFS_a ) 
+    ES%LCFS_deltaU  = (ES%LCFS_Rgeo - R_Zmax) / ES%LCFS_a
+    ES%LCFS_deltaL  = (ES%LCFS_Rgeo - R_Zmin) / ES%LCFS_a
   
   end subroutine LCFS_shape_parameters
   
