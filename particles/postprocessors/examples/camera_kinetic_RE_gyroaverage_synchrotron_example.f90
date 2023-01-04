@@ -1,15 +1,18 @@
-!> The camera_example.f90 contains an executable programme which
-!> tests and shows how to run the synthetic camera diagnostic
-!> for generating images of plasma radiation from a JOREK-particle
-!> population. The test proposed below concerns the imaging of the
+!> The camera_kinetic_RE_gyroaverage_synchrotron_example.f90 
+!> contains an executable programme which tests and shows how 
+!> to run the synthetic camera diagnostic for generating images 
+!> of plasma radiation from a JOREK-particle population. 
+!> The test proposed below concerns the imaging of the
 !> sychrotron radiation of a runaway electron population.
 !> More specifically, we consider the JET tokamak configuration
 !> having an IR and fast visible camera looking at the RE beam
 !> from octant 5. Note that the RE toroidal motion
 !> is counter-clockeise. Only one snapshot of the RE beam is 
 !> considered hereafter hence, only one particle population and 
-!> JOREK MHD fields are used.
-program camera_RE_example
+!> JOREK MHD fields are used. The program uses kinetic relativistic
+!> particles which are then transformed to relativistic gc for
+!> running the gyroaverage synchrotron radiation model.
+program camera_kinetic_RE_gyroaverage_synchrotron_example
 use constants,                      only: PI
 use mod_mpi_tools,                  only: init_mpi_threads,finalize_mpi_threads
 use particle_tracer
@@ -18,7 +21,7 @@ use mod_spectra_deterministic,      only: spectrum_integrator_2nd
 use mod_pinhole_lens,               only: pinhole_lens
 use mod_filter_unity,               only: filter_unity
 use mod_camera_perspective_static,  only: camera_perspective_static
-use mod_full_synchrotron_light_dist_vertices, only: full_synchrotron_light_dist
+use mod_gyroaverage_synchrotron_light_dist_vertices, only: gyroaverage_synchrotron_light_dist
 #ifdef USE_HDF5
 use mod_fast_camera_io,             only: write_pixel_intensity_hdf5
 #endif
@@ -31,9 +34,9 @@ type(pinhole_lens)                 :: lens
 type(spectrum_integrator_2nd)      :: spectra
 type(filter_unity)                 :: filter_image,filter_time
 type(filter_unity),dimension(:),allocatable :: filter_spectra
-type(camera_perspective_static)    :: camera
-type(full_synchrotron_light_dist)  :: synch_sources
-type(particle_sim),dimension(:),allocatable :: sims
+type(camera_perspective_static)          :: camera
+type(gyroaverage_synchrotron_light_dist) :: synch_sources
+type(particle_sim),dimension(:),allocatable :: sims,sims_gc
 integer                            :: ii,n_1d,n_2d,t0,t1
 integer                            :: n_groups,my_id,n_cpus,n_x,ierr
 integer                            :: n_wavelenghts,n_spectra
@@ -72,22 +75,27 @@ allocate(real_camera_param(n_real_camera_param));
 !> 4:6 -> camera focal direction: focal distance, latitude, azimuth
 !> 7:9 -> camera position in the tokamak reference system
 real_camera_param = [5.23d-1,5.23d-1,5d-1*PI,9.998025d-1,1.5807985,2.09801,-8.86d-1,-4.002,-3.32d-1];
-allocate(sim_times(n_times)); allocate(sims(n_times));
+allocate(sim_times(n_times)); allocate(sims(n_times)); 
+allocate(sims_gc(n_times))
 
 !> Initialisation  ------------------------------------------------------------------------
 !> Initialise MPI communicator
 call init_mpi_threads(my_id,n_cpus,ierr)
 
-!> read particle, time and MHD fields data
+!> read particle, time, MHD fields data and transform to gc
 write(*,*) 'Reading particle data ...'
 field_reader = event(read_jorek_fields_interp_linear(basename=trim(fields_filename),i=-1))
 do ii=1,n_times
   call sims(ii)%initialize(n_groups,.true.,my_id,n_cpus)
   call read_simulation_hdf5(sims(ii),particle_filename)
   sim_times(ii) = get_simulation_hdf5_time(particle_filename)
-  call with(sims(ii),field_reader)
+  call sims_gc(ii)%initialize(n_groups,.true.,my_id,n_cpus)
+  call with(sims_gc(ii),field_reader)
+  !> transform particle kinetic relativistic to relativistic gc
+  !> TODO
 enddo
-write(*,*) 'Reading particle data: completed!'
+if(allocated(sims)) deallocate(sims)
+write(*,*) 'Reading particle data: completed!' 
 
 !> Initialise synthetic diagnostics
 write(*,*) 'Initialise synthetic camera and light sources ...'
@@ -102,7 +110,7 @@ call filter_time%init_filter(n_1d)
 call lens%init_pinhole(n_x,pinhole_positions)
 call camera%init_camera(lens,spectra,n_int_camera_param,n_real_camera_param,&
 int_camera_param,real_camera_param)
-call synch_sources%init_lights_from_particles(n_times,sims)
+call synch_sources%init_lights_from_particles(n_times,sims_gc)
 call system_clock(t1)
 write(*,*) 'Initialise synthetic camera and light sources: completed'
 write(*,*) my_id, 'System time fast camera initialisation (s): ',real(t1-t0,kind=8)/1d3
@@ -138,7 +146,8 @@ if(allocated(int_camera_param))    deallocate(int_camera_param)
 if(allocated(real_camera_param))   deallocate(real_camera_param)
 if(allocated(sim_times))           deallocate(sim_times)
 if(allocated(sims))                deallocate(sims)
+if(allocated(sims_gc))             deallocate(sims_gc)
 if(allocated(pixel_filter_values)) deallocate(pixel_filter_values)
 call finalize_mpi_threads(ierr)
 
-end program camera_RE_example
+end program camera_kinetic_RE_gyroaverage_synchrotron_example
