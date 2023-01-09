@@ -332,58 +332,60 @@ do ms=1, n_gauss
       eq(n_var+3,:,:,:,:) = eq(n_var+3,:,:,:,:)/F0
 
       eq(2*n_var+5,0,0,0,:) = get_dperp(psi_norm)       ! D_perp
+      eq(2*n_var+7,0,0,0,:) = D_par                       ! D_par
+
       eq(2*n_var+6,0,0,0,:) = particle_source(mp,ms,mt)   ! S_rho
-      eq(2*n_var+7,0,0,0,:) = current_source(mp,ms,mt)/F0 ! S_j
-      
+      eq(2*n_var+8,0,0,0,:) = current_source(mp,ms,mt)/F0 ! S_j
+
       if (with_TiTe) then
         
         ! Perpendicular thermal conductivity
-        eq(2*n_var+13,0,0,0,:)        = get_zk_iperp(psi_norm)  ! k_i_perp
-        eq(2*n_var+14,0,0,0,:)        = get_zk_eperp(psi_norm)  ! k_e_perp
+        eq(2*n_var+14,0,0,0,:)        = get_zk_iperp(psi_norm)  ! k_i_perp
+        eq(2*n_var+15,0,0,0,:)        = get_zk_eperp(psi_norm)  ! k_e_perp
 
         ! Heat sources for ions and electrons
-        eq(2*n_var+16,0,0,0,:) = heat_source_i(mp,ms,mt)        ! S_e_i
-        eq(2*n_var+17,0,0,0,:) = heat_source_e(mp,ms,mt)        ! S_e_e
+        eq(2*n_var+17,0,0,0,:) = heat_source_i(mp,ms,mt)        ! S_e_i
+        eq(2*n_var+18,0,0,0,:) = heat_source_e(mp,ms,mt)        ! S_e_e
         
         ! Resistivity
         if (eta_T_dependent) then                                                        
-          eq(2*n_var+8,0,0,0,:) = eta*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(-1.5d0)               ! eta 
-          eq(2*n_var+9,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*Te_0**(1.5d0) ! deta/dT 
+          eq(2*n_var+9,0,0,0,:) = eta*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(-1.5d0)               ! eta 
+          eq(2*n_var+10,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*Te_0**(1.5d0) ! deta/dT 
         else
-          eq(2*n_var+8,0,0,0,:) = eta
-          eq(2*n_var+9,0,0,0,:) = 0.d0
+          eq(2*n_var+9,0,0,0,:) = eta
+          eq(2*n_var+10,0,0,0,:) = 0.d0
         end if
 
         ! Viscosity
         if (visco_T_dependent) then  
-          eq(2*n_var+10,0,0,0,:) = visco*(corr_neg_temp(eq(7,0,0,0,1))/Ti_0)**(-1.5d0)               ! visco
-          eq(2*n_var+11,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*Ti_0**(1.5d0) ! dvisco/dT
+          eq(2*n_var+11,0,0,0,:) = visco*(corr_neg_temp(eq(7,0,0,0,1))/Ti_0)**(-1.5d0)               ! visco
+          eq(2*n_var+12,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(7,0,0,0,1))**(-2.5d0)*Ti_0**(1.5d0) ! dvisco/dT
         else
-          eq(2*n_var+10,0,0,0,:) = visco
-          eq(2*n_var+11,0,0,0,:) = 0.d0
+          eq(2*n_var+11,0,0,0,:) = visco
+          eq(2*n_var+12,0,0,0,:) = 0.d0
         end if
 
         ! Parallel thermal conductivity
         if (zkpar_T_dependent) then                                                                 
-          eq(2*n_var+19,0,0,0,:) = ZK_i_par*(corr_neg_temp(eq(6,0,0,0,1))/Ti_0)**(2.5d0)                       ! k_par for ions
-          eq(2*n_var+22,0,0,0,:) = 2.5d0*ZK_i_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*Ti_0**(-2.5d0)         ! dk_par_i_dT_i
-          eq(2*n_var+20,0,0,0,:) = ZK_e_par*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(2.5d0)                       ! k_par for e
-          eq(2*n_var+23,0,0,0,:) = 2.5d0*ZK_e_par*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*Te_0**(-2.5d0)         ! dk_par_e_dT_e
-          if (eq(2*n_var+19,0,0,0,1) .gt. zk_par_max) then
-            eq(2*n_var+19,0,0,0,:) = zk_par_max
-            eq(2*n_var+22,0,0,0,:) = 0.d0
-          end if
+          eq(2*n_var+20,0,0,0,:) = ZK_i_par*(corr_neg_temp(eq(6,0,0,0,1))/Ti_0)**(2.5d0)                       ! k_par for ions
+          eq(2*n_var+23,0,0,0,:) = 2.5d0*ZK_i_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*Ti_0**(-2.5d0)         ! dk_par_i_dT_i
+          eq(2*n_var+21,0,0,0,:) = ZK_e_par*(corr_neg_temp(eq(7,0,0,0,1))/Te_0)**(2.5d0)                       ! k_par for e
+          eq(2*n_var+24,0,0,0,:) = 2.5d0*ZK_e_par*corr_neg_temp(eq(7,0,0,0,1))**(1.5d0)*Te_0**(-2.5d0)         ! dk_par_e_dT_e
           if (eq(2*n_var+20,0,0,0,1) .gt. zk_par_max) then
             eq(2*n_var+20,0,0,0,:) = zk_par_max
             eq(2*n_var+23,0,0,0,:) = 0.d0
           end if
+          if (eq(2*n_var+21,0,0,0,1) .gt. zk_par_max) then
+            eq(2*n_var+21,0,0,0,:) = zk_par_max
+            eq(2*n_var+24,0,0,0,:) = 0.d0
+          end if
         else
-          eq(2*n_var+19,0,0,0,:) = zk_par
-          eq(2*n_var+22,0,0,0,:) = 0.d0
           eq(2*n_var+20,0,0,0,:) = zk_par
           eq(2*n_var+23,0,0,0,:) = 0.d0
+          eq(2*n_var+21,0,0,0,:) = zk_par
+          eq(2*n_var+24,0,0,0,:) = 0.d0
         end if
-
+         
         ! Thermalization in Temperature evolution
 
         ! see corr_neg page in the jorek wiki, short explanation in models/corr_neg_include.f90 
@@ -422,7 +424,7 @@ do ms=1, n_gauss
         t_norm   = sqrt(MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20) ! normalization coefficient
         nu_e_bg  = nu_e_bg * t_norm                                                     ! normalised collision frequency
 
-        eq(2*n_var+24,0,0,0,:) = nu_e_bg * (T0_e_corr - T0_i_corr) * rho0_corr          ! dTe_i - temperature exchange term
+        eq(2*n_var+25,0,0,0,:) = nu_e_bg * (T0_e_corr - T0_i_corr) * rho0_corr          ! dTe_i - temperature exchange term
 
         ! --- derivatives of dTe_i for amats (of temperatures and density)
         ! --- We negelect the coulomb log's derivatives due to their smallness
@@ -433,48 +435,67 @@ do ms=1, n_gauss
 
         dnu_e_bg_drho   = nu_e_bg * drho0_corr_dn / rho0_corr
 
-        eq(2*n_var+25,0,0,0,:)  = dnu_e_bg_dTi * (T0_e_corr - T0_i_corr) * rho0_corr - nu_e_bg * dT0_i_corr_dT * rho0_corr
-        eq(2*n_var+26,0,0,0,:)  = dnu_e_bg_dTe * (T0_e_corr - T0_i_corr) * rho0_corr + nu_e_bg * dT0_e_corr_dT * rho0_corr
-        eq(2*n_var+27,0,0,0,:)  = dnu_e_bg_drho * (T0_e_corr - T0_i_corr) * rho0_corr &
+        eq(2*n_var+26,0,0,0,:)  = dnu_e_bg_dTi * (T0_e_corr - T0_i_corr) * rho0_corr - nu_e_bg * dT0_i_corr_dT * rho0_corr
+        eq(2*n_var+27,0,0,0,:)  = dnu_e_bg_dTe * (T0_e_corr - T0_i_corr) * rho0_corr + nu_e_bg * dT0_e_corr_dT * rho0_corr
+        eq(2*n_var+28,0,0,0,:)  = dnu_e_bg_drho * (T0_e_corr - T0_i_corr) * rho0_corr &
                                 + nu_e_bg * (T0_e_corr - T0_i_corr) * drho0_corr_dn
 
       else !>>> if not with_TiTe
-        eq(2*n_var+12,0,0,0,:)        = get_zkperp(psi_norm)        ! Perpendicular thermal conductivity
-        eq(2*n_var+15,0,0,0,:)        = heat_source(mp,ms,mt)       ! S_e
+        eq(2*n_var+13,0,0,0,:)        = get_zkperp(psi_norm)        ! Perpendicular thermal conductivity
+        eq(2*n_var+16,0,0,0,:)        = heat_source(mp,ms,mt)       ! S_e
         ! Resistivity
         if (eta_T_dependent) then
-          eq(2*n_var+8,0,0,0,:) = eta*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! eta 
-          eq(2*n_var+9,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! deta/dT 
+          eq(2*n_var+9,0,0,0,:) = eta*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! eta 
+          eq(2*n_var+10,0,0,0,:) = -1.5d0*eta*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! deta/dT 
         else
-          eq(2*n_var+8,0,0,0,:) = eta
-          eq(2*n_var+9,0,0,0,:) = 0.d0
+          eq(2*n_var+9,0,0,0,:) = eta
+          eq(2*n_var+10,0,0,0,:) = 0.d0
         end if
         ! Viscosity
         if (visco_T_dependent) then
-          eq(2*n_var+10,0,0,0,:) = visco*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! visco 
-          eq(2*n_var+11,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! dvisco/dT
+          eq(2*n_var+11,0,0,0,:) = visco*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(-1.5d0)               ! visco 
+          eq(2*n_var+12,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(6,0,0,0,1))**(-2.5d0)*T_0**(1.5d0) ! dvisco/dT
         else
-          eq(2*n_var+10,0,0,0,:) = visco
-          eq(2*n_var+11,0,0,0,:) = 0.d0
+          eq(2*n_var+11,0,0,0,:) = visco
+          eq(2*n_var+12,0,0,0,:) = 0.d0
         end if
         ! Parallel thermal conductivity
         if (zkpar_T_dependent) then
-          eq(2*n_var+18,0,0,0,:) = zk_par*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(2.5d0)               ! k_par 
-          eq(2*n_var+21,0,0,0,:) = 2.5d0*zk_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*T_0**(-2.5d0) ! dk_par_dT 
-          if (eq(2*n_var+18,0,0,0,1) .gt. zk_par_max) then
-            eq(2*n_var+18,0,0,0,:) = zk_par_max
-            eq(2*n_var+21,0,0,0,:) = 0.d0
+          eq(2*n_var+19,0,0,0,:) = zk_par*(corr_neg_temp(eq(6,0,0,0,1))/T_0)**(2.5d0)               ! k_par 
+          eq(2*n_var+22,0,0,0,:) = 2.5d0*zk_par*corr_neg_temp(eq(6,0,0,0,1))**(1.5d0)*T_0**(-2.5d0) ! dk_par_dT 
+          if (eq(2*n_var+19,0,0,0,1) .gt. zk_par_max) then
+            eq(2*n_var+19,0,0,0,:) = zk_par_max
+            eq(2*n_var+22,0,0,0,:) = 0.d0
           end if
         else
-          eq(2*n_var+18,0,0,0,:) = zk_par
-          eq(2*n_var+21,0,0,0,:) = 0.d0
+          eq(2*n_var+19,0,0,0,:) = zk_par
+          eq(2*n_var+22,0,0,0,:) = 0.d0
         end if
       end if
+      
+      ! --- Increase diffusivity if very small temperature
+      if (eq(5,0,0,0,1) .lt. D_prof_neg_thresh) then
+        eq(2*n_var+5,0,0,0,:) = D_prof_neg       
+      endif
+
+      if ( with_TiTe ) then ! (with_TiTe) ****************************************************
+        if (eq(6,0,0,0,1) .lt. ZK_prof_neg_thresh) then
+          eq(2*n_var+14,0,0,0,:) = ZK_prof_neg       
+        endif
+        if (eq(7,0,0,0,1) .lt. ZK_prof_neg_thresh) then
+          eq(2*n_var+15,0,0,0,:) = ZK_prof_neg       
+        endif
+      else ! (with_TiTe), i.e. with single temperature ***************************************
+        if (eq(6,0,0,0,1) .lt. ZK_prof_neg_thresh) then
+          eq(2*n_var+13,0,0,0,:) = ZK_prof_neg       
+        endif
+      endif ! (with_TiTe) ********************************************************************
+
       ! Auxiliary variables (aux)
 #ifdef DEBUG
-      eq(2*n_var+28,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+28,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-      eq(2*n_var+28,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+28,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
-      eq(2*n_var+29,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
+      eq(2*n_var+29,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+29,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
+      eq(2*n_var+29,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+29,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
+      eq(2*n_var+30,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
 #else
 #include "aux_unreadable.h"
 #endif
