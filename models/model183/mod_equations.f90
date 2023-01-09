@@ -154,13 +154,13 @@ module mod_equations
     if (with_TiTe) then
       rhs6 = -tstep*(v*Bv_pbrack(rho0*T0_i, Phi0)/Bv2 - gamma*v*rho0*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp_i*gradprod(v,T0_i) &
              + (k_par_i-k_perp_i)*B0_parderiv(v)*B0_parderiv(T0_i)/B2 + k_perp_num*Lap(v)*Lap(T0_i) &
-             + D_perp*T0_i*gradgrad_perp(v, rho0) + (D_par - D_perp)*T0_i*B0_parderiv(v)*B0_parderiv(rho0)/B2 &
+             + D_perp*T0_i*gradprod(v, rho0) + (D_par - D_perp)*T0_i*B0_parderiv(v)*B0_parderiv(rho0)/B2 &
              - 0.0* (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e_i) + zeta*v*(rho0*delta_T_i + T0_i*delta_rho) &
              + tstep*v*dTe_i
     
       rhs7 = -tstep*(v*Bv_pbrack(rho0*T0_e, Phi0)/Bv2 - gamma*v*rho0*T0_e*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp_e*gradprod(v,T0_e) &
            + (k_par_e-k_perp_e)*B0_parderiv(v)*B0_parderiv(T0_e)/B2 + k_perp_num*Lap(v)*Lap(T0_e) &
-           + D_perp*T0_e*gradgrad_perp(v, rho0) + (D_par - D_perp)*T0_e*B0_parderiv(v)*B0_parderiv(rho0)/B2 &
+           + D_perp*T0_e*gradprod(v, rho0) + (D_par - D_perp)*T0_e*B0_parderiv(v)*B0_parderiv(rho0)/B2 &
            - (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e_e) + zeta*v*(rho0*delta_T_e + T0_e*delta_rho) &
            - tstep*v*dTe_i
     else
