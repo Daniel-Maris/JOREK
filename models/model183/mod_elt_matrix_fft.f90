@@ -473,11 +473,10 @@ do ms=1, n_gauss
         end if
       end if
       
-      ! --- Increase diffusivity if very small temperature
+      ! --- Increase diffusivity if very small density or temperature
       if (eq(5,0,0,0,1) .lt. D_prof_neg_thresh) then
         eq(2*n_var+5,0,0,0,:) = D_prof_neg       
       endif
-
       if ( with_TiTe ) then ! (with_TiTe) ****************************************************
         if (eq(6,0,0,0,1) .lt. ZK_prof_neg_thresh) then
           eq(2*n_var+14,0,0,0,:) = ZK_prof_neg       
