@@ -1,29 +1,16 @@
 &in1
 
- n_tor_fft_thresh = 2
+ n_tor_fft_thresh = 99
 
- restart = .f.
- tstep_n   = 5. 
- nstep_n   = 0 
+ restart = .t.
+ !tstep_n   = 5. 
+ !nstep_n   = 0 
+ !tstep_n   = 0.01, 0.2, 5
+ !nstep_n   = 50, 50, 100
+ tstep_n   = 1 , 5
+ nstep_n   = 50, 100
  
- bc_natural_open = .t.
- bootstrap       = .t.
- tauIC           = 1.d-3
- NEO             = .t.
- aki_neo_const   = -1.e+0
- amu_neo_const   = +1.e-5
- tgnum_psi       = 0.2d0
- tgnum_Te        = 0.2d0
- tgnum_Ti        = 0.2d0
- tgnum_u         = 0.2d0
- tgnum_w         = 0.2d0
- tgnum_vpar      = 0.2d0
- tgnum_rho       = 0.2d0
- tgnum_zj        = 0.2d0
-  
- min_sheath_angle     = 0.d0
-
- nout = 10
+ nout = 20
 
  fbnd(1)   = 2.
  fbnd(2:4) = 0.
@@ -35,6 +22,32 @@
  quad_u = -0.
  quad_l = -0.4
 
+ keep_current_prof = .f.
+
+ using_spi = .t.
+ imp_type = 'Ne'
+ t_ns  = 510.0
+ n_inj = 1
+ n_spi = 20
+ spi_quantity = 1.d19
+ pellet_density = 6.d8
+ spi_shard_file = 'none'
+ spi_abl_model   = 3
+ ns_radius_ratio = 1.4d0
+ ns_radius_min   = 0.2d0
+ ns_R        = 3.95d0
+ ns_Z        = 0.10d0
+ ns_phi      = 0.d0
+ ns_deltaphi = 4.
+ spi_Vel_Rref   = -1.d2
+ spi_Vel_Zref   = 0.d0
+ spi_Vel_RxZref = 0.d0
+ spi_Vel_diff   = 20.d0
+ spi_angle      = 0.349
+ spi_L_inj      = 0.20
+ ksi_ion = 1.8d-24
+ nimp_bg = 0. 
+ adas_dir = './'
 
  xampl  = +0.22
  xsig   = 0.6
@@ -68,29 +81,33 @@
  n_private = 5
 
  eta   = 2.d-6
- eta_ohmic = 1.d-7
  visco = 4.d-6
  visco_par = 1.d-4
- 
- visco_num = 1.d-11
- visco_par_num = 1.d-11
+
  eta_num = 3.d-10
 
- D_par     = 0.d0
+ D_par     = 1.d-5!0.d0
  D_perp(1) = 1.d-5
  D_perp(2) = 0.85d0
  D_perp(3) = 0.d0
  D_perp(4) = 0.01d0
  D_perp(5) = 0.92d0
 
- ZK_e_par     = 100.d0
+ D_par_imp = 1.d-5!0.d0
+ D_perp_imp(1) = 1.d-5
+ D_perp_imp(2) = 0.85d0
+ D_perp_imp(3) = 0.d0
+ D_perp_imp(4) = 0.01d0
+ D_perp_imp(5) = 0.92d0
+
+ ZK_e_par     = 1.d5
  ZK_e_perp(1) = 1.d-5
  ZK_e_perp(2) = 0.85d0
  ZK_e_perp(3) = 0.d0
  ZK_e_perp(4) = 0.01d0
  ZK_e_perp(5) = 0.92d0
 
- ZK_i_par     = 1.d0
+ ZK_i_par     = 1.d3
  ZK_i_perp(1) = 1.d-5
  ZK_i_perp(2) = 0.85d0
  ZK_i_perp(3) = 0.d0
@@ -108,37 +125,27 @@
  FF_coef(7)  = 0.90d0
  FF_coef(8)  = 0.07d0
 
- heatsource_e              = 0.5d-7
- heatsource_i              = 0.5d-7
- particlesource            = 5.d-6
- edgeparticlesource        = 1.d-7
- edgeparticlesource_psin   = 1.d0
- edgeparticlesource_sig    = 0.03d0
- particlesource_gauss      = 1.d-7
- particlesource_gauss_psin = 0.d0
- particlesource_gauss_sig  = 0.1d0
- heatsource_gauss_i        = 1.d-8
- heatsource_gauss_i_psin   = 0.d0
- heatsource_gauss_i_sig    = 0.1d0
- heatsource_gauss_e        = 1.d-8
- heatsource_gauss_e_psin   = 0.d0
- heatsource_gauss_e_sig    = 0.1d0
+ heatsource_e   = 5.d-8
+ heatsource_i   = 5.d-8
+ particlesource = 5.d-6
+
+ Te_0 = 0.76d-2
+ Te_1 = 3.d-4
+ Te_coef(1) = -0.66d0
+ Te_coef(2) = +0.0d0
+ Te_coef(3) = 0.d0
+ Te_coef(4) = 0.08d0
+ Te_coef(5) = 0.94d0
 
  Ti_0 = 0.75d-2
- Ti_1 = 1.5d-4
+ Ti_1 = 3.d-4
  Ti_coef(1) = -0.66d0
  Ti_coef(2) = +0.0d0
  Ti_coef(3) = 0.d0
  Ti_coef(4) = 0.08d0
  Ti_coef(5) = 0.94d0
 
- Te_0 = 0.75d-2
- Te_1 = 1.5d-4
- Te_coef(1) = -0.66d0
- Te_coef(2) = +0.0d0
- Te_coef(3) = 0.d0
- Te_coef(4) = 0.08d0
- Te_coef(5) = 0.94d0
+ T_min = 5.d-5
 
  rho_0 = 1.
  rho_1 = 0.01
