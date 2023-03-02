@@ -380,9 +380,9 @@ do ms=1, n_gauss
             eq(2*n_var+24,0,0,0,:) = 0.d0
           end if
         else
-          eq(2*n_var+20,0,0,0,:) = zk_par
+          eq(2*n_var+20,0,0,0,:) = zk_i_par
           eq(2*n_var+23,0,0,0,:) = 0.d0
-          eq(2*n_var+21,0,0,0,:) = zk_par
+          eq(2*n_var+21,0,0,0,:) = zk_e_par
           eq(2*n_var+24,0,0,0,:) = 0.d0
         end if
          

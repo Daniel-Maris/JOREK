@@ -213,7 +213,7 @@ module mod_equations
     if (with_TiTe) then
       amat61 = tstep*theta*((k_par_i - k_perp_i)*gradDgrad_par(v,T0_i) + (D_par - D_perp)*T0_i*gradDgrad_par(v,rho0))
       amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0_i,Phi) - gamma*rho0*T0_i*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
-      amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj*0.0
+      amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj*0.0   ! Ohmic heating is given to electrons in two temperature model
       amat65 = (1.d0 + zeta)*v*rho*T0_i + tstep*theta*(v*Bv_pbrack(rho*T0_i,Phi0)/Bv2 - gamma*v*rho*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
              + D_perp*T0_i*gradprod(v,rho) + (D_par - D_perp)*T0_i*B0_parderiv(v)*B0_parderiv(rho)/B2 &
              - v*ddTe_i_drho*rho)
