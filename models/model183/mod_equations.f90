@@ -155,8 +155,7 @@ module mod_equations
       rhs6 = -tstep*(v*Bv_pbrack(rho0*T0_i, Phi0)/Bv2 - gamma*v*rho0*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp_i*gradprod(v,T0_i) &
              + (k_par_i-k_perp_i)*B0_parderiv(v)*B0_parderiv(T0_i)/B2 + k_perp_num*Lap(v)*Lap(T0_i) &
              + D_perp*T0_i*gradprod(v, rho0) + (D_par - D_perp)*T0_i*B0_parderiv(v)*B0_parderiv(rho0)/B2 &
-             - 0.0* (gamma - 1.d0)*reta*eta*v*Bv2*zj0*zj0 - v*S_e_i) + zeta*v*(rho0*delta_T_i + T0_i*delta_rho) &
-             + tstep*v*dTe_i
+             - v*S_e_i) + zeta*v*(rho0*delta_T_i + T0_i*delta_rho) + tstep*v*dTe_i
     
       rhs7 = -tstep*(v*Bv_pbrack(rho0*T0_e, Phi0)/Bv2 - gamma*v*rho0*T0_e*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) + k_perp_e*gradprod(v,T0_e) &
            + (k_par_e-k_perp_e)*B0_parderiv(v)*B0_parderiv(T0_e)/B2 + k_perp_num*Lap(v)*Lap(T0_e) &
@@ -213,7 +212,6 @@ module mod_equations
     if (with_TiTe) then
       amat61 = tstep*theta*((k_par_i - k_perp_i)*gradDgrad_par(v,T0_i) + (D_par - D_perp)*T0_i*gradDgrad_par(v,rho0))
       amat62 = tstep*theta*v*(Bv_pbrack(rho0*T0_i,Phi) - gamma*rho0*T0_i*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2
-      amat63 = -2.d0*tstep*theta*(gamma - 1.d0)*v*reta*eta*Bv2*zj0*zj*0.0   ! Ohmic heating is given to electrons in two temperature model
       amat65 = (1.d0 + zeta)*v*rho*T0_i + tstep*theta*(v*Bv_pbrack(rho*T0_i,Phi0)/Bv2 - gamma*v*rho*T0_i*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2) &
              + D_perp*T0_i*gradprod(v,rho) + (D_par - D_perp)*T0_i*B0_parderiv(v)*B0_parderiv(rho)/B2 &
              - v*ddTe_i_drho*rho)
@@ -306,7 +304,6 @@ module mod_equations
         allocate(thread_eq(i)%amat55seq(countsubexprs(amat55e)))
         allocate(thread_eq(i)%amat61seq(countsubexprs(amat61)))
         allocate(thread_eq(i)%amat62seq(countsubexprs(amat62e)))
-        allocate(thread_eq(i)%amat63seq(countsubexprs(amat63)))
         allocate(thread_eq(i)%amat65seq(countsubexprs(amat65e)))
         allocate(thread_eq(i)%amat66seq(countsubexprs(amat66e)))
         allocate(thread_eq(i)%aBv2seq(countsubexprs(a_Bv2)))
@@ -326,6 +323,7 @@ module mod_equations
           allocate(thread_eq(i)%amat76seq(countsubexprs(amat76e)))
           allocate(thread_eq(i)%amat77seq(countsubexprs(amat77e)))
         else
+          allocate(thread_eq(i)%amat63seq(countsubexprs(amat63)))
           allocate(thread_eq(i)%amat16seq(countsubexprs(amat16)))
         end if
 #endif
@@ -376,7 +374,9 @@ module mod_equations
       
       call buildsequence(amat61, thread_eq(i)%amat61seq, thread_eq(i)%eq)
       call buildsequence(amat62e, thread_eq(i)%amat62seq, thread_eq(i)%eq)
-      call buildsequence(amat63, thread_eq(i)%amat63seq, thread_eq(i)%eq)
+      if (.not. with_TiTe) then
+        call buildsequence(amat63, thread_eq(i)%amat63seq, thread_eq(i)%eq)
+      end if
       call buildsequence(amat65e, thread_eq(i)%amat65seq, thread_eq(i)%eq)
       call buildsequence(amat66e, thread_eq(i)%amat66seq, thread_eq(i)%eq)
       
@@ -427,21 +427,21 @@ module mod_equations
     character(7),  allocatable, intent(out) :: varnames(:)
     
     if ( with_TiTe) then
-      n_amat = 30
+      n_amat = 29
       allocate(amat(n_amat), varnames(n_amat))
       amat = (/ amat11,  amat12,  amat13,                            amat17,   &
                 amat21,  amat22e, amat23, amat24e, amat25e, amat26e, amat27e,  &
                 amat31e,          amat33,                                      &
                          amat42,          amat44,                              &
                 amat51,  amat52e,                  amat55e,                    &
-                amat61,  amat62e, amat63,          amat65e,  amat66e, amat67e, &
+                amat61,  amat62e,                  amat65e,  amat66e, amat67e, &
                 amat71,  amat72e, amat73,          amat75e,  amat76e, amat77e  /)
       varnames = (/ "amat_11", "amat_12", "amat_13",                                  "amat_17", &
                     "amat_21", "amat_22", "amat_23", "amat_24", "amat_25", "amat_26", "amat_27", &
                     "amat_31",            "amat_33", &
                                "amat_42",            "amat_44", &
                     "amat_51", "amat_52",                       "amat_55", &
-                    "amat_61", "amat_62", "amat_63",            "amat_65", "amat_66", "amat_67", &
+                    "amat_61", "amat_62",                       "amat_65", "amat_66", "amat_67", &
                     "amat_71", "amat_72", "amat_73",            "amat_75", "amat_76", "amat_77"  /)
     else
       n_amat = 22

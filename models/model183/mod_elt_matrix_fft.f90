@@ -684,7 +684,6 @@ do ms=1, n_gauss
                   if (with_TiTe) then
                     amat_61 = eval(thread_eq(tid)%amat61seq)*BigR*xjac/F0
                     amat_62 = eval(thread_eq(tid)%amat62seq)*BigR*xjac
-                    amat_63 = eval(thread_eq(tid)%amat63seq)*BigR*xjac/F0
                     amat_65 = eval(thread_eq(tid)%amat65seq)*BigR*xjac
                     amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
                     amat_67 = eval(thread_eq(tid)%amat67seq)*BigR*xjac
@@ -711,7 +710,7 @@ do ms=1, n_gauss
                     amat_31 = amat_31*BigR*xjac/F0; amat_33 = amat_33*BigR*xjac/F0
                     amat_42 = amat_42*BigR*xjac; amat_44 = amat_44*BigR*xjac
                     amat_51 = amat_51*BigR*xjac/F0; amat_52 = amat_52*BigR*xjac; amat_55 = amat_55*BigR*xjac
-                    amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_63 = amat_63*BigR*xjac/F0; amat_65 = amat_65*BigR*xjac
+                    amat_61 = amat_61*BigR*xjac/F0; amat_62 = amat_62*BigR*xjac; amat_65 = amat_65*BigR*xjac
                     amat_66 = amat_66*BigR*xjac; amat_67 = amat_67*BigR*xjac
                     amat_71 = amat_71*BigR*xjac/F0; amat_72 = amat_72*BigR*xjac; amat_73 = amat_73*BigR*xjac/F0; amat_75 = amat_75*BigR*xjac
                     amat_76 = amat_76*BigR*xjac; amat_77 = amat_77*BigR*xjac
@@ -845,28 +844,24 @@ do ms=1, n_gauss
 
                     ELM_p(mp,ij6,kl1)  =  ELM_p(mp,ij6,kl1)  + wst*amat_61(1)
                     ELM_p(mp,ij6,kl2)  =  ELM_p(mp,ij6,kl2)  + wst*amat_62(1)
-                    ELM_p(mp,ij6,kl3)  =  ELM_p(mp,ij6,kl3)  + wst*amat_63(1)
                     ELM_p(mp,ij6,kl5)  =  ELM_p(mp,ij6,kl5)  + wst*amat_65(1)
                     ELM_p(mp,ij6,kl6)  =  ELM_p(mp,ij6,kl6)  + wst*amat_66(1)
                     
                     ELM_k(mp,ij6,kl1)  =  ELM_k(mp,ij6,kl1)  + wst*amat_61(2)
                     ELM_k(mp,ij6,kl2)  =  ELM_k(mp,ij6,kl2)  + wst*amat_62(2)
-                    ELM_k(mp,ij6,kl3)  =  ELM_k(mp,ij6,kl3)  + wst*amat_63(2)
                     ELM_k(mp,ij6,kl5)  =  ELM_k(mp,ij6,kl5)  + wst*amat_65(2)
                     ELM_k(mp,ij6,kl6)  =  ELM_k(mp,ij6,kl6)  + wst*amat_66(2)
                     
                     ELM_n(mp,ij6,kl1)  =  ELM_n(mp,ij6,kl1)  + wst*amat_61(3)
                     ELM_n(mp,ij6,kl2)  =  ELM_n(mp,ij6,kl2)  + wst*amat_62(3)
-                    ELM_n(mp,ij6,kl3)  =  ELM_n(mp,ij6,kl3)  + wst*amat_63(3)
                     ELM_n(mp,ij6,kl5)  =  ELM_n(mp,ij6,kl5)  + wst*amat_65(3)
                     ELM_n(mp,ij6,kl6)  =  ELM_n(mp,ij6,kl6)  + wst*amat_66(3)
                     
                     ELM_kn(mp,ij6,kl1)  =  ELM_kn(mp,ij6,kl1)  + wst*amat_61(4)
                     ELM_kn(mp,ij6,kl2)  =  ELM_kn(mp,ij6,kl2)  + wst*amat_62(4)
-                    ELM_kn(mp,ij6,kl3)  =  ELM_kn(mp,ij6,kl3)  + wst*amat_63(4)
                     ELM_kn(mp,ij6,kl5)  =  ELM_kn(mp,ij6,kl5)  + wst*amat_65(4)
                     ELM_kn(mp,ij6,kl6)  =  ELM_kn(mp,ij6,kl6)  + wst*amat_66(4)
-                   
+
                     if (with_TiTe) then
                       ELM_p(mp,ij6,kl7)  =  ELM_p(mp,ij6,kl7)  + wst*amat_67(1)
                       ELM_k(mp,ij6,kl7)  =  ELM_k(mp,ij6,kl7)  + wst*amat_67(2)
@@ -901,6 +896,11 @@ do ms=1, n_gauss
                       ELM_kn(mp,ij7,kl5)  =  ELM_kn(mp,ij7,kl5)  + wst*amat_75(4)
                       ELM_kn(mp,ij7,kl6)  =  ELM_kn(mp,ij7,kl6)  + wst*amat_76(4)
                       ELM_kn(mp,ij7,kl7)  =  ELM_kn(mp,ij7,kl7)  + wst*amat_77(4)
+                    else
+                      ELM_p(mp,ij6,kl3)  =  ELM_p(mp,ij6,kl3)  + wst*amat_63(1)
+                      ELM_k(mp,ij6,kl3)  =  ELM_k(mp,ij6,kl3)  + wst*amat_63(2)
+                      ELM_n(mp,ij6,kl3)  =  ELM_n(mp,ij6,kl3)  + wst*amat_63(3)
+                      ELM_kn(mp,ij6,kl3) =  ELM_kn(mp,ij6,kl3) + wst*amat_63(4)
                     end if
                   else
                     ELM(ij1,kl1) = ELM(ij1,kl1) + (amat_11(1)*HZ(im,mp)*HZ(in,mp)   + amat_11(2)*HZ_p(im,mp)*HZ(in,mp) &
@@ -957,8 +957,6 @@ do ms=1, n_gauss
                                                 +  amat_61(3)*HZ(im,mp)*HZ_p(in,mp) + amat_61(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                     ELM(ij6,kl2) = ELM(ij6,kl2) + (amat_62(1)*HZ(im,mp)*HZ(in,mp)   + amat_62(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_62(3)*HZ(im,mp)*HZ_p(in,mp) + amat_62(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
-                    ELM(ij6,kl3) = ELM(ij6,kl3) + (amat_63(1)*HZ(im,mp)*HZ(in,mp)   + amat_63(2)*HZ_p(im,mp)*HZ(in,mp) &
-                                                +  amat_63(3)*HZ(im,mp)*HZ_p(in,mp) + amat_63(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                     ELM(ij6,kl5) = ELM(ij6,kl5) + (amat_65(1)*HZ(im,mp)*HZ(in,mp)   + amat_65(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                 +  amat_65(3)*HZ(im,mp)*HZ_p(in,mp) + amat_65(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                     ELM(ij6,kl6) = ELM(ij6,kl6) + (amat_66(1)*HZ(im,mp)*HZ(in,mp)   + amat_66(2)*HZ_p(im,mp)*HZ(in,mp) &
@@ -980,6 +978,9 @@ do ms=1, n_gauss
                                                   +  amat_76(3)*HZ(im,mp)*HZ_p(in,mp) + amat_76(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                       ELM(ij7,kl7) = ELM(ij7,kl7) + (amat_77(1)*HZ(im,mp)*HZ(in,mp)   + amat_77(2)*HZ_p(im,mp)*HZ(in,mp) &
                                                   +  amat_77(3)*HZ(im,mp)*HZ_p(in,mp) + amat_77(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
+                    else
+                      ELM(ij6,kl3) = ELM(ij6,kl3) + (amat_63(1)*HZ(im,mp)*HZ(in,mp)   + amat_63(2)*HZ_p(im,mp)*HZ(in,mp) &
+                                                  +  amat_63(3)*HZ(im,mp)*HZ_p(in,mp) + amat_63(4)*HZ_p(im,mp)*HZ_p(in,mp))*wst
                     end if
                   end if
                 end do ! in loop (n_tor, or not...)
