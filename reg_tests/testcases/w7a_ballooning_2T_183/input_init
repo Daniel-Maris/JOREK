@@ -19,10 +19,8 @@
 
  F0    = 4.72593206453746
 
- t_rat = 0.5
-
- n_flux   = 61
- n_tht    = 72
+ n_flux   = 20
+ n_tht    = 24
 
  m_pol_bc = 36
 

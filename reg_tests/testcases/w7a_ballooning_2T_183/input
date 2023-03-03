@@ -25,8 +25,8 @@
  Te_0   = 0.0062845
  Te_1   = 0.62845d-6
 
- n_flux   = 61
- n_tht    = 72
+ n_flux   = 20
+ n_tht    = 24
 
  eta   = 1.d-9
  visco = 1.d-9

@@ -29,14 +29,16 @@ function initial_run () {
   $MPIRUN $mpitasks ./jorek_model${jorek_equilibrium_model}_1 < ./input_init | tee logfile_initial              || exit 1
   ${codedir}/util/setinput.sh input restart=.t. nstep=30 tstep=1.0 time_evol_scheme='"implicit Euler"'          || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_1 < ./input | tee logfile_prerun                                 || exit 1
-  ${codedir}/util/setinput.sh input restart=.t. nstep=63 tstep=3.0 time_evol_scheme='"Crank-Nicholson"'         || exit 1
-  $MPIRUN $mpitasks ./jorek_model${jorekmodel}_1 < ./input | tee logfile_final                                  || exit 1
+  ${codedir}/util/setinput.sh input restart=.t. nstep=80 tstep=1.0 time_evol_scheme='"Crank-Nicholson"'         || exit 1
+  $MPIRUN $mpitasks ./jorek_model${jorekmodel}_1 < ./input | tee logfile_linear                                  || exit 1
+  ${codedir}/util/setinput.sh input restart=.t. nstep=30 tstep=0.3 time_evol_scheme='"Crank-Nicholson"'         || exit 1
+  $MPIRUN $mpitasks ./jorek_model${jorekmodel}_1 < ./input | tee logfile_nonlinear                                 || exit 1
 }
 
 
 # --- Carry out the test case
 function restart_run () {
-  ${codedir}/util/setinput.sh input restart=.t. nstep=1 tstep=1.0 nout=1  time_evol_scheme="Crank-Nicholson"  || exit 1
+  ${codedir}/util/setinput.sh input restart=.t. nstep=1 tstep=0.3 nout=1  time_evol_scheme="Crank-Nicholson"  || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_1 < input | tee logfile                                           || exit 1
 }
 
