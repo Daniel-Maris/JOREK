@@ -49,6 +49,7 @@ real*8, dimension(n_plane,n_gauss,n_gauss) :: y_g, y_s, y_t, y_p, y_ss, y_st, y_
 real*8, dimension(n_gauss,n_gauss) :: psieq, psieq_s, psieq_t
 real*8                             :: psieq_x, psieq_y
 #endif
+real*8, dimension(n_gauss, n_gauss)        :: s_norm
 
 real*8, dimension(:,:,:,:) , pointer :: eq_g, eq_s, eq_t
 real*8, dimension(:,:,:,:) , pointer :: eq_st, eq_ss, eq_tt
@@ -92,6 +93,7 @@ eq_p = 0.d0; eq_pp = 0.d0; eq_sp = 0.d0; eq_tp = 0.d0
 
 eq = 0.d0
 press_gvec = 0.d0; B_gvec = 0.d0
+s_norm = 0.d0
 
 do i=1,n_vertex_max
  do j=1,n_order+1
@@ -106,6 +108,7 @@ do i=1,n_vertex_max
        psieq_s(ms,mt) = psieq_s(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_s(i,j,ms,mt)
        psieq_t(ms,mt) = psieq_t(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_t(i,j,ms,mt)
 #endif
+       s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
 
        do mp=1,n_plane
          do in=1,n_coord_tor
@@ -228,7 +231,7 @@ do ms=1, n_gauss
      eq(n_var+5,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
      eq(n_var+6:n_var+8,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
      
-     psi_norm = get_psi_n(eq(1,0,0,0,1), y_g(mp,ms,mt))
+     psi_norm = s_norm(ms,mt)
      
      ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi
      eq(1,:,:,:,1) = eq(1,:,:,:,1)/F0

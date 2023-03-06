@@ -150,6 +150,7 @@ delta_g = 0.d0; delta_s = 0.d0; delta_t = 0.d0; delta_p = 0.d0
 
 eq = 0.d0
 
+s_norm          = 0.d0
 current_source  = 0.d0
 particle_source = 0.d0
 heat_source     = 0.d0
