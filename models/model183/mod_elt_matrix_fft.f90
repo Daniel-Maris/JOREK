@@ -138,9 +138,6 @@ end if
 n_tor_local = n_tor_end - n_tor_start + 1
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
-#ifdef altcs
-psieq = 0.d0; psieq_s = 0.d0; psieq_t = 0.d0
-#endif
 x_g  = 0.d0; x_s   = 0.d0; x_t   = 0.d0; x_p = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0; x_sp = 0.d0; x_tp = 0.d0; x_pp = 0.d0;
 y_g  = 0.d0; y_s   = 0.d0; y_t   = 0.d0; y_p = 0.d0; y_st  = 0.d0; y_ss  = 0.d0; y_tt  = 0.d0; y_sp = 0.d0; y_tp = 0.d0; y_pp = 0.d0;
 eq_g = 0.d0; eq_s  = 0.d0; eq_t  = 0.d0; eq_st = 0.d0; eq_ss = 0.d0; eq_tt = 0.d0;
@@ -162,11 +159,6 @@ do i=1,n_vertex_max
   do j=1,n_order+1
     do ms=1, n_gauss
       do mt=1, n_gauss
-#ifdef altcs
-        psieq(ms,mt)   = psieq(ms,mt)   + nodes(i)%psi_eq(j)*element%size(i,j)*H(i,j,ms,mt)
-        psieq_s(ms,mt) = psieq_s(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_s(i,j,ms,mt)
-        psieq_t(ms,mt) = psieq_t(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_t(i,j,ms,mt)
-#endif
         s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
 
         do mp=1,n_plane
@@ -219,22 +211,20 @@ do i=1,n_vertex_max
               current_source(mp,ms,mt) = current_source(mp,ms,mt) + nodes(i)%j_source(in,j)*element%size(i,j)*H(i,j,ms,mt)*HZ(in,mp)
             end do
           end if
-
-#ifdef altcs
-          if (with_TiTe) then
-            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, s_norm(ms,mt),0.0,1.0,particle_source(mp,ms,mt),heat_source_i(mp,ms,mt),heat_source_e(mp,ms,mt))
-          else
-            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, s_norm(ms,mt),0.0,1.0,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
-          end if
-#else
-          if (with_TiTe) then
-            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, s_norm(ms,mt),0.0,1.0,particle_source(mp,ms,mt),heat_source_i(mp,ms,mt),heat_source_e(mp,ms,mt))
-          else
-            call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, s_norm(ms,mt),0.0,1.0,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
-          end if
-#endif
         enddo
       enddo
+    enddo
+  enddo
+enddo
+
+do ms=1, n_gauss
+  do mt=1, n_gauss
+    do mp=1,n_plane
+      if (with_TiTe) then
+        call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, s_norm(ms,mt),0.0,1.0,particle_source(mp,ms,mt),heat_source_i(mp,ms,mt),heat_source_e(mp,ms,mt))
+      else
+        call sources(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, s_norm(ms,mt),0.0,1.0,particle_source(mp,ms,mt),heat_source(mp,ms,mt))
+      end if
     enddo
   enddo
 enddo
@@ -254,11 +244,6 @@ delta_t = delta_t*tstep/tstep_prev
 do ms=1, n_gauss
   do mt=1, n_gauss
     wst = wgauss(ms)*wgauss(mt)
-
-#ifdef altcs
-    psieq_x = ( y_t(1,ms,mt)*psieq_s(ms,mt) - y_s(1,ms,mt)*psieq_t(ms,mt))/xjac
-    psieq_y = (-x_t(1,ms,mt)*psieq_s(ms,mt) + x_s(1,ms,mt)*psieq_t(ms,mt))/xjac
-#endif
 
     do mp = 1, n_plane
       phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
