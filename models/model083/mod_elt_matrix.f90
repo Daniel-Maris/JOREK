@@ -45,10 +45,7 @@ integer    :: n_tor_local
 
 real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, x_s, x_t, x_p, x_ss, x_st, x_tt, x_sp, x_tp, x_pp
 real*8, dimension(n_plane,n_gauss,n_gauss) :: y_g, y_s, y_t, y_p, y_ss, y_st, y_tt, y_sp, y_tp, y_pp
-#ifdef altcs
-real*8, dimension(n_gauss,n_gauss) :: psieq, psieq_s, psieq_t
-real*8                             :: psieq_x, psieq_y
-#endif
+real*8, dimension(n_gauss, n_gauss)        :: s_norm
 
 real*8, dimension(:,:,:,:) , pointer :: eq_g, eq_s, eq_t
 real*8, dimension(:,:,:,:) , pointer :: eq_st, eq_ss, eq_tt
@@ -82,9 +79,6 @@ theta = time_evol_theta
 zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
-#ifdef altcs
-psieq = 0.d0; psieq_s = 0.d0; psieq_t = 0.d0
-#endif
 x_g  = 0.d0; x_s   = 0.d0; x_t   = 0.d0; x_p = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0; x_sp = 0.d0; x_tp = 0.d0; x_pp = 0.d0;
 y_g  = 0.d0; y_s   = 0.d0; y_t   = 0.d0; y_p = 0.d0; y_st  = 0.d0; y_ss  = 0.d0; y_tt  = 0.d0; y_sp = 0.d0; y_tp = 0.d0; y_pp = 0.d0;
 eq_g = 0.d0; eq_s  = 0.d0; eq_t  = 0.d0; eq_st = 0.d0; eq_ss = 0.d0; eq_tt = 0.d0;
@@ -92,6 +86,7 @@ eq_p = 0.d0; eq_pp = 0.d0; eq_sp = 0.d0; eq_tp = 0.d0
 
 eq = 0.d0
 press_gvec = 0.d0; B_gvec = 0.d0
+s_norm = 0.d0
 
 do i=1,n_vertex_max
  do j=1,n_order+1
@@ -100,12 +95,7 @@ do i=1,n_vertex_max
      do mt=1, n_gauss
 
        press_gvec(ms,mt) = press_gvec(ms,mt) + nodes(i)%pressure(j)*element%size(i,j)*H(i,j,ms,mt)
-
-#ifdef altcs
-       psieq(ms,mt)   = psieq(ms,mt)   + nodes(i)%psi_eq(j)*element%size(i,j)*H(i,j,ms,mt)
-       psieq_s(ms,mt) = psieq_s(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_s(i,j,ms,mt)
-       psieq_t(ms,mt) = psieq_t(ms,mt) + nodes(i)%psi_eq(j)*element%size(i,j)*H_t(i,j,ms,mt)
-#endif
+       s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
 
        do mp=1,n_plane
          do in=1,n_coord_tor
@@ -168,11 +158,6 @@ do ms=1, n_gauss
    
    wst = wgauss(ms)*wgauss(mt)
 
-#ifdef altcs
-   psieq_x = ( y_t(1,ms,mt)*psieq_s(ms,mt) - y_s(1,ms,mt)*psieq_t(ms,mt))/xjac
-   psieq_y = (-x_t(1,ms,mt)*psieq_s(ms,mt) + x_s(1,ms,mt)*psieq_t(ms,mt))/xjac
-#endif
-
    do mp = 1, n_plane
      phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
      
@@ -228,7 +213,7 @@ do ms=1, n_gauss
      eq(n_var+5,0,0,0,1) = mu_zero*press_gvec(ms,mt)  ! Pressure, as imported from GVEC
      eq(n_var+6:n_var+8,0,0,0,1) = B_gvec(:,mp,ms,mt) ! Magnetic field, as imported from GVEC
      
-     psi_norm = get_psi_n(eq(1,0,0,0,1), y_g(mp,ms,mt))
+     psi_norm = s_norm(ms,mt)
      
      ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi
      eq(1,:,:,:,1) = eq(1,:,:,:,1)/F0
