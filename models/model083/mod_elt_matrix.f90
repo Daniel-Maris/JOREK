@@ -220,7 +220,7 @@ do ms=1, n_gauss
      eq(3,:,:,:,1) = eq(3,:,:,:,1)/F0
 
      ! Auxiliary variables (aux)
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
      eq(n_var+9,0,0,0,:) = eval(thread_eq(tid)%aBv2seq);  eq(n_var+9,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
      eq(n_var+9,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(n_var+9,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
 #else
@@ -266,7 +266,7 @@ do ms=1, n_gauss
            eq(n_var+1,1,0,1,1) = v_px - x_p_x*eq(n_var+1,1,0,0,1) - x_p(mp,ms,mt)*eq(n_var+1,2,0,0,1) - y_p_x*eq(n_var+1,0,1,0,1) - y_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
            eq(n_var+1,0,1,1,1) = v_py - x_p_y*eq(n_var+1,1,0,0,1) - y_p(mp,ms,mt)*eq(n_var+1,0,2,0,1) - y_p_y*eq(n_var+1,0,1,0,1) - x_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
 
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
            rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
            rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
 #else
@@ -327,7 +327,7 @@ do ms=1, n_gauss
                  
                  index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local*n_var*(l-1) + in - i_tor_min + 1   ! index in the ELM matrix
                  
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
 !---------------------------------------------------------------- equation 1
                  amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
                  amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0

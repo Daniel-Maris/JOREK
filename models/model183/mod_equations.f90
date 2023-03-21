@@ -5,7 +5,7 @@ module mod_equations
   implicit none
   
   type type_thread_eq
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
     type(action), dimension(:), allocatable :: rhs1seq, rhs2seq, rhs3seq, rhs4seq, rhs5seq, rhs6seq, rhs7seq
     type(action), dimension(:), allocatable :: amat11seq, amat12seq, amat13seq, amat16seq, amat17seq
     type(action), dimension(:), allocatable :: amat21seq, amat22seq, amat23seq, amat24seq, amat25seq, amat26seq, amat27seq
@@ -197,7 +197,7 @@ module mod_equations
     amat31 = theta*Bv2*inprod(v,Psi)
     amat33 = theta*v*Bv2*zj
     
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
     amat42 = theta*inprod(v,Phi) + 0.d0*one
 #else
     amat42 = theta*inprod(v,Phi)
@@ -279,7 +279,7 @@ module mod_equations
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
         allocate(thread_eq(i)%eq(2*n_var+30,0:n_order-1,0:n_order-1,0:n_order-1,4))
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
         allocate(thread_eq(i)%rhs2seq(countsubexprs(rhs2e)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
@@ -331,7 +331,7 @@ module mod_equations
     end if
   end subroutine init_eq_struct
   
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
   subroutine build_all_seq()
     use data_structure, only: nbthreads
     implicit none

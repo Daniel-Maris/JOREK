@@ -5,7 +5,7 @@ module mod_equations
   implicit none
 
   type type_thread_eq
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
     type(action), dimension(:), allocatable :: rhs1seq, rhs3seq
     type(action), dimension(:), allocatable :: amat11seq, amat13seq
     type(action), dimension(:), allocatable :: amat22seq
@@ -123,7 +123,7 @@ module mod_equations
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
         allocate(thread_eq(i)%eq(n_var+9,0:n_order-1,0:n_order-1,0:n_order-1,4))
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
         allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
         allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
         allocate(thread_eq(i)%amat11seq(countsubexprs(amat11)))
@@ -143,7 +143,7 @@ module mod_equations
     end if
   end subroutine init_eq_struct
 
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
   subroutine build_all_seq()
     use data_structure, only: nbthreads
     implicit none

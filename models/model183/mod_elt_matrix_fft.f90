@@ -478,7 +478,7 @@ do ms=1, n_gauss
       endif ! (with_TiTe) ********************************************************************
 
       ! Auxiliary variables (aux)
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
       eq(2*n_var+29,0,0,0,:) = eval(thread_eq(tid)%aBv2seq); eq(2*n_var+29,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
       eq(2*n_var+29,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(2*n_var+29,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
       eq(2*n_var+30,0,0,0,:) = eval(thread_eq(tid)%aB2seq)
@@ -530,7 +530,7 @@ do ms=1, n_gauss
                                   - x_p(mp,ms,mt)*eq(2*n_var+1,1,1,0,:)
             
             
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
             rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
             rhs_ij_2 = eval(thread_eq(tid)%rhs2seq)*BigR*xjac
             rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
@@ -629,7 +629,7 @@ do ms=1, n_gauss
                                         - x_p(mp,ms,mt)*eq(2*n_var+2,1,1,0,:)
                   
                   
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
 !---------------------------------------------------------------- equation 1
                   if (with_TiTe) then
                     amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0

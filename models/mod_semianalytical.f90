@@ -12,7 +12,7 @@ module mod_semianalytical
     real*8                    :: factor = 1.d0, add = 0.d0 ! A numerical multiplicative factor and an additive constant
     character(:), allocatable :: factcode, addcode         ! Fortran code for the multiplicative and additive constants
     
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
     ! These pointers are only for debugging purposes and should be removed in production
     ! up points to the expression for which this expression is an operand
     ! origin points to the un-expanded expression from which this expression was obtained
@@ -26,7 +26,7 @@ module mod_semianalytical
     character(:), allocatable :: token ! The name of the corresponding Fortran variable
   end type const
 
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
   ! An instruction to add, subtract, multiply or divide two numbers
   ! Algebraic expressions are compiled to sequences (arrays) of actions
   type action
@@ -95,7 +95,7 @@ module mod_semianalytical
     procedure powcn    ! const**real
   end interface operator (**)
   
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
   private :: buildsequence_rec
 #endif
   
@@ -628,7 +628,7 @@ contains
       if (allocated(expr%factcode)) res%factcode = expr%factcode
       if (allocated(expr%addcode)) res%addcode  = expr%addcode
       
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
       res%origin => expr%origin
       res%up     => expr%up
 #endif
@@ -640,7 +640,7 @@ contains
     end if
   end function deepcopy
   
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
   ! This subroutine initializes the up pointers in an expression tree (only useful for debugging)
   recursive subroutine inituptree(expr)
     implicit none
@@ -677,7 +677,7 @@ contains
         res%dy = expr%dy
         res%dp = expr%dp
         res%add = 0
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
         res%origin => expr
 #endif
       else if (expr%dy .ne. 0) then
@@ -695,7 +695,7 @@ contains
         res%dy = expr%dy - 1
         res%dp = expr%dp
         res%add = 0
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
         res%origin => expr
 #endif
       else if (expr%dp .ne. 0) then
@@ -713,7 +713,7 @@ contains
         res%dy = expr%dy
         res%dp = expr%dp - 1
         res%add = 0
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
         res%origin => expr
 #endif
       end if
@@ -826,7 +826,7 @@ contains
     end if
   end function countsubexprs
 
-#ifdef DEBUG
+#ifdef EVAL_MOD_EQUATIONS
   ! Use an algebraic expression to build a sequence of instructions (recursive part)
   recursive subroutine buildsequence_rec(expr, actseq, eq, last)
     implicit none

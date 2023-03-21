@@ -173,17 +173,19 @@ ifeq (model712, $(MODEL))
 endif
 
 CGDEP=
+EVAL_MOD_EQUATIONS ?= 0
+ifneq ($(EVAL_MOD_EQUATIONS), 1)
+  CGDEP = generate_code                         # Pre-compute analytic expressions from mod_equations for performance
+else
+  DEFINES := $(DEFINES) -DEVAL_MOD_EQUATIONS    # Expand analytic equations at runtime - for debugging purposes
+endif
 ifeq (model083, $(MODEL))
-  DEFINES := $(DEFINES) -DSEMIANALYTICAL
-  DEFINES := $(DEFINES) -DSTELLARATOR_MODEL
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL -DSTELLARATOR_MODEL
   FFLAGS  := $(FFLAGS) -heap-arrays
-  CGDEP = generate_code
 endif
 ifeq (model183, $(MODEL))
-  DEFINES := $(DEFINES) -DSEMIANALYTICAL
-  DEFINES := $(DEFINES) -DSTELLARATOR_MODEL
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL -DSTELLARATOR_MODEL
   FFLAGS  := $(FFLAGS) -heap-arrays
-  CGDEP = generate_code
 endif
 ifeq (.true., $(shell ./util/config.sh -p with_vpar))
   DEFINES  := $(DEFINES) -DWITH_Vpar
