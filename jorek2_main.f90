@@ -331,6 +331,7 @@ mpi_required = 0
 #if (JOREK_MODEL == 83)
     call solve_Psi_boundary_eqn(node_list, bnd_elm_list)
     call setup_boundary_condition(node_list, bnd_node_list)
+    if ((my_id .eq. 0) call determine_boundary_flux(node_list, element_list)
 #endif
   end if ! gvec_grid_import
 
@@ -400,9 +401,6 @@ mpi_required = 0
     
   end if !   if ( restart .and. (my_id == 0) ) then
   
-  if ((my_id .eq. 0) .and. (n_flux .gt. 1) .and. (n_tht .gt. 0) .and. (restart .or. gvec_grid_import)) &
-    call determine_boundary_flux(node_list, element_list)
-
   ! This is necessary for the parallel vacuum version during the code restart 
   if(restart) then
     call broadcast_phys(my_id)  
@@ -716,7 +714,7 @@ mpi_required = 0
 
   index_now = index_start  ! index_now: Index of current timestep
 
-#if defined(SEMIANALYTICAL) && defined(DEBUG)
+#if defined(SEMIANALYTICAL) && defined(EVAL_MOD_EQUATIONS)
   call init_equations()
   call init_eq_struct()
 #elif defined(SEMIANALYTICAL)
@@ -724,7 +722,7 @@ mpi_required = 0
 #endif
 
   jstep_loop: do jstep = 1, 10 ! Go through the different values of the tstep_n and nstep_n arrays
-#if defined(SEMIANALYTICAL) && defined(DEBUG)
+#if defined(SEMIANALYTICAL) && defined(EVAL_MOD_EQUATIONS)
   call build_all_seq()
 #endif
   istep_loop: do istep = 1, nstep_n(jstep)
