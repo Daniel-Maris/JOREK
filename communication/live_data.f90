@@ -188,9 +188,6 @@ module live_data
 
     if (allocated(thmwork_tot_t)) call tr_deallocate(thmwork_tot_t,"thmwork_tot_t",CAT_UNKNOWN)
     if (nstep .gt. 0) call tr_allocate(thmwork_tot_t,1,index_start+nstep,"thmwork_tot_t",CAT_UNKNOWN)
-    
-    if (allocated(viscoperp_dissip_tot_t)) call tr_deallocate(viscoperp_dissip_tot_t,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
-    if (nstep .gt. 0) call tr_allocate(viscoperp_dissip_tot_t,1,index_start+nstep,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
 
     if (allocated(viscopar_dissip_tot_t)) call tr_deallocate(viscopar_dissip_tot_t,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     if (nstep .gt. 0) call tr_allocate(viscopar_dissip_tot_t,1,index_start+nstep,"viscopar_dissip_tot_t",CAT_UNKNOWN)
@@ -731,11 +728,11 @@ module live_data
       E_tot_t, Helicity_tot_t, Kin_perp_tot_t, thermal_tot_t, kin_par_tot_t, ohmic_tot_t,      &
       Wmag_tot_t, Ip_tot_t, flux_pvn_t, flux_qpar_t, flux_qperp_t, flux_kinpar_t, dE_tot_dt, &
       dWmag_tot_dt, dthermal_tot_dt, dkinpar_tot_dt, dkinperp_tot_dt,  Magwork_tot_t,   &
-      thmwork_tot_t, viscoperp_dissip_tot_t, viscopar_dissip_tot_t, viscopar_flux_t, li3_t, friction_dissip_tot_t, &
+      thmwork_tot_t, viscopar_dissip_tot_t, viscopar_flux_t, li3_t, friction_dissip_tot_t,     &
       li3_tot_t, part_src_tot_t, heat_src_tot_t, volume_t, area_t, mag_ener_src_tot, eta_ohmic, eta, &
       dpart_tot_dt, part_flux_Dpar_t, part_flux_Dperp_t, part_flux_vpar_t, part_flux_vperp_t, &
-      dnpart_tot_dt, npart_tot_t, npart_flux_t, density_tot_t, flux_poynting_t, Px_t, Py_t, dPx_dt, dPy_dt, &
-      xtime_rad_power, xtime_E_ion_power, thermal_e_tot_t, thermal_i_tot_t, xtime_P_ei
+      dnpart_tot_dt, npart_tot_t, npart_flux_t, density_tot_t, flux_poynting_t, xtime_rad_power, Px_t, Py_t, dPx_dt, dPy_dt, &
+      xtime_E_ion_power, thermal_e_tot_t, thermal_i_tot_t, xtime_P_ei, visco_par, visco_par_heating
 
 
     implicit none
@@ -854,8 +851,8 @@ module live_data
                                                                       dpart_tot_dt(index-1), dnpart_tot_dt(index-1) 
 
      sum_fluxes_dissip = flux_Pvn_t(index-1)  + flux_kinpar_t(index-1) + flux_qpar_t(index-1) + flux_qperp_t(index-1) &
-                       + viscoperp_dissip_tot_t(index-1) + viscopar_dissip_tot_t(index-1) - heat_src_tot_t(index-1)  &
-                       + ohmic_tot_t(index-1)*(1.d0 - eta_ohmic/eta) - mag_ener_src_tot(index-1) - flux_poynting_t(index-1)
+                       - heat_src_tot_t(index-1) + ohmic_tot_t(index-1)*(1.d0 - eta_ohmic/eta) - mag_ener_src_tot(index-1) &
+                       - flux_poynting_t(index-1) + viscopar_dissip_tot_t(index-1)*(1.d0 - visco_par_heating/max(visco_par,1e-12))
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
      sum_fluxes_dissip = sum_fluxes_dissip + xtime_rad_power(index-1) + xtime_E_ion_power(index-1)
 #endif

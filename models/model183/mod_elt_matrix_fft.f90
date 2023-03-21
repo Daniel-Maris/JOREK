@@ -79,8 +79,6 @@ real*8, dimension(4) :: amat_63, amat_65, amat_66, amat_67, amat_71, amat_72, am
 integer*8  :: plan
 real*8     :: in_fft(1:n_plane)
 complex*16 :: out_fft(1:n_plane)
-INTEGER    :: FFTW_FORWARD,  FFTW_BACKWARD, FFTW_ESTIMATE
-PARAMETER (FFTW_FORWARD=-1,FFTW_BACKWARD=+1, FFTW_ESTIMATE=64)
 
 #define DIM1 n_plane
 #define DIM2 1:n_vertex_max*n_var*(n_order+1)
@@ -1235,10 +1233,9 @@ implicit none
       
 real*8     :: in_fft(*)
 complex*16 :: out_fft(*)
-integer    :: n
-      
+
+integer    :: i, n    
 real*8     :: tmp_fft(2*n+2)
-integer    :: i
       
 tmp_fft(1:n) = in_fft(1:n)
       
