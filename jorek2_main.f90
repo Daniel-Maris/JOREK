@@ -599,7 +599,7 @@ mpi_required = 0
   
 #if STELLARATOR_MODEL
   ! Add chi representation to element data structure using imported node representation
-  call compute_chi_on_gauss_points(my_id, element_list,node_list, local_elms, n_local_elms)
+  call compute_chi_on_gauss_points(my_id, element_list,node_list, mhd_sim%local_elms, mhd_sim%n_local_elms)
 #endif
 
   ! --- Do Catalyst insitu pipelines before the first timestep
