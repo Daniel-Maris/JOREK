@@ -309,11 +309,11 @@ mpi_required = 0
     
     call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
     
-#if (JOREK_MODEL == 83)
+#if (JOREK_MODEL == 083)
     call solve_Psi_boundary_eqn(node_list, bnd_elm_list)
     call setup_boundary_condition(node_list, bnd_node_list)
-    if (my_id .eq. 0) call determine_boundary_flux(node_list, element_list)
 #endif
+    if (my_id .eq. 0) call determine_boundary_flux(node_list, element_list)
   end if ! gvec_grid_import
 
   !***********************************************************************
