@@ -35,7 +35,7 @@ real*4,allocatable    :: currdens(:), xyz (:,:), scalars(:,:), vectors(:,:,:)
 real*4                :: time_vtk
 integer,allocatable   :: ien (:,:)
 integer, parameter    :: ivtk = 22 ! an arbitrary unit number for the VTK output file
-integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, i_tor_old, i_plane, index, index_node, my_id
+integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, i_tor_old, i_tor_coord, i_plane, index, index_node, my_id
 character             :: buffer*80, lf*1, str1*12, str2*12
 character*36, allocatable :: scalar_names(:), vector_names(:), variable_names_si(:)
 real*8                :: s, t
@@ -85,6 +85,7 @@ real*8                :: JZg, JZg_s, JZg_t, JZg_st, JZg_ss, JZg_tt
 real*8                :: JPg, JPg_s, JPg_t, JPg_st, JPg_ss, JPg_tt
 real*8                :: JxB_R,   JxB_Z,   JxB_p,   JxB_pol
 real*8                :: GradP_R, GradP_Z, GradP_p, GradP_pol
+real*8                :: chi_corr_tot, chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_st, chi_corr_ss, chi_corr_tt, chi_corr_R, chi_corr_Z
 real*8                :: psi_axis,      R_axis,      Z_axis,      s_axis,      t_axis
 real*8                :: psi_xpoint(2), R_xpoint(2), Z_xpoint(2), s_xpoint(2), t_xpoint(2)
 real*8                :: psi_norm, psi_bnd, grad_psi
@@ -116,8 +117,8 @@ real*8                :: r0_real8, rn0_real8
 real*8                :: T0_corr, r0_corr, rn0_corr, ne_JOREK
 integer               :: i_imp, offset_bgimp, i_bg     ! Loop for more than one background impurity
 integer               :: i_proj
-integer               :: i_psin, i_test, iimp(6), i_ne, ineu(7), ibg_tot, i_pellet(2), i_flux(8), i_neo(10), i_boot(2), i_gvec, i_vac
-integer               :: i_full(11), i_vec_B, i_vec_V, i_vec_E, i_vec_Jpol, i_vec_gvec(2), i_vec_vac
+integer               :: i_psin, i_test, iimp(6), i_ne, ineu(7), ibg_tot, i_pellet(2), i_flux(8), i_neo(10), i_boot(2), i_gvec, i_vac(3)
+integer               :: i_full(11), i_vec_B, i_vec_V, i_vec_E, i_vec_Jpol, i_vec_gvec(2), i_vec_vac(2)
 integer, allocatable  :: iibg(:), iproj(:)
 character*36          :: imp_label, proj_label
 
@@ -356,7 +357,9 @@ if (include_gvec_field) then
 endif
 
 if (include_vacuum_field) then
-  call add_vtk_entry('Lap_chi     ', 'Lap_chi     ',    i_vac, n_scalars, si_units, scalar_names)
+  call add_vtk_entry('Lap_chi     ', 'Lap_chi     ',    i_vac(1), n_scalars, si_units, scalar_names)
+  call add_vtk_entry('chi         ', 'chi         ',    i_vac(2), n_scalars, si_units, scalar_names)
+  call add_vtk_entry('chi_corr    ', 'chi_corr    ',    i_vac(3), n_scalars, si_units, scalar_names)
 endif
 
 allocate(iibg(n_adas),iproj(n_var))
@@ -445,7 +448,8 @@ if (include_gvec_field) then
 endif
 
 if (include_vacuum_field) then
-  call add_vtk_entry('grad_chi    ', 'grad_chi    ',     i_vec_vac, n_vectors, si_units, vector_names)
+  call add_vtk_entry('grad_chi    ', 'grad_chi    ', i_vec_vac(1), n_vectors, si_units, vector_names)
+  call add_vtk_entry('grad_chi_cor', 'grad_chi_cor', i_vec_vac(2), n_vectors, si_units, vector_names)
 endif
 ! --- end adding vectors
 
@@ -517,7 +521,11 @@ if (toroidal_angle .ne. 0.d0) then
   HZ_coord(1,i_plane)   = 1.d0
   do i=1,(n_coord_tor-1)/2
     HZ_coord(2*i,i_plane)      = + cos(mode_coord(2*i)   * toroidal_angle )
+    HZ_coord_p(2*i,i_plane)          = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *toroidal_angle)
+    HZ_coord_pp(2*i,i_plane)         = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *toroidal_angle)
     HZ_coord(2*i+1,i_plane)    = - sin(mode_coord(2*i+1) * toroidal_angle )
+    HZ_coord_p(2*i+1,i_plane)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*toroidal_angle)
+    HZ_coord_pp(2*i+1,i_plane)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*toroidal_angle)
   enddo
 endif
 
@@ -549,6 +557,19 @@ do i=1,element_list%n_elements
               + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac 
 
       chi = get_chi(R,Z,toroidal_angle)
+
+      ! Get chi correction
+      chi_corr_tot = 0.0; chi_corr_R = 0.0; chi_corr_Z = 0.0; chi_corr_P = 0.0; chi_corr_s = 0.0; chi_corr_t = 0.0
+      do i_tor_coord=1, n_coord_tor
+        call interp_gvec(node_list,element_list,i,5,1,i_tor_coord,s,t,chi_corr,chi_corr_s,chi_corr_t,chi_corr_st,chi_corr_ss,chi_corr_tt)
+        chi_corr_tot = chi_corr_tot + chi_corr          
+
+        chi_corr_R  = chi_corr_R + (   Z_t * chi_corr_s - Z_s * chi_corr_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+        chi_corr_Z  = chi_corr_Z + ( - R_t * chi_corr_s + R_s * chi_corr_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+        chi_corr_p  = chi_corr_P + chi_corr * HZ_coord_p(i_tor_coord, i_plane) - chi_corr_R * R_phi - Z_p * chi_corr_Z
+      enddo
+      chi(1,0,0) = chi(1,0,0) + chi_corr_R; chi(0,1,0) = chi(0,1,0) + chi_corr_Z; chi(0,0,1) = chi(0,0,1) + chi_corr_P
+
       grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
       Bv2 = dot_product(grad_chi,grad_chi)
 
@@ -568,7 +589,7 @@ do i=1,element_list%n_elements
       i_tor_old = i_tor
       i_tor     = 1
       ! compute all derivatives, as in loop below
-      if ( (xjac .gt. 1.d-6) .and. (jorek_model .ge. 100) ) then
+      if ( (xjac .gt. 1.d-6) .and. (jorek_model .ge. 83) ) then
 
 #ifndef fullmhd
         call interp(node_list,element_list,i,var_psi,i_tor,s,t,Ps0,Ps0_s,Ps0_t,Ps0_st,Ps0_ss,Ps0_tt)
@@ -716,7 +737,7 @@ do i=1,element_list%n_elements
           end do
         end if
 
-        if (jorek_model .lt. 100) cycle
+        if (jorek_model .lt. 83) cycle
         
         ! The real current density
         currdens(inode) = -scalars(inode,3)/BigR
@@ -1060,7 +1081,7 @@ do i=1,element_list%n_elements
             end do
           end if
 
-          if (jorek_model .lt. 100) cycle
+          if (jorek_model .lt. 83) cycle
           
           call interp_delta(node_list,element_list,i,var_psi,i_tor,s,t,dpsi,dPs_s, dPs_t, dPs_st, dPs_ss, dPs_tt)
           call interp_delta(node_list,element_list,i,var_u,  i_tor,s,t,dU,dU_s, dU_t, dU_st, dU_ss, dU_tt)         
@@ -1162,7 +1183,7 @@ do i=1,element_list%n_elements
           endif ! xjac
 
         enddo  ! end loop toroidal harmonics
-        if (jorek_model .lt. 100) cycle
+        if (jorek_model .lt. 83) cycle
 
         if (include_gvec_field) then
           call interp_gvec(node_list,element_list,i,3,1,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
@@ -1255,8 +1276,14 @@ do i=1,element_list%n_elements
         endif
 
         if (include_vacuum_field) then
-          vectors(inode,:,i_vec_vac) = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
-          scalars(inode,i_vac) = chi(2,0,0) + chi(1,0,0)/BigR + chi(0,2,0) + chi(0,0,2)/BigR**2
+          ! Total vacuum field
+          vectors(inode,:,i_vec_vac(1)) = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
+          !scalars(inode,s_vacfield_sc + 1) = chi(2,0,0) + chi(1,0,0)/BigR + chi(0,2,0) + chi(0,0,2)/BigR**2   ! CURRENTLY NOT IMPLEMENTED
+          scalars(inode,i_vac(2)) = chi(0,0,0)
+          
+          ! Chi correction
+          scalars(inode,i_vac(3))  =  chi_corr_tot
+          vectors(inode,:,i_vec_vac(2)) =  (/ chi_corr_R, chi_corr_Z, chi_corr_P / BigR /)
         endif
 
         if (include_velocity_field) then

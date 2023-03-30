@@ -188,8 +188,8 @@ do i = 1, n_lines
     
     ! Check the assumed maximum number of toroidal turns is not exceeded
     if (abs(phi) / (2.d0*PI) .gt. assumed_max_q*num_pol_turns) then
-      write(*, *) "ERROR: Assumed maximum q has been exceeded!"
-      stop
+      write(*, *) "ERROR: Assumed maximum q has been exceeded for line", i
+      stop_tracing = .true.
     endif
     
     ! Include points when single field period is crossed in Poincare
@@ -420,6 +420,7 @@ contains
   real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt
   real*8 :: psi_s, psi_t, psi_R, psi_z, psi_p, st_psi_p
   real*8 :: BR, BZ, BP, BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,Bp0sin
+  real*8 :: chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_st, chi_corr_ss, chi_corr_tt, chi_corr_R, chi_corr_Z
   real*8 :: Zjac
   real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
   
@@ -453,6 +454,28 @@ contains
     Bp = Bp - Bp0sin*sin(mode_coord(i_harm+1)*p_in)
   end do
 #else
+  call interp_gvec(node_list,element_list,i_elm,5,1,1,s_in,t_in,chi_corr, chi_corr_s, chi_corr_t, dummy, dummy, dummy)
+  chi_corr_R = (   chi_corr_s * Z_t - chi_corr_t * Z_s ) / Zjac
+  chi_corr_Z = ( - chi_corr_s * R_t + chi_corr_t * R_s ) / Zjac
+  chi_corr_P = 0.0;   
+  do i_tor=1,(n_coord_tor-1)/2
+    i_harm = 2*i_tor
+    
+    call interp_gvec(node_list,element_list,i_elm,5,1,i_harm,s_in,t_in,chi_corr, chi_corr_s, chi_corr_t,dummy,dummy,dummy)
+    chi_corr_R = chi_corr_R + (   chi_corr_s * Z_t - chi_corr_t * Z_s ) / Zjac * cos(mode_coord(i_harm)*p_in)
+    chi_corr_Z = chi_corr_Z + ( - chi_corr_s * R_t + chi_corr_t * R_s ) / Zjac * cos(mode_coord(i_harm)*p_in)
+    chi_corr_P = chi_corr_P - chi_corr * mode_coord(i_harm) * sin(mode_coord(i_harm)*p_in) 
+    
+    call interp_gvec(node_list,element_list,i_elm,5,1,i_harm+1,s_in,t_in,chi_corr, chi_corr_s, chi_corr_t,dummy,dummy,dummy)
+    chi_corr_R = chi_corr_R - (   chi_corr_s * Z_t - chi_corr_t * Z_s ) / Zjac * sin(mode_coord(i_harm+1)*p_in)
+    chi_corr_Z = chi_corr_Z - ( - chi_corr_s * R_t + chi_corr_t * R_s ) / Zjac * sin(mode_coord(i_harm+1)*p_in)
+    chi_corr_P = chi_corr_P - chi_corr * mode_coord(i_harm+1) * cos(mode_coord(i_harm+1)*p_in) 
+  end do
+  chi_corr_P = chi_corr_P - chi_corr_R*R_p - chi_corr_Z*Z_p
+  chi(1,0,0) = chi(1,0,0) + chi_corr_R
+  chi(0,1,0) = chi(0,1,0) + chi_corr_Z
+  chi(0,0,1) = chi(0,0,1) + chi_corr_P
+
   ! Get n=0 component of Psi and derivatives
   call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
   psi_s = P0_s 
@@ -478,8 +501,8 @@ contains
   psi_R = ( Z_t*psi_s - Z_s*psi_t)/Zjac
   psi_z = (-R_t*psi_s + R_s*psi_t)/Zjac
   psi_p = st_psi_p - R_p*psi_R - Z_p*psi_z
-  BR = chi(1,0,0)   + (psi_z*chi(0,0,1) - psi_p*chi(0,1,0))/(F0*RR)
-  BZ = chi(0,1,0)   - (psi_R*chi(0,0,1) - psi_p*chi(1,0,0))/(F0*RR) 
+  BR = chi(1,0,0)    + (psi_z*chi(0,0,1) - psi_p*chi(0,1,0))/(F0*RR)
+  BZ = chi(0,1,0)    - (psi_R*chi(0,0,1) - psi_p*chi(1,0,0))/(F0*RR) 
   Bp = chi(0,0,1)/RR + (psi_R*chi(0,1,0) - psi_z*chi(1,0,0))/F0     
 #endif
 

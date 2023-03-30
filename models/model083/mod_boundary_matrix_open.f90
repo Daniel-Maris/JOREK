@@ -187,4 +187,140 @@ end do
 
 return
 end subroutine boundary_matrix_open
+
+
+subroutine boundary_matrix_open_chi_correction(vertex, direction, element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, &
+                                               psi_bnd, R_xpoint, Z_xpoint, ELM, RHS)
+!-----------------------------------------------------------------------------------------------------
+! implement consistent (i.e. nonzero) boundary conditions for zj
+! the current in the grad(chi) direction on the boundary must match the corresponding quantity in GVEC
+!-----------------------------------------------------------------------------------------------------
+use mod_parameters
+use data_structure
+use gauss
+use basis_at_gaussian
+use phys_module
+use nodes_elements
+use mod_chi
+use mod_basisfunctions
+implicit none
+
+type(type_element)   :: element
+type(type_node)      :: nodes(2)        ! the two nodes containing the boundary nodes
+
+real*8     :: ELM(n_vertex_max*(n_order+1)*n_coord_tor, n_vertex_max*(n_order+1)*n_coord_tor)
+real*8     :: RHS(n_vertex_max*(n_order+1)*n_coord_tor)
+
+integer    :: vertex(2), direction(2), xcase2
+real*8     :: psi_axis, R_axis, Z_axis, psi_bnd, R_xpoint(2), Z_xpoint(2)
+logical    :: xpoint2
+
+integer :: direction_perp(2), i, i2, j, j2, j3, k, l, l2, ms, mp, in, i_tor, index_ij, index_kl, kl1, kl3
+real*8  :: theta, zeta, zbig, element_size_ij, element_size_kl, element_size_perp, BigR, phi, grad_chi(3), Bv2
+real*8  :: dA, v, rhs_ij, n_perp(3)
+
+real*8, dimension(n_plane,n_gauss) :: x_g, x_s, x_t, x_p, y_g, y_s, y_t, y_p
+
+real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
+
+type(type_node)         :: tmp_node
+
+!--------------------- reorder the nodes to have the same direction as full element (maybe not necesary)
+if ((vertex(1) .eq. 3) .and. (vertex(2) .eq. 4)) then
+  tmP_node = nodes(1)
+  nodes(1)  = nodes(2)
+  nodes(2)  = tmp_node
+  vertex(1) = 4
+  vertex(2) = 3
+else if ((vertex(1) .eq. 4) .and. (vertex(2) .eq. 1)) then
+  tmP_node = nodes(1)
+  nodes(1)  = nodes(2)
+  nodes(2)  = tmp_node
+  vertex(1) = 1
+  vertex(2) = 4
+else if ((vertex(1) .eq. 3) .and. (vertex(2) .eq. 2)) then
+  tmP_node = nodes(1)
+  nodes(1)  = nodes(2)
+  nodes(2)  = tmp_node
+  vertex(1) = 2
+  vertex(2) = 3
+else if ((vertex(1) .eq. 2) .and. (vertex(2) .eq. 1)) then
+  tmP_node = nodes(1)
+  nodes(1)  = nodes(2)
+  nodes(2)  = tmp_node
+  vertex(1) = 1
+  vertex(2) = 2
+end if
+
+x_g = 0.d0; x_s = 0.d0; x_t = 0.d0; x_p = 0.d0
+y_g = 0.d0; y_s = 0.d0; y_t = 0.d0; y_p = 0.d0
+
+direction_perp(1) = 6/direction(2)     ! =3 if direction(2)=2, =2 if direction(2)=3
+direction_perp(2) = 4
+
+do i=1,2    ! sum over 2 verices
+  do j=1,2  ! sum over two basis functions
+    i2 = vertex(i)
+    j2 = direction(j)
+    element_size_ij = element%size(i2,j2)
+
+    j3 = direction_perp(j)
+    if (vertex(1) .eq. 1) then
+      element_size_perp = 3.d0*element%size(i2,direction_perp(1))
+    else
+      element_size_perp = -3.d0*element%size(i2,direction_perp(1))
+    end if
+    
+    do ms=1,n_gauss
+      do mp=1,n_plane
+        do in=1,n_coord_tor
+          x_g(mp,ms) = x_g(mp,ms) + nodes(i)%x(in,j2,1)*element_size_ij*H1(i,j,ms)  *HZ_coord(in,mp)
+          x_s(mp,ms) = x_s(mp,ms) + nodes(i)%x(in,j2,1)*element_size_ij*H1_s(i,j,ms)*HZ_coord(in,mp)
+          x_t(mp,ms) = x_t(mp,ms) + nodes(i)%x(in,j3,1)*element_size_ij*H1(i,j,ms)  *HZ_coord(in,mp)*element_size_perp
+          x_p(mp,ms) = x_p(mp,ms) + nodes(i)%x(in,j2,1)*element_size_ij*H1(i,j,ms)  *HZ_coord_p(in,mp)
+
+          y_g(mp,ms) = y_g(mp,ms) + nodes(i)%x(in,j2,2)*element_size_ij*H1(i,j,ms)  *HZ_coord(in,mp)
+          y_s(mp,ms) = y_s(mp,ms) + nodes(i)%x(in,j2,2)*element_size_ij*H1_s(i,j,ms)*HZ_coord(in,mp)
+          y_t(mp,ms) = y_t(mp,ms) + nodes(i)%x(in,j3,2)*element_size_ij*H1(i,j,ms)  *HZ_coord(in,mp)*element_size_perp
+          y_p(mp,ms) = y_p(mp,ms) + nodes(i)%x(in,j2,2)*element_size_ij*H1(i,j,ms)  *HZ_coord_p(in,mp)
+        end do
+      end do
+    end do
+  end do
+end do
+
+do ms=1,n_gauss
+  do mp=1,n_plane
+    BigR = x_g(mp,ms)
+    phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
+    chi = get_chi(x_g(mp,ms),y_g(mp,ms),phi)
+    grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
+
+    n_perp = (/ -1*x_g(mp,ms)*y_s(mp,ms), x_g(mp,ms)*x_s(mp,ms), x_p(mp,ms)*y_s(mp,ms) - y_p(mp,ms)*x_s(mp,ms) /)
+    dA = sqrt(sum(n_perp*n_perp))
+    n_perp = n_perp / dA
+
+    do i=1,2
+      do j=1,2
+        j2 = direction(j)
+        element_size_ij = element%size(vertex(i),j2)
+        
+        do i_tor=1,n_coord_tor
+          index_ij = (vertex(i)-1)*(n_order+1)*n_coord_tor + (j2-1)*n_coord_tor + i_tor
+          
+          v = H1(i,j,ms)*element_size_ij*HZ_coord(i_tor,mp)
+          rhs_ij = -1 * v * dot_product(grad_chi, n_perp) * dA
+          
+          RHS(index_ij) = RHS(index_ij) + rhs_ij*wgauss(ms)
+          
+        end do
+      end do
+    end do
+  end do
+end do
+
+return
+
+end subroutine boundary_matrix_open_chi_correction
+
 end module mod_boundary_matrix_open

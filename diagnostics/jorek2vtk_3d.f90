@@ -15,7 +15,7 @@ type (type_element_list) :: element_list
 
 integer               :: nnoel, nnos, nel, nsub, inode, ielm, n_scalars, n_vectors
 real*4,allocatable    :: xyz (:,:), scalars(:,:), vectors(:,:,:)
-real*8,allocatable    :: HZ(:,:), HZ_p(:,:)
+real*8,allocatable    :: HZ(:,:), HZ_p(:,:), HZ_coord(:,:), HZ_coord_p(:,:)
 integer,allocatable   :: ien (:,:)
 integer, parameter    :: ivtk = 22 ! an arbitrary unit number for the VTK output file
 integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, index, index_node, n_points, k_tor
@@ -31,10 +31,11 @@ real*8                :: Psi,Ps_s,Ps_t,Ps_st,Ps_ss,Ps_tt, ZJ,ZJ_s,ZJ_t,ZJ_st,ZJ_
 real*8                :: ps_p, ps_x_itor, ps_y_itor
 real*8                :: U,U_s,U_t,U_st,U_ss,U_tt, RHO,RH_s,RH_t,RH_st,RH_ss,RH_tt, TT,TT_s,TT_t,TT_st,TT_ss,TT_tt
 real*8                :: u_x, u_y, u_p
-real*8                :: u0_x, u0_y, xjac, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
+real*8                :: u0_x, u0_y, xjac, xjac_s, xjac_t, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, zj_x, zj_y, ps_x, ps_y
 real*8                :: Bx, By, Bz
 real*8                :: V, Vx, Vy, Vz
 real*8                :: grad_chi(3), Bv2
+real*8                :: chi_corr_tot, chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_st, chi_corr_ss, chi_corr_tt, chi_corr_R, chi_corr_Z
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
 logical               :: periodic, density_only
@@ -123,6 +124,8 @@ n_points = nsub*nsub*element_list%n_elements        ! number of points in one po
 
 allocate(HZ(n_tor,n_toroidal))
 allocate(HZ_p(n_tor,n_toroidal))
+allocate(HZ_coord(n_coord_tor,n_toroidal))
+allocate(HZ_coord_p(n_coord_tor,n_toroidal))
 
 do m=1,n_toroidal
   if (periodic) then
@@ -134,6 +137,15 @@ do m=1,n_toroidal
   do i=1,(n_tor-1)/2
     HZ(2*i,m)     = cos(mode(2*i)  *phi)
     HZ(2*i+1,m)   = sin(mode(2*i+1)*phi)
+  enddo
+
+  HZ_coord(1,m) = 1.0
+  HZ_coord_p(1,k) = 0.d0
+  do i=1,(n_coord_tor-1)/2
+    HZ_coord(2*i,m)      =                           cos(mode_coord(2*i)  *phi)
+    HZ_coord_p(2*i,m)    = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *phi)
+    HZ_coord(2*i+1,m)    =                         - sin(mode_coord(2*i+1)*phi)
+    HZ_coord_p(2*i+1,m)  = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*phi)
   enddo
 enddo
 
@@ -158,13 +170,30 @@ do m=1, n_toroidal
 
         call interp_RZP(node_list,element_list,i,s,t,angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
                        Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
+
+        xjac  = R_s * Z_t - R_t * Z_s
+        xjac_s = R_ss*Z_t + R_s*Z_st - R_st*Z_s - R_t*Z_ss
+        xjac_t = R_st*Z_t + R_s*Z_tt - R_tt*Z_s - R_t*Z_st
+        xjac_x = (xjac_s*Z_t - xjac_t*Z_s) / xjac
+        xjac_y = (R_s*xjac_t - R_t*xjac_s) / xjac
+
         chi = get_chi(R,Z,angle)
+        chi_corr_tot = 0.0; chi_corr_R = 0.0; chi_corr_Z = 0.0; chi_corr_P = 0.0; chi_corr_s = 0.0; chi_corr_t = 0.0
+        do i_tor=1, n_coord_tor
+          call interp_gvec(node_list,element_list,i,5,1,i_tor,s,t,chi_corr,chi_corr_s,chi_corr_t,chi_corr_st,chi_corr_ss,chi_corr_tt)
+          chi_corr_tot = chi_corr_tot + chi_corr          
+        
+          chi_corr_R  = chi_corr_R + (   Z_t * chi_corr_s - Z_s * chi_corr_t )     / xjac * HZ_coord(i_tor,m)
+          chi_corr_Z  = chi_corr_Z + ( - R_t * chi_corr_s + R_s * chi_corr_t )     / xjac * HZ_coord(i_tor,m)
+          chi_corr_p  = chi_corr_P + chi_corr * HZ_coord_p(i_tor,m) - chi_corr_R * R_phi - Z_p * chi_corr_Z
+        enddo
+        chi(1,0,0) = chi(1,0,0) + chi_corr_R; chi(0,1,0) = chi(0,1,0) + chi_corr_Z; chi(0,0,1) = chi(0,0,1) + chi_corr_P
+        
         grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/R /)
         Bv2 = dot_product(grad_chi,grad_chi)
         
         inode = inode+1
          
-        xjac  = R_s * Z_t - R_t * Z_s
         if ( xjac == 0.d0 ) xjac = 1.d-8 ! (workaround to avoid floating invalid)
 
 

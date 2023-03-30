@@ -20,6 +20,7 @@ module data_structure
     real*8     :: r_tor_eq(n_degrees)                     !< radial coordinate from GVEC (square root of normalised toroidal flux)
     real*8     :: j_field(n_coord_tor,n_degrees,n_dim+1)  !< current density R, Z, phi components from GVEC
     real*8     :: b_field(n_coord_tor,n_degrees,n_dim+1)  !< magnetic field  R, Z, phi components from GVEC
+    real*8     :: chi_correction(n_coord_tor,n_degrees)  !< magnetic field  R, Z, phi components from GVEC
     real*8     :: j_source(n_tor,n_degrees)               !< Current source in a stellarator
 #elif fullmhd
     real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes

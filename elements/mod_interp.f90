@@ -829,6 +829,14 @@ do kv = 1,n_vertex_max  ! 4 vertices
       P_st = P_st + node_list%node(iv)%r_tor_eq(kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
       P_ss = P_ss + node_list%node(iv)%r_tor_eq(kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
       P_tt = P_tt + node_list%node(iv)%r_tor_eq(kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
+    else if (i_var == 5) then                
+      ! The equilibrium is a scalar, axisymmetric profile, so i_dim and i_harm have no influence on the results
+      P    = P    + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
+      P_s  = P_s  + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_s(kv,kf)
+      P_t  = P_t  + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_t(kv,kf)
+      P_st = P_st + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
+      P_ss = P_ss + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
+      P_tt = P_tt + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
     endif
   end do
 end do
