@@ -178,16 +178,9 @@ do m=1, n_toroidal
         xjac_y = (R_s*xjac_t - R_t*xjac_s) / xjac
 
         chi = get_chi(R,Z,angle)
-        chi_corr_tot = 0.0; chi_corr_R = 0.0; chi_corr_Z = 0.0; chi_corr_P = 0.0; chi_corr_s = 0.0; chi_corr_t = 0.0
-        do i_tor=1, n_coord_tor
-          call interp_gvec(node_list,element_list,i,5,1,i_tor,s,t,chi_corr,chi_corr_s,chi_corr_t,chi_corr_st,chi_corr_ss,chi_corr_tt)
-          chi_corr_tot = chi_corr_tot + chi_corr          
-        
-          chi_corr_R  = chi_corr_R + (   Z_t * chi_corr_s - Z_s * chi_corr_t )     / xjac * HZ_coord(i_tor,m)
-          chi_corr_Z  = chi_corr_Z + ( - R_t * chi_corr_s + R_s * chi_corr_t )     / xjac * HZ_coord(i_tor,m)
-          chi_corr_p  = chi_corr_P + chi_corr * HZ_coord_p(i_tor,m) - chi_corr_R * R_phi - Z_p * chi_corr_Z
-        enddo
-        chi(1,0,0) = chi(1,0,0) + chi_corr_R; chi(0,1,0) = chi(0,1,0) + chi_corr_Z; chi(0,0,1) = chi(0,0,1) + chi_corr_P
+#ifndef USE_DOMM
+        chi = chi + get_chi_corr(node_list,element_list,i,s,t,angle)
+#endif
         
         grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/R /)
         Bv2 = dot_product(grad_chi,grad_chi)

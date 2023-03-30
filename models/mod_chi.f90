@@ -6,7 +6,7 @@ module mod_chi
   use phys_module, only: domm, dcoef, F0, R_domm, domm_initialised, PI
   implicit none
   private 
-  public init_chi_basis, get_chi, compute_chi_on_gauss_points
+  public init_chi_basis, get_chi, get_chi_corr, compute_chi_on_gauss_points
 
   integer, parameter :: m_tor = (n_coord_tor - 1)/2
   
@@ -303,6 +303,118 @@ module mod_chi
     get_chi = F0*get_chi
   end function get_chi
   
+  !>  This function returns a correction to the vacuum scalar magnetic potential (chi) and its derivatives such 
+  !!  that n.grad(chi) on the simulation boundary is equal to 0
+  function get_chi_corr(node_list, element_list, i_elm, s, t, phi, max_ord)
+    use phys_module,        only: mode_coord
+    use data_structure,     only: type_node_list, type_element_list
+    use mod_interp,         only: interp_RZP, interp_gvec
+    implicit none
+    type (type_node_list),    intent(in)  :: node_list
+    type (type_element_list), intent(in)  :: element_list
+    integer, intent(in) :: i_elm
+    real*8,  intent(in) :: s, t, phi
+    integer, optional, intent(in) :: max_ord
+    real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi_corr
+    integer :: i_harm, i_tor
+    real*8  :: R, R_s, R_t, R_p, R_ss, R_tt, R_st, R_pp, R_sp, R_tp
+    real*8  :: Z, Z_s, Z_t, Z_p, Z_ss, Z_tt, Z_st, Z_pp, Z_sp, Z_tp
+    real*8  :: chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_ss, chi_corr_tt, chi_corr_st, chi_corr_sp, chi_corr_tp, chi_corr_pp
+    real*8  :: chi_corr_harm, chi_corr_harm_s, chi_corr_harm_t, chi_corr_harm_ss, chi_corr_harm_tt, chi_corr_harm_st
+    real*8  :: chi_corr_px, chi_corr_py
+    real*8  :: chi_x, chi_y, chi_p, chi_xx, chi_xy, chi_yy, chi_yp, chi_xp, chi_pp
+    real*8  :: xjac, xjac_x, xjac_y, x_p_x, x_p_y, y_p_x, y_p_y
+    
+    ! Get R, Z, phi geometry of point
+    call interp_RZP(node_list,element_list,i_elm,s,t,phi,R,R_s,R_t,R_p,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
+                                                         Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
+    
+    ! Compute chi and s, t, phi derivatives
+    call interp_gvec(node_list,element_list,i_elm,5,1,1,s,t,chi_corr,chi_corr_s,chi_corr_t,chi_corr_st,chi_corr_ss,chi_corr_st)
+    chi_corr_p = 0.0; chi_corr_sp = 0.0; chi_corr_tp = 0.0; chi_corr_pp = 0.0
+    do i_tor=1,(n_coord_tor-1)/2
+      i_harm = 2*i_tor
+      
+      call interp_gvec(node_list,element_list,i_elm,5,1,i_harm,s,t,chi_corr_harm, chi_corr_harm_s, chi_corr_harm_t, &
+                                                                   chi_corr_harm_st,chi_corr_harm_ss,chi_corr_harm_st)
+      chi_corr     = chi_corr    + chi_corr_harm    * cos(mode_coord(i_harm)*phi)
+      chi_corr_s   = chi_corr_s  + chi_corr_harm_s  * cos(mode_coord(i_harm)*phi)
+      chi_corr_t   = chi_corr_t  + chi_corr_harm_t  * cos(mode_coord(i_harm)*phi)
+      chi_corr_st  = chi_corr_st + chi_corr_harm_st * cos(mode_coord(i_harm)*phi)
+      chi_corr_ss  = chi_corr_ss + chi_corr_harm_ss * cos(mode_coord(i_harm)*phi)
+      chi_corr_tt  = chi_corr_tt + chi_corr_harm_tt * cos(mode_coord(i_harm)*phi)
+      chi_corr_p   = chi_corr_p  - chi_corr_harm    * mode_coord(i_harm) * sin(mode_coord(i_harm)*phi)
+      chi_corr_sp  = chi_corr_sp - chi_corr_harm_s  * mode_coord(i_harm) * sin(mode_coord(i_harm)*phi)
+      chi_corr_tp  = chi_corr_tp - chi_corr_harm_t  * mode_coord(i_harm) * sin(mode_coord(i_harm)*phi)
+      chi_corr_pp  = chi_corr_pp - chi_corr_harm    * mode_coord(i_harm)**2 * cos(mode_coord(i_harm)*phi)
+      
+      call interp_gvec(node_list,element_list,i_elm,5,1,i_harm+1,s,t,chi_corr_harm, chi_corr_harm_s, chi_corr_harm_t,  &
+                                                                     chi_corr_harm_st,chi_corr_harm_ss,chi_corr_harm_st)
+      chi_corr     = chi_corr    - chi_corr_harm    * sin(mode_coord(i_harm)*phi)
+      chi_corr_s   = chi_corr_s  - chi_corr_harm_s  * sin(mode_coord(i_harm)*phi)
+      chi_corr_t   = chi_corr_t  - chi_corr_harm_t  * sin(mode_coord(i_harm)*phi)
+      chi_corr_st  = chi_corr_st - chi_corr_harm_st * sin(mode_coord(i_harm)*phi)
+      chi_corr_ss  = chi_corr_ss - chi_corr_harm_ss * sin(mode_coord(i_harm)*phi)
+      chi_corr_tt  = chi_corr_tt - chi_corr_harm_tt * sin(mode_coord(i_harm)*phi)
+      chi_corr_p   = chi_corr_p  - chi_corr_harm    * mode_coord(i_harm) * cos(mode_coord(i_harm)*phi)
+      chi_corr_sp  = chi_corr_sp - chi_corr_harm_s  * mode_coord(i_harm) * cos(mode_coord(i_harm)*phi)
+      chi_corr_tp  = chi_corr_tp - chi_corr_harm_t  * mode_coord(i_harm) * cos(mode_coord(i_harm)*phi)
+      chi_corr_pp  = chi_corr_pp + chi_corr_harm    * mode_coord(i_harm)**2 * sin(mode_coord(i_harm)*phi)
+    end do
+
+    ! Compute chi and R, Z, phi derivatives
+    xjac =  R_s*Z_t - R_t*Z_s 
+    chi_x = (   Z_t * chi_corr_s - Z_s * chi_corr_t ) / xjac
+    chi_y = ( - R_t * chi_corr_s + R_s * chi_corr_t ) / xjac
+    chi_p = chi_corr_p - chi_x * R_p - chi_y * Z_p
+
+    xjac_x  = (R_ss*Z_t**2 - Z_ss*R_t*Z_t - 2.d0*R_st*Z_s*Z_t &
+            + Z_st*(R_s*Z_t + R_t*Z_s)                                                      &
+            + R_tt*Z_s**2 - Z_tt*R_s*Z_s) / xjac
+    xjac_y  = (Z_tt*R_s**2 - R_tt*Z_s*R_s - 2.d0*Z_st*R_t*R_s &
+            + R_st*(Z_t*R_s + Z_s*R_t)                                                      &
+            + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac
+    x_p_x = (R_sp*Z_t - R_tp*Z_s)/xjac
+    x_p_y = (R_tp*R_s - R_sp*R_t)/xjac
+    y_p_x = (Z_sp*Z_t - Z_tp*Z_s)/xjac
+    y_p_y = (Z_tp*R_s - Z_sp*R_t)/xjac
+    chi_xx              = (chi_corr_ss*Z_t**2 - 2.d0*chi_corr_st*Z_s*Z_t &
+                        + chi_corr_tt*Z_s**2                                                       &
+                        + chi_corr_s*(Z_st*Z_t - Z_tt*Z_s)           &
+                        + chi_corr_t*(Z_st*Z_s - Z_ss*Z_t))/xjac**2  &
+                        - xjac_x*(chi_corr_s*Z_t - chi_corr_t*Z_s)/xjac**2
+    chi_yy              = (chi_corr_ss*R_t**2 - 2.d0*chi_corr_st*R_s*R_t &
+                        + chi_corr_tt*R_s**2                                                       &
+                        + chi_corr_s*(R_st*R_t - R_tt*R_s)           &
+                        + chi_corr_t*(R_st*R_s - R_ss*R_t))/xjac**2  &
+                        - xjac_y*(-chi_corr_s*R_t + chi_corr_t*R_s)/xjac**2
+    chi_xy              = (-chi_corr_ss*Z_t*R_t - chi_corr_tt*R_s*Z_s &
+                        + chi_corr_st*(Z_s*R_t + Z_t*R_s)                   &
+                        - chi_corr_s*(R_st*Z_t - R_tt*Z_s)                  &
+                        - chi_corr_t*(R_st*Z_s - R_ss*Z_t))/xjac**2         &
+                        - xjac_x*(-chi_corr_s*R_t + chi_corr_t*R_s)/xjac**2
+    chi_corr_px               = (Z_t*chi_corr_sp - Z_s*chi_corr_tp)/xjac
+    chi_corr_py               = (-R_t*chi_corr_sp + R_s*chi_corr_tp)/xjac
+    chi_pp              = chi_corr_pp - R_pp*chi_x - 2.d0*(R_p*chi_corr_px + Z_p*chi_corr_py)            &
+                         - Z_pp*chi_y + 2.d0*(R_p*x_p_x*chi_x + R_p*y_p_x*chi_y&
+                         + Z_p*x_p_y*chi_x + Z_p*y_p_y*chi_y) + R_p**2*chi_xx   &
+                         + 2.d0*R_p*Z_p*chi_xy + Z_p**2*chi_yy
+    chi_xp              = chi_corr_px - x_p_x*chi_x - R_p*chi_xx - y_p_x*chi_y - Z_p*chi_xy
+    chi_yp              = chi_corr_py - x_p_y*chi_x - R_p*chi_xy - y_p_y*chi_y - Z_p*chi_yy
+    
+    get_chi_corr        = 0.0
+    get_chi_corr(0,0,0) = get_chi_corr(0,0,0) + chi_corr
+    get_chi_corr(1,0,0) = get_chi_corr(1,0,0) + chi_x
+    get_chi_corr(0,1,0) = get_chi_corr(0,1,0) + chi_y
+    get_chi_corr(0,0,1) = get_chi_corr(0,0,1) + chi_p
+    get_chi_corr(2,0,0) = get_chi_corr(2,0,0) + chi_xx
+    get_chi_corr(0,2,0) = get_chi_corr(0,2,0) + chi_yy
+    get_chi_corr(0,0,2) = get_chi_corr(0,0,2) + chi_pp
+    get_chi_corr(1,1,0) = get_chi_corr(1,1,0) + chi_xy
+    get_chi_corr(1,0,1) = get_chi_corr(1,0,1) + chi_xp
+    get_chi_corr(0,1,1) = get_chi_corr(0,1,1) + chi_yp
+  end function get_chi_corr
+
   !>---------------------------
   !! Factorial of n
   !!---------------------------
@@ -336,13 +448,9 @@ module mod_chi
 
     ! --- Variables for chi calculation
     integer                                    :: i_elm, i_elm_loc, i_vertex, i_node, i, j, mp, ms, mt, i_tor
+    real*8                                     :: phi
     real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, x_s, x_t, x_p, x_ss, x_tt, x_st, x_pp, x_sp, x_tp
     real*8, dimension(n_plane,n_gauss,n_gauss) :: y_g, y_s, y_t, y_p, y_ss, y_tt, y_st, y_pp, y_sp, y_tp
-    real*8, dimension(n_plane,n_gauss,n_gauss) :: chi_corr_g, chi_corr_s, chi_corr_t, chi_corr_p
-    real*8, dimension(n_plane,n_gauss,n_gauss) :: chi_corr_ss, chi_corr_tt, chi_corr_st, chi_corr_sp, chi_corr_tp, chi_corr_pp
-    real*8                                     :: chi_corr_px, chi_corr_py
-    real*8                                     :: chi_x, chi_y, chi_p, chi_xx, chi_xy, chi_yy, chi_yp, chi_xp, chi_pp, phi
-    real*8                                     :: xjac, xjac_x, xjac_y, x_p_x, x_p_y, y_p_x, y_p_y
     type (type_element)                        :: element
     type (type_node)                           :: nodes(n_vertex_max)
     real*8, dimension(n_plane,n_gauss,n_gauss,0:n_order-1,0:n_order-1,0:n_order-1) :: chi
@@ -362,11 +470,8 @@ module mod_chi
     !$omp parallel default(none) &
     !$omp   shared(element_list,node_list, H, H_s, H_t, H_ss, H_tt, H_st, HZ_coord, HZ_coord_p, HZ_coord_pp, local_elms, n_local_elms)  &
     !$omp   private(i_elm, i_elm_loc,i_vertex,i_node,i_tor,element,nodes, i, j, ms, mt, mp,                                             &
-    !$omp           x_g, x_s, x_t, x_p, x_ss, x_tt, x_st, x_pp, x_sp, x_tp, x_p_x, x_p_y, y_p_x, y_p_y,                                 &
-    !$omp           y_g, y_s, y_t, y_p, y_ss, y_tt, y_st, y_pp, y_sp, y_tp, phi, xjac, xjac_x, xjac_y,                                  &
-    !$omp           chi, chi_corr_g, chi_corr_s, chi_corr_t, chi_corr_p,                                                                &
-    !$omp           chi_corr_ss, chi_corr_tt, chi_corr_st, chi_corr_sp, chi_corr_tp, chi_corr_pp, chi_corr_px, chi_corr_py,             &
-    !$omp           chi_x, chi_y, chi_p, chi_xx, chi_xy, chi_yy, chi_yp, chi_xp, chi_pp)
+    !$omp           x_g, x_s, x_t, x_p, x_ss, x_tt, x_st, x_pp, x_sp, x_tp,                                                             &
+    !$omp           y_g, y_s, y_t, y_p, y_ss, y_tt, y_st, y_pp, y_sp, y_tp, chi, phi)
     
     !$omp do schedule(runtime)
     do i_elm_loc = 1, n_local_elms
@@ -382,8 +487,6 @@ module mod_chi
       
       x_g  = 0.d0; x_s   = 0.d0; x_t   = 0.d0; x_p = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0; x_sp = 0.d0; x_tp = 0.d0; x_pp = 0.d0;
       y_g  = 0.d0; y_s   = 0.d0; y_t   = 0.d0; y_p = 0.d0; y_st  = 0.d0; y_ss  = 0.d0; y_tt  = 0.d0; y_sp = 0.d0; y_tp = 0.d0; y_pp = 0.d0;
-      chi_corr_g  = 0.d0; chi_corr_s   = 0.d0; chi_corr_t   = 0.d0; chi_corr_p = 0.d0; 
-      chi_corr_st  = 0.d0; chi_corr_ss  = 0.d0; chi_corr_tt  = 0.d0; chi_corr_sp = 0.d0; chi_corr_tp = 0.d0; chi_corr_pp = 0.d0;
       do i=1,n_vertex_max
         do j=1,n_order+1
           do ms=1, n_gauss
@@ -411,88 +514,29 @@ module mod_chi
                   y_sp(mp,ms,mt) = y_sp(mp,ms,mt) + nodes(i)%x(i_tor,j,2) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord_p(i_tor,mp)
                   y_tp(mp,ms,mt) = y_tp(mp,ms,mt) + nodes(i)%x(i_tor,j,2) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord_p(i_tor,mp)
                   y_pp(mp,ms,mt) = y_pp(mp,ms,mt) + nodes(i)%x(i_tor,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_pp(i_tor,mp)
-                  
-                  chi_corr_g(mp,ms,mt)  = chi_corr_g(mp,ms,mt)  + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(i_tor,mp)
-                  chi_corr_s(mp,ms,mt)  = chi_corr_s(mp,ms,mt)  + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(i_tor,mp)
-                  chi_corr_t(mp,ms,mt)  = chi_corr_t(mp,ms,mt)  + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(i_tor,mp)
-                  chi_corr_p(mp,ms,mt)  = chi_corr_p(mp,ms,mt)  + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(i_tor,mp)
-                  chi_corr_ss(mp,ms,mt) = chi_corr_ss(mp,ms,mt) + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H_ss(i,j,ms,mt) * HZ_coord(i_tor,mp)
-                  chi_corr_st(mp,ms,mt) = chi_corr_st(mp,ms,mt) + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H_st(i,j,ms,mt) * HZ_coord(i_tor,mp)
-                  chi_corr_tt(mp,ms,mt) = chi_corr_tt(mp,ms,mt) + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H_tt(i,j,ms,mt) * HZ_coord(i_tor,mp)
-                  chi_corr_sp(mp,ms,mt) = chi_corr_sp(mp,ms,mt) + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord_p(i_tor,mp)
-                  chi_corr_tp(mp,ms,mt) = chi_corr_tp(mp,ms,mt) + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord_p(i_tor,mp)
-                  chi_corr_pp(mp,ms,mt) = chi_corr_pp(mp,ms,mt) + nodes(i)%chi_correction(i_tor,j) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_pp(i_tor,mp)
-                enddo
-              enddo
-            enddo
-          enddo
-        enddo
-      enddo
+                enddo ! i_tor
+              enddo ! mp
+            enddo ! mt
+          enddo ! ms
+        enddo ! j
+      enddo ! i
       do ms=1, n_gauss
         do mt=1, n_gauss
           do mp=1,n_plane
             phi = 2.d0*PI*float(mp-1)/float(n_plane) / float(n_period)
             ! Get Dommaschk representation
             chi(mp,ms,mt,:,:,:) = get_chi(x_g(mp,ms,mt), y_g(mp,ms,mt), phi)
-            
-            ! Add correction term
-            xjac =  x_s(mp,ms,mt)*y_t(mp,ms,mt) - x_t(mp,ms,mt)*y_s(mp,ms,mt) 
-            chi_x = (   y_t(mp,ms,mt) * chi_corr_s(mp,ms,mt) - y_s(mp,ms,mt) * chi_corr_t(mp,ms,mt) ) / xjac
-            chi_y = ( - x_t(mp,ms,mt) * chi_corr_s(mp,ms,mt) + x_s(mp,ms,mt) * chi_corr_t(mp,ms,mt) ) / xjac
-            chi_p = chi_corr_p(mp,ms,mt) - chi_x * x_p(mp,ms,mt) - chi_y * y_p(mp,ms,mt)
-
-            xjac_x  = (x_ss(mp,ms,mt)*y_t(mp,ms,mt)**2 - y_ss(mp,ms,mt)*x_t(mp,ms,mt)*y_t(mp,ms,mt) - 2.d0*x_st(mp,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
-                    + y_st(mp,ms,mt)*(x_s(mp,ms,mt)*y_t(mp,ms,mt) + x_t(mp,ms,mt)*y_s(mp,ms,mt))                                                      &
-                    + x_tt(mp,ms,mt)*y_s(mp,ms,mt)**2 - y_tt(mp,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)) / xjac
-            xjac_y  = (y_tt(mp,ms,mt)*x_s(mp,ms,mt)**2 - x_tt(mp,ms,mt)*y_s(mp,ms,mt)*x_s(mp,ms,mt) - 2.d0*y_st(mp,ms,mt)*x_t(mp,ms,mt)*x_s(mp,ms,mt) &
-                    + x_st(mp,ms,mt)*(y_t(mp,ms,mt)*x_s(mp,ms,mt) + y_s(mp,ms,mt)*x_t(mp,ms,mt))                                                      &
-                    + y_ss(mp,ms,mt)*x_t(mp,ms,mt)**2 - x_ss(mp,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt)) / xjac
-            x_p_x = (x_sp(mp,ms,mt)*y_t(mp,ms,mt) - x_tp(mp,ms,mt)*y_s(mp,ms,mt))/xjac
-            x_p_y = (x_tp(mp,ms,mt)*x_s(mp,ms,mt) - x_sp(mp,ms,mt)*x_t(mp,ms,mt))/xjac
-            y_p_x = (y_sp(mp,ms,mt)*y_t(mp,ms,mt) - y_tp(mp,ms,mt)*y_s(mp,ms,mt))/xjac
-            y_p_y = (y_tp(mp,ms,mt)*x_s(mp,ms,mt) - y_sp(mp,ms,mt)*x_t(mp,ms,mt))/xjac
-            chi_xx              = (chi_corr_ss(mp,ms,mt)*y_t(mp,ms,mt)**2 - 2.d0*chi_corr_st(mp,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
-                                + chi_corr_tt(mp,ms,mt)*y_s(mp,ms,mt)**2                                                       &
-                                + chi_corr_s(mp,ms,mt)*(y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt))           &
-                                + chi_corr_t(mp,ms,mt)*(y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt)))/xjac**2  &
-                                - xjac_x*(chi_corr_s(mp,ms,mt)*y_t(mp,ms,mt) - chi_corr_t(mp,ms,mt)*y_s(mp,ms,mt))/xjac**2
-            chi_yy              = (chi_corr_ss(mp,ms,mt)*x_t(mp,ms,mt)**2 - 2.d0*chi_corr_st(mp,ms,mt)*x_s(mp,ms,mt)*x_t(mp,ms,mt) &
-                                + chi_corr_tt(mp,ms,mt)*x_s(mp,ms,mt)**2                                                       &
-                                + chi_corr_s(mp,ms,mt)*(x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt))           &
-                                + chi_corr_t(mp,ms,mt)*(x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt)))/xjac**2  &
-                                - xjac_y*(-chi_corr_s(mp,ms,mt)*x_t(mp,ms,mt) + chi_corr_t(mp,ms,mt)*x_s(mp,ms,mt))/xjac**2
-            chi_xy              = (-chi_corr_ss(mp,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt) - chi_corr_tt(mp,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt) &
-                                + chi_corr_st(mp,ms,mt)*(y_s(mp,ms,mt)*x_t(mp,ms,mt) + y_t(mp,ms,mt)*x_s(mp,ms,mt))                   &
-                                - chi_corr_s(mp,ms,mt)*(x_st(mp,ms,mt)*y_t(mp,ms,mt) - x_tt(mp,ms,mt)*y_s(mp,ms,mt))                  &
-                                - chi_corr_t(mp,ms,mt)*(x_st(mp,ms,mt)*y_s(mp,ms,mt) - x_ss(mp,ms,mt)*y_t(mp,ms,mt)))/xjac**2         &
-                                - xjac_x*(-chi_corr_s(mp,ms,mt)*x_t(mp,ms,mt) + chi_corr_t(mp,ms,mt)*x_s(mp,ms,mt))/xjac**2
-            chi_corr_px               = (y_t(mp,ms,mt)*chi_corr_sp(mp,ms,mt) - y_s(mp,ms,mt)*chi_corr_tp(mp,ms,mt))/xjac
-            chi_corr_py               = (-x_t(mp,ms,mt)*chi_corr_sp(mp,ms,mt) + x_s(mp,ms,mt)*chi_corr_tp(mp,ms,mt))/xjac
-            chi_pp              = chi_corr_pp(mp,ms,mt) - x_pp(mp,ms,mt)*chi_x - 2.d0*(x_p(mp,ms,mt)*chi_corr_px + y_p(mp,ms,mt)*chi_corr_py)            &
-                                 - y_pp(mp,ms,mt)*chi_y + 2.d0*(x_p(mp,ms,mt)*x_p_x*chi_x + x_p(mp,ms,mt)*y_p_x*chi_y&
-                                 + y_p(mp,ms,mt)*x_p_y*chi_x + y_p(mp,ms,mt)*y_p_y*chi_y) + x_p(mp,ms,mt)**2*chi_xx   &
-                                 + 2.d0*x_p(mp,ms,mt)*y_p(mp,ms,mt)*chi_xy + y_p(mp,ms,mt)**2*chi_yy
-            chi_xp              = chi_corr_px - x_p_x*chi_x - x_p(mp,ms,mt)*chi_xx - y_p_x*chi_y - y_p(mp,ms,mt)*chi_xy
-            chi_yp              = chi_corr_py - x_p_y*chi_x - x_p(mp,ms,mt)*chi_xy - y_p_y*chi_y - y_p(mp,ms,mt)*chi_yy
-
-            chi(mp,ms,mt,0,0,0) = chi(mp,ms,mt,0,0,0) + chi_corr_g(mp,ms,mt)
-            chi(mp,ms,mt,1,0,0) = chi(mp,ms,mt,1,0,0) + chi_x
-            chi(mp,ms,mt,0,1,0) = chi(mp,ms,mt,0,1,0) + chi_y
-            chi(mp,ms,mt,0,0,1) = chi(mp,ms,mt,0,0,1) + chi_p
-            chi(mp,ms,mt,2,0,0) = chi(mp,ms,mt,2,0,0) + chi_xx
-            chi(mp,ms,mt,0,2,0) = chi(mp,ms,mt,0,2,0) + chi_yy
-            chi(mp,ms,mt,0,0,2) = chi(mp,ms,mt,0,0,2) + chi_pp
-            chi(mp,ms,mt,1,1,0) = chi(mp,ms,mt,1,1,0) + chi_xy
-            chi(mp,ms,mt,1,0,1) = chi(mp,ms,mt,1,0,1) + chi_xp
-            chi(mp,ms,mt,0,1,1) = chi(mp,ms,mt,0,1,1) + chi_yp
-          enddo
-        enddo
-      enddo
+#ifndef USE_DOMM
+            chi(mp,ms,mt,:,:,:) = chi(mp,ms,mt,:,:,:) + get_chi_corr(node_list, element_list, i_elm, xgauss(ms), xgauss(mt), phi)
+#endif
+          enddo ! mp
+        enddo ! mt
+      enddo ! ms
 
       !$omp critical
       element_list%element(i_elm)%chi(:,:,:,:,:,:) = chi(:,:,:,:,:,:)
       !$omp end critical
-    enddo
+    enddo ! i_elm_loc
     !$omp end do
     !$omp end parallel
 #else

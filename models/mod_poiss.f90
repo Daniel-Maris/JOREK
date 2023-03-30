@@ -673,11 +673,16 @@ if (my_id == 0) then
           endif
         !--------------- for equation on total flux
         else if (itype .eq. 4) then
+#if JOREK_MODEL == 83
           do i_tor=1,n_coord_tor
             index = n_coord_tor*(node_list%node(i)%index(k)-1) + i_tor
             
             node_list%node(i)%chi_correction(i_tor, k) = node_list%node(i)%chi_correction(i_tor, k) + rhs_vec%val(index)
           enddo ! i_tor
+#else
+  write(*,*) "itype == 4 is only possible for model 083"
+  stop
+#endif
         else
           node_list%node(i)%deltas(i_harm,k,ivar_out) = node_list%node(i)%values(i_harm,k,ivar_out) - rhs_vec%val(index)
           node_list%node(i)%values(i_harm,k,ivar_out) = amix_used * node_list%node(i)%values(i_harm,k,ivar_out) &

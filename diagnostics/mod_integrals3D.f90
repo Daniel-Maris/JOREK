@@ -604,6 +604,9 @@ do ife = ife_min, ife_max
 
 #if STELLARATOR_MODEL
         chi = get_chi(x_g(mp,ms,mt), y_g(mp,ms,mt), phi)
+#ifndef USE_DOMM
+        chi = chi + get_chi_corr(node_list,element_list,ife,xgauss(ms),xgauss(mt),phi)
+#endif
         Bv2 = chi(1,0,0)**2 + chi(0,1,0)**2 + chi(0,0,1)**2/BigR**2
 #endif
 

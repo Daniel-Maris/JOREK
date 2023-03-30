@@ -310,7 +310,7 @@ mpi_required = 0
     
     call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
     
-#if USE_DOMM
+#ifdef USE_DOMM
     call solve_Psi_boundary_eqn(node_list, bnd_elm_list)
     call setup_boundary_condition(node_list, bnd_node_list)
 #else

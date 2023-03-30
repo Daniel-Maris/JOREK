@@ -355,6 +355,9 @@ program find_axis3D
                                                             z,z_s,z_t,z_p,dummy,dummy,dummy,dummy,dummy,dummy)
 
     chi  = get_chi(R,z,p_in)
+#ifndef USE_DOMM
+    chi = chi + get_chi_corr(node_list,element_list,i_elm,s_in,t_in,p_in)
+#endif
     zjac = (R_s*z_t - R_t*z_s)
 
     call interp(node_list,element_list,i_elm,var_Psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)

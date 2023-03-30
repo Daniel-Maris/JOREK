@@ -85,7 +85,6 @@ real*8                :: JZg, JZg_s, JZg_t, JZg_st, JZg_ss, JZg_tt
 real*8                :: JPg, JPg_s, JPg_t, JPg_st, JPg_ss, JPg_tt
 real*8                :: JxB_R,   JxB_Z,   JxB_p,   JxB_pol
 real*8                :: GradP_R, GradP_Z, GradP_p, GradP_pol
-real*8                :: chi_corr_tot, chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_st, chi_corr_ss, chi_corr_tt, chi_corr_R, chi_corr_Z
 real*8                :: psi_axis,      R_axis,      Z_axis,      s_axis,      t_axis
 real*8                :: psi_xpoint(2), R_xpoint(2), Z_xpoint(2), s_xpoint(2), t_xpoint(2)
 real*8                :: psi_norm, psi_bnd, grad_psi
@@ -122,7 +121,7 @@ integer               :: i_full(11), i_vec_B, i_vec_V, i_vec_E, i_vec_Jpol, i_ve
 integer, allocatable  :: iibg(:), iproj(:)
 character*36          :: imp_label, proj_label
 
-real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
+real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi, chi_corr
 
 #ifdef WITH_Impurities
 ! See https://www.jorek.eu/wiki/doku.php?id=model500_501_555 for details
@@ -557,18 +556,10 @@ do i=1,element_list%n_elements
               + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac 
 
       chi = get_chi(R,Z,toroidal_angle)
-
-      ! Get chi correction
-      chi_corr_tot = 0.0; chi_corr_R = 0.0; chi_corr_Z = 0.0; chi_corr_P = 0.0; chi_corr_s = 0.0; chi_corr_t = 0.0
-      do i_tor_coord=1, n_coord_tor
-        call interp_gvec(node_list,element_list,i,5,1,i_tor_coord,s,t,chi_corr,chi_corr_s,chi_corr_t,chi_corr_st,chi_corr_ss,chi_corr_tt)
-        chi_corr_tot = chi_corr_tot + chi_corr          
-
-        chi_corr_R  = chi_corr_R + (   Z_t * chi_corr_s - Z_s * chi_corr_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
-        chi_corr_Z  = chi_corr_Z + ( - R_t * chi_corr_s + R_s * chi_corr_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
-        chi_corr_p  = chi_corr_P + chi_corr * HZ_coord_p(i_tor_coord, i_plane) - chi_corr_R * R_phi - Z_p * chi_corr_Z
-      enddo
-      chi(1,0,0) = chi(1,0,0) + chi_corr_R; chi(0,1,0) = chi(0,1,0) + chi_corr_Z; chi(0,0,1) = chi(0,0,1) + chi_corr_P
+#ifndef USE_DOMM
+      chi_corr = get_chi_corr(node_list,element_list,i,s,t,toroidal_angle)
+      chi = chi + chi_corr
+#endif
 
       grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
       Bv2 = dot_product(grad_chi,grad_chi)
@@ -1278,12 +1269,12 @@ do i=1,element_list%n_elements
         if (include_vacuum_field) then
           ! Total vacuum field
           vectors(inode,:,i_vec_vac(1)) = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
-          !scalars(inode,s_vacfield_sc + 1) = chi(2,0,0) + chi(1,0,0)/BigR + chi(0,2,0) + chi(0,0,2)/BigR**2   ! CURRENTLY NOT IMPLEMENTED
+          scalars(inode,i_vac(1)) = chi(2,0,0) + chi(1,0,0)/BigR + chi(0,2,0) + chi(0,0,2)/BigR**2
           scalars(inode,i_vac(2)) = chi(0,0,0)
           
           ! Chi correction
-          scalars(inode,i_vac(3))  =  chi_corr_tot
-          vectors(inode,:,i_vec_vac(2)) =  (/ chi_corr_R, chi_corr_Z, chi_corr_P / BigR /)
+          scalars(inode,i_vac(3))  =  chi_corr(0,0,0)
+          vectors(inode,:,i_vec_vac(2)) =  (/ chi_corr(1,0,0), chi_corr(0,1,0), chi_corr(0,0,1)/BigR /)
         endif
 
         if (include_velocity_field) then

@@ -34,11 +34,9 @@ real*8  :: dRRgi_drs,dRRgi_drr,dRRgi_dss, dRRgi_drp,dRRgi_dsp,dRRgi_dpp
 real*8  :: dZZgi_drs,dZZgi_drr,dZZgi_dss, dZZgi_drp,dZZgi_dsp,dZZgi_dpp, dPSgi_drs,dPSgi_drr,dPSgi_dss
 real*8  :: BR0, BZ0, Bp0
 real*8  :: dummy,BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,Bp0sin
-real*8  :: chi_corr, chi_corr_s, chi_corr_t, chi_corr_cos, chi_corr_cos_s, chi_corr_sin_s, chi_corr_sin, chi_corr_cos_t, chi_corr_sin_t
-real*8  :: chi_corr_R, chi_corr_Z, chi_corr_P
 integer :: m, ig1, ig2, i_plane, i_tor, i_harm
 real*8  :: s_phi, c_phi, ndotB, ndotB_gvec, ndotB_chi_corr, cross_deriv(3), n_perp(3), B_boundary(3), Bgvec_boundary(3), Bchi_corr_boundary(3)
-real*8  :: chi(0:n_order-1,0:n_order-1,0:n_order-1)
+real*8  :: chi(0:n_order-1,0:n_order-1,0:n_order-1), chi_corr(0:n_order-1,0:n_order-1,0:n_order-1)
 real*8  :: ndotB_max=0.0
 
 
@@ -82,6 +80,9 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
                         ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_dp,dZZgi_drs,dZZgi_drr,dZZgi_dss,dZZgi_drp, dZZgi_dsp, dZZgi_dpp)
 
         chi = get_chi(RRgi, ZZgi, p)
+#ifndef USE_DOMM
+        chi_corr = get_chi_corr(node_list,element_list,i_elm,ri,si,p)
+#endif
 
         ! Radial component discarded because grid is already flux surface aligned
         dRRgi_dt = dRRgi_ds  ! + dRRgi_dr * dri
@@ -112,43 +113,29 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
         call interp_gvec(node_list,element_list,i_elm,1,1,1,ri,si,BR0,dummy,dummy,dummy,dummy,dummy)
         call interp_gvec(node_list,element_list,i_elm,1,2,1,ri,si,BZ0,dummy,dummy,dummy,dummy,dummy)
         call interp_gvec(node_list,element_list,i_elm,1,3,1,ri,si,Bp0,dummy,dummy,dummy,dummy,dummy)
-        call interp_gvec(node_list,element_list,i_elm,5,1,1,ri,si,chi_corr,chi_corr_s,chi_corr_t,dummy,dummy,dummy)
-        chi_corr_R = 0.0; chi_corr_Z = 0.0; chi_corr_P = 0.0
-        chi_corr_R = (   chi_corr_s * dZZgi_ds - chi_corr_t * dZZgi_dr ) / RZjac
-        chi_corr_Z = ( - chi_corr_s * dRRgi_ds + chi_corr_t * dRRgi_dr ) / RZjac
         do i_tor=1,(n_coord_tor-1)/2
           i_harm = 2*i_tor
           
           call interp_gvec(node_list,element_list,i_elm,1,1,i_harm,ri,si,BR0cos,dummy,dummy,dummy,dummy,dummy)
           call interp_gvec(node_list,element_list,i_elm,1,2,i_harm,ri,si,BZ0cos,dummy,dummy,dummy,dummy,dummy)
           call interp_gvec(node_list,element_list,i_elm,1,3,i_harm,ri,si,Bp0cos,dummy,dummy,dummy,dummy,dummy)
-          call interp_gvec(node_list,element_list,i_elm,5,1,i_harm,ri,si,chi_corr_cos,chi_corr_cos_s, chi_corr_cos_t,dummy,dummy,dummy)
           
           BR0 = BR0 + BR0cos*cos(mode_coord(i_harm)*p)
           BZ0 = BZ0 + BZ0cos*cos(mode_coord(i_harm)*p)
           Bp0 = Bp0 + Bp0cos*cos(mode_coord(i_harm)*p)
-          chi_corr_R = chi_corr_R + (   chi_corr_cos_s * dZZgi_ds - chi_corr_cos_t * dZZgi_dr ) / RZjac  *cos(mode_coord(i_harm)*p)
-          chi_corr_Z = chi_corr_Z + ( - chi_corr_cos_s * dRRgi_ds + chi_corr_cos_t * dRRgi_dr ) / RZjac  *cos(mode_coord(i_harm)*p)
-          chi_corr_P = chi_corr_P - chi_corr_cos * mode_coord(i_harm) * sin(mode_coord(i_harm)*p) 
-
 
           call interp_gvec(node_list,element_list,i_elm,1,1,i_harm+1,ri,si,BR0sin,dummy,dummy,dummy,dummy,dummy)
           call interp_gvec(node_list,element_list,i_elm,1,2,i_harm+1,ri,si,BZ0sin,dummy,dummy,dummy,dummy,dummy)
           call interp_gvec(node_list,element_list,i_elm,1,3,i_harm+1,ri,si,Bp0sin,dummy,dummy,dummy,dummy,dummy)
-          call interp_gvec(node_list,element_list,i_elm,5,1,i_harm+1,ri,si,chi_corr_sin,chi_corr_sin_s,chi_corr_sin_t,dummy,dummy,dummy)
           
           BR0 = BR0 - BR0sin*sin(mode_coord(i_harm+1)*p)
           BZ0 = BZ0 - BZ0sin*sin(mode_coord(i_harm+1)*p)
           Bp0 = Bp0 - Bp0sin*sin(mode_coord(i_harm+1)*p)
-          chi_corr_R = chi_corr_R - (   chi_corr_sin_s * dZZgi_ds - chi_corr_sin_t * dZZgi_dr ) / RZjac  *sin(mode_coord(i_harm+1)*p)
-          chi_corr_Z = chi_corr_Z - ( - chi_corr_sin_s * dRRgi_ds + chi_corr_sin_t * dRRgi_dr ) / RZjac  *sin(mode_coord(i_harm+1)*p)
-          chi_corr_P = chi_corr_P - chi_corr_sin * mode_coord(i_harm+1) * cos(mode_coord(i_harm+1)*p) 
         end do
-        chi_corr_P = chi_corr_P - chi_corr_R*dRRgi_dp - chi_corr_Z*dZZgi_dp
 
         Bgvec_boundary = (/ BR0, BZ0, BP0 /)
-        Bchi_corr_boundary = (/ chi_corr_R, chi_corr_Z, chi_corr_P/RRgi /)
-        
+        Bchi_corr_boundary = (/ chi_corr(1,0,0), chi_corr(0,1,0), chi_corr(0,0,1)/RRgi  /)
+
         ndotB = sum(n_perp*B_boundary)      
         ndotB_max = max(abs(ndotB), ndotB_max)
         ndotB_gvec = sum(n_perp*Bgvec_boundary)

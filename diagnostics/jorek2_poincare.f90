@@ -491,6 +491,9 @@ call interp_RZP(node_list,element_list,i_elm,s_in,t_in,p_in,R,R_s,R_t,R_p,dummy,
                                                             Z,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
 
 chi  = get_chi(R,Z,p_in)
+#ifndef USE_DOMM
+chi = chi + get_chi_corr(node_list,element_list,i_elm,s_in,t_in,p_in)
+#endif
 Zjac = (R_s * Z_t - R_t * Z_s)
 
 call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
@@ -504,27 +507,6 @@ call interp_gvec(node_list,element_list,i_elm,1,1,1,s_in,t_in,BR0,dummy,dummy,du
 call interp_gvec(node_list,element_list,i_elm,1,2,1,s_in,t_in,BZ0,dummy,dummy,dummy,dummy,dummy)
 call interp_gvec(node_list,element_list,i_elm,1,3,1,s_in,t_in,Bp0,dummy,dummy,dummy,dummy,dummy)
 #endif
-call interp_gvec(node_list,element_list,i_elm,5,1,1,s_in,t_in,chi_corr, chi_corr_s, chi_corr_t, dummy, dummy, dummy)
-chi_corr_R = (   chi_corr_s * Z_t - chi_corr_t * Z_s ) / Zjac
-chi_corr_Z = ( - chi_corr_s * R_t + chi_corr_t * R_s ) / Zjac
-chi_corr_P = 0.0;   
-do i_tor=1,(n_coord_tor-1)/2
-  i_harm = 2*i_tor
-  
-  call interp_gvec(node_list,element_list,i_elm,5,1,i_harm,s_in,t_in,chi_corr, chi_corr_s, chi_corr_t,dummy,dummy,dummy)
-  chi_corr_R = chi_corr_R + (   chi_corr_s * Z_t - chi_corr_t * Z_s ) / Zjac * cos(mode_coord(i_harm)*p_in)
-  chi_corr_Z = chi_corr_Z + ( - chi_corr_s * R_t + chi_corr_t * R_s ) / Zjac * cos(mode_coord(i_harm)*p_in)
-  chi_corr_P = chi_corr_P - chi_corr * mode_coord(i_harm) * sin(mode_coord(i_harm)*p_in) 
-  
-  call interp_gvec(node_list,element_list,i_elm,5,1,i_harm+1,s_in,t_in,chi_corr, chi_corr_s, chi_corr_t,dummy,dummy,dummy)
-  chi_corr_R = chi_corr_R - (   chi_corr_s * Z_t - chi_corr_t * Z_s ) / Zjac * sin(mode_coord(i_harm+1)*p_in)
-  chi_corr_Z = chi_corr_Z - ( - chi_corr_s * R_t + chi_corr_t * R_s ) / Zjac * sin(mode_coord(i_harm+1)*p_in)
-  chi_corr_P = chi_corr_P - chi_corr * mode_coord(i_harm+1) * cos(mode_coord(i_harm+1)*p_in) 
-end do
-chi_corr_P = chi_corr_P - chi_corr_R*R_p - chi_corr_Z*Z_p
-chi(1,0,0) = chi(1,0,0) + chi_corr_R
-chi(0,1,0) = chi(0,1,0) + chi_corr_Z
-chi(0,0,1) = chi(0,0,1) + chi_corr_P
 
 #ifdef fullmhd
   call interp(node_list,element_list,i_elm,var_AR,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)

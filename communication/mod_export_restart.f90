@@ -316,7 +316,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   real(RKIND), allocatable :: t_r_tor_eq(:,:)              !              n_degrees
   real(RKIND), allocatable :: t_j_field(:,:,:,:)           ! n_coord_tor, n_degrees, n_dim
   real(RKIND), allocatable :: t_b_field(:,:,:,:)           ! n_coord_tor, n_degrees, n_dim
-  real(RKIND), allocatable :: t_chi_correction(:,:,:)    ! n_coord_tor, n_degrees
+  real(RKIND), allocatable :: t_chi_correction(:,:,:)      ! n_coord_tor, n_degrees
   real(RKIND), allocatable :: t_j_source(:,:,:)            !       n_tor, n_degrees
   
   real(RKIND), allocatable :: t_psi_eq(:,:)                ! n_degrees
