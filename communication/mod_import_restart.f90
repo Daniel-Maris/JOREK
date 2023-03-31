@@ -430,10 +430,6 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     call tr_allocate(viscopar_flux_t,1,index_start+nstep,"viscopar_flux_t",CAT_UNKNOWN)
     viscopar_flux_t = 0.d0
 
-    if (allocated(viscoperp_dissip_tot_t)) call tr_deallocate(viscoperp_dissip_tot_t,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
-    call tr_allocate(viscoperp_dissip_tot_t,1,index_start+nstep,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
-    viscoperp_dissip_tot_t = 0.d0
-
     if (allocated(viscopar_dissip_tot_t)) call tr_deallocate(viscopar_dissip_tot_t,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     call tr_allocate(viscopar_dissip_tot_t,1,index_start+nstep,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     viscopar_dissip_tot_t = 0.d0
@@ -1578,11 +1574,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     call tr_allocate(viscopar_flux_t,1,index_start+nstep,"viscopar_flux_t",CAT_UNKNOWN)
     viscopar_flux_t = 0.d0
     call HDF5_array1D_reading(file_id,viscopar_flux_t,'viscopar_flux_t')
-
-    if (allocated(viscoperp_dissip_tot_t)) call tr_deallocate(viscoperp_dissip_tot_t,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
-    call tr_allocate(viscoperp_dissip_tot_t,1,index_start+nstep,"viscoperp_dissip_tot_t",CAT_UNKNOWN)
-    viscoperp_dissip_tot_t = 0.d0
-    call HDF5_array1D_reading(file_id,viscoperp_dissip_tot_t,'viscoperp_dissip_tot_t')
 
     if (allocated(viscopar_dissip_tot_t)) call tr_deallocate(viscopar_dissip_tot_t,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     call tr_allocate(viscopar_dissip_tot_t,1,index_start+nstep,"viscopar_dissip_tot_t",CAT_UNKNOWN)
