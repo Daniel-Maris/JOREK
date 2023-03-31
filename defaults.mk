@@ -179,6 +179,10 @@ ifneq ($(EVAL_MOD_EQUATIONS), 1)
 else
   DEFINES := $(DEFINES) -DEVAL_MOD_EQUATIONS    # Expand analytic equations at runtime - for debugging purposes
 endif
+USE_DOMM ?= 1
+ifeq($(USE_DOMM), 1)
+  DEFINES := $(DEFINES) -DUSE_DOMM              # Use Dommaschk potentials, without FE correction of n.B on boundary 
+endif
 ifeq (model083, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL -DSTELLARATOR_MODEL
   FFLAGS  := $(FFLAGS) -heap-arrays

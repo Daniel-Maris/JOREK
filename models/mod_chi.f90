@@ -396,7 +396,7 @@ module mod_chi
     chi_corr_px               = (Z_t*chi_corr_sp - Z_s*chi_corr_tp)/xjac
     chi_corr_py               = (-R_t*chi_corr_sp + R_s*chi_corr_tp)/xjac
     chi_pp              = chi_corr_pp - R_pp*chi_x - 2.d0*(R_p*chi_corr_px + Z_p*chi_corr_py)            &
-                         - Z_pp*chi_y + 2.0*(R_p*x_p_x*chi_x + R_p*y_p_x*chi_y&
+                         - Z_pp*chi_y + (R_p*x_p_x*chi_x + R_p*y_p_x*chi_y&
                          + Z_p*x_p_y*chi_x + Z_p*y_p_y*chi_y) + R_p**2*chi_xx   &
                          + 2.d0*R_p*Z_p*chi_xy + Z_p**2*chi_yy
     chi_xp              = chi_corr_px - x_p_x*chi_x - R_p*chi_xx - y_p_x*chi_y - Z_p*chi_xy
