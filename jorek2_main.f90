@@ -310,12 +310,14 @@ mpi_required = 0
     
     call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
     
+#if (JOREK_MODEL == 83)
 #ifdef USE_DOMM
     call solve_Psi_boundary_eqn(node_list, bnd_elm_list)
     call setup_boundary_condition(node_list, bnd_node_list)
 #else
     call poisson(my_id,4,node_list,element_list,bnd_node_list,bnd_elm_list,1,1,1, &
                  0.0,1.0,xpoint,xcase,(/ -99.0, 99.0 /),freeboundary_equil,refinement,1)   !----------- for GS use -1
+#endif
 #endif
     if (my_id .eq. 0) call determine_boundary_flux(node_list, element_list)
   end if ! gvec_grid_import
