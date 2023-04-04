@@ -44,6 +44,11 @@ real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
 type(type_node) :: nodes2(2), tmp_node
 
+#ifndef USE_DOMM
+  write(*,*) 'boundary_matrix_open requires USE_DOMM=1 for model 183'
+  stop
+#endif
+
 theta = time_evol_theta
 !zeta  = time_evol_zeta
 ! change zeta for variable dt
@@ -185,7 +190,7 @@ do ms=1,n_gauss
   do mp=1,n_plane
     BigR = x_g(mp,ms)
     phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
-    chi = get_chi(x_g(mp,ms),y_g(mp,ms),phi)
+    chi = get_chi_domm(x_g(mp,ms),y_g(mp,ms),phi)
     grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
     Bv2 = dot_product(grad_chi,grad_chi)
     grad_Bv2 = 2.d0*(/ chi(1,0,0)*chi(2,0,0) + chi(0,1,0)*chi(1,1,0) + chi(0,0,1)*chi(1,0,1)/BigR**2 - chi(0,0,1)**2/BigR**3, &
