@@ -79,10 +79,7 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
                         RRgi,dRRgi_dr,dRRgi_ds,dRRgi_dp,dRRgi_drs,dRRgi_drr,dRRgi_dss,dRRgi_drp, dRRgi_dsp, dRRgi_dpp, &
                         ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_dp,dZZgi_drs,dZZgi_drr,dZZgi_dss,dZZgi_drp, dZZgi_dsp, dZZgi_dpp)
 
-        chi = get_chi(RRgi, ZZgi, p)
-#ifndef USE_DOMM
-        chi_corr = get_chi_corr(node_list,element_list,i_elm,ri,si,p)
-#endif
+        chi = get_chi(RRgi, ZZgi, p,node_list,element_list,i_elm,ri,si)
 
         ! Radial component discarded because grid is already flux surface aligned
         dRRgi_dt = dRRgi_ds  ! + dRRgi_dr * dri

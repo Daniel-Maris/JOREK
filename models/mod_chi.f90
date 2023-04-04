@@ -6,7 +6,7 @@ module mod_chi
   use phys_module, only: domm, dcoef, F0, R_domm, domm_initialised, PI
   implicit none
   private 
-  public init_chi_basis, get_chi, get_chi_corr, compute_chi_on_gauss_points
+  public init_chi_basis, get_chi, get_chi_domm, get_chi_corr, compute_chi_on_gauss_points
 
   integer, parameter :: m_tor = (n_coord_tor - 1)/2
   
@@ -226,6 +226,27 @@ module mod_chi
     gamma_st = (2*n + m)*gamma(n,m)
   end function gamma_st
   
+  !> Wrapper function for calculating the vacuum magnetic field
+  !!
+  !! This routine will call get_chi_domm and depending on compile time parameters either add the correction term
+  !! get_chi_corr to the vacuum field, or keep the representation as the Dommaschk potentials alone
+  function get_chi(R,z,phi,node_list,element_list,i_elm,s,t,max_ord)
+    use data_structure,     only: type_node_list, type_element_list
+    implicit none
+    real*8,  intent(in)                   :: R, z, phi
+    type (type_node_list),    intent(in)  :: node_list
+    type (type_element_list), intent(in)  :: element_list
+    integer, intent(in)                   :: i_elm
+    real*8,  intent(in)                   :: s, t
+    integer, optional, intent(in)         :: max_ord
+    real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi
+    
+    get_chi = get_chi_domm(R,z,phi,max_ord)
+#ifndef USE_DOMM
+    get_chi = get_chi + get_chi_corr(node_list, element_list, i_elm, s, t, phi)
+#endif
+  endfunction get_chi
+
   !> This function returns the vacuum scalar magnetic potential (chi) and its derivatives up to n_order-1,
   !!  unless a lower cutoff is requested via n
   !! 
@@ -238,17 +259,17 @@ module mod_chi
   !!                                                    +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
   !!
   !! This leads to the equations for Chi and its derivatives below.  
-  function get_chi(R,z,phi,max_ord)
+  function get_chi_domm(R,z,phi,max_ord)
     implicit none
-    real*8,  intent(in) :: R, z, phi
-    integer, optional, intent(in) :: max_ord
-    real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi
+    real*8,  intent(in)                   :: R, z, phi
+    integer, optional, intent(in)         :: max_ord
+    real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi_domm
     real*8, dimension(0:n_order-1) :: dksinmp, dkcosmp, V_ml
     real*8  :: Rn, zn, cval, D_ml, N_ml_1
     integer :: n_ord, i, j, k, m, l, i_ord, j_ord, k_ord
     
-    get_chi = 0.d0
-    get_chi(0,0,0) = 2 * PI / float(n_coord_period) - phi; get_chi(0,0,1) = -1 ! Include the phi term
+    get_chi_domm = 0.d0
+    get_chi_domm(0,0,0) = 2 * PI / float(n_coord_period) - phi; get_chi_domm(0,0,1) = -1 ! Include the phi term
     
     if (domm) then
       n_ord = n_order-1
@@ -293,19 +314,19 @@ module mod_chi
                 V_ml(k_ord) = (dcoef(1,l,i)*dkcosmp(k_ord) + dcoef(2,l,i)*dksinmp(k_ord))*D_ml &
                             + (dcoef(3,l,i)*dkcosmp(k_ord) + dcoef(4,l,i)*dksinmp(k_ord))*N_ml_1
               end do
-              get_chi(i_ord,j_ord,:) = get_chi(i_ord,j_ord,:) + V_ml/(R_domm**(i_ord+j_ord)) ! R_domm due to chain rule (derivatives wrt R, z, not Rn, zn)
+              get_chi_domm(i_ord,j_ord,:) = get_chi_domm(i_ord,j_ord,:) + V_ml/(R_domm**(i_ord+j_ord)) ! R_domm due to chain rule (derivatives wrt R, z, not Rn, zn)
             end do
           end do
         end do
       end do
     end if
     
-    get_chi = F0*get_chi
-  end function get_chi
+    get_chi_domm = F0*get_chi_domm
+  end function get_chi_domm
   
   !>  This function returns a correction to the vacuum scalar magnetic potential (chi) and its derivatives such 
   !!  that n.grad(chi) on the simulation boundary is equal to 0
-  function get_chi_corr(node_list, element_list, i_elm, s, t, phi, max_ord)
+  function get_chi_corr(node_list, element_list, i_elm, s, t, phi)
     use phys_module,        only: mode_coord
     use data_structure,     only: type_node_list, type_element_list
     use mod_interp,         only: interp_RZP, interp_gvec
@@ -314,7 +335,6 @@ module mod_chi
     type (type_element_list), intent(in)  :: element_list
     integer, intent(in) :: i_elm
     real*8,  intent(in) :: s, t, phi
-    integer, optional, intent(in) :: max_ord
     real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: get_chi_corr
     integer :: i_harm, i_tor
     real*8  :: R, R_s, R_t, R_p, R_ss, R_tt, R_st, R_pp, R_sp, R_tp
@@ -525,10 +545,7 @@ module mod_chi
           do mp=1,n_plane
             phi = 2.d0*PI*float(mp-1)/float(n_plane) / float(n_period)
             ! Get Dommaschk representation
-            chi(mp,ms,mt,:,:,:) = get_chi(x_g(mp,ms,mt), y_g(mp,ms,mt), phi)
-#ifndef USE_DOMM
-            chi(mp,ms,mt,:,:,:) = chi(mp,ms,mt,:,:,:) + get_chi_corr(node_list, element_list, i_elm, xgauss(ms), xgauss(mt), phi)
-#endif
+            chi(mp,ms,mt,:,:,:) = get_chi(x_g(mp,ms,mt), y_g(mp,ms,mt), phi, node_list, element_list, i_elm, xgauss(ms), xgauss(mt))
           enddo ! mp
         enddo ! mt
       enddo ! ms

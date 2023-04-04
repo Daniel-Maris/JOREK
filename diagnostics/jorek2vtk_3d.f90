@@ -177,11 +177,7 @@ do m=1, n_toroidal
         xjac_x = (xjac_s*Z_t - xjac_t*Z_s) / xjac
         xjac_y = (R_s*xjac_t - R_t*xjac_s) / xjac
 
-        chi = get_chi(R,Z,angle)
-#ifndef USE_DOMM
-        chi = chi + get_chi_corr(node_list,element_list,i,s,t,angle)
-#endif
-        
+        chi = get_chi(R,Z,angle,node_list,element_list,i,s,t)
         grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/R /)
         Bv2 = dot_product(grad_chi,grad_chi)
         

@@ -128,7 +128,7 @@ do ms=1,n_gauss
   do mp=1,n_plane
     BigR = x_g(mp,ms)
     phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
-    chi = get_chi(x_g(mp,ms),y_g(mp,ms),phi)
+    chi = get_chi_domm(x_g(mp,ms),y_g(mp,ms),phi)
     grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
     Bv2 = dot_product(grad_chi,grad_chi)
 
@@ -293,7 +293,7 @@ do ms=1,n_gauss
   do mp=1,n_plane
     BigR = x_g(mp,ms)
     phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
-    chi = get_chi(x_g(mp,ms),y_g(mp,ms),phi)
+    chi = get_chi_domm(x_g(mp,ms),y_g(mp,ms),phi)
     grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
 
     n_perp = (/ -1*x_g(mp,ms)*y_s(mp,ms), x_g(mp,ms)*x_s(mp,ms), x_p(mp,ms)*y_s(mp,ms) - y_p(mp,ms)*x_s(mp,ms) /)

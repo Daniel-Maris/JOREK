@@ -358,7 +358,9 @@ endif
 if (include_vacuum_field) then
   call add_vtk_entry('Lap_chi     ', 'Lap_chi     ',    i_vac(1), n_scalars, si_units, scalar_names)
   call add_vtk_entry('chi         ', 'chi         ',    i_vac(2), n_scalars, si_units, scalar_names)
+#ifndef USE_DOMM
   call add_vtk_entry('chi_corr    ', 'chi_corr    ',    i_vac(3), n_scalars, si_units, scalar_names)
+#endif
 endif
 
 allocate(iibg(n_adas),iproj(n_var))
@@ -448,7 +450,9 @@ endif
 
 if (include_vacuum_field) then
   call add_vtk_entry('grad_chi    ', 'grad_chi    ', i_vec_vac(1), n_vectors, si_units, vector_names)
+#ifndef USE_DOMM
   call add_vtk_entry('grad_chi_cor', 'grad_chi_cor', i_vec_vac(2), n_vectors, si_units, vector_names)
+#endif
 endif
 ! --- end adding vectors
 
@@ -555,10 +559,9 @@ do i=1,element_list%n_elements
       xjac_y  = (Z_tt*R_s**2 - R_tt*Z_s*R_s - 2.d0*Z_st*R_t*R_s   &
               + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac 
 
-      chi = get_chi(R,Z,toroidal_angle)
+      chi = get_chi(R,Z,toroidal_angle,node_list,element_list,i,s,t)
 #ifndef USE_DOMM
       chi_corr = get_chi_corr(node_list,element_list,i,s,t,toroidal_angle)
-      chi = chi + chi_corr
 #endif
 
       grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
@@ -1272,9 +1275,11 @@ do i=1,element_list%n_elements
           scalars(inode,i_vac(1)) = chi(2,0,0) + chi(1,0,0)/BigR + chi(0,2,0) + chi(0,0,2)/BigR**2
           scalars(inode,i_vac(2)) = chi(0,0,0)
           
+#ifndef USE_DOMM
           ! Chi correction
           scalars(inode,i_vac(3))  =  chi_corr(0,0,0)
           vectors(inode,:,i_vec_vac(2)) =  (/ chi_corr(1,0,0), chi_corr(0,1,0), chi_corr(0,0,1)/BigR /)
+#endif
         endif
 
         if (include_velocity_field) then

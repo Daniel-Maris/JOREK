@@ -82,10 +82,7 @@ do ife=1,element_list%n_elements
       wst = wgauss(ms)*wgauss(mt)
       do mp=1,n_plane
         phi = 2.d0*pi*float(mp-1)/float(n_period*n_plane)
-        chi(:,:,:,mp) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,1)
-#ifndef USE_DOMM
-        chi(:,:,:,mp) = chi(:,:,:,mp) + get_chi_corr(node_list,element_list,i,xgauss(ms),xgauss(mt),phi)
-#endif
+        chi(:,:,:,mp) = get_chi(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,node_list,element_list,i,xgauss(ms),xgauss(mt),1)
         Bv2(mp) = chi(1,0,0,mp)**2 + chi(0,1,0,mp)**2 + chi(0,0,1,mp)**2/x_g(mp,ms,mt)**2
       end do
       

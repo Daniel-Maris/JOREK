@@ -249,7 +249,7 @@ contains
         do mp=1,n_plane
           BigR = x_g(mp,ms,ielm)
           phi = 2.d0*pi*float(mp-1)/float(n_plane*n_period)
-          chi = get_chi(x_g(mp,ms,ielm),y_g(mp,ms,ielm),phi)
+          chi = get_chi_domm(x_g(mp,ms,ielm),y_g(mp,ms,ielm),phi)
           grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
           ! -e_theta x e_phi = -J*grad(psi)
           Jgrad_ps = (/ -BigR*y_s(mp,ms,ielm), BigR*x_s(mp,ms,ielm), x_p(mp,ms,ielm)*y_s(mp,ms,ielm) - x_s(mp,ms,ielm)*y_p(mp,ms,ielm) /)
@@ -354,7 +354,7 @@ contains
           z_s = z_s + node_list%node(in)%x(im,j,2)*HZ_coord(im,mp)*3.d0
         end do
         
-        chi = get_chi(R,z,phi)
+        chi = get_chi_domm(R,z,phi)
         chi_tht = (R_s*chi(1,0,0) + z_s*chi(0,1,0))*bnd_node_list%n_bnd_nodes/(2.d0*pi)
         
         ! Using the (theta,chi) 2D Fourier basis, calculate the values of Psi and its derivatives at the current point

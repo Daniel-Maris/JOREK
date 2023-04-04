@@ -490,10 +490,7 @@ i_var_psi = 1
 call interp_RZP(node_list,element_list,i_elm,s_in,t_in,p_in,R,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
                                                             Z,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
 
-chi  = get_chi(R,Z,p_in)
-#ifndef USE_DOMM
-chi = chi + get_chi_corr(node_list,element_list,i_elm,s_in,t_in,p_in)
-#endif
+chi  = get_chi(R,Z,p_in,node_list,element_list,i_elm,s_in,t_in)
 Zjac = (R_s * Z_t - R_t * Z_s)
 
 call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)

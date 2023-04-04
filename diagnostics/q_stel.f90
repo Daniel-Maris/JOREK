@@ -427,10 +427,7 @@ contains
   ! Get current location of field line and necessary derivatives
   call interp_RZP(node_list,element_list,i_elm,s_in,t_in,p_in,RR,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
                                                               ZZ,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
-  chi  = get_chi(RR,ZZ,p_in)
-#ifndef USE_DOMM
-  chi = chi + get_chi_corr(node_list,element_list,i_elm,s_in,t_in,p_in)
-#endif
+  chi  = get_chi(RR,ZZ,p_in,node_list,element_list,i_elm,s_in,t_in)
   Zjac = (R_s * Z_t - R_t * Z_s)
 
 #ifdef POINC_GVEC
