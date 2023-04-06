@@ -3,7 +3,7 @@ module mod_chi
 !! For more details, see
 !! [*] W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
   use mod_parameters
-  use phys_module, only: domm, dcoef, F0, R_domm, domm_initialised, PI
+  use phys_module, only: domm, dcoef, F0, R_domm, PI
   implicit none
   private 
   public init_chi_basis, get_chi, get_chi_domm, get_chi_corr, compute_chi_on_gauss_points
@@ -162,8 +162,6 @@ module mod_chi
         end do
       end do
     end do  
-    
-    domm_initialised = .true.
   end subroutine init_chi_basis
     
   ! Eq (27) in [*]
@@ -271,6 +269,7 @@ module mod_chi
     get_chi_domm = 0.d0
     get_chi_domm(0,0,0) = 2 * PI / float(n_coord_period) - phi; get_chi_domm(0,0,1) = -1 ! Include the phi term
     
+#ifdef USE_DOMM
     if (domm) then
       n_ord = n_order-1
       if (present(max_ord)) then
@@ -320,7 +319,8 @@ module mod_chi
         end do
       end do
     end if
-    
+#endif
+
     get_chi_domm = F0*get_chi_domm
   end function get_chi_domm
   
@@ -480,10 +480,6 @@ module mod_chi
     if (my_id .eq. 0) then
       write (*,*) "Storing vacuum field on gaussian points..."
       write (*,*) 
-    endif
-    if (.not. domm_initialised) then
-      write(*,*) "Cannot compute vacuum field because Dommaschk potentials have not been initialised!"
-      stop
     endif
     
     ! --- Declare shared and private variables for omp
