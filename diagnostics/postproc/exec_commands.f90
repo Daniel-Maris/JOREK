@@ -141,6 +141,8 @@ module exec_commands
           call int3d(command, first_step, ierr)
         case ( 'equil_params' )
           call equil_params(command, first_step, ierr)
+        case ( 'energy3D' )
+          call energy3D(command, first_step, ierr)
         case ( 'energy_spectrum' )
           call energy_spectrum(command, first_step, ierr)
         case ( 'expressions' )
@@ -233,7 +235,7 @@ module exec_commands
     else
       
       select case ( trim(command%args(0)) )
-        case ( 'expressions', 'expressions_int', 'mark_coords', 'int2d', 'int3d','midplane',       &
+        case ( 'expressions', 'expressions_int', 'mark_coords', 'int2d', 'int3d','energy3D','midplane',       &
           'average', 'point', 'pol_line', 'int_along_pol_line', 'tor_line', 'equil_params',        &
           'qprofile', 'q_at_psin', 'fluxsurfaces', 'separatrix', 'set', 'four2d', 'gourdon',       &
           'jorek-units', 'jnorm_bnd_curr', 'si-units', 'grid', 'grid_diagnostics', 'rectangle',    &
@@ -2155,9 +2157,68 @@ module exec_commands
    
   end subroutine int3D
   
+
+
+
+
+
+  !> Output energies distributed among mode families
+  subroutine energy3D(command, first_step, ierr)
+    
+    use mod_integrals3D_nompi
+
+    ! --- Routine parameters
+    type(type_command), intent(in)  :: command     !< Command to be executed
+    logical,            intent(in)  :: first_step  !< First time step of a for loop?
+    integer,            intent(out) :: ierr        !< Error flag
+    
+    ! --- Local variables
+    integer :: i_file, i, i_mode_family, units
+    real*8, dimension(1+int(n_coord_period/2)) :: Wmag, Wkin
+    character(len=1024) :: filename, status, access
+
+    ierr = 0
+
+    ! --- Some checks
+    call check_args(command%n_args,ierr,0,1);  if ( ierr /= 0 ) return
+    call check_step_imported(ierr);            if ( ierr /= 0 ) return
+    units = get_int_setting('units', ierr)
+  
+    ! Open file
+    write(filename,'(4a)') trim(DIR), 'energies3D', trim(step_range_string(loop_min_step,loop_max_step)), '.dat'
+    status = 'replace'; access = 'sequential'
+    if ( .not. first_step ) then
+      status = 'old'; access = 'append'
+    end if
+    i_file=133
+    open(i_file, file=trim(filename), form='formatted', status=trim(status), access=trim(access), iostat=ierr)
+    
+    ! Set header for file
+    if ( first_step ) then
+      write(i_file,'(a)',advance='no') '# time                   '
+      ! List toroidal mode families in header
+      do i_mode_family = 1,1+int(n_coord_period/2)
+        write(i_file,'(A7,",",I2.2,A2,1x)',advance='no') '"E_{mag', i_mode_family - 1, '}"'
+      end do
+      do i_mode_family = 1,1+int(n_coord_period/2)
+        write(i_file,'(A7,",",I2.2,A2,1x)',advance='no') '"E_{kin', i_mode_family - 1, '}"'
+      end do
+      write(i_file,'(a)')
+    end if
+ 
+    ! Compute energy in mode families
+    call energy3D_new(node_list,element_list,Wmag(:),Wkin(:))        
+
+    ! Output time step to file
+    write(i_file,'(12E18.8)')  time_now, Wmag(:), Wkin(:)
+    close(i_file)
+   
+  end subroutine energy3D
   
   
  
+
+
 
   !> Output current density normal to the jorek boundary as a function of Rbnd
   !! and Zbnd

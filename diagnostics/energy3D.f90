@@ -1,4 +1,4 @@
-subroutine energy3D(node_list,element_list,W_mag,W_kin)
+subroutine energy3D_new(node_list,element_list,W_mag,W_kin)
 !---------------------------------------------------------------
 ! This subroutine calculates the energies of each individual mode
 ! family in a stellarator by summing up the energies of all modes
@@ -147,4 +147,4 @@ W_mag = W_mag + W_mag_local
 W_kin = W_kin + W_kin_local
 !$omp end critical
 !$omp end parallel
-end subroutine energy3D
+end subroutine energy3D_new
