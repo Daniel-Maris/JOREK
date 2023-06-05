@@ -35,8 +35,8 @@ real*8  :: dZZgi_drs,dZZgi_drr,dZZgi_dss, dZZgi_drp,dZZgi_dsp,dZZgi_dpp, dPSgi_d
 real*8  :: BR0, BZ0, Bp0
 real*8  :: dummy,BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,Bp0sin
 integer :: m, ig1, ig2, i_plane, i_tor, i_harm
-real*8  :: s_phi, c_phi, ndotB, ndotB_gvec, ndotB_chi_corr, cross_deriv(3), n_perp(3), B_boundary(3), Bgvec_boundary(3), Bchi_corr_boundary(3)
-real*8  :: chi(0:n_order-1,0:n_order-1,0:n_order-1), chi_corr(0:n_order-1,0:n_order-1,0:n_order-1)
+real*8  :: s_phi, c_phi, ndotB, ndotB_gvec, cross_deriv(3), n_perp(3), B_boundary(3), Bgvec_boundary(3)
+real*8  :: chi(0:n_order-1,0:n_order-1,0:n_order-1)
 real*8  :: ndotB_max=0.0
 
 
@@ -102,9 +102,9 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
         PSI_R = (   dPSgi_dr * dZZgi_ds - dPSgi_ds * dZZgi_dr ) / RZjac
         PSI_Z = ( - dPSgi_dr * dRRgi_ds + dPSgi_ds * dRRgi_dr ) / RZjac
         Psi_p = dPSgi_dp - Psi_R*dRRgi_dp - Psi_z*dZZgi_dp
-        B_boundary = (/ chi(1,0,0)      , &!+ (Psi_z*chi(0,0,1) - Psi_p*chi(0,1,0))/(F0*RRgi), &
-                        chi(0,1,0)      , &!- (Psi_R*chi(0,0,1) - Psi_p*chi(1,0,0))/(F0*RRgi), &
-                        chi(0,0,1)/RRgi /)!+ (Psi_R*chi(0,1,0) - Psi_z*chi(1,0,0))/F0 /)
+        B_boundary = (/ chi(1,0,0)      + (Psi_z*chi(0,0,1) - Psi_p*chi(0,1,0))/(F0*RRgi), &
+                        chi(0,1,0)      - (Psi_R*chi(0,0,1) - Psi_p*chi(1,0,0))/(F0*RRgi), &
+                        chi(0,0,1)/RRgi + (Psi_R*chi(0,1,0) - Psi_z*chi(1,0,0))/F0 /)
         
         ! Interpolate GVEC field
         call interp_gvec(node_list,element_list,i_elm,1,1,1,ri,si,BR0,dummy,dummy,dummy,dummy,dummy)
@@ -131,15 +131,13 @@ do i_elm=(n_flux-2)*n_tht+1, (n_flux-1)*n_tht
         end do
 
         Bgvec_boundary = (/ BR0, BZ0, BP0 /)
-        Bchi_corr_boundary = (/ chi_corr(1,0,0), chi_corr(0,1,0), chi_corr(0,0,1)/RRgi  /)
 
         ndotB = sum(n_perp*B_boundary)      
         ndotB_max = max(abs(ndotB), ndotB_max)
         ndotB_gvec = sum(n_perp*Bgvec_boundary)
-        ndotB_chi_corr = sum(n_perp*Bchi_corr_boundary)
-
+        
         theta = (i_elm - ((n_flux-2)*n_tht+1) + si) * delta_tht 
-        write(21, '(13e18.8)') theta, p, ndotB, ndotB_chi_corr, ndotB_gvec, RRgi, ZZgi, B_boundary(1), B_boundary(2), B_boundary(3), n_perp(1), n_perp(2), n_perp(3)
+        write(21, '(13e18.8)') theta, p, ndotB, ndotB_gvec, RRgi, ZZgi
         
         ! Factors of 0.5 to convert the integration interval from [-1,1] to [0,1] (poloidal direction) 
         !   and 0.5*delta_phi to convert the integration interval from [-1,1] to [phi_i,phi_i+delta_phi] (toroidal direction)

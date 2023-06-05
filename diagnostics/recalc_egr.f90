@@ -12,6 +12,7 @@ program recalc_egr
   use mod_expression
   use phys_module
   use mod_chi
+  use mod_energy3D
   implicit none
   
   integer, parameter :: ts1 = 52
