@@ -2165,7 +2165,7 @@ module exec_commands
   !> Output energies distributed among mode families
   subroutine energy3D(command, first_step, ierr)
     
-    use mod_integrals3D_nompi
+    use mod_energy3D
 
     ! --- Routine parameters
     type(type_command), intent(in)  :: command     !< Command to be executed
