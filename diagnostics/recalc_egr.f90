@@ -12,6 +12,7 @@ program recalc_egr
   use mod_expression
   use phys_module
   use mod_chi
+  use mod_energy3D
   implicit none
   
   integer, parameter :: ts1 = 52
@@ -38,7 +39,7 @@ program recalc_egr
   do ts=1,nts
     write(filein,'(A,i5.5)') 'jorek', index_now
     call import_restart(node_list,element_list, filein, rst_format, ierr, .true.)
-    call energy3D(node_list,element_list,Wmag(:,ts),Wkin(:,ts))
+    call energy3D_new(node_list,element_list,Wmag(:,ts),Wkin(:,ts))
     time(ts) = xtime(index_now)
     index_now = index_now + 1
   end do
