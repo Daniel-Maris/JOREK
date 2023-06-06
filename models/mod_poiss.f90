@@ -239,6 +239,13 @@ if (my_id == 0) then
   
   endif   !--- end type -1 (GS equilibrium)
   
+  !$omp parallel default(none) &
+  !$omp shared(node_list, element_list, refinement, itype, ivar_in, ivar_out, i_harm, psi_axis, psi_bnd, xpoint, xcase, Z_xpoint, psi_axis_kl, &
+  !$omp        psi_bnd_kl, newton_method_GS, treat_axis, ES, a_mat, rhs_vec, ilarge) &
+  !$omp private(element, nodes, inode, ife, i_father, element_father, iv, inode_father, nodes_father, ELM, RHS, ELM_axis, ELM_bnd, node_out, i, j, &
+  !$omp         i_tor, index_ij, index_large_i, k, l, knode, k_tor, index_kl, index_large_k)
+  
+  !$omp do
   do ife =1, element_list%n_elements
   
     element = element_list%element(ife)
@@ -321,7 +328,9 @@ if (my_id == 0) then
         index_large_i = node_list%node(inode)%index(j)  ! base index in the main matrix
 #endif
 
+        !$omp critical
         rhs_vec%val(index_large_i) = rhs_vec%val(index_large_i) + RHS(index_ij)
+	!$omp end critical
   
         do k=1,n_vertex_max
   
@@ -339,11 +348,13 @@ if (my_id == 0) then
             index_large_k = node_list%node(knode)%index(l)  ! base index in the main matrix
 #endif
   
+            !$omp critical
             ilarge = ilarge +1
   
             a_mat%irn(ilarge) = index_large_i
             a_mat%jcn(ilarge) = index_large_k
             a_mat%val(ilarge) = ELM(index_ij,index_kl)
+	    !$omp end critical
  
 #if STELLARATOR_MODEL
           enddo ! k_tor
@@ -364,11 +375,13 @@ if (my_id == 0) then
     
               index_large_k = node_list%node(knode)%index(l)  ! base index in the main matrix
     
+              !$omp critical
               ilarge = ilarge +1
     
               a_mat%irn(ilarge) = index_large_i
               a_mat%jcn(ilarge) = index_large_k
               a_mat%val(ilarge)   = ELM_axis(index_ij,index_kl)
+	      !$omp end critical
     
             enddo
           enddo
@@ -384,11 +397,13 @@ if (my_id == 0) then
     
               index_large_k = node_list%node(knode)%index(l)  ! base index in the main matrix
     
+              !$omp critical
               ilarge = ilarge +1
     
               a_mat%irn(ilarge) = index_large_i
               a_mat%jcn(ilarge) = index_large_k
-              a_mat%val(ilarge)   = ELM_bnd(index_ij,index_kl)           
+              a_mat%val(ilarge)   = ELM_bnd(index_ij,index_kl)  
+	      !$omp end critical         
     
             enddo
           enddo
@@ -402,6 +417,8 @@ if (my_id == 0) then
     enddo ! i
   
   enddo ! ife
+  !$omp end do
+  !$omp end parallel
 
   nz_AA_old = nz_AA
   nz_AA = ilarge
