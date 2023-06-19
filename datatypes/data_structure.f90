@@ -16,11 +16,15 @@ module data_structure
     real*8     :: values(n_tor,n_degrees,n_var)   !< Variable values and derivatives
     real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
 #if STELLARATOR_MODEL
-    real*8     :: pressure(n_degrees)                     !< scalar pressure from GVEC
     real*8     :: r_tor_eq(n_degrees)                     !< radial coordinate from GVEC (square root of normalised toroidal flux)
+#if (JOREK_MODEL == 83)
+    real*8     :: pressure(n_degrees)                     !< scalar pressure from GVEC
     real*8     :: j_field(n_coord_tor,n_degrees,n_dim+1)  !< current density R, Z, phi components from GVEC
     real*8     :: b_field(n_coord_tor,n_degrees,n_dim+1)  !< magnetic field  R, Z, phi components from GVEC
-    real*8     :: chi_correction(n_coord_tor,n_degrees)   !< magnetic field  R, Z, phi components from GVEC
+#endif
+#ifndef USE_DOMM
+    real*8     :: chi_correction(n_coord_tor,n_degrees)   !< correction to the vacuum magnetic field
+#endif 
     real*8     :: j_source(n_tor,n_degrees)               !< Current source in a stellarator
 #elif fullmhd
     real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes

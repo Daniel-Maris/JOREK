@@ -1099,8 +1099,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_allocate(t_deltas,1,node_list%n_nodes,1,      n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "node_list%deltas",CAT_UNKNOWN)
  
 #if STELLARATOR_MODEL
-  call tr_allocate(t_pressure,1,node_list%n_nodes,1,n_degrees_tmp,                              "node_list%pressure",CAT_UNKNOWN)
   call tr_allocate(t_r_tor_eq,1,node_list%n_nodes,1,n_degrees_tmp,                              "node_list%r_tor_eq",CAT_UNKNOWN)
+  call tr_allocate(t_pressure,1,node_list%n_nodes,1,n_degrees_tmp,                              "node_list%pressure",CAT_UNKNOWN)
   call tr_allocate(t_j_field,1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_degrees_tmp,1,n_dim+1,  "node_list%j_field",CAT_UNKNOWN)
   call tr_allocate(t_b_field,1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_degrees_tmp,1,n_dim+1,    "node_list%b_field",     CAT_UNKNOWN)
   call tr_allocate(t_chi_correction,1,node_list%n_nodes,1,     n_coord_tor_tmp,1,n_degrees_tmp,            "node_list%chi_correction",CAT_UNKNOWN)
@@ -1148,11 +1148,15 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   end if
 
 #if STELLARATOR_MODEL
-  call HDF5_array2D_reading(file_id,t_pressure, 'pressure')
   call HDF5_array2D_reading(file_id,t_r_tor_eq, 'r_tor_eq')
+#if (JOREK_MODEL == 83)
+  call HDF5_array2D_reading(file_id,t_pressure, 'pressure')
   call HDF5_array4D_reading(file_id,t_j_field,  'j_field')
   call HDF5_array4D_reading(file_id,t_b_field,   'b_field')
+#endif
+#ifndef USE_DOMM
   call HDF5_array3D_reading(file_id,t_chi_correction, 'chi_correction')
+#endif
   call HDF5_array3D_reading(file_id,t_j_source, 'j_source')
 #endif
 
@@ -1219,11 +1223,15 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     end do
 
 #if STELLARATOR_MODEL    
-    node_list%node(i)%pressure = t_pressure(i,:)
     node_list%node(i)%r_tor_eq = t_r_tor_eq(i,:)
+#if (JOREK_MODEL == 83)
+    node_list%node(i)%pressure = t_pressure(i,:)
     node_list%node(i)%b_field  = t_b_field(i,:,:,:)
-    node_list%node(i)%chi_correction  = t_chi_correction(i,:,:)
     node_list%node(i)%j_field  = t_j_field(i,:,:,:)
+#endif
+#ifndef USE_DOMM
+    node_list%node(i)%chi_correction  = t_chi_correction(i,:,:)
+#endif
     node_list%node(i)%j_source = 0.d0 
     do m=1,n_tor_tmp,2
       do k=1, n_tor,2

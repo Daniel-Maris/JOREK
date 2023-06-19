@@ -63,8 +63,8 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   integer          :: iostatus=0                          ! Error flag for reading vacuum field
   integer          :: n_max_jorek = (n_coord_tor-1)/2     ! Maximum toroidal mode number in JOREK
 
-#ifndef STELLARATOR_MODEL
-  write(*,*) 'This function should not be called for tokamak models!'
+#if !(JOREK_MODEL == 83)
+  write(*,*) 'Equilibrium fields can only be read for stellarator initialisation models!'
   stop
 #else
   ! Read equilibrium parameters
