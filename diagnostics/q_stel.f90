@@ -130,7 +130,7 @@ do i = 1, n_lines
   
   if ( ( real(my_id)/real(n_cpu)*n_lines < i ) .and. ( real(my_id+1)/real(n_cpu)*n_lines >= i ) ) then
     responsible(i) = .true.
-    Rstart(i) = R_axis + float(i) * 0.95 * (R_max - R_axis)/n_lines
+    Rstart(i) = R_axis + float(i) * 0.99 * (R_max - R_axis)/n_lines
     Zstart(i) = Z_axis
   end if
   
@@ -165,6 +165,10 @@ do i = 1, n_lines
     write(*,*) "Can not find RZ,", ifail 
     exit
   endif
+  R_arr(i)        = RR
+  
+  ! Get radial coordinate from current element and local s coordinate
+  call interp_gvec(node_list,element_list,i_elm,4,1,1,s,t,rphin_arr(i),dummy,dummy,dummy,dummy,dummy)
 
   if ( i_elm < 1 ) then
     write(*,*) 'Illegal starting point for field line ', i, '. Skipping.'
@@ -207,16 +211,11 @@ do i = 1, n_lines
     endif
 
   end do
-  
-  ! Get radial coordinate from current element and local s coordinate
-  inode = element_list%element(i_elm)%vertex(v_s0_t0)
-  rphin_arr(i) = int((inode-1) / n_tht) / float(n_flux-1) + s * (1.0 / (n_flux - 1))
 
   ! Get total toroidal distance traced
   phi_arr(i)      = phi - 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
   torturns_arr(i) = phi_arr(i)/float(n_period*n_plane)/(2.d0*PI)
   polturns_arr(i) = polturns + t_global / float(n_tht) 
-  R_arr(i)        = RR
   write(*,*) 'Finished tracing line ', i
 
 end do
@@ -420,7 +419,6 @@ contains
   real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt
   real*8 :: psi_s, psi_t, psi_R, psi_z, psi_p, st_psi_p
   real*8 :: BR, BZ, BP, BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,Bp0sin
-  real*8 :: chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_st, chi_corr_ss, chi_corr_tt, chi_corr_R, chi_corr_Z
   real*8 :: Zjac
   real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
   

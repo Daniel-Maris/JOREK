@@ -35,7 +35,6 @@ real*8                :: u0_x, u0_y, xjac, xjac_s, xjac_t, xjac_x, xjac_y, v_per
 real*8                :: Bx, By, Bz
 real*8                :: V, Vx, Vy, Vz
 real*8                :: grad_chi(3), Bv2
-real*8                :: chi_corr_tot, chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_st, chi_corr_ss, chi_corr_tt, chi_corr_R, chi_corr_Z
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
 logical               :: periodic, density_only
@@ -140,7 +139,7 @@ do m=1,n_toroidal
   enddo
 
   HZ_coord(1,m) = 1.0
-  HZ_coord_p(1,k) = 0.d0
+  HZ_coord_p(1,m) = 0.d0
   do i=1,(n_coord_tor-1)/2
     HZ_coord(2*i,m)      =                           cos(mode_coord(2*i)  *phi)
     HZ_coord_p(2*i,m)    = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *phi)

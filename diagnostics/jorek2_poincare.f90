@@ -481,7 +481,6 @@ real*8 :: R,R_s,R_t,R_p,Z,Z_s,Z_t,Z_p,dummy,BR0cos,BR0sin,BZ0cos,BZ0sin,Bp0cos,B
 real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
 real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, psi_R, psi_z, psi_p, st_psi_p, Zjac
 real*8 :: AR0_Z, AR0_p, AR0_s, AR0_t, AZ0_R, AZ0_p, AZ0_s, AZ0_t, A30_R, A30_Z, BR0, BZ0, Bp0, Fprof
-real*8 :: chi_corr, chi_corr_s, chi_corr_t, chi_corr_p, chi_corr_st, chi_corr_ss, chi_corr_tt, chi_corr_R, chi_corr_Z
 
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
