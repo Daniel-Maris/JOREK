@@ -670,7 +670,7 @@ subroutine interp_RZP_0(node_list,element_list,i_elm,s,t,phi,R,Z)
   real*8,                   intent(out) :: R, Z
   
   ! --- Local variables
-  real*8  :: G(4,4)
+  real*8  :: G(4,n_degrees)
   real*8  :: HZ_coord(n_coord_tor)
   real*8  :: xx1, xx2, ss
   integer :: kv, iv, kf, i_tor
@@ -686,7 +686,7 @@ subroutine interp_RZP_0(node_list,element_list,i_elm,s,t,phi,R,Z)
   R = 0.d0; Z = 0.d0
   do kv = 1,n_vertex_max  ! 4 vertices
     iv = element_list%element(i_elm)%vertex(kv)  ! the node number
-    do kf = 1, n_order+1       ! 4 basis functions
+    do kf = 1, n_degrees       ! 4 basis functions
       do i_tor=1, n_coord_tor
         xx1 = node_list%node(iv)%x(i_tor,kf,1)
         xx2 = node_list%node(iv)%x(i_tor,kf,2)
@@ -711,7 +711,7 @@ real*8,                   intent(out) :: R, R_s, R_t, R_p, R_st, R_ss, R_tt, R_s
 real*8,                   intent(out) :: Z, Z_s, Z_t, Z_p, Z_st, Z_ss, Z_tt, Z_sp, Z_tp, Z_pp
 
 ! --- Local variables
-real*8  :: G(4,4), G_s(4,4), G_t(4,4), G_st(4,4), G_ss(4,4), G_tt(4,4)
+real*8  :: G(4,n_degrees), G_s(4,n_degrees), G_t(4,n_degrees), G_st(4,n_degrees), G_ss(4,n_degrees), G_tt(4,n_degrees)
 real*8  :: HZ_coord(n_coord_tor), HZ_coord_p(n_coord_tor), HZ_coord_pp(n_coord_tor)
 real*8  :: xx1, xx2, ss
 integer :: kv, iv, kf, i_tor
@@ -735,7 +735,7 @@ Z = 0.d0; Z_s = 0.d0; Z_t = 0.d0; Z_p = 0.d0; Z_st = 0.d0; Z_ss = 0.d0; Z_tt = 0
 
 do kv = 1,n_vertex_max  ! 4 vertices
   iv = element_list%element(i_elm)%vertex(kv)  ! the node number
-  do kf = 1, n_order+1       ! 4 basis functions
+  do kf = 1, n_degrees       ! 4 basis functions
     do i_tor=1, n_coord_tor
       xx1 = node_list%node(iv)%x(i_tor,kf,1)
       xx2 = node_list%node(iv)%x(i_tor,kf,2)
@@ -785,7 +785,7 @@ real*8,                   intent(in)  :: t
 real*8,                   intent(out) :: P, P_s, P_t, P_st, P_ss, P_tt
 
 ! --- Local variables
-real*8 :: G(4,4), G_s(4,4), G_t(4,4), G_st(4,4), G_ss(4,4), G_tt(4,4)
+real*8 :: G(4,n_degrees), G_s(4,n_degrees), G_t(4,n_degrees), G_st(4,n_degrees), G_ss(4,n_degrees), G_tt(4,n_degrees)
 integer :: kv, iv, kf 
 
 #ifndef STELLARATOR_MODEL
@@ -798,7 +798,7 @@ P = 0.d0; P_s = 0.d0; P_t = 0.d0; P_st = 0.d0; P_ss = 0.d0; P_tt = 0.d0
 
 do kv = 1,n_vertex_max  ! 4 vertices
   iv = element_list%element(i_elm)%vertex(kv)  ! the node number
-  do kf = 1, n_order+1       ! 4 basis functions
+  do kf = 1, n_degrees       ! 4 basis functions
 #if (JOREK_MODEL == 83)
     if (i_var == 1) then
       P    = P    + node_list%node(iv)%b_field(i_harm,kf,i_dim) * element_list%element(i_elm)%size(kv,kf) * G(kv,kf)
