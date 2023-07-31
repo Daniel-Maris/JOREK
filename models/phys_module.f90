@@ -134,6 +134,7 @@ module phys_module
   integer :: maxNewton            !< maximum number of Newton iterations
   real(kind=8) :: gamma_Newton    !< Newton gamma-parameter: gmres_tol = gamma_Newton*(normRHScurrent/normRHSprevious)**alpha_Newton
   real(kind=8) :: alpha_Newton    !< Newton alpha-parameter: gmres_tol = gamma_Newton*(normRHScurrent/normRHSprevious)**alpha_Newton
+  logical :: strumpack_matching   !< Perform maximum-diagonal-product reordering algorithm in STRUMPACK solver (improves direct solver, but use matrix centralization)
 
   ! ------------------------------------------------
   ! --- Structures to implement BCs in model600
@@ -304,6 +305,17 @@ module phys_module
   logical :: visco_num_T_dependent!< Hyper-visocsity dependent on temperature? Otherwise constant.
   logical :: add_sources_in_sc    !< Whether to add effect of sources in shock-capturing stabilization or not
 
+  !> @name VMS terms: The logical flag 'use_vms' enables to use variable
+  !multiscale based stabilization in fullmhd model 750. The coefficients
+  !vms_coeff_var are the real parameters to scale the stabilization added in
+  !each equation. For brief description please look at the wiki page:
+  ! https://www.jorek.eu/wiki/doku.php?id=vms
+  logical    :: use_vms !< Use VMS stabilization in model 750 only
+  real*8     :: vms_coeff_AR, vms_coeff_AZ, vms_coeff_A3
+  real*8     :: vms_coeff_UR, vms_coeff_UZ, vms_coeff_Up
+  real*8     :: vms_coeff_T, vms_coeff_Te, vms_coeff_Ti
+  real*8     :: vms_coeff_rho, vms_coeff_rhon, vms_coeff_rhoimp
+  
   !> @name Timestepping parameters
   real*8  :: tstep             		!< Size of the timesteps (\f$ \Delta t \f$)
   real*8  :: tstep_prev                 !< Previous time-step if using variable dt Gears
@@ -499,6 +511,7 @@ module phys_module
   real*8  :: delta_psi_GS      !< Expected psi_bnd - psi_axis for the final equilibrium  
   logical :: newton_GS_fixbnd  !< Newton instead of Picard iterations for fixed-boundary equilibria?
   logical :: newton_GS_freebnd !< Newton instead of Picard iterations for free-boundary equilibria?
+  logical :: equil_initialized = .false. !< Workaround to prevent determining lcfs shape when the equilibrium hasn't been initialized (by restarting or calling equilibrium)
  
   !> @name Free boundary extension
   !! Input parameters related to the free boundary extension (folder vacuum/).

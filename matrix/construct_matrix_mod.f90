@@ -1,6 +1,6 @@
 module construct_matrix_mod
 
-use mod_parameters, only : n_var
+use mod_parameters, only : n_var, n_order, n_degrees_1d
 
 implicit none
 
@@ -44,7 +44,7 @@ contains
     
     ! -- internal parameters
     integer :: iv, iv2, iv3, iv4, inode1, inode2, inode3, inode4, i, j
-    integer :: vertex(2), direction(2), bnd1, bnd2, side1, side2
+    integer :: vertex(2), direction(n_degrees_1d), bnd1, bnd2, side1, side2
     integer :: i_max   ! for keep_n0_const max index which should be updated
     integer :: n_tor_local
 
@@ -114,10 +114,13 @@ contains
           if (bnd1 .eq. 2) side1 = 3 ; if (bnd2 .eq. 2) side2 = 3
           if (bnd1 .eq.12) side1 = 2 ; if (bnd2 .eq.12) side2 = 2
           if (bnd1 .eq. 4) side1 = 2 ; if (bnd2 .eq. 4) side2 = 2
+          direction(1) = 1
           if     ( (side1 .eq. 2) .or. (side2 .eq. 2) ) then
-            direction = (/  1, 2  /)
+            direction(2) = 2
+            if (n_order .ge. 5) direction(3) = 5
           elseif ( (side1 .eq. 3) .or. (side2 .eq. 3) ) then
-            direction = (/  1, 3  /)
+            direction(2) = 3
+            if (n_order .ge. 5) direction(3) = 6
           endif
           ! --- This should never happen, but just in case...
           if (     ((side1 .eq. 2) .and. (side2 .eq. 3)) &
@@ -128,20 +131,24 @@ contains
           endif
         else
           ! --- The target has boundary 1 or 3
+          direction(1) = 1
           if (     (  ((bnd1 .eq. 1) .or. (bnd1 .eq. 3)) .and. ((bnd2 .eq. 1) .or. (bnd2 .eq. 3))  ) &
               .or. (  ((bnd1 .eq. 1) .or. (bnd1 .eq. 9)) .and. ((bnd2 .eq. 1) .or. (bnd2 .eq. 9))  ) &
               .or. (  ((bnd1 .eq. 4) .or. (bnd1 .eq. 9)) .and. ((bnd2 .eq. 4) .or. (bnd2 .eq. 9))  ) &
               .or. (  ((bnd1 .eq. 1) .or. (bnd1 .eq. 4)) .and. ((bnd2 .eq. 4) .or. (bnd2 .eq. 1))  ) ) then
             
-            direction = (/  1, 2  /)
+            direction(2) = 2
+            if (n_order .ge. 5) direction(3) = 5
             
           elseif (  ((bnd1 .eq. 5) .or. (bnd1 .eq. 9)) .and. ((bnd2 .eq. 5) .or. (bnd2 .eq. 9)) ) then
             
-            direction = (/  1, 3  /)
+            direction(2) = 3
+            if (n_order .ge. 5) direction(3) = 6
             
           elseif (  ((bnd1 .eq. 2) .or. (bnd1 .eq. 3)) .and. ((bnd2 .eq. 2) .or. (bnd2 .eq. 3)) ) then
             
-            direction = (/  1, 3  /)
+            direction(2) = 3
+            if (n_order .ge. 5) direction(3) = 6
             
           else
             write(*,'(A,4i8)') 'WARNING: boundary_matrix_open, boundary element not included ',&
@@ -436,13 +443,13 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   !$omp          my_ind_min, my_ind_max,xpoint2,xcase2,R_axis,Z_axis,psi_axis,psi_bnd,Z_xpoint,harmonic_matrix,  &
   !$omp          a_mat, rhs_local, rhs_vec,                                                               &
   !$omp          R_xpoint,my_id,bc_natural_open,bc_natural_flux,refinement,thread_struct,n_tor_fft_thresh,     &
-  !$omp          difference_found,rhs_problem,elm_problem) &
+  !$omp          difference_found,rhs_problem,elm_problem, treat_axis) &
   !$omp   private(ife,ielm,iv,inode,element,nodes, aux_nodes, i,inode1,i_order,index_node1, n_tor_local,   &
   !$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position,         &
   !$omp           l,index_kl,ilarge2,iv2,vertex,direction,inode2,omp_nthreads,omp_tid,                     &
   !$omp           i_father,element_father, nodes_father, inode_father, node_out, ivertex, iorder,          &
   !$omp           ivar, itor, jvertex, jorder, jvar, jtor, random_element, n_var_reduced, v1, v2, im,      &
-  !$omp           index_ij_model400_e, index_kl_model400_e,  tmp_rhs, tmp_elm, tmp_elm_v2_8, treat_axis,   &
+  !$omp           index_ij_model400_e, index_kl_model400_e,  tmp_rhs, tmp_elm, tmp_elm_v2_8,    &
   !$omp           i_v, i_harm                                                                              )
 
 ! --- omp id

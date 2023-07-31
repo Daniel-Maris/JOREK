@@ -171,6 +171,9 @@ endif
 ifeq (model712, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
 endif
+ifeq (model750, $(MODEL))
+  DEFINES  := $(DEFINES) -Dfullmhd
+endif
 
 CGDEP=
 EVAL_MOD_EQUATIONS ?= 0
