@@ -67,6 +67,10 @@ subroutine read_gvec_import(node_list, element_list, file_name, is_test, ierr)
   write(*,*) 'Equilibrium fields can only be read for stellarator initialisation models!'
   stop
 #else
+  if (n_order .ne. 3) then
+    write(*,*) 'The GVEC import can only be used with cubic finite elements!'
+    stop
+  endif
   ! Read equilibrium parameters
   open(in_gvec, file=trim(file_name), status='old', iostat=ierr, form='formatted', access='sequential')
   if (ierr /= 0) then
