@@ -1193,9 +1193,9 @@ do ife = ife_min, ife_max
 #if (defined WITH_Impurities)
         source_imp       = 0.d0; source_imp_arr       = 0.d0
         source_imp_drift = 0.d0; source_imp_drift_arr = 0.d0
-        call total_imp_source(x_g(ms,mt),y_g(ms,mt),phi,ps0,source_neutral_arr,source_imp_arr,m_i_over_m_imp,index_main_imp, source_neutral_drift_arr, source_imp_drift_arr)
+        call total_imp_source(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,ps0,source_neutral_arr,source_imp_arr,m_i_over_m_imp,index_main_imp, source_neutral_drift_arr, source_imp_drift_arr)
 #else /* WITH_Impurities */
-        call total_neutral_source(x_g(ms,mt),y_g(ms,mt),phi,ps0,source_neutral_arr,source_neutral_drift_arr)
+        call total_neutral_source(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,ps0,source_neutral_arr,source_neutral_drift_arr)
 #endif /* WITH_Impurities */ 
 
         do i_inj = 1,n_inj
@@ -1234,7 +1234,7 @@ do ife = ife_min, ife_max
         source_bg        = 0.d0; source_bg_arr       = 0.d0
         source_bg_drift  = 0.d0; source_bg_drift_arr = 0.d0
 
-        if (.not. with_neutrals) call total_imp_source(x_g(ms,mt),y_g(ms,mt),phi,ps0,source_bg_arr,source_imp_arr,m_i_over_m_imp,index_main_imp, source_bg_drift_arr, source_imp_drift_arr) ! if with_neutrals and with_impurities we should already have called this once above
+        if (.not. with_neutrals) call total_imp_source(x_g(mp,ms,mt),y_g(mp,ms,mt),phi,ps0,source_bg_arr,source_imp_arr,m_i_over_m_imp,index_main_imp, source_bg_drift_arr, source_imp_drift_arr) ! if with_neutrals and with_impurities we should already have called this once above
 
         do i_inj = 1,n_inj
           source_imp       = source_imp + source_imp_arr(i_inj)
