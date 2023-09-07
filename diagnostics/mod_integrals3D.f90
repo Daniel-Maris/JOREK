@@ -79,7 +79,6 @@ real*8  :: s_norm(n_gauss, n_gauss), stel_current_source(n_plane,n_gauss,n_gauss
 real*8  :: x_g_1D(n_plane,n_gauss),  x_s_1D(n_plane,n_gauss),   x_t_1D(n_plane,n_gauss)
 real*8  :: y_g_1D(n_plane,n_gauss),  y_s_1D(n_plane,n_gauss),   y_t_1D(n_plane,n_gauss)
 real*8  :: eq_g_1D(n_plane,0:n_var,n_gauss), eq_s_1D(n_plane,0:n_var,n_gauss)
-real*8  :: delta_g_1D(n_plane,0:n_var,n_gauss)
 real*8  :: eq_t_1D(n_plane,0:n_var,n_gauss), eq_p_1D(n_plane,0:n_var,n_gauss)
 real*8  :: s_norm_1D(n_plane, n_gauss), stel_current_source_1D(n_plane,n_gauss), delta_g_1D(n_plane,n_var,n_gauss)
 
@@ -373,7 +372,7 @@ Tie_min_neg = 0.5*T_min_neg
 
 !$omp parallel default(none)                                                                   &
 !$omp   shared(element_list,node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &
-!$omp          H_ss, H_tt, H_st, HZ_pp,, HZ_coord, HZ_coord_p,                                 &
+!$omp          H_ss, H_tt, H_st, HZ_pp, HZ_coord, HZ_coord_p,                                 &
 !$omp          R_xpoint, Z_xpoint, my_id, use_pellet, delta_phi, R_axis, Z_axis, psi_axis, psi_bnd, &
 !$omp          D_tot, D_int, D_Ext, P_tot, P_int, P_ext, Vol, surface_area, C_intern, C_ext, VP_ext, VP_int, &
 !$omp          VK_ext, VK_int, VK_tot, VM_ext, VM_int, VM_tot, J2_tot, J2_ext, J2_int,         &
@@ -386,7 +385,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          local_pellet_particles, local_plasma_particles, local_pellet_volume,            &
 !$omp          heli_tot,  keep_current_prof, psi_off, visco_par, visco_par_heating, thm_wk_tot,&
 !$omp          visco, visco_T_dependent, visco_old_setup,                                      &
-!$omp          mag_wk_tot, vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot,, momentum_x, momentum_y,         &
+!$omp          mag_wk_tot, vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,         &
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp,                                 &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,    &
@@ -410,10 +409,10 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p, &
 !$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,         &
 !$omp           eq_spp, eq_tpp, psi_axisym,s_norm, stel_current_source,                                                    &
-!$omp           wst, BigR, r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dudx, dudy,  &
+!$omp           wst, BigR, r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy,dudp,  &
 !$omp           w0, dwdx, dwdy, u0_xpp, u0_ypp, visco_T, visco_fact_old, visco_fact_new,       &
 !$omp           dpdx, dpdy, phi, Ti0, psi_as_coord, vprp_disp,                                 &
-!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, BB2, chi, Bv2, BB2,                      &
+!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, BB2, chi, Bv2,                      &
 !$omp           heat_source, heat_source_i, heat_source_e, particle_source, current_source, rotation_source, &
 !$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,    &
 !$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,    &
