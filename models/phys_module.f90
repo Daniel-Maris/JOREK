@@ -16,11 +16,14 @@ module phys_module
   logical :: eta_T_dependent      !< Resistivity dependent on temperature? Otherwise constant
   real*8  :: T_max_eta            !< Temperature above which the resistivity is truncated (use with care; only for numerical reasons)
   real*8  :: T_max_eta_ohm        !< Temperature above which the resistivity used in the Ohmic heating term is truncated (use with care; only for numerical reasons)
+  real*8  :: T_max_visco          !< Temperature above which the viscosity is truncated; It is aimed for keeping the Prandtl number constant when T_max_eta is activated. 
   real*8  :: visco                !< Viscosity at plasma center (normalized)
+  real*8  :: visco_heating        !< Viscosity used in the perpendicular viscous heating term
   real*8  :: visco_rst            !< visco value from restart file
   real*8  :: visco_par_rst        !< visco_par value from restart file
   real*8  :: eta_rst              !< eta value from restart file
   logical :: visco_T_dependent    !< Viscosity dependent on temperature? Otherwise constant.
+  logical :: visco_old_setup      !< If true, the old perp. viscosity treatment is used for compatibility (old visco depends on R^2)
   real*8  :: visco_par            !< Parallel viscosity (normalized)
   real*8  :: visco_par_heating    !< Parallel viscosity used in the parallel viscous heating term (normalized)
   real*8  :: t_rat                !< ratio to set ion and electron temperature from T: Ti=t_rat*T; Te=(1.0-t_rat)*T
@@ -815,7 +818,7 @@ module phys_module
     li3_tot_t(:), part_src_tot_t(:), heat_src_tot_t(:), volume_t(:), area_t(:), mag_ener_src_tot(:), &
     dpart_tot_dt(:), part_flux_Dpar_t(:), part_flux_Dperp_t(:), part_flux_vpar_t(:), part_flux_vperp_t(:), & 
     dnpart_tot_dt(:), npart_tot_t(:), npart_flux_t(:), density_tot_t(:), flux_poynting_t(:), Px_t(:), Py_t(:), dPx_dt(:), dPy_dt(:), &
-    thermal_e_tot_t(:), thermal_i_tot_t(:)
+    thermal_e_tot_t(:), thermal_i_tot_t(:), visco_dissip_tot_t(:)
 
   !> @name gmres parameters
   integer             :: iter_precon        !< whenever the number of gmres iterations exceeds iter_precon, the preconditioning matrix is updated

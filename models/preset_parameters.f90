@@ -36,15 +36,18 @@ subroutine preset_parameters
   eta_num_prof(2) = 0.03d0
 
   eta           = 1.d-5
-  T_max_eta     = 1.d3
+  T_max_eta     = 1.d99
   eta_ohmic     = 0.d0
-  T_max_eta_ohm = 1.d3
+  T_max_eta_ohm = 1.d99
   
   t_rat         = 0.5d0
 
   visco = 1.d-5
+  T_max_visco   = 1.d99
   visco_par = 1.d-5
+  visco_heating     = 0.d0
   visco_par_heating = 0.d0
+  visco_old_setup   = .false.
   
   central_density = 1.d0        ! the central density in units 10^20 m^-3
   central_mass    = 2.d0        ! the central average ion mass (D)
@@ -502,10 +505,10 @@ subroutine preset_parameters
   FF_1  =  0.d0
   
   zj_coef     = 0.d0;  zj_coef(1)  = -1.d0
-  T_coef      = 0.d0;  T_coef(1)   = -1.d0;
-  Te_coef     = 0.d0;  Te_coef(1)  = -1.d0;
-  Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0;
-  rho_coef    = 0.d0;  rho_coef(1) =  0.d0;
+  T_coef      = 0.d0;  T_coef(1)   = -1.d0
+  Te_coef     = 0.d0;  Te_coef(1)  = -1.d0
+  Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0
+  rho_coef    = 0.d0;  rho_coef(1) =  0.d0
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
   dcoef       = 0.d0
 
