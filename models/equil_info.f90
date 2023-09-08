@@ -127,16 +127,17 @@ module equil_info
     
 #if STELLARATOR_MODEL
      ! find_limiter and find_axis routines do not work for stellarators currently, so we assume the axis and boundary points from
-     ! the imported GVEC grid
+     ! the imported GVEC grid. Psi_axis and Psi_lim are set to 1.0, as currently the normalised radial coordinate is interpolated 
+     ! from the GVEC grid in stellarator simulations
      ES%i_elm_axis = 1
      ES%s_axis = 0.d0
      ES%t_axis = 0.d0
      ES%ifail_axis = 0
      toroidal_angle = 2.d0*PI*float(i_plane_rtree - 1)/float(n_period*n_plane)
      call interp_RZP(node_list,element_list,ES%i_elm_axis,ES%s_axis,ES%t_axis,toroidal_angle, ES%R_axis, ES%Z_axis)
-     call interp(node_list,element_list,ES%i_elm_axis,1,1,ES%s_axis,ES%t_axis, ES%psi_axis, dummy, dummy, dummy, dummy, dummy)
-     
-     ES%axis_is_psi_minimum   = .false.
+     ES%psi_axis = 0.0
+
+     ES%axis_is_psi_minimum   = .true.
     
      ES%limiter_plasma        = .true.
      ES%active_xpoint  = 0
@@ -148,8 +149,8 @@ module equil_info
      ES%s_lim         = 1.0
      ES%t_lim         = 1.d0
      call interp_RZP(node_list,element_list,ES%i_elm_lim,1.0,1.0,toroidal_angle, ES%R_lim, ES%Z_lim)
-     call interp(node_list,element_list,ES%i_elm_lim,1,1,ES%s_lim,ES%t_lim, ES%psi_lim, dummy, dummy, dummy, dummy, dummy)
-     ES%ifail_lim = 0
+     ES%Psi_lim       = 1.0
+     ES%ifail_lim     = 0
     
      ES%R_bnd      =  ES%R_lim
      ES%Z_bnd      =  ES%Z_lim

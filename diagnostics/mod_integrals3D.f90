@@ -700,6 +700,8 @@ do ife = ife_min, ife_max
         BZ_R = -1/BigR**2 * ( AR0_p - A30_R ) + ( AR0_Rp - A30_RR )/ BigR
         zj0 = - (BZ_R - BR_Z) * BigR
         psi_as_coord = psi_axisym(ms,mt)
+#elif STELLARATOR_MODEL
+        psi_as_coord = s_norm(ms, mt)
 #else
         psi_as_coord = ps0
 #endif
@@ -727,7 +729,7 @@ do ife = ife_min, ife_max
         !dPdy = r0 * dTdy + T0 * drhody
 
 #ifdef WITH_TiTe
-        call sources(xpoint, xcase, y_g(mp,ms,mt), Z_xpoint, ps0, psi_axis, psi_bnd, &
+        call sources(xpoint, xcase, y_g(mp,ms,mt), Z_xpoint, psi_as_coord, psi_axis, psi_bnd, &
                      particle_source,heat_source_i,heat_source_e)
         heat_source = heat_source_i + heat_source_e
 #else
