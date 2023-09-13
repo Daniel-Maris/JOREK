@@ -127,8 +127,8 @@ module equil_info
     
 #if STELLARATOR_MODEL
      ! find_limiter and find_axis routines do not work for stellarators currently, so we assume the axis and boundary points from
-     ! the imported GVEC grid. Psi_axis and Psi_lim are set to 1.0, as currently the normalised radial coordinate is interpolated 
-     ! from the GVEC grid in stellarator simulations
+     ! the imported GVEC grid. Psi_axis and Psi_lim are set to 0.0 and 1.0, as currently the normalised radial coordinate is 
+     ! interpolated from the GVEC grid in stellarator simulations
      ES%i_elm_axis = 1
      ES%s_axis = 0.d0
      ES%t_axis = 0.d0
