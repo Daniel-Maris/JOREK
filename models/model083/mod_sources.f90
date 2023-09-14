@@ -90,4 +90,28 @@ heat_source_e     = heatsource_e     * (0.5d0 - 0.5d0*tanh((psi_n - heatsource_e
 return
 end subroutine sources_TeTi
 
+
+!> parallel velocity profile which is kept by the // velocity source implemented in element_matrix_fft.f90
+subroutine velocity(xpoint2,xcase2,Z,Z_xpoint,psi,psi_axis,psi_bnd,velocity_profile,dV_dpsi,dV_dz, &
+                   dV_dpsi2,dV_dz2,dV_dpsi_dz,dV_dpsi3,dV_dpsi_dz2, dV_dpsi2_dz)
+use phys_module
+
+implicit none
+
+! --- Routine parameters.
+logical, intent(in)   :: xpoint2
+integer, intent(in)   :: xcase2
+real*8,  intent(in)   :: Z
+real*8,  intent(in)   :: Z_xpoint(2)
+real*8,  intent(in)   :: psi
+real*8,  intent(in)   :: psi_axis
+real*8,  intent(in)   :: psi_bnd
+real*8,  intent(out)  :: velocity_profile, dV_dpsi, dV_dz, dV_dpsi2, dV_dz2, dV_dpsi_dz, &
+                         dV_dpsi3, dV_dpsi_dz2, dV_dpsi2_dz
+
+write(*,*) 'Velocity source is not implemented for stellarator models!'
+stop
+
+end subroutine velocity
+
 end module mod_sources

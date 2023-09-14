@@ -4,20 +4,18 @@ program algexpr2fort
   use mod_semianalytical
   use mod_equations
   use mod_parameters
+  use mod_equations
   implicit none
   
-  integer :: i
+  integer :: i_var, j_var, i_aux
   integer, parameter :: line_length = 130
   
   character(3)  :: model_num
   
   character(:),  allocatable       :: varname, full
-  character(8),  allocatable       :: varname_rhs(:)
-  character(7),  allocatable       :: varname_amat(:)
+  character(8),  dimension(n_var)  :: index_names(n_var)
   character(14), dimension(n_aux)  :: varname_aux
   
-  type(algexpr), allocatable       :: rhs(:)
-  type(algexpr), allocatable       :: amat(:)
   type(algexpr), dimension(n_aux)  :: aux
   
   varname = "eq"
@@ -26,30 +24,41 @@ program algexpr2fort
   time_evol_zeta = 0.
   time_evol_theta = 1.
   call init_equations()
-  call get_rhs(rhs, varname_rhs)
-  call get_amat(amat, varname_amat)
+  call get_varnames(index_names)
   if (n_aux .ne. 0) call get_aux(aux, varname_aux)
   
   write(model_num,'(I3.3)') jorek_model
   
+  ! Write out RHS for included variables
   open(10, file="models/model"//model_num//"/rhs_unreadable.h", action="write", status="replace")
-  do i=1,n_rhs
-    full = varname_rhs(i) // "=" // gencode(rhs(i), varname)
-    call write_long_string(10,full)
+  do i_var=1,n_var
+    if ((.not. associated(rhs_semianalytic(i_var)%operand1)) .and. (.not. associated(rhs_semianalytic(i_var)%operand2))) then
+      cycle
+    else
+      full = "rhs_ij("// index_names(i_var) // ") = " // gencode(rhs_semianalytic(i_var), varname)
+      call write_long_string(10,full)
+    endif
   end do
   close(10)
   
+  ! Write out AMAT for included variables
   open(20, file="models/model"//model_num//"/amat_unreadable.h", action="write", status="replace")
-  do i=1,n_amat
-    full = varname_amat(i) // " = " // gencode(amat(i), varname)
-    call write_long_string(20,full)
-  end do
+  do i_var = 1, n_var
+    do j_var = 1, n_var
+      if ((.not. associated(amat_semianalytic(i_var, j_var)%operand1)) .and. (.not. associated(amat_semianalytic(i_var, j_var)%operand2))) then
+        cycle
+      else
+        full = "amat_ij("// index_names(i_var) // "," // index_names(j_var) // ") = " // gencode(amat_semianalytic(i_var, j_var), varname) 
+        call write_long_string(20,full)
+      endif 
+    enddo
+  enddo
   close(20)
   
   if (n_aux .ne. 0) then
     open(30, file="models/model"//model_num//"/aux_unreadable.h", action="write", status="replace")
-    do i=1,n_aux
-      full = varname_aux(i) // "=" // gencode(aux(i), varname)
+    do i_aux=1,n_aux
+      full = varname_aux(i_aux) // "=" // gencode(aux(i_aux), varname)
       call write_long_string(30,full)
     end do
     close(30)

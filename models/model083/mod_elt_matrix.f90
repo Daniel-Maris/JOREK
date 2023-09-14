@@ -31,14 +31,14 @@ real*8, dimension (:)  , allocatable  :: RHS
 integer, intent(in) :: tid, i_tor_min, i_tor_max
 
 integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, xcase2
-integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, kl1, kl2, kl3, kl4, kl5, kl6, kl7
-real*8     :: wst,  xjac, xjac_x, xjac_y, x_p_x, x_p_y, y_p_x, y_p_y, BigR, phi
+integer    :: in, im, ij, kl, i_var, j_var
+real*8     :: wst, prefactor, xjac, xjac_x, xjac_y, x_p_x, x_p_y, y_p_x, y_p_y, BigR, phi
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2)
 real*8     :: psi_norm, reta, zeta, theta
 real*8     :: v_px, v_py, u_px, u_py
 
-real*8, dimension(4) :: rhs_ij_1, rhs_ij_3, rhs_ij_6, rhs_ij_7
-real*8, dimension(4) :: amat_11, amat_13, amat_22, amat_33, amat_44, amat_55, amat_66, amat_77
+real*8, dimension(n_var)        :: rhs_ij
+real*8, dimension(n_var, n_var) :: amat_ij
 
 logical    :: xpoint2
 integer    :: n_tor_local
@@ -70,6 +70,8 @@ eq_tt   => thread_struct(tid)%eq_tt
 
 eq => thread_eq(tid)%eq
 
+rhs_ij = 0.d0
+amat_ij = 0.d0
 ELM = 0.d0
 RHS = 0.d0
 
@@ -220,12 +222,7 @@ do ms=1, n_gauss
      eq(3,:,:,:,1) = eq(3,:,:,:,1)/F0
 
      ! Auxiliary variables (aux)
-#ifdef EVAL_MOD_EQUATIONS
-     eq(n_var+9,0,0,0,:) = eval(thread_eq(tid)%aBv2seq);  eq(n_var+9,1,0,0,:) = eval(thread_eq(tid)%aBv2xseq)
-     eq(n_var+9,0,1,0,:) = eval(thread_eq(tid)%aBv2yseq); eq(n_var+9,0,0,1,:) = eval(thread_eq(tid)%aBv2pseq)
-#else
 #include "aux_unreadable.h"
-#endif
      
      n_tor_local = i_tor_max - i_tor_min + 1
      do i=1,n_vertex_max
@@ -266,27 +263,15 @@ do ms=1, n_gauss
            eq(n_var+1,1,0,1,1) = v_px - x_p_x*eq(n_var+1,1,0,0,1) - x_p(mp,ms,mt)*eq(n_var+1,2,0,0,1) - y_p_x*eq(n_var+1,0,1,0,1) - y_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
            eq(n_var+1,0,1,1,1) = v_py - x_p_y*eq(n_var+1,1,0,0,1) - y_p(mp,ms,mt)*eq(n_var+1,0,2,0,1) - y_p_y*eq(n_var+1,0,1,0,1) - x_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
 
-#ifdef EVAL_MOD_EQUATIONS
-           rhs_ij_1 = eval(thread_eq(tid)%rhs1seq)*BigR*xjac
-           rhs_ij_3 = eval(thread_eq(tid)%rhs3seq)*BigR*xjac
-#else
 #include "rhs_unreadable.h"
+           do i_var=1,n_var
+             rhs_ij(i_var) = rhs_ij(i_var)*wst*BigR*xjac
+           enddo
 
-           rhs_ij_1 = rhs_ij_1*BigR*xjac
-           rhs_ij_3 = rhs_ij_3*BigR*xjac
-#endif
-
-           ij1 = index_ij
-           ij2 = index_ij + 1*n_tor_local
-           ij3 = index_ij + 2*n_tor_local
-           ij4 = index_ij + 3*n_tor_local
-           ij5 = index_ij + 4*n_tor_local
-           ij6 = index_ij + 5*n_tor_local
-           if (with_TiTe) ij7 = index_ij + 6*n_tor_local
-
-           RHS(ij1) = RHS(ij1) + rhs_ij_1(1)*wst
-           RHS(ij3) = RHS(ij3) + rhs_ij_3(1)*wst
-
+           do i_var = 1, n_var
+                RHS(index_ij+(i_var-1)*(n_tor_local)) = RHS(index_ij+(i_var-1)*(n_tor_local)) + rhs_ij(i_var)
+           enddo
+           
            do k=1,n_vertex_max
 
              do l=1,n_order+1
@@ -327,63 +312,28 @@ do ms=1, n_gauss
                  
                  index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local*n_var*(l-1) + in - i_tor_min + 1   ! index in the ELM matrix
                  
-#ifdef EVAL_MOD_EQUATIONS
-!---------------------------------------------------------------- equation 1
-                 amat_11 = eval(thread_eq(tid)%amat11seq)*BigR*xjac/F0
-                 amat_13 = eval(thread_eq(tid)%amat13seq)*BigR*xjac/F0
-
-!---------------------------------------------------------------- equation 2
-                 amat_22 = eval(thread_eq(tid)%amat22seq)*BigR*xjac
-
-!---------------------------------------------------------------- equation 3
-                 amat_33 = eval(thread_eq(tid)%amat33seq)*BigR*xjac/F0
-
-!---------------------------------------------------------------- equation 4
-                 amat_44 = eval(thread_eq(tid)%amat44seq)*BigR*xjac
-                 
-!---------------------------------------------------------------- equation 5
-                 amat_55 = eval(thread_eq(tid)%amat55seq)*BigR*xjac
-                 
-!---------------------------------------------------------------- equation 6
-                 amat_66 = eval(thread_eq(tid)%amat66seq)*BigR*xjac
-!---------------------------------------------------------------- equation 7
-                 if (with_TiTe) amat_77 = eval(thread_eq(tid)%amat77seq)*BigR*xjac
-
-#else
 #include "amat_unreadable.h"
+                 
+                 ! Include pre-factor to contribution
+                 do i_var = 1, n_var
+                   if ((i_var .eq. var_Psi) .or. (i_var .eq.var_zj)) then
+                     prefactor =  wst*BigR*xjac/F0
+                   else
+                     prefactor =  wst*BigR*xjac
+                   endif
 
-                 amat_11 = amat_11*BigR*xjac/F0
-                 amat_13 = amat_13*BigR*xjac/F0
-                 amat_22 = amat_22*BigR*xjac
-                 amat_33 = amat_33*BigR*xjac/F0
-                 amat_44 = amat_44*BigR*xjac
-                 amat_55 = amat_55*BigR*xjac
-                 amat_66 = amat_66*BigR*xjac
-                 if (with_TiTe) amat_77 = amat_77*BigR*xjac
-#endif
+                   do j_var = 1, n_var 
+                     amat_ij(i_var, j_var) = amat_ij(i_var, j_var)*prefactor
+                   enddo
+                 enddo
 
-                 kl1 = index_kl
-                 kl2 = index_kl + 1*n_tor_local
-                 kl3 = index_kl + 2*n_tor_local
-                 kl4 = index_kl + 3*n_tor_local
-                 kl5 = index_kl + 4*n_tor_local
-                 kl6 = index_kl + 5*n_tor_local
-                 if (with_TiTe) kl7 = index_kl + 6*n_tor_local
-
-                 ELM(ij1,kl1) =  ELM(ij1,kl1) + wst*amat_11(1)
-                 ELM(ij1,kl3) =  ELM(ij1,kl3) + wst*amat_13(1)
-
-                 ELM(ij2,kl2) =  ELM(ij2,kl2) + wst*amat_22(1)
-
-                 ELM(ij3,kl3) =  ELM(ij3,kl3) + wst*amat_33(1)
-
-                 ELM(ij4,kl4) =  ELM(ij4,kl4) + wst*amat_44(1)
-
-                 ELM(ij5,kl5) =  ELM(ij5,kl5) + wst*amat_55(1)
-
-                 ELM(ij6,kl6) =  ELM(ij6,kl6) + wst*amat_66(1)
-
-                 if (with_TiTe) ELM(ij7,kl7) =  ELM(ij7,kl7) + wst*amat_77(1)
+                 do i_var = 1, n_var
+                   ij = index_ij + (i_var - 1)*n_tor_local
+                   do j_var = 1, n_var 
+                     kl = index_kl + (j_var - 1)*n_tor_local
+                     ELM(ij,kl) =  ELM(ij,kl) + amat_ij(i_var, j_var)
+                   enddo
+                 enddo
 
                enddo
              enddo

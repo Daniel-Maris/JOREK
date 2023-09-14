@@ -649,17 +649,11 @@ mpi_required = 0
 
   index_now = index_start  ! index_now: Index of current timestep
 
-#if defined(SEMIANALYTICAL) && defined(EVAL_MOD_EQUATIONS)
-  call init_equations()
-  call init_eq_struct()
-#elif defined(SEMIANALYTICAL)
+#if defined(SEMIANALYTICAL)
   call init_eq_struct()
 #endif
 
   jstep_loop: do jstep = 1, 10 ! Go through the different values of the tstep_n and nstep_n arrays
-#if defined(SEMIANALYTICAL) && defined(EVAL_MOD_EQUATIONS)
-  call build_all_seq()
-#endif
   istep_loop: do istep = 1, nstep_n(jstep)
     call clck_time_barrier(t_itstart)
     t0 = t_itstart

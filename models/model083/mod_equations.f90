@@ -5,17 +5,6 @@ module mod_equations
   implicit none
 
   type type_thread_eq
-#ifdef EVAL_MOD_EQUATIONS
-    type(action), dimension(:), allocatable :: rhs1seq, rhs3seq
-    type(action), dimension(:), allocatable :: amat11seq, amat13seq
-    type(action), dimension(:), allocatable :: amat22seq
-    type(action), dimension(:), allocatable :: amat33seq
-    type(action), dimension(:), allocatable :: amat44seq
-    type(action), dimension(:), allocatable :: amat55seq
-    type(action), dimension(:), allocatable :: amat66seq
-    type(action), dimension(:), allocatable :: amat77seq
-    type(action), dimension(:), allocatable :: aBv2seq, aBv2xseq, aBv2yseq, aBv2pseq
-#endif
 
     ! Indices in eq array: variable index (see algexpr's below), R derivative order, z derivative order, phi derivative order,
     !   separation of terms with covariant phi derivatives in test function and unknown (FFT, not used in this model)
@@ -23,14 +12,15 @@ module mod_equations
   end type type_thread_eq
 
   ! Values
-  type(algexpr), parameter, private :: Psi0       = algexpr(basic=.true.,var=1)
-  type(algexpr), parameter, private :: Phi0       = algexpr(basic=.true.,var=2)
-  type(algexpr), parameter, private :: zj0        = algexpr(basic=.true.,var=3)
-  type(algexpr), parameter, private :: w0         = algexpr(basic=.true.,var=4)
-  type(algexpr), parameter, private :: rho0       = algexpr(basic=.true.,var=5)
-  type(algexpr), parameter, private :: T0         = algexpr(basic=.true.,var=6)
-  type(algexpr), parameter, private :: T0_i       = algexpr(basic=.true.,var=6)
-  type(algexpr), parameter, private :: T0_e       = algexpr(basic=.true.,var=7)
+  type(algexpr), parameter, private :: Psi0       = algexpr(basic=.true.,var=var_Psi)
+  type(algexpr), parameter, private :: Phi0       = algexpr(basic=.true.,var=var_Phi)
+  type(algexpr), parameter, private :: zj0        = algexpr(basic=.true.,var=var_zj)
+  type(algexpr), parameter, private :: w0         = algexpr(basic=.true.,var=var_w)
+  type(algexpr), parameter, private :: rho0       = algexpr(basic=.true.,var=var_rho)
+  type(algexpr), parameter, private :: T0         = algexpr(basic=.true.,var=var_T)
+  type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true.,var=var_vpar)
+  type(algexpr), parameter, private :: T0_i       = algexpr(basic=.true.,var=var_Ti)
+  type(algexpr), parameter, private :: T0_e       = algexpr(basic=.true.,var=var_Te)
   ! Test function
   type(algexpr), parameter, private :: v          = algexpr(basic=.true.,var=n_var+1)
   ! Unknowns
@@ -40,6 +30,7 @@ module mod_equations
   type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=n_var+2)
   type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=n_var+2)
   type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=n_var+2)
+  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true.,var=n_var+2)
   type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=n_var+2)
   type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=n_var+2)
   ! Other quantities
@@ -53,17 +44,10 @@ module mod_equations
  ! Auxiliary variables (aux)
   type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=n_var+9)
 
-  type(algexpr), private :: rhs1, rhs2, rhs3, rhs4, rhs5, rhs6, rhs7
-  type(algexpr), private :: amat11, amat12, amat13, amat16, amat17
-  type(algexpr), private :: amat21, amat22, amat23, amat24, amat25, amat26, amat27
-  type(algexpr), private :: amat31, amat33
-  type(algexpr), private :: amat42, amat44
-  type(algexpr), private :: amat51, amat52, amat55
-  type(algexpr), private :: amat61, amat62, amat63, amat65, amat66, amat67
-  type(algexpr), private :: amat71, amat72, amat73, amat75, amat76, amat77
+  type(algexpr), dimension(n_var), public        :: rhs_semianalytic
+  type(algexpr), dimension(n_var, n_var), public :: amat_semianalytic
   type(algexpr), private :: a_Bv2
 
-  integer            :: n_rhs, n_amat
   integer, parameter :: n_aux = 4
 
   type(const), private :: t_rat
@@ -88,28 +72,32 @@ module mod_equations
  
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
 
-    rhs1 = (-Bv2)*inprod(v,Psi0)
+    rhs_semianalytic(var_Psi) = (-Bv2)*inprod(v,Psi0)
 
-    rhs3 = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
-         - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
+    rhs_semianalytic(var_zj)  = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
+                   - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
 
-    amat11 = Bv2*inprod(v,Psi)
-    amat13 = v*Bv2*zj
+    amat_semianalytic(var_Psi, var_Psi) = Bv2*inprod(v,Psi)
+    amat_semianalytic(var_Psi, var_zj)  = v*Bv2*zj
 
-    amat22 = v*Phi
+    amat_semianalytic(var_Phi, var_Phi) = v*Phi
 
-    amat33 = v*Bv2*zj
+    amat_semianalytic( var_zj,  var_zj) = v*Bv2*zj
 
-    amat44 = v*w
+    amat_semianalytic(  var_w,   var_w) = v*w
 
-    amat55 = v*rho
+    amat_semianalytic(var_rho, var_rho) = v*rho
    
     if (with_TiTe) then
-      amat66 = v*T_i
-      amat77 = v*T_e
+      amat_semianalytic(var_Ti, var_Ti) = v*T_i
+      amat_semianalytic(var_Te, var_Te) = v*T_e
     else
-      amat66 = v*T
+      amat_semianalytic( var_T,  var_T) = v*T
     end if
+
+    if (with_vpar) then
+      amat_semianalytic(var_vpar, var_vpar) = v*vpar
+    endif
 
     ea_Bv2x = Dexpand(deepcopy(dx(a_Bv2))); ea_Bv2y = Dexpand(deepcopy(dy(a_Bv2))); ea_Bv2p = Dexpand(deepcopy(dp(a_Bv2)))
   end subroutine init_equations
@@ -123,110 +111,30 @@ module mod_equations
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
         allocate(thread_eq(i)%eq(n_var+9,0:n_order-1,0:n_order-1,0:n_order-1,4))
-#ifdef EVAL_MOD_EQUATIONS
-        allocate(thread_eq(i)%rhs1seq(countsubexprs(rhs1)))
-        allocate(thread_eq(i)%rhs3seq(countsubexprs(rhs3)))
-        allocate(thread_eq(i)%amat11seq(countsubexprs(amat11)))
-        allocate(thread_eq(i)%amat13seq(countsubexprs(amat13)))
-        allocate(thread_eq(i)%amat22seq(countsubexprs(amat22)))
-        allocate(thread_eq(i)%amat33seq(countsubexprs(amat33)))
-        allocate(thread_eq(i)%amat44seq(countsubexprs(amat44)))
-        allocate(thread_eq(i)%amat55seq(countsubexprs(amat55)))
-        allocate(thread_eq(i)%amat66seq(countsubexprs(amat66)))
-        if (with_TiTe) allocate(thread_eq(i)%amat77seq(countsubexprs(amat77)))
-        allocate(thread_eq(i)%aBv2seq(countsubexprs(a_Bv2)))
-        allocate(thread_eq(i)%aBv2xseq(countsubexprs(ea_Bv2x)))
-        allocate(thread_eq(i)%aBv2yseq(countsubexprs(ea_Bv2y)))
-        allocate(thread_eq(i)%aBv2pseq(countsubexprs(ea_Bv2p)))
-#endif
       end do
     end if
   end subroutine init_eq_struct
 
-#ifdef EVAL_MOD_EQUATIONS
-  subroutine build_all_seq()
-    use data_structure, only: nbthreads
+  
+  subroutine get_varnames(varnames)
     implicit none
-    integer :: i
-
-    do i=1,nbthreads
-      call buildsequence(rhs1, thread_eq(i)%rhs1seq, thread_eq(i)%eq)
-      call buildsequence(rhs3, thread_eq(i)%rhs3seq, thread_eq(i)%eq)
-
-      call buildsequence(amat11, thread_eq(i)%amat11seq, thread_eq(i)%eq)
-      call buildsequence(amat13, thread_eq(i)%amat13seq, thread_eq(i)%eq)
-
-      call buildsequence(amat22, thread_eq(i)%amat22seq, thread_eq(i)%eq)
-
-      call buildsequence(amat33, thread_eq(i)%amat33seq, thread_eq(i)%eq)
-
-      call buildsequence(amat44, thread_eq(i)%amat44seq, thread_eq(i)%eq)
-
-      call buildsequence(amat55, thread_eq(i)%amat55seq, thread_eq(i)%eq)
-
-      call buildsequence(amat66, thread_eq(i)%amat66seq, thread_eq(i)%eq)
-
-      if (with_TiTe) call buildsequence(amat77, thread_eq(i)%amat77seq, thread_eq(i)%eq)
-
-      call buildsequence(a_Bv2, thread_eq(i)%aBv2seq, thread_eq(i)%eq)
-      call buildsequence(ea_Bv2x, thread_eq(i)%aBv2xseq, thread_eq(i)%eq)
-      call buildsequence(ea_Bv2y, thread_eq(i)%aBv2yseq, thread_eq(i)%eq)
-      call buildsequence(ea_Bv2p, thread_eq(i)%aBv2pseq, thread_eq(i)%eq)
-    end do
-  end subroutine build_all_seq
-#endif
-
-  subroutine get_rhs(rhs,varnames)
-    implicit none
-    type(algexpr), allocatable, intent(out) :: rhs(:)
-    character(8),  allocatable, intent(out) :: varnames(:)
-
-    n_rhs=2
-    allocate(rhs(n_rhs), varnames(n_rhs))
-    rhs = (/ rhs1, rhs3/)
-    varnames = (/ "rhs_ij_1", "rhs_ij_3"/)
-  end subroutine get_rhs
-
-  subroutine get_amat(amat,varnames)
-    implicit none
-
-    type(algexpr), allocatable, intent(out) :: amat(:)
-    character(7),  allocatable, intent(out) :: varnames(:)
-
+    character(8), dimension(n_var), intent(out) :: varnames
+      
+    varnames(var_Psi)    = " var_Psi"
+    varnames(var_Phi)    = " var_Phi"
+    varnames( var_zj)    = "  var_zj"
+    varnames(  var_w)    = "   var_w"
+    varnames(var_rho)    = " var_rho"
+    if (with_vpar) then
+      varnames(var_vpar) = "var_vpar"
+    endif
     if (with_TiTe) then
-      n_amat = 8
-      allocate(amat(n_amat), varnames(n_amat))
-      amat = (/ amat11,         amat13, &
-                        amat22, &
-                                amat33, &
-                                        amat44, &
-                                                amat55, &
-                                                        amat66, &
-                                                                amat77 /)
-      varnames = (/ "amat_11",            "amat_13", &
-                               "amat_22", &
-                                          "amat_33", &
-                                                     "amat_44", &
-                                                                "amat_55", &
-                                                                           "amat_66", &
-                                                                                      "amat_77" /)
+      varnames( var_Ti)    = "  var_Ti"
+      varnames( var_Te)    = "  var_Te"
     else
-      n_amat = 7
-      allocate(amat(n_amat), varnames(n_amat))
-      amat = (/ amat11,         amat13, &
-                        amat22, &
-                                amat33, &
-                                        amat44, &
-                                                amat55, &
-                                                        amat66 /)
-      varnames = (/ "amat_11",            "amat_13", &
-                               "amat_22", &
-                                          "amat_33", &
-                                                     "amat_44", &
-                                                                "amat_55", &
-                                                                           "amat_66" /)
-    end if
-  end subroutine get_amat
+      varnames( var_T)     = "   var_T"
+    endif
+  end subroutine get_varnames
   
   subroutine get_aux(aux,varnames)
     implicit none
