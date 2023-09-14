@@ -11,6 +11,17 @@ module mod_equations
     real*8, dimension(:,:,:,:,:), allocatable :: eq
   end type type_thread_eq
 
+  ! Indices
+  integer, parameter :: var_v         = n_var+1
+  integer, parameter :: var_varStar   = n_var+2
+  integer, parameter :: var_chi       = n_var+3
+  integer, parameter :: var_R         = n_var+4
+  integer, parameter :: var_p0_gvec   = n_var+5
+  integer, parameter :: var_B0x_gvec  = n_var+6
+  integer, parameter :: var_B0y_gvec  = n_var+7
+  integer, parameter :: var_B0p_gvec  = n_var+8
+  integer, parameter :: var_Bv2       = n_var+9
+
   ! Values
   type(algexpr), parameter, private :: Psi0       = algexpr(basic=.true.,var=var_Psi)
   type(algexpr), parameter, private :: Phi0       = algexpr(basic=.true.,var=var_Phi)
@@ -22,27 +33,27 @@ module mod_equations
   type(algexpr), parameter, private :: T0_i       = algexpr(basic=.true.,var=var_Ti)
   type(algexpr), parameter, private :: T0_e       = algexpr(basic=.true.,var=var_Te)
   ! Test function
-  type(algexpr), parameter, private :: v          = algexpr(basic=.true.,var=n_var+1)
+  type(algexpr), parameter, private :: v          = algexpr(basic=.true.,var=var_v)
   ! Unknowns
-  type(algexpr), parameter, private :: Psi        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: Phi        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: zj         = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=n_var+2)
-  type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=n_var+2)
+  type(algexpr), parameter, private :: Psi        = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: Phi        = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: zj         = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=var_varStar)
+  type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=var_varStar)
   ! Other quantities
-  type(algexpr), parameter, private :: chi        = algexpr(basic=.true.,var=n_var+3)
-  type(algexpr), parameter, private :: R          = algexpr(basic=.true.,var=n_var+4)
+  type(algexpr), parameter, private :: chi        = algexpr(basic=.true.,var=var_chi)
+  type(algexpr), parameter, private :: R          = algexpr(basic=.true.,var=var_R)
   ! Quantities imported from GVEC
-  type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=n_var+5)
-  type(algexpr), parameter, private :: B0x_gvec   = algexpr(basic=.true.,var=n_var+6)
-  type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=n_var+7)
-  type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=n_var+8)
+  type(algexpr), parameter, private :: p0_gvec    = algexpr(basic=.true.,var=var_p0_gvec)
+  type(algexpr), parameter, private :: B0x_gvec   = algexpr(basic=.true.,var=var_B0x_gvec)
+  type(algexpr), parameter, private :: B0y_gvec   = algexpr(basic=.true.,var=var_B0y_gvec)
+  type(algexpr), parameter, private :: B0p_gvec   = algexpr(basic=.true.,var=var_B0p_gvec)
  ! Auxiliary variables (aux)
-  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=n_var+9)
+  type(algexpr), parameter, private :: Bv2        = algexpr(basic=.true.,var=var_Bv2)
 
   type(algexpr), dimension(n_var), public        :: rhs_semianalytic
   type(algexpr), dimension(n_var, n_var), public :: amat_semianalytic
@@ -139,16 +150,12 @@ module mod_equations
   subroutine get_aux(aux,varnames)
     implicit none
     type(algexpr), dimension(n_aux), intent(out) :: aux
-    character(14), dimension(n_aux), intent(out) :: varnames
+    character(19), dimension(n_aux), intent(out) :: varnames
     integer      :: i
     character(2) :: num
   
     aux = (/ a_Bv2, ea_Bv2x, ea_Bv2y, ea_Bv2p /)
-    if (with_TiTe) then
-      varnames = (/ "eq(16,0,0,0,1)", "eq(16,1,0,0,1)", "eq(16,0,1,0,1)", "eq(16,0,0,1,1)" /)
-    else
-      varnames = (/ "eq(15,0,0,0,1)", "eq(15,1,0,0,1)", "eq(15,0,1,0,1)", "eq(15,0,0,1,1)" /)
-    end if
+    varnames = (/ "eq(var_Bv2,0,0,0,1)", "eq(var_Bv2,1,0,0,1)", "eq(var_Bv2,0,1,0,1)", "eq(var_Bv2,0,0,1,1)" /)
   end subroutine get_aux
 
   type(algexpr) function Bv_pbrack(a,b)
