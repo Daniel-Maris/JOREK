@@ -326,7 +326,8 @@ do ms=1, n_gauss
                      amat_ij(i_var, j_var) = amat_ij(i_var, j_var)*prefactor
                    enddo
                  enddo
-
+                 
+                 ! Fill up ELM
                  do i_var = 1, n_var
                    ij = index_ij + (i_var - 1)*n_tor_local
                    do j_var = 1, n_var 

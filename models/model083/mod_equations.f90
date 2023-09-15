@@ -63,11 +63,6 @@ module mod_equations
 
   type(const), private :: t_rat
 
-  type(algexpr), private :: rhs2e, rhs3e, rhs4e, rhs5e, rhs6e
-  type(algexpr), private :: amat22e, amat25e, amat26e
-  type(algexpr), private :: amat31e
-  type(algexpr), private :: amat52e, amat55e
-  type(algexpr), private :: amat62e, amat65e, amat66e
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p
 
   type(type_thread_eq), dimension(:), allocatable, target :: thread_eq
@@ -125,7 +120,6 @@ module mod_equations
       end do
     end if
   end subroutine init_eq_struct
-
   
   subroutine get_varnames(varnames)
     implicit none
