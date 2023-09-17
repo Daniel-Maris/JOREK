@@ -76,19 +76,32 @@ module mod_equations
 
     t_rat  = const(value = It_rat,      token = "t_rat")
  
+    !###################################################################################################
+    !#  Auxiliary vacuum magnetic field                                                                #
+    !###################################################################################################
     a_Bv2 = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)
 
+    !###################################################################################################
+    !#  Current Definition Equation for Psi                                                            #
+    !###################################################################################################
     rhs_semianalytic(var_Psi) = (-Bv2)*inprod(v,Psi0)
-
-    rhs_semianalytic(var_zj)  = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R) + dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R) &
-                   - dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
 
     amat_semianalytic(var_Psi, var_Psi) = Bv2*inprod(v,Psi)
     amat_semianalytic(var_Psi, var_zj)  = v*Bv2*zj
-
-    amat_semianalytic(var_Phi, var_Phi) = v*Phi
+ 
+    !###################################################################################################
+    !#  Current Definition Equation for zj                                                             #
+    !###################################################################################################
+    rhs_semianalytic(var_zj)  = -dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R)   &
+                              +  dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R)   &
+                              -  dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R
 
     amat_semianalytic( var_zj,  var_zj) = v*Bv2*zj
+    
+    !###################################################################################################
+    !#  Dummy Equations                                                                                #
+    !###################################################################################################
+    amat_semianalytic(var_Phi, var_Phi) = v*Phi
 
     amat_semianalytic(  var_w,   var_w) = v*w
 
@@ -104,7 +117,8 @@ module mod_equations
     if (with_vpar) then
       amat_semianalytic(var_vpar, var_vpar) = v*vpar
     endif
-
+    
+    ! Expansion of differential operators
     ea_Bv2x = Dexpand(deepcopy(dx(a_Bv2))); ea_Bv2y = Dexpand(deepcopy(dy(a_Bv2))); ea_Bv2p = Dexpand(deepcopy(dp(a_Bv2)))
   end subroutine init_equations
 
