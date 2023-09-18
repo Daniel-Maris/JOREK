@@ -168,8 +168,6 @@ module mod_equations
     
     !###################################################################################################
     !#  Induction Equation                                                                             #
-    !#     Questions:                                                                                  #
-    !#        - Should the deta_dT term include S_j?                                                   #
     !###################################################################################################
     rhs_semianalytic(var_Psi) = tstep*v*((Bv_parderiv(Phi0) - Bv_pbrack(Psi0,Phi0))/Bv2     &       ! v x B ideal component
                               + eta*(zj0 - S_j))                                            &       ! Resistivity and current source
@@ -203,7 +201,7 @@ module mod_equations
                               + visco_num*Lap(v)*Lap(w0))                               &            ! Hyper viscosity
                               - zeta*(rho0*inprod(v,delta_Phi)                          &            ! d(rho v)_dt component
                               + delta_rho*inprod(v,Phi0))/Bv2                                        ! d(rho v)_dt component
-                                                                                                     ! density source
+                                                                                                     
     if (with_TiTe) then                                                                              
       rhs_semianalytic(var_Phi) = rhs_semianalytic(var_Phi)                             &            
                                 -tstep * Bv_pbrack(v,rho0*(T0_i+T0_e))/Bv2                           ! grad(p) component
@@ -305,7 +303,7 @@ module mod_equations
                                - gamma*v*rho0*i_T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2)                     & ! gamma p div(v) component
                                + i_k_perp*gradprod(v,i_T0)                                           & ! K_perp grad(T)
                                + (i_k_par-i_k_perp)*B0_parderiv(v)*B0_parderiv(i_T0)/B2              & ! (K_par - K_perp) grad_par(T)
-                               + k_perp_num*Lap(v)*Lap(i_T0)                                       & ! ad-hoc hyper-conductivity
+                               + k_perp_num*Lap(v)*Lap(i_T0)                                         & ! ad-hoc hyper-conductivity
                                + D_perp*i_T0*gradprod(v, rho0)                                       & ! D_perp T grad(rho)
                                + (D_par - D_perp)*i_T0*B0_parderiv(v)*B0_parderiv(rho0)/B2           & ! (D_par - D_perp) T grad_par(rho) 
                                - v*i_S_e)                                                            & ! heat source
