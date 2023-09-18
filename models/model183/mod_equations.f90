@@ -192,19 +192,18 @@ module mod_equations
     !#  Perpendicular Momentum Equation                                                                #
     !#                                                                                                 #
     !#  Missing terms:                                                                                 #
-    !#     - P v :                density source                                                       #
     !#     - d(v_par B)_dt:       change in parallel momentum                                          #
     !###################################################################################################
     rhs_semianalytic(var_Phi) = -tstep*((Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi0)/2.d0   &            ! 1/2 rho grad(v^2)  
                               - Bv_pbrack(v,Phi0)*rho0*w0/Bv2                           &            ! rho omega x v 
-                              - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0))/Bv2            &            ! ???
+                              - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0))/Bv2            &            ! density source
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor
                               + visco_num*Lap(v)*Lap(w0))                               &            ! Hyper viscosity
                               - zeta*(rho0*inprod(v,delta_Phi)                          &            ! d(rho v)_dt component
                               + delta_rho*inprod(v,Phi0))/Bv2                                        ! d(rho v)_dt component
-                                                                                                     
+                                                                                                     ! density source
     if (with_TiTe) then                                                                              
       rhs_semianalytic(var_Phi) = rhs_semianalytic(var_Phi)                             &            
                                 -tstep * Bv_pbrack(v,rho0*(T0_i+T0_e))/Bv2                           ! grad(p) component
@@ -218,8 +217,8 @@ module mod_equations
     amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! d(rho v)_dt component
                                         + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*inprod(Phi0,Phi) &      ! 1/2 rho grad(v^2)
                                         - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v
-                                        - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0)              &      ! ???
-                                        - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2                ! ???
+                                        - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0)              &      ! density source
+                                        - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2                ! density source
                                                                                                      
     amat_semianalytic(var_Phi,  var_zj) = (-tstep*theta)*v*(Bv_parderiv(zj)                   &      ! j x B component
                                         + Bv_pbrack(zj,Psi0))                                        ! j x B component
@@ -231,7 +230,7 @@ module mod_equations
     amat_semianalytic(var_Phi, var_rho) = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2                    & ! d(rho v)_dt component
                                         + tstep*theta*(Bv_pbrack(rho/Bv2,v)*inprod(Phi0,Phi0)/2.d0 & ! 1/2 rho grad(v^2)
                                         - rho*w0*Bv_pbrack(v,Phi0)/Bv2                             & ! rho omega x v
-                                        - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0))/Bv2                ! ???
+                                        - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0))/Bv2                ! density source
     if (with_TiTe) then 
       amat_semianalytic(var_Phi, var_rho) = amat_semianalytic(var_Phi, var_rho)                    &
                                           + tstep*theta*Bv_pbrack(v,rho*(T0_i+T0_e))/Bv2             ! grad(p) component
