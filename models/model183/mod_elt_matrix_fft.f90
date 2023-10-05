@@ -340,7 +340,7 @@ do ms=1, n_gauss
           eq(var_deta_dT,0,0,0,:) = 0.d0
         end if
 
-        ! Viscosity
+        ! Perpendicular viscosity
         if (visco_T_dependent) then  
           eq(var_visco    ,0,0,0,:) = visco*(corr_neg_temp(eq(var_Te,0,0,0,1))/Te_0)**(-1.5d0)               ! visco
           eq(var_dvisco_dT,0,0,0,:) = -1.5d0*visco*corr_neg_temp(eq(var_Te,0,0,0,1))**(-2.5d0)*Te_0**(1.5d0) ! dvisco/dT
@@ -348,6 +348,11 @@ do ms=1, n_gauss
           eq(var_visco    ,0,0,0,:) = visco
           eq(var_dvisco_dT,0,0,0,:) = 0.d0
         end if
+
+        ! Parallel viscosity
+        if (with_vpar) then
+          eq(var_visco_par,0,0,0,:)   = visco_par
+        endif
 
         ! Parallel thermal conductivity
         if (zkpar_T_dependent) then                                                                 
