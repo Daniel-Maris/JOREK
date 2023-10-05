@@ -309,6 +309,8 @@ do ms=1, n_gauss
       eq(2*n_var+4,0,0,0,:) = x_g(mp,ms,mt); eq(2*n_var+4,1,0,0,:) = 1.d0 ! Cylindrical R coordinate
 
       psi_norm = s_norm(ms,mt)
+      
+      ! To-do: interpolate the momentum source, and add it to the appropriate index in eq() data structure
 
       ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi
       eq(1,:,:,:,:) = eq(1,:,:,:,:)/F0

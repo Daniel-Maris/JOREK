@@ -359,6 +359,18 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'zjz_1                 ', zjz_1
   write(*,REAL_FMT) 'zj_coef               ', zj_coef
 
+  !TO-DO: Add potential source parameters to logfile output
+
+  if (.not. num_Phi) then
+          write(*,*) "Potential source must be numeric"
+          stop
+  else
+          write(*,CHAR_FMT) 'Phi_file                ', trim(Phi_file)
+          write(*,REAL_FMT) 'Phi_0                   ', Phi_0
+          write(*,REAL_FMT) 'Phi_1                   ', Phi_1
+  end if
+
+  !!!!
   if ( .not. num_ffprime ) then
     write(*,REAL_FMT) 'FF_0                  ', FF_0
     write(*,REAL_FMT) 'FF_1                  ', FF_1
