@@ -299,6 +299,7 @@ do ms=1, n_gauss
       ! Vacuum scalar magnetic potential (chi) and field (grad chi)
       eq(var_chi,:,:,:,1) = element%chi(mp,ms,mt,:,:,:)
       
+      ! Duplicate t^n and t^(n-1) terms in FFT matrix contributions
       do m=2,4
         eq(1:n_var,:,:,:,m) = eq(1:n_var,:,:,:,1)
         eq(n_var+1:2*n_var,:,:,:,m) = eq(n_var+1:2*n_var,:,:,:,1)
