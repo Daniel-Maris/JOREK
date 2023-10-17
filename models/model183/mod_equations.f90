@@ -52,6 +52,7 @@ module mod_equations
   integer, parameter  :: var_ddTe_i_drho = 2*n_var+29
   integer, parameter  :: var_Bv2         = 2*n_var+30
   integer, parameter  :: var_B2          = 2*n_var+31
+  integer, parameter  :: var_zero        = 2*n_var+32   
 
   ! Variables at current time step
   type(algexpr), parameter, private :: Psi0       = algexpr(basic=.true.,var=var_Psi)
@@ -60,7 +61,11 @@ module mod_equations
   type(algexpr), parameter, private :: w0         = algexpr(basic=.true.,var=var_w)
   type(algexpr), parameter, private :: rho0       = algexpr(basic=.true.,var=var_rho)
   type(algexpr), parameter, private :: T0         = algexpr(basic=.true.,var=var_T)
+#if WITH_Vpar
   type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true.,var=var_vpar)
+#else
+  type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true.,var=var_zero)
+#endif
   type(algexpr), parameter, private :: T0_i       = algexpr(basic=.true.,var=var_Ti)
   type(algexpr), parameter, private :: T0_e       = algexpr(basic=.true.,var=var_Te)
   ! Changes since previous time step
@@ -82,7 +87,11 @@ module mod_equations
   type(algexpr), parameter, private :: w          = algexpr(basic=.true.,var=var_varStar)
   type(algexpr), parameter, private :: rho        = algexpr(basic=.true.,var=var_varStar)
   type(algexpr), parameter, private :: T          = algexpr(basic=.true.,var=var_varStar)
+#if WITH_Vpar
   type(algexpr), parameter, private :: vpar       = algexpr(basic=.true.,var=var_varStar)
+#else
+  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true.,var=var_zero)
+#endif
   type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=var_varStar)
   type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=var_varStar)
   ! Other quantities
@@ -163,6 +172,7 @@ module mod_equations
     else
       reta     = const(value = 0.d0,            token = "reta")
     end if
+
     
     !###################################################################################################
     !#  Auxiliary vacuum and total magnetic field                                                      #
@@ -248,7 +258,7 @@ module mod_equations
                                         - rho*w0*Bv_pbrack(v,Phi0)/Bv2                             & ! rho omega x v
                                         - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0))/Bv2                ! density source
 
-#if INCLUDE_VPAR_TERMS
+#if ((INCLUDE_VPAR_TERMS) && (WITH_Vpar))
     amat_semianalytic(var_Phi, var_vpar) = tstep*theta*Bv_pbrack(rho0/Bv2,v)*v2_vpar
 #endif
 
@@ -306,8 +316,10 @@ module mod_equations
                                          + v*Bv_pbrack(rho*vpar0, Psi0)                           &    ! div(rho v_par) component
                                          + D_perp*gradprod(v,rho)                                 &    ! D_perp grad(rho)
                                          + (D_par - D_perp)*B0_parderiv(v)*B0_parderiv(rho)/B2)        ! (D_par - D_perp) * grad_par(rho)
-    amat_semianalytic(var_rho, var_vpar) = tstep*theta*(v*Bv_parderiv(rho0*vpar)                    &    ! div(rho v_par) component
-                                         + v*Bv_pbrack(rho0*vpar, Psi0))                               ! div(rho v_par) component
+    if (with_vpar) then
+      amat_semianalytic(var_rho, var_vpar) = tstep*theta*(v*Bv_parderiv(rho0*vpar)                    &    ! div(rho v_par) component
+                                           + v*Bv_pbrack(rho0*vpar, Psi0))                               ! div(rho v_par) component
+    endif
 
     !###################################################################################################
     !#  Pressure Equation                                                                              #
@@ -376,10 +388,12 @@ module mod_equations
                                          + D_perp*i_T*gradprod(v,rho0)                                &  ! D_perp T grad(rho)
                                          + (D_par - D_perp)*i_T*B0_parderiv(v)*B0_parderiv(rho0)/B2)     ! (D_par - D_perp) T grad_par(rho)
 
-      amat_semianalytic(i_var, var_vpar) = tstep*theta*(v*vpar*Bv_parderiv(rho0*i_T0)                 &  ! v_par.grad(p) component
-                                         + v*vpar*Bv_pbrack(rho0*i_T0, Psi0)                          &  ! v_par.grad(p) component
-                                         + gamma*v*rho0*i_T0*Bv_parderiv(vpar)                        &  ! gamma p div(v_par) component
-                                         + gamma*v*rho0*i_T0*Bv_pbrack(vpar, Psi0))                      ! gamma p div(v_par) component 
+      if (with_vpar) then
+        amat_semianalytic(i_var, var_vpar) = tstep*theta*(v*vpar*Bv_parderiv(rho0*i_T0)                 &  ! v_par.grad(p) component
+                                           + v*vpar*Bv_pbrack(rho0*i_T0, Psi0)                          &  ! v_par.grad(p) component
+                                           + gamma*v*rho0*i_T0*Bv_parderiv(vpar)                        &  ! gamma p div(v_par) component
+                                           + gamma*v*rho0*i_T0*Bv_pbrack(vpar, Psi0))                      ! gamma p div(v_par) component
+      endif
     enddo
 
     if (with_TiTe) then
@@ -505,7 +519,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(2*n_var+31,0:n_order-1,0:n_order-1,0:n_order-1,4))
+        allocate(thread_eq(i)%eq(2*n_var+32,0:n_order-1,0:n_order-1,0:n_order-1,4))
       end do
     end if
   end subroutine init_eq_struct
