@@ -267,7 +267,7 @@ module mod_equations
                                         - v*Bv_pbrack(zj0,Psi))                                      ! 1/2 rho grad(v^2)
 
     amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! d(rho v)_dt component
-                                        + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
+                                        + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi           &      ! 1/2 rho grad(v^2)
                                         - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v_perp
                                         - div_rhov_Phi*inprod(v,Phi0)                         &      ! v div(rho v)
                                         - div_rhov0*inprod(v,Phi))/Bv2                               ! v div(rho v)
