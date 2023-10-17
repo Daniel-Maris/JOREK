@@ -137,7 +137,8 @@ module mod_equations
   type(algexpr), private :: a_Bv2, a_B2
   type(algexpr), private :: B2_psi
   type(algexpr), private :: v2, v2_Psi, v2_Phi, v2_vpar, vpar2, vpar2_Psi, vpar2_Phi, vpar2_vpar
-  
+  type(algexpr), private :: div_rhov0, div_rhov_Psi, div_rhov_Phi, div_rhov_rho, div_rhov_vpar
+
   integer, parameter :: n_aux  = 5
   
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p
@@ -202,12 +203,19 @@ module mod_equations
     v2_Psi  = zero 
     v2_Phi  = inprod(Phi0,Phi) 
     v2_vpar = zero
-    
+
     vpar2   = vpar0*vpar0
     vpar2_Psi  = zero
     vpar2_Phi  = zero
     vpar2_vpar = vpar0*vpar
 #endif
+
+    ! Divergence of rho v
+    div_rhov0     = Bv_pbrack(rho0/Bv2,Phi0) + Bv_parderiv(rho0*vpar0) + Bv_pbrack(rho0*vpar0, Psi0)
+    div_rhov_Psi  = Bv_pbrack(rho0*vpar0, Psi)
+    div_rhov_Phi  = Bv_pbrack(rho0/Bv2,Phi)
+    div_rhov_rho  = Bv_pbrack(rho/Bv2, Phi0) + Bv_parderiv(rho*vpar0) + Bv_pbrack(rho*vpar0, Psi0)
+    div_rhov_vpar = Bv_parderiv(rho0*vpar) + Bv_pbrack(rho0*vpar, Psi0)
 
     !###################################################################################################
     !#  Induction Equation                                                                             #
@@ -234,10 +242,11 @@ module mod_equations
     !#                                                                                                 #
     !#  Missing terms:                                                                                 #
     !#     - d(v_par B)_dt:       change in parallel momentum                                          #
+    !#     - rho omega x v_par
     !###################################################################################################
     rhs_semianalytic(var_Phi) = -tstep*((Bv_pbrack(rho0/Bv2,v)*v2/2.d0                  &            ! 1/2 rho grad(v^2)  
                               - Bv_pbrack(v,Phi0)*rho0*w0/Bv2                           &            ! rho omega x v 
-                              - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi0))/Bv2            &            ! density source
+                              - div_rhov0*inprod(v,Phi0))/Bv2                           &            ! v div(rho v)
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor
@@ -253,16 +262,15 @@ module mod_equations
                                   -tstep * Bv_pbrack(v,rho0*T0)/Bv2                                  ! grad(p) component
     end if                                                                                           
                                                                                                      
-    amat_semianalytic(var_Phi, var_Psi) = -tstep*theta*v*Bv_pbrack(zj0,Psi)                          ! j x B component
-    
-    amat_semianalytic(var_Phi, var_Psi) = amat_semianalytic(var_Phi, var_Psi)           &
-                                        + tstep*theta*Bv_pbrack(rho0/Bv2,v)*v2_Psi
+    amat_semianalytic(var_Phi, var_Psi) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Psi/2.d0      &      ! j x B component
+                                        - div_rhov_Psi*inprod(v,Phi0)                         &      ! v div(rho v)
+                                        - v*Bv_pbrack(zj0,Psi))                                      ! 1/2 rho grad(v^2)
 
     amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! d(rho v)_dt component
-                                        + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi           &      ! 1/2 rho grad(v^2)
-                                        - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v
-                                        - Bv_pbrack(rho0/Bv2,Phi)*inprod(v,Phi0)              &      ! density source
-                                        - Bv_pbrack(rho0/Bv2,Phi0)*inprod(v,Phi))/Bv2                ! density source
+                                        + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
+                                        - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v_perp
+                                        - div_rhov_Phi*inprod(v,Phi0)                         &      ! v div(rho v)
+                                        - div_rhov0*inprod(v,Phi))/Bv2                               ! v div(rho v)
                                                                                                      
     amat_semianalytic(var_Phi,  var_zj) = (-tstep*theta)*v*(Bv_parderiv(zj)                   &      ! j x B component
                                         + Bv_pbrack(zj,Psi0))                                        ! j x B component
@@ -272,12 +280,13 @@ module mod_equations
                                         + visco_num*Lap(v)*Lap(w))                                   ! Hyper viscosity
     
     amat_semianalytic(var_Phi, var_rho) = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2                    & ! d(rho v)_dt component
-                                        + tstep*theta*(Bv_pbrack(rho/Bv2,v)*inprod(Phi0,Phi0)/2.d0 & ! 1/2 rho grad(v^2)
+                                        + tstep*theta*(Bv_pbrack(rho/Bv2,v)*v2/2.d0                & ! 1/2 rho grad(v^2)
                                         - rho*w0*Bv_pbrack(v,Phi0)/Bv2                             & ! rho omega x v
-                                        - Bv_pbrack(rho/Bv2,Phi0)*inprod(v,Phi0))/Bv2                ! density source
+                                        - div_rhov_rho*inprod(v,Phi0))/Bv2                           ! v div(rho v)
 
     if (with_vpar) then
-      amat_semianalytic(var_Phi, var_vpar) = tstep*theta*Bv_pbrack(rho0/Bv2,v)*v2_vpar
+      amat_semianalytic(var_Phi, var_vpar) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_vpar/2.d0       & ! 1/2 rho grad(v^2)
+                                           - div_rhov_vpar*inprod(v,Phi0))                           ! v div(rho v)
     endif
 
     if (with_TiTe) then 
@@ -317,26 +326,21 @@ module mod_equations
     !###################################################################################################
     !#  Density Equation                                                                               #
     !###################################################################################################
-    rhs_semianalytic(var_rho) = -tstep*(v*Bv_pbrack(rho0/Bv2,Phi0)                                &    ! div(rho v_ExB) component
-                              + v*Bv_parderiv(rho0*vpar0)                                         &    ! div(rho v_par) component
-                              + v*Bv_pbrack(rho0*vpar0, Psi0)                                     &    ! div(rho v_par) component
+    rhs_semianalytic(var_rho) = -tstep*(v*div_rhov0                                               &    ! div(rho v)
                               + D_perp*gradprod(v,rho0)                                           &    ! D_perp grad(rho)
                               + (D_par - D_perp)*B0_parderiv(v)*B0_parderiv(rho0)/B2              &    ! (D_par - D_perp) * grad_par(rho)
                               - S_rho*v)                                                          &    ! Density source
                               + zeta*v*delta_rho                                                       ! drho_dt
     
-    amat_semianalytic(var_rho, var_Psi)  = tstep*theta*(v*Bv_pbrack(rho0*vpar0, Psi)              &    ! div(rho v_par) component
+    amat_semianalytic(var_rho, var_Psi)  = tstep*theta*(v*div_rhov_Psi                            &    ! div(rho v)
                                          + (D_par - D_perp)*gradDgrad_par(v,rho0))                     ! (D_par - D_perp) * grad_par(rho)
-    amat_semianalytic(var_rho, var_Phi)  = tstep*theta*v*Bv_pbrack(rho0/Bv2,Phi)                       ! div(rho v_ExB) component
+    amat_semianalytic(var_rho, var_Phi)  = tstep*theta*v*div_rhov_Phi                                  ! div(rho v)
     amat_semianalytic(var_rho, var_rho)  = (1.d0 + zeta)*v*rho                                    &    ! drho_dt 
-                                         + tstep*theta*(v*Bv_pbrack(rho/Bv2,Phi0)                 &    ! div(rho v_ExB) component
-                                         + v*Bv_parderiv(rho*vpar0)                               &    ! div(rho v_par) component
-                                         + v*Bv_pbrack(rho*vpar0, Psi0)                           &    ! div(rho v_par) component
+                                         + tstep*theta*(v*div_rhov_rho                            &    ! div(rho v)
                                          + D_perp*gradprod(v,rho)                                 &    ! D_perp grad(rho)
                                          + (D_par - D_perp)*B0_parderiv(v)*B0_parderiv(rho)/B2)        ! (D_par - D_perp) * grad_par(rho)
     if (with_vpar) then
-      amat_semianalytic(var_rho, var_vpar) = tstep*theta*(v*Bv_parderiv(rho0*vpar)                &    ! div(rho v_par) component
-                                           + v*Bv_pbrack(rho0*vpar, Psi0))                             ! div(rho v_par) component
+      amat_semianalytic(var_rho, var_vpar) = tstep*theta*v*div_rhov_vpar                               ! div(rho v)
     endif
 
     !###################################################################################################
@@ -444,33 +448,37 @@ module mod_equations
     !#  Parallel Momentum Equation                                                                     #
     !#                                                                                                 #
     !#    Missing terms:                                                                               #
-    !#      - omega terms                                                                              #
+    !#      - rho omega x v                                                                            #
     !#      - P v                                                                                      #
+    !#                                                                                                 #
+    !#    Comments:                                                                                    #
+    !#      - hyper-viscosity seems to be destabilising                                                #
+    !#      - a factor B2 seems missing?!                                                              #
     !###################################################################################################
     if (with_vpar) then
-      rhs_semianalytic(var_vpar) = tstep*(vpar2/2.0 * Bv_parderiv(v*rho0)                            &     ! rho grad(v2) component
-                                 - vpar2*Bv_pbrack(Psi0, rho0*v)/2.0                                 &     ! rho grad(v2) component
+      rhs_semianalytic(var_vpar) = tstep*(vpar2/2.0 * Bv_parderiv(v*rho0)                            &     ! rho grad(v2)
+                                 - vpar2*Bv_pbrack(Psi0, rho0*v)/2.0                                 &     ! rho grad(v2)
                                  - visco_par*inprod(v, vpar0)                                        &     ! ad-hoc parallel viscosity
-                                 - visco_num*Lap(v)*Lap(vpar0))                                      &     ! ad-hoc parallel hyper viscosity
+                                 - visco_par_num*Lap(v)*Lap(vpar0))                                  &     ! ad-hoc parallel hyper viscosity
                                  + zeta*v*B2*rho0*delta_vpar                                         &     ! rho B2 d(vpar)_dt
                                  + zeta*v*B2*delta_rho*vpar0                                         &     ! rho B2 d(vpar)_dt
                                  + zeta*v*Bv2*inprod(Psi0,delta_Psi)*rho0*vpar0                            ! rho B2 d(vpar)_dt
 
       amat_semianalytic(var_vpar, var_Psi)  = (1.0 + zeta)*v*B2_psi*rho0*vpar0                       &     ! vpar d(B2)_dt
-                                            + tstep*theta*(vpar2*Bv_pbrack(Psi, rho0*v)/2.0          &     ! rho grad(v2) component
-                                            + vpar2_Psi*Bv_pbrack(Psi0, rho0*v)/2.0)                       ! rho grad(v2) component                           
+                                            + tstep*theta*(vpar2*Bv_pbrack(Psi, rho0*v)/2.0          &     ! rho grad(v2)
+                                            + vpar2_Psi*Bv_pbrack(Psi0, rho0*v)/2.0)                       ! rho grad(v2)                           
 
-      amat_semianalytic(var_vpar, var_Phi)  = -tstep*theta*(vpar2_Phi/2.0 * Bv_parderiv(v*rho0)      &     ! rho grad(v2) component 
-                                            - vpar2_Phi*Bv_pbrack(Psi0, rho0*v)/2.0)                       ! rho grad(v2) component
+      amat_semianalytic(var_vpar, var_Phi)  = -tstep*theta*(vpar2_Phi/2.0 * Bv_parderiv(v*rho0)      &     ! rho grad(v2) 
+                                            - vpar2_Phi*Bv_pbrack(Psi0, rho0*v)/2.0)                       ! rho grad(v2)
 
       amat_semianalytic(var_vpar, var_rho)  = (1.d0 + zeta)*v*B2*rho*vpar0                           &     ! rho B2 d(v_par)_dt 
-                                            - tstep*theta*(vpar2/2.0 * Bv_parderiv(v*rho)            &     ! rho grad(v2) component
-                                            - vpar2*Bv_pbrack(Psi0, rho*v)/2.0)                            ! rho grad(v2) component
+                                            - tstep*theta*(vpar2/2.0 * Bv_parderiv(v*rho)            &     ! rho grad(v2)
+                                            - vpar2*Bv_pbrack(Psi0, rho*v)/2.0)                            ! rho grad(v2)
 
       
       amat_semianalytic(var_vpar, var_vpar) = (1.d0 + zeta)*v*B2*rho0*vpar                           &     ! rho B2 d(v_par)_dt                                                                                  
-                                            + tstep*theta*(vpar2_vpar*Bv_pbrack(Psi0, rho0*v)/2.0    &     ! rho grad(v2) component     
-                                            - vpar2_vpar/2.0 * Bv_parderiv(v*rho0))                  &     ! rho grad(v2) component
+                                            + tstep*theta*(vpar2_vpar*Bv_pbrack(Psi0, rho0*v)/2.0    &     ! rho grad(v2)     
+                                            - vpar2_vpar/2.0 * Bv_parderiv(v*rho0))                  &     ! rho grad(v2)
                                             + tstep*theta*(visco_par*inprod(v, vpar)                 &     ! ad-hoc parallel viscosity
                                             + visco_par_num*Lap(v)*Lap(vpar))                              ! ad-hoc parallel hyper viscosity
 
