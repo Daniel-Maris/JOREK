@@ -37,6 +37,9 @@ real*8                :: V, Vx, Vy, Vz
 real*8                :: grad_chi(3), Bv2
 real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
+integer               :: i_vec_x, i_vec_y, i_vec_z
+real*8                :: angle_sign
+
 logical               :: periodic, density_only
 integer               :: ierr, my_id
 logical               :: without_n0_mode, RphiZ_coords
@@ -184,11 +187,17 @@ do m=1, n_toroidal
          
         if ( xjac == 0.d0 ) xjac = 1.d-8 ! (workaround to avoid floating invalid)
 
-
+        i_vec_x = 1
         if (RphiZ_coords) then
           xyz(1:3,inode) = (/ R * cos(angle), -R*sin(angle), Z /)   !from the JOREK wiki
+          i_vec_Z = 3
+          i_vec_y = 2
+          angle_sign = -1
         else
           xyz(1:3,inode) = (/ R * cos(angle), Z, R*sin(angle) /)
+          i_vec_Z = 2
+          i_vec_y = 3
+          angle_sign = 1
         endif
 
         ps_x = 0.d0; ps_y = 0.d0; ps_p = 0.d0
@@ -201,7 +210,7 @@ do m=1, n_toroidal
           if(density_only) then
             call interp(node_list,element_list,i,var_rho,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,1) = scalars(inode,1) + P * HZ(i_tor,m)
-	  else
+          else
             call interp(node_list,element_list,i,var_psi,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,1) = scalars(inode,1) + P * HZ(i_tor,m)
 
@@ -215,8 +224,8 @@ do m=1, n_toroidal
 
             u_x  = u_x   + (   Z_t * U_s - Z_s * U_t )     / xjac * HZ(i_tor,m)
             u_y  = u_y   + ( - R_t * U_s + R_s * U_t )     / xjac * HZ(i_tor,m)
-                u_p = u_p + U*HZ_p(i_tor,m) - (   Z_t * U_s - Z_s * U_t ) / xjac * HZ(i_tor,m)*R_phi &
-                                            - ( - R_t * U_s + R_s * U_t ) / xjac * HZ(i_tor,m)*Z_p
+            u_p = u_p + U*HZ_p(i_tor,m) - (   Z_t * U_s - Z_s * U_t ) / xjac * HZ(i_tor,m)*R_phi &
+                                        - ( - R_t * U_s + R_s * U_t ) / xjac * HZ(i_tor,m)*Z_p
 
             call interp(node_list,element_list,i,var_zj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,3) = scalars(inode,3) + P * HZ(i_tor,m)
@@ -236,34 +245,34 @@ do m=1, n_toroidal
               P = 0.d0
             end if
             scalars(inode,var_Vpar) = scalars(inode,var_Vpar) + P * HZ(i_tor,m)
-	  endif
+          endif
+        enddo
 
-	enddo
         if(.not. density_only) then 
-        if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
-            Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*R)
-            By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*R)
-            Bz = chi(0,0,1)/R    + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       
-            vectors(inode,1:3, 1) = (/ Bx * cos(angle) - Bz * sin(angle), &
-                                       By, &
-                                       Bx * sin(angle) + Bz * cos(angle) /)
-            
-            Vx =                   ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(R*Bv2) 
-            Vy =                   (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(R*Bv2)
-            Vz =                   ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2
-            vectors(inode,1:3, 2) = (/ -Vy * cos(angle) - Vz * sin(angle), &
-                                        Vx, &
-                                       -Vy * sin(angle) + Vz * cos(angle) /)
-        else
-            vectors(inode,1:3, 1) = (/- F0/R * sin(angle) + ps_y / R * cos(angle),       &
-                                                          - ps_x / R,                     &
-                                        F0/R * cos(angle) + ps_y / R * sin(angle)/)
-
-            V = scalars(inode,var_Vpar)
-            vectors(inode,1:3, 2) = (/ (V/R*ps_y             - R * u_y) * cos(angle) - V*F0/R * sin(angle) , &
-                                       -V/R*ps_x             + R * u_x, &
-                                        V*F0/R * cos(angle)  + (V/R*ps_y             - R * u_y) * sin(angle)  /)
-        endif
+          if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
+              Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*R)
+              By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*R)
+              Bz = chi(0,0,1)/R    + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       
+              vectors(inode,i_vec_x, 1) = Bx * cos(angle) - Bz * sin(angle)
+              vectors(inode,i_vec_z, 1) = By
+              vectors(inode,i_vec_y, 1) = angle_sign * (Bx * sin(angle) + Bz * cos(angle))
+              
+              Vx =                   ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(R*Bv2) 
+              Vy =                   (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(R*Bv2)
+              Vz =                   ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2
+              vectors(inode,i_vec_x, 2) =  Vx * cos(angle) - Vz * sin(angle)
+              vectors(inode,i_vec_z, 2) =  Vy
+              vectors(inode,i_vec_y, 2) =  angle_sign * (Vx * sin(angle) + Vz * cos(angle))
+          else
+              vectors(inode,i_vec_x, 1) = - F0/R * sin(angle) + ps_y / R * cos(angle)
+              vectors(inode,i_vec_z, 1) = - ps_x / R
+              vectors(inode,i_vec_y, 1) =   angle_sign * (F0/R * cos(angle) + ps_y / R * sin(angle))
+          
+              V = scalars(inode,var_Vpar)
+              vectors(inode,i_vec_x, 2) = (V/R*ps_y             - R * u_y) * cos(angle) - V*F0/R * sin(angle)
+              vectors(inode,i_vec_z, 2) = -V/R*ps_x             + R * u_x
+              vectors(inode,i_vec_y, 2) =  angle_sign * (V*F0/R * cos(angle)  + (V/R*ps_y             - R * u_y) * sin(angle))
+          endif
         endif  
       enddo
     enddo
