@@ -185,13 +185,13 @@ module mod_equations
     !###################################################################################################
     a_Bv2  = dx(chi)*dx(chi) + dy(chi)*dy(chi) + dp(chi)*dp(chi)/(R*R)                               ! Magnitude of vacuum field squared
     a_B2   = Bv2 + Bv2*inprod(Psi0,Psi0)                                                             ! Magnitude of total field squared
-    B2_psi = Bv2*inprod(Psi0,Psi)
+    B2_psi = 2.d0*Bv2*inprod(Psi0,Psi)
 
     ! Magnitude of the total velocity squared used in poloidal and parallel momentum equation
 #if INCLUDE_VPAR_TERMS
     v2      = inprod(Phi0,Phi0) + 2.d0*vpar0*inprod(Phi0,Psi0) + vpar0*vpar0*(Bv2*(1.d0 + inprod(Psi0,Psi0)))
-    v2_Psi  = 2.d0*vpar0*inprod(Phi0, Psi) + vpar0*vpar0*(Bv2*inprod(Psi0,Psi))
-    v2_Phi  = inprod(Phi0,Phi) + 2.d0*vpar0*inprod(Phi, Psi0)
+    v2_Psi  = 2.d0*vpar0*inprod(Phi0, Psi) + 2.d0*vpar0*vpar0*(Bv2*inprod(Psi0,Psi))
+    v2_Phi  = 2.d0*inprod(Phi0,Phi) + 2.d0*vpar0*inprod(Phi, Psi0)
     v2_vpar = 2.d0*vpar*inprod(Phi0, Psi0) + vpar0*vpar*(Bv2*(1.d0 + inprod(Psi0,Psi0)))
     
     vpar2      = v2
@@ -201,7 +201,7 @@ module mod_equations
 #else
     v2      = inprod(Phi0,Phi0) 
     v2_Psi  = zero 
-    v2_Phi  = inprod(Phi0,Phi) 
+    v2_Phi  = 2.d0*inprod(Phi0,Phi) 
     v2_vpar = zero
 
     vpar2   = vpar0*vpar0
@@ -267,7 +267,7 @@ module mod_equations
                                         - v*Bv_pbrack(zj0,Psi))                                      ! 1/2 rho grad(v^2)
 
     amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! d(rho v)_dt component
-                                        + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi           &      ! 1/2 rho grad(v^2)
+                                        + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
                                         - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v_perp
                                         - div_rhov_Phi*inprod(v,Phi0)                         &      ! v div(rho v)
                                         - div_rhov0*inprod(v,Phi))/Bv2                               ! v div(rho v)
