@@ -253,25 +253,25 @@ do m=1, n_toroidal
               Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*R)
               By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*R)
               Bz = chi(0,0,1)/R    + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       
-              vectors(inode,i_vec_x, 1) = Bx * cos(angle) - Bz * sin(angle)
+              vectors(inode,i_vec_x, 1) =              Bx * cos(angle) - angle_sign * Bz * sin(angle)
               vectors(inode,i_vec_z, 1) = By
-              vectors(inode,i_vec_y, 1) = angle_sign * (Bx * sin(angle) + Bz * cos(angle))
+              vectors(inode,i_vec_y, 1) = angle_sign * Bx * sin(angle) +              Bz * cos(angle)
               
               Vx =                   ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(R*Bv2) 
               Vy =                   (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(R*Bv2)
               Vz =                   ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2
-              vectors(inode,i_vec_x, 2) =  Vx * cos(angle) - Vz * sin(angle)
+              vectors(inode,i_vec_x, 2) =               Vx * cos(angle) - angle_sign * Vz * sin(angle)
               vectors(inode,i_vec_z, 2) =  Vy
-              vectors(inode,i_vec_y, 2) =  angle_sign * (Vx * sin(angle) + Vz * cos(angle))
+              vectors(inode,i_vec_y, 2) =  angle_sign * Vx * sin(angle) +              Vz * cos(angle)
           else
-              vectors(inode,i_vec_x, 1) = - F0/R * sin(angle) + ps_y / R * cos(angle)
+              vectors(inode,i_vec_x, 1) = - angle_sign * F0/R * sin(angle) +              ps_y / R * cos(angle)
               vectors(inode,i_vec_z, 1) = - ps_x / R
-              vectors(inode,i_vec_y, 1) =   angle_sign * (F0/R * cos(angle) + ps_y / R * sin(angle))
+              vectors(inode,i_vec_y, 1) =                F0/R * cos(angle) + angle_sign * ps_y / R * sin(angle)
           
               V = scalars(inode,var_Vpar)
-              vectors(inode,i_vec_x, 2) = (V/R*ps_y             - R * u_y) * cos(angle) - V*F0/R * sin(angle)
-              vectors(inode,i_vec_z, 2) = -V/R*ps_x             + R * u_x
-              vectors(inode,i_vec_y, 2) =  angle_sign * (V*F0/R * cos(angle)  + (V/R*ps_y             - R * u_y) * sin(angle))
+              vectors(inode,i_vec_x, 2) = (V/R*ps_y - R * u_y) * cos(angle) - angle_sign * V*F0/R               * sin(angle)
+              vectors(inode,i_vec_z, 2) = -V/R*ps_x + R * u_x
+              vectors(inode,i_vec_y, 2) =  V*F0/R              * cos(angle) + angle_sign * (V/R*ps_y - R * u_y) * sin(angle)
           endif
         endif  
       enddo
