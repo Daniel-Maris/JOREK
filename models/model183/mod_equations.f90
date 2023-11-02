@@ -245,7 +245,7 @@ module mod_equations
     !#     - rho omega x v_par
     !###################################################################################################
     rhs_semianalytic(var_Phi) = -tstep*((Bv_pbrack(rho0/Bv2,v)*v2/2.d0                  &            ! 1/2 rho grad(v^2)  
-                              - Bv_pbrack(v,Phi0)*rho0*w0/Bv2                           &            ! rho omega x v 
+                              - Bv_pbrack(v,Phi0)*rho0*w0/Bv2                           &            ! rho omega x v_ExB 
                               - div_rhov0*inprod(v,Phi0))/Bv2                           &            ! v div(rho v)
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
@@ -268,7 +268,7 @@ module mod_equations
 
     amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! d(rho v)_dt component
                                         + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
-                                        - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v_perp
+                                        - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v_ExB
                                         - div_rhov_Phi*inprod(v,Phi0)                         &      ! v div(rho v)
                                         - div_rhov0*inprod(v,Phi))/Bv2                               ! v div(rho v)
                                                                                                      
