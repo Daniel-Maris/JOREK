@@ -262,9 +262,9 @@ module mod_equations
                                   -tstep * Bv_pbrack(v,rho0*T0)/Bv2                                  ! grad(p) component
     end if                                                                                           
                                                                                                      
-    amat_semianalytic(var_Phi, var_Psi) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Psi/2.d0      &      ! j x B component
+    amat_semianalytic(var_Phi, var_Psi) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Psi/2.d0      &      ! 1/2 rho grad(v^2)
                                         - div_rhov_Psi*inprod(v,Phi0)                         &      ! v div(rho v)
-                                        - v*Bv_pbrack(zj0,Psi))                                      ! 1/2 rho grad(v^2)
+                                        - v*Bv_pbrack(zj0,Psi))                                      ! j x B component
 
     amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! d(rho v)_dt component
                                         + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
