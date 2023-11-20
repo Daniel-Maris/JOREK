@@ -242,11 +242,12 @@ module mod_equations
     !#                                                                                                 #
     !#  Missing terms:                                                                                 #
     !#     - d(v_par B)_dt:       change in parallel momentum                                          #
-    !#     - rho omega x v_par
+    !#     - v_par div(rho v)                                                                          #
+    !#     - rho omega x v_par                                                                         #
     !###################################################################################################
     rhs_semianalytic(var_Phi) = -tstep*((Bv_pbrack(rho0/Bv2,v)*v2/2.d0                  &            ! 1/2 rho grad(v^2)  
                               - Bv_pbrack(v,Phi0)*rho0*w0/Bv2                           &            ! rho omega x v_ExB 
-                              - div_rhov0*inprod(v,Phi0))/Bv2                           &            ! v div(rho v)
+                              - div_rhov0*inprod(v,Phi0))/Bv2                           &            ! v_ExB div(rho v)
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor
