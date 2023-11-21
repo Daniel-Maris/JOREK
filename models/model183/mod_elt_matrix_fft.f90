@@ -350,11 +350,6 @@ do ms=1, n_gauss
           eq(var_dvisco_dT,0,0,0,:) = 0.d0
         end if
 
-        ! Parallel viscosity
-        if (with_vpar) then
-          eq(var_visco_par,0,0,0,:)   = visco_par
-        endif
-
         ! Parallel thermal conductivity
         if (zkpar_T_dependent) then                                                                 
           eq(    var_k_par_i,0,0,0,:) = ZK_i_par*(corr_neg_temp(eq(var_Ti,0,0,0,1))/Ti_0)**(2.5d0)                       ! k_par for ions
