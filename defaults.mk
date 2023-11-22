@@ -176,8 +176,7 @@ ifeq (model750, $(MODEL))
 endif
 
 CGDEP= generate_code                         # Pre-compute analytic expressions from mod_equations for performance
-USE_DOMM ?= 1
-INCLUDE_VPAR_TERMS ?=0                       # Include terms neglected in tokamak model
+USE_DOMM ?= 0
 ifeq ($(USE_DOMM), 1)
   DEFINES := $(DEFINES) -DUSE_DOMM              # Use Dommaschk potentials, without FE correction of n.B on boundary 
 endif
