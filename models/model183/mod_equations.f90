@@ -461,7 +461,7 @@ module mod_equations
     if (with_vpar) then
       rhs_semianalytic(var_vpar) = tstep*(vpar2/2.0 * Bv_parderiv(v*rho0)                                     &     ! 1/2 rho grad(v^2)
                                  - vpar2*Bv_pbrack(Psi0, rho0*v)/2.0                                          &     ! 1/2 rho grad(v^2)
-                                 - v*div_rhov0*vpar0*B2                                                      &     ! vpar div(rho v)
+                                 - v*div_rhov0*vpar0*B2                                                       &     ! vpar div(rho v)
                                  - visco_par*gradprod(v, vpar0)                                               &     ! ad-hoc parallel viscosity
                                  - (visco_par_par-visco_par)*B0_parderiv(v)*B0_parderiv(vpar0)/B2             &     ! ad-hoc parallel viscosity
                                  - visco_par_num*Lap(v)*Lap(vpar0))                                           &     ! ad-hoc parallel hyper viscosity
