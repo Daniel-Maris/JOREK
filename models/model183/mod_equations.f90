@@ -190,7 +190,7 @@ module mod_equations
     B2_psi = 2.d0*Bv2*inprod(Psi0,Psi)
 
     ! Magnitude of the total velocity squared used in poloidal and parallel momentum equation
-#if INCLUDE_VPAR_TERMS
+#if INCLUDE_ADDITIONAL_TERMS
     v2      = inprod(Phi0,Phi0) + 2.d0*vpar0*inprod(Phi0,Psi0) + vpar0*vpar0*(Bv2*(1.d0 + inprod(Psi0,Psi0)))
     v2_Psi  = 2.d0*vpar0*inprod(Phi0, Psi) + 2.d0*vpar0*vpar0*(Bv2*inprod(Psi0,Psi))
     v2_Phi  = 2.d0*inprod(Phi0,Phi) + 2.d0*vpar0*inprod(Phi, Psi0)
@@ -248,14 +248,14 @@ module mod_equations
     !#     - rho omega x v_par                                                                         #
     !###################################################################################################
     rhs_semianalytic(var_Phi) = -tstep*((Bv_pbrack(rho0/Bv2,v)*v2/2.d0                  &            ! 1/2 rho grad(v^2)  
-                              - Bv_pbrack(v,Phi0)*rho0*w0/Bv2                           &            ! rho omega x v_ExB 
+                              - Bv_pbrack(v,Phi0)*rho0*w0/Bv2                           &            ! rho omega x v_ExB
                               - div_rhov0*inprod(v,Phi0))/Bv2                           &            ! v_ExB div(rho v)
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor
                               + visco_num*Lap(v)*Lap(w0))                               &            ! Hyper viscosity
-                              - zeta*(rho0*inprod(v,delta_Phi)                          &            ! d(rho v)_dt component
-                              + delta_rho*inprod(v,Phi0))/Bv2                                        ! d(rho v)_dt component
+                              - zeta*(rho0*inprod(v,delta_Phi)                          &            ! rho d(v_ExB)_dt
+                              + delta_rho*inprod(v,Phi0))/Bv2                                        ! v_ExB d(rho)_dt
                                                                                                      
     if (with_TiTe) then                                                                              
       rhs_semianalytic(var_Phi) = rhs_semianalytic(var_Phi)                             &            
@@ -269,7 +269,7 @@ module mod_equations
                                         - div_rhov_Psi*inprod(v,Phi0)                         &      ! v_ExB div(rho v)
                                         - v*Bv_pbrack(zj0,Psi))                                      ! j x B component
 
-    amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! d(rho v)_dt component
+    amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! rho d(v_ExB)_dt
                                         + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
                                         - rho0*w0*Bv_pbrack(v,Phi)/Bv2                        &      ! rho omega x v_ExB
                                         - div_rhov_Phi*inprod(v,Phi0)                         &      ! v_ExB div(rho v)
@@ -282,7 +282,7 @@ module mod_equations
                                         + tstep*theta*(visco*inprod(v,w)                      &      ! Ad-hoc viscous tensor
                                         + visco_num*Lap(v)*Lap(w))                                   ! Hyper viscosity
     
-    amat_semianalytic(var_Phi, var_rho) = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2                    & ! d(rho v)_dt component
+    amat_semianalytic(var_Phi, var_rho) = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2                    & ! v_ExB d(rho)_dt
                                         + tstep*theta*(Bv_pbrack(rho/Bv2,v)*v2/2.d0                & ! 1/2 rho grad(v^2)
                                         - rho*w0*Bv_pbrack(v,Phi0)/Bv2                             & ! rho omega x v
                                         - div_rhov_rho*inprod(v,Phi0))/Bv2                           ! v_ExB div(rho v)
@@ -451,9 +451,9 @@ module mod_equations
     !#  Parallel Momentum Equation                                                                     #
     !#                                                                                                 #
     !#    Missing terms:                                                                               #
-    !#      - rho inprod(Psi, dPhi_dt)
+    !#      - rho inprod(Psi, dPhi_dt)                                                                 #
     !#      - rho omega x v                                                                            #
-    !#      - P v                                                                                      #
+    !#      - v_ExB div(rho v)                                                                         #
     !#                                                                                                 #
     !#    Comments:                                                                                    #
     !#      - hyper-viscosity seems to be destabilising                                                #
@@ -461,29 +461,36 @@ module mod_equations
     if (with_vpar) then
       rhs_semianalytic(var_vpar) = tstep*(vpar2/2.0 * Bv_parderiv(v*rho0)                                     &     ! 1/2 rho grad(v^2)
                                  - vpar2*Bv_pbrack(Psi0, rho0*v)/2.0                                          &     ! 1/2 rho grad(v^2)
+                                 - v*div_rhov0*vpar0*B2                                                      &     ! vpar div(rho v)
                                  - visco_par*gradprod(v, vpar0)                                               &     ! ad-hoc parallel viscosity
                                  - (visco_par_par-visco_par)*B0_parderiv(v)*B0_parderiv(vpar0)/B2             &     ! ad-hoc parallel viscosity
                                  - visco_par_num*Lap(v)*Lap(vpar0))                                           &     ! ad-hoc parallel hyper viscosity
                                  + zeta*v*B2*rho0*delta_vpar                                                  &     ! rho B2 d(vpar)_dt
-                                 + zeta*v*B2*delta_rho*vpar0                                                  &     ! rho B2 d(vpar)_dt
-                                 + zeta*v*Bv2*inprod(Psi0,delta_Psi)*rho0*vpar0                                     ! rho B2 d(vpar)_dt
+                                 + zeta*v*B2*delta_rho*vpar0                                                  &     ! vpar B2 d(rho)_dt
+                                 + zeta*v*Bv2*inprod(Psi0,delta_Psi)*rho0*vpar0                                     ! rho vpar d(B2)_dt
+
                                                                                                               
       amat_semianalytic(var_vpar, var_Psi)  = (1.0 + zeta)*v*B2_psi*rho0*vpar0                                &     ! vpar d(B2)_dt
                                             + tstep*theta*(vpar2*Bv_pbrack(Psi, rho0*v)/2.0                   &     ! 1/2 rho grad(v^2)
-                                            + vpar2_Psi*Bv_pbrack(Psi0, rho0*v)/2.0                           &     ! 1/2 rho grad(v^2)                           
-                                            + (visco_par_par-visco_par)*gradDgrad_par(v,vpar0))                      ! ad-hoc parallel viscosity                                                                 
+                                            + vpar2_Psi*Bv_pbrack(Psi0, rho0*v)/2.0                           &     ! 1/2 rho grad(v^2)
+                                            + v*div_rhov_Psi*vpar0*B2                                         &     ! vpar div(rho v)
+                                            + v*div_rhov0*vpar0*B2_psi                                        &     ! vpar div(rho v)
+                                            + (visco_par_par-visco_par)*gradDgrad_par(v,vpar0))                     ! ad-hoc parallel viscosity                                                                 
 
       amat_semianalytic(var_vpar, var_Phi)  = -tstep*theta*(vpar2_Phi/2.0 * Bv_parderiv(v*rho0)               &     ! 1/2 rho grad(v^2) 
-                                            - vpar2_Phi*Bv_pbrack(Psi0, rho0*v)/2.0)                                ! 1/2 rho grad(v^2)
-                                                                                                              
+                                            - vpar2_Phi*Bv_pbrack(Psi0, rho0*v)/2.0                           &     ! 1/2 rho grad(v^2)
+                                            - v*div_rhov_Phi*vpar0*B2)                                              ! vpar div(rho v)                                                                
+
       amat_semianalytic(var_vpar, var_rho)  = (1.d0 + zeta)*v*B2*rho*vpar0                                    &     ! rho B2 d(v_par)_dt 
                                             - tstep*theta*(vpar2/2.0 * Bv_parderiv(v*rho)                     &     ! 1/2 rho grad(v^2)
-                                            - vpar2*Bv_pbrack(Psi0, rho*v)/2.0)                                     ! 1/2 rho grad(v^2)
-                                                                                                              
+                                            - vpar2*Bv_pbrack(Psi0, rho*v)/2.0                                &     ! 1/2 rho grad(v^2)
+                                            - v*div_rhov_rho*vpar0*B2)                                              ! vpar div(rho v)                                                                  
                                                                                                               
       amat_semianalytic(var_vpar, var_vpar) = (1.d0 + zeta)*v*B2*rho0*vpar                                    &     ! rho B2 d(v_par)_dt                                                                                  
                                             - tstep*theta*(vpar2_vpar/2.0 * Bv_parderiv(v*rho0)               &     ! 1/2 rho grad(v^2)     
                                             - vpar2_vpar*Bv_pbrack(Psi0, rho0*v)/2.0                          &     ! 1/2 rho grad(v^2)
+                                            - v*div_rhov_vpar*vpar0*B2                                        &     ! vpar div(rho v)
+                                            - v*div_rhov0*vpar*B2                                             &     ! vpar div(rho v)
                                             - visco_par*gradprod(v, vpar)                                     &     ! ad-hoc parallel viscosity
                                             - (visco_par_par-visco_par)*B0_parderiv(v)*B0_parderiv(vpar)/B2   &     ! ad-hoc parallel viscosity
                                             - visco_par_num*Lap(v)*Lap(vpar))                                       ! ad-hoc parallel hyper viscosity
