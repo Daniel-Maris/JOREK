@@ -138,14 +138,16 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
                 use_cx, use_sputtering, use_ionisation,             &
                 use_ncs, use_pcs, use_ccs,restart_particles,        &
-				use_recombination, use_puffing,use_line_radiation,  &
-				puff_rate, r_valve, R_valve_loc, Z_valve,           &
-        R_valve_loc2, Z_valve2, n_puff, &
-        use_controller, control_t_dep_signal_file, &
-        contr_selfdefined, &
-        contr_usedatafile, contr_analytical, analytical_expression, &
-        analytical_len, analytical_tmax, controller_K_p, controller_K_i, controller_K_d, setpoint, &
-        max_value, min_value, controller_type
+                use_recombination, use_puffing,use_line_radiation,  &
+                puff_rate, r_valve, R_valve_loc, Z_valve,           &
+                R_valve_loc2, Z_valve2, n_puff,                     &
+                use_controller, control_t_dep_signal_file,          &
+                contr_selfdefined, contr_usedatafile,               &
+                contr_analytical, analytical_expression,            &
+                analytical_len, analytical_tmax, controller_K_p,    &
+                controller_K_i, controller_K_d, setpoint,           &
+                max_value, min_value, controller_type,              &
+                fix_psi_j_u_w, set_chi_perp_const                  
 
 if (my_id .eq. 0) then
 

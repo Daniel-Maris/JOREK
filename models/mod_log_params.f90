@@ -439,6 +439,8 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,REAL_FMT) 'tgnum                 ', tgnum(:)
   write(*,LOGI_FMT) 'keep_current_prof     ', keep_current_prof
   write(*,LOGI_FMT) 'linear_run            ', linear_run
+  write(*,LOGI_FMT) 'fix_psi_j_u_w         ', fix_psi_j_u_w
+  write(*,LOGI_FMT) 'set_chi_perp_const    ', set_chi_perp_const
   write(*,REAL_FMT) 'D_prof_neg            ', D_prof_neg
   write(*,REAL_FMT) 'D_prof_neg_thresh     ', D_prof_neg_thresh
   write(*,REAL_FMT) 'ZK_prof_neg           ', ZK_prof_neg

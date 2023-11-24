@@ -72,6 +72,8 @@ module phys_module
   integer :: gmres_max_iter       !< Maximum number of GMRES iterations
   logical :: keep_n0_const        !< Perform a linear run where the equilibrium quantities (i_tor=1) do not change with time?
   logical :: linear_run           !< Same as keep_n0_const, to be replaced soon by true linear run where modes are independent
+  logical :: fix_psi_j_u_w        !< Forces the deltas of psi, j u and w to 0, to be able to compare to other codes without drifts
+  logical :: set_chi_perp_const   !< Fixes the perpendicular heat diffusivity as a constant rather than heat conductivity kappa (KZ in this code)
   logical :: export_for_nemec     !< Export equilibrium information for the NEMEC code?
   logical :: use_murge            !< (Deprecated, Cannot be used any more)
   logical :: use_murge_element    !< (Deprecated, Cannot be used any more)

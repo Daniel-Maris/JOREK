@@ -203,6 +203,7 @@ module mod_expression
     call add(exprs_all, 'partF_par_cv', 'Convective parallel particle flux (normal to the bnd) ', 'boundary    ')
     call add(exprs_all, 'partF_prp_cv', 'Convective perpend  particle flux (normal to the bnd) ', 'boundary    ')
     call add(exprs_all, 'partF_total ', 'Total particle flux (normal to the boundary)          ', 'boundary    ')
+    call add(exprs_all, 'partF_par_B ', 'Particle flux parallel to the magnetic field (vpar n) ', 'boundary    ')
     call add(exprs_all, 'npartF_total', 'Total neutral particle flux (normal to the boundary)  ', 'boundary    ')
     call add(exprs_all, 'ExB_norm    ', 'EM energy flux, Poynting vector (normal to boundary)  ', 'boundary    ')
 #if JOREK_MODEL == 303 || JOREK_MODEL == 333 || JOREK_MODEL == 400 || JOREK_MODEL == 500
@@ -1718,6 +1719,9 @@ module mod_expression
 
               case ( 'partF_total'  )
                 res = partF_cnv_tot * fact_ne / fact_time
+              
+              case ( 'partF_par_B'  )
+                res = Vpar0 * fact_vpar * r0 * fact_ne
 
               case ( 'npartF_total'  )
                 res = neut_part_flux * fact_ne / fact_time

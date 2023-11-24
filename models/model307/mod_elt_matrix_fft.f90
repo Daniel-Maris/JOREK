@@ -88,6 +88,7 @@ real*8     :: dn_dpsi(n_gauss,n_gauss),dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3
 real*8     :: dT_dpsi(n_gauss,n_gauss),dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2,dT_dpsi2_dz
 logical    :: xpoint2, use_fft
 real*8     :: Btheta2, epsil, Btheta2_psi
+real*8     :: switch_off_evolution(10)
 real*8, dimension(n_gauss,n_gauss)    :: amu_neo_prof, aki_neo_prof
 real*8     :: aux_rho0, aux_T0, aux_Vpar0
 real*8     :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
@@ -158,6 +159,12 @@ RHS_p = 0.d0
 RHS_k = 0.d0
 ELM   = 0.d0
 RHS   = 0.d0
+
+switch_off_evolution(:) = 1.0d0
+
+if (fix_psi_j_u_w) then
+  switch_off_evolution(1:4) = 1.0d11
+end if
 
 epsil=1.d-3
 zk_par_num = 0.d0
@@ -692,7 +699,11 @@ do i=1,n_vertex_max
           endif
 
           D_prof  = get_dperp (psi_norm)
-          ZK_prof = get_zkperp(psi_norm)
+          if (set_chi_perp_const) then
+            ZK_prof = get_zkperp(psi_norm) * max(r0, 1d-3)
+          else
+            ZK_prof = get_zkperp(psi_norm)
+          endif
 
           ! --- Increase diffusivity if very small density/temperature
           if (xpoint2) then
@@ -1140,7 +1151,7 @@ do i=1,n_vertex_max
                   !#  equation 1   (induction equation)                                                              #
                   !###################################################################################################
 
-                  amat(1,1) = v * psi / BigR * xjac * (1.d0 + zeta)                                                   &
+                  amat(1,1) = v * psi / BigR * xjac * (1.d0 + zeta)  * switch_off_evolution(1)                                                 &
                             - v * (psi_s * u0_t - psi_t * u0_s)                                       * theta * tstep &
                             + v * tauIC/(r0_corr*BB2) * F0**2/BigR**2 * (psi_s * p0_t - psi_t * p0_s) * theta * tstep &
                      - v * tauIC/(r0_corr*BB2**2) * BB2_psi * F0**2/BigR**2 * (ps0_x*p0_y - ps0_y*p0_x) * xjac * theta * tstep &
@@ -1197,7 +1208,7 @@ do i=1,n_vertex_max
                                                * BigR * xjac * tstep * theta 
                   endif
 
-                  amat(2,2) = - BigR**3 * r0_corr * (v_x * u_x + v_y * u_y) * xjac * (1.d0 + zeta)                           &
+                  amat(2,2) = - BigR**3 * r0_corr * (v_x * u_x + v_y * u_y) * xjac * (1.d0 + zeta)* switch_off_evolution(2)  &
                             + r0_hat * BigR**2 * w0 * (v_s * u_t  - v_t  * u_s)                              * theta * tstep &
                             + BigR**2 * (u_x * u0_x + u_y * u0_y) * (v_x * r0_y_hat - v_y * r0_x_hat) * xjac * theta * tstep &
 
@@ -1294,7 +1305,7 @@ do i=1,n_vertex_max
                   !#  equation 3   (current definition)                                                              #
                   !###################################################################################################
 
-                  amat(3,3) = v * zj / BigR * xjac
+                  amat(3,3) = v * zj / BigR * xjac * switch_off_evolution(3)
                   !amat(3,3) = amat(3,3) *1.d12					  
                   amat(3,1) = (v_x * psi_x + v_y * psi_y ) / BigR * xjac         
 
@@ -1302,7 +1313,7 @@ do i=1,n_vertex_max
                   !#  equation 4   (vorticity definition)                                                            #
                   !###################################################################################################
 
-                  amat(4,4) =  v * w * BigR * xjac
+                  amat(4,4) =  v * w * BigR * xjac * switch_off_evolution(4)
 				  !amat(4,4) = amat(4,4) *1.d12				  
                   amat(4,2) = (v_x * u_x + v_y * u_y) * BigR * xjac              
 

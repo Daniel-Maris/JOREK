@@ -298,6 +298,8 @@ subroutine preset_parameters
   
   keep_n0_const      = .false.
   linear_run         = .false.
+  fix_psi_j_u_w      = .false.
+  set_chi_perp_const = .false.
   
   export_for_nemec   = .false.
   
