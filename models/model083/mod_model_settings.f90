@@ -3,6 +3,7 @@ module mod_model_settings
 
   implicit none
 
+  logical, parameter :: with_vpar       = .false.
   logical, parameter :: with_TiTe       = .false.
 
 ! ##################################################################################################
@@ -10,7 +11,7 @@ module mod_model_settings
 ! ##################################################################################################
 
   ! The following line is needed by ./util/config.sh:
-  ! #SETTINGS# with_TiTe
+  ! #SETTINGS# with_vpar with_TiTe
 
   integer, parameter :: jorek_model    = 083       !< JOREK physics model
 
@@ -20,20 +21,21 @@ module mod_model_settings
   
   logical, parameter :: with_neutrals   = .false.
   logical, parameter :: with_impurities = .false.
-  logical, parameter :: with_Vpar       = .false.
   logical, parameter :: with_refluid    = .false.
 
   logical, parameter :: model_family    = .true.
 
 ! --- extensions to it
-  integer, parameter :: n_mod_ext       = 1
+  integer, parameter :: n_mod_ext       = 2
   integer, parameter :: i_ext_TiTe      = 1
-  logical, parameter :: with_ext(n_mod_ext) = (/ with_TiTe /)
+  integer, parameter :: i_ext_vpar      = 2
+  logical, parameter :: with_ext(n_mod_ext) = (/ with_TiTe, with_vpar /)
 
 ! --- number of variables for base model and in case of extension
   integer, parameter :: n_var_base    = 6                         !< number of variables in model without TiTe
   integer, parameter :: n_var_TiTe    = sum(merge( (/1/), (/0/), with_TiTe) )
-  integer, parameter :: n_var_ext(n_mod_ext) = (/ n_var_TiTe /)
+  integer, parameter :: n_var_vpar    = sum(merge( (/1/), (/0/), with_vpar) )
+  integer, parameter :: n_var_ext(n_mod_ext) = (/ n_var_TiTe, n_var_vpar /)
   integer, parameter :: n_var = n_var_base + sum(n_var_ext)       !< total number of variables
 
 ! --- variable indices in general
@@ -49,7 +51,6 @@ module mod_model_settings
   integer, parameter :: var_u      = var_Phi                 ! alias for velocity stream function            (u)
   integer, parameter :: var_zj     = 3                       ! place of variable toroidal current density    (zj)
   integer, parameter :: var_w      = 4                       ! place of variable vorticity                   (w)
-  integer, parameter :: var_Vpar   = 0                       ! place of variable parallel velocity           (Vpar)
   integer, parameter :: var_rhon   = 0                       ! place of variable neutral particle density    (rn)
   integer, parameter :: var_rhoimp = 0                       ! place of variable impurity density            (rimp)
   integer, parameter :: var_jec    = 0                       ! place of variable ECCD current                (jec)
@@ -58,60 +59,70 @@ module mod_model_settings
   integer, parameter :: var_nre    = 0                       ! place of variable for RE number density       (nre)
 
 ! --- variable indices dependent on model
-  integer, parameter :: var_T    = sum(merge( (/0/), (/6/), with_TiTe ))   ! place of variable temperature          (T)
-  integer, parameter :: var_Ti   = sum(merge( (/6/), (/0/), with_TiTe ))   ! place of variable ion temperature      (Ti)
-  integer, parameter :: var_Te   = sum(merge( (/7/), (/0/), with_TiTe ))   ! place of variable electron temperature (Te)
+  integer, parameter :: var_T    = sum(merge( (/0/), (/6/), with_TiTe ))                         ! place of variable temperature          (T)
+  integer, parameter :: var_Ti   = sum(merge((/                        6/), (/0/), with_TiTe ))  ! place of variable ion temperature      (Ti)
+  integer, parameter :: var_Te   = sum(merge((/n_var_base+n_var_vpar  +1/), (/0/), with_TiTe ))  ! place of variable electron temperature (Te)
+  integer, parameter :: var_Vpar = sum(merge((/                        7/), (/0/), with_vpar ))  ! place of variable parallel velocity    (Vpar)
 
   !> element_matrix and element_matrix_fft combined into a single one?
   logical, parameter :: unified_element_matrix = .false.
+
+  character(8), dimension(n_var) :: varnames 
 
   contains
 
 
 
 !> is the extension available?
-  elemental pure logical function ext_available(i_ext)
+elemental pure logical function ext_available(i_ext)
 
-    implicit none
+  implicit none
 
-    ! --- Function parameters
-    integer, intent(in) :: i_ext
+  ! --- Function parameters
+  integer, intent(in) :: i_ext
 
 
-    ! --- Preset to .true. unless invalid extension number
-    if ( (i_ext < 1) .or. (i_ext > n_mod_ext) ) then
-      ext_available = .false.
-    else
-      ext_available = .true.
-    end if
+  ! --- Preset to .true. unless invalid extension number
+  if ( (i_ext < 1) .or. (i_ext > n_mod_ext) ) then
+    ext_available = .false.
+  else
+    ext_available = .true.
+  end if
 
-  end function ext_available
+  ! --- exceptions for not implemented
+  if ( i_ext == i_ext_TiTe ) then
+    ext_available = .true.
+  else if ( i_ext == i_ext_vpar ) then
+    ext_available = .true.
+  end if
+
+end function ext_available
 
 !> Are two extensions compatible?
 ! --- not necessary for only one extension
-  pure logical function ext_compatible(i_ext1, i_ext2)
+pure logical function ext_compatible(i_ext1, i_ext2)
 
-    implicit none
+  implicit none
 
-    ! --- Function parameters
-    integer, intent(in) :: i_ext1, i_ext2
+  ! --- Function parameters
+  integer, intent(in) :: i_ext1, i_ext2
 
-    ! --- Local variables
-    integer :: iext1, iext2
+  ! --- Local variables
+  integer :: iext1, iext2
 
-    ! --- sort extension indices, since compatibility is symmetric
-    iext1 = min(i_ext1, i_ext2)
-    iext2 = max(i_ext1, i_ext2)
+  ! --- sort extension indices, since compatibility is symmetric
+  iext1 = min(i_ext1, i_ext2)
+  iext2 = max(i_ext1, i_ext2)
 
-    ! --- preset to .true. unless wrong indices were provided
-    if ( (iext1 < 1) .or. (iext2 > n_mod_ext) ) then
-      ext_compatible = .false.
-    else
-      ext_compatible = .true.
-    end if
+  ! --- preset to .true. unless wrong indices were provided
+  if ( (iext1 < 1) .or. (iext2 > n_mod_ext) ) then
+    ext_compatible = .false.
+  else
+    ext_compatible = .true.
+  end if
 
-    ! --- exceptions for compatibility (--> at the moment none)
+  ! --- exceptions for compatibility (--> at the moment none)
 
-  end function ext_compatible
+end function ext_compatible
 
 end module mod_model_settings

@@ -12,12 +12,6 @@ module mod_semianalytical
     real*8                    :: factor = 1.d0, add = 0.d0 ! A numerical multiplicative factor and an additive constant
     character(:), allocatable :: factcode, addcode         ! Fortran code for the multiplicative and additive constants
     
-#ifdef EVAL_MOD_EQUATIONS
-    ! These pointers are only for debugging purposes and should be removed in production
-    ! up points to the expression for which this expression is an operand
-    ! origin points to the un-expanded expression from which this expression was obtained
-    type(algexpr), pointer :: up => NULL(), origin => NULL()
-#endif
   end type algexpr
   
   ! A constant derived from a Fortran variable that does not vary in space or time
@@ -26,20 +20,6 @@ module mod_semianalytical
     character(:), allocatable :: token ! The name of the corresponding Fortran variable
   end type const
 
-#ifdef EVAL_MOD_EQUATIONS
-  ! An instruction to add, subtract, multiply or divide two numbers
-  ! Algebraic expressions are compiled to sequences (arrays) of actions
-  type action
-    real*8, dimension(:), pointer :: v1, v2     ! Point to two values, which are to be added, subtracted, multiplied or divided
-    integer*1                     :: c1, c2, c3 ! These three constants collectively determine the type of arithmetic operation to be performed
-    real*8, dimension(4)          :: reslt      ! Stores the result
-    real*8                        :: f1, f2     ! Numerical factors individually multiplying v1 and v2
-    real*8                        :: a1, a2     ! Additive constants for v1 and v2
-    
-    ! Points to the exact expression from which this action was obtained
-    type(algexpr), pointer :: origin => NULL()
-  end type action
-#endif
   
   type(algexpr), parameter :: one = algexpr(basic = .true.,var=1,factor=0,add=1)
 
@@ -94,10 +74,6 @@ module mod_semianalytical
     procedure powexprn ! algexpr**real
     procedure powcn    ! const**real
   end interface operator (**)
-  
-#ifdef EVAL_MOD_EQUATIONS
-  private :: buildsequence_rec
-#endif
   
 contains
 
@@ -628,11 +604,6 @@ contains
       if (allocated(expr%factcode)) res%factcode = expr%factcode
       if (allocated(expr%addcode)) res%addcode  = expr%addcode
       
-#ifdef EVAL_MOD_EQUATIONS
-      res%origin => expr%origin
-      res%up     => expr%up
-#endif
-      
       allocate(res%operand1)
       allocate(res%operand2)
       res%operand1 = deepcopy(expr%operand1)
@@ -640,20 +611,6 @@ contains
     end if
   end function deepcopy
   
-#ifdef EVAL_MOD_EQUATIONS
-  ! This subroutine initializes the up pointers in an expression tree (only useful for debugging)
-  recursive subroutine inituptree(expr)
-    implicit none
-    type(algexpr), target, intent(inout) :: expr
-    
-    if (.not. expr%basic) then
-      expr%operand1%up => expr
-      expr%operand2%up => expr
-      call inituptree(expr%operand1)
-      call inituptree(expr%operand2)
-    end if
-  end subroutine inituptree
-#endif
 
   type(algexpr) recursive function Dexpand(expr) result(res)
     implicit none
@@ -677,9 +634,6 @@ contains
         res%dy = expr%dy
         res%dp = expr%dp
         res%add = 0
-#ifdef EVAL_MOD_EQUATIONS
-        res%origin => expr
-#endif
       else if (expr%dy .ne. 0) then
         select case (expr%oprtr)
           case ('+')
@@ -695,9 +649,6 @@ contains
         res%dy = expr%dy - 1
         res%dp = expr%dp
         res%add = 0
-#ifdef EVAL_MOD_EQUATIONS
-        res%origin => expr
-#endif
       else if (expr%dp .ne. 0) then
         select case (expr%oprtr)
           case ('+')
@@ -713,9 +664,6 @@ contains
         res%dy = expr%dy
         res%dp = expr%dp - 1
         res%add = 0
-#ifdef EVAL_MOD_EQUATIONS
-        res%origin => expr
-#endif
       end if
       res%factor = expr%factor
       if (allocated(expr%factcode)) res%factcode = expr%factcode
@@ -826,113 +774,6 @@ contains
     end if
   end function countsubexprs
 
-#ifdef EVAL_MOD_EQUATIONS
-  ! Use an algebraic expression to build a sequence of instructions (recursive part)
-  recursive subroutine buildsequence_rec(expr, actseq, eq, last)
-    implicit none
-    type(algexpr),                         target, intent(in)    :: expr
-    type(action), dimension(:),            target, intent(inout) :: actseq
-    real*8,       dimension(:,0:,0:,0:,:), target, intent(in)    :: eq
-    integer,                                       intent(inout) :: last
-    type(action),                          target                :: act
-    
-    act%origin => expr
-    act%f1 = expr%operand1%factor
-    act%f2 = expr%operand2%factor
-    act%a1 = expr%operand1%add
-    act%a2 = expr%operand2%add
-    
-    if (expr%operand1%basic) then
-      act%v1  => eq(expr%operand1%var,expr%operand1%dx,expr%operand1%dy,expr%operand1%dp,:)
-    else
-      if (expr%operand1%dx .ne. 0 .or. expr%operand1%dy .ne. 0 .or. expr%operand1%dp .ne. 0) then
-        write(*,*)
-        write(*,*) '>>>>> Cannot build sequence from unexpanded algexpr: EXITING THE CODE <<<<<'
-        write(*,*)
-        stop
-      end if
-      call buildsequence_rec(expr%operand1,actseq,eq,last)
-      act%v1 => actseq(last)%reslt
-    end if
-    
-    if (expr%operand2%basic) then
-      act%v2  => eq(expr%operand2%var,expr%operand2%dx,expr%operand2%dy,expr%operand2%dp,:)
-    else
-      if (expr%operand2%dx .ne. 0 .or. expr%operand2%dy .ne. 0 .or. expr%operand2%dp .ne. 0) then
-        write(*,*)
-        write(*,*) '>>>>> Cannot build sequence from unexpanded algexpr: EXITING THE CODE <<<<<'
-        write(*,*)
-        stop
-      end if
-      call buildsequence_rec(expr%operand2,actseq,eq,last)
-      act%v2 => actseq(last)%reslt
-    end if
-    
-    select case (expr%oprtr)
-      case ('+')
-        act%c1 = 1
-        act%c2 = 1
-        act%c3 = 1
-      case ('-')
-        act%c1 =  1
-        act%c2 =  1
-        act%c3 = -1
-      case ('*')
-        act%c1 = 0
-        act%c2 = 1
-        act%c3 = 0
-      case ('/')
-        act%c1 = 1
-        act%c2 = 0
-        act%c3 = 0
-    end select
-    last = last + 1
-    actseq(last) = act
-  end subroutine buildsequence_rec
-  
-  ! Use an algebraic expression to build a sequence of instructions (initialization part)
-  subroutine buildsequence(expr, actseq, eq)
-    implicit none
-    type(algexpr),                         target, intent(in)    :: expr
-    type(action), dimension(:),            target, intent(inout) :: actseq
-    real*8,       dimension(:,0:,0:,0:,:), target, intent(in)    :: eq
-    integer                                                      :: last
-    
-    ! It is impossible to represent factors and additive constants on the uppermost algexpr in an action sequence format
-    ! Exit the code with an error message to avoid trouble (wrong numerical results) later
-    if (expr%factor .ne. 1 .or. expr%add .ne. 0) then
-      write(*,*)
-      write(*,*) '>>>>> Factor and/or additive on uppermost algexpr: EXITING THE CODE <<<<<'
-      write(*,*)
-      stop
-    end if
-    
-    last = 0
-    call buildsequence_rec(expr, actseq, eq, last)
-  end subroutine buildsequence
-
-  ! Execute the instruction sequence
-  ! Only this function is called in the loops
-  function eval(actseq)
-    implicit none
-    type(action), dimension(:), intent(inout) :: actseq
-    real*8, dimension(4)                      :: eval
-    integer                                   :: i
-    
-    !dir$ noparallel
-    !dir$ novector
-    do i=1,size(actseq)
-#if (JOREK_MODEL == 83)
-      actseq(i)%reslt(1) = (actseq(i)%f1*actseq(i)%v1(1) + actseq(i)%a1)*((1 - actseq(i)%c1)*(actseq(i)%f2*actseq(i)%v2(1) + actseq(i)%a2) + actseq(i)%c1)/((1 - actseq(i)%c2)*(actseq(i)%f2*actseq(i)%v2(1) + actseq(i)%a2) + actseq(i)%c2) + actseq(i)%c3*(actseq(i)%f2*actseq(i)%v2(1) + actseq(i)%a2)
-#else
-      actseq(i)%reslt = (actseq(i)%f1*actseq(i)%v1 + actseq(i)%a1)*((1 - actseq(i)%c1)*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2) + actseq(i)%c1)/((1 - actseq(i)%c2)*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2) + actseq(i)%c2) + actseq(i)%c3*(actseq(i)%f2*actseq(i)%v2 + actseq(i)%a2)
-#endif
-    end do
-    
-    eval = actseq(size(actseq))%reslt
-  end function eval
-#endif
-  
   ! Generates Fortran code from an algexpr structure
   recursive function gencode(expr, varname) result(res)
     implicit none
