@@ -186,7 +186,7 @@ program recobmination_loop
     
     
     !Bot puff
-    puff_t_dependent = .false. !.true. !< select if you want time dependent puffing
+    puff_t_dependent = .true. !< select if you want time dependent puffing
     puff_rate = 11.d21 !70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
     fueling_rate_start = 11.d21 !40.d21 !40 40 worked, 20 before
     r_valve     = 0.05d0 !0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
@@ -233,7 +233,7 @@ program recobmination_loop
         gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
         !gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
         gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
-        gas_puff3 = particle_puffing(n_puff, 20.d21, 0.12d0, 6.05, 4.15)
+        gas_puff3 = particle_puffing(n_puff/2, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3) !gas_puff3 = particle_puffing(n_puff, 20.d21, 0.12d0, 6.05, 4.15)
       end if
       gas_puff_event = event(gas_puff)
       gas_puff2_event = event(gas_puff2)
