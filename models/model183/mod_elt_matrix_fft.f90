@@ -476,7 +476,7 @@ do ms=1, n_gauss
       endif ! (with_TiTe) ********************************************************************
 
       ! Auxiliary variables (aux)
-#include "aux_unreadable.h"
+      call get_auxiliary(eq)
 
       do i=1,n_vertex_max
         do j=1,n_order+1
@@ -522,8 +522,7 @@ do ms=1, n_gauss
                                   - x_p(mp,ms,mt)*eq(var_v,1,1,0,:)
             
             
-
-#include "rhs_unreadable.h"
+          call get_rhs(rhs_ij, eq)
            
            ! Add Jacobian pre-factor to contributions
            do i_var=1,n_var
@@ -583,8 +582,8 @@ do ms=1, n_gauss
                   eq(var_varStar,0,1,1,:) = u_py*dup - x_p_y*eq(var_varStar,1,0,0,:) - y_p(mp,ms,mt)*eq(var_varStar,0,2,0,:) - y_p_y*eq(var_varStar,0,1,0,:) &
                                         - x_p(mp,ms,mt)*eq(var_varStar,1,1,0,:)
                   
+                  call get_amat(amat_ij, eq)                
                   
-#include "amat_unreadable.h"
                   ! Include pre-factor to contribution
                   do i_var = 1, n_var
                     do j_var = 1, n_var 
@@ -894,4 +893,71 @@ enddo
       
 return
 end subroutine my_fft
+
+subroutine get_auxiliary(eq)
+  use data_structure
+  use constants
+  use mod_parameters
+  use phys_module
+  use mod_equations
+
+  implicit none
+
+  real*8, dimension(:,:,:,:,:), pointer, intent(inout) :: eq
+  
+#include "aux_unreadable.h"
+end subroutine
+
+subroutine get_rhs(rhs_ij, eq)
+  use data_structure
+  use constants
+  use mod_parameters
+  use phys_module
+  use mod_equations
+  
+  implicit none
+
+  real*8, dimension(n_var,4), intent(inout)       :: rhs_ij
+  real*8, dimension(:,:,:,:,:), pointer, intent(in) :: eq
+  real*8     :: theta, zeta, reta
+  
+  ! --- Take time evolution parameters from phys_module
+  theta = time_evol_theta
+  ! change zeta for variable dt
+  zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
+  if (eta .ne. 0.d0) then
+    reta = eta_ohmic/eta
+  else
+    reta = 0.d0
+  end if
+  
+#include "rhs_unreadable.h"
+end subroutine
+
+subroutine get_amat(amat_ij, eq)
+  use data_structure
+  use constants
+  use mod_parameters
+  use phys_module
+  use mod_equations
+  
+  implicit none
+
+  real*8, dimension(n_var,n_var,4), intent(inout) :: amat_ij
+  real*8, dimension(:,:,:,:,:), pointer, intent(in) :: eq
+  real*8     :: theta, zeta, reta
+  
+  ! --- Take time evolution parameters from phys_module
+  theta = time_evol_theta
+  ! change zeta for variable dt
+  zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
+  if (eta .ne. 0.d0) then
+    reta = eta_ohmic/eta
+  else
+    reta = 0.d0
+  end if
+  
+#include "amat_unreadable.h"
+end subroutine
+
 end module mod_elt_matrix_fft
