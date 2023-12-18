@@ -507,11 +507,11 @@ module mod_equations
                                              + tstep*theta*(v*Bv_parderiv(rho*(T0_i+T0_e))                    &     ! grad(p) component
                                              + v*Bv_pbrack(rho*(T0_i+T0_e),Psi0))                                   ! grad(p) component
                                                                                                               
-        amat_semianalytic(var_vpar, var_Ti)  = tstep*theta*(v*Bv_parderiv(rho0*(T_i+T0_e))                    &     ! grad(p) component
-                                             + v*Bv_pbrack(rho0*(T_i+T0_e),Psi0))                                   ! grad(p) component
+        amat_semianalytic(var_vpar, var_Ti)  = tstep*theta*(v*Bv_parderiv(rho0*T_i)                    &     ! grad(p) component
+                                             + v*Bv_pbrack(rho0*T_i,Psi0))                                   ! grad(p) component
                                                                                                               
-        amat_semianalytic(var_vpar, var_Te)  = tstep*theta*(v*Bv_parderiv(rho0*(T0_i+T_e))                    &     ! grad(p) component
-                                             + v*Bv_pbrack(rho0*(T0_i+T_e),Psi0))                                   ! grad(p) component
+        amat_semianalytic(var_vpar, var_Te)  = tstep*theta*(v*Bv_parderiv(rho0*T_e)                    &     ! grad(p) component
+                                             + v*Bv_pbrack(rho0*T_e,Psi0))                                   ! grad(p) component
       else                                                                                                      
          rhs_semianalytic(var_vpar) = rhs_semianalytic(var_vpar)                                              &            
                                     - tstep * (v*Bv_parderiv(rho0*T0)                                         &     ! grad(p) component
