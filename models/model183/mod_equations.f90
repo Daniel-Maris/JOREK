@@ -266,7 +266,7 @@ module mod_equations
     end if                                                                                           
                                                                                                      
     amat_semianalytic(var_Phi, var_Psi) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Psi/2.d0      &      ! 1/2 rho grad(v^2)
-                                        - div_rhov_Psi*inprod(v,Phi0)                         &      ! v_ExB div(rho v)
+                                        - div_rhov_Psi*inprod(v,Phi0)/Bv2                     &      ! v_ExB div(rho v)
                                         - v*Bv_pbrack(zj0,Psi))                                      ! j x B component
 
     amat_semianalytic(var_Phi, var_Phi) = -(1.d0 + zeta)*rho0*inprod(v,Phi)/Bv2               &      ! rho d(v_ExB)_dt
@@ -289,7 +289,7 @@ module mod_equations
 
     if (with_vpar) then
       amat_semianalytic(var_Phi, var_vpar) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_vpar/2.d0       & ! 1/2 rho grad(v^2)
-                                           - div_rhov_vpar*inprod(v,Phi0))                           ! v_ExB div(rho v)
+                                           - div_rhov_vpar*inprod(v,Phi0)/Bv2)                       ! v_ExB div(rho v)
     endif
 
     if (with_TiTe) then 
