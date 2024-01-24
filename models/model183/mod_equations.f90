@@ -51,6 +51,7 @@ module mod_equations
   integer, parameter  :: var_ddTe_i_drho = 2*n_var+28
   integer, parameter  :: var_Bv2         = 2*n_var+29
   integer, parameter  :: var_B2          = 2*n_var+30
+  integer, parameter  :: var_zero        = 2*n_var+31
 
   ! Variables at current time step
   type(algexpr), parameter, private :: Psi0       = algexpr(basic=.true.,var=var_Psi)
@@ -62,7 +63,7 @@ module mod_equations
 #if WITH_Vpar
   type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true.,var=var_vpar)
 #else
-  type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true., var=1, factor=0.d0, factcode="0.d0")
+  type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true., var=var_zero)
 #endif
   type(algexpr), parameter, private :: T0_i       = algexpr(basic=.true.,var=var_Ti)
   type(algexpr), parameter, private :: T0_e       = algexpr(basic=.true.,var=var_Te)
@@ -88,7 +89,7 @@ module mod_equations
 #if WITH_Vpar
   type(algexpr), parameter, private :: vpar       = algexpr(basic=.true.,var=var_varStar)
 #else
-  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true., var=1, factor=0.d0, factcode="0.d0")
+  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true., var=var_zero)
 #endif
   type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=var_varStar)
   type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=var_varStar)
@@ -125,7 +126,7 @@ module mod_equations
   type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=var_B2)
   
   ! Used when terms in the representation of terms are ignored
-  type(algexpr), parameter, private :: zero       = algexpr(basic=.true., var=1, factor=0.d0, factcode="0.d0")
+  type(algexpr), parameter, private :: zero       = algexpr(basic=.true., var=var_zero)
 
   type(const), private :: tstep, zeta, theta 
   type(const), private :: visco_num, visco_par, visco_par_par, visco_par_num, eta_num, D_perp_num, k_perp_num, gamma, reta
@@ -205,7 +206,7 @@ module mod_equations
     v2_Phi  = 2.d0*inprod(Phi0,Phi) 
     v2_vpar = zero
 
-    vpar2   = vpar0*vpar0*(Bv2*inprod(Psi0,Psi))
+    vpar2   = vpar0*vpar0*(Bv2*inprod(Psi0,Psi0))
     vpar2_Psi  = 2.d0*vpar0*vpar0*(Bv2*inprod(Psi0,Psi))
     vpar2_Phi  = zero
     vpar2_vpar = 2.d0*vpar0*vpar*(Bv2*inprod(Psi0,Psi0))
@@ -550,7 +551,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(2*n_var+30,0:n_order-1,0:n_order-1,0:n_order-1,4))
+        allocate(thread_eq(i)%eq(2*n_var+31,0:n_order-1,0:n_order-1,0:n_order-1,4))
       end do
     end if
   end subroutine init_eq_struct
