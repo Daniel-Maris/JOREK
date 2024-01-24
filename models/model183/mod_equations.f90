@@ -206,10 +206,10 @@ module mod_equations
     v2_Phi  = 2.d0*inprod(Phi0,Phi) 
     v2_vpar = zero
 
-    vpar2   = vpar0*vpar0*(1.0 + Bv2*inprod(Psi0,Psi0))
+    vpar2   = vpar0*vpar0*(Bv2*(1.0 + inprod(Psi0,Psi0)))
     vpar2_Psi  = 2.d0*vpar0*vpar0*(Bv2*inprod(Psi0,Psi))
     vpar2_Phi  = zero
-    vpar2_vpar = 2.d0*vpar0*vpar*(Bv2*inprod(Psi0,Psi0))
+    vpar2_vpar = 2.d0*vpar0*vpar*(Bv2*(1.d0 + inprod(Psi0,Psi0)))
 #endif
 
     ! Divergence of rho v
