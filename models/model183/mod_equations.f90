@@ -62,7 +62,7 @@ module mod_equations
 #if WITH_Vpar
   type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true.,var=var_vpar)
 #else
-  type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true., var=1, factor=0.d0)
+  type(algexpr), parameter, private :: vpar0      = algexpr(basic=.true., var=1, factor=0.d0, factcode="0.d0")
 #endif
   type(algexpr), parameter, private :: T0_i       = algexpr(basic=.true.,var=var_Ti)
   type(algexpr), parameter, private :: T0_e       = algexpr(basic=.true.,var=var_Te)
@@ -88,7 +88,7 @@ module mod_equations
 #if WITH_Vpar
   type(algexpr), parameter, private :: vpar       = algexpr(basic=.true.,var=var_varStar)
 #else
-  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true., var=1, factor=0.d0)
+  type(algexpr), parameter, private :: vpar       = algexpr(basic=.true., var=1, factor=0.d0, factcode="0.d0")
 #endif
   type(algexpr), parameter, private :: T_i        = algexpr(basic=.true.,var=var_varStar)
   type(algexpr), parameter, private :: T_e        = algexpr(basic=.true.,var=var_varStar)
@@ -125,7 +125,7 @@ module mod_equations
   type(algexpr), parameter, private :: B2         = algexpr(basic=.true.,var=var_B2)
   
   ! Used when terms in the representation of terms are ignored
-  type(algexpr), parameter, private :: zero       = algexpr(basic=.true., var=1, factor=0.d0)
+  type(algexpr), parameter, private :: zero       = algexpr(basic=.true., var=1, factor=0.d0, factcode="0.d0")
 
   type(const), private :: tstep, zeta, theta 
   type(const), private :: visco_num, visco_par, visco_par_par, visco_par_num, eta_num, D_perp_num, k_perp_num, gamma, reta
