@@ -29,7 +29,7 @@ function initial_run () {
   $MPIRUN $mpitasks ./jorek_model${jorek_equilibrium_model}_1 < ./input_init | tee logfile_initial              || exit 1
   ${codedir}/util/setinput.sh input restart=.t. nstep=30 tstep=0.1 time_evol_scheme='"implicit Euler"'          || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_1 < ./input | tee logfile_prerun                                 || exit 1
-  ${codedir}/util/setinput.sh input restart=.t. nstep=90 tstep=3.0 time_evol_scheme='"Gears"'                   || exit 1
+  ${codedir}/util/setinput.sh input restart=.t. nstep=150 tstep=3.0 time_evol_scheme='"Gears"'                   || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_1 < ./input | tee logfile_final                                  || exit 1
 }
 
