@@ -1505,12 +1505,6 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       sg = 0.d0;    tg = s_or_t; 
     end select
 
-    call interp_RZ(node_list,element_list,m_elm,sg,tg,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
-
-    BigR   = R
-    xjac   = R_s * Z_t - R_t * Z_s
-    grad_t = (/ -y_s_1D(mp,ms) , x_s_1D(mp,ms) /)   ! --- normal vector to the boundary 
-
     do mp=1, n_plane
       phi       = 2.d0*PI*float(mp-1)/float(n_plane) / float(n_period)
       call interp_RZP(node_list,element_list,m_elm,sg,tg,phi,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp,Z,Z_s,Z_t,Z_phi,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
