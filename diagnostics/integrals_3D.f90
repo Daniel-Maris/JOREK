@@ -1,5 +1,5 @@
 subroutine Integrals_3D(my_id, node_list, element_list, density_tot, density_in, density_out, pressure, pressure_in, pressure_out, &
-                        kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in,mom_par_out)
+                        kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in,mom_par_out, varminout, varmaxout)
 !---------------------------------------------------------------
 !
 !---------------------------------------------------------------
@@ -14,14 +14,18 @@ use domains
 use corr_neg
 use equil_info, only : get_psi_n, ES
 !$ use omp_lib
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501 || JOREK_MODEL == 555)
+#ifdef WITH_Neutrals
   use mod_neutral_source
 #endif
+#ifdef WITH_Impurities
+  use mod_impurity
+#endif
+use mod_sources
 
 implicit none
 
-real*8, intent(out)  :: density_tot, density_in, density_out,  pressure, pressure_in, pressure_out
-real*8, intent(out), optional :: kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in,mom_par_out
+real*8, intent(out) :: density_tot, density_in, density_out,  pressure, pressure_in, pressure_out
+real*8, intent(out) :: kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in, mom_par_out
 
 type (type_node_list)    :: node_list
 type (type_element_list) :: element_list
@@ -30,8 +34,8 @@ type (type_node)         :: nodes(n_vertex_max)
 
 real*8  :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss)
 real*8  :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
-real*8  :: eq_g(n_plane,n_var,n_gauss,n_gauss), eq_s(n_plane,n_var,n_gauss,n_gauss)
-real*8  :: eq_t(n_plane,n_var,n_gauss,n_gauss), eq_p(n_plane,n_var,n_gauss,n_gauss)
+real*8  :: eq_g(n_plane,0:n_var,n_gauss,n_gauss), eq_s(n_plane,0:n_var,n_gauss,n_gauss)
+real*8  :: eq_t(n_plane,0:n_var,n_gauss,n_gauss), eq_p(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: wgauss_copy(n_gauss)
 
 real*8  :: particle_source, heat_source, heat_source_i, heat_source_e, xt, t_norm, rho_norm, rotation_source
@@ -42,7 +46,7 @@ real*8  :: dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dps
 integer :: i, j, k, in, ms, mt, mp, iv, inode, ife, n_elements, ifail
 integer :: ierr, n_cpu, my_id, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
 real*8  :: beta_p, beta_n, beta_t, aminor
-real*8  :: xjac, BigR, wst, P_int, C_intern, zj0, ps0, r0, T0, T0e, Vol, Volume, Area, Bgeo, psi_limit
+real*8  :: xjac, BigR, wst, P_int, C_intern, zj0, ps0, r0, T0, Te0, Vol, Volume, Area, Bgeo, psi_limit
 real*8  :: r0_corr, T0_corr
 
 real*8  :: current_in, current_out, D_int, D_ext, P_ext, C_ext, P_max, delta_phi, phi, P_tot, D_tot
@@ -54,11 +58,14 @@ real*8  :: dTdx, dTdy, drhodx, drhody, dPdx, dPdy, dpsidx, dpsidy, dudx, dudy
 real*8  :: grad_psi, grad_P, grad_P_psi, gradP_psi_max, gradP_max
 real*8  :: source_volume, source_pellet, eta_T_ohm
 real*8  :: local_pellet_particles, local_plasma_particles, local_pellet_volume
-real*8  :: local_n_particles_inj, local_n_particles, source_neutral, rn0, rho_bar
+real*8  :: local_n_particles_inj, local_n_particles, source_neutral, source_neutral_drift, rn0, rho_bar
+real*8  :: source_neutral_arr(n_inj_max), source_neutral_drift_arr(n_inj_max)
 
-integer    :: spi_i
-real*8     :: ng_radius
+integer    :: spi_i, i_inj
 
+!> Minimum and maximum of the variable
+real*8,dimension(n_var),intent(out) :: varminout,varmaxout
+real*8,dimension(n_var) :: varmin,varmax
 
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr) ! number of MPI procs
 
@@ -72,6 +79,7 @@ if (my_id .eq. 0) then
   write(*,*) ' n_cpu   : ',n_cpu
 endif
 
+wgauss_copy = wgauss
 
 density_tot  = 0.d0
 pressure = 0.d0
@@ -84,6 +92,7 @@ VP_int   = 0.d0
 VK_int   = 0.d0
 VM_int   = 0.d0
 J2_int   = 0.d0
+TVP_int  = 0.d0
 D_ext    = 0.d0
 P_ext    = 0.d0
 C_ext    = 0.d0
@@ -93,10 +102,10 @@ VP_ext   = 0.d0
 VK_ext   = 0.d0
 VM_ext   = 0.d0
 J2_ext   = 0.d0
+TVP_ext  = 0.d0
 Vol      = 0.d0
 P_tot    = 0.d0
 D_tot    = 0.d0
-wgauss_copy = wgauss
 VP_tot   = 0.d0
 VK_tot   = 0.d0
 VM_tot   = 0.d0
@@ -109,10 +118,10 @@ local_pellet_particles = 0.d0
 local_plasma_particles = 0.d0
 local_pellet_volume    = 0.d0
 
-omp_nthreads= 1.d0
-omp_tid= 0.d0
+omp_nthreads= 1
+omp_tid= 0
 
-#if (JOREK_MODEL == 500)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
 local_n_particles_inj = 0.d0
 local_n_particles     = 0.d0
 #endif
@@ -131,10 +140,8 @@ ife_delta = ceiling(float(element_list%n_elements) / n_cpu)
 ife_min   =      my_id     * ife_delta + 1
 ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 
-!write(*,*) D_int, D_ext, P_int, H_int, S_int, H_ext, S_ext, P_ext, C_intern, C_ext, &
-!              TVP_int, TVP_ext, TVP_tot, VP_int, VP_ext, VP_tot, VK_tot, VK_int, VK_ext, VM_ext,                  &
-!               VM_int, VM_tot, Vol, P_tot, D_tot,J2_tot, J2_int, J2_ext
-! 11 12 13
+!> Initialise the minimum of all variables
+varmin = 1.e50; varmax = -1.e50; varminout = 1.e50; varmaxout = -1.e50;
 
 !$omp parallel default(none) , &                                                                  
 !$omp   shared(element_list,node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &
@@ -147,27 +154,26 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 !$omp          pellet_amplitude,pellet_R,pellet_Z,pellet_psi,pellet_phi,                       &
 !$omp          pellet_radius, pellet_delta_psi, pellet_sig, pellet_length, pellet_ellipse, pellet_theta,  &
 !$omp          central_density, pellet_particles,pellet_density, pellet_volume,                &
-!$omp          local_pellet_particles, local_plasma_particles, local_pellet_volume,            &
-#if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
+!$omp          local_pellet_particles, local_plasma_particles, local_pellet_volume, n_inj,     &
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
 !$omp          local_n_particles_inj, local_n_particles, ns_amplitude, ns_R, ns_Z,             &
-!$omp          ns_phi, ns_radius, ns_sig, ns_deltaphi, ns_tor_norm, spi_tor_rot,               &
+!$omp          ns_phi, ns_radius, ns_deltaphi, ns_tor_norm, spi_tor_rot,                       &
 !$omp          t_now, A_Dmv, K_Dmv, V_Dmv, P_Dmv, t_ns, L_tube, JET_MGI,ASDEX_MGI,             &
 !$omp          central_mass, pellets, tor_frequency,                                           &
-!$omp          n_spi, using_spi,                                                               &
-!$omp          ng_radius_ratio, ng_radius_min, ng_radius, spi_shard_file,                      &
+!$omp          ns_radius_ratio, ns_radius_min, spi_shard_file,                                 &
 #endif
-!$omp          wgauss_copy) , &                                                                   
-!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt, spi_i,                       &
+!$omp          wgauss_copy,varmin,varmax),                                                     &
+!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt, spi_i,i_inj,                 &
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, xjac, eq_g, eq_s, eq_t, eq_p,                    &
-!$omp           wst, BigR, r0, T0, T0e, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dudx, dudy,  &
+!$omp           wst, BigR, r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dudx, dudy,  &
 !$omp           dpdx, dpdy, grad_P, grad_psi, grad_P_psi,gradP_max, gradP_psi_max, phi,        &
 !$omp           P_max, source_pellet, source_volume, eq_zne, eq_zTe, vpar0, BB2, eta_T_ohm,    &
 !$omp           heat_source, heat_source_i, heat_source_e, particle_source, rotation_source,   &
 !$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,    &
 !$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,    &
-!$omp           r0_corr, T0_corr,                                                              &
-#if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
-!$omp           rn0, source_neutral,                                                           &
+!$omp           r0_corr, T0_corr, drift_distance,                                              &
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
+!$omp           rn0, source_neutral, source_neutral_drift, source_neutral_arr, source_neutral_drift_arr, &
 #endif
 !$omp           omp_nthreads,omp_tid)
 
@@ -181,12 +187,13 @@ omp_tid      = 0
 #endif
 
 !$omp do reduction(+:local_pellet_particles, local_plasma_particles, local_pellet_volume,     &
-#if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
 !$omp                local_n_particles_inj,  local_n_particles,                               &
 #endif
 !$omp                D_int, D_ext, P_int, H_int, S_int, H_ext, S_ext, P_ext, C_intern, C_ext, &
 !$omp                TVP_int, TVP_ext, TVP_tot, VP_int, VP_ext, VP_tot, VK_tot, VK_int, VK_ext, VM_ext,                  &
-!$omp                VM_int, VM_tot, Vol, P_tot, D_tot,J2_tot, J2_int, J2_ext)
+!$omp                VM_int, VM_tot, Vol, P_tot, D_tot,J2_tot, J2_int, J2_ext)                &
+!$omp reduction(max:varmax) reduction(min:varmin)
 
 do ife = ife_min, ife_max
 
@@ -201,18 +208,18 @@ do ife = ife_min, ife_max
   y_g(:,:)    = 0.d0; y_s(:,:)    = 0.d0; y_t(:,:)    = 0.d0;
 
   do i=1,n_vertex_max
-    do j=1,n_order+1
+    do j=1,n_degrees
 
       do ms=1, n_gauss
         do mt=1, n_gauss
 
-          x_g(ms,mt) = x_g(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-          y_g(ms,mt) = y_g(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
+          x_g(ms,mt) = x_g(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+          y_g(ms,mt) = y_g(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
 
-          x_s(ms,mt) = x_s(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-          x_t(ms,mt) = x_t(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
-          y_s(ms,mt) = y_s(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-          y_t(ms,mt) = y_t(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+          x_s(ms,mt) = x_s(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+          x_t(ms,mt) = x_t(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+          y_s(ms,mt) = y_s(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+          y_t(ms,mt) = y_t(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
         enddo
       enddo
@@ -222,7 +229,7 @@ do ife = ife_min, ife_max
   eq_g(:,:,:,:) = 0.d0; eq_s(:,:,:,:) = 0.d0; eq_t(:,:,:,:) = 0.d0; eq_p(:,:,:,:) = 0.d0;
 
   do i=1,n_vertex_max
-    do j=1,n_order+1
+    do j=1,n_degrees
 
       do mp=1,n_plane
         do ms=1, n_gauss
@@ -244,19 +251,33 @@ do ife = ife_min, ife_max
     enddo
   enddo
 
+  ! --- Determine smallest and largest values of the variables in the whole domain (on Gauss points and toroidal integration
+  ! surfaces)
+  do k=1,n_var
+    varmin(k) = min(varmin(k),minval(eq_g(:,k,:,:)))
+    varmax(k) = max(varmax(k),maxval(eq_g(:,k,:,:))) 
+  enddo
+
   do ms=1, n_gauss
     do mt=1, n_gauss
 
       call density(xpoint, xcase, y_g(ms,mt), ES%Z_xpoint, eq_g(1,1,ms,mt),ES%psi_axis,ES%psi_bnd,eq_zne(ms,mt), &
                    dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz)
 
+#ifdef WITH_TiTe
+      call temperature_e(xpoint, xcase, y_g(ms,mt), ES%Z_xpoint, eq_g(1,1,ms,mt),ES%psi_axis,ES%psi_bnd,eq_zTe(ms,mt), &
+                       dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz)
+#else
       call temperature(xpoint, xcase, y_g(ms,mt), ES%Z_xpoint, eq_g(1,1,ms,mt),ES%psi_axis,ES%psi_bnd,eq_zTe(ms,mt), &
                        dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz)
+#endif
 
     enddo
   enddo
 
+#ifndef WITH_TiTe
   eq_zTe = eq_zTe / 2.d0	! electron temperature
+#endif
 !--------------------------------------------------- sum over the Gaussian integration points
 
   do mp=1,n_plane
@@ -272,22 +293,28 @@ do ife = ife_min, ife_max
         xjac = x_s(ms,mt)*y_t(ms,mt) - x_t(ms,mt)*y_s(ms,mt)
         BigR = x_g(ms,mt)
 
-        r0     = eq_g(mp,5,ms,mt)
+        r0      = eq_g(mp,var_rho,ms,mt)
         r0_corr = corr_neg_dens1(r0)
-        T0     = eq_g(mp,6,ms,mt)
+#ifdef WITH_TiTe
+        T0      = eq_g(mp,var_Ti,ms,mt)
         T0_corr = corr_neg_temp1(T0)
-        T0e    = eq_g(mp,6,ms,mt) /2.d0
-        zj0    = eq_g(mp,3,ms,mt)
-        ps0    = eq_g(mp,1,ms,mt)
+        Te0     = corr_neg_temp1(eq_g(mp,var_Te,ms,mt))
+#else
+        T0      = eq_g(mp,var_T,ms,mt)
+        T0_corr = corr_neg_temp1(T0)
+        Te0     = eq_g(mp,var_T,ms,mt) /2.d0
+#endif
+        zj0    = eq_g(mp,var_zj,ms,mt)
+        ps0    = eq_g(mp,var_psi,ms,mt)
 
-#if (JOREK_MODEL > 299)
-        vpar0 = eq_g(mp,7,ms,mt)
+#ifdef WITH_Vpar
+        vpar0 = eq_g(mp,var_Vpar,ms,mt)
 #else
         vpar0 = 0.d0
 #endif
 
-#if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
-        rn0    = eq_g(mp,8,ms,mt)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
+        rn0    = eq_g(mp,var_rhon,ms,mt)
 #endif
 
         ! --- Eta for ohmic heating
@@ -320,10 +347,10 @@ do ife = ife_min, ife_max
 
         grad_P_psi = (dPdx * dpsidx + dPdy * dpsidy)/grad_psi
 
-#if (JOREK_MODEL == 400)
+#ifdef WITH_TiTe
         call sources(xpoint, xcase, y_g(ms,mt), ES%Z_xpoint, ps0, ES%psi_axis, psi_limit, &
                      particle_source,heat_source_i,heat_source_e)
-		     heat_source = heat_source_i + heat_source_e
+        heat_source = heat_source_i + heat_source_e
 #else
         call sources(xpoint, xcase, y_g(ms,mt), ES%Z_xpoint, ps0, ES%psi_axis, psi_limit, &
                      particle_source,heat_source)
@@ -355,34 +382,29 @@ do ife = ife_min, ife_max
 
         endif
 
-#if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
         !--- Calculate the neutral injection rate and the number of neutrals in the plasma
 
         source_neutral = 0.d0
+        source_neutral_arr = 0.d0
 
-        if (using_spi) then
+        call total_neutral_source(x_g(ms,mt),y_g(ms,mt),phi,ps0,source_neutral_arr, source_neutral_drift_arr)
 
-          do spi_i = 1, n_spi
+        do i_inj = 1,n_inj
+          if (drift_distance(i_inj) /= 0.d0) then
+            source_neutral = source_neutral + source_neutral_drift_arr(i_inj)
+          else
+            source_neutral = source_neutral + source_neutral_arr(i_inj)
+          end if
+        end do
 
-            ng_radius   = pellets(spi_i)%spi_radius * ng_radius_ratio
-
-            if (ng_radius < ng_radius_min) then
-              ng_radius = ng_radius_min
-            end if
-
-            call neutral_source(pellets(spi_i)%spi_abl,pellets(spi_i)%spi_R,pellets(spi_i)%spi_Z,pellets(spi_i)%spi_phi,&
-                                  ng_radius,ns_sig,ns_deltaphi,     &
-                                  ns_tor_norm, A_Dmv,K_Dmv,V_Dmv,P_Dmv,t_ns,L_tube,x_g(ms,mt),y_g(ms,mt),     &
-                                  phi,source_neutral,t_now,JET_MGI,ASDEX_MGI,central_density,central_mass)
-          end do
-
-        else
-
-          call neutral_source(ns_amplitude,ns_R,ns_Z,ns_phi,ns_radius,ns_sig,ns_deltaphi,ns_tor_norm,        &
-                                A_Dmv,K_Dmv,V_Dmv,P_Dmv,t_ns,L_tube,x_g(ms,mt),y_g(ms,mt),phi,source_neutral,t_now, &
-                                JET_MGI,ASDEX_MGI,central_density,central_mass)
-
+        ! To detect NaNs
+        if (source_neutral /= source_neutral) then
+          write(*,*) 'ERROR in integrals_3D: source_neutral = ', source_neutral
+          stop
         end if
+
+        source_neutral       = max(0.,source_neutral)
 
         local_n_particles_inj = local_n_particles_inj + 0.5d0 * central_density * 1.d20 * source_neutral * bigR * xjac * wst * delta_phi / sqrt(MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)
         local_n_particles     = local_n_particles     + central_density * 1.d20 * rn0 * bigR * xjac * wst * delta_phi
@@ -439,12 +461,7 @@ call MPI_AllReduce(H_ext,heating_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WOR
 call MPI_AllReduce(H_int,heating_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(S_ext,source_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(S_int,source_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(VP_int,kin_par_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(VP_ext,kin_par_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(VP_tot,kin_par_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(TVP_int,mom_par_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(TVP_ext,mom_par_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(TVP_tot,mom_par_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+
 call MPI_AllReduce(VK_int,kin_perp_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(VK_ext,kin_perp_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(VK_tot,kin_perp_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
@@ -455,16 +472,26 @@ call MPI_AllReduce(J2_int,ohm_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,i
 call MPI_AllReduce(J2_ext,ohm_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(J2_tot,ohm_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 
+call MPI_AllReduce(VP_int,kin_par_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(VP_ext,kin_par_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(VP_tot,kin_par_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(TVP_int,mom_par_in,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(TVP_ext,mom_par_out,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(TVP_tot,mom_par_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+
 if (use_pellet) then
   call MPI_AllReduce(local_pellet_particles,total_pellet_particles,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
   call MPI_AllReduce(local_plasma_particles,total_plasma_particles,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
   call MPI_AllReduce(local_pellet_volume,total_pellet_volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 endif
 
-#if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
   call MPI_AllReduce(local_n_particles_inj, total_n_particles_inj,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
   call MPI_AllReduce(local_n_particles, total_n_particles,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 #endif
+
+call MPI_AllReduce(varmin,varminout,n_var,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(varmax,varmaxout,n_var,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,ierr)
 
 rho_norm = central_density*1.d20 * central_mass * 1.67d-27
 t_norm   = sqrt(MU_zero*rho_norm)
@@ -521,15 +548,17 @@ if (my_id .eq. 0) then
   write(*,'(A,3e14.6,A)') ' source   (in/out)       : ',xt,source_in, source_out,' [10^20/m^3/s]'
   write(*,'(A,4e14.6,A)') ' Ohmic    (in/out)       : ',xt,Ohm_tot/1.d6, Ohm_in/1.d6, Ohm_out/1.d6,' [MW]'
 
+#ifndef fullmhd
   write(*,'(A,2e14.6)') ' li(3)    : ',xt, 2.d0 * mag_in/0.5  /(current_in**2 * R_geo * MU_zero)
   write(*,'(A,2e14.6)') ' betap(1) : ',xt, 4.d0 * pressure_in/1.5d0/(R_geo * current_in**2 * MU_zero)
+#endif
 
   write(*,'(A120)') 'sum ,time ,density_tot, pressure, Wkin_par, Wkin_perp, Wmag, Ohm, heating, source'
 
   write(*,'(A,20e14.6)') 'sum ',xt,density_tot,pressure/1.d6,kin_par_tot/1.d6,kin_perp_tot/1.d6,mag_tot/1.d6, &
                                  Ohm_tot/1.d6,heating_in/1d6+heating_out/1.d6 ,source_in+source_out
 
-#if (JOREK_MODEL == 500) || (JOREK_MODEL == 555)
+#if (defined WITH_Neutrals) && (!defined WITH_Impurities)
   write(*,'(A,4e14.6)')   ' Integrals_3D, MGI : ', total_n_particles_inj, total_n_particles
 #endif
 

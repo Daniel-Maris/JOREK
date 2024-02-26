@@ -27,7 +27,7 @@ module vacuum_equilibrium
     ! --- Local variables
     integer, parameter   :: filehandle = 60
     integer              :: file_version, n_bnd_elems, n_bnd_nodes, dim(2), err  !n_coils already defined in vacuum module
-    integer              :: i_start_pf, i_end_pf                                 !Indices for SW coils 
+    integer              :: i_start_coil, i_end_coil                                 !Indices for SW coils 
     character(len=512)   :: comment
     
     if ( sr%n_tor == 0 ) return
@@ -72,6 +72,14 @@ module vacuum_equilibrium
         call read_array(filehandle, 'B_t', dim, float2d=bext_tan)
         call read_array(filehandle, 'B_n', dim, float2d=bext_nor)
         call read_array(filehandle, 'Psi', dim, float2d=bext_psi)
+
+        ! --- From STARWALL file version 6, the coil currents follow the JOREK sign convention
+        ! --- and the fields created by the old COIL_FIELD must be reversed
+        if (sr%file_version >= 6) then
+          bext_tan = -bext_tan
+          bext_nor = -bext_nor
+          bext_psi = -bext_psi
+        endif
         
         32 format(3x,77('-'))
         33 format(3x,a,i8)
@@ -143,13 +151,16 @@ module vacuum_equilibrium
         write(*,*) '***************************************'
         write(*,*) ''
        
-        i_start_pf = sr%ind_start_pol_coils
-        i_end_pf   = i_start_pf + sr%n_pol_coils - 1
-      
         if ( .not. allocated(I_coils) ) then
           allocate( I_coils(sr%ncoil) )
-          I_coils(:)                =  0.d0 
-          I_coils(i_start_pf:i_end_pf) =  pf_coils(1:sr%n_pol_coils)%current 
+          I_coils(:)                =  0.d0
+          i_start_coil = sr%ind_start_pol_coils
+          i_end_coil   = i_start_coil + sr%n_pol_coils - 1
+          I_coils(i_start_coil:i_end_coil) =  pf_coils(1:sr%n_pol_coils)%current
+          
+          i_start_coil = sr%ind_start_rmp_coils
+          i_end_coil   = i_start_coil + sr%n_rmp_coils - 1
+          I_coils(i_start_coil:i_end_coil) =  rmp_coils(1:sr%n_rmp_coils)%current 
           n_coils                   =  sr%ncoil
           write(*,*) 'I_coils allocated '            
         endif
@@ -174,13 +185,12 @@ module vacuum_equilibrium
   
   !> Calculates the matrix contribution of the boundary integral to the Grad-Shafranov equation
   !! using the vacuum response from STARWALL
-  subroutine vacuum_equil(my_id,node_list, bnd_node_list, bnd_elm_list, psi_axis, psi_bnd)
+  subroutine vacuum_equil(my_id,node_list, bnd_node_list, bnd_elm_list, psi_axis, psi_bnd, a_mat, rhs_vec)
     
     use mod_parameters
     use data_structure
     use gauss
     use basis_at_gaussian
-    use mumps_module
     use vacuum_response
     use constants
     use mpi_mod
@@ -194,13 +204,15 @@ module vacuum_equilibrium
     type (type_bnd_element_list), intent(in) :: bnd_elm_list
     real*8,                       intent(in) :: psi_axis
     real*8,                       intent(in) :: psi_bnd
+    type(type_SP_MATRIX) :: a_mat
+    type(type_RHS) :: rhs_vec    
     
     ! --- Local variables
     type (type_bnd_element) :: bndelem_m
     integer :: m_bndelem, l_vertex, l_dof, l_node, l_dir, l_node_bnd, l_index, ms
     integer :: i_vertex, i_dof, i_node, i_dir, i_node_bnd, i_index, i_resp, i_resp_st
     integer :: j_node_bnd, j_dof, j_node, j_dir, j_index, j_resp, ilarge, n_c
-    integer :: i, j, i_start_pf, i_end_pf
+    integer :: i, j, i_start_pf, i_end_pf, offset=1
     real*8  :: size_l, dA, testfunc_l, size_i, basfunc_i
     real*8  :: x(n_gauss), y(n_gauss), x_s(n_gauss), y_s(n_gauss)
     real*8  :: common_prefactor, psi_coil_j, B_tan_coil_i, B_tan_coil_i_loc, psi_0_j
@@ -209,25 +221,26 @@ module vacuum_equilibrium
 
     call equilibrium_VFB(my_id) 
     
-    if (starwall_equil_coils) then      
+    if (starwall_equil_coils) then
       i_start_pf = sr%ind_start_pol_coils
       i_end_pf   = i_start_pf + sr%n_pol_coils -1
       if ( .not. allocated(wall_curr) )       allocate( wall_curr(n_wall_curr) ) 
-      if ( .not. allocated (potentials_real)) allocate(potentials_real(n_wall_curr))      
+      if ( .not. allocated (potentials_real)) allocate(potentials_real(sr%ncoil))      
       wall_curr       = 0.d0
       potentials_real = 0.d0
-      potentials_real(1:sr%ncoil) = 0.d0
-      potentials_real(i_start_pf:i_end_pf) = I_coils(i_start_pf:i_end_pf) * mu_zero
+      potentials_real(i_start_pf:i_end_pf) =  I_coils(i_start_pf:i_end_pf) * mu_zero
 
+      offset = sr%ind_start_coils
       do i = 1, n_wall_curr
         if ( (i>=sr%s_ww_inv%ind_start) .and. (i<=sr%s_ww_inv%ind_end) ) then
-          wall_curr(i) = sum(sr%s_ww_inv%loc_mat(i-my_id*sr%s_ww_inv%step,:) *potentials_real(:))
+          wall_curr(i) = & 
+          sum(sr%s_ww_inv%loc_mat(i-my_id*sr%s_ww_inv%step,offset:offset+sr%ncoil -1) *potentials_real(:))
         endif
       end do    
         call MPI_ALLReduce(MPI_IN_PLACE, wall_curr, size(wall_curr),MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
     endif
     
-    ilarge = mumps_par%nz
+    ilarge = a_mat%nnz
   
     do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       bndelem_m = bnd_elm_list%bnd_element(m_bndelem)
@@ -278,7 +291,7 @@ module vacuum_equilibrium
                 endif
                 
                 if (my_id == 0) then
-                  mumps_par%RHS(l_index) = mumps_par%RHS(l_index) + common_prefactor * B_tan_coil_i
+                  rhs_vec%val(l_index) = rhs_vec%val(l_index) + common_prefactor * B_tan_coil_i
                   
                   ! --- Sum over boundary dofs contributing to the response
                   do j_node_bnd = 1, bnd_node_list%n_bnd_nodes ! (loop over boundary nodes)
@@ -301,10 +314,10 @@ module vacuum_equilibrium
                       endif
                       
                       ilarge                 = ilarge + 1
-                      mumps_par%irn(ilarge)  = l_index
-                      mumps_par%jcn(ilarge)  = j_index
-                      mumps_par%A(ilarge)    = common_prefactor * response_m_eq(i_resp,j_resp)
-                      mumps_par%RHS(l_index) = mumps_par%RHS(l_index)                               &
+                      a_mat%irn(ilarge)  = l_index
+                      a_mat%jcn(ilarge)  = j_index
+                      a_mat%val(ilarge)    = common_prefactor * response_m_eq(i_resp,j_resp)
+                      rhs_vec%val(l_index) = rhs_vec%val(l_index)                               &
                         + common_prefactor * response_m_eq(i_resp,j_resp) * psi_coil_j              &
                         - common_prefactor * response_m_eq(i_resp,j_resp) * psi_0_j
                     end do
@@ -321,27 +334,36 @@ module vacuum_equilibrium
       
     end do
     
-  if ( my_id ==0 ) mumps_par%nz = ilarge   ! update the size of the matrix
+  if ( my_id ==0 ) a_mat%nnz = ilarge   ! update the size of the matrix
     
   end subroutine vacuum_equil
   
   
   
   subroutine equilibrium_VFB(my_id)
-    
+    use mpi_mod
    implicit none
   
    integer, intent(in) :: my_id
 
-   integer  :: i
+   integer  :: i, ierr
    
-    if (my_id == 0) write(*,*) ' vertical_FB = ', vertical_FB
+   if (my_id == 0) write(*,*) ' vertical_FB = ', vertical_FB
+   if (my_id == 0) write(*,*) ' radial_FB = ', radial_FB
    
    do i=1, n_pf_coils
      if( abs(vert_FB_amp(i)) .gt. 1.d-6 ) then
        I_coils(i) =  pf_coils(i)%current * (1 + vert_FB_amp(i) * vertical_FB ) 
        if (my_id == 0) write(*,'(a,I7,a,1es12.4)') 'FB coil ==> I_coil(', i, ') = ', I_coils(i)
      endif
+     if( abs(rad_FB_amp(i)) .gt. 1.d-6 ) then
+       I_coils(i) =  pf_coils(i)%current * (1 + rad_FB_amp(i) * radial_FB ) 
+       if (my_id == 0) write(*,'(a,I7,a,1es12.4)') 'FB coil ==> I_coil(', i, ') = ', I_coils(i)
+     endif
+     if (( abs(vert_FB_amp(i)) .gt. 1.d-6 ) .and. (abs(rad_FB_amp(i)) .gt. 1.d-6 ))  then
+       write(*,*) 'Error: You cannot use the same coil for radial and vertical feedback'
+       call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+     end if
    enddo
     
   end subroutine equilibrium_VFB

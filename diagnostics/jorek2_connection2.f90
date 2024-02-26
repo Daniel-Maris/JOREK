@@ -10,9 +10,10 @@ use constants
 use mod_import_restart
 use mod_neighbours
 use mod_interp
+use mpi
+use equil_info
 
 implicit none
-include 'mpif.h'
 
 real*8,allocatable  :: rp(:), zp(:), R_all(:), Z_all(:), C_all(:)
 real*4,allocatable  :: R_strike(:),  Z_strike(:), P_strike(:)        ! position of strike points
@@ -31,9 +32,9 @@ real*8  :: tol, delta_phi, Zjac, psi_s, psi_t, R_in, Z_in, R_out, Z_out
 real*8  :: Rmin, Rmax, Zmin, Zmax, delta_s, delta_t, R_keep, Z_keep
 real*8  :: small_delta, small_delta_s, small_delta_t, delta_phi_local, delta_phi_step, total_phi
 real*8  :: Rmid,Zmid,Rmid_s,Rmid_t,Zmid_s,Zmid_t, dl2, total_length, length_max, s_ini, t_ini, zl1, zl2, partial(2)
-real*8  :: psi_xpoint(2),R_xpoint(2),Z_xpoint(2),s_xpoint(2),t_xpoint(2), value_out, psi_bnd
-real*8  :: psi_axis,R_axis,Z_axis,s_axis,t_axis, element_start_percent
-integer :: i_elm_xpoint(2), i_elm_axis, elm_start, elm_end, elm_delta, local_elm_start, local_elm_end
+real*8  :: value_out, psi_bnd
+real*8  :: element_start_percent
+integer :: elm_start, elm_end, elm_delta, local_elm_start, local_elm_end
 integer :: my_id, ikeep, n_cpu, ierr, nsend, nrecv, ikeep0, inode1, inode2, i_line0
 real*4,allocatable :: RZkeep(:,:),scalars(:,:)
 real*4             :: ZERO
@@ -163,31 +164,28 @@ R_turn    = 0.d0; Z_turn    = 0.d0; C_turn    = 0.d0;  C_turn_tmp = 0.d0
 
 Rmin = 1.d20; Rmax = -1.d20; Zmin = 1.d20; Zmax=-1.d20
 do i=1,node_list%n_nodes
-  Rmin = min(Rmin,node_list%node(i)%x(1,1))
-  Rmax = max(Rmax,node_list%node(i)%x(1,1))
-  Zmin = min(Zmin,node_list%node(i)%x(1,2))
-  Zmax = max(Zmax,node_list%node(i)%x(1,2))
+  Rmin = min(Rmin,node_list%node(i)%x(1,1,1))
+  Rmax = max(Rmax,node_list%node(i)%x(1,1,1))
+  Zmin = min(Zmin,node_list%node(i)%x(1,1,2))
+  Zmax = max(Zmax,node_list%node(i)%x(1,1,2))
 enddo
 
 !------------------------------------------------- find x-point(s)
-xcase = 1
+xcase = LOWER_XPOINT  ! Why we have this line?
 if (xpoint) then
-  call find_xpoint(my_id,node_list,element_list,psi_xpoint,R_xpoint,Z_xpoint,i_elm_xpoint,s_xpoint,t_xpoint,xcase,ifail)
-  psi_bnd = psi_xpoint(1)
-  if( (xcase .eq. 2) .or. ((xcase .eq. 3) .and. (psi_xpoint(2) .lt. psi_xpoint(1))) ) then
-    psi_bnd = psi_xpoint(2)
+  psi_bnd = ES%psi_xpoint(1)
+  if( ES%active_xpoint .eq. UPPER_XPOINT ) then
+    psi_bnd = ES%psi_xpoint(2)
   endif
 else
   psi_bnd = 0.d0
 endif
 
-call find_axis(my_id,node_list,element_list,psi_axis,R_axis,Z_axis,i_elm_axis,s_axis,t_axis,ifail)
-
 if (my_id .eq. 0 ) then
-write(*,*) ' xcase,1st x-point:R,Z,psi: ',xcase, R_xpoint(1),Z_xpoint(1),psi_xpoint(1),psi_bnd
-!   write(*,*) ' PSI_XPOINT : ',psi_xpoint,i_elm_xpoint
-   write(*,*) ' PSI_AXIS : ',psi_axis,i_elm_axis
-   write(*,*) ' RZ_AXIS : ', R_axis, Z_axis
+write(*,*) ' xcase,1st x-point:R,Z,psi: ',xcase, ES%R_xpoint(1),ES%Z_xpoint(1),ES%psi_xpoint(1),psi_bnd
+!   write(*,*) ' PSI_XPOINT : ',ES%psi_xpoint,ES%i_elm_xpoint
+   write(*,*) ' PSI_AXIS : ',ES%psi_axis,ES%i_elm_axis
+   write(*,*) ' RZ_AXIS : ', ES%R_axis, ES%Z_axis
 endif
 
 !call MPI_Barrier(MPI_COMM_WORLD,ierr)
@@ -263,7 +261,7 @@ do i = local_elm_start, local_elm_end, n_stride
       call var_value(i_elm,6,s_line,t_line,P_start,T_turn(1,(i_dir+1)/2+1))
       call var_value(i_elm,1,s_line,t_line,P_start,PSI_turn(1,(i_dir+1)/2+1))
       call var_value(i_elm,5,s_line,t_line,P_start,ZN_turn(1,(i_dir+1)/2+1))
-      !PSI_turn_norm (1,(i_dir+1)/2+1)= (PSI_turn(1,(i_dir+1)/2+1)-psi_axis)/(psi_bnd-psi_axis)
+      !PSI_turn_norm (1,(i_dir+1)/2+1)= (PSI_turn(1,(i_dir+1)/2+1)-ES%psi_axis)/(psi_bnd-ES%psi_axis)
 
       R_line = R_start
       Z_line = Z_start
@@ -579,7 +577,7 @@ do i = local_elm_start, local_elm_end, n_stride
         call var_value(i_elm,6,s_line,t_line,p_line,T_turn(i_turn+1,(i_dir+1)/2+1))
         call var_value(i_elm,1,s_line,t_line,p_line,PSI_turn(i_turn+1,(i_dir+1)/2+1))
         call var_value(i_elm,5,s_line,t_line,p_line,ZN_turn(i_turn+1,(i_dir+1)/2+1))
-        !PSI_turn_norm (1,(i_dir+1)/2+1)= (PSI_turn(1,(i_dir+1)/2+1)-psi_axis)/(psi_bnd-psi_axis)
+        !PSI_turn_norm (1,(i_dir+1)/2+1)= (PSI_turn(1,(i_dir+1)/2+1)-ES%psi_axis)/(psi_bnd-ES%psi_axis)
 
       enddo  ! end of loop over toroidal turns
 
@@ -618,19 +616,19 @@ do i = local_elm_start, local_elm_end, n_stride
 
           zl1 = C_turn(i_turn,1)
           zl2 = C_turn(1,1) - C_turn(i_turn,1) + C_turn(1,2) 
-!!$write (*,*) 'test_boucle2.1 = ', (PSI_turn(1,1)    .lt. psi_xpoint(1))
-!!$write (*,*) 'test_boucle2.2 = ', (Z_turn(1,1)      .gt. Z_xpoint(1))
+!!$write (*,*) 'test_boucle2.1 = ', (PSI_turn(1,1)    .lt. ES%psi_xpoint(1))
+!!$write (*,*) 'test_boucle2.2 = ', (Z_turn(1,1)      .gt. ES%Z_xpoint(1))
 !!$write (*,*) 'test_boucle2.3 = ', (Z_turn(i_turn,1) .lt. -2.d0)
           if ( (  (PSI_turn(1,1).le. psi_bnd)  &
-               .and. (Z_turn(1,1) .ge. Z_xpoint(1)) ) &    !.and. (Z_turn(1,1).le.Z_xpoint(2))) then    
+               .and. (Z_turn(1,1) .ge. ES%Z_xpoint(1)) ) &    !.and. (Z_turn(1,1).le.ES%Z_xpoint(2))) then    
                .and. (Z_turn(i_turn,1) .lt. 2.d0)  )  then
 
             if (n_turn_max(1) .lt. n_turns) then
               ikeep = ikeep + 1
 !write(*,*) 'ikeep1 = ', ikeep
               if(psi_theta) then
-                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,1) - psi_axis ) / (psi_bnd - psi_axis )
-                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,1) - Z_axis) , (R_turn(i_turn,1) - R_axis) ) / (2.d0*PI)
+                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,1) - ES%psi_axis ) / (psi_bnd - ES%psi_axis )
+                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,1) - ES%Z_axis) , (R_turn(i_turn,1) - ES%R_axis) ) / (2.d0*PI)
 !write(*,*) '1my_id, psi, theta = ', my_id, RZkeep(1,ikeep), RZkeep(2,ikeep)
               else
                  RZkeep(1,ikeep)            = R_turn(i_turn,1)
@@ -641,8 +639,8 @@ do i = local_elm_start, local_elm_end, n_stride
               ikeep = ikeep + 1
 !write(*,*) 'ikeep1 = ', ikeep
               if(psi_theta) then
-                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,1) - psi_axis ) / (psi_bnd - psi_axis )
-                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,1) - Z_axis) , (R_turn(i_turn,1) - R_axis) ) / (2.d0*PI)
+                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,1) - ES%psi_axis ) / (psi_bnd - ES%psi_axis )
+                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,1) - ES%Z_axis) , (R_turn(i_turn,1) - ES%R_axis) ) / (2.d0*PI)
 !write(*,*) '2my_id, psi, theta = ', my_id, RZkeep(1,ikeep), RZkeep(2,ikeep)
               else
                  RZkeep(1,ikeep)            = R_turn(i_turn,1)
@@ -664,15 +662,15 @@ do i = local_elm_start, local_elm_end, n_stride
           zl2 = C_turn(1,2) - C_turn(i_turn,2) + C_turn(1,1) 
 
           if (     ( (PSI_turn(1,2).le. psi_bnd)  &
-               .and. (Z_turn(1,2).ge. Z_xpoint(1)) ) & !.and.(Z_turn(1,2).le. Z_xpoint(2))) then 
+               .and. (Z_turn(1,2).ge. ES%Z_xpoint(1)) ) & !.and.(Z_turn(1,2).le. ES%Z_xpoint(2))) then 
                .and. (Z_turn(i_turn,2) .lt. 2.d0) )  then
 !           if (Z_turn(i_turn,1) .lt. -2.d0) then
             if (n_turn_max(2) .lt. n_turns) then
               ikeep = ikeep + 1
 !write(*,*) 'ikeep2 = ', ikeep
               if(psi_theta) then
-                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,2)  - psi_axis ) / (psi_bnd - psi_axis )
-                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,2) - Z_axis) , (R_turn(i_turn,2) - R_axis) ) / (2.d0*PI)
+                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,2)  - ES%psi_axis ) / (psi_bnd - ES%psi_axis )
+                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,2) - ES%Z_axis) , (R_turn(i_turn,2) - ES%R_axis) ) / (2.d0*PI)
 !write(*,*) '3my_id, psi, theta = ', my_id, RZkeep(1,ikeep), RZkeep(2,ikeep)
               else
                  RZkeep(1,ikeep)            = R_turn(i_turn,2)
@@ -683,8 +681,8 @@ do i = local_elm_start, local_elm_end, n_stride
               ikeep = ikeep + 1
 !write(*,*) 'ikeep2 = ', ikeep
               if(psi_theta) then
-                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,2) - psi_axis ) / (psi_bnd - psi_axis )
-                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,2) - Z_axis) , (R_turn(i_turn,2) - R_axis) ) / (2.d0*PI)
+                 RZkeep(1,ikeep) = ( PSI_turn(i_turn,2) - ES%psi_axis ) / (psi_bnd - ES%psi_axis )
+                 RZkeep(2,ikeep) = atan2( (Z_turn(i_turn,2) - ES%Z_axis) , (R_turn(i_turn,2) - ES%R_axis) ) / (2.d0*PI)
 !write(*,*) '4my_id, psi, theta = ', my_id, RZkeep(1,ikeep), RZkeep(2,ikeep)
               else
                  RZkeep(1,ikeep)            = R_turn(i_turn,2)
@@ -773,7 +771,7 @@ endif
 !===========================================Temperature in keV
 scalars(:,2) = scalars(:,2) / MU_zero / (central_density * 1d20) / 1.602d-19 /2.*1.e-3 !(assumes Te=Ti=T/2)
 ! ------- normalisation of psi
-scalars(:,3) = (scalars(:,3) - psi_axis ) / (psi_bnd - psi_axis )
+scalars(:,3) = (scalars(:,3) - ES%psi_axis ) / (psi_bnd - ES%psi_axis )
 !=============================================
 do i_var =1, n_scalars
 
@@ -816,7 +814,7 @@ open(24,file='strikes_values.txt')
 do i=1,i_strike
   if (abs(R_strike(i)) .gt. 10.d0) R_strike(i) = 0.d0
   if (abs(Z_strike(i)) .gt. 10.d0) Z_strike(i) = 0.d0
-!  if (PS0_strike(i) .gt. psi_xpoint(1)) then       ! to exclude points started outside the plasma
+!  if (PS0_strike(i) .gt. ES%psi_xpoint(1)) then       ! to exclude points started outside the plasma
 !    R_strike(i) = 0.d0
 !    Z_strike(i) = 0.d0
 !  endif
@@ -935,54 +933,140 @@ call MPI_FINALIZE(IERR)                                ! clean up MPI
 
 end program jorek2_connection2
 
+
+
+
+
+
+
+
+
 subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t,R,Z,R_s,R_t,Z_s,Z_t)
-use mod_parameters
-use elements_nodes_neighbours
-use phys_module
-use mod_interp
+  use mod_parameters
+  use elements_nodes_neighbours
+  use phys_module
+  use mod_interp
+  
+  implicit none
+  
+  integer :: i_var_psi, i_elm, i_tor, i_harm
+  
+  real*8 :: s_in, t_in, p_in, delta_p, delta_s, delta_t
+  real*8 :: R_out, Z_out, Rs_out, Rt_out, Zs_out, Zt_out
+  real*8 :: R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
+  real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
+  real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, Zjac
+  real*8 :: delta_x, delta_y, xjac
+  real*8 :: AR0_p, AR0_R, AR0_Z
+  real*8 :: AZ0_p, AZ0_R, AZ0_Z
+  real*8 :: A30_p, A30_R, A30_Z
+  real*8 :: AR0,AR0_s,AR0_t,AR0_st,AR0_ss,AR0_tt
+  real*8 :: AZ0,AZ0_s,AZ0_t,AZ0_st,AZ0_ss,AZ0_tt
+  real*8 :: A30,A30_s,A30_t,A30_st,A30_ss,A30_tt
+  real*8 :: Fprof,Fprof_s,Fprof_t,Fprof_st,Fprof_ss,Fprof_tt
+  real*8 :: BR, BZ, Bp
+  
+  
+  call interp_RZ(node_list,element_list,i_elm,s_in,t_in,R,R_s,R_t,Z,Z_s,Z_t)
+  
+  xjac = (R_s * Z_t - R_t * Z_s)
+  
+#ifdef fullmhd
+  call interp(node_list,element_list,i_elm,var_AR, 1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  AR0_s  = P0_s
+  AR0_t  = P0_t
+  AR0_p  = 0.d0
+  call interp(node_list,element_list,i_elm,var_AZ, 1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  AZ0_s  = P0_s
+  AZ0_t  = P0_t
+  AZ0_p  = 0.d0  
+  call interp(node_list,element_list,i_elm,var_A3, 1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  A30_s  = P0_s
+  A30_t  = P0_t
+  A30_p  = 0.d0  
 
-implicit none
+  do i_tor = 1, (n_tor-1)/2
 
-integer :: i_var_psi, i_elm, i_tor, i_harm
+    i_harm = 2*i_tor
 
-real*8 :: s_in, t_in, p_in, delta_p, delta_s, delta_t
-real*8 :: R_out, Z_out, Rs_out, Rt_out, Zs_out, Zt_out
-real*8 :: R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
-real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
-real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, Zjac
+    call interp(node_list,element_list,i_elm,var_AR, i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+    AR0_s  = AR0_s + Pcos_s * cos(mode(i_harm)*p_in)
+    AR0_t  = AR0_t + Pcos_t * cos(mode(i_harm)*p_in)
+    AR0_p  = AR0_p - Pcos   * sin(mode(i_harm)*p_in) * mode(i_harm)
+    call interp(node_list,element_list,i_elm,var_AZ, i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+    AZ0_s  = AZ0_s + Pcos_s * cos(mode(i_harm)*p_in)
+    AZ0_t  = AZ0_t + Pcos_t * cos(mode(i_harm)*p_in)
+    AZ0_p  = AZ0_p - Pcos   * sin(mode(i_harm)*p_in) * mode(i_harm)
+    call interp(node_list,element_list,i_elm,var_A3, i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+    A30_s  = A30_s + Pcos_s * cos(mode(i_harm)*p_in)
+    A30_t  = A30_t + Pcos_t * cos(mode(i_harm)*p_in)
+    A30_p  = A30_p - Pcos   * sin(mode(i_harm)*p_in) * mode(i_harm)
 
-i_var_psi = 1
+    call interp(node_list,element_list,i_elm,var_AR, i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+    AR0_s  = AR0_s + Psin_s * sin(mode(i_harm+1)*p_in)
+    AR0_t  = AR0_t + Psin_t * sin(mode(i_harm+1)*p_in)
+    AR0_p  = AR0_p + Psin   * cos(mode(i_harm+1)*p_in) * mode(i_harm+1)
+    call interp(node_list,element_list,i_elm,var_AZ, i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+    AZ0_s  = AZ0_s + Psin_s * sin(mode(i_harm+1)*p_in)
+    AZ0_t  = AZ0_t + Psin_t * sin(mode(i_harm+1)*p_in)
+    AZ0_p  = AZ0_p + Psin   * cos(mode(i_harm+1)*p_in) * mode(i_harm+1)
+    call interp(node_list,element_list,i_elm,var_A3, i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+    A30_s  = A30_s + Psin_s * sin(mode(i_harm+1)*p_in)
+    A30_t  = A30_t + Psin_t * sin(mode(i_harm+1)*p_in)
+    A30_p  = A30_p + Psin   * cos(mode(i_harm+1)*p_in) * mode(i_harm+1)
 
-call interp_RZ(node_list,element_list,i_elm,s_in,t_in,R,R_s,R_t,Z,Z_s,Z_t)
+  enddo
 
-Zjac = (R_s * Z_t - R_t * Z_s)
+  if ((xjac .gt. 1.d-6)) then  ! avoid the axis
+    AR0_R  = (   Z_t * AR0_s - Z_s * AR0_t ) / xjac
+    AR0_Z  = ( - R_t * AR0_s + R_s * AR0_t ) / xjac
+    AZ0_R  = (   Z_t * AZ0_s - Z_s * AZ0_t ) / xjac
+    AZ0_Z  = ( - R_t * AZ0_s + R_s * AZ0_t ) / xjac
+    A30_R  = (   Z_t * A30_s - Z_s * A30_t ) / xjac
+    A30_Z  = ( - R_t * A30_s + R_s * A30_t ) / xjac
+  endif
 
-call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  ! --- Magnetic field
+  call interp(node_list,element_list,i_elm,710,1,s_in,t_in,Fprof,Fprof_s,Fprof_t,Fprof_st,Fprof_ss,Fprof_tt)
+  BR = ( A30_Z - AZ0_p )/ R
+  BZ = ( AR0_p - A30_R )/ R
+  Bp = ( AZ0_R - AR0_Z ) + Fprof / R
 
-psi_s = P0_s 
-psi_t = P0_t 
+  ! --- From RZ-coords to st-coords
+  delta_x = R * delta_p / Bp * BR
+  delta_y = R * delta_p / Bp * BZ
+  delta_s = ( + delta_x * Z_t - delta_y * R_t ) / xjac
+  delta_t = ( - delta_x * Z_s + delta_y * R_s ) / xjac
 
-do i_tor = 1, (n_tor-1)/2
-
-  i_harm = 2*i_tor
-
-  call interp(node_list,element_list,i_elm,i_var_psi,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
-
-  psi_s = psi_s + Pcos_s * cos(mode(i_harm)*p_in)
-  psi_t = psi_t + Pcos_t * cos(mode(i_harm)*p_in)
-
-  call interp(node_list,element_list,i_elm,i_var_psi,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
-
-  psi_s = psi_s + Psin_s * sin(mode(i_harm+1)*p_in)
-  psi_t = psi_t + Psin_t * sin(mode(i_harm+1)*p_in)
-
-enddo
-
-delta_s =   psi_t * R / (Zjac * F0) * delta_p
-delta_t = - psi_s * R / (Zjac * F0) * delta_p
-
-return
+! reduced-MHD
+#else
+  i_var_psi = 1
+  call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  psi_s = P0_s 
+  psi_t = P0_t 
+  
+  do i_tor = 1, (n_tor-1)/2
+    i_harm = 2*i_tor
+    call interp(node_list,element_list,i_elm,i_var_psi,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+    psi_s = psi_s + Pcos_s * cos(mode(i_harm)*p_in)
+    psi_t = psi_t + Pcos_t * cos(mode(i_harm)*p_in)
+    call interp(node_list,element_list,i_elm,i_var_psi,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+    psi_s = psi_s + Psin_s * sin(mode(i_harm+1)*p_in)
+    psi_t = psi_t + Psin_t * sin(mode(i_harm+1)*p_in)
+  enddo
+   
+  delta_s =   psi_t * R / (Zjac * F0) * delta_p
+  delta_t = - psi_s * R / (Zjac * F0) * delta_p
+#endif
+  
+  return
 end subroutine step
+
+
+
+
+
+
 
 subroutine var_value(i_elm,i_var,s_in,t_in,p_in,value_out)
 use mod_parameters

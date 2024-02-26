@@ -5,7 +5,7 @@ module mod_elt_matrix_fft
 contains
 
 subroutine element_matrix_fft(element,nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, ELM, RHS, tid, &
-  ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k,  eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t, i_tor_min, i_tor_max)
+  ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k,  eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t, i_tor_min, i_tor_max, aux_nodes, ELM_pnn)
 !---------------------------------------------------------------
 ! calculates the matrix contribution of one element
 !---------------------------------------------------------------
@@ -18,13 +18,15 @@ use phys_module
 use pellet_module
 use diffusivities, only: get_dperp, get_zkperp
 use equil_info, only : get_psi_n
+use mod_sources
 
 implicit none
 
 type (type_element)   :: element
 type (type_node)      :: nodes(n_vertex_max)
+type (type_node), optional :: aux_nodes(n_vertex_max) ! moments of particles
 
-#define DIM0 n_tor*n_vertex_max*(n_order+1)*n_var
+#define DIM0 n_tor*n_vertex_max*n_degrees*n_var
 
 real*8, dimension (DIM0,DIM0)  :: ELM
 real*8, dimension (DIM0)       :: RHS
@@ -83,7 +85,7 @@ INTEGER    :: FFTW_FORWARD,  FFTW_BACKWARD, FFTW_ESTIMATE
 PARAMETER (FFTW_FORWARD=-1,FFTW_BACKWARD=+1, FFTW_ESTIMATE=64)
 
 #define DIM1 n_plane
-#define DIM2 1:n_vertex_max*n_var*(n_order+1)
+#define DIM2 1:n_vertex_max*n_var*n_degrees
 
 real*8, dimension(DIM1, DIM2, DIM2) :: ELM_p
 real*8, dimension(DIM1, DIM2, DIM2) :: ELM_n
@@ -91,6 +93,7 @@ real*8, dimension(DIM1, DIM2, DIM2) :: ELM_k
 real*8, dimension(DIM1, DIM2, DIM2) :: ELM_kn
 real*8, dimension(DIM1, DIM2)       :: RHS_p
 real*8, dimension(DIM1, DIM2)       :: RHS_k
+real*8, dimension(DIM1, DIM2, DIM2) :: ELM_pnn
 
 real*8, dimension(n_gauss,n_gauss)    :: x_g, x_s, x_t
 real*8, dimension(n_gauss,n_gauss)    :: x_ss, x_st, x_tt
@@ -121,7 +124,9 @@ TG_num1    = TGNUM(1); TG_num2    = TGNUM(2); TG_num5    = TGNUM(5); TG_num6    
 
 ! --- Take time evolution parameters from phys_module
 theta = time_evol_theta
-zeta  = time_evol_zeta
+!zeta  = time_evol_zeta
+! change zeta for variable dt
+zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
 x_g  = 0.d0; x_s  = 0.d0; x_t  = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0;
@@ -135,26 +140,26 @@ particle_source = 0.d0
 heat_source     = 0.d0
 
 do i=1,n_vertex_max
- do j=1,n_order+1
+ do j=1,n_degrees
 
    do ms=1, n_gauss
      do mt=1, n_gauss
 
-       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
 
-       x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-       x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-       x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+       x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+       x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+       x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
 
-       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
-       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
+       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
-       y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-       y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-       y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+       y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+       y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+       y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
 
        do mp=1,n_plane
 
@@ -185,6 +190,11 @@ do i=1,n_vertex_max
    enddo
  enddo
 enddo
+
+! changes deltas for variable time steps
+delta_g = delta_g * tstep / tstep_prev
+delta_s = delta_s * tstep / tstep_prev
+delta_t = delta_t * tstep / tstep_prev
 
 do ms=1, n_gauss
   do mt=1, n_gauss
@@ -426,7 +436,7 @@ do ms=1, n_gauss
      end if
 
      if ( eta_T_dependent .and.  xpoint2 .and. (T0 .lt. T_min) ) then
-         eta_T     = eta    * (max(T0,T_min)/T_0)**(-1.5d0)
+         eta_T     = eta    * (T_min/T_0)**(-1.5d0)
          deta_dT   = 0.d0
          d2eta_d2T = 0.d0
      end if
@@ -436,7 +446,7 @@ do ms=1, n_gauss
        visco_T   = visco * (abs(T0)/T_0)**(-1.5d0)
        dvisco_dT = - visco * (1.5d0)  * abs(T0)**(-2.5d0) * T_0**(1.5d0)
        if ( xpoint2 .and. (T0 .lt. T_min) ) then
-         visco_T   = visco  * (max(T0,T_min)/T_0)**(-1.5d0)
+         visco_T   = visco  * (T_min/T_0)**(-1.5d0)
          dvisco_dT = 0.d0
        endif
      else
@@ -452,8 +462,8 @@ do ms=1, n_gauss
          ZKpar_T   = Zk_par_max
          dZKpar_dT = 0.d0
        endif
-       if ( xpoint2 .and. (T0 .lt. T_min) ) then
-         ZKpar_T   = ZK_par * (max(T0,T_min)/T_0)**(+2.5d0)
+       if ( xpoint2 .and. (T0 .lt. T_min_ZKpar) ) then
+         ZKpar_T   = ZK_par * (T_min_ZKpar/T_0)**(+2.5d0)
          dZKpar_dT = 0.d0
        endif
      else
@@ -495,9 +505,9 @@ do ms=1, n_gauss
 
      do i=1,n_vertex_max
 
-       do j=1,n_order+1
+       do j=1,n_degrees
 
-         index_ij = n_var*(n_order+1)*(i-1) + n_var * (j-1) + 1   ! index in the ELM matrix
+         index_ij = n_var*n_degrees*(i-1) + n_var * (j-1) + 1   ! index in the ELM matrix
 
          v   =  H(i,j,ms,mt) * element%size(i,j)
          v_x = (  y_t(ms,mt) * h_s(i,j,ms,mt) - y_s(ms,mt) * h_t(i,j,ms,mt) ) * element%size(i,j) / xjac
@@ -737,7 +747,7 @@ do ms=1, n_gauss
 
          do k=1,n_vertex_max
 
-           do l=1,n_order+1
+           do l=1,n_degrees
 
              psi   = H(k,l,ms,mt) * element%size(k,l)
 
@@ -789,7 +799,7 @@ do ms=1, n_gauss
              rho_x_hat = 2.d0 * BigR * BigR_x  * rho + BigR**2 * rho_x
              rho_y_hat = BigR**2 * rho_y
 
-             index_kl = n_var*(n_order+1)*(k-1) + n_var * (l-1) + 1   ! index in the ELM matrix
+             index_kl = n_var*n_degrees*(k-1) + n_var * (l-1) + 1   ! index in the ELM matrix
 
 !###################################################################################################
 !#  equation 1   (induction equation)                                                              #
@@ -1379,9 +1389,9 @@ do ms=1, n_gauss
  enddo
 enddo
 
-do i=1,n_vertex_max*n_var*(n_order+1)
+do i=1,n_vertex_max*n_var*n_degrees
 
-  do j=1, n_vertex_max*n_var*(n_order+1)
+  do j=1, n_vertex_max*n_var*n_degrees
 
 !    call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
@@ -1445,9 +1455,9 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
 enddo
 
-do i=1,n_vertex_max*n_var*(n_order+1)
+do i=1,n_vertex_max*n_var*n_degrees
 
-  do j=1, n_vertex_max*n_var*(n_order+1)
+  do j=1, n_vertex_max*n_var*n_degrees
 
   if (maxval(abs(ELM_n(1:n_plane,i,j))) .ne. 0.d0) then
 
@@ -1515,9 +1525,9 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 
 enddo
 
-do i=1,n_vertex_max*n_var*(n_order+1)
+do i=1,n_vertex_max*n_var*n_degrees
 
-  do j=1, n_vertex_max*n_var*(n_order+1)
+  do j=1, n_vertex_max*n_var*n_degrees
 
   if (maxval(abs(ELM_k(1:n_plane,i,j))) .ne. 0.d0) then
 
@@ -1586,9 +1596,9 @@ do i=1,n_vertex_max*n_var*(n_order+1)
 enddo
 
 
-do i=1,n_vertex_max*n_var*(n_order+1)
+do i=1,n_vertex_max*n_var*n_degrees
 
-  do j=1, n_vertex_max*n_var*(n_order+1)
+  do j=1, n_vertex_max*n_var*n_degrees
 
   if (maxval(abs(ELM_kn(1:n_plane,i,j))) .ne. 0.d0) then
 
@@ -1659,7 +1669,7 @@ enddo
 
 ELM = 0.5d0 * ELM
 
-do j=1, n_vertex_max*n_var*(n_order+1)
+do j=1, n_vertex_max*n_var*n_degrees
 
 !  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 
@@ -1686,7 +1696,7 @@ do j=1, n_vertex_max*n_var*(n_order+1)
 
 enddo
 
-do j=1, n_vertex_max*n_var*(n_order+1)
+do j=1, n_vertex_max*n_var*n_degrees
 
 !  call dfftw_plan_dft_r2c_1d(plan,n_plane,in_fft,out_fft,FFTW_FORWARD,FFTW_ESTIMATE)
 

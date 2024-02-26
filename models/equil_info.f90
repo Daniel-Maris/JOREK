@@ -9,9 +9,9 @@ module equil_info
   
   
   
-  use constants,      only: LOWER_XPOINT, UPPER_XPOINT, DOUBLE_NULL
+  use constants,      only: LOWER_XPOINT, UPPER_XPOINT, DOUBLE_NULL,SYMMETRIC_XPOINT
   use data_structure, only: type_node_list, type_element_list, type_bnd_element_list
-  use phys_module,    only: R_geo, Z_geo, FF_0, psi_axis_t, psi_bnd_t, Z_xpoint_t, index_now
+  use phys_module,    only: R_geo, Z_geo, FF_0, psi_axis_t, psi_bnd_t, Z_xpoint_t, index_now, SDN_threshold
   use mod_interp
   
   
@@ -43,6 +43,7 @@ module equil_info
     real*8           :: s_axis                   !< s coordinate of axis within element.
     real*8           :: t_axis                   !< t coordinate of axis within element.
     integer          :: ifail_axis               !< Error code for axis determination.
+    logical          :: axis_init = .false.      !< Has the find_axis routine been called in update_equil_state?
     
     ! --- Limiter Point
     real*8           :: R_lim                    !< R coordinate of limiter point.
@@ -65,6 +66,7 @@ module equil_info
     real*8           :: s_xpoint(2)              !< s coordinate of X-point within element.
     real*8           :: t_xpoint(2)              !< t coordinate of X-point within element.
     integer          :: ifail_xpoint             !< Error code for X-point determination.
+    logical          :: xpoint_init = .false.    !< Has the find_xpoint routine been called in update_equil_state?
     
     ! --- Boundary point (point defining the plasma LCFS, either the active limiter point or X-point)
     real*8           :: R_bnd                    !< R coordinate of boundary point.
@@ -85,11 +87,20 @@ module equil_info
     
     ! --- Inner/Outer points on the midplane close to the boundary of the computational domain.
     real*8           :: R_midpl(2)               !< R coordinate of "midplane points".
+
+    ! --- Plasma shape parameters as defined in T. Luce, PPCF 55 (2013) 095009, equations (1-6)
+    real*8           :: LCFS_Rgeo                !< Major radius
+    real*8           :: LCFS_Zgeo                !< Vertical centre
+    real*8           :: LCFS_a                   !< Minor radius
+    real*8           :: LCFS_epsilon             !< Inverse aspect ratio 
+    real*8           :: LCFS_kappa               !< Elongation
+    real*8           :: LCFS_deltaU              !< Upper triangularity
+    real*8           :: LCFS_deltaL              !< Lower triangularity 
     
   end type t_equil_state
   
 
-  type(t_equil_state)   :: ES  
+  type(t_equil_state), target   :: ES  
   
   
   contains
@@ -99,6 +110,8 @@ module equil_info
   !> Re-calculate the equilibrium state.
   subroutine update_equil_state(my_id, node_list, element_list, bnd_elm_list, xpoint, xcase)
     
+    use phys_module,    only: freeboundary, equil_initialized
+
     ! --- Routine parameters.
     integer,                     intent(in)    :: my_id
     type(type_node_list),        intent(in)    :: node_list
@@ -117,6 +130,8 @@ module equil_info
     ! --- Find the magnetic axis.
     call find_axis(my_id_fake, node_list, element_list, ES%psi_axis, ES%R_axis, ES%Z_axis,              &
       ES%i_elm_axis, ES%s_axis, ES%t_axis, ES%ifail_axis)
+
+    ES%axis_init = .true.
       
     ! --- Find out if the axis is a minimum or a maximum of the poloidal flux (required for find_limiter)    
     if (.not. ES%initialized) call is_axis_psi_mininum(node_list, element_list, bnd_elm_list)
@@ -125,8 +140,12 @@ module equil_info
     ES%xpoint       = xpoint
     ES%xcase        = xcase
     ES%ifail_xpoint = 0
-    if ( xpoint ) call find_xpoint(my_id_fake, node_list, element_list, ES%psi_xpoint, ES%R_xpoint,     &
-      ES%Z_xpoint, ES%i_elm_xpoint, ES%s_xpoint, ES%t_xpoint, ES%xcase, ES%ifail_xpoint)
+    if ( xpoint ) then 
+      call find_xpoint(my_id_fake, node_list, element_list, ES%psi_xpoint, ES%R_xpoint,     &
+        ES%Z_xpoint, ES%i_elm_xpoint, ES%s_xpoint, ES%t_xpoint, ES%xcase, ES%ifail_xpoint)
+
+      ES%xpoint_init = .true.
+    endif
     
     ! --- Find the limiter point.
     ES%ifail_lim = 0
@@ -151,14 +170,35 @@ module equil_info
       else if ( (xcase==DOUBLE_NULL) ) then
         
         ES%limiter_plasma = .false.
-        
+
         if ( abs(ES%psi_axis-ES%psi_xpoint(1)) < abs(ES%psi_axis-ES%psi_xpoint(2)) ) then
           ES%psi_bnd       = ES%psi_xpoint(1)
           ES%active_xpoint = LOWER_XPOINT
+
+          ! --- Save boundary point inforamtion for DOUBLE_NULL cases       
+          ES%R_bnd      =  ES%R_xpoint(ES%active_xpoint)
+          ES%Z_bnd      =  ES%Z_xpoint(ES%active_xpoint)
+          ES%i_elm_bnd  =  ES%i_elm_xpoint(ES%active_xpoint)
+          ES%s_bnd      =  ES%s_xpoint(ES%active_xpoint)
+          ES%t_bnd      =  ES%t_xpoint(ES%active_xpoint)
+          ES%ifail_bnd  =  ES%ifail_xpoint
         else
           ES%psi_bnd       = ES%psi_xpoint(2)
           ES%active_xpoint = UPPER_XPOINT
+
+          ! --- Save boundary point inforamtion for DOUBLE_NULL cases       
+          ES%R_bnd      =  ES%R_xpoint(ES%active_xpoint)
+          ES%Z_bnd      =  ES%Z_xpoint(ES%active_xpoint)
+          ES%i_elm_bnd  =  ES%i_elm_xpoint(ES%active_xpoint)
+          ES%s_bnd      =  ES%s_xpoint(ES%active_xpoint)
+          ES%t_bnd      =  ES%t_xpoint(ES%active_xpoint)
+          ES%ifail_bnd  =  ES%ifail_xpoint
         end if
+
+        ! If one want to generate a symmetric double-null grid
+        if ( abs(ES%psi_xpoint(1)-ES%psi_xpoint(2)) < SDN_threshold ) then
+          ES%active_xpoint = SYMMETRIC_XPOINT
+        endif
         
       else ! This should never happen.
         write(*,*) 'ERROR: ILLEGAL VALUE FOR XCASE:', xcase
@@ -166,16 +206,21 @@ module equil_info
       end if
       
       ! --- Has the X-plasma changed to a limiter plasma?
-      if ( abs(ES%psi_axis-ES%psi_lim) < abs(ES%psi_axis-ES%psi_bnd) ) then
-        ES%psi_bnd        = ES%psi_lim
-        ES%limiter_plasma = .true.
-        ES%active_xpoint  = 0
+      if (freeboundary) then
+        if ( abs(ES%psi_axis-ES%psi_lim) < abs(ES%psi_axis-ES%psi_bnd) ) then
+          ES%psi_bnd        = ES%psi_lim
+          ES%limiter_plasma = .true.
+          ES%active_xpoint  = 0
+        endif 
       endif 
       
     else ! (limiter plasma)
       
       ES%limiter_plasma = .true.
       ES%active_xpoint  = 0
+      ES%R_xpoint(:)    = R_geo
+      ES%Z_xpoint(1)    = -99.d0
+      ES%Z_xpoint(2)    =  99.d0
 
       !--- If there are no X-points and find_limiter has failed, assume that the grid's boundary is a flux-surface and a limiter
       if (ES%ifail_lim /= 0) then
@@ -211,12 +256,14 @@ module equil_info
       ES%t_bnd      =  ES%t_lim
       ES%ifail_bnd  =  ES%ifail_lim
     else
-      ES%R_bnd      =  ES%R_xpoint(ES%active_xpoint)
-      ES%Z_bnd      =  ES%Z_xpoint(ES%active_xpoint)
-      ES%i_elm_bnd  =  ES%i_elm_xpoint(ES%active_xpoint)
-      ES%s_bnd      =  ES%s_xpoint(ES%active_xpoint)
-      ES%t_bnd      =  ES%t_xpoint(ES%active_xpoint)
-      ES%ifail_bnd  =  ES%ifail_xpoint
+      if (xcase .ne. DOUBLE_NULL) then
+        ES%R_bnd      =  ES%R_xpoint(ES%active_xpoint)
+        ES%Z_bnd      =  ES%Z_xpoint(ES%active_xpoint)
+        ES%i_elm_bnd  =  ES%i_elm_xpoint(ES%active_xpoint)
+        ES%s_bnd      =  ES%s_xpoint(ES%active_xpoint)
+        ES%t_bnd      =  ES%t_xpoint(ES%active_xpoint)
+        ES%ifail_bnd  =  ES%ifail_xpoint
+      endif
     endif  
     
     ! --- Strike points.
@@ -276,6 +323,9 @@ module equil_info
         ES%Z_xpoint_init(:) = ES%Z_xpoint(:)
       endif
     endif
+
+    ! --- Calculate shape parameters of the LCFS
+    if ( equil_initialized ) call LCFS_shape_parameters(node_list,element_list)
     
     ES%initialized = .true.
     
@@ -303,8 +353,9 @@ module equil_info
     
     ! --- Get coordinates of the magnetic axis
     if (ES%initialized) then
-      R_axis = ES%R_axis
-      Z_axis = ES%Z_axis
+      R_axis   = ES%R_axis
+      Z_axis   = ES%Z_axis
+      psi_axis = ES%psi_axis
     else
       call find_axis(99, node_list, element_list, psi_axis, R_axis, Z_axis,              &
         i_elm_axis, s_axis, t_axis, ifail)
@@ -319,7 +370,7 @@ module equil_info
     Z2 = Z_axis + 0.25d0*(Z1-Z_axis)
     call find_RZ(node_list, element_list, R2, Z2, R_out, Z_out, i_elm_out, s_out, t_out, ifail)    
     call interp(node_list, element_list, i_elm_out, 1, 1, s_out, t_out, P, P_s, P_t, P_st, P_ss, P_tt)
-    
+
     ! --- Decide whether the axis is a minimum of psi
     if ( (P - psi_axis) > 0.d0 ) then
       ES%axis_is_psi_minimum = .true.
@@ -476,6 +527,18 @@ module equil_info
       write(*,102) 'R_midpl1           =', ES%R_midpl(1)
       write(*,102) 'R_midpl2           =', ES%R_midpl(2)
     end if
+
+    ! --- Shaping parameters
+    if ( verbose ) then
+      write(*,*) '--- LCFS shape parameters (as in PPCF 55 (2013) 095009) ------'
+      write(*,102) 'R_geo              =', ES%LCFS_Rgeo  
+      write(*,102) 'Z_geo              =', ES%LCFS_Zgeo    
+      write(*,102) 'a_min              =', ES%LCFS_a       
+      write(*,102) 'epsilon            =', ES%LCFS_epsilon 
+      write(*,102) 'kappa              =', ES%LCFS_kappa   
+      write(*,102) 'delta_U            =', ES%LCFS_deltaU  
+      write(*,102) 'delta_L            =', ES%LCFS_deltaL  
+    end if
     
     write(*,*) '=============================================================='
     write(*,*)
@@ -584,13 +647,13 @@ module equil_info
     
     if (ES%xpoint .and. correct_private) then
 
-      if ( ES%xcase .ne. 2 ) then
+      if ( ES%xcase .ne. UPPER_XPOINT ) then
         psi_n_xpoint_lower = ( ES%psi_xpoint(1) - ES%psi_axis ) / ( ES%psi_bnd - ES%psi_axis )       
         if ( (get_psi_n < psi_n_xpoint_lower) .and. (Z < ES%Z_xpoint(1)) ) then   ! if true is lower private region
           get_psi_n = 2.d0*psi_n_xpoint_lower - get_psi_n
         endif
       endif
-      if ( ES%xcase .ne. 1 ) then
+      if ( ES%xcase .ne. LOWER_XPOINT ) then
         psi_n_xpoint_upper = ( ES%psi_xpoint(2) - ES%psi_axis ) / ( ES%psi_bnd - ES%psi_axis )
         if ( (get_psi_n < psi_n_xpoint_upper) .and. (Z > ES%Z_xpoint(2)) ) then   ! if true is upper private region
           get_psi_n = 2.d0*psi_n_xpoint_upper - get_psi_n
@@ -629,6 +692,7 @@ module equil_info
     call MPI_BCAST(ES%t_axis,       1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     call MPI_BCAST(ES%i_elm_axis,   1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
     call MPI_BCAST(ES%ifail_axis,   1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%axis_init,    1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
 
     
     ! --- Limiter Point
@@ -652,6 +716,7 @@ module equil_info
     call MPI_BCAST(ES%t_xpoint,       2,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     call MPI_BCAST(ES%i_elm_xpoint,   2,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
     call MPI_BCAST(ES%ifail_xpoint,   1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%xpoint_init,    1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
     
     ! --- Boundary Point
     call MPI_BCAST(ES%psi_bnd,     1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
@@ -673,9 +738,121 @@ module equil_info
     
     ! --- Inner/Outer points on the midplane close to the boundary of the computational domain.
     call MPI_BCAST(ES%R_midpl,           2,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+
+    ! --- LCFS shape parameters
+    call MPI_BCAST(ES%LCFS_Rgeo   ,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%LCFS_Zgeo   ,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%LCFS_a      ,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%LCFS_epsilon,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%LCFS_kappa  ,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%LCFS_deltaU ,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    call MPI_BCAST(ES%LCFS_deltaL ,      1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     
   end subroutine broadcast_equil_state
   
+
+
+
+
+
+  !> Calculates the shape parameters of the LCFS
+  !> as defined in T. Luce, PPCF 55 (2013) 095009, equations (1-6)
+  subroutine LCFS_shape_parameters(node_list,element_list)
+  
+    use data_structure
+    use phys_module, only: xcase, xpoint
+    use mod_interp
+    
+    implicit none
+    
+    ! --- Input parameters.
+    type (type_node_list),    intent(in)    :: node_list
+    type (type_element_list), intent(in)    :: element_list
+    
+    ! --- Local variables
+    integer :: n_int
+    integer :: i_elm, j, k, n1, n2, n3
+    real*8  :: t,rr1, rr2, drr1, drr2, ss1, ss2, dss1, dss2, ri, si, dri, dsi, dl
+    real*8  :: RRgi, dRRgi_dr, dRRgi_ds, ZZgi, dZZgi_dr, dZZgi_ds, dRRgi_dt, dZZgi_dt
+    real*8  :: PSgi, dPSgi_dr, dPSgi_ds, PSI_R, PSI_Z, RZJAC, grad_psi, psi_n
+    real*8  :: dRRgi_drs,dRRgi_drr,dRRgi_dss, dZZgi_drs,dZZgi_drr,dZZgi_dss, dPSgi_drs,dPSgi_drr,dPSgi_dss
+    real*8  :: Rmax, Z_Rmax, Rmin, Z_Rmin, R_Zmax, Zmax, R_Zmin, Zmin
+    integer :: i,m, ig, ip, npoints
+   
+    type (type_surface_list) :: surface_list
+    
+    
+    surface_list%n_psi = 1 
+    allocate( surface_list%psi_values(surface_list%n_psi) )
+    surface_list%psi_values(1) = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * 0.9999d0 ! Not 1 to avoid legs
+    
+    call find_flux_surfaces(99, xpoint, xcase, node_list, element_list, surface_list)
+    
+    Rmax = -1.d99;   Zmax = -1.d99
+    Rmin =  1.d99;   Zmin =  1.d99
+
+
+    npoints = 40
+    
+    do i=1, surface_list%n_psi
+      do k=1, surface_list%flux_surfaces(i)%n_pieces
+        do ig = 1, npoints
+          t = -1.0 + 2.0*float(ig-1)/float(npoints-1)
+    
+          rr1  = surface_list%flux_surfaces(i)%s(1,k)
+          drr1 = surface_list%flux_surfaces(i)%s(2,k)
+          rr2  = surface_list%flux_surfaces(i)%s(3,k)
+          drr2 = surface_list%flux_surfaces(i)%s(4,k)
+    
+          ss1  = surface_list%flux_surfaces(i)%t(1,k)
+          dss1 = surface_list%flux_surfaces(i)%t(2,k)
+          ss2  = surface_list%flux_surfaces(i)%t(3,k)
+          dss2 = surface_list%flux_surfaces(i)%t(4,k)
+    
+          call CUB1D(rr1, drr1, rr2, drr2, t, ri, dri)
+          call CUB1D(ss1, dss1, ss2, dss2, t, si, dsi)
+    
+          i_elm = surface_list%flux_surfaces(i)%elm(k)
+    
+          call interp(node_list,element_list,i_elm,1,1,ri,si,PSgi,dPSgi_dr,dPSgi_ds,dPSgi_drs,dPSgi_drr,dPSgi_dss)
+    
+          call interp_RZ(node_list,element_list,i_elm,ri,si,RRgi,dRRgi_dr,dRRgi_ds,dRRgi_drs,dRRgi_drr,dRRgi_dss, &
+                                                            ZZgi,dZZgi_dr,dZZgi_ds,dZZgi_drs,dZZgi_drr,dZZgi_dss)
+                                                            
+          ! --- Ignore open and private field line regions
+          if ( get_psi_n(PSgi, ZZgi) > 1.d0 ) cycle
+    
+          if (RRgi > Rmax) then
+            Rmax   = RRgi;    Z_Rmax = ZZgi;
+          endif 
+    
+          if (ZZgi > Zmax) then
+            R_Zmax = RRgi;    Zmax = ZZgi;
+          endif 
+    
+          if (RRgi < Rmin) then
+            Rmin   = RRgi;    Z_Rmin = ZZgi;
+          endif 
+    
+          if (ZZgi < Zmin) then
+            R_Zmin = RRgi;    Zmin = ZZgi;
+          endif 
+    
+        end do
+      end do
+    
+      ! --- As defined in T. Luce, PPCF 55 (2013) 095009, equations (1-6)
+      ES%LCFS_Rgeo    = (Rmax + Rmin) / 2.0 
+      ES%LCFS_Zgeo    = (Zmax + Zmin) / 2.0 
+      ES%LCFS_a       = (Rmax - Rmin) / 2.0
+      ES%LCFS_epsilon =  ES%LCFS_a / ES%LCFS_Rgeo
+      ES%LCFS_kappa   = (Zmax - Zmin) / (2.0 * ES%LCFS_a ) 
+      ES%LCFS_deltaU  = (ES%LCFS_Rgeo - R_Zmax) / ES%LCFS_a
+      ES%LCFS_deltaL  = (ES%LCFS_Rgeo - R_Zmin) / ES%LCFS_a
+    
+    end do
+  
+  end subroutine LCFS_shape_parameters
   
   
 end module equil_info 

@@ -17,6 +17,7 @@ integer :: i, j, k, n_steps, n_lost, i_elm_old, ifail
 real*8 :: target_time, t
 real*8 :: E(3), B(3), rz_old(2), st_old(2), psi, U
 real*8, parameter :: alpha = 0.d0 !< if 0, sample from maxwellian
+integer :: ierr, my_id
 type(event) :: fieldreader
 
 ! Start up MPI, jorek
@@ -28,7 +29,8 @@ fieldreader = event(read_jorek_fields_interp_hermite_birkhoff(&
 call with(sim, fieldreader)
 
 ! Prepare the coronal equilibrium
-adas = read_adf11('50_w')
+call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+adas = read_adf11(my_id, '50_w')
 cor  = coronal(adas)
 
 ! Set up particles
@@ -58,7 +60,7 @@ diag = write_particle_diagnostics(filename='diag.h5')
 events = [fieldreader, &
           event(write_action(),   step=5d-6), &
           event(projection(sim%fields%node_list, sim%fields%element_list, &
-            smoothing=1d-4, to_h5=.true.), step=5d-6), &
+            filter=1d-4, to_h5=.true.), step=5d-6), &
           event(diag, step=5d-6), &
           event(stop_action(), start=5d-3)]
 call check_and_fix_timesteps(timesteps, events)
@@ -74,7 +76,7 @@ do while (.not. sim%stop_now)
       !$omp shared(sim, n_steps, timesteps, i)
       do j=1,size(particles,1)
         do k=1,n_steps
-          if (particles(j)%i_elm .eq. 0) exit
+          if (particles(j)%i_elm .le. 0) exit
           t = sim%time + k*timesteps(i)
           call sim%fields%calc_EBpsiU(t, particles(j)%i_elm, &
               particles(j)%st, particles(j)%x(3), E, B, psi, U)

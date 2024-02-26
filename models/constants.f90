@@ -2,6 +2,8 @@
 module constants
   implicit none
   public
+  
+#include "version.h"
 
   ! @name Mathematical and physical constants
   real*8,  parameter :: PI            = 3.1415926535897932385d0  !< PI
@@ -28,5 +30,6 @@ module constants
   integer, parameter :: LOWER_XPOINT          = 1
   integer, parameter :: UPPER_XPOINT          = 2
   integer, parameter :: DOUBLE_NULL           = 3
+  integer, parameter :: SYMMETRIC_XPOINT      = 100  ! Used for grid construction purposes; do not use as value for xcase in the input file!
 
 end module constants

@@ -1,6 +1,8 @@
 subroutine RZ_minmax(node_list,element_list,i_elm,Rmin,Rmax,Zmin,Zmax)
 
 use data_structure
+use mod_newton_methods
+use mod_parameters, only: n_order
 
 implicit none
 
@@ -15,6 +17,16 @@ real*8,external :: root
 integer :: iv, n, im, n1, n2
 real*8  :: s,t,P,P_s,P_t,P_st,P_ss,P_tt
 integer :: k
+
+! --- For n_order>3, we need to use Newton methods (not exactly true, should implement quartic root finder) 
+! --- Could be important/faster for particles module!!!
+if (n_order .ge. 5) then
+  call find_variable_minmax(node_list,element_list,i_elm, -1, Rmin, Rmax)
+  call find_variable_minmax(node_list,element_list,i_elm, -2, Zmin, Zmax)
+  return
+endif
+
+! --- Continue for bi-cubic elements
 
 do k=1,2
 
@@ -31,17 +43,17 @@ do k=1,2
 
     if ((iv .eq. 1) .or. (iv .eq. 3)) THEN
 
-      PSIM  =  node_list%node(n1)%x(1,k) * element_list%element(i_elm)%size(iv,1)            
-      PSIMR =  node_list%node(n1)%x(2,k) * element_list%element(i_elm)%size(iv,2) * 3.d0/2.d0
-      PSIP  =  node_list%node(n2)%x(1,k) * element_list%element(i_elm)%size(im,1)            
-      PSIPR = -node_list%node(n2)%x(2,k) * element_list%element(i_elm)%size(im,2) * 3.d0/2.d0
+      PSIM  =  node_list%node(n1)%x(1,1,k) * element_list%element(i_elm)%size(iv,1)            
+      PSIMR =  node_list%node(n1)%x(1,2,k) * element_list%element(i_elm)%size(iv,2) * 3.d0/2.d0
+      PSIP  =  node_list%node(n2)%x(1,1,k) * element_list%element(i_elm)%size(im,1)            
+      PSIPR = -node_list%node(n2)%x(1,2,k) * element_list%element(i_elm)%size(im,2) * 3.d0/2.d0
 
     elseif ((iv .eq. 2) .or. (iv .eq. 4)) then
       
-      PSIM  =   node_list%node(n1)%x(1,k) * element_list%element(i_elm)%size(iv,1)            
-      PSIMR =   node_list%node(n1)%x(3,k) * element_list%element(i_elm)%size(iv,3) * 3.d0/2.d0
-      PSIP  =   node_list%node(n2)%x(1,k) * element_list%element(i_elm)%size(im,1)            
-      PSIPR = - node_list%node(n2)%x(3,k) * element_list%element(i_elm)%size(im,3) * 3.d0/2.d0
+      PSIM  =   node_list%node(n1)%x(1,1,k) * element_list%element(i_elm)%size(iv,1)            
+      PSIMR =   node_list%node(n1)%x(1,3,k) * element_list%element(i_elm)%size(iv,3) * 3.d0/2.d0
+      PSIP  =   node_list%node(n2)%x(1,1,k) * element_list%element(i_elm)%size(im,1)            
+      PSIPR = - node_list%node(n2)%x(1,3,k) * element_list%element(i_elm)%size(im,3) * 3.d0/2.d0
 
     endif
 

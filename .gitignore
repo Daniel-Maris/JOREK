@@ -1,3 +1,4 @@
+*.bck
 *.o
 *.mod
 *.dep
@@ -74,3 +75,5 @@ density_scan*
 W_full*
 d_ne*
 eqdsk2jorek*
+mpiversion.mk
+jorek2_get_new_extension_patch_connections

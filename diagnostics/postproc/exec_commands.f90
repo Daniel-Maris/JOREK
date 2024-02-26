@@ -20,10 +20,10 @@ module exec_commands
   use mod_interp
   use mod_poloidal_currents 
   use mod_bootstrap_functions
-  
-  
-  
-  
+  use mod_impurity, only: init_imp_adas 
+  use mod_model_settings
+  use mod_atomic_coeff_deuterium, only : ad_deuterium 
+
   implicit none
   
   
@@ -50,12 +50,12 @@ module exec_commands
   
   character(len=1024)                :: input_file
   logical,             private, save :: input_loaded  = .false. !< Has an input file been loaded?
-  logical,             private, save :: step_imported = .false. !< Has a restart file been imported?
+  logical,                      save :: step_imported = .false. !< Has a restart file been imported?
   logical,             private, save :: dir_created   = .false. !< Postproc directory created?
   logical,             private, save :: verbose
   logical,             private, save :: debug
-  type(t_expr_list),   private, save :: expr_list
-  real*8, allocatable, private, save :: result(:,:,:,:), res2d(:,:,:), res1d(:,:), res0d(:), sum(:)
+  type(t_expr_list),            save :: expr_list, expr_list_four
+  real*8, allocatable, private, save :: result(:,:,:,:), res2d(:,:,:), res1d(:,:), res0d(:), the_sum(:)
   complex*16, allocatable, private, save :: cp(:,:,:,:)
   real*8,              private, save :: time_now !< Time of current restart file in selected units
   
@@ -66,7 +66,9 @@ module exec_commands
   
   
   private
-  public exec_command, general_help, specific_help, clean_up
+  public exec_command, general_help, specific_help, clean_up, average, expr_list, step_imported, qprofile, &
+         zeroD_quantities, separatrix, rectangle
+
   
   
   
@@ -147,6 +149,8 @@ module exec_commands
           call expressions(command, ierr)
         case ( 'expressions_int' )
           call expressions_int(command, ierr)
+        case ( 'expressions_four' )
+          call expressions_four(command, ierr)
         case ( 'fluxsurfaces' )
           call fluxsurfaces(command, ierr)
         case ( 'for' )
@@ -189,6 +193,13 @@ module exec_commands
           call set_postproc_dir(command, ierr)
         case ( 'namelist' )
           call load_namelist(command, ierr)
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
+          ! --- Read ADAS data and generate coronal equilibrium is needed
+          call init_imp_adas(0)
+#endif
+#if (!defined WITH_Impurities)
+        if (deuterium_adas)  ad_deuterium =  read_adf11(0,'96_h') ! For radiation terms
+#endif
         case ( 'params' )
           call log_parameters(0, .false.)
         case ( 'point' )
@@ -207,8 +218,12 @@ module exec_commands
           call select_si_units(command, ierr)
         case ( 'for-si-units' )
           call select_loop_si_units(command, ierr)
+        case ( 'RHS_terms_vtk' )
+          call RHS_terms_vtk(command, first_step, ierr)
         case ( 'spi-state' )
           call spi_state(command, first_step, ierr)
+        case ( 'shards' )
+          call shards(command, ierr)
         case ( 'timesteps' )
           call timesteps 
         case default
@@ -225,7 +240,8 @@ module exec_commands
           'qprofile', 'q_at_psin', 'fluxsurfaces', 'separatrix', 'set', 'four2d', 'gourdon',       &
           'jorek-units', 'jnorm_bnd_curr', 'si-units', 'grid', 'grid_diagnostics', 'rectangle',    &
           'rectangular_torus', 'energy_spectrum', 'average_h5', 'I_halo_TPF', 'spi-state',         &
-          'zeroD_quantities', 'boundary_quantities', 'find_q_surface', 'midplane2d')
+          'shards', 'zeroD_quantities', 'boundary_quantities', 'find_q_surface', 'midplane2d',     &
+          'expressions_four', 'RHS_terms_vtk')
           call add_to_command_queue(command, ierr)
         case ( 'help' )
           call help(command, ierr)
@@ -324,7 +340,7 @@ module exec_commands
     step_imported = .true.
     
     ! (not elegant, admittedly... but guarantees consistent time normalization:)
-    call eval_expr(ES, get_int_setting('units', ierr), exprs('t',1),                               &
+    call eval_expr(ES, get_int_setting('units', ierr), exprs('t',1),                  &
       pol_pos(node_list,element_list,ES,R=ES%R_axis,Z=ES%Z_axis), tor_pos(phi=0.d0), result, ierr)
     time_now = result(1,1,1,1)
     
@@ -528,7 +544,6 @@ module exec_commands
     first_step = .true.
     if ( loop_mode == LOOP_S_MODE ) then
       do istep = loop_min_step, loop_max_step, loop_inc_step
-        call reload_namelist(input_err)
         call load_step(istep, load_error)
         if ( load_error /= 0 ) cycle
 
@@ -629,7 +644,6 @@ module exec_commands
       write(*,*) '--------------------------------------------------'
 
       do istep = 1, n_select
-        call reload_namelist(input_err)
         call load_step( selected_steps(istep), load_error)
         if ( load_error /= 0 ) cycle
       
@@ -814,7 +828,6 @@ module exec_commands
   subroutine load_namelist(command, ierr)
     
     use phys_module     
-    
     ! --- Routine parameters
     type(type_command), intent(in)  :: command     !< Command to be executed
     integer,            intent(out) :: ierr        !< Error flag
@@ -849,37 +862,6 @@ module exec_commands
 
 
 
-  !> Load again the JOREK input file
-  subroutine reload_namelist(ierr)
-    
-    use phys_module     
-    
-    ! --- Routine parameters
-    integer,    intent(inout) :: ierr        !< Error flag
-    
-    ! --- Local variables
-    logical ::  file_exists
-    
-    ierr = 0
-    
-    inquire (file=input_file, exist=file_exists)
-      
-    ! --- Read the input namelist file
-    if (file_exists) then
-      call initialise_parameters(0, input_file)
-      input_loaded = .true.
-    else
-      ierr = 1
-      write(*,*) 'ERROR: input file "', trim(input_file), '" does not exist.'
-      call specific_help('namelist')
-    end if
-
-  end subroutine reload_namelist
-  
-  
-  
-
-  
   !> Check if a restart file has already been imported
   subroutine check_step_imported(ierr)
     integer, intent(out) :: ierr !< Error flag
@@ -1004,6 +986,28 @@ module exec_commands
 
 
   !> List or Select Available Expressions.
+  subroutine expressions_four(command, ierr)
+    
+    ! --- Routine parameters
+    type(type_command), intent(in)  :: command     !< Command to be executed
+    integer,            intent(out) :: ierr        !< Error flag
+    
+    ierr = 0
+    
+    if ( command%n_args == 0 ) then
+      
+      call print_exprs(exprs_all_four)
+      
+    else
+      
+      expr_list_four = exprs(command%args(1:command%n_args), command%n_args, exprs_all_local=exprs_all_four)
+      call print_exprs(expr_list_four,.true.)
+       
+    end if
+    
+  end subroutine expressions_four
+ 
+   !> List or Select Available Expressions.
   subroutine expressions_int(command, ierr)
     
     ! --- Routine parameters
@@ -1018,13 +1022,12 @@ module exec_commands
       
     else
       
-    expr_list = exprs_int(command%args(1:command%n_args), command%n_args)
-    call print_exprs(expr_list,.true.)
+      expr_list = exprs(command%args(1:command%n_args), command%n_args, exprs_all_local=exprs_all_int)
+      call print_exprs(expr_list,.true.)
        
     end if
     
   end subroutine expressions_int
- 
   
   
   !> Mark some expressions as coordinates.
@@ -1095,7 +1098,7 @@ module exec_commands
     
     weight = 0.d0
     if (first_step) then
-      allocate(values(n_tor,n_order+1,n_var,node_list%n_nodes))
+      allocate(values(n_tor,n_degrees,n_var,node_list%n_nodes))
       values = 0.d0
     else
       weight = xtime(index_now)-xtime(prev_index)
@@ -1484,7 +1487,7 @@ module exec_commands
 
     write(comment,'(a,i6.6)') 'time step #', index_now
 
-    call int_along_pol_lineout(node_list, element_list, ES, units, expr_list, sum, phi, Rstart, Zstart,    &
+    call int_along_pol_lineout(node_list, element_list, ES, units, expr_list, the_sum, phi, Rstart, Zstart,    &
       Rend, Zend, npts, ierr, filename, append=(.not.first_step), comment=trim(comment) )
 
   end subroutine int_along_pol_line
@@ -1536,7 +1539,7 @@ module exec_commands
   
   
   !> Expressions in a rectangular area.
-  subroutine rectangle(command, first_step, ierr)
+  subroutine rectangle(command, first_step, ierr, only_n0, res2D_out)
     
     use mod_position, only: pol_pos, tor_pos
     
@@ -1544,10 +1547,14 @@ module exec_commands
     type(type_command), intent(in)  :: command     !< Command to be executed
     logical,            intent(in)  :: first_step  !< First time step of a for loop?
     integer,            intent(out) :: ierr        !< Error flag
+    logical, optional,  intent(in)  :: only_n0     !< Only use n=0 component
+    
+    real*8, allocatable, optional, intent(inout) :: res2D_out(:,:,:)
     
     ! --- Local variables
     real*8  :: Rmin, Rmax, Zmin, Zmax, phi
     integer :: nR, nZ, units
+    logical :: just_n0
     character(len=1024) :: filename, comment
     
     ierr = 0
@@ -1572,13 +1579,26 @@ module exec_commands
       trim(step_range_string(index_now,index_now)), '.h5'
       
     comment = 'Output produced by jorek2_postproc command "rectangle"'
+
+    just_n0 = .false.
+    if (present(only_n0)) then
+      just_n0 = only_n0
+    endif
     
     call eval_expr(ES, units, expr_list,                                                           &
        pol_pos(node_list,element_list,ES,Rmin=Rmin,Rmax=Rmax,nR=nR,Zmin=Zmin,Zmax=Zmax,nZ=nZ),     &
-       tor_pos(phi=phi), result, ierr)
+       tor_pos(phi=phi), result, ierr,only_n0=just_n0)
     
     call reduce_result_to_2d(ierr, result, res2d, i1=1)
-    call write_hdf5_2d(ierr, expr_list, res2d, trim(filename), comment=trim(comment))
+
+    if (.not. present(res2D_out)) then
+      call write_hdf5_2d(ierr, expr_list, res2d, trim(filename), comment=trim(comment), include_time=.true.)
+    endif
+
+    if (present(res2D_out)) then
+      allocate(res2D_out(size(res2d,1), size(res2d,2),size(res2d,3)))
+      res2D_out = res2d
+    endif
     
     if ( allocated(result) ) deallocate(result)
     if ( allocated(res2d ) ) deallocate(res2d )
@@ -1634,7 +1654,7 @@ module exec_commands
        pol_pos(node_list,element_list,ES,Rmin=Rmin,Rmax=Rmax,nR=nR,Zmin=Zmin,Zmax=Zmax,nZ=nZ),     &
        tor_pos(phistart=phimin, phiend=phimax, nphi=nphi), result, ierr)
     
-    call write_hdf5_3d(ierr, expr_list, result, trim(filename), comment=trim(comment))
+    call write_hdf5_3d(ierr, expr_list, result, trim(filename), comment=trim(comment), include_time=.true.)
     
     if ( allocated(result) ) deallocate(result)
     
@@ -1720,15 +1740,17 @@ module exec_commands
 
 
   !> Toroidally and poloidally averaged expressions.
-  subroutine average(command, first_step, ierr)
+  subroutine average(command, first_step, ierr, res1d_tmp, flux_av)
     
     ! --- Routine parameters
     type(type_command), intent(in)  :: command     !< Command to be executed
     logical,            intent(in)  :: first_step  !< First time step of a for loop?
     integer,            intent(out) :: ierr        !< Error flag
+    real*8, allocatable, optional, intent(out) :: res1d_tmp(:,:)
+    logical, optional, intent(in)   :: flux_av     !< Perform proper flux average
     
     ! --- Local variables
-    integer :: units, npts, nsmall
+    integer :: units, npts, nsmall, i_exp
     character(len=1024) :: filename, comment
     type(t_pol_pos_list), save :: pol_pos_list
     type(t_tor_pos_list), save :: tor_pos_list
@@ -1751,15 +1773,32 @@ module exec_commands
     pol_pos_list = pol_pos(node_list, element_list, ES, nPsiN=npts, nTht=max(150,6*n_plane),                &
       nsmallsteps=nsmall)
     tor_pos_list = tor_pos(nphi=max(n_plane,2))
-    
-    call eval_expr(ES, units, expr_list, pol_pos_list, tor_pos_list, result, ierr)
+
+    if (present(flux_av)) then
+      call add(expr_list, 'unity       ', 'Just unity, used to get R^2 average                   ')
+    endif
+
+    call eval_expr(ES, units, expr_list, pol_pos_list, tor_pos_list, result, ierr, flux_av)
     call apply_four_filter(result, simple_filter(m=0,n=0), expr_list%n_coord, ierr)
     call reduce_result_to_1d(ierr, result, res1d, i1=1, i2=1)
+
+    if (present(flux_av)) then 
+      if (flux_av) then
+        do i_exp=1, expr_list%n_expr
+          res1d(:,i_exp) = res1d(:,i_exp) / res1d(:,expr_list%n_expr)  ! Need to normalize for flux average
+        enddo
+      endif      
+    endif
     
-    write(comment,'(a,i6.6)') 'time step #', index_now
+    if (present(res1d_tmp)) then
+      allocate( res1d_tmp(size(res1d,1),size(res1d,2)) )
+      res1d_tmp = res1d
+    else
+      write(comment,'(a,i6.6)') 'time step #', index_now
     
-    call write_ascii_1d(ierr, ES, expr_list, res1d, FORM_TABLE, header=.true.,                     &
-      filename=trim(filename), append=(.not.first_step), blanks=.true., comment=trim(comment))
+      call write_ascii_1d(ierr, ES, expr_list, res1d, FORM_TABLE, header=.true.,                     &
+        filename=trim(filename), append=(.not.first_step), blanks=.true., comment=trim(comment))
+    endif
     
   end subroutine average
   
@@ -1858,7 +1897,7 @@ module exec_commands
     atoms_left = 0.d0
     abl_tot    = 0.d0
     
-    do i = 1, n_SPI
+    do i = 1, n_spi_tot
       shard_atoms_left = 4./3.*PI*pellets(i)%spi_radius**3 * pellet_density * 1.d20
       
       atoms_left = atoms_left + shard_atoms_left
@@ -1894,8 +1933,89 @@ module exec_commands
 
 
 
+  !> Write out SPI shards characteristics
+  subroutine shards(command, ierr)
 
-  
+    ! --- Routine parameters
+    type(type_command), intent(in)  :: command     !< Command to be executed
+    integer,            intent(out) :: ierr        !< Error flag
+    
+    ! --- Local variables
+    integer             :: i_file, i_spi, units, i
+    real*8              :: radmin, radmax
+    character(len=1024) :: filename, status, access
+    
+    ierr = 0
+    
+    ! --- Some checks
+    call check_args(command%n_args,ierr,0);  if ( ierr /= 0 ) return
+    call check_step_imported(ierr);          if ( ierr /= 0 ) return
+    call check_exprs_selected(ierr);         if ( ierr /= 0 ) return
+    
+    units = get_int_setting('units', ierr)
+    
+    i_file = 133
+    
+    do i = 1, 4 ! write four different files
+    
+      if ( i == 1 ) then
+        write(filename,'(4a)') trim(DIR), 'shards', trim(step_range_string(index_start,index_start)), '.txt'
+        radmin=-1.d99
+        radmax=+1.d99
+      else if ( i == 2 ) then
+        write(filename,'(4a)') trim(DIR), 'ablated-shards', trim(step_range_string(index_start,index_start)), '.txt'
+        radmin=-1.d99
+        radmax=0.d0
+      else if ( i == 3 ) then
+        write(filename,'(4a)') trim(DIR), 'active-shards', trim(step_range_string(index_start,index_start)), '.txt'
+        radmin=0.d0
+        radmax=+1.d99
+      else if ( i == 4 ) then
+        write(filename,'(4a)') trim(DIR), 'shards-m3dc1-format', trim(step_range_string(index_start,index_start)), '.txt'
+      end if
+      
+      call open_ascii_file(ierr, i_file, filename, .false.)
+      
+      if ( i < 4 ) then
+        
+        write(i_file,'(a)') '# i_spi       R [m]          Z [m]         phi [rad]      '//&
+             'VR [m/s]       VZ [m/s]      VRxZ [m/s]     radius [m]    abl [atoms/s]  atomic ratio   '//&
+             'quantities_evaluated_at_shards'
+        
+        do i_spi = 1, n_spi_tot
+        
+          if ( (pellets(i_spi)%spi_radius <= radmin) .or. (pellets(i_spi)%spi_radius > radmax) ) cycle
+          
+          call eval_expr(ES, units, expr_list,  &
+            pol_pos(node_list,element_list,ES,R=pellets(i_spi)%spi_R,Z=pellets(i_spi)%spi_Z),  &
+            tor_pos(phi=pellets(i_spi)%spi_phi), result, ierr)
+          
+          call reduce_result_to_0d(ierr, result, res0d, 1, 1, 1)
+        	
+          write(i_file,'(i7,9999es15.7)') i_spi, pellets(i_spi)%spi_R, pellets(i_spi)%spi_Z, pellets(i_spi)%spi_phi, &
+            pellets(i_spi)%spi_Vel_R, pellets(i_spi)%spi_Vel_Z, pellets(i_spi)%spi_Vel_RxZ, &
+            pellets(i_spi)%spi_radius, pellets(i_spi)%spi_abl, pellets(i_spi)%spi_species, res0d
+          
+        end do
+        
+        close(i_file)
+        
+      else
+        
+        do i_spi = 1, n_spi_tot
+          write(i_file,'(8es15.7)') pellets(i_spi)%spi_R, pellets(i_spi)%spi_phi, pellets(i_spi)%spi_Z, &
+            pellets(i_spi)%spi_Vel_R, pellets(i_spi)%spi_Vel_RxZ, pellets(i_spi)%spi_Vel_Z, &
+            pellets(i_spi)%spi_radius, (1.d0 - pellets(i_spi)%spi_species)/(1.d0 + pellets(i_spi)%spi_species)
+        end do
+        
+      end if
+      
+    end do
+    
+  end subroutine shards
+
+
+
   !> Output integrated poloidal current that is normal to the boudary and
   !! toroidal peaking factor (TPF)
   subroutine I_halo_TPF(command, first_step, ierr)
@@ -2077,7 +2197,6 @@ module exec_commands
   
  
 
-
   !> Output current density normal to the jorek boundary as a function of Rbnd
   !! and Zbnd
   subroutine jnorm_bnd_RZ(command, ierr)
@@ -2120,12 +2239,13 @@ module exec_commands
 
  
   !> Output the q-profile as a function of Psi_N
-  recursive subroutine qprofile(command, first_step, ierr)
+  recursive subroutine qprofile(command, first_step, ierr, q_out)
   
     ! --- Routine parameters
     type(type_command), intent(in)  :: command     !< Command to be executed
     logical,            intent(in)  :: first_step  !< First time step of a for loop?
     integer,            intent(out) :: ierr        !< Error flag
+    real*8, optional, allocatable,intent(out) :: q_out(:) !< Option to export q-profile
 
     
     ! --- Local variables
@@ -2156,16 +2276,20 @@ module exec_commands
     call determine_q_profile(node_list, element_list, surface_list, ES%psi_axis, ES%psi_xpoint,    &
       ES%Z_xpoint, q, rad)
     
-    ! --- Clean up q-profile from "jumps" -- TODO: a better solution is needed
-    do k = 5, 1, -1
-      do i = k+1, npts-k
-        if ( abs(q(i+k)-q(i-k)) < abs(q(i)-0.5d0*(q(i+k)+q(i-k))) ) then
-          q(i) = q(i-k) + (q(i+k)-q(i-k)) * &
-            (surface_list%psi_values(i)  -surface_list%psi_values(i-k)) / &
-            (surface_list%psi_values(i+k)-surface_list%psi_values(i-k))
-        end if
-      end do
-    end do
+    if (present(q_out)) then 
+      allocate(q_out(size(q,1)))
+      q_out = q
+    endif
+!    ! --- Clean up q-profile from "jumps" -- TODO: a better solution is needed
+!    do k = 5, 1, -1
+!      do i = k+1, npts-k
+!        if ( abs(q(i+k)-q(i-k)) < abs(q(i)-0.5d0*(q(i+k)+q(i-k))) ) then
+!          q(i) = q(i-k) + (q(i+k)-q(i-k)) * &
+!            (surface_list%psi_values(i)  -surface_list%psi_values(i-k)) / &
+!            (surface_list%psi_values(i+k)-surface_list%psi_values(i-k))
+!        end if
+!      end do
+!    end do
     
     
     ! --- Write out q-profile versus Psi_n
@@ -2178,9 +2302,11 @@ module exec_commands
       k = k2 + 1 ! to avoid first and last point of q-profile which often is bad
       res1d(k2,:) = (/ get_psi_n(surface_list%psi_values(k)) , q(k) /)
     end do
-    
-    call write_ascii_1d(ierr, ES, tmp_expr_list, res1d, FORM_TABLE, header=.true.,                 &
-      filename=trim(filename), append=(.not.first_step), blanks=.true., comment=trim(comment))
+
+    if (.not. present(q_out)) then
+      call write_ascii_1d(ierr, ES, tmp_expr_list, res1d, FORM_TABLE, header=.true.,                 &
+        filename=trim(filename), append=(.not.first_step), blanks=.true., comment=trim(comment))
+    endif
     
     ! --- Clean up.
     if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)
@@ -2245,7 +2371,7 @@ module exec_commands
     call determine_q_profile(node_list, element_list, surface_list, ES%psi_axis, ES%psi_xpoint,    &
       ES%Z_xpoint, q_psin, rad)
     
-    write(i_file,'(2es20.13)') time_now, q_psin(2) 
+    write(i_file,'(es20.13,es20.12)') time_now, q_psin(2) 
     
     close(i_file)
 
@@ -2304,16 +2430,16 @@ module exec_commands
     call determine_q_profile(node_list, element_list, surface_list, ES%psi_axis, ES%psi_xpoint,    &
       ES%Z_xpoint, q, rad)
     
-    ! --- Clean up q-profile from "jumps" -- TODO: a better solution is needed
-    do k = 5, 1, -1
-      do i = k+1, npts-k
-        if ( abs(q(i+k)-q(i-k)) < abs(q(i)-0.5d0*(q(i+k)+q(i-k))) ) then
-          q(i) = q(i-k) + (q(i+k)-q(i-k)) * &
-            (surface_list%psi_values(i)  -surface_list%psi_values(i-k)) / &
-            (surface_list%psi_values(i+k)-surface_list%psi_values(i-k))
-        end if
-      end do
-    end do
+!    ! --- Clean up q-profile from "jumps" -- TODO: a better solution is needed
+!    do k = 5, 1, -1
+!      do i = k+1, npts-k
+!        if ( abs(q(i+k)-q(i-k)) < abs(q(i)-0.5d0*(q(i+k)+q(i-k))) ) then
+!          q(i) = q(i-k) + (q(i+k)-q(i-k)) * &
+!            (surface_list%psi_values(i)  -surface_list%psi_values(i-k)) / &
+!            (surface_list%psi_values(i+k)-surface_list%psi_values(i-k))
+!        end if
+!      end do
+!    end do
     
     ! --- Find the PsiN locations
     npsi = 0
@@ -2370,8 +2496,8 @@ module exec_commands
             Z, Z_s, Z_t, Z_st, Z_ss, Z_tt)
             
           ! --- Write out the (R,Z)-coordinates
-          if ( xpoint .and. ( xcase /= 2 ) .and. (Z < ES%Z_xpoint(1) ) ) cycle
-          if ( xpoint .and. ( xcase /= 1 ) .and. (Z > ES%Z_xpoint(2) ) ) cycle
+          if ( xpoint .and. ( xcase /= UPPER_XPOINT ) .and. (Z < ES%Z_xpoint(1) ) ) cycle
+          if ( xpoint .and. ( xcase /= LOWER_XPOINT ) .and. (Z > ES%Z_xpoint(2) ) ) cycle
           write(i_file,'(2ES16.7)') R, Z
         end do
         
@@ -2397,7 +2523,7 @@ module exec_commands
 
   
 
-  subroutine zeroD_quantities(command, first_step, ierr)
+  subroutine zeroD_quantities(command, first_step, ierr, res_out)
 
     use mod_integrals3D_nompi
 
@@ -2405,6 +2531,8 @@ module exec_commands
     type(type_command), intent(in)  :: command     !< Command to be executed
     logical,            intent(in)  :: first_step  !< First time step of a for loop?
     integer,            intent(out) :: ierr        !< Error flag
+    
+    real*8, allocatable,optional, intent(inout) :: res_out(:) 
     
     ! --- Local variables
     integer :: i_file, i, units
@@ -2420,7 +2548,11 @@ module exec_commands
     units = get_int_setting('units', ierr)
 
     allocate(res(exprs_all_int%n_expr+1))
-    res = 0.d0   
+    res = 0.d0  
+    if (present(res_out)) then
+      allocate(res_out(exprs_all_int%n_expr+1))
+      res_out = 0.d0
+    endif 
  
     write(filename,'(4a)') trim(DIR), 'zeroD_quantities',  &
        trim(step_range_string(loop_min_step,loop_max_step)), '.dat'
@@ -2437,7 +2569,6 @@ module exec_commands
         iostat=ierr)
     
     if ( first_step ) then
-      write(i_file,'(a)',advance='no') '# time                   '
       do i = 1, exprs_all_int%n_expr
         s = trim(exprs_all_int%expr(i)%name)
         write(i_file,'(a)',advance='no') s
@@ -2446,10 +2577,12 @@ module exec_commands
     end if
     close(i_file)
  
-   call int3d_new(0, node_list, element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, units)        
+    call int3d_new(0, node_list, element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, units)        
 
-   call write_ascii_0d(ierr, ES, expr_list, res, FORM_TABLE, header=.false.,                   &
-     filename=filename, append=.true., blanks=.false.)
+    if (.not. present(res_out)) then
+      call write_ascii_0d(ierr, ES, expr_list, res, FORM_TABLE, header=.false.,                   &
+        filename=filename, append=.true., blanks=.false.)
+    endif
 
     i_file =1569    
     open(i_file, file='0D_quantities_list.txt', form='formatted', status=trim(status), access=trim(access),  &
@@ -2458,14 +2591,17 @@ module exec_commands
     if ( first_step ) then
       write(i_file,'(a)') 'Column |  Quantity                | Description'
       write(i_file,'(a)') '-------------------------------------------------------------------------------------'
-      write(i_file,'(1I6,2a)') 1,' |  ' ,'Time                    | Time'
       do i = 1, exprs_all_int%n_expr
         s    = trim(exprs_all_int%expr(i)%name)
         desc = trim(exprs_all_int%expr(i)%descr)
-        write(i_file,'(1I6,4a)') i+1,' |  ' ,s, ' | ', desc
+        write(i_file,'(1I6,4a)') i,' |  ' ,s, ' | ', desc
       end do
     end if
     close(i_file)
+
+    if (present(res_out)) then
+      res_out = res
+    endif
  
   end subroutine zeroD_quantities 
   
@@ -2571,19 +2707,660 @@ module exec_commands
     
   end subroutine fluxsurfaces
   
+  !> Output vtk file of individual terms of the RHS in elm_matrix 
+  subroutine RHS_terms_vtk(command, first_step, ierr)
+
+    use mod_vtk
+    use mod_elt_matrix_fft
+    use mod_clock
+    use omp_lib
+    use basis_at_gaussian 
+    use mod_openadas, only : read_adf11
+    use mod_atomic_coeff_deuterium, only: ad_deuterium
+    use mpi_mod
+    use mod_impurity, only: init_imp_adas
+    use parse_commands, only: type_command
+    use nodes_elements, only: type_element, type_node
+    use mod_position, only: t_pol_pos_list, t_tor_pos_list
+    
+    use mod_sparse,          only: solve_sparse_system
+    use mod_sparse_data,     only: type_SP_SOLVER
+    use data_structure,      only: type_SP_MATRIX, type_RHS, type_thread_buffer
+ 
+    implicit none
+  
+#include "r3_info.h"
+   
+    ! --- Routine parameters
+    type(type_command), intent(in)  :: command     !< Command to be executed
+    logical,            intent(in)  :: first_step  !< First time step of a for loop?
+    integer,            intent(out) :: ierr        !< Error flag
+    
+    ! --- Local variables
+    real*8  :: eq_index 
+
+    type (type_element)                   :: element
+    type (type_node)                      :: nodes(n_vertex_max)
+  
+    type(t_pol_pos_list) :: pol_pos_list
+    type(t_tor_pos_list) :: tor_pos_list
+
+    integer,allocatable  :: ien (:,:)
+    real*4,allocatable   :: xyz (:,:), scalars(:,:), scalars_o(:,:)
+    character*36, allocatable :: scalar_names(:), scalar_names_o(:)
+  
+    integer  :: n_AA, nz_AA, index_RHS0
+    integer :: k_tor, i, j, k, l, n(4), ife, m, iv, inode, index_node, index_total
+    integer :: omp_nthreads, omp_tid, n_tor_local, i_order, index_large_i, index_ij
+    integer :: index_RHS, k_var, i_tor, i_term, term_count, nsub, nnos, ielm, it_o
+    integer :: i_bs, j_bs, ms, mt, n_basis, info
+    integer ::  i_elm, in, im, mp, index_kl, ilarge, in_index, knode, im_index, index_large_k 
+    integer, allocatable :: ipiv(:)
+    logical :: get_terms 
+    real*8,   allocatable :: result(:,:,:,:), res2d(:,:,:)
+    real*8,   allocatable :: rhs(:,:), BSmat(:,:), BSmat_elm(:,:), BSmat_tmp(:,:)
+    real*8  :: rhs_term(n_vertex_max*n_degrees)
+    real*8  :: wst, wgauss2(n_gauss), phi_val, xjac
+    real*8, allocatable     :: ELM(:,:), A_tmp(:), rhs_save(:)
+    real*8, dimension(n_gauss,n_gauss) :: x_g,   x_s,   x_t,   x_ss,   x_tt,   x_st
+    real*8, dimension(n_gauss,n_gauss) :: y_g,   y_s,   y_t,   y_ss,   y_tt,   y_st
+    integer :: dim0, dim1, dim2, only_itor
+    character(len=64)       :: file_name, label 
+    integer   :: required,provided,StatInfo
+#ifdef USE_FFTW
+    real*8     :: in_fft(1:n_plane)
+    complex*16 :: out_fft(1:n_plane)
+#endif
+    real*8 :: tsecond, sum_rhs, ftor 
+    type(clcktype)           :: t_itstart, t0, t1
+    TYPE(type_thread_buffer), dimension(:), allocatable :: test_struct
+    
+    integer   :: MPI_COMM_N, MPI_GROUP_MASTER, MPI_GROUP_WORLD, MPI_COMM_MASTER, MPI_COMM_TRANS
+    integer   :: my_id, my_id_n, my_id_master
+    integer   :: i_rank(n_tor), n_cpu, n_cpu_n, n_cpu_master, m_cpu, n_masters, n_cpu_trans, my_id_trans
+    integer*4 :: rank, comm_size 
+    integer   :: nnz
+    integer*8 :: check_data
+    integer, allocatable :: irn_tmp(:), jcn_tmp(:)
+    
+    type(type_SP_MATRIX)        :: a_mat
+    type(type_RHS)              :: rhs_vec, sol_vec
+    type(type_SP_SOLVER)        :: solver    
+
+
+  if ((jorek_model/=500) .and. (jorek_model/=600)) then
+    write(*,*) 'Sorry RHS diagnostic is only available for models 500 and 600!'
+    stop
+  endif
+
+#if (JOREK_MODEL == 500) || (JOREK_MODEL==600)    
+    
+    ! --- Initialize FFTW
+#ifdef USE_FFTW
+    call dfftw_plan_dft_r2c_1d(fftw_plan,n_plane,in_fft,out_fft,FFTW_PATIENT)
+#endif
+
+#ifdef FUNNELED
+    required = MPI_THREAD_FUNNELED
+#else
+    required = MPI_THREAD_MULTIPLE
+#endif
+    if (first_step) then
+      call MPI_Init_thread(required, provided, StatInfo)
+    endif
+
+    ! --- Determine number of MPI procs
+    call MPI_COMM_SIZE(MPI_COMM_WORLD, comm_size, ierr)
+    n_cpu = comm_size
+  
+    ! --- Determine ID of each MPI proc
+    call MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierr)
+    my_id = rank
+
+    ! --- Some checks
+    call check_args(command%n_args,ierr,0,1);  if ( ierr /= 0 ) return
+    call check_step_imported(ierr);            if ( ierr /= 0 ) return
+
+    nsub      = get_int_setting('nsub_vtk'      , ierr);  if ( ierr /= 0 ) return
+    phi_val   = get_int_setting('vtk_phi_value' , ierr);  if ( ierr /= 0 ) return
+    only_itor = get_int_setting('only_itor'     , ierr);  if ( ierr /= 0 ) return
+
+    if (first_step) then
+      ! --- Initialize ADAS
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
+      ! --- Read ADAS data and generate coronal equilibrium if needed
+      call init_imp_adas(my_id)
+#else
+      if (use_imp_adas .and. (nimp_bg(1) > 0.d0)) then
+        call init_imp_adas(my_id)
+      endif
+#endif
+    endif 
+
+    if (command%n_args > 0) then    
+      eq_index  = to_int(command%args(1), ierr); 
+    endif
+
+    n_basis = n_vertex_max*n_degrees
+    allocate( BSmat(n_basis, n_basis), BSmat_elm(n_basis, n_basis), ipiv(n_basis))
+    allocate( BSmat_tmp(n_basis, n_basis))
+
+    call assign_term_names()
+
+    ! --- Initialize clock
+    call clck_init()
+    call r3_info_init ()
+
+    call init_threads()  ! for OMP threads
+
+    ! --- Allocate and initialize thread structure for calling elm_matrix
+    if (allocated(test_struct))  deallocate(test_struct)
+    allocate(test_struct(nbthreads))
+  
+    dim0 = n_tor*n_vertex_max*n_degrees*n_var
+    dim1 = n_plane
+    dim2 = n_vertex_max*n_var*n_degrees
+ 
+    do i = 1, nbthreads
+  
+      allocate(test_struct(i)%ELM_p( dim1, dim2, dim2) )
+      allocate(test_struct(i)%ELM_n( dim1, dim2, dim2) )
+      allocate(test_struct(i)%ELM_k( dim1, dim2, dim2) )
+      allocate(test_struct(i)%ELM_kn(dim1, dim2, dim2) )
+      allocate(test_struct(i)%RHS_p( dim1, dim2      ) )
+      allocate(test_struct(i)%RHS_k( dim1, dim2      ) )
+      allocate(test_struct(i)%ELM(   dim0, dim0      ) )
+      allocate(test_struct(i)%RHS(   dim0            ) )
+      allocate(test_struct(i)%ELM_pnn(dim1, dim2, dim2) )
+  
+      test_struct(i)%ELM_p   = 0.d0
+      test_struct(i)%ELM_n   = 0.d0
+      test_struct(i)%ELM_k   = 0.d0
+      test_struct(i)%ELM_kn  = 0.d0
+      test_struct(i)%RHS_p   = 0.d0
+      test_struct(i)%RHS_k   = 0.d0
+      test_struct(i)%ELM     = 0.d0
+      test_struct(i)%RHS     = 0.d0
+      test_struct(i)%ELM_pnn = 0.d0
+  
+      allocate(test_struct(i)%eq_g    (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%eq_s    (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%eq_t    (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%eq_p    (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%eq_ss   (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%eq_st   (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%eq_tt   (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%eq_pp   (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%delta_g (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%delta_s (n_plane,n_var,n_gauss,n_gauss) )
+      allocate(test_struct(i)%delta_t (n_plane,n_var,n_gauss,n_gauss) )
+  
+      test_struct(i)%eq_g    = 0.d0
+      test_struct(i)%eq_s    = 0.d0
+      test_struct(i)%eq_t    = 0.d0
+      test_struct(i)%eq_p    = 0.d0
+      test_struct(i)%eq_ss   = 0.d0
+      test_struct(i)%eq_st   = 0.d0
+      test_struct(i)%eq_tt   = 0.d0
+      test_struct(i)%eq_pp   = 0.d0
+      test_struct(i)%delta_g = 0.d0
+      test_struct(i)%delta_s = 0.d0
+      test_struct(i)%delta_t = 0.d0
+    end do
+
+  
+    write(*,*) '******************************************************'
+    write(*,*) '**** RHS diagnostic for term visualization in vtk ****'
+    write(*,*) '******************************************************'
+    write(*,*) ''
+    write(*,*) '  OpenMP threads = ', nbthreads
+    write(*,*) ''
+  
+    ! --- Initialize time stepping parameters
+    call update_time_evol_params()
+  
+    if ( index_start <= 1 ) then
+      tstep_prev = tstep
+    else
+      tstep_prev = xtime(index_start) - xtime(index_start-1)
+    end if
   
   
+    ! --- Calculate DOFs
+    index_total = -1
+    do inode=1,node_list%n_nodes
+      index_total = max(index_total,maxval(node_list%node(inode)%index))
+    enddo
+    node_list%n_dof = index_total * n_tor * n_var
   
+    allocate(rhs(max_terms,node_list%n_dof))
+  
+    ! --- Create grid points and save them for the vtk
+    nnos    = nsub*nsub*element_list%n_elements
+    allocate(xyz(3,nnos))
+    xyz     = 0
+  
+  
+    call create_pol_pos(pol_pos_list, ierr, node_list, element_list, ES, grid=.true., nsub=nsub)
+    call create_tor_pos(tor_pos_list, ierr, nphi=1, phi=phi_val)
+  
+    do i = 1, pol_pos_list%n_pos(1)
+      do j = 1, pol_pos_list%n_pos(2)
+        xyz(1:3,i) = (/ pol_pos_list%pos(i,j)%R, pol_pos_list%pos(i,j)%Z, 0.d0 /)
+      enddo
+    enddo
+   
+    ! --- Create vtk grid indices
+    allocate(ien(4,(nsub-1)*(nsub-1)*element_list%n_elements))
+    ielm  = 0
+    inode = 0
+    ien   = 0
+  
+    do i=1,element_list%n_elements
+  
+      do j=1,nsub
+        do k=1,nsub
+          inode       = inode +1
+        enddo
+      enddo
+  
+      do j=1,nsub-1
+        do k=1,nsub-1
+          ielm        = ielm  +1
+          ien(1,ielm) = inode - nsub*nsub + nsub*(j-1) + k-1       ! indices for VTK
+          ien(2,ielm) = inode - nsub*nsub + nsub*(j  ) + k-1
+          ien(3,ielm) = inode - nsub*nsub + nsub*(j  ) + k
+          ien(4,ielm) = inode - nsub*nsub + nsub*(j-1) + k
+        enddo
+      enddo
+    enddo
+  
+    ! ------------------------- 
+    ! --- Collect RHS terms ---
+    ! -------------------------
+
+    rhs = 0.0d0 
+  
+    call clck_time_barrier(t0)
+  
+    write(*,*) '  Starting element loop with elm_matrix calls, this may take a while...'
+  
+    ! --- Declare shared and private variables for omp
+    !$omp parallel default(none) &
+    !$omp   shared(element_list,node_list, ES, get_terms, BSmat, n_basis,              &
+    !$omp          xpoint,xcase, rhs, my_id, test_struct,n_tor_fft_thresh)             &
+    !$omp   private(ife,iv,inode,element,nodes,i_order, info,                     &
+    !$omp           index_large_i,index_ij, index_node, BSmat_elm, rhs_term,           &
+    !$omp           omp_nthreads,omp_tid, i_term, i,j,k,l,i_bs,j_bs,ftor,ipiv,BSmat_tmp  )
+  
+   ! --- omp id
+#ifdef _OPENMP
+    omp_nthreads = omp_get_num_threads()
+    omp_tid      = 1+omp_get_thread_num()
+#else
+    omp_nthreads = 1
+    omp_tid      = 1
+#endif
+  
+    !$omp do schedule(runtime)
+    do ife = 1, element_list%n_elements 
+      
+      element = element_list%element(ife)
+
+       
+      do iv = 1, n_vertex_max
+        inode     = element%vertex(iv)
+        nodes(iv) = node_list%node(inode)
+      enddo
+
+      call element_matrix_fft(element,nodes, xpoint, xcase, ES%R_axis, ES%Z_axis, ES%psi_axis, ES%psi_bnd,   &
+       ES%R_xpoint, ES%Z_xpoint, test_struct(omp_tid)%ELM, test_struct(omp_tid)%RHS, omp_tid,       &
+       test_struct(omp_tid)%ELM_p, test_struct(omp_tid)%ELM_n, test_struct(omp_tid)%ELM_k,  &
+       test_struct(omp_tid)%ELM_kn, test_struct(omp_tid)%RHS_p, test_struct(omp_tid)%RHS_k, &
+       test_struct(omp_tid)%eq_g, test_struct(omp_tid)%eq_s, test_struct(omp_tid)%eq_t,     &
+       test_struct(omp_tid)%eq_p, test_struct(omp_tid)%eq_ss, test_struct(omp_tid)%eq_st,   &
+       test_struct(omp_tid)%eq_tt, test_struct(omp_tid)%delta_g,                              &
+       test_struct(omp_tid)%delta_s, test_struct(omp_tid)%delta_t, 1, n_tor, nodes,         &
+       test_struct(omp_tid)%ELM_pnn, get_terms=get_terms)
+
+      do i_term=1, max_terms
+  
+        do iv=1,n_vertex_max
+      
+          inode = element%vertex(iv)
+      
+          do i_order = 1, n_degrees
+      
+            index_node = node_list%node(inode)%index(i_order)
+      
+            index_large_i = n_tor * n_var * (index_node - 1)
+      
+            do j = 1, n_var * n_tor
+      
+              index_ij = n_tor * n_var * n_degrees * (iv-1) + n_tor * n_var * (i_order-1) + j   ! index in the ELM matrix
+              
+             !$omp atomic
+              rhs(i_term, index_large_i+j) = rhs(i_term, index_large_i+j) + test_struct(omp_tid)%ELM(i_term, index_ij) 
+             !$omp end atomic
+            enddo 
+      
+          enddo ! order
+        enddo ! vertex
+  
+      enddo ! terms
+    
+    enddo ! --- elements
+    !$omp end do
+    !$omp end parallel
+    ! ----------------------------- 
+    ! --- End collect RHS terms ---
+    ! -----------------------------
+
+    call clck_time_barrier(t1)
+    call clck_ldiff(t0,t1,tsecond)
+    write(*,*) ''
+    write(*,*) '  Element loop finished in ', tsecond, ' s'
+    write(*,*) ''
+
+    nz_AA = element_list%n_elements * (n_vertex_max * n_degrees)**2
+    n_AA  = maxval(node_list%node(1:node_list%n_nodes)%index(4))
+
+    if (associated(a_mat%val))   call tr_deallocatep(a_mat%val,"a_mat%val",CAT_DMATRIX)  
+    if (associated(rhs_vec%val)) call tr_deallocatep(rhs_vec%val,"rhs_vec%val",CAT_DMATRIX)  
+    if (associated(a_mat%irn))   call tr_deallocatep(a_mat%irn,"a_mat%irn",CAT_DMATRIX)
+    if (associated(a_mat%jcn))   call tr_deallocatep(a_mat%jcn,"a_mat%jcn",CAT_DMATRIX) 
+ 
+    call tr_allocatep(a_mat%val,1,nz_AA,"a_mat%val",CAT_DMATRIX)
+    call tr_allocatep(rhs_vec%val,1,n_AA,"rhs_vec%val",CAT_DMATRIX)
+    call tr_allocatep(a_mat%irn,1,nz_AA,"a_mat%irn",CAT_DMATRIX)
+    call tr_allocatep(a_mat%jcn,1,nz_AA,"a_mat%jcn",CAT_DMATRIX)
+ 
+    a_mat%ng  = n_AA
+    a_mat%nnz = nz_AA
+
+    a_mat%irn = 0
+    a_mat%jcn = 0
+    a_mat%val = 0.d0
+    a_mat%comm = MPI_COMM_WORLD
+    rhs_vec%val = 0.d0 
+
+    ! --- Obtain A matrix used to find node coefficients 
+    wgauss2 = wgauss
+    ilarge  = 0
+
+    allocate(ELM(n_vertex_max*n_degrees, n_vertex_max*n_degrees))
+
+    do i_elm=1,element_list%n_elements
+      
+      ELM = 0.d0
+      element = element_list%element(i_elm)
+
+      do m=1,n_vertex_max
+        nodes(m) = node_list%node(element%vertex(m))
+      enddo
+
+      x_g = 0.d0;   x_s = 0.d0;   x_t = 0.d0;   x_ss = 0.d0;   x_st = 0.d0;   x_tt = 0.d0
+      y_g = 0.d0;   y_s = 0.d0;   y_t = 0.d0;   y_ss = 0.d0;   y_st = 0.d0;   y_tt = 0.d0
+ 
+      do i=1,n_vertex_max
+        do j=1,n_degrees
+          do ms=1, n_gauss
+            do mt=1, n_gauss
+              x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+              x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+              x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+    
+              x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+              x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+              x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+    
+              y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
+              y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+              y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+    
+              y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+              y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+              y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+            enddo
+          enddo
+        enddo
+      enddo
+
+   
+      do ms=1, n_gauss
+        do mt=1, n_gauss
+    
+          wst  = wgauss2(ms)*wgauss2(mt)
+          xjac =  x_s(ms,mt)*y_t(ms,mt) - x_t(ms,mt)*y_s(ms,mt)
+   
+          do i=1,n_vertex_max
+            do j=1,n_degrees
+    
+              index_ij = n_degrees*(i-1) + j   ! index in the ELM matrix
+    
+              do k=1,n_vertex_max
+                do l=1,n_degrees
+    
+                  index_kl = n_degrees*(k-1) + l   ! index in the ELM matrix
+    
+                  ELM(index_ij,index_kl) = ELM(index_ij,index_kl)    &
+                                         + xjac*x_g(ms,mt)*H(i,j,ms,mt) * h(k,l,ms,mt) * element%size(i,j)*element%size(k,l) * wst 
+                enddo
+              enddo
+            enddo
+          enddo
+        enddo
+      enddo
+    
+      ! Save contribution of this element in solver (MUMPS) format
+      do i=1,n_vertex_max
+    
+        inode = element_list%element(i_elm)%vertex(i)
+      
+        do j=1,n_degrees
+            
+            index_ij = n_degrees*(i-1) + j    ! index in the ELM matrix
+    
+            index_large_i = node_list%node(inode)%index(j)  ! base index in the main matrix
+    
+            do k=1,n_vertex_max
+          
+              knode = element_list%element(i_elm)%vertex(k)
+            
+              do l=1,n_degrees
+                
+                  index_kl = n_degrees*(k-1) + l    ! index in the ELM matrix
+    
+                  index_large_k = node_list%node(knode)%index(l)   ! base index in the main matrix
+    
+                  ilarge = ilarge + 1
+    
+                  a_mat%irn(ilarge) = index_large_i
+                  a_mat%jcn(ilarge) = index_large_k
+                  a_mat%val(ilarge) = ELM(index_ij,index_kl) 
+    
+            enddo
+          enddo
+        enddo
+      enddo
+    enddo
+    ! --- End obtain A matrix to find node coefficients
+ 
+    allocate(A_tmp(nz_AA), irn_tmp(nz_AA), jcn_tmp(nz_AA))
+    allocate(rhs_save(n_AA))
+    
+    A_tmp(1:nz_AA)   = a_mat%val(1:nz_AA)
+    irn_tmp(1:nz_AA) = a_mat%irn(1:nz_AA)
+    jcn_tmp(1:nz_AA) = a_mat%jcn(1:nz_AA)
+    rhs_save(1:n_AA) = 0.d0
+  
+    term_count = 0  ! Counts terms with non-zero RHS
+  
+    write(*,*) '  Looking for non-zero terms to plot in vtk...'            
+    write(*,*) ''
+    write(*,*) '  Variable index     Term index '
+  
+    ! Export non-zero terms to vtk
+    do k_var=1, n_var
+
+      if (command%n_args == 1) then
+        if (k_var /= eq_index) cycle
+      endif
+
+      do i_term=1, max_terms
+       
+        if (trim(term_names(k_var, i_term))=='') cycle
+
+        sum_rhs = 0.d0
+ 
+        ! get RHS of individual harmonics for each term
+        do i_tor=1, n_tor
+
+          if (only_itor >= 0) then
+            if (only_itor /= i_tor) cycle
+          endif
+
+          ! --- Factor coming from Fourier transform
+          if (i_tor>1) then
+            ftor=2.d0
+          else
+            ftor=1.d0
+          endif
+
+          ! --- Collect RHS for a single harmonic
+          do inode=1,node_list%n_nodes
+            do i_order=1, n_degrees
+              index_node = node_list%node(inode)%index(i_order)
+              index_RHS  = n_tor*n_var*(index_node - 1) + n_tor*(k_var-1) + i_tor 
+              index_RHS0 = index_node 
+              rhs_save(index_RHS0) = rhs(i_term, index_RHS) / n_plane * ftor
+            enddo
+          enddo
+
+          nz_AA = element_list%n_elements * (n_vertex_max * n_degrees)**2
+          n_AA  = maxval(node_list%node(1:node_list%n_nodes)%index(4))
+      
+          if (associated(a_mat%val))   call tr_deallocatep(a_mat%val,"a_mat%val",CAT_DMATRIX)
+          if (associated(a_mat%irn))   call tr_deallocatep(a_mat%irn,"a_mat%irn",CAT_DMATRIX)
+          if (associated(a_mat%jcn))   call tr_deallocatep(a_mat%jcn,"a_mat%jcn",CAT_DMATRIX)
+          if (associated(rhs_vec%val)) call tr_deallocatep(rhs_vec%val,"rhs_vec%val",CAT_DMATRIX)
+      
+          call tr_allocatep(a_mat%val,1,nz_AA,"a_mat%val",CAT_DMATRIX)
+          call tr_allocatep(a_mat%irn,1,nz_AA,"a_mat%irn",CAT_DMATRIX)
+          call tr_allocatep(a_mat%jcn,1,nz_AA,"a_mat%jcn",CAT_DMATRIX)
+          call tr_allocatep(rhs_vec%val,1,n_AA,"rhs_vec%val",CAT_DMATRIX)
+       
+          a_mat%ng  = n_AA
+          a_mat%nnz = nz_AA
+      
+          a_mat%irn = 0
+          a_mat%jcn = 0
+          a_mat%val   = 0.d0
+          rhs_vec%val = 0.d0
+      
+          a_mat%val(1:nz_AA) = A_tmp(1:nz_AA) 
+          a_mat%irn(1:nz_AA) = irn_tmp(1:nz_AA) 
+          a_mat%jcn(1:nz_AA) = jcn_tmp(1:nz_AA) 
+          rhs_vec%val(1:n_AA) = rhs_save(1:n_AA) 
+        
+!!!! solve here
+          solver%equilibrium = .true.
+          solver%verbose = .false.
+          call solve_sparse_system(a_mat, rhs_vec, rhs_vec, solver)
+          call solver%finalize()  
+
+          do i = 1, pol_pos_list%n_pos(1)
+    
+            do iv=1, n_vertex_max
+    
+              do i_order=1, n_degrees
+              
+                index_node = pol_pos_list%pos(i,1)%nodes(iv)%index(i_order)
+       
+                index_RHS0 = index_node
+            
+                pol_pos_list%pos(i,1)%nodes(iv)%values(i_tor, i_order, 1)  = rhs_vec%val(index_RHS0) 
+      
+                sum_rhs = sum_rhs + abs(rhs_vec%val(index_RHS0))
+              enddo
+            enddo
+          enddo
+ 
+        enddo ! n_tor 
+ 
+ 
+        if (sum_rhs < 1.d-30) cycle
+ 
+        term_count = term_count + 1
+  
+        write(*,'(2i15.2)')  k_var, i_term
+        
+        it_o = term_count - 1
+        if (term_count/=1) then 
+          scalars_o(:, 1:it_o) = scalars(:,1:it_o)
+          scalar_names_o(1:it_o) = scalar_names(1:it_o)
+        endif
+  
+        if (allocated(scalars))      deallocate(scalars)
+        if (allocated(scalar_names)) deallocate(scalar_names)
+        allocate(scalars(nnos,1:term_count), scalar_names(term_count))
+  
+        ! --- Evaluate RHS term (Psi) in the grid points
+        expr_list = exprs((/'Psi       '/), 1, 0)
+  
+        call eval_expr(ES, JOREK_UNITS, expr_list, pol_pos_list, tor_pos_list, result, ierr)
+        call reduce_result_to_2d(ierr, result, res2d, i1=1)
+  
+        ! --- Save RHS values into scalar vtk vector 
+        scalars(:,term_count)    = res2d(:,1,1)
+        write (label,'(a, i2.2, a, i3.3)') 'RHS_', k_var, '_', i_term
+        scalar_names(term_count) = trim(term_names(k_var, i_term))
+  
+        ! Recover old values (to append the array in fortran...) 
+        if (term_count/=1) then
+          scalars(:, 1:it_o) = scalars_o(:,1:it_o)
+          scalar_names(1:it_o) = scalar_names_o(1:it_o)
+        endif
+  
+        if (allocated(scalars_o))      deallocate(scalars_o)
+        if (allocated(scalar_names_o)) deallocate(scalar_names_o)
+        allocate(scalars_o(nnos,1:term_count), scalar_names_o(term_count))
+        scalars_o(:, 1:term_count) = scalars(:,1:term_count)
+        scalar_names_o(1:term_count) = scalar_names(1:term_count)
+  
+      enddo    ! --- max terms
+  
+    enddo  ! --- variables
+  
+    write(*,*) ''
+    write(*,*) '  Writing non-zero terms to vtk...'
+  
+    write (file_name,'(2a, i5.5, a)') trim(DIR),'RHS.', index_start, '.vtk'
+    call write_vtk(file_name,xyz,ien,9,scalar_names,scalars)
+  
+    write(*,*) '  Finished writing vtk'
+   
+    deallocate(rhs, scalars, scalar_names, scalars_o, scalar_names_o, result, res2d)
+    !deallocate(test_struct) ! this causes crash even in develop
+
+#ifdef USE_FFTW
+    call dfftw_destroy_plan(fftw_plan)
+#endif
+    
+#endif  
+
+  end subroutine RHS_terms_vtk   
   
   !> Output the separatrix.
-  recursive subroutine separatrix(command, ierr)
+  recursive subroutine separatrix(command, ierr, R_sep, Z_sep)
   
     ! --- Routine parameters
     type(type_command), intent(in)  :: command     !< Command to be executed
     integer,            intent(out) :: ierr        !< Error flag
-    
+    real*8, optional, allocatable, intent(inout) :: R_sep(:), Z_sep(:)
+
     ! --- Local variables
-    integer                  :: i, j, i_elm, npts, ip, nplot, i_file
+    integer                  :: i, j, i_elm, npts, ip, nplot, i_file, i_count
     type (type_surface_list) :: surface_list
     character(len=1024)      :: filename, comment
     type(t_expr_list)        :: tmp_expr_list
@@ -2606,12 +3383,20 @@ module exec_commands
     allocate( surface_list%psi_values(1) )
     surface_list%psi_values(1) = ES%psi_bnd
     call find_flux_surfaces(0,xpoint, xcase, node_list, element_list, surface_list)
-    
+
     ! --- Write out flux surfaces
     nplot  = 5
     i_file = 111
     call open_ascii_file(ierr, i_file, filename, .false.)
     i = 1
+
+    if (present(R_sep) .and. present(Z_sep)) then
+      allocate(R_sep(surface_list%flux_surfaces(i)%n_pieces*nplot))
+      allocate(Z_sep(surface_list%flux_surfaces(i)%n_pieces*nplot))
+    endif
+
+    i_count = 0
+
     ! --- Loop over all segments of this flux surface
     do j=1,surface_list%flux_surfaces(i)%n_pieces
       
@@ -2641,6 +3426,13 @@ module exec_commands
           
         ! --- Write out the (R,Z)-coordinates
         write(i_file,'(2ES16.7)') R, Z
+
+        i_count = i_count + 1
+
+        if (present(R_sep) .and. present(Z_sep)) then
+          R_sep(i_count) = R
+          Z_sep(i_count) = Z
+        endif
       end do
       
       write(i_file,*)
@@ -2701,8 +3493,14 @@ module exec_commands
     write(*,*) 'rad_range    =', radial_range
     write(*,*) 'n_thetastar  =', n_thetastar
     
+    ! --- If no fourier expressions are given, output absolute values by default
+    if ( expr_list_four%n_expr .eq. 0 ) then
+      write(*,*) 'WARNING: No expressions for 2D Fourier analysis given. Output all components by default.'
+      expr_list_four = exprs_all_four
+    end if
+
     call fourier_analysis(node_list, element_list, ES, units, expr_list, cp, npts, ierr,           &
-      filename_start, OUTP_ABS_VALUE, nsmallsteps=nsmall, nmaxsteps=nmaxstep, deltaphi=delta_phi,  &
+      filename_start, expr_list_four, nsmallsteps=nsmall, nmaxsteps=nmaxstep, deltaphi=delta_phi,  &
       rad_range=radial_range, nTht=n_thetastar)
     
   end subroutine four2d

@@ -12,6 +12,7 @@ subroutine boundary_check(my_id)
   use mpi_mod
   use mod_interp
   use mod_basisfunctions
+  use mod_parameters, only: n_degrees_1d
   
   implicit none
   
@@ -27,7 +28,7 @@ subroutine boundary_check(my_id)
   integer  :: m_bndelem, m_pt, m_elm, mv1
   integer  :: i_vertex, i_dof, i_node, i_node_bnd, i_resp, i_resp_old, i_resp_0
   real*8   :: i_size, basfunc_i
-  real*8   :: H1(2,2), H1_s(2,2), H1_ss(2,2)
+  real*8   :: H1(2,n_degrees_1d), H1_s(2,n_degrees_1d), H1_ss(2,n_degrees_1d)
   real*8   :: P, P_s, P_t, P_st, P_ss, P_tt
   real*8   :: R, R_s, R_t, Z, Z_s, Z_t
   real*8   :: s_pt, t_pt, s_or_t ! s and t values at current point
@@ -67,10 +68,10 @@ subroutine boundary_check(my_id)
     m_elm     = bnd_elm_list%bnd_element(m_bndelem)%element
     mv1       = bnd_elm_list%bnd_element(m_bndelem)%side
 
-    R1 = node_list%node(bndelem_m%vertex(1))%x(1,1)
-    Z1 = node_list%node(bndelem_m%vertex(1))%x(1,2)
-    R2 = node_list%node(bndelem_m%vertex(2))%x(1,1)
-    Z2 = node_list%node(bndelem_m%vertex(2))%x(1,2)
+    R1 = node_list%node(bndelem_m%vertex(1))%x(1,1,1)
+    Z1 = node_list%node(bndelem_m%vertex(1))%x(1,1,2)
+    R2 = node_list%node(bndelem_m%vertex(2))%x(1,1,1)
+    Z2 = node_list%node(bndelem_m%vertex(2))%x(1,1,2)
 
     ! --- For several points in the boundary element, do...
     L_MP: do m_pt = 1, N_POINTS
@@ -230,7 +231,7 @@ subroutine boundary_check(my_id)
   end do L_MB
   
   if ( (minval(abs(val_integral)) /= 0.d0) .and. (my_id == 0) ) then
-    write(*,'(1x,A,20ES15.5)') 'Relative errors in harmonics:', err_integral(:) / val_integral(:), err_integral(:), val_integral(:)
+    write(*,'(1x,A,99ES15.5)') 'Relative errors in harmonics:', err_integral(:) / val_integral(:), err_integral(:), val_integral(:)
   end if
 
   ! --- Debugging output

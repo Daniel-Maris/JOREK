@@ -14,7 +14,7 @@ implicit none
  type (type_node_list)    :: node_list
  type (type_element_list) :: element_list
 
- real*8, dimension(n_vertex_max,n_order+1)	:: H, H_s, H_t, H_st
+ real*8, dimension(n_vertex_max,n_degrees)	:: H, H_s, H_t, H_st
  real*8, dimension(2)				:: P, dP_ds, dP_dt, d2P_dsdt, u, v, w 
  real*8 					:: lambda, mu 
  real*8						:: Somme_X, Somme_Y, dX_ds, dY_ds, dX_dt, dY_dt, &
@@ -47,26 +47,26 @@ implicit none
        
        do k = 1, n_vertex_max	     
 
-            do l = 1, n_order+1
+            do l = 1, n_degrees
 	    
-	         Somme_X = Somme_X + node_list%node(pr(k))%x(l,1) * H(k,l)	 &
+	         Somme_X = Somme_X + node_list%node(pr(k))%x(1,l,1) * H(k,l)	 &
 		     * element_list%element(iref)%size(k,l)
-	         Somme_Y = Somme_Y + node_list%node(pr(k))%x(l,2) * H(k,l)	 &
+	         Somme_Y = Somme_Y + node_list%node(pr(k))%x(1,l,2) * H(k,l)	 &
              	     * element_list%element(iref)%size(k,l)
                 
-	         dX_ds = dx_ds + node_list%node(pr(k))%x(l,1) * H_s(k,l)    &
+	         dX_ds = dx_ds + node_list%node(pr(k))%x(1,l,1) * H_s(k,l)    &
 		     * element_list%element(iref)%size(k,l)
-	         dy_ds = dy_ds + node_list%node(pr(k))%x(l,2) * H_s(k,l)    &
+	         dy_ds = dy_ds + node_list%node(pr(k))%x(1,l,2) * H_s(k,l)    &
              	     * element_list%element(iref)%size(k,l)	       
             
-	         dx_dt = dx_dt + node_list%node(pr(k))%x(l,1) * H_t(k,l)    &
+	         dx_dt = dx_dt + node_list%node(pr(k))%x(1,l,1) * H_t(k,l)    &
 		     * element_list%element(iref)%size(k,l)
-	         dy_dt = dy_dt + node_list%node(pr(k))%x(l,2) * H_t(k,l)    &
+	         dy_dt = dy_dt + node_list%node(pr(k))%x(1,l,2) * H_t(k,l)    &
              	     * element_list%element(iref)%size(k,l)
              	       
-	         d2X_dsdt = d2X_dsdt + node_list%node(pr(k))%x(l,1) * H_st(k,l)    &
+	         d2X_dsdt = d2X_dsdt + node_list%node(pr(k))%x(1,l,1) * H_st(k,l)    &
 		     * element_list%element(iref)%size(k,l)
-	         d2Y_dsdt = d2Y_dsdt + node_list%node(pr(k))%x(l,2) * H_st(k,l)    &
+	         d2Y_dsdt = d2Y_dsdt + node_list%node(pr(k))%x(1,l,2) * H_st(k,l)    &
              	     * element_list%element(iref)%size(k,l)	       
             enddo
        enddo  
@@ -132,10 +132,10 @@ implicit none
 
          
        do j = 1, 2 !  directions "s" and "t"				     
-            node_list%node(inew)%x(1,j) = P(j)	       
-            node_list%node(inew)%x(2,j) = u(j) 
-            node_list%node(inew)%x(3,j) = v(j) 
-            node_list%node(inew)%x(4,j) = w(j)
+            node_list%node(inew)%x(1,1,j) = P(j)	       
+            node_list%node(inew)%x(1,2,j) = u(j) 
+            node_list%node(inew)%x(1,3,j) = v(j) 
+            node_list%node(inew)%x(1,4,j) = w(j)
                 
        end do
 
@@ -154,7 +154,7 @@ implicit none
             
             do k = 1, n_vertex_max	     
 
-               	do l = 1, n_order+1      
+               	do l = 1, n_degrees      
                  
 
                  Psi(i_tor) = Psi(i_tor) + node_list%node(pr(k))%values(i_tor,l,i_var)* H(k,l) &

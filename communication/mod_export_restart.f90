@@ -41,9 +41,6 @@ subroutine export_binary_restart(node_list,element_list,filename)
   use data_structure
   use phys_module
   use pellet_module
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501 || JOREK_MODEL == 555)
-  use mod_neutral_source
-#endif
   use vacuum, only: export_restart_vacuum
 
   implicit none
@@ -61,11 +58,20 @@ subroutine export_binary_restart(node_list,element_list,filename)
   real*8, allocatable :: spi_R_arr (:)
   real*8, allocatable :: spi_Z_arr (:)
   real*8, allocatable :: spi_phi_arr (:)
+  real*8, allocatable :: spi_phi_init_arr (:)
   real*8, allocatable :: spi_Vel_R_arr (:)
   real*8, allocatable :: spi_Vel_Z_arr (:)
   real*8, allocatable :: spi_Vel_RxZ_arr (:)
   real*8, allocatable :: spi_radius_arr (:)
   real*8, allocatable :: spi_abl_arr (:)
+  real*8, allocatable :: spi_species_arr (:)
+  real*8, allocatable :: spi_vol_arr (:)
+  real*8, allocatable :: spi_psi_arr (:)
+  real*8, allocatable :: spi_grad_psi_arr (:)
+  real*8, allocatable :: spi_vol_arr_drift (:)
+  real*8, allocatable :: spi_psi_arr_drift (:)
+  real*8, allocatable :: spi_grad_psi_arr_drift (:)
+  integer,allocatable :: plasmoid_in_domain_arr (:)
 
   ! -> Write binary restart file
   open(21, file=filename, form='unformatted', status='replace', action='write')
@@ -87,6 +93,7 @@ subroutine export_binary_restart(node_list,element_list,filename)
      write(21) node_list%node(i)%index
      write(21) node_list%node(i)%boundary
      write(21) node_list%node(i)%axis_node
+     write(21) node_list%node(i)%axis_dof
      write(21) node_list%node(i)%parents
      write(21) node_list%node(i)%parent_elem
      write(21) node_list%node(i)%ref_lambda
@@ -99,6 +106,9 @@ subroutine export_binary_restart(node_list,element_list,filename)
   write(21) index_now
   write(21) t_now
 
+  ! save axis treatment
+  write(21) treat_axis
+  
   if (index_now .gt. 0) then
      write(21) xtime(1:index_now)
      write(21) energies(:,:,1:index_now)
@@ -124,54 +134,99 @@ subroutine export_binary_restart(node_list,element_list,filename)
      write(21) pellet_particles, pellet_R, pellet_Z
   endif
 
+  ! Radiation and ionization energy history
+  if (index_now .gt. 0) write(21) xtime_radiation(1:index_now)
+  if (index_now .gt. 0) write(21) xtime_rad_power(1:index_now)
+  if (index_now .gt. 0) write(21) xtime_E_ion(1:index_now)
+  if (index_now .gt. 0) write(21) xtime_E_ion_power(1:index_now)
+  if (index_now .gt. 0) write(21) xtime_P_ei(1:index_now)
 
   ! Dynamically allocate memeries for temporary arrays in order to export
-  if (using_spi .and. n_spi >= 1) then
+  if (using_spi .and. n_spi_tot >= 1) then
 
     if (index_now .gt. 0) then
       write(21) xtime_spi_ablation(:,1:index_now)
       write(21) xtime_spi_ablation_rate(:,1:index_now)
+      write(21) xtime_spi_ablation_bg(:,1:index_now)
+      write(21) xtime_spi_ablation_bg_rate(:,1:index_now)
     endif
 
-    write(21) n_spi
+    write(21) n_inj
+    write(21) n_spi_tot
 
-    allocate (spi_R_arr(n_spi))  
-    allocate (spi_Z_arr(n_spi))     
-    allocate (spi_phi_arr(n_spi)) 
-    allocate (spi_Vel_R_arr(n_spi)) 
-    allocate (spi_Vel_Z_arr(n_spi)) 
-    allocate (spi_Vel_RxZ_arr(n_spi)) 
-    allocate (spi_radius_arr(n_spi)) 
-    allocate (spi_abl_arr(n_spi))
+    allocate (spi_R_arr(n_spi_tot))  
+    allocate (spi_Z_arr(n_spi_tot))     
+    allocate (spi_phi_arr(n_spi_tot)) 
+    allocate (spi_phi_init_arr(n_spi_tot))
+    allocate (spi_Vel_R_arr(n_spi_tot)) 
+    allocate (spi_Vel_Z_arr(n_spi_tot)) 
+    allocate (spi_Vel_RxZ_arr(n_spi_tot)) 
+    allocate (spi_radius_arr(n_spi_tot)) 
+    allocate (spi_abl_arr(n_spi_tot))
+    allocate (spi_species_arr(n_spi_tot))
+    allocate (spi_vol_arr(n_spi_tot))
+    allocate (spi_psi_arr(n_spi_tot))
+    allocate (spi_grad_psi_arr(n_spi_tot))
+    allocate (spi_vol_arr_drift(n_spi_tot))
+    allocate (spi_psi_arr_drift(n_spi_tot))
+    allocate (spi_grad_psi_arr_drift(n_spi_tot))
+    allocate (plasmoid_in_domain_arr(n_spi_tot))
 
-    do i=1, n_spi
+    do i=1, n_spi_tot
       spi_R_arr(i)       = pellets(i)%spi_R
       spi_Z_arr(i)       = pellets(i)%spi_Z
       spi_phi_arr(i)     = pellets(i)%spi_phi
+      spi_phi_init_arr(i)= pellets(i)%spi_phi_init
       spi_Vel_R_arr(i)   = pellets(i)%spi_Vel_R
       spi_Vel_Z_arr(i)   = pellets(i)%spi_Vel_Z
       spi_Vel_RxZ_arr(i) = pellets(i)%spi_Vel_RxZ
       spi_radius_arr(i)  = pellets(i)%spi_radius
       spi_abl_arr(i)     = pellets(i)%spi_abl
+      spi_species_arr(i) = pellets(i)%spi_species
+      spi_vol_arr(i)     = pellets(i)%spi_vol
+      spi_psi_arr(i)     = pellets(i)%spi_psi
+      spi_grad_psi_arr(i)= pellets(i)%spi_grad_psi
+      spi_vol_arr_drift(i)     = pellets(i)%spi_vol_drift
+      spi_psi_arr_drift(i)     = pellets(i)%spi_psi_drift
+      spi_grad_psi_arr_drift(i)= pellets(i)%spi_grad_psi_drift
+      plasmoid_in_domain_arr(i)= pellets(i)%plasmoid_in_domain
     end do
 
-    write(21) spi_R_arr(1:n_spi)
-    write(21) spi_Z_arr(1:n_spi)
-    write(21) spi_phi_arr(1:n_spi)
-    write(21) spi_Vel_R_arr(1:n_spi)
-    write(21) spi_Vel_Z_arr(1:n_spi)
-    write(21) spi_Vel_RxZ_arr(1:n_spi)
-    write(21) spi_radius_arr(1:n_spi)
-    write(21) spi_abl_arr(1:n_spi)
+    write(21) spi_R_arr(1:n_spi_tot)
+    write(21) spi_Z_arr(1:n_spi_tot)
+    write(21) spi_phi_arr(1:n_spi_tot)
+    write(21) spi_phi_init_arr(1:n_spi_tot)
+    write(21) spi_Vel_R_arr(1:n_spi_tot)
+    write(21) spi_Vel_Z_arr(1:n_spi_tot)
+    write(21) spi_Vel_RxZ_arr(1:n_spi_tot)
+    write(21) spi_radius_arr(1:n_spi_tot)
+    write(21) spi_abl_arr(1:n_spi_tot)
+    write(21) spi_species_arr(1:n_spi_tot)
+    write(21) spi_vol_arr(1:n_spi_tot)
+    write(21) spi_psi_arr(1:n_spi_tot)
+    write(21) spi_grad_psi_arr(1:n_spi_tot)
+    write(21) spi_vol_arr_drift(1:n_spi_tot)
+    write(21) spi_psi_arr_drift(1:n_spi_tot)
+    write(21) spi_grad_psi_arr_drift(1:n_spi_tot)
+    write(21) plasmoid_in_domain_arr(1:n_spi_tot)
 
     deallocate (spi_R_arr)
     deallocate (spi_Z_arr)
     deallocate (spi_phi_arr)
+    deallocate (spi_phi_init_arr)
     deallocate (spi_Vel_R_arr)
     deallocate (spi_Vel_Z_arr)
     deallocate (spi_Vel_RxZ_arr)
     deallocate (spi_radius_arr)
     deallocate (spi_abl_arr)
+    deallocate (spi_species_arr)
+    deallocate (spi_vol_arr)
+    deallocate (spi_psi_arr)
+    deallocate (spi_grad_psi_arr)
+    deallocate (spi_vol_arr_drift)
+    deallocate (spi_psi_arr_drift)
+    deallocate (spi_grad_psi_arr_drift)
+    deallocate (plasmoid_in_domain_arr)
 
     if (spi_tor_rot) then
       write(21) ns_phi_rotate
@@ -212,9 +267,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   use data_structure
   use phys_module
   use pellet_module
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501 || JOREK_MODEL == 555)
-  use mod_neutral_source
-#endif
   use vacuum, only : export_HDF5_restart_vacuum
   
 #ifdef USE_HDF5
@@ -242,16 +294,17 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   integer            :: ind, ierr
 
   ! type_node, node_list%n_nodes
-  real(RKIND), allocatable :: t_x(:,:,:)                   ! n_order+1, n_dim
-  real(RKIND), allocatable :: t_values(:,:,:,:)            ! n_tor, n_order+1, n_var
-  real(RKIND), allocatable :: t_deltas(:,:,:,:)            ! n_tor, n_order+1, n_var
+  real(RKIND), allocatable :: t_x(:,:,:,:)                 ! n_coord_tor, n_degrees, n_dim
+  real(RKIND), allocatable :: t_values(:,:,:,:)            !       n_tor, n_degrees, n_var
+  real(RKIND), allocatable :: t_deltas(:,:,:,:)            !       n_tor, n_degrees, n_var
 
-  real(RKIND), allocatable :: t_psi_eq(:,:)                ! n_order+1
-  real(RKIND), allocatable :: t_Fprof_eq(:,:)              ! n_order+1
+  real(RKIND), allocatable :: t_psi_eq(:,:)                ! n_degrees
+  real(RKIND), allocatable :: t_Fprof_eq(:,:)              ! n_degrees
 
-  integer,     allocatable :: t_index(:,:)                 ! n_order+1
+  integer,     allocatable :: t_index(:,:)                 ! n_degrees
   integer,     allocatable :: t_boundary(:)                ! 
   character,   allocatable :: t_axis_node(:)     
+  integer,     allocatable :: t_axis_dof(:)
   integer,     allocatable :: t_parents(:,:)               ! 2
   integer,     allocatable :: t_parent_elem(:)             ! 
   real(RKIND), allocatable :: t_ref_lambda(:)
@@ -261,7 +314,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   ! element, element_list%n_elements
   integer,     allocatable :: t_vertex(:,:)                ! n_vertex_max
   integer,     allocatable :: t_neighbours(:,:)            ! n_vertex_max
-  real(RKIND), allocatable :: t_size(:,:,:)                ! n_vertex_max,n_order+1
+  real(RKIND), allocatable :: t_size(:,:,:)                ! n_vertex_max,n_degrees
   integer,     allocatable :: t_father(:)
   integer,     allocatable :: t_n_sons(:)
   integer,     allocatable :: t_n_gen(:)
@@ -269,15 +322,27 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   integer,     allocatable :: t_contain_node(:,:)          ! 5
   integer,     allocatable :: t_nref(:)
 
+  ! for axis treatment setting
+  character(len=50)        :: t_treat_axis
+  
   ! local variables
   real*8, allocatable :: spi_R_arr (:)
   real*8, allocatable :: spi_Z_arr (:)
   real*8, allocatable :: spi_phi_arr (:)
+  real*8, allocatable :: spi_phi_init_arr (:)
   real*8, allocatable :: spi_Vel_R_arr (:)
   real*8, allocatable :: spi_Vel_Z_arr (:)
   real*8, allocatable :: spi_Vel_RxZ_arr (:)
   real*8, allocatable :: spi_radius_arr (:)
   real*8, allocatable :: spi_abl_arr (:)
+  real*8, allocatable :: spi_species_arr (:)
+  real*8, allocatable :: spi_vol_arr (:)
+  real*8, allocatable :: spi_psi_arr (:)
+  real*8, allocatable :: spi_grad_psi_arr (:)
+  real*8, allocatable :: spi_vol_arr_drift (:)
+  real*8, allocatable :: spi_psi_arr_drift (:)
+  real*8, allocatable :: spi_grad_psi_arr_drift (:)
+  integer,allocatable :: plasmoid_in_domain_arr (:)
 
   ! index_now+nstep
   real(RKIND), allocatable :: t_xtime(:)                   ! nstep
@@ -291,26 +356,27 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
 #endif
 
   ! type_node, node_list%n_nodes
-  call tr_allocate(t_x,1,node_list%n_nodes,1,n_order+1,1,n_dim, &
-       "node_list%x",CAT_UNKNOWN)
-  call tr_allocate(t_values,1,node_list%n_nodes,1,n_tor,1,n_order+1,1,n_var, &
+  call tr_allocate(t_x,1,node_list%n_nodes,1,n_coord_tor,1,n_degrees,1,n_dim, &
+      "node_list%x",CAT_UNKNOWN)
+  call tr_allocate(t_values,1,node_list%n_nodes,1,n_tor,1,n_degrees,1,n_var, &
        "node_list%values",CAT_UNKNOWN)
-  call tr_allocate(t_deltas,1,node_list%n_nodes,1,n_tor,1,n_order+1,1,n_var, &
+  call tr_allocate(t_deltas,1,node_list%n_nodes,1,n_tor,1,n_degrees,1,n_var, &
        "node_list%deltas",CAT_UNKNOWN)
 
 #ifdef fullmhd
-  call tr_allocate(t_psi_eq,1,node_list%n_nodes,1,n_order+1, &
+  call tr_allocate(t_psi_eq,1,node_list%n_nodes,1,n_degrees, &
        "node_list%psi_eq",CAT_UNKNOWN)
-  call tr_allocate(t_Fprof_eq,1,node_list%n_nodes,1,n_order+1, &
+  call tr_allocate(t_Fprof_eq,1,node_list%n_nodes,1,n_degrees, &
        "node_list%Fprof_eq",CAT_UNKNOWN)
 #elif altcs
-  call tr_allocate(t_psi_eq,1,node_list%n_nodes,1,n_order+1, &
+  call tr_allocate(t_psi_eq,1,node_list%n_nodes,1,n_degrees, &
        "node_list%psi_eq",CAT_UNKNOWN)
 #endif
 
-  call tr_allocate(t_index,1,node_list%n_nodes,1,n_order+1,"index",CAT_UNKNOWN)
+  call tr_allocate(t_index,1,node_list%n_nodes,1,n_degrees,"index",CAT_UNKNOWN)
   call tr_allocate(t_boundary,1,node_list%n_nodes,"boundary",CAT_UNKNOWN)
   call tr_allocate(t_axis_node,1,node_list%n_nodes,"axis_node",CAT_UNKNOWN)
+  call tr_allocate(t_axis_dof,1,node_list%n_nodes,"axis_dof",CAT_UNKNOWN)
   call tr_allocate(t_parents,1,node_list%n_nodes,1,2,"parent",CAT_UNKNOWN)
   call tr_allocate(t_parent_elem,1,node_list%n_nodes,"parent_elem",CAT_UNKNOWN)
   call tr_allocate(t_ref_lambda,1,node_list%n_nodes,"ref_lambade",CAT_UNKNOWN)
@@ -320,7 +386,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   ! element_list%n_elements
   call tr_allocate(t_vertex,1,element_list%n_elements,1,n_vertex_max,"vertex",CAT_UNKNOWN)
   call tr_allocate(t_neighbours,1,element_list%n_elements,1,n_vertex_max,"neighbours",CAT_UNKNOWN)
-  call tr_allocate(t_size,1,element_list%n_elements,1,n_vertex_max,1,n_order+1,"size",CAT_UNKNOWN)
+  call tr_allocate(t_size,1,element_list%n_elements,1,n_vertex_max,1,n_degrees,"size",CAT_UNKNOWN)
   call tr_allocate(t_father,1,element_list%n_elements,"father",CAT_UNKNOWN)
   call tr_allocate(t_n_sons,1,element_list%n_elements,"n_sons",CAT_UNKNOWN)
   call tr_allocate(t_n_gen,1,element_list%n_elements,"n_gen",CAT_UNKNOWN)
@@ -357,7 +423,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
 
   !
   do i=1,node_list%n_nodes
-     t_x(i,:,:)        = node_list%node(i)%x
+     t_x(i,:,:,:)        = node_list%node(i)%x
      t_values(i,:,:,:) = node_list%node(i)%values
      t_deltas(i,:,:,:) = node_list%node(i)%deltas
 
@@ -375,6 +441,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      else
         t_axis_node(i)  = 'F'
      end if
+     t_axis_dof(i)     = node_list%node(i)%axis_dof
      t_parents(i,:)    = node_list%node(i)%parents(1:2)
      t_parent_elem(i)  = node_list%node(i)%parent_elem
      t_ref_lambda(i)   = node_list%node(i)%ref_lambda
@@ -427,6 +494,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call HDF5_integer_saving(file_id,n_dim,'n_dim'//char(0))
   call HDF5_integer_saving(file_id,n_order,'n_order'//char(0))
   call HDF5_integer_saving(file_id,n_tor,'n_tor'//char(0))
+  call HDF5_integer_saving(file_id,n_coord_tor,'n_coord_tor'//char(0))
   call HDF5_integer_saving(file_id,n_period,'n_period'//char(0))
   call HDF5_integer_saving(file_id,n_plane,'n_plane'//char(0))
   call HDF5_integer_saving(file_id,n_vertex_max,'n_vertex_max'//char(0))
@@ -442,30 +510,37 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call HDF5_integer_saving(file_id,node_list%n_nodes,'n_nodes'//char(0))
   call HDF5_integer_saving(file_id,element_list%n_elements,'n_elements'//char(0))
   call HDF5_integer_saving(file_id,node_list%n_dof,'n_dof'//char(0))
-
-  call HDF5_array3D_saving(file_id,t_x, &
-       node_list%n_nodes,n_order+1,n_dim,'x'//char(0))
+  
+  if (rst_hdf5_version .eq. 2) then
+    call HDF5_array4D_saving(file_id,t_x, &
+         node_list%n_nodes,n_coord_tor,n_degrees,n_dim,'x'//char(0))
+  else
+    call HDF5_array3D_saving(file_id,t_x(:,1,:,:), &
+         node_list%n_nodes,n_degrees,n_dim,'x'//char(0))
+  endif
   call HDF5_array4D_saving(file_id,t_values, &
-       node_list%n_nodes,n_tor,n_order+1,n_var,'values'//char(0))
+       node_list%n_nodes,n_tor,n_degrees,n_var,'values'//char(0))
   call HDF5_array4D_saving(file_id,t_deltas, &
-       node_list%n_nodes,n_tor,n_order+1,n_var,'deltas'//char(0))
+       node_list%n_nodes,n_tor,n_degrees,n_var,'deltas'//char(0))
 
 #ifdef fullmhd
   call HDF5_array2D_saving(file_id,t_psi_eq, &
-       node_list%n_nodes,n_order+1,'psi_eq'//char(0))
+       node_list%n_nodes,n_degrees,'psi_eq'//char(0))
   call HDF5_array2D_saving(file_id,t_Fprof_eq, &
-       node_list%n_nodes,n_order+1,'Fprof_eq'//char(0))
+       node_list%n_nodes,n_degrees,'Fprof_eq'//char(0))
 #elif altcs
   call HDF5_array2D_saving(file_id,t_psi_eq, &
-       node_list%n_nodes,n_order+1,'psi_eq'//char(0))
+       node_list%n_nodes,n_degrees,'psi_eq'//char(0))
 #endif
 
   call HDF5_array2D_saving_int(file_id,t_index, &
-       node_list%n_nodes,n_order+1,'index'//char(0))
+       node_list%n_nodes,n_degrees,'index'//char(0))
   call HDF5_array1D_saving_int(file_id,t_boundary, &
        node_list%n_nodes,'boundary'//char(0))
   call HDF5_array1D_saving_char(file_id,t_axis_node, &
        node_list%n_nodes,'axis_node'//char(0))
+  call HDF5_array1D_saving_int(file_id,t_axis_dof, &
+       node_list%n_nodes,'axis_dof'//char(0))
   call HDF5_array2D_saving_int(file_id,t_parents, &
        node_list%n_nodes,2,'parents'//char(0))
   call HDF5_array1D_saving_int(file_id,t_parent_elem, &
@@ -482,7 +557,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call HDF5_array2D_saving_int(file_id,t_neighbours, &
        element_list%n_elements,n_vertex_max,'neighbours'//char(0))
   call HDF5_array3D_saving(file_id,t_size, &
-       element_list%n_elements,n_vertex_max,n_order+1,'size'//char(0))
+       element_list%n_elements,n_vertex_max,n_degrees,'size'//char(0))
   call HDF5_array1D_saving_int(file_id,t_father, &
        element_list%n_elements,'father'//char(0))
   call HDF5_array1D_saving_int(file_id,t_n_sons, &
@@ -495,6 +570,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
        element_list%n_elements,5,'contain_node'//char(0))
   call HDF5_array1D_saving_int(file_id,t_nref, &
        element_list%n_elements,'nref'//char(0))
+
   call HDF5_real_saving(file_id,tstep,'tstep'//char(0))
   call HDF5_real_saving(file_id,eta,'eta'//char(0))
   call HDF5_real_saving(file_id,visco,'visco'//char(0))
@@ -543,6 +619,8 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      call HDF5_array1D_saving(file_id,helicity_tot_t(1:index_now),index_now,'helicity_tot_t'//char(0))
      call HDF5_array1D_saving(file_id,Ip_tot_t(1:index_now),index_now,'Ip_tot_t'//char(0))
      call HDF5_array1D_saving(file_id,thermal_tot_t(1:index_now),index_now,'thermal_tot_t'//char(0))
+     call HDF5_array1D_saving(file_id,thermal_e_tot_t(1:index_now),index_now,'thermal_e_tot_t'//char(0))
+     call HDF5_array1D_saving(file_id,thermal_i_tot_t(1:index_now),index_now,'thermal_i_tot_t'//char(0))
      call HDF5_array1D_saving(file_id,kin_par_tot_t(1:index_now),index_now,'kin_par_tot_t'//char(0))
      call HDF5_array1D_saving(file_id,kin_perp_tot_t(1:index_now),index_now,'kin_perp_tot_t'//char(0))
      call HDF5_array1D_saving(file_id,Wmag_tot_t(1:index_now),index_now,'Wmag_tot_t'//char(0))
@@ -568,6 +646,8 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      call HDF5_array1D_saving(file_id,dkinperp_tot_dt(1:index_now),index_now,'dkinperp_tot_dt'//char(0))
      call HDF5_array1D_saving(file_id,thmwork_tot_t(1:index_now),index_now,'thmwork_tot_t'//char(0))
      call HDF5_array1D_saving(file_id,viscopar_dissip_tot_t(1:index_now),index_now,'viscopar_dissip_tot_t'//char(0))
+     call HDF5_array1D_saving(file_id,visco_dissip_tot_t(1:index_now),   index_now,'visco_dissip_tot_t'//char(0))
+     call HDF5_array1D_saving(file_id,friction_dissip_tot_t(1:index_now),index_now,'friction_dissip_tot_t'//char(0))
      call HDF5_array1D_saving(file_id,viscopar_flux_t(1:index_now),index_now,'viscopar_flux_t'//char(0))
      call HDF5_array1D_saving(file_id,li3_t(1:index_now),index_now,'li3_t'//char(0))
      call HDF5_array1D_saving(file_id,li3_tot_t(1:index_now),index_now,'li3_tot_t'//char(0))
@@ -608,73 +688,134 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
      call HDF5_real_saving(file_id,pellet_Z,"pellet_Z"//char(0))
   end if
 
+  ! Radiation and ionization energy history
+  if (index_now .gt. 0) then
+    if ( allocated(xtime_radiation)   ) call HDF5_array1D_saving(file_id,xtime_radiation, index_now,'xtime_radiation'//char(0))
+    if ( allocated(xtime_rad_power)   ) call HDF5_array1D_saving(file_id,xtime_rad_power, index_now,'xtime_rad_power'//char(0))
+    if ( allocated(xtime_E_ion)       ) call HDF5_array1D_saving(file_id,xtime_E_ion, index_now,'xtime_E_ion'//char(0))
+    if ( allocated(xtime_E_ion_power) ) call HDF5_array1D_saving(file_id,xtime_E_ion_power, index_now,'xtime_E_ion_power'//char(0))
+    if ( allocated(xtime_P_ei)        ) call HDF5_array1D_saving(file_id,xtime_P_ei, index_now,'xtime_P_ei'//char(0))
+  end if
 
   ! Dynamically allocate memeries for temporary arrays in order to export
-  if (using_spi .and. n_spi>=1) then
+  if (using_spi .and. n_spi_tot>=1) then
     if (index_now .gt. 0) then
       call HDF5_array2D_saving(file_id,xtime_spi_ablation, &
-             n_spi,index_now,'xtime_spi_ablation'//char(0))
+             n_spi_tot,index_now,'xtime_spi_ablation'//char(0))
       call HDF5_array2D_saving(file_id,xtime_spi_ablation_rate, &
-             n_spi,index_now,'xtime_spi_ablation_rate'//char(0))
+             n_spi_tot,index_now,'xtime_spi_ablation_rate'//char(0))
+      call HDF5_array2D_saving(file_id,xtime_spi_ablation_bg, &
+             n_spi_tot,index_now,'xtime_spi_ablation_bg'//char(0))
+      call HDF5_array2D_saving(file_id,xtime_spi_ablation_bg_rate, &
+             n_spi_tot,index_now,'xtime_spi_ablation_bg_rate'//char(0))
     end if
 
-    call HDF5_integer_saving(file_id,n_spi,"n_spi"//char(0))
+    call HDF5_integer_saving(file_id,n_inj,"n_inj"//char(0))
+    call HDF5_integer_saving(file_id,n_spi_tot,"n_spi_tot"//char(0))
 
-    allocate (spi_R_arr(n_spi))
-    allocate (spi_Z_arr(n_spi))
-    allocate (spi_phi_arr(n_spi))
-    allocate (spi_Vel_R_arr(n_spi))
-    allocate (spi_Vel_Z_arr(n_spi))
-    allocate (spi_Vel_RxZ_arr(n_spi))
-    allocate (spi_radius_arr(n_spi))
-    allocate (spi_abl_arr(n_spi))
+    allocate (spi_R_arr(n_spi_tot))
+    allocate (spi_Z_arr(n_spi_tot))
+    allocate (spi_phi_arr(n_spi_tot))
+    allocate (spi_phi_init_arr(n_spi_tot))
+    allocate (spi_Vel_R_arr(n_spi_tot))
+    allocate (spi_Vel_Z_arr(n_spi_tot))
+    allocate (spi_Vel_RxZ_arr(n_spi_tot))
+    allocate (spi_radius_arr(n_spi_tot))
+    allocate (spi_abl_arr(n_spi_tot))
+    allocate (spi_species_arr(n_spi_tot))
+    allocate (spi_vol_arr(n_spi_tot))
+    allocate (spi_psi_arr(n_spi_tot))
+    allocate (spi_grad_psi_arr(n_spi_tot))
+    allocate (spi_vol_arr_drift(n_spi_tot))
+    allocate (spi_psi_arr_drift(n_spi_tot))
+    allocate (spi_grad_psi_arr_drift(n_spi_tot))
+    allocate (plasmoid_in_domain_arr(n_spi_tot))
 
-    do i=1, n_spi
+    do i=1, n_spi_tot
       spi_R_arr(i)       = pellets(i)%spi_R
       spi_Z_arr(i)       = pellets(i)%spi_Z
       spi_phi_arr(i)     = pellets(i)%spi_phi
+      spi_phi_init_arr(i)= pellets(i)%spi_phi_init
       spi_Vel_R_arr(i)   = pellets(i)%spi_Vel_R
       spi_Vel_Z_arr(i)   = pellets(i)%spi_Vel_Z
       spi_Vel_RxZ_arr(i) = pellets(i)%spi_Vel_RxZ
       spi_radius_arr(i)  = pellets(i)%spi_radius
       spi_abl_arr(i)     = pellets(i)%spi_abl
+      spi_species_arr(i) = pellets(i)%spi_species
+      spi_vol_arr(i)     = pellets(i)%spi_vol
+      spi_psi_arr(i)     = pellets(i)%spi_psi
+      spi_grad_psi_arr(i)= pellets(i)%spi_grad_psi
+      spi_vol_arr_drift(i)     = pellets(i)%spi_vol_drift
+      spi_psi_arr_drift(i)     = pellets(i)%spi_psi_drift
+      spi_grad_psi_arr_drift(i)= pellets(i)%spi_grad_psi_drift
+      plasmoid_in_domain_arr(i)= pellets(i)%plasmoid_in_domain
     end do
 
     call HDF5_array1D_saving(file_id,spi_R_arr, &
-             n_spi,'spi_R_arr'//char(0))
+             n_spi_tot,'spi_R_arr'//char(0))
     call HDF5_array1D_saving(file_id,spi_Z_arr, &
-             n_spi,'spi_Z_arr'//char(0))
+             n_spi_tot,'spi_Z_arr'//char(0))
     call HDF5_array1D_saving(file_id,spi_phi_arr, &
-             n_spi,'spi_phi_arr'//char(0))
+             n_spi_tot,'spi_phi_arr'//char(0))
+    call HDF5_array1D_saving(file_id,spi_phi_init_arr, &
+             n_spi_tot,'spi_phi_init_arr'//char(0))
     call HDF5_array1D_saving(file_id,spi_Vel_R_arr, &
-             n_spi,'spi_Vel_R_arr'//char(0))
+             n_spi_tot,'spi_Vel_R_arr'//char(0))
     call HDF5_array1D_saving(file_id,spi_Vel_Z_arr, &
-             n_spi,'spi_Vel_Z_arr'//char(0))
+             n_spi_tot,'spi_Vel_Z_arr'//char(0))
     call HDF5_array1D_saving(file_id,spi_Vel_RxZ_arr, &
-             n_spi,'spi_Vel_RxZ_arr'//char(0))
+             n_spi_tot,'spi_Vel_RxZ_arr'//char(0))
     call HDF5_array1D_saving(file_id,spi_radius_arr, &
-             n_spi,'spi_radius_arr'//char(0))
+             n_spi_tot,'spi_radius_arr'//char(0))
     call HDF5_array1D_saving(file_id,spi_abl_arr, &
-             n_spi,'spi_abl_arr'//char(0))
+             n_spi_tot,'spi_abl_arr'//char(0))
+    call HDF5_array1D_saving(file_id,spi_species_arr, &
+             n_spi_tot,'spi_species_arr'//char(0))
+    call HDF5_array1D_saving(file_id,spi_vol_arr, &
+             n_spi_tot,'spi_vol_arr'//char(0))
+    call HDF5_array1D_saving(file_id,spi_psi_arr, &
+             n_spi_tot,'spi_psi_arr'//char(0))
+    call HDF5_array1D_saving(file_id,spi_grad_psi_arr, &
+             n_spi_tot,'spi_grad_psi_arr'//char(0))
+    call HDF5_array1D_saving(file_id,spi_vol_arr_drift, &
+             n_spi_tot,'spi_vol_arr_drift'//char(0))
+    call HDF5_array1D_saving(file_id,spi_psi_arr_drift, &
+             n_spi_tot,'spi_psi_arr_drift'//char(0))
+    call HDF5_array1D_saving(file_id,spi_grad_psi_arr_drift, &
+             n_spi_tot,'spi_grad_psi_arr_drift'//char(0))
+    call HDF5_array1D_saving_int(file_id,plasmoid_in_domain_arr, &
+             n_spi_tot,'plasmoid_in_domain_arr'//char(0))
 
     deallocate (spi_R_arr)
     deallocate (spi_Z_arr)
     deallocate (spi_phi_arr)
+    deallocate (spi_phi_init_arr)
     deallocate (spi_Vel_R_arr)
     deallocate (spi_Vel_Z_arr)
     deallocate (spi_Vel_RxZ_arr)
     deallocate (spi_radius_arr)
     deallocate (spi_abl_arr)
+    deallocate (spi_species_arr)
+    deallocate (spi_vol_arr)
+    deallocate (spi_psi_arr)
+    deallocate (spi_grad_psi_arr)
+    deallocate (spi_vol_arr_drift)
+    deallocate (spi_psi_arr_drift)
+    deallocate (spi_grad_psi_arr_drift)
+    deallocate (plasmoid_in_domain_arr)
 
-    if (spi_tor_rot) then
-      call HDF5_real_saving(file_id,ns_phi_rotate,"ns_phi_rotate"//char(0))  
-    end if
-
+    if (spi_tor_rot) call HDF5_real_saving(file_id,ns_phi_rotate,"ns_phi_rotate"//char(0)) 
   else
-    n_spi = 0
-    call HDF5_integer_saving(file_id,n_spi,"n_spi"//char(0))
+    n_spi_tot = 0
+    call HDF5_integer_saving(file_id,n_spi_tot,"n_spi_tot"//char(0))
   end if
 
+  ! -> Save status of the axis treatment
+  t_treat_axis = 'F'
+  if(treat_axis) t_treat_axis = 'T'
+  write(t_treat_axis,'(A)') trim(adjustl(t_treat_axis))
+  call HDF5_char_saving(file_id,t_treat_axis,"treat_axis"//char(0))
+  
   ! Export restart vacuum 
   call export_HDF5_restart_vacuum(file_id, freeboundary, resistive_wall)
 
@@ -694,6 +835,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename)
   call tr_deallocate(t_index,"index",CAT_UNKNOWN)
   call tr_deallocate(t_boundary,"boundary",CAT_UNKNOWN)
   call tr_deallocate(t_axis_node,"axis_node",CAT_UNKNOWN)
+  call tr_deallocate(t_axis_dof,"axis_dof",CAT_UNKNOWN)
   call tr_deallocate(t_parents,"parents",CAT_UNKNOWN)
   call tr_deallocate(t_parent_elem,"parent_elem",CAT_UNKNOWN)
   call tr_deallocate(t_ref_lambda,"ref_lambda",CAT_UNKNOWN)

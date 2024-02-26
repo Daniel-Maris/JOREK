@@ -30,23 +30,23 @@ subroutine ELM_build_RZ_and_Jacobians(element, nodes, ms, mt)
 
   ! --- Integrate
   do i=1,n_vertex_max
-    do j=1,n_order+1
+    do j=1,n_degrees
 
-      x_g  = x_g  + nodes(i)%x(j,1) * element%size(i,j) * H   (i,j,ms,mt)
-      x_s  = x_s  + nodes(i)%x(j,1) * element%size(i,j) * H_s (i,j,ms,mt)
-      x_t  = x_t  + nodes(i)%x(j,1) * element%size(i,j) * H_t (i,j,ms,mt)
+      x_g  = x_g  + nodes(i)%x(1,j,1) * element%size(i,j) * H   (i,j,ms,mt)
+      x_s  = x_s  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s (i,j,ms,mt)
+      x_t  = x_t  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t (i,j,ms,mt)
 
-      x_ss = x_ss + nodes(i)%x(j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-      x_st = x_st + nodes(i)%x(j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-      x_tt = x_tt + nodes(i)%x(j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+      x_ss = x_ss + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+      x_st = x_st + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+      x_tt = x_tt + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
 
-      y_g  = y_g  + nodes(i)%x(j,2) * element%size(i,j) * H   (i,j,ms,mt)
-      y_s  = y_s  + nodes(i)%x(j,2) * element%size(i,j) * H_s (i,j,ms,mt)
-      y_t  = y_t  + nodes(i)%x(j,2) * element%size(i,j) * H_t (i,j,ms,mt)
+      y_g  = y_g  + nodes(i)%x(1,j,2) * element%size(i,j) * H   (i,j,ms,mt)
+      y_s  = y_s  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s (i,j,ms,mt)
+      y_t  = y_t  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t (i,j,ms,mt)
 
-      y_ss = y_ss + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-      y_st = y_st + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-      y_tt = y_tt + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+      y_ss = y_ss + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+      y_st = y_st + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+      y_tt = y_tt + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
     
     enddo
   enddo
@@ -116,7 +116,7 @@ subroutine ELM_build_variables(element, nodes, ms, mt, i_plane)
 
   ! --- Integrate
   do i =1,n_vertex_max
-    do j=1,n_order+1
+    do j=1,n_degrees
       
       ! --- Axisymmetric variables for localised sources
       r00            = r00        + nodes(i)%values(1    ,j,5) * element%size(i,j) * H   (i,j,ms,mt) * HZ   (1    ,i_plane)
@@ -204,6 +204,11 @@ subroutine ELM_build_variables(element, nodes, ms, mt, i_plane)
       enddo
     enddo
   enddo
+
+  ! changes deltas for variable time steps
+  delta_g = delta_g * tstep / tstep_prev
+  delta_s = delta_s * tstep / tstep_prev
+  delta_t = delta_t * tstep / tstep_prev
 
   ! --- Variable 1
   ps0_x    = get_deriv_x (ps0_s, ps0_t)
@@ -358,6 +363,7 @@ subroutine ELM_build_diffusivities_and_sources(element, nodes, xpoint2, xcase2, 
   use pellet_module
   use mod_bootstrap_functions
   use equil_info, only : get_psi_n
+  use mod_sources
   
   implicit none
   

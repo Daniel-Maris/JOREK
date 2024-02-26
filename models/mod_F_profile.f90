@@ -52,7 +52,14 @@ subroutine F_profile(xpoint2,xcase2,Z,Z_xpoint,psi,psi_axis,psi_bnd,&
 
   ! --- Value of F at the edge should be F0 (NEEDS TO BE DECIDED!!!)
   F_edge = F0
-
+  
+  ! --- Initialise
+  F_prof     = 0.d0
+  dF_dpsi    = 0.d0
+  dF_dz      = 0.d0
+  dF_dpsi2   = 0.d0
+  dF_dz2     = 0.d0
+  dF_dpsi_dz = 0.d0
   ! --- Profile as a function of Psi_N.
   if (force_analytical) then 
 
@@ -62,13 +69,7 @@ subroutine F_profile(xpoint2,xcase2,Z,Z_xpoint,psi,psi_axis,psi_bnd,&
     myFF_coef(1:8) =   FF_coef(1:8)
     myFF_coef(6)   = - FF_coef(6)
 
-    ! --- Initialise
-    F_prof     = 0.d0
-    dF_dpsi    = 0.d0
-    dF_dz      = 0.d0
-    dF_dpsi2   = 0.d0
-    dF_dz2     = 0.d0
-    dF_dpsi_dz = 0.d0
+
 
     ! --- There are some rules when using FF_coefs with the F-profile in Full-MHD
     if (myFF_1 .ne. 0.d0) then
@@ -176,12 +177,12 @@ subroutine F_profile(xpoint2,xcase2,Z,Z_xpoint,psi,psi_axis,psi_bnd,&
       if (F0 .lt. 0.d0) d3Fmid = - d3Fmid
       prof0        = + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(+0.5)
       dprof0_dpsi  = + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-0.5) * (Fmid * dFmid)
-      dprof0_dpsi2 = + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-0.5) * (Fmid * dFmid)**2 &
+      dprof0_dpsi2 = - ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-1.5) * (Fmid * dFmid)**2 &
                      + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-0.5) * (dFmid**2 + Fmid * d2Fmid) / delta_psi
-      dprof0_dpsi3 = + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-0.5) * (Fmid * dFmid)**3 &
-                     + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-0.5) * (Fmid * dFmid) * 2.0 * (dFmid**2 + Fmid * d2Fmid) / delta_psi &
-                     + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-0.5) * (Fmid * dFmid) * (dFmid**2 + Fmid * d2Fmid) / delta_psi &
-                     + ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-0.5) * (2.0*dFmid*d2Fmid + dFmid * d2Fmid + Fmid * d3Fmid) / delta_psi
+      dprof0_dpsi3 = + 3 * ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-2.5) * (Fmid * dFmid)**3 &
+                     - ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-1.5) * ( (2 * d2Fmid * dFmid * Fmid**2) + 2 * (dFmid**3 * Fmid)) / delta_psi &
+                     - ( delta_psi * (Fmid**2 - F0**2) + F0**2 )**(-1.5) * ((dFmid**3) * Fmid + d2Fmid * dFmid * Fmid**2) / delta_psi &
+                     + ( delta_psi * (Fmid**2 - F0**2) + F0**2 ) ** (-0.5) * ( (3 * dFmid * d2Fmid) + (Fmid * d3Fmid) ) / (delta_psi)**2
       if (F0 .lt. 0.d0) prof0        = - prof0
       if (F0 .lt. 0.d0) dprof0_dpsi  = - dprof0_dpsi 
       if (F0 .lt. 0.d0) dprof0_dpsi2 = - dprof0_dpsi2
@@ -239,7 +240,7 @@ subroutine F_profile(xpoint2,xcase2,Z,Z_xpoint,psi,psi_axis,psi_bnd,&
 
     sigz = 0.1d0
 
-    if (xcase2 .eq. 1) then
+    if (xcase2 .eq. LOWER_XPOINT) then
       atn_z_u   = 1.d0
       datn_z_u  = 0.d0
       d2atn_z_u = 0.d0
@@ -255,7 +256,7 @@ subroutine F_profile(xpoint2,xcase2,Z,Z_xpoint,psi,psi_axis,psi_bnd,&
       d2atn_z_u =  1.0d0/cosh3_u**2 / sigz**2 * tanh2_u
     endif
 
-    if (xcase2 .eq. 2) then
+    if (xcase2 .eq. UPPER_XPOINT) then
       atn_z   = 1.d0
       datn_z  = 0.d0
       d2atn_z = 0.d0
@@ -337,7 +338,9 @@ subroutine integrate_F_profile()
     write(*,*)'                    FFprime, or use a numerical FFprime !!!'
     write(*,*)'                    ie. FF_coef(9) should be set to 1.d0, and FF_coef(6)'
     write(*,*)'                    should be denormalised as '
-    write(*,*)'                    FF_coef(6) = FF_coef(6) * (psi_bnd-psi_axis)...'
+    write(*,*)'                    FF_coef(6) = FF_coef(6) / (psi_bnd-psi_axis)...'
+    write(*,*)'                    where psi_axis and psi_bnd have been calculated from'
+    write(*,*)'                    the Grad-Shafranov with Reduced-MHD'
     write(*,*)'                    Aborting...'
     stop
   endif
@@ -521,6 +524,8 @@ subroutine check_F_profile_accuracy()
   accumulated_error   = 0.d0
   accumulated_profile = 0.d0
   n_prof_core         = 0
+  ff1                 = 0.d0
+  iff1                = 0.d0
   do i_prof = 1,n_Fprofile_internal
     psi_n(i_prof) = Fprofile_psi_max * real(i_prof-1)/real(n_Fprofile_internal-1)
     if (psi_n(i_prof) .gt. 1.01) cycle ! count just the core (outside, FFprime should be zero)

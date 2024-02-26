@@ -32,8 +32,8 @@ real*8     :: eq_g(n_plane,n_var,n_gauss), eq_s(n_plane,n_var,n_gauss), eq_p(n_p
 real*8     :: eq_t(n_plane,n_var,n_gauss), eq_ss(n_plane,n_var,n_gauss)
 real*8     :: delta_g(n_plane,n_var,n_gauss), delta_s(n_plane,n_var,n_gauss)
 
-real*8     :: ELM(n_vertex_max*n_var*(n_order+1)*n_tor,n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: RHS(n_vertex_max*n_var*(n_order+1)*n_tor)
+real*8     :: ELM(n_vertex_max*n_var*n_degrees*n_tor,n_vertex_max*n_var*n_degrees*n_tor)
+real*8     :: RHS(n_vertex_max*n_var*n_degrees*n_tor)
 
 integer    :: vertex(2), direction(2), direction_perp(2)
 integer    :: i, j, j2, j3, ms, mt, mp, k, l, l2, index_ij, index_kl, index, xcase2
@@ -56,8 +56,9 @@ integer    :: n_tor_local
 type (type_node)         :: tmp_node
 
 theta = time_evol_theta
-zeta  = time_evol_zeta
-
+!zeta  = time_evol_zeta
+! change zeta for variable dt
+zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 Zbig = 1.d12
 
 !--------------------- reorder the nodes to have the same direction as full element (maybe not necesary)
@@ -101,10 +102,10 @@ delta_g = 0.d0; delta_s = 0.d0;
 direction_perp(1) = 6 / direction(2)     ! =3 if direction(2)=2, =2 if direction(2)=3
 direction_perp(2) = 4
 
-R_mid = sum(nodes(1:2)%x(1,1)) / 2.d0     ! mid point on boundary (approx.)
-Z_mid = sum(nodes(1:2)%x(1,2)) / 2.d0
-R_cnt = sum(nodes(1:4)%x(1,1)) / 4.d0     ! center point within element (approx.)
-Z_cnt = sum(nodes(1:4)%x(1,2)) / 4.d0
+R_mid = sum(nodes(1:2)%x(1,1,1)) / 2.d0     ! mid point on boundary (approx.)
+Z_mid = sum(nodes(1:2)%x(1,1,2)) / 2.d0
+R_cnt = sum(nodes(1:4)%x(1,1,1)) / 4.d0     ! center point within element (approx.)
+Z_cnt = sum(nodes(1:4)%x(1,1,2)) / 4.d0
 
 normal_direction = (/R_mid - R_cnt, Z_mid - Z_cnt /) / norm2((/R_mid - R_cnt, Z_mid - Z_cnt /))
 
@@ -124,13 +125,13 @@ do i=1,2    ! sum over 2 verices
 
     do ms=1, n_gauss
 
-      x_g(ms)  = x_g(ms)  + nodes(i)%x(j2,1) * element_size_ij * H1(i,j,ms)
-      x_s(ms)  = x_s(ms)  + nodes(i)%x(j2,1) * element_size_ij * H1_s(i,j,ms)
-      x_t(ms)  = x_t(ms)  + nodes(i)%x(j3,1) * element_size_ij * H1(i,j,ms)   * element_size_perp
+      x_g(ms)  = x_g(ms)  + nodes(i)%x(1,j2,1) * element_size_ij * H1(i,j,ms)
+      x_s(ms)  = x_s(ms)  + nodes(i)%x(1,j2,1) * element_size_ij * H1_s(i,j,ms)
+      x_t(ms)  = x_t(ms)  + nodes(i)%x(1,j3,1) * element_size_ij * H1(i,j,ms)   * element_size_perp
 
-      y_g(ms)  = y_g(ms)  + nodes(i)%x(j2,2) * element_size_ij * H1(i,j,ms)
-      y_s(ms)  = y_s(ms)  + nodes(i)%x(j2,2) * element_size_ij * H1_s(i,j,ms)
-      y_t(ms)  = y_t(ms)  + nodes(i)%x(j3,2) * element_size_ij * H1(i,j,ms)   * element_size_perp
+      y_g(ms)  = y_g(ms)  + nodes(i)%x(1,j2,2) * element_size_ij * H1(i,j,ms)
+      y_s(ms)  = y_s(ms)  + nodes(i)%x(1,j2,2) * element_size_ij * H1_s(i,j,ms)
+      y_t(ms)  = y_t(ms)  + nodes(i)%x(1,j3,2) * element_size_ij * H1(i,j,ms)   * element_size_perp
 
       do mp=1,n_plane
 
@@ -154,6 +155,10 @@ do i=1,2    ! sum over 2 verices
     enddo
   enddo
 enddo
+
+! changes deltas for variable time steps
+delta_g = delta_g * tstep / tstep_prev
+delta_s = delta_s * tstep / tstep_prev
 
 n_tor_local = i_tor_max - i_tor_min +1
 !--------------------------------------------------- sum over the Gaussian integration points
@@ -213,7 +218,7 @@ do ms=1, n_gauss
 
         do im=i_tor_min, i_tor_max
 
-          index_ij = n_tor_local*n_var*(n_order+1)*(vertex(i)-1) + n_tor_local * n_var * (j2-1) + im - i_tor_min +1  ! index in the ELM matrix
+          index_ij = n_tor_local*n_var*n_degrees*(vertex(i)-1) + n_tor_local * n_var * (j2-1) + im - i_tor_min +1  ! index in the ELM matrix
 
           v   =  H1(i,j,ms) * element_size_ij * HZ(im,mp)         ! test function
 
@@ -250,7 +255,7 @@ do ms=1, n_gauss
 
                 cs_T  = gamma * T / (2.d0 * cs0)
 
-                index_kl = n_tor_local*n_var*(n_order+1)*(vertex(k)-1) + n_tor_local * n_var * (l2-1) + in - i_tor_min +1  ! index in the ELM matrix
+                index_kl = n_tor_local*n_var*n_degrees*(vertex(k)-1) + n_tor_local * n_var * (l2-1) + in - i_tor_min +1  ! index in the ELM matrix
 
                 kl1 = index_kl
                 kl5 = index_kl + 4*n_tor_local
@@ -269,7 +274,7 @@ do ms=1, n_gauss
                 amat_76 =   v * ( - cs_T) * factor          * dl * Zbig
                 amat_77 =   v * (vpar * Btot * normal_sign) * dl * Zbig 
 
-                index_kl = n_tor*n_var*(n_order+1)*(vertex(k)-1) + n_tor * n_var * (l2-1) + in   ! index in the ELM matrix
+                index_kl = n_tor*n_var*n_degrees*(vertex(k)-1) + n_tor * n_var * (l2-1) + in   ! index in the ELM matrix
 
                 ELM(ij5,kl1) =  ELM(ij5,kl1) + ws * amat_51
                 ELM(ij5,kl5) =  ELM(ij5,kl5) + ws * amat_55

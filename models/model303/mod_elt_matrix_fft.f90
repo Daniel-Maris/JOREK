@@ -9,7 +9,7 @@ contains
 subroutine element_matrix_fft(element, nodes, xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, &
                               ELM, RHS, tid, ELM_p, ELM_n, ELM_k, ELM_kn, RHS_p, RHS_k,                               &
                               eq_g, eq_s, eq_t, eq_p, eq_ss, eq_st, eq_tt, delta_g, delta_s, delta_t,                 &
-                              i_tor_min, i_tor_max, aux_nodes)
+                              i_tor_min, i_tor_max, aux_nodes, ELM_pnn)
 !---------------------------------------------------------------
 ! calculates the matrix contribution of one element
 !---------------------------------------------------------------
@@ -24,8 +24,7 @@ use diffusivities, only: get_dperp, get_zkperp
 use equil_info, only : get_psi_n
 use mod_bootstrap_functions
 use mod_atomic_coeff_deuterium, only: rec_rate_to_kinetic 
-
-!  use mpi_mod
+use mod_sources
 
 implicit none
 
@@ -34,7 +33,7 @@ type (type_node)           :: nodes(n_vertex_max)     ! fluid variables
 type (type_node), optional :: aux_nodes(n_vertex_max) ! moments of particles
 
 
-#define DIM0 n_tor*n_vertex_max*(n_order+1)*n_var
+#define DIM0 n_tor*n_vertex_max*n_degrees*n_var
 
 real*8, dimension (DIM0,DIM0)  :: ELM
 real*8, dimension (DIM0)       :: RHS
@@ -76,7 +75,7 @@ real*8     :: P0, P0_s, P0_t, P0_x, P0_y, P0_p, P0_ss, P0_st, P0_tt, P0_xx, P0_x
 real*8     :: P0_x_rho, P0_xx_rho, P0_y_rho, P0_yy_rho, P0_xy_rho
 real*8     :: P0_x_T,   P0_xx_T,   P0_y_T,   P0_yy_T,   P0_xy_T
 real*8     :: Vpar0, Vpar0_s, Vpar0_t, Vpar0_p, Vpar0_x, Vpar0_y, Vpar0_ss, Vpar0_st, Vpar0_tt, Vpar0_xx, Vpar0_yy,Vpar0_xy
-real*8     :: BigR_x, vv2, eta_T, visco_T, deta_dT, d2eta_d2T, dvisco_dT, d2visco_dT2, visco_num_T, eta_num_T, W_dia, W_dia_rho, W_dia_T
+real*8     :: BigR_x, vv2, eta_T, visco_T, deta_dT, d2eta_d2T, dvisco_dT, d2visco_dT2, visco_num_T, dvisco_num_dT, eta_num_T, deta_num_dT, W_dia, W_dia_rho, W_dia_T
 real*8     :: eta_T_ohm, deta_dT_ohm
 real*8     :: ZK_par_num, T0_ps0_x, T_ps0_x, T0_psi_x, T0_ps0_y, T_ps0_y, T0_psi_y, v_ps0_x, v_psi_x, v_ps0_y, v_psi_y
 real*8     :: amat_11, amat_12, amat_13, amat_14, amat_15, amat_16, amat_17
@@ -146,7 +145,7 @@ integer*8  :: plan
 
 integer    :: i_v, i_loc, j_loc
 #define DIM1 n_plane
-#define DIM2 1:n_vertex_max*n_var*(n_order+1)
+#define DIM2 1:n_vertex_max*n_var*n_degrees
 
 real*8, dimension(DIM1, DIM2, DIM2) :: ELM_p
 real*8, dimension(DIM1, DIM2, DIM2) :: ELM_n
@@ -154,6 +153,7 @@ real*8, dimension(DIM1, DIM2, DIM2) :: ELM_k
 real*8, dimension(DIM1, DIM2, DIM2) :: ELM_kn
 real*8, dimension(DIM1, DIM2)       :: RHS_p
 real*8, dimension(DIM1, DIM2)       :: RHS_k
+real*8, dimension(DIM1, DIM2, DIM2) :: ELM_pnn
 
 real*8, dimension(n_gauss,n_gauss)    :: x_g, x_s, x_t
 real*8, dimension(n_gauss,n_gauss)    :: x_ss, x_st, x_tt
@@ -201,7 +201,9 @@ TG_num1    = TGNUM(1); TG_num2    = TGNUM(2); TG_num5    = TGNUM(5); TG_num6    
 
 ! --- Take time evolution parameters from phys_module
 theta = time_evol_theta
-zeta  = time_evol_zeta
+!zeta  = time_evol_zeta
+! change zeta for variable dt
+zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 
 ! --- Do we need to use the FFT or non-FFT version?
 if ( (i_tor_min == 1) .and. (i_tor_max == n_tor) ) then
@@ -295,25 +297,25 @@ endif
 !======================================= NEO
 
 do i=1,n_vertex_max
-  do j=1,n_order+1
+  do j=1,n_degrees
     do ms=1, n_gauss
       do mt=1, n_gauss
 
-        x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-        x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-        x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+        x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+        x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+        x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
 
-        x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-        x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-        x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+        x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+        x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+        x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
 
-        y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
-        y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-        y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+        y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
+        y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+        y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
-        y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-        y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-        y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+        y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+        y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+        y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
 
       end do
     end do
@@ -345,6 +347,11 @@ do i=1,n_vertex_max
     enddo
   enddo
 enddo
+
+! changes deltas for variable time steps
+delta_g = delta_g * tstep / tstep_prev
+delta_s = delta_s * tstep / tstep_prev
+delta_t = delta_t * tstep / tstep_prev
 
 do ms=1, n_gauss
   do mt=1, n_gauss
@@ -385,7 +392,7 @@ eq_zTe = eq_zTe / 2.d0  ! electron temperature
 rec_particles_this_element = 0.d0
 !--------------------------------------------------- sum over the Gaussian integration points
 do i=1,n_vertex_max
-  do j=1,n_order+1
+  do j=1,n_degrees
     ELM_p(:,:,1:n_var)  = 0
     ELM_n(:,:,1:n_var)  = 0
     ELM_k(:,:,1:n_var)  = 0
@@ -640,7 +647,7 @@ do i=1,n_vertex_max
           end if
 
           if ( eta_T_dependent .and.  xpoint2 .and. (T0 .lt. T_min) ) then
-              eta_T     = eta    * (max(T0,T_min)/T_0)**(-1.5d0)
+              eta_T     = eta    * (T_min/T_0)**(-1.5d0)
               deta_dT   = 0.d0
               d2eta_d2T = 0.d0
           end if
@@ -663,7 +670,7 @@ do i=1,n_vertex_max
             dvisco_dT   = - visco * (1.5d0)  * T0_corr**(-2.5d0) * T_0**(1.5d0)
             d2visco_dT2 =   visco * (3.75d0) * T0_corr**(-3.5d0) * T_0**(1.5d0)
             if ( xpoint2 .and. (T0 .lt. T_min) ) then
-              visco_T     = visco  * (max(T0,T_min)/T_0)**(-1.5d0)
+              visco_T     = visco  * (T_min/T_0)**(-1.5d0)
               dvisco_dT   = 0.d0
               d2visco_dT2 = 0.d0
             endif
@@ -681,8 +688,8 @@ do i=1,n_vertex_max
               ZKpar_T   = Zk_par_max
               dZKpar_dT = 0.d0
             endif
-            if ( xpoint2 .and. (T0 .lt. T_min) ) then
-              ZKpar_T   = ZK_par * (max(T0,T_min)/T_0)**(+2.5d0)
+            if ( xpoint2 .and. (T0 .lt. T_min_ZKpar) ) then
+              ZKpar_T   = ZK_par * (T_min_ZKpar/T_0)**(+2.5d0)
               dZKpar_dT = 0.d0
             endif
           else
@@ -697,9 +704,32 @@ do i=1,n_vertex_max
           else
             W_dia = 0.d0
           endif
+          
+          ! --- Temperature dependent hyper-resistivity. There is no physical
+          ! reason for this dependence whatsoever, this is just to keep a constant
+          ! ratio between the resistivity and hyper-resistivity.
+          if ( eta_num_T_dependent .and. T0_corr <= T_max_eta) then
+             eta_num_T = eta_num * (T0_corr/T_0)**(-1.5d0)
+             deta_num_dT =  - eta_num * (1.5d0)  * T0_corr**(-2.5d0) * T_0**(1.5d0)
+          else if (eta_num_T_dependent .and. T0_corr > T_max_eta) then
+             eta_num_T = eta_num * (T_max_eta/T_0)**(-1.5d0)
+             deta_num_dT = 0.
+          else
+             eta_num_T = eta_num
+             deta_num_dT = 0.
+          end if
 
-          eta_num_T   = eta_num                         ! hyperresistivity
-          visco_num_T = visco_num                       ! hyperviscosity
+          ! --- Same for the hyper-viscosity.
+          if ( visco_num_T_dependent .and. T0_corr <= T_max_eta) then
+             visco_num_T = visco_num * (T0_corr/T_0)**(-1.5d0)
+             dvisco_num_dT =  - visco_num * (1.5d0)  * T0_corr**(-2.5d0) * T_0**(1.5d0) 
+          else if (visco_num_T_dependent .and. T0_corr > T_max_eta) then
+             visco_num_T = visco_num * (T_max_eta/T_0)**(-1.5d0)
+             dvisco_num_dT = 0.
+          else
+             visco_num_T = visco_num
+             dvisco_num_dT = 0.
+          end if
 
           psi_norm = get_psi_n( ps0, y_g(ms,mt))
 
@@ -1090,9 +1120,9 @@ do i=1,n_vertex_max
 			
             if (use_fft) then
 
-              index_ij =       n_var*(n_order+1)*(i-1) +       n_var*(j-1) + 1
+              index_ij =       n_var*n_degrees*(i-1) +       n_var*(j-1) + 1
             else
-              index_ij = n_tor_local*n_var*(n_order+1)*(i-1) + n_tor_local * n_var * (j-1) + im - n_tor_start +1 
+              index_ij = n_tor_local*n_var*n_degrees*(i-1) + n_tor_local * n_var * (j-1) + im - n_tor_start +1 
             endif
 
 
@@ -1136,7 +1166,7 @@ do i=1,n_vertex_max
 
             do k=1,n_vertex_max
 
-              do l=1,n_order+1
+              do l=1,n_degrees
 
                 do in = n_tor_start, n_tor_end
 
@@ -1912,9 +1942,9 @@ do i=1,n_vertex_max
 
                   if (use_fft) then
 
-                    index_kl =       n_var*(n_order+1)*(k-1) +       n_var*(l-1) + 1
+                    index_kl =       n_var*n_degrees*(k-1) +       n_var*(l-1) + 1
                   else
-                    index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local*n_var*(l-1) + in - n_tor_start +1
+                    index_kl = n_tor_local*n_var*n_degrees*(k-1) + n_tor_local*n_var*(l-1) + in - n_tor_start +1
                   endif
 
                   ! --- Fill up the matrix
@@ -2093,7 +2123,7 @@ do i=1,n_vertex_max
 
                 enddo ! in loop (n_tor, or not...)
 
-              enddo ! l loop (n_order+1)
+              enddo ! l loop n_degrees
             enddo ! k loop (n_vertex)
 
           enddo ! im loop (n_tor, or not...)
@@ -2109,10 +2139,10 @@ do i=1,n_vertex_max
     if (use_fft) then
 
       do i_v = 1, n_var
-        do j_loc=1, n_vertex_max*n_var*(n_order+1)
-          !index_ij = n_var*(n_order+1)*(i-1) + n_var * (j-1) + 1
+        do j_loc=1, n_vertex_max*n_var*n_degrees
+          !index_ij = n_var*n_degrees*(i-1) + n_var * (j-1) + 1
           !i_loc = index_ij + i_v-1
-          i_loc = n_var*(n_order+1)*(i-1) + n_var * (j-1) + i_v 
+          i_loc = n_var*n_degrees*(i-1) + n_var * (j-1) + i_v 
           in_fft =  ELM_p(1:n_plane,j_loc,i_v)
 #ifdef USE_FFTW
           call dfftw_execute_dft_r2c(fftw_plan, in_fft, out_fft)
@@ -2322,7 +2352,7 @@ do i=1,n_vertex_max
 
     endif ! apply fft (or not)
 
-  enddo ! j loop (n_order+1)
+  enddo ! j loop n_degrees
 enddo ! i loop (n_vertex)
 
 !write(21,*) 'element rec particles in this element,',	rec_particles_this_element!  * central_density* 1.d20
@@ -2332,7 +2362,7 @@ if (.NOT. use_fft) return
 
 ELM = 0.5d0 * ELM
 
-do j=1, n_vertex_max*n_var*(n_order+1)
+do j=1, n_vertex_max*n_var*n_degrees
 
   in_fft = RHS_p(1:n_plane,j)
 #ifdef USE_FFTW
@@ -2352,7 +2382,7 @@ do j=1, n_vertex_max*n_var*(n_order+1)
 
 enddo
 
-do j=1, n_vertex_max*n_var*(n_order+1)
+do j=1, n_vertex_max*n_var*n_degrees
 
   in_fft = RHS_k(1:n_plane,j)
 #ifdef USE_FFTW

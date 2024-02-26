@@ -6,13 +6,15 @@ program jorek_diagnostics
 !-----------------------------------------------------------------------
 !
 !-----------------------------------------------------------------------
-use mod_parameters, only: n_var, variable_names
+use mod_parameters, only: n_var
 use data_structure
 use phys_module
 use basis_at_gaussian
 use diffusivities, only: get_dperp, get_zkperp
 use nodes_elements
 use mod_boundary
+use corr_neg
+use mod_plasma_functions
 use mod_import_restart
 use equil_info, only : get_psi_n, ES
 use mod_interp
@@ -106,8 +108,8 @@ R_start = 1.d99
 Z_start = 1.d99
 do i_bnd_node = 1, bnd_node_list%n_bnd_nodes
   i_node = bnd_node_list%bnd_node(i_bnd_node)%index_jorek
-  R = node_list%node(i_node)%x(1,1)
-  Z = node_list%node(i_node)%x(1,2)
+  R = node_list%node(i_node)%x(1,1,1)
+  Z = node_list%node(i_node)%x(1,1,2)
   if ( ( node_list%node(i_node)%boundary == 3 ) .and. ( R > ES%R_xpoint(1) ) .and. ( Z < Z_start ) ) then
     R_start = R
     Z_start = Z
@@ -272,8 +274,8 @@ do m=1, n_plane
             else
               if ((m.eq.1) .and. (j.eq.1)) then
                 write(*,*) ' problem 4/9 : ',i,iv1,iv2,inode1,inode2
-                write(*,*) ' node1 R/Z   : ',node_list%node(inode1)%x(1,:),node_list%node(inode1)%boundary
-                write(*,*) ' node2 R/Z   : ',node_list%node(inode2)%x(1,:),node_list%node(inode2)%boundary
+                write(*,*) ' node1 R/Z   : ',node_list%node(inode1)%x(1,1,:),node_list%node(inode1)%boundary
+                write(*,*) ' node2 R/Z   : ',node_list%node(inode2)%x(1,1,:),node_list%node(inode2)%boundary
               endif
             endif
 
@@ -360,7 +362,7 @@ do m=1, n_plane
           D_prof   = get_dperp (psi_norm)
           ZK_prof  = get_zkperp(psi_norm)
 
-          ZKpar_T  = ZK_par * abs(max(T,T_min)/T_0)**2.5
+          call conductivity_parallel(ZK_par, ZK_par_max, T, corr_neg_temp(T), T_min_ZKpar, T_0, ZKpar_T)
 
           scalars(inode,1) = psi
           scalars(inode,2) = rho
@@ -378,7 +380,7 @@ do m=1, n_plane
 
             scalars(inode,5) = - (rho * Vpar * psi_s * normal)                  / R / sqrt(R_s**2 + Z_s**2)
 
-            scalars(inode,6) = - gamma_sheath*(rho * T * Vpar * psi_s * normal) / R / sqrt(R_s**2 + Z_s**2)
+            scalars(inode,6) = - (gamma_sheath -1.d0+gamma)*(rho * T * Vpar * psi_s * normal) / R / sqrt(R_s**2 + Z_s**2)
 
             if (abs(xjac) .gt. 1.d-7) then
 

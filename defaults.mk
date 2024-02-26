@@ -67,11 +67,20 @@ endif
 # Default flags for intel
 ifeq ($(COMPILER_FAMILY), intel)
   COMPILER_MAJOR_VERSION=$(shell $(FC) -V 2>&1 | grep -o "Version [0-9]*" | cut -d' ' -f 2)
+  COMPILER_MAJOR_VERSION_ID=$(shell $(FC) -V 2>&1 | grep -o "Version [0-9]*.*" | cut -d'.' -f 2)
   FFLAGS += -align
   ifeq ($(shell test $(COMPILER_MAJOR_VERSION) -ge 15; echo $$?),0)
     FLAGS += -qopenmp
   else
     FLAGS += -openmp
+  endif
+
+  ifeq ($(shell test $(COMPILER_MAJOR_VERSION) -gt 19; echo $$?),0)
+    FFLAGS +: -warn noexternal
+  else ifeq ($(shell test $(COMPILER_MAJOR_VERSION) -eq 19; echo $$?),0)
+    ifeq ($(shell test $(COMPILER_MAJOR_VERSION_ID) -ge 1; echo $$?),0)
+      FFLAGS += -warn noexternal
+    endif
   endif
   FFLAGS += -warn all
   FFLAGS += -warn nointerfaces
@@ -89,7 +98,7 @@ ifeq ($(COMPILER_FAMILY), intel)
     FFLAGS += -check all,noarg_temp_created
     FFLAGS += -check bounds
     FFLAGS += -check uninit
-    FFLAGS += -init=snan -init=zero
+    FFLAGS += -init=snan
     FFLAGS += -gen-interfaces -warn-interfaces
     F90FLAGS += -implicitnone
   endif
@@ -147,9 +156,42 @@ endef
 LIBS += $(LIBLAPACK) $(LIBBLAS) $(OPENMPLIB)
 DEFINES += -DJOREK_MODEL=$(MODEL_NUMBER) -DUSE_MPI
 
-# Use flags
+# Full-MHD models flags
 ifeq (model710, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
+endif
+ifeq (model711, $(MODEL))
+  DEFINES  := $(DEFINES) -Dfullmhd
+endif
+ifeq (model712, $(MODEL))
+  DEFINES  := $(DEFINES) -Dfullmhd
+endif
+ifeq (model750, $(MODEL))
+  DEFINES  := $(DEFINES) -Dfullmhd
+endif
+
+ifeq (.true., $(shell ./util/config.sh -p with_vpar))
+  DEFINES  := $(DEFINES) -DWITH_Vpar
+endif
+
+ifeq (.true., $(shell ./util/config.sh -p with_TiTe))
+  DEFINES  := $(DEFINES) -DWITH_TiTe
+endif
+
+ifeq (.true., $(shell ./util/config.sh -p with_neutrals))
+  DEFINES  := $(DEFINES) -DWITH_Neutrals
+endif
+
+ifeq (.true., $(shell ./util/config.sh -p with_impurities))
+  DEFINES  := $(DEFINES) -DWITH_Impurities
+endif
+
+ifeq (.true., $(shell ./util/config.sh -p with_refluid))
+  DEFINES  := $(DEFINES) -DWITH_REFluid
+endif
+
+ifneq (0, $(shell ./util/config.sh -p n_mod_ext))
+  DEFINES  := $(DEFINES) -DMODEL_FAMILY
 endif
 
 ifeq (1, $(USE_FFTW))
@@ -157,6 +199,13 @@ ifeq (1, $(USE_FFTW))
   DEFINES  := $(DEFINES) -DUSE_FFTW
   INCLUDES := $(INCLUDES) $(INC_FFTW)
 endif
+
+# polynomial order > 3 requires more Gauss points
+N_ORDER_PARAMETER = $(shell cat models/mod_settings.f90 |grep n_order |grep -v n_degrees | grep -v SETTINGS | awk '{print $$6}' | bc)
+ifneq (3, $(N_ORDER_PARAMETER))
+  DEFINES  := $(DEFINES) -DGAUSS_ORDER=8
+endif
+
 
 ifeq (1, $(USE_PASTIX_MURGE))
   LIBS     := $(LIBS) $(LIB_PASTIX_MURGE) $(LIB_PASTIX_BLAS)
@@ -181,8 +230,9 @@ endif
 
 ifeq (1, $(USE_PASTIX6))
   DEFINES  := $(DEFINES) -DUSE_PASTIX6
-  LIBS     := $(LIBS) $(LIB_PASTIX6)  $(LIB_PASTIX6_BLAS)
-  INCLUDES := $(INCLUDES) $(INC_PASTIX6)
+  LIBS     := $(LIBS) $(LIB_PASTIX)
+  INCLUDES := $(INCLUDES) $(INC_PASTIX)
+  EXTRA_FLAGS := $(EXTRA_FLAGS) -lstdc++ -std=c++14
 endif
 
 ifeq (1, $(USE_WSMP))
@@ -222,11 +272,33 @@ ifeq (1, $(USE_COMPLEX_PRECOND))
   DEFINES  := $(DEFINES) -DUSE_COMPLEX_PRECOND
 endif
 
+ifeq (1, $(USE_INTSIZE64))
+  DEFINES  := $(DEFINES) -DINTSIZE64
+endif
+
 ifeq (1, $(USE_STRUMPACK))
   DEFINES  := $(DEFINES) -DUSE_STRUMPACK
   LIBS     := $(LIBS) $(STRUMPACKLIB)
   INCLUDES := $(INCLUDES) $(STRUMPACKINC)
   EXTRA_FLAGS := $(EXTRA_FLAGS) -lstdc++ -std=c++14
+endif
+
+ifeq (1, $(USE_BICGSTAB))
+  DEFINES  := $(DEFINES) -DUSE_BICGSTAB
+else
+  DEFINES := $(DEFINES) -DUSE_GMRES
+endif
+
+ifeq (1, $(USE_IMAS))
+  LIBS     := $(LIBS) $(IMASLIB)
+  INCLUDES := $(INCLUDES) $(IMASINCLUDE)
+  DEFINES  := $(DEFINES) -DUSE_IMAS
+endif
+
+ifeq (1, $(USE_CATALYST))
+  LIBS     := $(LIBS) $(CATALYSTLIB)
+  INCLUDES := $(INCLUDES) -I$(CATALYSTINCLUDE)
+  DEFINES  := $(DEFINES) -DUSE_CATALYST
 endif
 
 
@@ -241,6 +313,7 @@ $(MODDIR)/version.h:
 	@echo "Generate .mod/version.h"
 	@rm -f $@.tmp
 	@echo "#define RCS_VERSION '`git describe --always --dirty --abbrev 2> /dev/null`'" >> $@.tmp
+	@echo "#define JOREK_VERSION '`git describe --tags \`git rev-list --tags --max-count=1\` 2> /dev/null`'" >> $@.tmp
 	@echo "#define RCS_LABEL '`git log -1 --format="%s (%D)" 2> /dev/null | sed -e "s/'/''/g" `'" >> $@.tmp
 	@echo "#define RCS_TIME '`git log -1 --format="%ad" 2> /dev/null`'" >> $@.tmp
 	@echo "#define compile_command '$(FC)'" >> $@.tmp

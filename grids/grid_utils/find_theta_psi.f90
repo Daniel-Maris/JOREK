@@ -13,6 +13,8 @@ use constants
 use data_structure
 use mod_interp
 use mod_find_rz_nearby
+use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
+
 implicit none
 ! Allow using .cross. to mean a right-handed cross product
 interface operator(.cross.)
@@ -48,7 +50,7 @@ integer, parameter :: i_var(1) = [1], n_ivar=1
 real*8,  parameter :: tol = 1d-8
 
 integer :: i, j, j1, j2, i_root
-logical :: out_of_domain
+logical :: out_of_domain, correct_quadrant
 logical, dimension(element_list%n_elements) :: psi_right
 real*8, dimension(n_dim) :: x1, x2
 real*8 :: u1, u2, lambda, root, r1, r2, r3
@@ -57,6 +59,7 @@ integer :: ielm1, ielm2
 real*8, dimension(1) :: A, B, C, D
 real*8, dimension(2) :: xi
 real*8, dimension(3) :: intersection
+integer  ::  vertex_start, vertex_step
 
 ! 0. Preparation
 out_of_domain = .false.
@@ -71,9 +74,16 @@ do i=1,element_list%n_elements
     u1 = 0.d0
     j1 = 0
     j2 = 0
-    do j=1,n_vertex_max
-      x1 = node_list%node(element_list%element(i)%vertex(j))%x(1,:)
-      x2 = node_list%node(element_list%element(i)%vertex(mod(j,n_vertex_max)+1))%x(1,:)
+    if(node_list%node(element_list%element(i)%vertex(1))%axis_node) then
+       vertex_start=2
+       vertex_step=2
+    else
+       vertex_start=1
+       vertex_step=1
+    endif
+    do j=vertex_start,n_vertex_max,vertex_step
+      x1 = node_list%node(element_list%element(i)%vertex(j))%x(1,1,:)
+      x2 = node_list%node(element_list%element(i)%vertex(mod(j,n_vertex_max)+1))%x(1,1,:)
       ! Intersection point in homogeneous coordinates
       ! (https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Using_homogeneous_coordinates)
       ! See also http://robotics.stanford.edu/~birch/projective/node4.html
@@ -93,7 +103,13 @@ do i=1,element_list%n_elements
       xi = intersection(1:2)/intersection(3) ! xy of intercept
       u  = norm2(xi-[R_axis,Z_axis])
       lambda = norm2(xi-x1)/norm2(x2-x1)
-      if (lambda .ge. 0.d0 .and. lambda .le. 1.d0 .and. u .gt. 0.d0) then ! if it is a crossing inside the element
+      if( sign(1.d0,xi(1)-R_axis)*sign(1.d0,cos(theta)) .gt. 0.d0 .and. &
+           sign(1.d0,xi(2)-Z_axis)*sign(1.d0,sin(theta)) .gt. 0.d0 ) then
+         correct_quadrant = .true.
+      else
+         correct_quadrant = .false.
+      endif
+      if (lambda .ge. 0.d0 .and. lambda .le. 1.d0 .and. u .gt. 0.d0 .and. correct_quadrant) then ! if it is a crossing inside the element
         if (u1 .lt. 1d-30) then ! and we have not yet found the first one
           u1 = u ! store values of first crossing
           j1 = j
@@ -228,7 +244,7 @@ do newton_iter_number = 1, newton_iter_max
   else
     out_of_domain = .false.
   end if
-  if (isnan(P(1)) .or. abs(u) .gt. 1d5 .or. abs(P(1)) .gt. 1d5) then
+  if (ieee_is_nan(P(1)) .or. abs(u) .gt. 1d5 .or. abs(P(1)) .gt. 1d5) then
     if (verbose) write(*,"(A,g13.6,A,g13.6,A,3g13.6,A,g13.6,A)") "Position not found for psi=", psi, ", theta=",theta, " last guess=", u, R_try, Z_try, " (psi=",P(1),")"
     i_elm = 0
     return

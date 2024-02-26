@@ -32,13 +32,15 @@ if (my_id .eq. 0) then
   write(*,*) '***************************************'
 endif
 
-if (my_id .eq. 0) then
+! --- This old projection method should be replaced by a direct solve on the elements
+! --- It is much cleaner and more generic
+if ( (my_id .eq. 0) .and. (n_order .le. 3) ) then
 
   do i=1,node_list%n_nodes
 
     psi = node_list%node(i)%values(1,1,1)
-    R   = node_list%node(i)%x(1,1)
-    Z   = node_list%node(i)%x(1,2)
+    R   = node_list%node(i)%x(1,1,1)
+    Z   = node_list%node(i)%x(1,1,2)
 
     call density(    xpoint2, xcase2, Z, ES%Z_xpoint, psi,ES%psi_axis,ES%psi_bnd,zn,dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,             &
                                                                dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz)
@@ -50,30 +52,42 @@ if (my_id .eq. 0) then
                                                                dFFprime_dpsi2,dFFprime_dz2, dFFprime_dpsi_dz, .true.)
 
     node_list%node(i)%values(1,1,5) = zn
-    node_list%node(i)%values(1,2,5) = dn_dpsi  * node_list%node(i)%values(1,2,1) + dn_dz * node_list%node(i)%x(2,2)
-    node_list%node(i)%values(1,3,5) = dn_dpsi  * node_list%node(i)%values(1,3,1) + dn_dz * node_list%node(i)%x(3,2)
-    node_list%node(i)%values(1,4,5) = dn_dpsi  * node_list%node(i)%values(1,4,1) + dn_dz * node_list%node(i)%x(4,2) &
+    node_list%node(i)%values(1,2,5) = dn_dpsi  * node_list%node(i)%values(1,2,1) + dn_dz * node_list%node(i)%x(1,2,2)
+    node_list%node(i)%values(1,3,5) = dn_dpsi  * node_list%node(i)%values(1,3,1) + dn_dz * node_list%node(i)%x(1,3,2)
+    node_list%node(i)%values(1,4,5) = dn_dpsi  * node_list%node(i)%values(1,4,1) + dn_dz * node_list%node(i)%x(1,4,2) &
                                     + dn_dpsi2 * node_list%node(i)%values(1,2,1) * node_list%node(i)%values(1,3,1)  &
-                                    + dn_dz2   * node_list%node(i)%x(2,2)        * node_list%node(i)%x(3,2) &
+                                    + dn_dz2   * node_list%node(i)%x(1,2,2)        * node_list%node(i)%x(1,3,2) &
                                     + dn_dpsi_dz * ( &
-                                      + node_list%node(i)%values(1,3,1) * node_list%node(i)%x(2,2) &
-                                      + node_list%node(i)%values(1,2,1) * node_list%node(i)%x(3,2) &
+                                      + node_list%node(i)%values(1,3,1) * node_list%node(i)%x(1,2,2) &
+                                      + node_list%node(i)%values(1,2,1) * node_list%node(i)%x(1,3,2) &
                                       )
 
     node_list%node(i)%values(1,1,6) = zT
-    node_list%node(i)%values(1,2,6) = dT_dpsi  * node_list%node(i)%values(1,2,1) + dT_dz * node_list%node(i)%x(2,2)
-    node_list%node(i)%values(1,3,6) = dT_dpsi  * node_list%node(i)%values(1,3,1) + dT_dz * node_list%node(i)%x(3,2)
-    node_list%node(i)%values(1,4,6) = dT_dpsi  * node_list%node(i)%values(1,4,1) + dT_dz * node_list%node(i)%x(4,2) &
+    node_list%node(i)%values(1,2,6) = dT_dpsi  * node_list%node(i)%values(1,2,1) + dT_dz * node_list%node(i)%x(1,2,2)
+    node_list%node(i)%values(1,3,6) = dT_dpsi  * node_list%node(i)%values(1,3,1) + dT_dz * node_list%node(i)%x(1,3,2)
+    node_list%node(i)%values(1,4,6) = dT_dpsi  * node_list%node(i)%values(1,4,1) + dT_dz * node_list%node(i)%x(1,4,2) &
                                     + dT_dpsi2 * node_list%node(i)%values(1,2,1) * node_list%node(i)%values(1,3,1)  &
-                                    + dT_dz2   * node_list%node(i)%x(2,2)        * node_list%node(i)%x(3,2) &
+                                    + dT_dz2   * node_list%node(i)%x(1,2,2)        * node_list%node(i)%x(1,3,2) &
                                     + dT_dpsi_dz * ( &
-                                      + node_list%node(i)%values(1,3,1) * node_list%node(i)%x(2,2) &
-                                      + node_list%node(i)%values(1,2,1) * node_list%node(i)%x(3,2) &
+                                      + node_list%node(i)%values(1,3,1) * node_list%node(i)%x(1,2,2) &
+                                      + node_list%node(i)%values(1,2,1) * node_list%node(i)%x(1,3,2) &
                                       )
 
   enddo
 
+endif ! n_order<=3
+
+! --- Variable projection is better at higher order...
+! --- (by the way, we could use this for n_order=3 and remove all the above as well, 
+! --- and remove all derivatives from profiles functions, which are not really needed, 
+! --- except dn_dpsi and dT_dpsi for current profile...)
+if (n_order .ge. 5) then
+  call Poisson(my_id,0,node_list,element_list,bnd_node_list,bnd_elm_list, &
+               var_psi,var_rho,1, ES%psi_axis,ES%psi_bnd,xpoint2,xcase2,ES%Z_xpoint,freeboundary_equil,refinement,1)
+  call Poisson(my_id,0,node_list,element_list,bnd_node_list,bnd_elm_list, &
+               var_psi,var_T,1, ES%psi_axis,ES%psi_bnd,xpoint2,xcase2,ES%Z_xpoint,freeboundary_equil,refinement,1)
 endif
+
 
 !---------------------------- initialise perturbations
 
@@ -89,7 +103,7 @@ do in=2,n_tor
       node_list%node(i)%values(in,:,:) = 0.d0
 
       psi = node_list%node(i)%values(1,1,1)
-      Z   = node_list%node(i)%x(1,2)
+      Z   = node_list%node(i)%x(1,1,2)
 
       psi_n = (psi - ES%psi_axis)/(ES%psi_bnd - ES%psi_axis)
 
@@ -98,10 +112,10 @@ do in=2,n_tor
       node_list%node(i)%values(in,3,4) = amplitude * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * node_list%node(i)%values(1,3,1)
       node_list%node(i)%values(in,4,4) = amplitude * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * node_list%node(i)%values(1,4,1)
 
-      if (xpoint2 .and. ((psi_n .gt. 1.d0) .or. ((Z .lt. ES%Z_xpoint(1)) .and. (xcase2 .ne. 2)) ) ) then
+      if (xpoint2 .and. ((psi_n .gt. 1.d0) .or. ((Z .lt. ES%Z_xpoint(1)) .and. (xcase2 .ne. UPPER_XPOINT)) ) ) then
         node_list%node(i)%values(in,1:4,4) = 0.d0
       endif
-      if (xpoint2 .and. ((psi_n .gt. 1.d0) .or. ((Z .gt. ES%Z_xpoint(2)) .and. (xcase2 .ne. 1)) ) ) then
+      if (xpoint2 .and. ((psi_n .gt. 1.d0) .or. ((Z .gt. ES%Z_xpoint(2)) .and. (xcase2 .ne. LOWER_XPOINT)) ) ) then
         node_list%node(i)%values(in,1:4,4) = 0.d0
       endif
 

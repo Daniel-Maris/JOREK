@@ -56,9 +56,6 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   use data_structure
   use phys_module
   use pellet_module
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501 || JOREK_MODEL == 555)
-  use mod_neutral_source
-#endif
   use vacuum, only: import_restart_vacuum, current_FB_fact
   use mod_element_rtree, only: populate_element_rtree
   
@@ -80,13 +77,22 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   real*8,  allocatable :: spi_R_arr (:)
   real*8,  allocatable :: spi_Z_arr (:)
   real*8,  allocatable :: spi_phi_arr (:)
+  real*8,  allocatable :: spi_phi_init_arr (:)
   real*8,  allocatable :: spi_Vel_R_arr (:)
   real*8,  allocatable :: spi_Vel_Z_arr (:)
   real*8,  allocatable :: spi_Vel_RxZ_arr (:)
   real*8,  allocatable :: spi_radius_arr (:)
   real*8,  allocatable :: spi_abl_arr (:)
+  real*8,  allocatable :: spi_species_arr (:)
+  real*8,  allocatable :: spi_vol_arr (:)
+  real*8,  allocatable :: spi_psi_arr (:)
+  real*8,  allocatable :: spi_grad_psi_arr (:)
+  real*8,  allocatable :: spi_vol_arr_drift (:)
+  real*8,  allocatable :: spi_psi_arr_drift (:)
+  real*8,  allocatable :: spi_grad_psi_arr_drift (:)
+  integer, allocatable :: plasmoid_in_domain_arr (:)
 
-  integer              :: n_spi_check
+  integer              :: n_spi_check, n_inj_check
   logical              :: modes_changed
  
   real*8, allocatable :: t_energies(:,:,:)   !< Magnetic and kinetic mode energies at previous timesteps.
@@ -119,7 +125,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   read(21) n_tor_tmp
 
-  allocate(mode_tmp(n_tor_tmp), values_tmp(n_tor_tmp,n_order+1,n_var), deltas_tmp(n_tor_tmp,n_order+1,n_var))
+  allocate(mode_tmp(n_tor_tmp), values_tmp(n_tor_tmp,n_degrees,n_var), deltas_tmp(n_tor_tmp,n_degrees,n_var))
 
   if (format_rst == 1) then
     read(21) mode_tmp
@@ -170,6 +176,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     read(21) node_list%node(i)%index
     read(21) node_list%node(i)%boundary
     read(21) node_list%node(i)%axis_node
+    read(21) node_list%node(i)%axis_dof
     read(21) node_list%node(i)%parents
     read(21) node_list%node(i)%parent_elem
     read(21) node_list%node(i)%ref_lambda
@@ -201,7 +208,14 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   read(21) index_start
   read(21) t_start
   
+  ! Status of the axis treatment
+  read(21) treat_axis
+ 
+  write(*,*) 'CHECK (1): allocating energies in import_restart : ',index_start,index_start+nstep
+
   if (index_start .ge. 1) then
+
+    write(*,*) 'CHECK (2): allocating energies in import_restart : ',index_start,index_start+nstep
 
     if (allocated(xtime)) call tr_deallocate(xtime,"xtime",CAT_UNKNOWN)
     call tr_allocate(xtime,1,index_start+nstep,"xtime",CAT_UNKNOWN)
@@ -310,6 +324,14 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     call tr_allocate(thermal_tot_t,1,index_start+nstep,"thermal_tot_t",CAT_UNKNOWN)
     thermal_tot_t = 0.d0
 
+    if (allocated(thermal_e_tot_t)) call tr_deallocate(thermal_e_tot_t,"thermal_e_tot_t",CAT_UNKNOWN)
+    call tr_allocate(thermal_e_tot_t,1,index_start+nstep,"thermal_e_tot_t",CAT_UNKNOWN)
+    thermal_e_tot_t = 0.d0
+
+    if (allocated(thermal_i_tot_t)) call tr_deallocate(thermal_i_tot_t,"thermal_i_tot_t",CAT_UNKNOWN)
+    call tr_allocate(thermal_i_tot_t,1,index_start+nstep,"thermal_i_tot_t",CAT_UNKNOWN)
+    thermal_i_tot_t = 0.d0
+
     if (allocated(kin_par_tot_t)) call tr_deallocate(kin_par_tot_t,"kin_par_tot_t",CAT_UNKNOWN)
     call tr_allocate(kin_par_tot_t,1,index_start+nstep,"kin_par_tot_t",CAT_UNKNOWN)
     kin_par_tot_t = 0.d0
@@ -398,9 +420,18 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
     call tr_allocate(viscopar_dissip_tot_t,1,index_start+nstep,"viscopar_dissip_tot_t",CAT_UNKNOWN)
     viscopar_dissip_tot_t = 0.d0
 
+    if (allocated(visco_dissip_tot_t)) call tr_deallocate(visco_dissip_tot_t,"visco_dissip_tot_t",CAT_UNKNOWN)
+    call tr_allocate(visco_dissip_tot_t,1,index_start+nstep,"visco_dissip_tot_t",CAT_UNKNOWN)
+    visco_dissip_tot_t = 0.d0
+
+    if (allocated(friction_dissip_tot_t)) call tr_deallocate(friction_dissip_tot_t,"friction_dissip_tot_t",CAT_UNKNOWN)
+    call tr_allocate(friction_dissip_tot_t,1,index_start+nstep,"friction_dissip_tot_t",CAT_UNKNOWN)
+    friction_dissip_tot_t = 0.d0
+
     if (allocated(thmwork_tot_t)) call tr_deallocate(thmwork_tot_t,"thmwork_tot_t",CAT_UNKNOWN)
     call tr_allocate(thmwork_tot_t,1,index_start+nstep,"thmwork_tot_t",CAT_UNKNOWN)
     thmwork_tot_t = 0.d0
+
 
     if (allocated(volume_t)) call tr_deallocate(volume_t,"volume_t",CAT_UNKNOWN)
     call tr_allocate(volume_t,1,index_start+nstep,"volume_t",CAT_UNKNOWN)
@@ -448,10 +479,11 @@ endif
   call import_restart_vacuum(21, freeboundary, resistive_wall)  
   
   !--- Some parameters need to be scaled when importing a free-boundary equilibrium
-  T_0  = T_0 * current_FB_fact
-  T_1  = T_1 * current_FB_fact
-  FF_0 = FF_0 * current_FB_fact
-  FF_1 = FF_1 * current_FB_fact
+  T_0  = T_0  * current_FB_fact / prev_FB_fact
+  T_1  = T_1  * current_FB_fact / prev_FB_fact
+  FF_0 = FF_0 * current_FB_fact / prev_FB_fact
+  FF_1 = FF_1 * current_FB_fact / prev_FB_fact
+  prev_FB_fact = current_FB_fact
 
   if (use_pellet) then
     if (index_start .ge. 1) then
@@ -478,56 +510,123 @@ endif
     write(*,'(A,e12.4,2f10.5)') ' *** PELLET PARAMETERS : ',pellet_particles, pellet_R, pellet_Z
   endif
 
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
+  if (index_start >= 1) then
+    if (allocated(xtime_radiation)) &
+      call tr_deallocate(xtime_radiation,"xtime_radiation",CAT_UNKNOWN)
+    call tr_allocate(xtime_radiation,1,index_start+nstep,"xtime_radiation",CAT_UNKNOWN)
+    read(21)  xtime_radiation(1:index_start)
+    if (allocated(xtime_rad_power)) &
+      call tr_deallocate(xtime_rad_power,"xtime_rad_power",CAT_UNKNOWN)
+    call tr_allocate(xtime_rad_power,1,index_start+nstep,"xtime_rad_power",CAT_UNKNOWN)
+    read(21)  xtime_rad_power(1:index_start)
+    if (allocated(xtime_E_ion)) &
+      call tr_deallocate(xtime_E_ion,"xtime_E_ion",CAT_UNKNOWN)
+    call tr_allocate(xtime_E_ion,1,index_start+nstep,"xtime_E_ion",CAT_UNKNOWN)
+    read(21)  xtime_E_ion(1:index_start)
+    if (allocated(xtime_E_ion_power)) &
+      call tr_deallocate(xtime_E_ion_power,"xtime_E_ion_power",CAT_UNKNOWN)
+    call tr_allocate(xtime_E_ion_power,1,index_start+nstep,"xtime_E_ion_power",CAT_UNKNOWN)
+    read(21)  xtime_E_ion_power(1:index_start)
+    if (allocated(xtime_P_ei)) &
+      call tr_deallocate(xtime_P_ei,"xtime_P_ei",CAT_UNKNOWN)
+    call tr_allocate(xtime_P_ei,1,index_start+nstep,"xtime_P_ei",CAT_UNKNOWN)
+    read(21)  xtime_P_ei(1:index_start)
+  end if
+#endif
+
   if (using_spi) then
-    if (n_spi >= 1) then
+    if (n_spi_tot >= 1) then
 
       if (index_start >= 1) then
 
         if (allocated(xtime_spi_ablation)) &
           call tr_deallocate(xtime_spi_ablation,"xtime_spi_ablation",CAT_UNKNOWN)
-        call tr_allocate(xtime_spi_ablation,1,n_spi,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
         if (allocated(xtime_spi_ablation_rate)) &
           call tr_deallocate(xtime_spi_ablation_rate,"xtime_spi_ablation_rate",CAT_UNKNOWN)
-        call tr_allocate(xtime_spi_ablation_rate,1,n_spi,1,index_start+nstep,"xtime_spi_ablation_rate",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation_rate,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation_rate",CAT_UNKNOWN)
+        if (allocated(xtime_spi_ablation_bg)) &
+          call tr_deallocate(xtime_spi_ablation_bg,"xtime_spi_ablation_bg",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation_bg,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation_bg",CAT_UNKNOWN)
+        if (allocated(xtime_spi_ablation_bg_rate)) &
+          call tr_deallocate(xtime_spi_ablation_bg_rate,"xtime_spi_ablation_bg_rate",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation_bg_rate,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation_bg_rate",CAT_UNKNOWN)
 
-        read(21)  xtime_spi_ablation(1:n_spi,1:index_start)
-        read(21)  xtime_spi_ablation_rate(1:n_spi,1:index_start)
+        read(21)  xtime_spi_ablation(1:n_spi_tot,1:index_start)
+        read(21)  xtime_spi_ablation_rate(1:n_spi_tot,1:index_start)
+        read(21)  xtime_spi_ablation_bg(1:n_spi_tot,1:index_start)
+        read(21)  xtime_spi_ablation_bg_rate(1:n_spi_tot,1:index_start)
       end if
 
       read(21,err=999, end=999) n_spi_check
 
-      if (n_spi_check /= n_spi) then
-        write(*,*) "Inconsistency in n_spi detected, exiting!"
+      if (n_spi_check /= n_spi_tot) then
+        write(*,*) "Inconsistency in n_spi_tot detected, exiting!"
         stop
       end if
-      
-      allocate (spi_R_arr(n_spi))
-      allocate (spi_Z_arr(n_spi))
-      allocate (spi_phi_arr(n_spi))
-      allocate (spi_Vel_R_arr(n_spi))
-      allocate (spi_Vel_Z_arr(n_spi))
-      allocate (spi_Vel_RxZ_arr(n_spi))
-      allocate (spi_radius_arr(n_spi))
-      allocate (spi_abl_arr(n_spi))
-    
-      read(21,err=999, end=999)  spi_R_arr(1:n_spi)
-      read(21,err=999, end=999)  spi_Z_arr(1:n_spi)
-      read(21,err=999, end=999)  spi_phi_arr(1:n_spi)
-      read(21,err=999, end=999)  spi_Vel_R_arr(1:n_spi)
-      read(21,err=999, end=999)  spi_Vel_Z_arr(1:n_spi)
-      read(21,err=999, end=999)  spi_Vel_RxZ_arr(1:n_spi)
-      read(21,err=999, end=999)  spi_radius_arr(1:n_spi)
-      read(21,err=999, end=999)  spi_abl_arr(1:n_spi)
 
-      do i=1, n_spi
+      read(21,err=999, end=999) n_inj_check
+
+      if (n_inj_check /= n_inj) then
+        write(*,*) "Inconsistency in n_inj detected, exiting!"
+        stop
+      end if      
+
+      allocate (spi_R_arr(n_spi_tot))
+      allocate (spi_Z_arr(n_spi_tot))
+      allocate (spi_phi_arr(n_spi_tot))
+      allocate (spi_phi_init_arr(n_spi_tot))
+      allocate (spi_Vel_R_arr(n_spi_tot))
+      allocate (spi_Vel_Z_arr(n_spi_tot))
+      allocate (spi_Vel_RxZ_arr(n_spi_tot))
+      allocate (spi_radius_arr(n_spi_tot))
+      allocate (spi_abl_arr(n_spi_tot))
+      allocate (spi_species_arr(n_spi_tot))
+      allocate (spi_vol_arr(n_spi_tot))
+      allocate (spi_psi_arr(n_spi_tot))
+      allocate (spi_grad_psi_arr(n_spi_tot))
+      allocate (spi_vol_arr_drift(n_spi_tot))
+      allocate (spi_psi_arr_drift(n_spi_tot))
+      allocate (spi_grad_psi_arr_drift(n_spi_tot))
+      allocate (plasmoid_in_domain_arr(n_spi_tot))
+    
+      read(21,err=999, end=999)  spi_R_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_Z_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_phi_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_phi_init_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_Vel_R_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_Vel_Z_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_Vel_RxZ_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_radius_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_abl_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_species_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_vol_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_psi_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_grad_psi_arr(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_vol_arr_drift(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_psi_arr_drift(1:n_spi_tot)
+      read(21,err=999, end=999)  spi_grad_psi_arr_drift(1:n_spi_tot)
+      read(21,err=999, end=999)  plasmoid_in_domain_arr(1:n_spi_tot)
+
+      do i=1, n_spi_tot
         pellets(i)%spi_R       = spi_R_arr(i)
         pellets(i)%spi_Z       = spi_Z_arr(i)
         pellets(i)%spi_phi     = spi_phi_arr(i)
+        pellets(i)%spi_phi_init= spi_phi_init_arr(i)
         pellets(i)%spi_Vel_R   = spi_Vel_R_arr(i)
         pellets(i)%spi_Vel_Z   = spi_Vel_Z_arr(i)
         pellets(i)%spi_Vel_RxZ = spi_Vel_RxZ_arr(i)
         pellets(i)%spi_radius  = spi_radius_arr(i)
         pellets(i)%spi_abl     = spi_abl_arr(i)
+        pellets(i)%spi_species = spi_species_arr(i)
+        pellets(i)%spi_vol     = spi_vol_arr(i)
+        pellets(i)%spi_psi     = spi_psi_arr(i)
+        pellets(i)%spi_grad_psi= spi_grad_psi_arr(i)
+        pellets(i)%spi_vol_drift     = spi_vol_arr_drift(i)
+        pellets(i)%spi_psi_drift     = spi_psi_arr_drift(i)
+        pellets(i)%spi_grad_psi_drift= spi_grad_psi_arr_drift(i)
+        pellets(i)%plasmoid_in_domain= plasmoid_in_domain_arr(i)
 
         write(*,'(A,I5,6ES10.2)') ' *** SHATTERED PELLET PARAMETERS : ',i, pellets(i)%spi_R, pellets(i)%spi_Z, &
                         pellets(i)%spi_phi, pellets(i)%spi_Vel_R, pellets(i)%spi_Vel_Z, pellets(i)%spi_radius
@@ -536,11 +635,20 @@ endif
       deallocate (spi_R_arr)
       deallocate (spi_Z_arr)
       deallocate (spi_phi_arr)
+      deallocate (spi_phi_init_arr)
       deallocate (spi_Vel_R_arr)
       deallocate (spi_Vel_Z_arr)
       deallocate (spi_Vel_RxZ_arr)
       deallocate (spi_radius_arr)
       deallocate (spi_abl_arr)
+      deallocate (spi_species_arr)
+      deallocate (spi_vol_arr)
+      deallocate (spi_psi_arr)
+      deallocate (spi_grad_psi_arr)
+      deallocate (spi_vol_arr_drift)
+      deallocate (spi_psi_arr_drift)
+      deallocate (spi_grad_psi_arr_drift)
+      deallocate (plasmoid_in_domain_arr)
 
       if (spi_tor_rot) then
         read(21,err=999, end=999) ns_phi_rotate 
@@ -595,8 +703,8 @@ endif
       endif
 
       allocate( mode_tmp_perturbation  (n_tor_tmp_perturbation                ) )
-      allocate( values_tmp_perturbation(n_tor_tmp_perturbation,n_order+1,n_var) )
-      allocate( deltas_tmp_perturbation(n_tor_tmp_perturbation,n_order+1,n_var) )
+      allocate( values_tmp_perturbation(n_tor_tmp_perturbation,n_degrees,n_var) )
+      allocate( deltas_tmp_perturbation(n_tor_tmp_perturbation,n_degrees,n_var) )
 
       if (format_rst == 1) then
    	read(21) mode_tmp_perturbation
@@ -637,6 +745,7 @@ endif
    	read(21) node_list_perturbation%node(i)%index
    	read(21) node_list_perturbation%node(i)%boundary
    	read(21) node_list_perturbation%node(i)%axis_node
+        read(21) node_list_perturbation%node(i)%axis_dof
    	read(21) node_list_perturbation%node(i)%parents
    	read(21) node_list_perturbation%node(i)%parent_elem
    	read(21) node_list_perturbation%node(i)%ref_lambda
@@ -693,12 +802,14 @@ endif
       do i=1,node_list%n_nodes
         node_list%node(i)%values(n_tor_tmp+1:n_tor,:,:)= 0.d0
         do j=n_tor_tmp+1, n_tor
-          node_list%node(i)%values(j,:,5)= amplitude * node_list%node(i)%values(1,:,5)
-          node_list%node(i)%values(j,:,6)= amplitude * node_list%node(i)%values(1,:,6)
-#if (JOREK_MODEL == 400)
-          node_list%node(i)%values(j,:,8)= amplitude * node_list%node(i)%values(1,:,8)
+          node_list%node(i)%values(j,:,var_rho)= amplitude * node_list%node(i)%values(1,:,var_rho)
+#ifdef WITH_TiTe
+          node_list%node(i)%values(j,:,var_Ti)= amplitude * node_list%node(i)%values(1,:,var_Ti)
+          node_list%node(i)%values(j,:,var_Te)= amplitude * node_list%node(i)%values(1,:,var_Te)
+#else
+          node_list%node(i)%values(j,:,var_T)  = amplitude * node_list%node(i)%values(1,:,var_T)
 #endif
-#if (JOREK_MODEL == 710)
+#ifdef fullmhd
           node_list%node(i)%values(j,:,var_AR)= amplitude * node_list%node(i)%values(1,:,var_AR)
           node_list%node(i)%values(j,:,var_AZ)= amplitude * node_list%node(i)%values(1,:,var_AZ)
           node_list%node(i)%values(j,:,var_A3)= amplitude * node_list%node(i)%values(1,:,var_A3)
@@ -719,6 +830,8 @@ endif
   if (allocated(deltas_tmp)) call tr_deallocate(deltas_tmp,"deltas_tmp",CAT_UNKNOWN)
 
   call populate_element_rtree(node_list, element_list)
+  
+  equil_initialized = .true.
 
   return
 end subroutine import_binary_restart
@@ -734,15 +847,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   use data_structure
   use phys_module
   use pellet_module
-#if (JOREK_MODEL == 500 || JOREK_MODEL == 501 || JOREK_MODEL == 555)
-  use mod_neutral_source
-#endif
   use vacuum, only: import_HDF5_restart_vacuum, current_FB_fact
   use mod_element_rtree, only: populate_element_rtree
 #ifdef USE_HDF5
   use hdf5
   use hdf5_io_module
-  !use tr_module
   use mod_parameters 
 #endif
   
@@ -765,20 +874,20 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   logical, parameter   			:: import_perturbation = .false.
 
   ! --- Local variables
-  integer              :: i, j, m, k, n_tor_tmp, jorek_model_tmp, n_var_tmp, n_order_tmp, n_period_tmp, rst_hdf5_version_tmp
+  integer              :: i, j, m, k, n_tor_tmp, n_coord_tor_tmp, jorek_model_tmp, n_var_tmp, n_order_tmp, n_period_tmp, rst_hdf5_version_tmp
   integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp
   integer              :: n_pieces_max_tmp, n_degrees_tmp, nref_max_tmp, n_ref_list_tmp, n_new_modes
   real*8               :: growth_mag, growth_kin, amplitude
   integer, allocatable :: mode_tmp(:), new_mode(:)
   real*8,  allocatable :: values_tmp(:,:,:), deltas_tmp(:,:,:)
-  character*50         :: version_control, version_control_tmp
+  character*50         :: version_control, version_control_tmp, t_treat_axis
   logical              :: kept, modes_changed, import_3xx_4xx
   
 #ifdef USE_HDF5
-  integer(HID_T)     :: file_id
-  integer            :: ind, n_spi_check
+  integer(HID_T)     :: file_id, datatype, dataset
+  integer            :: ind, n_spi_check, n_inj_check
   
-  real(RKIND), allocatable :: t_x(:,:,:)
+  real(RKIND), allocatable :: t_x(:,:,:,:)
   real(RKIND), allocatable :: t_values(:,:,:,:)
   real(RKIND), allocatable :: t_deltas(:,:,:,:)
 
@@ -788,6 +897,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   integer,     allocatable :: t_index(:,:)
   integer,     allocatable :: t_boundary(:)
   character,   allocatable :: t_axis_node(:)     
+  integer,     allocatable :: t_axis_dof(:)
   integer,     allocatable :: t_parents(:,:)
   integer,     allocatable :: t_parent_elem(:)
   real(RKIND), allocatable :: t_ref_lambda(:)
@@ -809,14 +919,24 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   real*8, allocatable :: spi_R_arr (:)
   real*8, allocatable :: spi_Z_arr (:)
   real*8, allocatable :: spi_phi_arr (:)
+  real*8, allocatable :: spi_phi_init_arr (:)
   real*8, allocatable :: spi_Vel_R_arr (:)
   real*8, allocatable :: spi_Vel_Z_arr (:)
   real*8, allocatable :: spi_Vel_RxZ_arr (:)
   real*8, allocatable :: spi_radius_arr (:)
   real*8, allocatable :: spi_abl_arr (:)
+  real*8, allocatable :: spi_species_arr (:)
+  integer, allocatable :: spi_species_arr_old (:)  !< For backward compatibility only
+  real*8, allocatable :: spi_vol_arr (:)
+  real*8, allocatable :: spi_psi_arr (:)
+  real*8, allocatable :: spi_grad_psi_arr (:)
+  real*8, allocatable :: spi_vol_arr_drift (:)
+  real*8, allocatable :: spi_psi_arr_drift (:)
+  real*8, allocatable :: spi_grad_psi_arr_drift (:)
+  integer,allocatable :: plasmoid_in_domain_arr (:)
 
-  integer :: err_alloc, err_exists
-  logical :: flag_exists
+  integer :: err_exists, dterr, n_spi_begin, i_inj
+  logical :: flag_exists, type_match
 
   real*8, allocatable :: t_energies(:,:,:)   !< Magnetic and kinetic mode energies at previous timesteps.
   real*8, allocatable :: t_energies2(:,:,:)  !< Magnetic and kinetic mode energies at previous timesteps.
@@ -872,6 +992,12 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   end if
   call HDF5_integer_reading(file_id,n_order_tmp,"n_order")
   call HDF5_integer_reading(file_id,n_tor_tmp, "n_tor")
+  n_tor_restart = n_tor_tmp
+  if (rst_hdf5_version_tmp .eq. 2) then
+    call HDF5_integer_reading(file_id,n_coord_tor_tmp, "n_coord_tor")
+  else
+    n_coord_tor_tmp = 1
+  endif  
   call HDF5_integer_reading(file_id,n_period_tmp, "n_period")
   call HDF5_integer_reading(file_id,n_plane_tmp, "n_plane")
   call HDF5_integer_reading(file_id,n_vertex_max_tmp, "n_vertex_max")
@@ -924,7 +1050,12 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
        ' Warning: Increasing number of harmonics from', n_tor_tmp, ' to', n_tor, '!'
   if (n_period_tmp .ne. n_period) write(*,'(3(a,i5))') &
        ' Warning: n_period has changed from', n_period_tmp, ' to', n_period
-
+  if (n_coord_tor_tmp .ne. n_coord_tor) then
+    write(*,'(3(a,i5))') "Error: The number of toroidal harmonics in the grid representation has changed from ", &
+                         n_coord_tor_tmp, " to ", n_coord_tor, "!"
+    stop
+  endif
+    
   !write(*,'(2(A,i5))') ' Importing ',n_tor_tmp,' harmonics with n_period=', n_period_tmp 
 
   call HDF5_integer_reading(file_id,node_list%n_nodes,"n_nodes")
@@ -932,38 +1063,43 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_integer_reading(file_id,node_list%n_dof,"n_dof")
 
   ! -> Allocate temporary arrays 
-  call tr_allocate(t_x,     1,node_list%n_nodes,1,n_order+1,1,n_dim,             "node_list%x",     CAT_UNKNOWN)
-  call tr_allocate(t_values,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_var_tmp, "node_list%values",CAT_UNKNOWN)
-  call tr_allocate(t_deltas,1,node_list%n_nodes,1,n_tor_tmp,1,n_order+1,1,n_var_tmp, "node_list%deltas",CAT_UNKNOWN)
+  call tr_allocate(t_x,     1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_degrees_tmp,1,n_dim,         "node_list%x",     CAT_UNKNOWN)
+  call tr_allocate(t_values,1,node_list%n_nodes,1,      n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "node_list%values",CAT_UNKNOWN)
+  call tr_allocate(t_deltas,1,node_list%n_nodes,1,      n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "node_list%deltas",CAT_UNKNOWN)
  
 #ifdef fullmhd
-  call tr_allocate(t_psi_eq,  1,node_list%n_nodes,1,n_order+1, "node_list%psi_eq",  CAT_UNKNOWN)
-  call tr_allocate(t_Fprof_eq,1,node_list%n_nodes,1,n_order+1, "node_list%Fprof_eq",CAT_UNKNOWN)
+  call tr_allocate(t_psi_eq,  1,node_list%n_nodes,1,n_degrees_tmp, "node_list%psi_eq",  CAT_UNKNOWN)
+  call tr_allocate(t_Fprof_eq,1,node_list%n_nodes,1,n_degrees_tmp, "node_list%Fprof_eq",CAT_UNKNOWN)
 #elif altcs
-  call tr_allocate(t_psi_eq,  1,node_list%n_nodes,1,n_order+1, "node_list%psi_eq",  CAT_UNKNOWN)
+  call tr_allocate(t_psi_eq,  1,node_list%n_nodes,1,n_degrees_tmp, "node_list%psi_eq",  CAT_UNKNOWN)
 #endif
  
-  call tr_allocate(t_index,      1,node_list%n_nodes,1,n_order+1,"index",      CAT_UNKNOWN)
-  call tr_allocate(t_boundary,   1,node_list%n_nodes,            "boundary",   CAT_UNKNOWN)
-  call tr_allocate(t_axis_node,  1,node_list%n_nodes,            "axis_node",  CAT_UNKNOWN)
-  call tr_allocate(t_parents,    1,node_list%n_nodes,1,2,        "parent",     CAT_UNKNOWN)
-  call tr_allocate(t_parent_elem,1,node_list%n_nodes,            "parent_elem",CAT_UNKNOWN)
-  call tr_allocate(t_ref_lambda, 1,node_list%n_nodes,            "ref_lambda" ,CAT_UNKNOWN)
-  call tr_allocate(t_ref_mu,     1,node_list%n_nodes,            "ref_mu",     CAT_UNKNOWN)
-  call tr_allocate(t_constrained,1,node_list%n_nodes,            "constrained",CAT_UNKNOWN)
+  call tr_allocate(t_index,      1,node_list%n_nodes,1,n_degrees_tmp,"index",      CAT_UNKNOWN)
+  call tr_allocate(t_boundary,   1,node_list%n_nodes,                "boundary",   CAT_UNKNOWN)
+  call tr_allocate(t_axis_node,  1,node_list%n_nodes,                "axis_node",  CAT_UNKNOWN)
+  call tr_allocate(t_axis_dof,   1,node_list%n_nodes,                "axis_dof",  CAT_UNKNOWN)
+  call tr_allocate(t_parents,    1,node_list%n_nodes,1,2,            "parent",     CAT_UNKNOWN)
+  call tr_allocate(t_parent_elem,1,node_list%n_nodes,                "parent_elem",CAT_UNKNOWN)
+  call tr_allocate(t_ref_lambda, 1,node_list%n_nodes,                "ref_lambda" ,CAT_UNKNOWN)
+  call tr_allocate(t_ref_mu,     1,node_list%n_nodes,                "ref_mu",     CAT_UNKNOWN)
+  call tr_allocate(t_constrained,1,node_list%n_nodes,                "constrained",CAT_UNKNOWN)
 
   ! type_element, element_list%n_elements
-  call tr_allocate(t_vertex,      1,element_list%n_elements,1,n_vertex_max,             "vertex",CAT_UNKNOWN)
-  call tr_allocate(t_neighbours,  1,element_list%n_elements,1,n_vertex_max,             "neighbours",CAT_UNKNOWN)
-  call tr_allocate(t_size,        1,element_list%n_elements,1,n_vertex_max,1,n_order+1, "size",CAT_UNKNOWN)
-  call tr_allocate(t_father,      1,element_list%n_elements,                            "father",CAT_UNKNOWN)
-  call tr_allocate(t_n_sons,      1,element_list%n_elements,                            "n_sons",CAT_UNKNOWN)
-  call tr_allocate(t_n_gen,       1,element_list%n_elements,                            "n_gen",CAT_UNKNOWN)
-  call tr_allocate(t_sons,        1,element_list%n_elements,1,4,                        "sons",CAT_UNKNOWN)
-  call tr_allocate(t_contain_node,1,element_list%n_elements,1,5,                        "contain_node",CAT_UNKNOWN)
-  call tr_allocate(t_nref,        1,element_list%n_elements,                            "nref",CAT_UNKNOWN)
+  call tr_allocate(t_vertex,      1,element_list%n_elements,1,n_vertex_max,                 "vertex",CAT_UNKNOWN)
+  call tr_allocate(t_neighbours,  1,element_list%n_elements,1,n_vertex_max,                 "neighbours",CAT_UNKNOWN)
+  call tr_allocate(t_size,        1,element_list%n_elements,1,n_vertex_max,1,n_degrees_tmp, "size",CAT_UNKNOWN)
+  call tr_allocate(t_father,      1,element_list%n_elements,                                "father",CAT_UNKNOWN)
+  call tr_allocate(t_n_sons,      1,element_list%n_elements,                                "n_sons",CAT_UNKNOWN)
+  call tr_allocate(t_n_gen,       1,element_list%n_elements,                                "n_gen",CAT_UNKNOWN)
+  call tr_allocate(t_sons,        1,element_list%n_elements,1,4,                            "sons",CAT_UNKNOWN)
+  call tr_allocate(t_contain_node,1,element_list%n_elements,1,5,                            "contain_node",CAT_UNKNOWN)
+  call tr_allocate(t_nref,        1,element_list%n_elements,                                "nref",CAT_UNKNOWN)
 
-  call HDF5_array3D_reading(file_id,t_x,        'x')
+  if (rst_hdf5_version .eq. 2) then
+    call HDF5_array4D_reading(file_id,t_x,        'x')
+  else
+    call HDF5_array3D_reading(file_id,t_x(:,1,:,:),        'x')
+  endif
   call HDF5_array4D_reading(file_id,t_values,   'values')
   call HDF5_array4D_reading(file_id,t_deltas,   'deltas')
 
@@ -977,6 +1113,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_array2D_reading_int (file_id,t_index,       'index')
   call HDF5_array1D_reading_int (file_id,t_boundary,    'boundary')
   call HDF5_array1D_reading_char(file_id,t_axis_node,   'axis_node')
+  call HDF5_array1D_reading_int (file_id,t_axis_dof,    'axis_dof')
   call HDF5_array2D_reading_int (file_id,t_parents,     'parents')
   call HDF5_array1D_reading_int (file_id,t_parent_elem, 'parent_elem')
   call HDF5_array1D_reading     (file_id,t_ref_lambda,  'ref_lambda')
@@ -1003,33 +1140,39 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   if (any(new_mode .ne. 0)) write(*,'(a,999i4)') ' need initialization  : ', new_mode
   
   do i=1,node_list%n_nodes
-    node_list%node(i)%x = t_x(i,:,:) 
+    do j=1,n_degrees_tmp
+      node_list%node(i)%x(:,j,:)  = t_x(i,:,j,:) 
+    enddo
 
     node_list%node(i)%values = 0.d0 
     node_list%node(i)%deltas = 0.d0 
 
     do m=1,n_tor_tmp,2
-      do k=1, n_tor,2 
-        if (mode_tmp(m) .eq. mode(k)) then
-          if ((m .eq. 1) .and. (k.eq.1)) then
-            node_list%node(i)%values(k,:,1:n_var_tmp)   = t_values(i,m,:,1:n_var_tmp)
-            node_list%node(i)%deltas(k,:,1:n_var_tmp)   = t_deltas(i,m,:,1:n_var_tmp)
-          else
-            node_list%node(i)%values(k-1,:,1:n_var_tmp) = t_values(i,m-1,:,1:n_var_tmp)
-            node_list%node(i)%deltas(k-1,:,1:n_var_tmp) = t_deltas(i,m-1,:,1:n_var_tmp) 
-            node_list%node(i)%values(k,:,1:n_var_tmp)   = t_values(i,m,:,1:n_var_tmp) 
-            node_list%node(i)%deltas(k,:,1:n_var_tmp)   = t_deltas(i,m,:,1:n_var_tmp)
+      do k=1, n_tor,2
+        do j=1,n_degrees_tmp 
+          if (mode_tmp(m) .eq. mode(k)) then
+            if ((m .eq. 1) .and. (k.eq.1)) then
+              node_list%node(i)%values(k,j,1:n_var_tmp)   = t_values(i,m,j,1:n_var_tmp)
+              node_list%node(i)%deltas(k,j,1:n_var_tmp)   = t_deltas(i,m,j,1:n_var_tmp)
+            else
+              node_list%node(i)%values(k-1,j,1:n_var_tmp) = t_values(i,m-1,j,1:n_var_tmp)
+              node_list%node(i)%deltas(k-1,j,1:n_var_tmp) = t_deltas(i,m-1,j,1:n_var_tmp) 
+              node_list%node(i)%values(k,j,1:n_var_tmp)   = t_values(i,m,j,1:n_var_tmp) 
+              node_list%node(i)%deltas(k,j,1:n_var_tmp)   = t_deltas(i,m,j,1:n_var_tmp)
+            end if
           end if
-        end if
+        enddo
       end do
     end do
 
     ! --- Split "total" temperature into electron and ion temperature
     if ( import_3xx_4xx ) then
-      node_list%node(i)%values(:,:,8) = node_list%node(i)%values(:,:,6) / 2.d0
-      node_list%node(i)%deltas(:,:,8) = node_list%node(i)%deltas(:,:,6) / 2.d0
-      node_list%node(i)%values(:,:,6) = node_list%node(i)%values(:,:,6) / 2.d0
-      node_list%node(i)%deltas(:,:,6) = node_list%node(i)%deltas(:,:,6) / 2.d0
+      do j=1,n_degrees_tmp
+        node_list%node(i)%values(:,j,var_Te) = node_list%node(i)%values(:,j,6) / 2.d0
+        node_list%node(i)%deltas(:,j,var_Te) = node_list%node(i)%deltas(:,j,6) / 2.d0
+        node_list%node(i)%values(:,j,var_Ti) = node_list%node(i)%values(:,j,6) / 2.d0
+        node_list%node(i)%deltas(:,j,var_Ti) = node_list%node(i)%deltas(:,j,6) / 2.d0
+      enddo
     end if
 
 
@@ -1040,13 +1183,14 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     node_list%node(i)%psi_eq   = t_psi_eq(i,:)
 #endif
 
-    node_list%node(i)%index = t_index(i,:)
+    node_list%node(i)%index(1:n_degrees_tmp) = t_index(i,1:n_degrees_tmp)
     node_list%node(i)%boundary = t_boundary(i)
     if (t_axis_node(i) == 'T') then
        node_list%node(i)%axis_node = .true.
     else
        node_list%node(i)%axis_node = .false.
     end if
+    node_list%node(i)%axis_dof = t_axis_dof(i)
     node_list%node(i)%parents = t_parents(i,:)
     node_list%node(i)%parent_elem = t_parent_elem(i)
     node_list%node(i)%ref_lambda = t_ref_lambda(i)
@@ -1069,17 +1213,17 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_array1D_reading_int(file_id,t_nref,        'nref')
 
   do i=1,element_list%n_elements
-    element_list%element(i)%vertex	 = t_vertex(i,:)
-    element_list%element(i)%neighbours   = t_neighbours(i,:)
-    element_list%element(i)%size	 = t_size(i,:,:)
-    element_list%element(i)%father	 = t_father(i)
-    element_list%element(i)%n_sons	 = t_n_sons(i)
-    element_list%element(i)%n_gen	 = t_n_gen(i)
-    element_list%element(i)%sons	 = t_sons(i,:)
-    element_list%element(i)%contain_node = t_contain_node(i,:)
-    element_list%element(i)%nref	 = t_nref(i)
+    element_list%element(i)%vertex                  = t_vertex(i,:)
+    element_list%element(i)%neighbours              = t_neighbours(i,:)
+    element_list%element(i)%size(:,1:n_degrees_tmp) = t_size(i,:,1:n_degrees_tmp)
+    element_list%element(i)%father                  = t_father(i)
+    element_list%element(i)%n_sons                  = t_n_sons(i)
+    element_list%element(i)%n_gen                   = t_n_gen(i)
+    element_list%element(i)%sons                    = t_sons(i,:)
+    element_list%element(i)%contain_node            = t_contain_node(i,:)
+    element_list%element(i)%nref                    = t_nref(i)
   end do
- 
+   
   call HDF5_real_reading(file_id,tstep,'tstep')
   call HDF5_real_reading(file_id,eta_rst,'eta')
   call HDF5_real_reading(file_id,visco_rst,'visco')
@@ -1234,6 +1378,16 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     thermal_tot_t = 0.d0
     call HDF5_array1D_reading(file_id,thermal_tot_t,'thermal_tot_t')
 
+    if (allocated(thermal_e_tot_t)) call tr_deallocate(thermal_e_tot_t,"thermal_e_tot_t",CAT_UNKNOWN)
+    call tr_allocate(thermal_e_tot_t,1,index_start+nstep,"thermal_e_tot_t",CAT_UNKNOWN)
+    thermal_e_tot_t = 0.d0
+    call HDF5_array1D_reading(file_id,thermal_e_tot_t,'thermal_e_tot_t')
+
+    if (allocated(thermal_i_tot_t)) call tr_deallocate(thermal_i_tot_t,"thermal_i_tot_t",CAT_UNKNOWN)
+    call tr_allocate(thermal_i_tot_t,1,index_start+nstep,"thermal_i_tot_t",CAT_UNKNOWN)
+    thermal_i_tot_t = 0.d0
+    call HDF5_array1D_reading(file_id,thermal_i_tot_t,'thermal_i_tot_t')
+
     if (allocated(kin_par_tot_t)) call tr_deallocate(kin_par_tot_t,"kin_par_tot_t",CAT_UNKNOWN)
     call tr_allocate(kin_par_tot_t,1,index_start+nstep,"kin_par_tot_t",CAT_UNKNOWN)
     kin_par_tot_t = 0.d0
@@ -1344,10 +1498,21 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     viscopar_dissip_tot_t = 0.d0
     call HDF5_array1D_reading(file_id,viscopar_dissip_tot_t,'viscopar_dissip_tot_t')
 
+    if (allocated(visco_dissip_tot_t)) call tr_deallocate(visco_dissip_tot_t,"visco_dissip_tot_t",CAT_UNKNOWN)
+    call tr_allocate(visco_dissip_tot_t,1,index_start+nstep,"visco_dissip_tot_t",CAT_UNKNOWN)
+    visco_dissip_tot_t = 0.d0
+    call HDF5_array1D_reading(file_id,visco_dissip_tot_t,'visco_dissip_tot_t')
+
+    if (allocated(friction_dissip_tot_t)) call tr_deallocate(friction_dissip_tot_t,"friction_dissip_tot_t",CAT_UNKNOWN)
+    call tr_allocate(friction_dissip_tot_t,1,index_start+nstep,"friction_dissip_tot_t",CAT_UNKNOWN)
+    friction_dissip_tot_t = 0.d0
+    call HDF5_array1D_reading(file_id,friction_dissip_tot_t,'friction_dissip_tot_t')
+
     if (allocated(thmwork_tot_t)) call tr_deallocate(thmwork_tot_t,"thmwork_tot_t",CAT_UNKNOWN)
     call tr_allocate(thmwork_tot_t,1,index_start+nstep,"thmwork_tot_t",CAT_UNKNOWN)
     thmwork_tot_t = 0.d0
     call HDF5_array1D_reading(file_id,thmwork_tot_t,'thmwork_tot_t')
+
 
     if (allocated(volume_t)) call tr_deallocate(volume_t,"volume_t",CAT_UNKNOWN)
     call tr_allocate(volume_t,1,index_start+nstep,"volume_t",CAT_UNKNOWN)
@@ -1469,10 +1634,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call import_HDF5_restart_vacuum(file_id, freeboundary, resistive_wall)
   
   !--- Some parameters need to be scaled when importing a free-boundary equilibrium
-  T_0  = T_0 * current_FB_fact
-  T_1  = T_1 * current_FB_fact
-  FF_0 = FF_0 * current_FB_fact
-  FF_1 = FF_1 * current_FB_fact
+  T_0  = T_0  * current_FB_fact / prev_FB_fact
+  T_1  = T_1  * current_FB_fact / prev_FB_fact
+  FF_0 = FF_0 * current_FB_fact / prev_FB_fact
+  FF_1 = FF_1 * current_FB_fact / prev_FB_fact
+  prev_FB_fact = current_FB_fact
   
   if (use_pellet) then
      if (index_start .ge. 1) then
@@ -1500,59 +1666,233 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
      call HDF5_real_reading(file_id,pellet_particles,"pellet_particles")
   endif
 
+#if (defined WITH_Neutrals) || (defined WITH_Impurities)
+  if (index_start >= 1) then
+    if (allocated(xtime_radiation)) &
+      call tr_deallocate(xtime_radiation,"xtime_radiation",CAT_UNKNOWN)
+    call tr_allocate(xtime_radiation,1,index_start+nstep,"xtime_radiation",CAT_UNKNOWN)
+    call HDF5_array1D_reading(file_id,xtime_radiation,"xtime_radiation")
+    if (allocated(xtime_rad_power)) &
+      call tr_deallocate(xtime_rad_power,"xtime_rad_power",CAT_UNKNOWN)
+    call tr_allocate(xtime_rad_power,1,index_start+nstep,"xtime_rad_power",CAT_UNKNOWN)
+    call HDF5_array1D_reading(file_id,xtime_rad_power,"xtime_rad_power")
+    if (allocated(xtime_E_ion)) &
+      call tr_deallocate(xtime_E_ion,"xtime_E_ion",CAT_UNKNOWN)
+    call tr_allocate(xtime_E_ion,1,index_start+nstep,"xtime_E_ion",CAT_UNKNOWN)
+    call HDF5_array1D_reading(file_id,xtime_E_ion,"xtime_E_ion")
+    if (allocated(xtime_E_ion_power)) &
+      call tr_deallocate(xtime_E_ion_power,"xtime_E_ion_power",CAT_UNKNOWN)
+    call tr_allocate(xtime_E_ion_power,1,index_start+nstep,"xtime_E_ion_power",CAT_UNKNOWN)
+    call HDF5_array1D_reading(file_id,xtime_E_ion_power,"xtime_E_ion_power")
+    if (allocated(xtime_P_ei)) &
+      call tr_deallocate(xtime_P_ei,"xtime_P_ei",CAT_UNKNOWN)
+    call tr_allocate(xtime_P_ei,1,index_start+nstep,"xtime_P_ei",CAT_UNKNOWN)
+    call HDF5_array1D_reading(file_id,xtime_P_ei,"xtime_P_ei")
+  end if
+#endif
+
   if (using_spi) then
-    if (n_spi >= 1) then
+    if (n_spi_tot >= 1) then
 
       if (index_start >= 1) then
         if (allocated(xtime_spi_ablation)) &
           call tr_deallocate(xtime_spi_ablation,"xtime_spi_ablation",CAT_UNKNOWN)
-        call tr_allocate(xtime_spi_ablation,1,n_spi,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
         if (allocated(xtime_spi_ablation_rate)) &
           call tr_deallocate(xtime_spi_ablation_rate,"xtime_spi_ablation_rate",CAT_UNKNOWN)
-        call tr_allocate(xtime_spi_ablation_rate,1,n_spi,1,index_start+nstep,"xtime_spi_ablation_rate",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation_rate,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation_rate",CAT_UNKNOWN)
+        if (allocated(xtime_spi_ablation_bg)) &
+          call tr_deallocate(xtime_spi_ablation_bg,"xtime_spi_ablation_bg",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation_bg,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation_bg",CAT_UNKNOWN)
+        if (allocated(xtime_spi_ablation_bg_rate)) &
+          call tr_deallocate(xtime_spi_ablation_bg_rate,"xtime_spi_ablation_bg_rate",CAT_UNKNOWN)
+        call tr_allocate(xtime_spi_ablation_bg_rate,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation_bg_rate",CAT_UNKNOWN)
 
         call HDF5_array2D_reading(file_id,xtime_spi_ablation,"xtime_spi_ablation")
         call HDF5_array2D_reading(file_id,xtime_spi_ablation_rate,"xtime_spi_ablation_rate")
+
+        call H5Lexists_f(file_id,"xtime_spi_ablation_bg",flag_exists,err_exists) !Backward compatibility
+        if (flag_exists .and. err_exists == 0) then
+          call HDF5_array2D_reading(file_id,xtime_spi_ablation_bg,"xtime_spi_ablation_bg")
+          call HDF5_array2D_reading(file_id,xtime_spi_ablation_bg_rate,"xtime_spi_ablation_bg_rate")
+        else
+          xtime_spi_ablation_bg = 0.
+          xtime_spi_ablation_bg_rate = 0.
+          write(*,*)"Backward Compatibility: No bg species ablation history information found, assuming none."
+        end if
       end if
 
-      call H5Lexists_f(file_id,"n_spi",flag_exists,err_exists) !Backward compatibility
+      call H5Lexists_f(file_id,"n_spi_tot",flag_exists,err_exists) !Backward compatibility
       if (flag_exists .and. err_exists == 0) then
-        call HDF5_integer_reading(file_id,n_spi_check,"n_spi")
-        if (n_spi_check /= n_spi) then
-          write(*,*) "Inconsistency in n_spi detected, exiting!"
+        call HDF5_integer_reading(file_id,n_spi_check,"n_spi_tot")
+        if (n_spi_check /= n_spi_tot) then
+          write(*,*) "Inconsistency in n_spi_tot detected, exiting!"
           stop
         end if
+      else if (n_spi_tot == n_spi(1)) then
+        write(*,*)"Backward Compatibility: No n_spi_tot information found, assuming consistent."
       else
-        write(*,*)"Backward Compatibility: No n_spi information found, assuming consistent."
+        write(*,*)"Backward Compatibility: No n_spi_tot information found, but n_spi_tot is not equal to n_spi(1)."
+        stop
       end if
-      
-      allocate (spi_R_arr(n_spi))
-      allocate (spi_Z_arr(n_spi))
-      allocate (spi_phi_arr(n_spi))
-      allocate (spi_Vel_R_arr(n_spi))
-      allocate (spi_Vel_Z_arr(n_spi))
-      allocate (spi_Vel_RxZ_arr(n_spi))
-      allocate (spi_radius_arr(n_spi))
-      allocate (spi_abl_arr(n_spi))
+
+      call H5Lexists_f(file_id,"n_inj",flag_exists,err_exists) !Backward compatibility
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_integer_reading(file_id,n_inj_check,"n_inj")
+        if (n_inj_check /= n_inj) then
+          write(*,*) "Inconsistency in n_inj detected, exiting!"
+          stop
+        end if
+      else if (n_inj == 1) then
+        write(*,*)"Backward Compatibility: No n_inj information found, assuming consistent."
+      else 
+        write(*,*)"Backward Compatibility: No n_inj information found, but n_inj larger than 1, aborting."
+        stop
+      end if
+
+      allocate (spi_R_arr(n_spi_tot))
+      allocate (spi_Z_arr(n_spi_tot))
+      allocate (spi_phi_arr(n_spi_tot))
+      allocate (spi_phi_init_arr(n_spi_tot))
+      allocate (spi_Vel_R_arr(n_spi_tot))
+      allocate (spi_Vel_Z_arr(n_spi_tot))
+      allocate (spi_Vel_RxZ_arr(n_spi_tot))
+      allocate (spi_radius_arr(n_spi_tot))
+      allocate (spi_abl_arr(n_spi_tot))
+      allocate (spi_species_arr(n_spi_tot))
+      allocate (spi_vol_arr(n_spi_tot))
+      allocate (spi_psi_arr(n_spi_tot))
+      allocate (spi_grad_psi_arr(n_spi_tot))
+      allocate (spi_vol_arr_drift(n_spi_tot))
+      allocate (spi_psi_arr_drift(n_spi_tot))
+      allocate (spi_grad_psi_arr_drift(n_spi_tot))
+      allocate (plasmoid_in_domain_arr(n_spi_tot))
 
       call HDF5_array1D_reading(file_id,spi_R_arr,"spi_R_arr")
       call HDF5_array1D_reading(file_id,spi_Z_arr,"spi_Z_arr")
       call HDF5_array1D_reading(file_id,spi_phi_arr,"spi_phi_arr")
+
+      call H5Lexists_f(file_id,"spi_phi_init_arr",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading(file_id,spi_phi_init_arr,"spi_phi_init_arr")
+      else
+        n_spi_begin = 1
+        do i_inj = 1, n_inj
+          if(n_spi(i_inj)>0) spi_phi_init_arr(n_spi_begin:(n_spi_begin+n_spi(i_inj)-1)) = ns_phi(i_inj)
+          n_spi_begin = n_spi_begin + n_spi(i_inj)
+        end do
+        write(*,*)"Backward Compatibility: No spi_phi_init location found, assuming to be ns_phi."
+      end if
+
       call HDF5_array1D_reading(file_id,spi_Vel_R_arr,"spi_Vel_R_arr")
       call HDF5_array1D_reading(file_id,spi_Vel_Z_arr,"spi_Vel_Z_arr")
       call HDF5_array1D_reading(file_id,spi_Vel_RxZ_arr,"spi_Vel_RxZ_arr")
       call HDF5_array1D_reading(file_id,spi_radius_arr,"spi_radius_arr")
       call HDF5_array1D_reading(file_id,spi_abl_arr,"spi_abl_arr")
 
-      do i=1, n_spi
+      call H5Lexists_f(file_id,"spi_species_arr",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call H5Dopen_f(file_id,"spi_species_arr",dataset,dterr)
+        call H5Dget_type_f(dataset,datatype,dterr)
+        call H5Tequal_f(datatype,H5T_NATIVE_INTEGER,type_match,dterr)
+        call H5Tclose_f(datatype,dterr)
+        call H5Dclose_f(dataset,dterr)
+        if (type_match .and. dterr == 0) then
+          write(*,*) "Backward Compatibility: Converting integer spi_species into double precision"
+          allocate (spi_species_arr_old(n_spi_tot))
+          call HDF5_array1D_reading_int(file_id,spi_species_arr_old,"spi_species_arr")
+          spi_species_arr = REAL(spi_species_arr_old,8)
+        else if (dterr == 0) then
+          call HDF5_array1D_reading(file_id,spi_species_arr,"spi_species_arr")
+        else
+          write(*,*) "Error while trying to determine spi_species type, exiting!"
+          stop
+        end if
+      else
+#ifdef WITH_Impurities
+        spi_species_arr = 1.0
+        write(*,*)"Backward Compatibility: No species information found, assuming full impurity."
+#endif
+#ifdef WITH_Neutrals
+        spi_species_arr = 0.0
+        write(*,*)"Backward Compatibility: No species information found, assuming pure deuterium."
+#endif
+      end if
+
+      call H5Lexists_f(file_id,"spi_vol_arr",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading(file_id,spi_vol_arr,"spi_vol_arr")
+      else
+        spi_vol_arr = 0.0
+        write(*,*)"Backward Compatibility: No spi_vol found, assuming to be 0."
+      end if
+
+      call H5Lexists_f(file_id,"spi_psi_arr",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading(file_id,spi_psi_arr,"spi_psi_arr")
+      else
+        spi_psi_arr = 0.0
+        write(*,*)"Backward Compatibility: No spi_psi found, assuming to be 0."
+      end if
+
+      call H5Lexists_f(file_id,"spi_grad_psi_arr",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading(file_id,spi_grad_psi_arr,"spi_grad_psi_arr")
+      else
+        spi_grad_psi_arr = 0.0
+        write(*,*)"Backward Compatibility: No spi_grad_psi found, assuming to be 0."
+      end if
+
+      call H5Lexists_f(file_id,"spi_vol_arr_drift",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading(file_id,spi_vol_arr_drift,"spi_vol_arr_drift")
+      else
+        spi_vol_arr_drift = 0.0
+        write(*,*)"Backward Compatibility: No spi_vol_drift found, assuming to be 0."
+      end if
+
+      call H5Lexists_f(file_id,"spi_psi_arr_drift",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading(file_id,spi_psi_arr_drift,"spi_psi_arr_drift")
+      else
+        spi_psi_arr_drift = 0.0
+        write(*,*)"Backward Compatibility: No spi_psi_drift found, assuming to be 0."
+      end if
+
+      call H5Lexists_f(file_id,"spi_grad_psi_arr_drift",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading(file_id,spi_grad_psi_arr_drift,"spi_grad_psi_arr_drift")
+      else
+        spi_grad_psi_arr_drift = 0.0
+        write(*,*)"Backward Compatibility: No spi_grad_psi_drift found, assuming to be 0."
+      end if
+
+      call H5Lexists_f(file_id,"plasmoid_in_domain_arr",flag_exists,err_exists)
+      if (flag_exists .and. err_exists == 0) then
+        call HDF5_array1D_reading_int(file_id,plasmoid_in_domain_arr,"plasmoid_in_domain_arr")
+      else
+        plasmoid_in_domain_arr = 0
+        write(*,*)"Backward Compatibility: No plasmoid_in_domain found, assuming to be 0 (not in domain)."
+      end if 
+
+      do i=1, n_spi_tot
         pellets(i)%spi_R       = spi_R_arr(i)
         pellets(i)%spi_Z       = spi_Z_arr(i)
         pellets(i)%spi_phi     = spi_phi_arr(i)
+        pellets(i)%spi_phi_init= spi_phi_init_arr(i)
         pellets(i)%spi_Vel_R   = spi_Vel_R_arr(i)
         pellets(i)%spi_Vel_Z   = spi_Vel_Z_arr(i)
         pellets(i)%spi_Vel_RxZ = spi_Vel_RxZ_arr(i)
         pellets(i)%spi_radius  = spi_radius_arr(i)
         pellets(i)%spi_abl     = spi_abl_arr(i)
+        pellets(i)%spi_species = spi_species_arr(i)
+        pellets(i)%spi_vol     = spi_vol_arr(i)
+        pellets(i)%spi_psi     = spi_psi_arr(i)
+        pellets(i)%spi_grad_psi= spi_grad_psi_arr(i)
+        pellets(i)%spi_vol_drift     = spi_vol_arr_drift(i)
+        pellets(i)%spi_psi_drift     = spi_psi_arr_drift(i)
+        pellets(i)%spi_grad_psi_drift= spi_grad_psi_arr_drift(i)
+        pellets(i)%plasmoid_in_domain= plasmoid_in_domain_arr(i)
 
         write(*,'(A,I5,6ES10.2)') ' *** SHATTERED PELLET PARAMETERS : ',i, pellets(i)%spi_R, pellets(i)%spi_Z, &
                         pellets(i)%spi_phi, pellets(i)%spi_Vel_R, pellets(i)%spi_Vel_Z, pellets(i)%spi_radius
@@ -1561,11 +1901,21 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
       deallocate (spi_R_arr)
       deallocate (spi_Z_arr)
       deallocate (spi_phi_arr)
+      deallocate (spi_phi_init_arr)
       deallocate (spi_Vel_R_arr)
       deallocate (spi_Vel_Z_arr)
       deallocate (spi_Vel_RxZ_arr)
       deallocate (spi_radius_arr)
       deallocate (spi_abl_arr)
+      deallocate (spi_species_arr)
+      if (allocated(spi_species_arr_old)) deallocate (spi_species_arr_old)
+      deallocate (spi_vol_arr)
+      deallocate (spi_psi_arr)
+      deallocate (spi_grad_psi_arr)
+      deallocate (spi_vol_arr_drift)
+      deallocate (spi_psi_arr_drift)
+      deallocate (spi_grad_psi_arr_drift)
+      deallocate (plasmoid_in_domain_arr)
 
       if (spi_tor_rot) then
         call HDF5_real_reading(file_id,ns_phi_rotate,"ns_phi_rotate")
@@ -1575,6 +1925,14 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     end if
   end if
 
+  ! Status of the axis treatment
+  call HDF5_char_reading(file_id,t_treat_axis,"treat_axis")
+  if (trim(t_treat_axis) .eq. 'T') then
+    treat_axis = .true.
+  else
+    treat_axis = .false.
+  endif
+  
   call HDF5_close(file_id)
  
   write(*,*) '************* restart ******************'
@@ -1615,12 +1973,14 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         do m=2,n_tor
           if ( new_mode(m) .eq. 1 ) then
           node_list%node(i)%values(m,:,:) = 0.d0
-          node_list%node(i)%values(m,:,5)   = amplitude * node_list%node(i)%values(1,:,5)
-          node_list%node(i)%values(m,:,6)   = amplitude * node_list%node(i)%values(1,:,6)
-#if (JOREK_MODEL == 400)
-          node_list%node(i)%values(m,:,8)= amplitude * node_list%node(i)%values(1,:,8)
+          node_list%node(i)%values(m,:,var_rho)   = amplitude * node_list%node(i)%values(1,:,var_rho)
+#ifdef WITH_TiTe
+          node_list%node(i)%values(m,:,var_Ti)   = amplitude * node_list%node(i)%values(1,:,var_Ti)
+          node_list%node(i)%values(m,:,var_Te)   = amplitude * node_list%node(i)%values(1,:,var_Te)
+#else
+          node_list%node(i)%values(m,:,var_T)    = amplitude * node_list%node(i)%values(1,:,var_T)
 #endif
-#if (JOREK_MODEL == 710)
+#ifdef fullmhd
           node_list%node(i)%values(m,:,var_AR)= amplitude * node_list%node(i)%values(1,:,var_AR)
           node_list%node(i)%values(m,:,var_AZ)= amplitude * node_list%node(i)%values(1,:,var_AZ)
           node_list%node(i)%values(m,:,var_A3)= amplitude * node_list%node(i)%values(1,:,var_A3)
@@ -1660,6 +2020,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_deallocate(t_index,"index",CAT_UNKNOWN)
   call tr_deallocate(t_boundary,"boundary",CAT_UNKNOWN)
   call tr_deallocate(t_axis_node,"axis_node",CAT_UNKNOWN)
+  call tr_deallocate(t_axis_dof,"axis_dof",CAT_UNKNOWN)
   call tr_deallocate(t_parents,"parents",CAT_UNKNOWN)
   call tr_deallocate(t_parent_elem,"parent_elem",CAT_UNKNOWN)
   call tr_deallocate(t_ref_lambda,"ref_lambda",CAT_UNKNOWN)
@@ -1681,6 +2042,194 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 #endif
   call populate_element_rtree(node_list, element_list)
 
+  equil_initialized = .true.
+
   return
 end subroutine import_hdf5_restart
+
+
+! Import an HDF5 restart file (aux_node_list) - used only for some diagnostics purpose
+! Here we only import the information of node_list, except element_list
+subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
+
+#include "version.h"
+  use tr_module
+  use data_structure
+  use phys_module
+#ifdef USE_HDF5
+  use hdf5
+  use hdf5_io_module
+  use mod_parameters
+#endif
+
+  implicit none
+
+  ! --- Routine parameters
+  type(type_node_list),target,intent(inout) :: aux_node_list
+  character(len=*),           intent(in)    :: filename
+  integer,                    intent(in)    :: format_rst  ! format of restart file
+  integer,                    intent(out)   :: error
+
+  ! --- Local variables
+  integer              :: i, j, m, k, n_tor_tmp, n_coord_tor_tmp, jorek_model_tmp, n_var_tmp, n_order_tmp, n_period_tmp, n_dim_tmp
+  integer              :: n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp
+  integer              :: n_pieces_max_tmp, n_degrees_tmp, nref_max_tmp, n_ref_list_tmp, n_new_modes
+  integer, allocatable :: mode_tmp(:), new_mode(:)
+  character*50         :: version_control, version_control_tmp
+  logical              :: kept, modes_changed
+
+#ifdef USE_HDF5
+  integer(HID_T)     :: file_id
+
+  ! type_node, node_list%n_nodes
+  real(RKIND), allocatable :: t_x(:,:,:,:)        ! n_coord_tor, n_order+1, n_dim
+  real(RKIND), allocatable :: t_values(:,:,:,:)   !       n_tor, n_order+1, n_fields
+
+#endif
+  error = 0
+#ifdef USE_HDF5
+
+  ! ->  Reading HDF5 file
+  write(*,*) 'Importing HDF5 restart file "', trim(filename), '".'
+
+  ! -> Open HDF5 file
+  call HDF5_open(trim(filename),file_id,error)
+  if ( error /= 0 ) then
+    write(*,*) '...failed!'
+    return
+  end if
+
+  call HDF5_char_reading(file_id,version_control_tmp, "RCS_version")
+  version_control = trim(adjustl(RCS_VERSION))
+
+  call HDF5_integer_reading(file_id,jorek_model_tmp,"jorek_model")
+  call HDF5_integer_reading(file_id,n_var_tmp,"n_var")
+  if ( n_var /= n_var_tmp ) then
+!    write(*,*) 'WARNING: The number of variables in the restart file and the compiled JOREK binary does not agree.'
+!    write(*,*) 'n_var in binary : ', n_var
+!    write(*,*) 'n_var in HDF5   : ', n_var_tmp
+!    write(*,*) ' --> But we are with particle projection HDF5, therefore we proceed with the n_var in the binary '
+    n_var_tmp = n_var
+  end if
+  call HDF5_integer_reading(file_id,n_dim_tmp,"n_dim")
+  call HDF5_integer_reading(file_id,n_order_tmp,"n_order")
+  call HDF5_integer_reading(file_id,n_tor_tmp, "n_tor")
+  call HDF5_integer_reading(file_id,n_coord_tor_tmp, "n_coord_tor")
+  call HDF5_integer_reading(file_id,n_period_tmp, "n_period")
+  call HDF5_integer_reading(file_id,n_vertex_max_tmp, "n_vertex_max")
+  call HDF5_integer_reading(file_id,n_nodes_max_tmp, "n_nodes_max")
+  call HDF5_integer_reading(file_id,n_elements_max_tmp, "n_elements_max")
+
+  if (allocated(mode_tmp))   call tr_deallocate(mode_tmp,"mode_tmp",CAT_UNKNOWN)
+  allocate(mode_tmp(n_tor_tmp))
+  mode_tmp = -1 ! unset
+
+  if (format_rst == 1) then
+    call HDF5_array1D_reading_int(file_id,mode_tmp,"mode_tmp")
+    write(*,*) " import_restart, HDF5 file : n_var     = ",mode_tmp
+    write(*,*) ' NEW format (1) : ',mode_tmp
+  elseif (format_rst == 0) then
+    do i=1, n_tor_tmp
+       mode_tmp(i) = int(i / 2) * n_period_tmp
+    end do
+    modes_changed = .false.
+    if (n_tor_tmp .ne. n_tor) then
+      modes_changed = .true.
+    elseif (sum(abs(mode_tmp-mode)) .gt. 0) then
+      modes_changed = .true.
+    end if
+
+    write(*,*) ' OLD format (0) : '
+    write(*,'(A,999i4)') ' previous modenumbers : ',mode_tmp
+    write(*,'(A,999i4)') ' new mode numbers     : ',mode
+    do i = 1, n_tor_tmp, 2
+      kept = .false.
+      do j = 1, n_tor, 2
+        if ( mode_tmp(i) == mode(j) ) kept = .true.
+      end do
+      if ( .not. kept ) write (*,'(1x,a,i5,a)') 'Warning: The mode n=', mode_tmp(i), ' is being dropped!'
+    end do
+  elseif ( format_rst > 2 ) then
+    write(*,'(A,i3)') ' restart file format not supported : ',format_rst
+    stop
+  endif
+
+  if (n_tor_tmp .gt. n_tor) write(*,'(3(a,i5))') &
+       ' Warning: Reducing number of harmonics from', n_tor_tmp, ' to', n_tor, '!'
+  if (n_tor_tmp .lt. n_tor) write(*,'(3(a,i5))') &
+       ' Warning: Increasing number of harmonics from', n_tor_tmp, ' to', n_tor, '!'
+  if (n_period_tmp .ne. n_period) write(*,'(3(a,i5))') &
+       ' Warning: n_period has changed from', n_period_tmp, ' to', n_period
+  if (n_coord_tor_tmp .ne. n_coord_tor) then
+    write(*,'(3(a,i5))') "Error: The number of toroidal harmonics in the grid representation has changed from ", &
+                         n_coord_tor_tmp, " to ", n_coord_tor, "!"
+    stop
+  endif
+
+  call HDF5_integer_reading(file_id,aux_node_list%n_nodes,"n_nodes")
+  call HDF5_integer_reading(file_id,aux_node_list%n_dof,"n_dof")
+
+  call tr_allocate(t_x, 1,aux_node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim_tmp, "aux_node_list%x",     CAT_UNKNOWN)
+  call tr_allocate(t_values,1,aux_node_list%n_nodes,1, n_tor_tmp,1,n_order+1,1,n_var_tmp, "aux_node_list%values",CAT_UNKNOWN)
+
+  call HDF5_real_reading(file_id,t_start,'t_now')
+
+  call HDF5_array4D_reading(file_id,t_x, 'x')
+  call HDF5_array4D_reading(file_id,t_values,   'values')
+
+  ! --- Detect new modes that need to be initialized to noise level
+  if (allocated(new_mode))   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
+  allocate(new_mode(n_tor))
+  new_mode(:)=1
+
+  do m=1,n_tor_tmp,2
+    do k=1, n_tor,2
+      if (mode_tmp(m) .eq. mode(k)) then
+        if ((m .eq. 1) .and. (k.eq.1)) then
+          new_mode(k)=0
+        else
+          new_mode(k-1)=0
+          new_mode(k)=0
+        end if
+      end if
+    end do
+  end do
+  if (any(new_mode .ne. 0)) write(*,'(a,999i4)') ' need initialization  : ', new_mode
+
+  do i=1,aux_node_list%n_nodes
+    aux_node_list%node(i)%x = t_x(i,:,:,:)
+
+    aux_node_list%node(i)%values = 0.d0
+    aux_node_list%node(i)%deltas = 0.d0
+
+    do m=1,n_tor_tmp,2
+      do k=1, n_tor,2
+        if (mode_tmp(m) .eq. mode(k)) then
+          if ((m .eq. 1) .and. (k.eq.1)) then
+            aux_node_list%node(i)%values(k,:,1:n_var_tmp)   = t_values(i,m,:,1:n_var_tmp)
+          else
+            aux_node_list%node(i)%values(k-1,:,1:n_var_tmp) = t_values(i,m-1,:,1:n_var_tmp)
+            aux_node_list%node(i)%values(k,:,1:n_var_tmp)   = t_values(i,m,:,1:n_var_tmp)
+          end if
+        end if
+      end do
+    end do
+  end do
+
+  call HDF5_close(file_id)
+
+  write(*,*) '********** read aux_node_list **********'
+  write(*,'(A19,f14.6,A)') ' * aux node time : ',t_start,' *'
+  write(*,*) '****************************************'
+
+  ! -> Deallocate temporary arrays 
+  call tr_deallocate(t_x,"t_x",CAT_UNKNOWN)
+  call tr_deallocate(t_values,"t_values",CAT_UNKNOWN)
+
+#else
+  write (6,*) " ERROR: trying to import with hdf5 but USE_HDF5 was not set at compile-time"
+#endif
+  return
+end subroutine import_hdf5_restart_aux
+
 end module mod_import_restart

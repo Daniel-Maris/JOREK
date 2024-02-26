@@ -18,7 +18,7 @@ use phys_module
 implicit none
 
 type (type_element)   :: element
-type (type_node)      :: nodes(2)        ! the two nodes containing the boundary nodes
+type (type_node)      :: nodes(n_vertex_max)        ! the two nodes containing the boundary nodes
 integer, intent(in)   :: i_tor_min   
 integer, intent(in)   :: i_tor_max   
 
@@ -28,8 +28,8 @@ real*8     :: y_g(n_gauss), y_s(n_gauss), y_ss(n_gauss)
 real*8     :: eq_g(n_plane,n_var,n_gauss), eq_s(n_plane,n_var,n_gauss), eq_p(n_plane,n_var,n_gauss), eq_ss(n_plane,n_var,n_gauss)
 real*8     :: delta_g(n_plane,n_var,n_gauss), delta_s(n_plane,n_var,n_gauss)
 
-real*8     :: ELM(n_vertex_max*n_var*(n_order+1)*n_tor,n_vertex_max*n_var*(n_order+1)*n_tor)
-real*8     :: RHS(n_vertex_max*n_var*(n_order+1)*n_tor)
+real*8     :: ELM(n_vertex_max*n_var*n_degrees*n_tor,n_vertex_max*n_var*n_degrees*n_tor)
+real*8     :: RHS(n_vertex_max*n_var*n_degrees*n_tor)
 
 integer    :: vertex(2), direction(2), i, j, j2, ms, mt, mp, k, l, l2, index_ij, index_kl, index, xcase2
 integer    :: in, im, ij1, ij2, ij3, ij4, ij5, ij6, ij7, kl1, kl2, kl3, kl4, kl5, kl6, kl7
@@ -48,7 +48,9 @@ integer    :: n_tor_local
 
 
 theta = time_evol_theta
-zeta  = time_evol_zeta
+!zeta  = time_evol_zeta
+! change zeta for variable dt
+zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
 x_g  = 0.d0; x_s  = 0.d0;  x_ss  = 0.d0; 
@@ -67,11 +69,11 @@ do i=1,2
 
     do ms=1, n_gauss
 
-      x_g(ms)  = x_g(ms)  + nodes(i)%x(j2,1) * element_size_ij * H1(i,j,ms)
-      x_s(ms)  = x_s(ms)  + nodes(i)%x(j2,1) * element_size_ij * H1_s(i,j,ms)
+      x_g(ms)  = x_g(ms)  + nodes(i)%x(1,j2,1) * element_size_ij * H1(i,j,ms)
+      x_s(ms)  = x_s(ms)  + nodes(i)%x(1,j2,1) * element_size_ij * H1_s(i,j,ms)
 
-      y_g(ms)  = y_g(ms)  + nodes(i)%x(j2,2) * element_size_ij * H1(i,j,ms)
-      y_s(ms)  = y_s(ms)  + nodes(i)%x(j2,2) * element_size_ij * H1_s(i,j,ms)
+      y_g(ms)  = y_g(ms)  + nodes(i)%x(1,j2,2) * element_size_ij * H1(i,j,ms)
+      y_s(ms)  = y_s(ms)  + nodes(i)%x(1,j2,2) * element_size_ij * H1_s(i,j,ms)
 
       do mp=1,n_plane
 
@@ -95,6 +97,9 @@ do i=1,2
   enddo
 enddo
 
+! changes deltas for variable time steps
+delta_g = delta_g * tstep / tstep_prev
+delta_s = delta_s * tstep / tstep_prev
 
 n_tor_local = i_tor_max - i_tor_min + 1
 !--------------------------------------------------- sum over the Gaussian integration points
@@ -137,7 +142,7 @@ do ms=1, n_gauss
 
          do im=i_tor_min, i_tor_max
 
-           index_ij = n_tor_local*n_var*(n_order+1)*(vertex(i)-1) + n_tor_local * n_var * (j2-1) + im - i_tor_min + 1  ! index in the ELM matrix
+           index_ij = n_tor_local*n_var*n_degrees*(vertex(i)-1) + n_tor_local * n_var * (j2-1) + im - i_tor_min + 1  ! index in the ELM matrix
 
            v   =  H1(i,j,ms) * element_size_ij * HZ(im,mp)         ! test function
 
@@ -181,7 +186,7 @@ do ms=1, n_gauss
 
                  amat_67 = + v * (gamma_sheath-1.d0) * r0  * T0 * vpar  * ps0_s * normal * theta * tstep 
 
-                 index_kl = n_tor_local*n_var*(n_order+1)*(vertex(k)-1) + n_tor_local * n_var * (l2-1) + in - i_tor_min + 1  ! index in the ELM matrix
+                 index_kl = n_tor_local*n_var*n_degrees*(vertex(k)-1) + n_tor_local * n_var * (l2-1) + in - i_tor_min + 1  ! index in the ELM matrix
 
                  kl1 = index_kl
                  kl5 = index_kl + 4*n_tor_local

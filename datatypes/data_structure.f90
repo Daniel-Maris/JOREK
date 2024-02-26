@@ -2,45 +2,50 @@
 !! and flux surface elements, as well as the shattered pellets
 module data_structure
   use mod_parameters
+  use mod_integer_types
   use tr_module
   use gauss
-  use ISO_C_BINDING, ONLY : C_INT
+  use ISO_C_BINDING, ONLY : C_INT, C_DOUBLE
+  use mod_sparse_matrix, only: type_SP_MATRIX
 
+  
   implicit none
 
   type type_node                                  !< type definition of a node (i.e. a vertex)
-    real*8     :: x(n_order+1,n_dim)              !< x,y,z coordinates of points and additional nodal geometry
-                                                  !!   x(1,:) position, x(2,:) vector u, x(3,:) vector v, x(4,:) vector w
-    real*8     :: values(n_tor,n_order+1,n_var)   !< Variable values and derivatives
-    real*8     :: deltas(n_tor,n_order+1,n_var)   !< Change of variable values and derivatives in last timestep
+    real*8     :: x(n_coord_tor,n_degrees,n_dim)        !< x,y,z coordinates of points and additional nodal geometry
+    real*8     :: values(n_tor,n_degrees,n_var)   !< Variable values and derivatives
+    real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
 #ifdef fullmhd
-    real*8     :: psi_eq(n_order+1)               !< equilibrium flux at the nodes
-    real*8     :: Fprof_eq(n_order+1)             !< equilibrium profile R*B_phi at the nodes
+    real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes
+    real*8     :: Fprof_eq(n_degrees)             !< equilibrium profile R*B_phi at the nodes
 #elif altcs
-    real*8     :: psi_eq(n_order+1)               !< equilibrium flux at the nodes
+    real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes
 #endif
-    integer    :: index(n_order+1)                !< index in the main matrix
+    integer    :: index(n_degrees)                !< index in the main matrix
     integer    :: boundary                        !< = 1, 2 or 3 for boundary nodes.
                                                   !< For wall-aligned grids, check routine update_boundary_types_final
                                                   !< in grids/grid_utils/update_boundary_types.f90
     integer    :: boundary_index                  !< index of the boundary node 
     logical    :: axis_node                       !< Flag nodes that are on the axis (and can/need-to-be be stabilised)
+    integer    :: axis_dof                        !< which dof to enforce to zero
     integer    :: parents(2)                      !< Parent nodes (used if node is constrained)"refinement"
     integer    :: parent_elem                     !< which element do parent nodes belong to ? "refinement"
     real*8     :: ref_lambda, ref_mu              !< Local coordinates of node inside the parent element. "refinement"
     logical    :: constrained                     !< Constrained node or not..."refinement"
+    
   end type type_node
 
   type type_node_list                             !< type definition of a list of nodes
     integer            :: n_nodes                 !< the number of nodes in the list
     integer            :: n_dof                   !< the total number of degrees of freedom
     type (type_node)   :: node(n_nodes_max)       !< an allocatable list of nodes
+    
   end type type_node_list
 
   type type_element                               !< type definition for one elements
     integer :: vertex(n_vertex_max)               !< nodes of the corners
     integer :: neighbours(n_vertex_max)           !< neighbouring elements
-    real*8  :: size(n_vertex_max,n_order+1)       !< size of vectors at each vertex of the element
+    real*8  :: size(n_vertex_max,n_degrees)       !< size of vectors at each vertex of the element
     integer :: father                             !< index of father element (0 if no father)"refinement"
     integer :: n_sons                             !< Number of sons elements"refinement"
     integer :: n_gen                              !< Generation rank of the element"refinement"
@@ -101,6 +106,7 @@ module data_structure
      real*8, dimension (:,:,:), allocatable:: ELM_n
      real*8, dimension (:,:,:), allocatable:: ELM_k
      real*8, dimension (:,:,:), allocatable:: ELM_kn
+     real*8, dimension (:,:,:), allocatable:: ELM_pnn
      real*8, dimension (:,:)  , allocatable:: RHS_p
      real*8, dimension (:,:)  , allocatable:: RHS_k
      real*8, dimension (:,:)  , allocatable :: ELM
@@ -116,18 +122,81 @@ module data_structure
      real*8, dimension(:), allocatable  :: synch_buff
   END TYPE type_thread_buffer
 
- !> Data type to represent one shattered pellet piece
+  !> One shard of a shattered pellet (or the complete pellet if unshattered)
   type type_SPI
-    real*8  :: spi_R        !< R coordinate of pellet (m)
-    real*8  :: spi_Z        !< Z coordinate of pellet (m)
-    real*8  :: spi_phi      !< Phi coordinate of pellet (degree)
-    real*8  :: spi_Vel_R    !< Velocity of pellet along R direction (m/s), note that the R direction of the injection location is used here
-    real*8  :: spi_Vel_Z    !< Velocity of pellet along Z direction (m/s), note that the Z direction of the injection location is used here
-    real*8  :: spi_Vel_RxZ  !< Velocity of pellet along RxZ direction (m/s), note that the RxZ direction of the injection location is used here
-    real*8  :: spi_radius   !< Radius of pellet assuming spherical pellet (m)
-    real*8  :: spi_abl      !< Pellet ablation rate (atom/s)
+    real*8  :: spi_R                 !< R coordinate of shard (m)
+    real*8  :: spi_Z                 !< Z coordinate of shard (m)
+    real*8  :: spi_phi               !< Phi coordinate of shard (radian)
+    real*8  :: spi_phi_init          !< The initial phi coordinate of shard (radian) for trajectory calculation.
+    real*8  :: spi_Vel_R             !< Velocity in R direction (m/s)
+    real*8  :: spi_Vel_Z             !< Velocity in Z direction (m/s)
+    real*8  :: spi_Vel_RxZ           !< Velocity in RxZ direction (m/s)
+    real*8  :: spi_radius            !< Shard radius (assuming spherical shard) (m)
+    real*8  :: spi_abl               !< Shard ablation rate (atom/s)
+    real*8  :: spi_species           !< Fraction of impurity atoms relative to the total number of atoms (model501)
+                                     !! 0.: pure background species
+                                     !! 1.: pure impurity shard
+    real*8  :: spi_vol               !< Numerically integrated volume of the gas source at the shard position
+    real*8  :: spi_psi               !< Psi value at the shard position
+    real*8  :: spi_grad_psi          !< Value of grad(Psi)=sqrt(PSI_R * PSI_R + PSI_Z * PSI_Z) at the shard position
+
+    real*8  :: spi_vol_drift         !< Numerically integrated volume of the gas source depositing at the post-drift position
+    real*8  :: spi_psi_drift         !< Psi value at the post-drift deposition position
+    real*8  :: spi_grad_psi_drift    !< Value of grad(Psi)=sqrt(PSI_R * PSI_R + PSI_Z * PSI_Z) at the post-drift deposition position
+    integer :: plasmoid_in_domain    !< Flag representing whether (post-teleportation) plasmoids are in computational domain
+                                     !! this is only relevant if drift_distance /= 0
   end type type_SPI
- 
+  
+  !> RHS vector type
+  type type_RHS
+    real(kind=8), dimension(:), pointer :: val => Null()
+    integer(kind=int_all)               :: n                    !< vector length
+  end type type_RHS  
+  
+  !> Preconditioner type  
+  type type_PRECOND
+    type(type_SP_MATRIX)                         :: mat                           !< PC matrix structure
+    type(type_RHS)                               :: rhs                           !< PC rhs structure
+    
+    integer                                      :: n_mode_families               !< number of mode families (input)
+    integer, dimension(:), pointer               :: modes_per_family => Null()    !< number of toroidal modes per mode family (input)    
+    integer, dimension(:), pointer               :: ranks_per_family => Null()    !< number of MPI tasks per mode family (input)
+    logical                                      :: autodistribute_modes          !< if true - use single mode par family (input)
+    logical                                      :: autodistribute_ranks          !< if true - distribute MPI ranks equally between mode families (input)
+    integer(kind=int_all), dimension(:), pointer :: row_index => Null()           !< Row indices of local mode family in global RHS
+    real(kind=8)                                 :: row_factor                    !< Multiplying factor of current mode family in global RHS           
+
+    integer                                      :: family_id                     !< family id (MPI private)
+    integer                                      :: mode_set_n                    !< number of modes in current mode family    
+    integer, dimension(:), pointer               :: mode_set => Null()            !< toroidal modes in current mode family
+    integer, dimension(:,:), pointer             :: mode_families_ranks => Null() !< MPI ranks which belong to each mode family
+    integer, dimension(:,:), pointer             :: mode_families_modes => Null() !< Toroidal modes which belong to each mode family
+    
+    integer, dimension(:), pointer               :: rank_range => Null()          !< range of MPI ranks which belong to mode families
+    integer                                      :: my_id, n_cpu, comm    
+    integer                                      :: my_id_n, n_cpu_n, MPI_COMM_N
+    integer                                      :: my_id_master, n_masters, MPI_COMM_MASTER, MPI_COMM_TRANS, MPI_GROUP_WORLD, MPI_GROUP_MASTER
+! the following variables are used in PC distribution (they are set only once to save computation time)
+    integer, dimension(:,:), pointer             :: send_counts => Null()         !< number of entries sent to each other MPI ranks (PC distribution)
+    integer, dimension(:,:), pointer             :: recv_counts => Null()         !< number of entries received from each other MPI ranks (PC distribution)
+    integer, dimension(:,:), pointer             :: send_disp => Null()           !< send dispalcements for mpi_alltoallv (PC distribution)
+    integer, dimension(:,:), pointer             :: splt_disp => Null()           !< receive displacement for split communication
+    integer(kind=int_all), dimension(:,:), pointer :: recv_disp => Null()           !< receive dispalcements for mpi_alltoallv (PC distribution)
+    integer(kind=int_all), dimension(:), pointer :: istart => Null()              !< start-index for split communication
+    integer(kind=int_all), dimension(:), pointer :: ifinish => Null()             !< end-index for split communication
+    integer                                      :: nsplit                        !< number of communication splits
+    integer(kind=int_all), dimension(:), pointer :: n_per_rank => Null()          !< min number of rows/cols per MPI rank for each family
+
+    logical                                      :: initialized = .false.
+    logical                                      :: structured = .false.          !< flag indicating the allocation of PC matrix structure
+    integer(kind=int_all)                        :: n_glob                        !< global number of unknowns
+    
+#ifdef DIRECT_CONSTRUCTION
+    integer, dimension(:), pointer               :: local_elms => null()
+    integer                                      :: n_local_elms
+#endif    
+  end type type_PRECOND
+
   integer                                         , public :: nbthreads
   TYPE(type_thread_buffer), dimension(:), pointer , public :: thread_struct => NULL()
   
@@ -155,19 +224,21 @@ contains
        call tr_register_mem(sizeof(thread_struct),"thread_struct",CAT_MATELEM)
        do i = 1, nbthreads
           call tr_debug_write("Init thread_struct, thread_id=",i)
-          call tr_allocate(thread_struct(i)%ELM_p, 1,n_plane,1,n_vertex_max*n_var*(n_order+1),1,n_vertex_max*n_var*(n_order+1),"ELM_p",CAT_MATELEM)
-          call tr_allocate(thread_struct(i)%ELM_n, 1,n_plane,1,n_vertex_max*n_var*(n_order+1),1,n_vertex_max*n_var*(n_order+1),"ELM_n",CAT_MATELEM)
-          call tr_allocate(thread_struct(i)%ELM_k, 1,n_plane,1,n_vertex_max*n_var*(n_order+1),1,n_vertex_max*n_var*(n_order+1),"ELM_k",CAT_MATELEM)
-          call tr_allocate(thread_struct(i)%ELM_kn,1,n_plane,1,n_vertex_max*n_var*(n_order+1),1,n_vertex_max*n_var*(n_order+1),"ELM_kn",CAT_MATELEM)
-          call tr_allocate(thread_struct(i)%RHS_p, 1,n_plane,1,n_vertex_max*n_var*(n_order+1),"RHS_p",CAT_MATELEM)                                     
-          call tr_allocate(thread_struct(i)%RHS_k, 1,n_plane,1,n_vertex_max*n_var*(n_order+1),"RHS_k",CAT_MATELEM)                                     
-          call tr_allocate(thread_struct(i)%ELM,   1,n_tor*n_vertex_max*(n_order+1)*n_var,1,n_tor*n_vertex_max*(n_order+1)*n_var,"ELM",CAT_MATELEM)       
-          call tr_allocate(thread_struct(i)%RHS,   1,n_tor*n_vertex_max*(n_order+1)*n_var,"RHS",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%ELM_p, 1,n_plane,1,n_vertex_max*n_var*n_degrees,1,n_vertex_max*n_var*n_degrees,"ELM_p",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%ELM_n, 1,n_plane,1,n_vertex_max*n_var*n_degrees,1,n_vertex_max*n_var*n_degrees,"ELM_n",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%ELM_k, 1,n_plane,1,n_vertex_max*n_var*n_degrees,1,n_vertex_max*n_var*n_degrees,"ELM_k",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%ELM_kn,1,n_plane,1,n_vertex_max*n_var*n_degrees,1,n_vertex_max*n_var*n_degrees,"ELM_kn",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%ELM_pnn,1,n_plane,1,n_vertex_max*n_var*n_degrees,1,n_vertex_max*n_var*n_degrees,"ELM_pnn",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%RHS_p, 1,n_plane,1,n_vertex_max*n_var*n_degrees,"RHS_p",CAT_MATELEM)                                     
+          call tr_allocate(thread_struct(i)%RHS_k, 1,n_plane,1,n_vertex_max*n_var*n_degrees,"RHS_k",CAT_MATELEM)                                     
+          call tr_allocate(thread_struct(i)%ELM,   1,n_tor*n_vertex_max*n_degrees*n_var,1,n_tor*n_vertex_max*n_degrees*n_var,"ELM",CAT_MATELEM)       
+          call tr_allocate(thread_struct(i)%RHS,   1,n_tor*n_vertex_max*n_degrees*n_var,"RHS",CAT_MATELEM)
           call tr_allocate(thread_struct(i)%synch_buff, 1,n_tor*n_var*n_tor*n_var,"synch_buff",CAT_MATELEM)
           thread_struct(i)%ELM_p   = 0.d0
           thread_struct(i)%ELM_n   = 0.d0
           thread_struct(i)%ELM_k   = 0.d0
           thread_struct(i)%ELM_kn  = 0.d0
+          thread_struct(i)%ELM_pnn = 0.d0
           thread_struct(i)%RHS_p   = 0.d0
           thread_struct(i)%RHS_k   = 0.d0
           thread_struct(i)%ELM     = 0.d0
@@ -196,8 +267,8 @@ contains
           thread_struct(i)%delta_s = 0.d0
           thread_struct(i)%delta_t = 0.d0
 #ifdef COMPARE_ELEMENT_MATRIX
-          call tr_allocate(thread_struct(i)%ELM2,  1,n_tor*n_vertex_max*(n_order+1)*n_var,1,n_tor*n_vertex_max*(n_order+1)*n_var,"ELM2",CAT_MATELEM)
-          call tr_allocate(thread_struct(i)%RHS2,  1,n_tor*n_vertex_max*(n_order+1)*n_var,"RHS2",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%ELM2,  1,n_tor*n_vertex_max*n_degrees*n_var,1,n_tor*n_vertex_max*n_degrees*n_var,"ELM2",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%RHS2,  1,n_tor*n_vertex_max*n_degrees*n_var,"RHS2",CAT_MATELEM)
           thread_struct(i)%ELM2    = 0.d0
           thread_struct(i)%RHS2    = 0.d0
 #endif
@@ -212,6 +283,7 @@ contains
        call tr_deallocate(thread_struct(i)%ELM_n,"ELM_n",CAT_MATELEM)
        call tr_deallocate(thread_struct(i)%ELM_k,"ELM_k",CAT_MATELEM)
        call tr_deallocate(thread_struct(i)%ELM_kn,"ELM_kn",CAT_MATELEM)
+       call tr_deallocate(thread_struct(i)%ELM_pnn,"ELM_pnn",CAT_MATELEM)
        call tr_deallocate(thread_struct(i)%RHS_p,"RHS_p",CAT_MATELEM)                                     
        call tr_deallocate(thread_struct(i)%RHS_k,"RHS_k",CAT_MATELEM)                                     
        call tr_deallocate(thread_struct(i)%ELM,"ELM",CAT_MATELEM)
@@ -236,7 +308,7 @@ contains
     call tr_unregister_mem(sizeof(thread_struct),"thread_struct",CAT_MATELEM)
     deallocate(thread_struct)
   end subroutine del_thread_buffers
-  
+
 end module data_structure
 
 

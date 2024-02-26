@@ -47,6 +47,7 @@ real*8    :: target_time, t, E(3), B(3), psi, U, n_e, T_e, rz_old(2), st_old(2)
 real*8    :: diag_time 
 real*8    :: temp(3), T_eV, K_eV, v_kin_temp, B_norm(3)
 real*8    :: physical_particles, weight
+real*8,dimension(n_var) :: varmin,varmax
 integer   :: n_particles_local, n_steps, ifail
 integer   :: n_reflect
 integer   :: j, seed, i_rng, n_stream
@@ -75,7 +76,7 @@ fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
 call with(sim, fieldreader)
 
 ! Read Open ADAS data
-adas = read_adf11('12_h')
+adas = read_adf11(sim%my_id,'12_h')
 
 if (use_sputtering) then  
   n_reflect = int(n_particles * 2.d-3)
@@ -159,11 +160,11 @@ jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
 aux_node_list => jorek_feedback%node_list
 
 if (use_ncs) then
-  allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 3))
+  allocate(jorek_feedback%rhs(n_degrees, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 3))
 elseif (use_pcs) then  ! not implemented yet!
-  allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 1))
+  allocate(jorek_feedback%rhs(n_degrees, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 1))
 elseif (use_ccs) then  ! not implemented yet!
-  allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 4))
+  allocate(jorek_feedback%rhs(n_degrees, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 4))
 else
   stop 'define use_ncs, use_pcs or use_ccs'
 endif
@@ -328,17 +329,21 @@ do while (.not. sim%stop_now)
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
 
+#ifdef __GFORTRAN__
+    !$omp parallel do default(shared) &
+#else
     !$omp parallel do default(none) &
-    !$omp schedule(dynamic,10)      &
     !$omp shared(sim, particles, n_particles, n_steps, timesteps, rng, particle_start_time, &
-    !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, &
-    !$omp use_cx, use_ionisation, use_sputtering,           &
-    !$omp CENTRAL_DENSITY, CENTRAL_MASS)                    &
+    !$omp        rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, &
+    !$omp        use_cx, use_ionisation, use_sputtering,           &
+    !$omp        CENTRAL_DENSITY, CENTRAL_MASS)                    &
+#endif
     !$omp private(i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,                        &
-    !$omp i_elm_old, n_e, T_e, ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy,& 
-    !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm,                 &
-    !$omp ifail, CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,                       &
-    !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran)  &
+    !$omp         i_elm_old, n_e, T_e, ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy,& 
+    !$omp         R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm,                 &
+    !$omp         ifail, CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,                       &
+    !$omp         particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran)  &
+    !$omp schedule(dynamic,10)      &
     !$omp reduction(+:feedback_rhs)
     do j=1,size(particles,1)
 
@@ -443,9 +448,9 @@ do while (.not. sim%stop_now)
         call mode_moivre(particles(j)%x(3), HZ)
               
         do l=1,n_vertex_max
-          do m=1,n_order+1
+          do m=1,n_degrees
 
-            index_lm = (l-1)*(n_order+1) + m
+            index_lm = (l-1)*n_degrees + m
 
             v   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_source     * t_norm / rho_norm
             v_E = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
@@ -498,7 +503,7 @@ do while (.not. sim%stop_now)
 !===================================================
 
   call Integrals_3D(sim%my_id, sim%fields%node_list, sim%fields%element_list, density_tot, density_in, density_out, &
-                    pressure, pressure_in, pressure_out, kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in, mom_par_out)
+  pressure, pressure_in, pressure_out, kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in,mom_par_out,varmin,varmax)
 
   particles_remaining = 0.d0
   momentum_remaining  = 0.d0
@@ -507,10 +512,14 @@ do while (.not. sim%stop_now)
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
 
-    !$omp parallel do default(none) &
-    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining) &
-    !$omp shared(sim, particles) &
-    !$omp private(j, E, B, psi, U, B_norm)
+#ifdef __GFORTRAN__
+    !$omp parallel do default(shared) &
+#else
+    !$omp parallel do default(none)   &
+    !$omp shared(sim, particles)      &
+#endif
+    !$omp private(j, E, B, psi, U, B_norm) &
+    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining)
     do j=1,size(particles,1)
 
       if (particles(j)%i_elm .le. 0) cycle

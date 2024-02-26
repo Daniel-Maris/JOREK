@@ -4,9 +4,6 @@ subroutine initialise_parameters(my_id, filename)
 use tr_module
 use phys_module
 use pellet_module
-use mumps_module,  only: no_zeros_mumps, mumps_ordering
-use pastix_module, only: no_zeros_pastix, pastix_smp_only, pastix_pivot, &
-    pastix_maxthrd
 use vacuum
 use live_data
 
@@ -24,6 +21,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rst_hdf5, rst_hdf5_version, keep_current_prof,      &
                 eta, visco, visco_par,                              &
                 restart, rst_format, regrid, bootstrap, write_ps,   &
+                regrid_from_rz,                                     &
                 force_horizontal_Xline,                             &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
                 n_tht_equidistant,                                  &
@@ -33,7 +31,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 SIG_closed, SIG_open, SIG_private, SIG_theta,       &
                 SIG_leg_0, SIG_leg_1, dPSI_open, dPSI_private,      &
                 SIG_up_leg_0, SIG_up_leg_1, SIG_up_priv,            &
-                SIG_outer, SIG_inner,                               &
+                SIG_outer, SIG_inner, SIG_theta_up,                 &
                 dPSI_outer, dPSI_inner, dPSI_up_priv,               &
                 nout, xr1, sig1, xr2, sig2,                         &
                 R_begin, R_end, Z_begin, Z_end,                     &
@@ -46,6 +44,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 n_block_points_left,  n_block_points_right,         &
                 R_block_points_left,  R_block_points_right,         &
                 Z_block_points_left,  Z_block_points_right,         &
+                use_simple_bnd_types,                               &
                 tokamak_device,                                     &
                 F0,gamma_sheath,gamma_stangeby, density_reflection, &
                 zjz_0, zjz_1, zj_coef,                              &
@@ -66,6 +65,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
 		pellet_particles, use_pellet,                       &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint,      &
+                forceSDN,                                           &
                 xcase, SDN_threshold, D_perp_file, ZK_perp_file,    &
                 rho_file, T_file, ffprime_file, rot_file,           &
                 normalized_velocity_profile,                        &
@@ -77,11 +77,11 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 use_mumps, mumps_ordering,                          &
                 use_BLR_compression, epsilon_BLR, just_in_time_BLR, &
                 use_pastix, use_murge, use_murge_element, use_wsmp, &
-                pastix_smp_only, refinement, force_central_node,    &
+                refinement, force_central_node,                     &
                 fix_axis_nodes,                                     &
-                grid_to_wall, RZ_grid_inside_wall,                  &
+                grid_to_wall, RZ_grid_inside_wall, eqdsk_psi_fact,  &
+                RZ_grid_jump_thres,                                 &
                 adaptive_time, equil, bench_without_plot,           &
-                no_zeros_pastix, no_zeros_mumps,                    &
                 eta_T_dependent, visco_T_dependent,                 &
                 zkpar_T_dependent, use_strumpack,                   & 
                 heatsource_psin, heatsource_sig,                    &
@@ -105,18 +105,29 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 NEO, neo_file, aki_neo_const, amu_neo_const,        &
                 time_evol_scheme, corr_neg_temp_coef,               &
                 corr_neg_dens_coef, D_prof_neg, ZK_prof_neg,        &
-                D_prof_neg_thresh, ZK_prof_neg_thresh, T_min,       &
+                D_prof_neg_thresh, ZK_prof_neg_thresh, T_min,rho_min,&
+				T_min_neg,rho_min_neg,                              &
                 amix, amix_freeb, equil_accuracy,                   &
                 equil_accuracy_freeb, current_ref, FB_Ip_position,  &
                 FB_Ip_integral, Z_axis_ref, FB_Zaxis_position,      &
                 FB_Zaxis_derivative,FB_Zaxis_integral, start_VFB,   &
                 n_feedback_current, n_feedback_vertical,            &
-                n_iter_freeb, n_pf_coils, pf_coils,                 &
-                axis_srch_radius, PF_pert_start_time,               &
+                n_iter_freeb, n_pf_coils, pf_coils, R_axis_ref,     &
+                axis_srch_radius,                                   &
                 starwall_equil_coils, freeb_equil_iterate_area,     &
                 psi_offset_freeb, diag_coils, rmp_coils,            &
                 voltage_coils, vert_FB_amp, find_pf_coil_currents,  &
-                pastix_maxthrd, eta_ohmic, centralize_harm_mat
+                delta_psi_GS, newton_GS_fixbnd, newton_GS_freebnd,  &
+                pastix_maxthrd, eta_ohmic, centralize_harm_mat,     & 
+                vert_FB_amp_ts, vert_FB_gain, vert_pos_file,        & 
+                vert_FB_tact, start_VFB_ts, I_coils_max, rad_FB_amp,&
+                autodistribute_modes, modes_per_family,             &
+                mode_families_modes, n_mode_families,               &
+                weights_per_family, autodistribute_ranks,           &
+                ranks_per_family, cte_current_FB_fact, treat_axis,  &
+                CARIDDI_mode, use_newton, maxNewton, gamma_Newton,  &
+                alpha_Newton, vacuum_min, strumpack_matching
+
 
 if (my_id .eq. 0) then
 
@@ -177,9 +188,9 @@ if (my_id .eq. 0) then
 
   ! --- Calculate JOREK gamma_sheath from gamma_stangeby if provided (otherwise the other way around)
   if (gamma_stangeby > -1.d89) then
-    gamma_sheath = (gamma-1.d0) * (0.5d0*gamma_stangeby - 1.d0)
+    gamma_sheath = (gamma-1.d0) * (0.5d0*gamma_stangeby - 1.d0 - 0.5d0*gamma)
   else
-    gamma_stangeby = 2.d0 * ( gamma_sheath / (gamma-1.d0) + 1.d0 )
+    gamma_stangeby = 2.d0 * ( gamma_sheath / (gamma-1.d0) + 1.d0 + 0.5d0 * gamma )
   end if
 
   if (sum(nstep_n) .gt. 0) then

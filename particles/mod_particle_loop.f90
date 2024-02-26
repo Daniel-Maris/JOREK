@@ -44,6 +44,7 @@ real*8    :: particle_source, velocity_par_source, energy_source
 real*8    :: density_tot, density_in, density_out,  pressure, pressure_in, pressure_out
 real*8    :: mom_par_tot, mom_par_in, mom_par_out, kin_par_tot, kin_par_out, kin_par_in
 real*8    :: particles_remaining, momentum_remaining, energy_remaining
+!real*8,dimension(n_var) :: varmin,varmax
 !$ real*8 :: w0, w1, mmm(3)
 
 integer, intent(in)   :: n_steps
@@ -98,20 +99,21 @@ if (sim%my_id .eq. 0) then
   write(*,'(A,e14.6)') ' E_norm   : ',E_norm
 endif
 #ifdef __GFORTRAN__
-      !$omp parallel do default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
+   !$omp parallel do default(shared) &
+   !$omp shared(sim, n_steps, timesteps, rng, particle_start_time, &
 #else
-      !$omp parallel do default(none) &
-#endif
-   !$omp schedule(dynamic,10) &
+   !$omp parallel do default(none) &
    !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time, &
-   !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, &
-   !$omp use_cx, use_ionisation, use_sputtering, use_ncs, use_ccs, use_pcs, &
-   !$omp jorek_feedback, CENTRAL_DENSITY, CENTRAL_MASS) &
+#endif
+   !$omp        rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, &
+   !$omp        use_cx, use_ionisation, use_sputtering, use_ncs, use_ccs, use_pcs, &
+   !$omp        jorek_feedback, CENTRAL_DENSITY, CENTRAL_MASS) &
    !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old, &
-   !$omp i_elm_old, i_elm, n_e, T_e, ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy,& 
-   !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, &
-   !$omp ifail, CX_rate, CX_prob, CX_source, CX_energy, v, &
-   !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran) &
+   !$omp         i_elm_old, i_elm, n_e, T_e, ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy,& 
+   !$omp         R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, &
+   !$omp         ifail, CX_rate, CX_prob, CX_source, CX_energy, v, &
+   !$omp         particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran) &
+   !$omp schedule(dynamic,10) &
    !$omp reduction(+:feedback_rhs)
 
    do j=1,size(particles,1)
@@ -245,9 +247,9 @@ endif
 
         if (use_ncs) then
            do l=1,n_vertex_max
-              do m=1,n_order+1
+              do m=1,n_degrees
 
-                 index_lm = (l-1)*(n_order+1) + m
+                 index_lm = (l-1)*n_degrees + m
                  
                  v   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) 
                  
@@ -282,8 +284,8 @@ endif
         HZ(:) = HZ(:)/PI    ! int 1 from 0 to 2pi = 2pi
        
         do l=1,n_vertex_max
-          do m=1,n_order+1
-             index_lm = (l-1)*(n_order+1) + m
+          do m=1,n_degrees
+             index_lm = (l-1)*n_degrees + m
              v   = HH(l,m) * sim%fields%element_list%element(i_elm)%size(l,m) 
 
              !< Ccs cannot be used in the same time as ncs for now
@@ -335,7 +337,8 @@ endif
   !$ if (sim%my_id .eq. 0) write(*,"(f10.7,A,3f9.4,A)") sim%time, " Particle stepping complete in ", mmm, "s"
 
   ! call Integrals_3D(sim%my_id, sim%fields%node_list, sim%fields%element_list, density_tot, density_in, density_out, &
-  !                   pressure, pressure_in, pressure_out, kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in, mom_par_out)
+  !                   pressure, pressure_in, pressure_out, kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in,
+  !                   mom_par_out,varmin,varmax)
 
   particles_remaining = 0.d0
   momentum_remaining  = 0.d0

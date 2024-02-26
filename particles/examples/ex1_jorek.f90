@@ -27,7 +27,7 @@ sim%groups(:)%Z    = 74
 sim%groups(:)%mass = 183.84 !< atomic mass units
 
 ! Prepare the coronal equilibrium
-adas = read_adf11('50_w')
+adas = read_adf11(0,'50_w')
 cor  = coronal(adas)
 
 ! Distribute particles uniformly throughout the domain
@@ -44,7 +44,7 @@ call adjust_particle_weights(sim%groups(2)%particles, num_atoms_total=1d23)
 
 events = [event(write_action(basename='test'),   step=1d-4), &
           !event(diag_print_kinetic_energy(),     step=1d-6), &
-          event(projection(sim%fields%node_list, sim%fields%element_list, f=[proj_f(proj_one, 1)], smoothing=1d-3, basename='proj', to_vtk=.true.), step=1d-5), &
+          event(projection(sim%fields%node_list, sim%fields%element_list, f=[proj_f(proj_one, 1)], filter=1d-3, basename='proj', to_vtk=.true.), step=1d-5), &
           event(stop_action(), start=1d-3)]
 call check_and_fix_timesteps(timesteps, events)
 call with(sim, events, at=0.d0)
@@ -63,7 +63,7 @@ do while (.not. sim%stop_now)
       !$omp reduction(+:n_lost)
       do j=1,size(particles,1)
         do k=1,n_steps
-          if (particles(j)%i_elm .eq. 0) exit
+          if (particles(j)%i_elm .le. 0) exit
           t = sim%time + k*timesteps(i)
           call sim%fields%calc_EBpsiU(t, particles(j)%i_elm, &
               particles(j)%st, particles(j)%x(3), E, B, psi, U)
@@ -74,7 +74,7 @@ do while (.not. sim%stop_now)
           call boris_push_cylindrical(particles(j), sim%groups(i)%mass, E, B, timesteps(i))
           call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, rz_old(1), rz_old(2), st_old(1), st_old(2), i_elm_old, &
               particles(j)%x(1), particles(j)%x(2), particles(j)%st(1), particles(j)%st(2), particles(j)%i_elm, ifail)
-          if (particles(j)%i_elm .eq. 0) n_lost = n_lost + 1
+          if (particles(j)%i_elm .le. 0) n_lost = n_lost + 1
         end do ! steps
       end do ! particles
       !$omp end parallel do

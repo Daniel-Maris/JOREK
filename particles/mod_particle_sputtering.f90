@@ -455,11 +455,12 @@ subroutine do_particle_sputter(this, sim, ev)
 	if (sim%my_id == 0 .and. reflection) write(*,*) "group(i)%Z < 0, plasma will be reflected as neutrals -> yield = 1"
 	
 #ifdef __GFORTRAN__
-    !$omp parallel default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
+    !$omp parallel default(shared) & 
 #else
     !$omp parallel default(none) &
+    !$omp shared(this, sim, i)   &
 #endif
-    !$omp shared(this, sim, i,reflection), private(q, velocity, theta, E, &
+    !$omp private(q, velocity, theta, E, &
     !$omp sputtering_yield, sputtered_energy_coeff, i_rng, u, i_patch,this_patch,j, i_edge_nodes, vector_normal, T_eV, &
     !$omp k, area, i_edge_elm, toroidal_offset, dphi, is_prompt_loss, Efield, B, psi, pot, T_e, n_e,fast_reflection)                    &
     !$omp reduction(+:sputtered_this_step_local,bnd_kinetic_flux_local,reflbnd_kinetic_flux_local,bnd_kinetic_load_local,reflbnd_kinetic_load_local)
@@ -832,11 +833,7 @@ endif
 	
     ! We need to properly use all RNGS here to avoid missing numbers
     ! needs default(shared) for gfortran
-#ifdef __GFORTRAN__
-    !$omp parallel default(shared) &
-#else
     !$omp parallel default(none) &
-#endif 
     !$omp shared(this, rng_sample, i, n_samples_fluid) private(i_rng, j)
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
@@ -876,11 +873,12 @@ endif
     !$omp parallel default(shared) &
 #else
     !$omp parallel default(none) &
-#endif
     !$omp shared(this, sim, i, k, rng_sample, xyz_sampled, st_sampled, i_elm_sampled, n_samples_fluid, i_free, &
     !$omp integral, delta_t, q, Z, n_particle_groups,reflection, ION_BINDING_E, mol_binding_E) &
+#endif
     !$omp private(i_rng, j, theta, E, sputtering_yield, av_yield, sputtered_energy_coeff, u, i_p, vector_normal, T_e, T_eV, n_e, fast_reflection) &
 	!$omp reduction(+:enery_wall_recombi_local,energy_reflected_local,energy_mol_recombi_local)
+
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
     !$omp do schedule(static,1)
@@ -1006,14 +1004,16 @@ endif
         stop
       end select
 
-      associate (pa => sim%groups(this%target_group)%particles(i_p))
       ! NaN checks
-      if (any(pa%x .ne. pa%x) .or. E .ne. E .or. pa%weight .ne. pa%weight) then
-        pa%i_elm = 0 ! skip this one since sputtering went wrong
-        write(*,*) 'NaN check failed', E, pa%weight, pa%x
-        ! TODO debug logging? openmp threading though
+      if (     (sim%groups(this%target_group)%particles(i_p)%x(1) .ne. sim%groups(this%target_group)%particles(i_p)%x(1)) &
+          .or. (sim%groups(this%target_group)%particles(i_p)%x(2) .ne. sim%groups(this%target_group)%particles(i_p)%x(2)) &
+          .or. (sim%groups(this%target_group)%particles(i_p)%x(3) .ne. sim%groups(this%target_group)%particles(i_p)%x(3)) &
+          .or. (E .ne. E)                                                                                                 &
+          .or. (sim%groups(this%target_group)%particles(i_p)%weight .ne. sim%groups(this%target_group)%particles(i_p)%weight) ) then
+       
+        sim%groups(this%target_group)%particles(i_p)%i_elm = 0 ! skip this one since sputtering went wrong
+       
       end if
-      end associate
     end do
     !$omp end do
     !$omp end parallel
@@ -1221,9 +1221,10 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
     !$omp parallel do default(shared) &
 #else
     !$omp parallel do default(none) &
-#endif
     !$omp shared(fluid_sputter_yield, sim, n_relative, background_species, coeff, diagnostics, delta_t, &
     !$omp i_patch, central_mass, psi_axis, psi_limit,target_group) &
+    !$omp        i_patch, central_mass, psi_axis, psi_limit) &
+#endif
     !$omp private(i, n_e, T_e, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, n_species, Gamma_d, &
     !$omp         n_offset, yield, Z) schedule(static)
     do i = 1, size(fluid_sputter_yield%patch(i_patch)%xyz, 2) !< over all nodes

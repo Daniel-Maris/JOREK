@@ -70,20 +70,20 @@ module mod_poloidal_currents
 
       if ( ( i_tor > 1 ) .and. axisym  ) cycle ! Just include the n=0 mode
 
-      call interp(node_list,element_list,i_elm,1,i_tor,s,t,Psi,Ps_s, Ps_t, Ps_st, Ps_ss, Ps_tt)
-      call interp(node_list,element_list,i_elm,3,i_tor,s,t,ZJ ,ZJ_s, ZJ_t, ZJ_st, ZJ_ss, ZJ_tt)
-      if (jorek_model .eq. 400) then
-        call interp(node_list,element_list,i_elm,5,i_tor,s,t,RHO,RHO_s,RHO_t,RHO_st,RHO_ss,RHO_tt)
-        call interp(node_list,element_list,i_elm,6,1,s,t,Ti0,Ti0_s,Ti0_t,Ti0_st,Ti0_ss,Ti0_tt)
-        call interp(node_list,element_list,i_elm,8,1,s,t,Te0,Te0_s,Te0_t,Te0_st,Te0_ss,Te0_tt)
+      call interp(node_list,element_list,i_elm,var_psi,i_tor,s,t,Psi,Ps_s, Ps_t, Ps_st, Ps_ss, Ps_tt)
+      call interp(node_list,element_list,i_elm,var_zj,i_tor,s,t,ZJ ,ZJ_s, ZJ_t, ZJ_st, ZJ_ss, ZJ_tt)
+      if (with_TiTe) then
+        call interp(node_list,element_list,i_elm,var_rho,i_tor,s,t,RHO,RHO_s,RHO_t,RHO_st,RHO_ss,RHO_tt)
+        call interp(node_list,element_list,i_elm,var_Ti,1,s,t,Ti0,Ti0_s,Ti0_t,Ti0_st,Ti0_ss,Ti0_tt)
+        call interp(node_list,element_list,i_elm,var_Te,1,s,t,Te0,Te0_s,Te0_t,Te0_st,Te0_ss,Te0_tt)
         T0    = Ti0   + Te0
         T0_s  = Ti0_s + Te0_s
         T0_t  = Ti0_t + Te0_t
       elseif (jorek_model < 200) then 
         T0 = 0.d0;  T0_s = 0.d0; T0_t = 0.d0; rho = 1.d0; rho_t = 0.d0; rho_s = 0.d0
       else
-        call interp(node_list,element_list,i_elm,6,i_tor,s,t,T0,T0_s,T0_t,T0_st,T0_ss,T0_tt) 
-        call interp(node_list,element_list,i_elm,5,i_tor,s,t,RHO,RHO_s,RHO_t,RHO_st,RHO_ss,RHO_tt)
+        call interp(node_list,element_list,i_elm,var_T,i_tor,s,t,T0,T0_s,T0_t,T0_st,T0_ss,T0_tt) 
+        call interp(node_list,element_list,i_elm,var_rho,i_tor,s,t,RHO,RHO_s,RHO_t,RHO_st,RHO_ss,RHO_tt)
       endif
 
       zj_sum  = zj_sum   +  ZJ * HZ(i_tor,i_plane)
@@ -193,10 +193,10 @@ module mod_poloidal_currents
           k_size   = bndelem%size(k_vertex,k_dof)
           node_k   = node_list%node(k_node)
         
-          R  (:)   = R  (:)  + node_k%x(k_dir,1) * k_size * H1  (k_vertex,k_dof,:)
-          Z  (:)   = Z  (:)  + node_k%x(k_dir,2) * k_size * H1  (k_vertex,k_dof,:)
-          R_s(:)   = R_s(:)  + node_k%x(k_dir,1) * k_size * H1_s(k_vertex,k_dof,:)
-          Z_s(:)   = Z_s(:)  + node_k%x(k_dir,2) * k_size * H1_s(k_vertex,k_dof,:)
+          R  (:)   = R  (:)  + node_k%x(1,k_dir,1) * k_size * H1  (k_vertex,k_dof,:)
+          Z  (:)   = Z  (:)  + node_k%x(1,k_dir,2) * k_size * H1  (k_vertex,k_dof,:)
+          R_s(:)   = R_s(:)  + node_k%x(1,k_dir,1) * k_size * H1_s(k_vertex,k_dof,:)
+          Z_s(:)   = Z_s(:)  + node_k%x(1,k_dir,2) * k_size * H1_s(k_vertex,k_dof,:)
         
           do mp=1,n_plane
             do in=1,n_tor
@@ -236,7 +236,7 @@ module mod_poloidal_currents
     I_halo       = 0.5*I_halo       / mu_zero * 1.d-6 * 2.d0 * PI / n_plane
     I_net        = 0.5*I_net        / mu_zero * 1.d-6 * 2.d0 * PI / n_plane
     I_halo_mp(:) = 0.5*I_halo_mp(:) / mu_zero * 1.d-6 * 2.d0 * PI 
-    TPF          = maxval(I_halo_mp)/I_halo 
+    TPF          = maxval(I_halo_mp)/max(I_halo, 1d-20) 
 
     if (print_halo) then
       write(*,*) ' I_halo, I_net [MA]:  ', I_halo, I_net
@@ -264,6 +264,7 @@ module mod_poloidal_currents
   subroutine normal_bnd_curr(node_list, element_list, bnd_node_list, bnd_elm_list, i_plane, si_units)
 
     use mod_basisfunctions
+    use mod_parameters, only: n_degrees
 
     implicit none
 
@@ -281,7 +282,7 @@ module mod_poloidal_currents
     real*8                :: rho_s(n_gauss), T0_s(n_gauss) 
     real*8                :: P0_s(n_gauss), J_normal(n_gauss)
     real*8                :: k_size, fact, R_c, Z_c, vec_inside(2), grad_t(2)
-    real*8                :: G(4,4), sign_out
+    real*8                :: G(4,n_degrees), sign_out
     real*8                :: R(n_gauss), Z(n_gauss), R_s(n_gauss), Z_s(n_gauss)    
     type(type_node)       :: node_k
     type(type_element)    :: elm_k
@@ -320,10 +321,10 @@ module mod_poloidal_currents
           k_size   = bndelem%size(k_vertex,k_dof)
           node_k   = node_list%node(k_node)
         
-          R  (:)   = R  (:)  + node_k%x(k_dir,1) * k_size * H1  (k_vertex,k_dof,:)
-          Z  (:)   = Z  (:)  + node_k%x(k_dir,2) * k_size * H1  (k_vertex,k_dof,:)
-          R_s(:)   = R_s(:)  + node_k%x(k_dir,1) * k_size * H1_s(k_vertex,k_dof,:)
-          Z_s(:)   = Z_s(:)  + node_k%x(k_dir,2) * k_size * H1_s(k_vertex,k_dof,:)
+          R  (:)   = R  (:)  + node_k%x(1,k_dir,1) * k_size * H1  (k_vertex,k_dof,:)
+          Z  (:)   = Z  (:)  + node_k%x(1,k_dir,2) * k_size * H1  (k_vertex,k_dof,:)
+          R_s(:)   = R_s(:)  + node_k%x(1,k_dir,1) * k_size * H1_s(k_vertex,k_dof,:)
+          Z_s(:)   = Z_s(:)  + node_k%x(1,k_dir,2) * k_size * H1_s(k_vertex,k_dof,:)
         
           do in=1,n_tor
             psi_s(:) = psi_s(:) + node_k%values(in,k_dir,1) * k_size*H1_s(k_vertex,k_dof,:) * HZ(in,i_plane)
@@ -349,10 +350,10 @@ module mod_poloidal_currents
       call basisfunctions(xgauss(2),xgauss(2), G)  
       R_c = 0.d0 ;  Z_c = 0.d0 
       do i = 1, n_vertex_max
-        do j = 1, n_order+1
+        do j = 1, n_degrees
           node_k = node_list%node(elm_k%vertex(i)) 
-          R_c    = R_c + node_k%x(j,1) * elm_k%size(i,j) * G(i,j)
-          Z_c    = Z_c + node_k%x(j,2) * elm_k%size(i,j) * G(i,j)
+          R_c    = R_c + node_k%x(1,j,1) * elm_k%size(i,j) * G(i,j)
+          Z_c    = Z_c + node_k%x(1,j,2) * elm_k%size(i,j) * G(i,j)
         enddo
       enddo  
       vec_inside = (/ R_c - R(2), Z_c - Z(2) /)       ! vector pointing towards the domain

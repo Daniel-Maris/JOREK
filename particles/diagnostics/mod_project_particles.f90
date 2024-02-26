@@ -34,6 +34,7 @@ public projection
 public new_projection !< The constructor function is also public since it provides better error handling than the real constructor
 public proj_f
 public proj_f_interface, proj_one, proj_q, proj_vR, proj_vZ, proj_vPhi, proj_Ekin, proj_Ekin_keV, proj_jR, proj_jZ, proj_jPhi
+public proj_R, proj_min_rad, proj_Z,proj_v,proj_vpar,proj_mu,proj_pow
 public write_particle_distribution_to_vtk, write_particle_distribution_to_h5 !< public for testing reasons, please don't use directly
 public prepare_mumps_par, prepare_mumps_par_n0, sample_rhs !< public for testing reasons
 public DMUMPS_STRUC
@@ -64,25 +65,27 @@ type, extends(io_action) :: projection
   type(type_node_list),    pointer :: node_list !< node lists to save particle projections in
   type(type_element_list), pointer :: element_list
 
-  real*8 :: filter          !< Smoothing factor used for this projection (Laplacian, poloidal plane)
-  real*8 :: filter_hyper    !< hyper-smoothing factor used for this projection (double Laplacian, poloidal plane)
-  real*8 :: filter_parallel !< smoothing factor used for this projection (parallel direction)
+  real*8 :: filter                      !< Smoothing factor used for this projection (Laplacian, poloidal plane)
+  real*8 :: filter_hyper                !< hyper-smoothing factor used for this projection (double Laplacian, poloidal plane)
+  real*8 :: filter_parallel             !< smoothing factor used for this projection (parallel direction)
 
-  real*8 :: filter_n0          !< Smoothing factor used for this projection for n=0 
-  real*8 :: filter_hyper_n0    !< hyper-smoothing factor used for this projection for n=0
-  real*8 :: filter_parallel_n0 !< smoothing factor used for this projection (parallel direction) for n=0
+  real*8 :: filter_n0                   !< Smoothing factor used for this projection for n=0 
+  real*8 :: filter_hyper_n0             !< hyper-smoothing factor used for this projection for n=0
+  real*8 :: filter_parallel_n0          !< smoothing factor used for this projection (parallel direction) for n=0
 
-  real*8 :: scaling_integral_weights  !< multiplication factor to subtract integral_weights from rhs(n=0)
+  real*8 :: scaling_integral_weights    !< multiplication factor to subtract integral_weights from rhs(n=0)
 
   logical,public :: do_zonal = .false.  !< solve zonal flow system for n=0 (instead of usual projection)
 
   !> Output storage (optional)
   type(vtk_grid), allocatable, private :: vtk_grid !< if allocated output to vtk
-  logical, public :: to_h5 = .false. !< Output to hdf5 file
+  logical, public :: to_h5 = .false.    !< Output to hdf5 file
+  logical, public :: index_h5 = .false. !< Number projection outputs (vtk, or hdf5) in the same way as its fluid counterpart (e.g. projections00100.vtk(h5))
+                                        !< if set false, outputs will be numbered by physical time.
 
   !> Right-hand side
-  type(proj_f), dimension(:), allocatable :: f !< List of projection transformations to use (n_proj)
-  real*8, dimension(:,:,:,:,:), allocatable :: rhs !< dim (n_order+1,n_vertex_max,n_elements,n_tor,n_proj2)
+  type(proj_f), dimension(:),   allocatable :: f   !< List of projection transformations to use (n_proj)
+  real*8, dimension(:,:,:,:,:), allocatable :: rhs !< dim (n_degrees,n_vertex_max,n_elements,n_tor,n_proj2)
   !< right-hand side for accumulation during sampling
   !< assumed to be filled by the user. Will be MPI_Reduced (+) before projecting
   !< n_proj + n_proj2 should be less than n_var (extra input will be ignored)
@@ -91,7 +94,7 @@ type, extends(io_action) :: projection
   !< note that this does not really work very well for multiple groups with
   !< different timesteps
 
-  logical :: calc_integrals = .true. !< Calculate and print integrals of all projected quantities over the entire volume
+  logical :: calc_integrals = .true.    !< Calculate and print integrals of all projected quantities over the entire volume
   !< (for n=0 only)
   !> Note that the integral is just a weighted sum over the node values.
   !> Precalculate the weights during the projection matrix assembly step and store
@@ -101,8 +104,10 @@ type, extends(io_action) :: projection
 
   real*8 :: area, volume
 
-  real*8, dimension(:,:,:,:,:), allocatable :: rhs_f !< dim (n_order+1,n_vertex_max,n_elements,n_tor,n_proj) storage
+  real*8, dimension(:,:,:,:,:), allocatable :: rhs_f !< dim (n_degrees,n_vertex_max,n_elements,n_tor,n_proj) storage
   !< location for proj_f output
+
+  logical :: apply_dirichlet   ! if .true. (default) the Dirichlet boundary conditions are applied
 
   integer :: mpi_comm_world    ! mpi communicator of the whole world
   integer :: mpi_comm_n        ! mpi communicator of each toroidal harmonic
@@ -140,6 +145,135 @@ pure function proj_one(sim, group, particle)
   real*8 :: proj_one
   proj_one = 1.d0
 end function proj_one
+
+pure function proj_R(sim,group,particle)
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  real*8 :: proj_R
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+      proj_R = p%x(1)
+    class default
+      proj_R = 0.d0
+  end select
+end function proj_R
+
+pure function proj_min_rad(sim,group,particle)
+  use equil_info, only : ES
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  real*8 :: proj_min_rad
+  
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+      
+      proj_min_rad = sqrt((p%x(1)-ES%R_axis)**2+p%x(2)**2) !Small r 
+    class default
+      proj_min_rad = 0.d0
+  end select
+end function proj_min_rad
+
+pure function proj_Z(sim,group,particle)
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  real*8 :: proj_Z
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+      proj_Z = p%x(2)
+
+    class default
+      proj_Z = 0.d0
+  end select
+end function proj_Z
+
+pure function proj_phi(sim,group,particle)
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  real*8 :: proj_phi
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+      proj_phi = p%x(3)
+
+    class default
+      proj_phi = 0.d0
+  end select
+end function proj_phi
+
+! Debatable how accurate this is. kinetic_to_gc is not exact.
+function proj_mu(sim,group,particle)
+  use mod_particle_types
+  use mod_boris
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  type(particle_gc)    :: particle_gc_tmp
+  real*8 :: proj_mu,E(3),B(3),psi,U,mass
+  mass=sim%groups(1)%mass
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+      call sim%fields%calc_EBpsiU(sim%time,p%i_elm,p%st,p%x(3),E,B,psi,U)
+      particle_gc_tmp=kinetic_to_gc(sim%fields%node_list, sim%fields%element_list, kinetic_leapfrog_to_kinetic(p, E, B, mass, 0.d0), B, mass)
+      proj_mu = abs(particle_gc_tmp%mu)
+    class default
+      proj_mu = 0.d0
+  end select
+end function proj_mu
+
+function proj_vpar(sim,group,particle)
+  use mod_particle_types, only: particle_kinetic_leapfrog
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  type(particle_gc)    :: particle_gc_tmp
+  real*8 :: proj_vpar,E(3),B(3),psi,U
+
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+
+      call sim%fields%calc_EBpsiU(sim%time,p%i_elm,p%st,p%x(3),E,B,psi,U)
+
+      proj_vpar = dot_product(p%v,B)/sqrt(dot_product(B,B))
+    class default
+      proj_vpar = 0.d0
+  end select
+end function proj_vpar
+
+function proj_pow(sim,group,particle)
+  use mod_particle_types, only: particle_kinetic_leapfrog
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  real*8 :: proj_pow,E(3),B(3),psi,U
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+
+      call sim%fields%calc_EBpsiU(sim%time,p%i_elm,p%st,p%x(3),E,B,psi,U)
+      proj_pow = p%q*EL_CHG*dot_product(p%v,E)
+
+
+
+    class default
+      proj_pow = 0.d0
+  end select
+end function proj_pow
+
+pure function proj_v(sim,group,particle)
+  use mod_particle_types, only: particle_kinetic_leapfrog
+  type(particle_sim), intent(in) :: sim
+  integer, intent(in) :: group
+  class(particle_base), intent(in) :: particle
+  real*8 :: proj_v
+  select type (p => particle)
+    type is (particle_kinetic_leapfrog)
+      proj_v = sqrt(dot_product(p%v,p%v))
+    class default
+      proj_v = 0.d0
+  end select
+end function proj_v
 
 pure function proj_vR(sim, group, particle)
   use mod_particle_types, only: particle_kinetic_leapfrog
@@ -294,10 +428,10 @@ end function new_proj_f
 function new_projection(node_list, element_list,                                                    &
                         filter,    filter_hyper,    filter_parallel,                                &
                         filter_n0, filter_hyper_n0, filter_parallel_n0,                             &
-                        f, do_zonal, to_h5, to_vtk,                                                 &
-                        nsub, filename, basename, decimal_digits, fractional_digits, calc_integrals &
-                        ) result(new)
-  use mpi
+                        f, do_zonal, to_h5, to_vtk, index_h5,                                       &
+                        nsub, filename, basename, decimal_digits, fractional_digits, calc_integrals,&
+                        do_dirichlet) result(new)
+  use mpi_mod
   !use mod_parameters, only n_node_max
   type(projection) :: new
   type(type_node_list), intent(in)       :: node_list
@@ -308,12 +442,14 @@ function new_projection(node_list, element_list,                                
   logical, intent(in), optional          :: do_zonal    !< solve zonal flow  system for n=0 instead of projection (false if omitted)
   logical, intent(in), optional          :: to_h5 !< Write HDF5 output after projecting (false if omitted)
   logical, intent(in), optional          :: to_vtk !< Write vtk output after projecting (false if omitted)
+  logical, intent(in), optional          :: index_h5 !< numbering projection outputs in the same way as fluid output: e.g. projections00100.vtk(h5) (false if omitted)
   integer, intent(in), optional          :: nsub !< number of subdivisions of the finite elements
   character(len=*), intent(in), optional :: filename
   character(len=*), intent(in), optional :: basename
   integer, intent(in), optional          :: decimal_digits
   integer, intent(in), optional          :: fractional_digits
   logical, intent(in), optional          :: calc_integrals !< After projecting, calculate and print the integral of each projected quantity
+  logical, intent(in), optional          :: do_dirichlet
 
   integer              :: ierr, my_nsub, inode, n_masters, i
   integer, allocatable :: i_tor(:)
@@ -384,6 +520,8 @@ function new_projection(node_list, element_list,                                
 
   new%do_zonal = .false.
   if (present(do_zonal)) new%do_zonal = do_zonal
+  new%apply_dirichlet = .true.
+  if (present(do_dirichlet)) new%apply_dirichlet = do_dirichlet
 
   if (present(to_vtk)) then
     if (to_vtk) then
@@ -398,6 +536,7 @@ function new_projection(node_list, element_list,                                
     end if
   end if
   if (present(to_h5)) new%to_h5 = to_h5
+  if (present(index_h5)) new%index_h5 = index_h5
 
   new%basename = "proj"
   if (present(filename)) new%filename = filename
@@ -414,15 +553,22 @@ function new_projection(node_list, element_list,                                
                               new%mpi_comm_world, new%mpi_comm_n, new%mpi_comm_master,              &
                               new%mumps_par, new%area, new%volume,                                  &
                               new%filter_n0, new%filter_hyper_n0, new%filter_parallel_n0,           &
-                              integral_weights=new%integral_weights, do_zonal=new%do_zonal)  
+                              integral_weights=new%integral_weights, do_zonal=new%do_zonal,         &
+                              apply_dirichlet_condition_in=new%apply_dirichlet)  
+
+    new%n_dof = new%mumps_par%n / 2
+  
   else
 
     call prepare_mumps_par(node_list, element_list, new%n_tor_local, new%i_tor_local,            &
                            new%mpi_comm_world, new%mpi_comm_n, new%mpi_comm_master,              &
-                           new%mumps_par, new%filter, new%filter_hyper, new%filter_parallel)
+                           new%mumps_par, new%filter, new%filter_hyper, new%filter_parallel,     &
+                           apply_dirichlet_condition_in=new%apply_dirichlet)
+
+    new%n_dof = new%mumps_par%n / new%n_tor_local
+
   end if
 
-  new%n_dof = new%mumps_par%n / 2
 
   if (present(f)) then
     new%f = f
@@ -439,6 +585,7 @@ end subroutine close_mumps
 
 subroutine project(this, sim, ev)
   use mod_event
+  use phys_module, only: nout, nout_projection, index_now
   class(projection), intent(inout)     :: this
   type(particle_sim), intent(inout)    :: sim
   type(event), intent(inout), optional :: ev
@@ -449,11 +596,33 @@ subroutine project(this, sim, ev)
   ! Project all right-hand sides
   call project_only(this, sim)
 
+  ! Some checks for 'nout_projection'
+  if ((this%to_h5) .or. (allocated(this%vtk_grid))) then
+    if (nout_projection .lt. 0) then
+      nout_projection = nout
+      if (this%my_id .eq. 0) then
+        write(*,*) "WARNING: Trying to write projection output files without specifying 'nout_projection'"
+        write(*,*) "         Projections will be written in every 'nout' timesteps"
+      end if
+    else if (.not. (mod(nout,nout_projection) .eq. 0)) then
+      if (this%my_id .eq. 0) then
+        write(*,*) "WARNING: Double check 'nout' and 'nout_projection' in the namelist"
+        write(*,*) "         You will get staggered projection outputs with JOREK restart files"
+      end if
+    end if
+  end if
+
   ! Save output if requested
-  if (this%to_h5) call save_to_h5(this, sim)
+  if (this%to_h5) then
+    if (mod(index_now,nout_projection) .eq. 0) then
+      call save_to_h5(this, sim)
+    end if
+  end if
   if (allocated(this%vtk_grid)) then
-    call save_to_vtk(this, sim)
-  endif
+    if (mod(index_now,nout_projection) .eq. 0) then
+      call save_to_vtk(this, sim)
+    end if
+  end if
 
   ! Clean up storage
   if (allocated(this%rhs)) this%rhs = 0.d0
@@ -464,7 +633,7 @@ end subroutine project
 !> Gather all of the rhs-es into a single matrix and feed it to mumps, and then
 !> broadcast the result
 subroutine project_only(this, sim)
-  use mpi
+  use mpi_mod
   use mod_event
   use, intrinsic :: ieee_exceptions
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
@@ -512,7 +681,10 @@ subroutine project_only(this, sim)
   this%mumps_par%nrhs = (n_rhs + n_rhs_f)
   this%mumps_par%lrhs = this%mumps_par%n
 
-  if (2*this%n_dof .ne. this%mumps_par%n) write(*,*) 'FATAL : 2*this%n_dof .ne. this%mumps_par%n' 
+  if (2*this%n_dof .ne. this%mumps_par%n) then
+    write(*,*) 'FATAL : 2*this%n_dof .ne. this%mumps_par%n'
+    write(*,*) n_tor_local*this%n_dof,  this%mumps_par%n
+  endif
 
   if (this%my_id_n .eq. 0) then
     ! For some reason gfortran throws an error with the allocated statement here. Instead just reallocate on every call
@@ -539,7 +711,7 @@ subroutine project_only(this, sim)
 
         inode = this%element_list%element(i_elm)%vertex(i)
 
-        do j=1,n_order+1
+        do j=1,n_degrees
 
           index_large_i = 2 * (this%node_list%node(inode)%index(j)-1) + 1 + i_start ! base index in the main matrix + rhs index
 
@@ -576,7 +748,7 @@ subroutine project_only(this, sim)
       
         inode = this%element_list%element(i_elm)%vertex(i)
           
-        do j=1,n_order+1
+        do j=1,n_degrees
 
           index_large_i = 2*(this%node_list%node(inode)%index(j)-1) + 1 + i_start ! base index in the main matrix + rhs index
 
@@ -648,7 +820,6 @@ subroutine project_only(this, sim)
 
     recv_counts(1) = n_loc_n
     do i=2,(n_tor+1)/2
-!      recv_counts(i) = 2*n_loc_n
       recv_counts(i) = n_loc_n
     enddo
 
@@ -673,7 +844,7 @@ subroutine project_only(this, sim)
       
       do i=1,this%node_list%n_nodes
 
-        do k=1,n_order+1
+        do k=1,n_degrees
       
           index = this%node_list%node(i)%index(k)
 
@@ -731,17 +902,18 @@ end subroutine project_only
 !> for every particle and saving the contribution multiplied by each of the basis
 !> functions (poloidal and toroidal) in `this%rhs_f`
 subroutine sample_rhs(this, sim)
-  use mpi
+  use mpi_mod
   use mod_event
   use mod_interp, only: mode_moivre, interp_RZ
   use constants, only: PI
   use mod_basisfunctions
+  use mod_parameters, only: n_degrees
   !$ use omp_lib
   class(projection), intent(inout)  :: this
   type(particle_sim), intent(inout) :: sim
   integer :: n_sample !< number of groups to sample
   real*8 :: HP(n_tor)
-  real*8 :: v, R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, x(3), HH(4,4), HH_s(4,4), HH_t(4,4)
+  real*8 :: v, R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, x(3), HH(4,n_degrees), HH_s(4,n_degrees), HH_t(4,n_degrees)
   integer :: i_group, m, i, j, im, im_index, i_f
   integer :: index_ij, i_tor
   ! For openmp reduce
@@ -750,7 +922,9 @@ subroutine sample_rhs(this, sim)
 
   ! Safety checks
   if (.not. allocated(sim%groups)) return
+  
   if (.not. allocated(this%f)) allocate(this%f(0))
+
   if (allocated(this%rhs)) then
     n_sample = min(size(this%f),n_var-min(size(this%rhs,5),n_var))  ! because we have only n_var storage for now
   else
@@ -767,7 +941,7 @@ subroutine sample_rhs(this, sim)
       return
     end if
 
-    allocate(this%rhs_f(n_vertex_max,n_order+1,this%element_list%n_elements,n_tor,n_sample))
+    allocate(this%rhs_f(n_vertex_max,n_degrees,this%element_list%n_elements,n_tor,n_sample))
   
   end if
   
@@ -778,18 +952,18 @@ subroutine sample_rhs(this, sim)
   ! variable instead of all-at-once, helping with the stack size requirements
   ! there is however some thread-creation overhead
 
-  allocate(my_rhs(n_vertex_max,n_order+1,this%element_list%n_elements,n_tor,1))
-
+  allocate(my_rhs(n_vertex_max,n_degrees,this%element_list%n_elements,n_tor,1))
 
   do i_f=1,n_sample
 
     i_group = this%f(i_f)%group
+
     if (.not. allocated(sim%groups(i_group)%particles)) cycle
   
     my_rhs = 0.d0
-    
+
     !$omp parallel do default(none)                                            &
-    !$omp shared(this, sim, n_sample, i_group, i_f)  &
+    !$omp shared(this, sim, n_sample, i_group, i_f)                            &
     !$omp private(x, xjac, HH, HH_s, HH_t, R_g, R_s, R_t, Z_g, Z_s, Z_t,       &
     !$omp         m, i, j, i_tor, index_ij, v, HP),                            &
     !$omp reduction(+:my_rhs) schedule(dynamic,10)
@@ -811,7 +985,7 @@ subroutine sample_rhs(this, sim)
       call mode_moivre(x(3), HP)
             
       do i=1,n_vertex_max
-        do j=1,n_order+1
+        do j=1,n_degrees
        
           v = HH(i,j) * this%element_list%element(sim%groups(i_group)%particles(m)%i_elm)%size(i,j)
 
@@ -840,9 +1014,10 @@ end subroutine sample_rhs
 !> Save an already-projected set to a vtk file with current parameters
 subroutine save_to_vtk(this, sim)
   use mod_event
+  use phys_module, only: index_now
   !$ use omp_lib
-  class(projection), intent(inout) :: this
-  type(particle_sim), intent(inout)    :: sim
+  class(projection), intent(inout)  :: this
+  type(particle_sim), intent(inout) :: sim
   integer :: i, ierr, n_proj
   real*8 :: t0, t1, ostart, oend
   character(len=120) :: filename
@@ -853,10 +1028,15 @@ subroutine save_to_vtk(this, sim)
     return
   end if
 
-  if (len_trim(this%filename) .eq. 0) then
-    filename = this%get_filename(sim%time)
-  else
-    filename = this%filename
+  if (.not. this%index_h5) then ! put file name with physical time
+    if (len_trim(this%filename) .eq. 0) then
+      filename = this%get_filename(sim%time)
+    else
+      filename = this%filename
+    end if
+  else ! put file name with 'index_now'
+    write(filename,'(a,i5.5)') trim(this%basename), index_now
+    filename = trim(filename)//this%extension
   end if
 
   call cpu_time(t0)
@@ -887,21 +1067,27 @@ end subroutine save_to_vtk
 
 !> Action for projecting all particles and writing output to a hdf5 file
 subroutine save_to_h5(this, sim)
-  use mpi
+  use mpi_mod
   use mod_event
+  use phys_module, only: index_now
   !$ use omp_lib
-  class(projection), intent(inout)  :: this
-  type(particle_sim), intent(inout)    :: sim
+  class(projection),  intent(inout)  :: this
+  type(particle_sim), intent(inout)  :: sim
   integer :: my_id, ierr, n_proj
   character(len=120) :: filename
   real*8 :: t0, t1, ostart, oend
 
   this%extension = '.h5'
 
-  if (len_trim(this%filename) .eq. 0) then
-    filename = this%get_filename(sim%time)
-  else
-    filename = this%filename
+  if (.not. this%index_h5) then ! put file name with physical time
+    if (len_trim(this%filename) .eq. 0) then
+      filename = this%get_filename(sim%time)
+    else
+      filename = this%filename
+    end if
+  else ! put file name with 'index_now'
+    write(filename,'(a,i5.5)') trim(this%basename), index_now
+    filename = trim(filename)//this%extension
   end if
 
   call cpu_time(t0)
@@ -943,12 +1129,12 @@ end subroutine save_to_h5
 subroutine prepare_mumps_par(node_list, element_list, n_tor_local, i_tor_local,           &
                              this_mpi_comm_world, this_mpi_comm_n, this_mpi_comm_master,  &
                              mumps_par, filter, filter_hyper, filter_parallel,            &
-                             skip_factorisation)
-use phys_module, only : F0, TWOPI, mode
+                             skip_factorisation, apply_dirichlet_condition_in)
+use phys_module, only : F0, TWOPI, mode, fix_axis_nodes
 use data_structure
 use basis_at_gaussian
 use mod_basisfunctions
-use mpi
+use mpi_mod
 use, intrinsic :: ieee_exceptions
 implicit none
 
@@ -961,6 +1147,7 @@ real*8, intent(in)                   :: filter
 real*8, intent(in)                   :: filter_hyper
 real*8, intent(in)                   :: filter_parallel
 logical, intent(in), optional        :: skip_factorisation
+logical,intent(in),optional          :: apply_dirichlet_condition_in
 
 type (type_element)      :: element
 type (type_node)         :: nodes(n_vertex_max)
@@ -978,7 +1165,7 @@ integer    :: i, j, k, l, m, in, im, ilarge, index_large_i, index_large_k, inode
 integer    :: nz_AA, n_AA, nz_bnd, i_elm, index_ij, index_kl, im_index, in_index, index1
 integer    :: ms, mt, mp, my_id, my_id_n, my_id_master, ierr, MPI_COMM_MUMPS
 logical    :: apply_dirichlet_condition
-logical    :: halt(size(IEEE_USUAL,1))
+logical    :: halt(size(IEEE_USUAL,1)), do_facto
 
 ! We need a separate communicator to be able to run multiple MUMPSes
 call MPI_Comm_dup(this_mpi_comm_n, MPI_COMM_MUMPS, ierr)
@@ -993,24 +1180,31 @@ call DMUMPS(mumps_par)
 call MPI_COMM_RANK(this_mpi_comm_world,  my_id, ierr)
 call MPI_COMM_RANK(mumps_par%COMM,       my_id_n, ierr)
 
-nz_AA = 4 * element_list%n_elements * (n_vertex_max * (n_order+1))**2
-n_AA =  2 * maxval(node_list%node(1:node_list%n_nodes)%index(4))
+nz_AA = 4 * element_list%n_elements * (n_vertex_max * n_degrees)**2
+n_AA  = 2 * maxval(node_list%node(1:node_list%n_nodes)%index(4))
 
 apply_dirichlet_condition = .true.
+if(present(apply_dirichlet_condition_in)) apply_dirichlet_condition = apply_dirichlet_condition_in
 
 nz_bnd = 0
 if (apply_dirichlet_condition) then
   do i=1,node_list%n_nodes
-    if (node_list%node(i)%boundary .eq. 2) nz_bnd = nz_bnd + 8
+    if (node_list%node(i)%boundary .eq. 1) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 2) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 3) nz_bnd = nz_bnd + 8
+    if (node_list%node(i)%boundary .eq. 4) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 5) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 9) nz_bnd = nz_bnd + 8
   enddo
 endif
 
 ! Only perform the construction of the matrix on the host
 if (my_id_n .eq. 0) then
 
-  allocate(ELM(2*n_vertex_max*(n_order+1),2*n_vertex_max*(n_order+1)))
+  allocate(ELM(2*n_vertex_max*n_degrees,2*n_vertex_max*n_degrees))
 
 ! Allocate space for elements
+
   allocate(mumps_par%A(nz_AA+nz_bnd),mumps_par%irn(nz_AA+nz_bnd),mumps_par%jcn(nz_AA+nz_bnd))
 
   mumps_par%irn = 0
@@ -1024,13 +1218,15 @@ if (my_id_n .eq. 0) then
   write(*,*) '**************************************************'
   write(*,'(A,i2,A)') ' * constructing particle projection matrix (n=',mode(i_tor_local),') *'
   write(*,*) '**************************************************'
+  write(*,*) ' n_AA = ',n_AA, n_tor_local
   write(*,'(2i3,A,3e12.4)') my_id,my_id_n,'  filters       ',filter, filter_hyper, filter_parallel
+
   if (apply_dirichlet_condition) write(*,*) 'applying Dirichlet conditions'
 
 !$omp parallel do default(none) &
-!$omp shared(element_list, node_list, n_tor_local, i_tor_local,                     &
-!$omp        H, H_s, H_t, H_ss, H_st, H_tt, Hz, Hz_p, mumps_par, wgauss2,           &
-!$omp        filter, filter_hyper, filter_parallel, F0, my_id_master)               &
+!$omp shared(element_list, node_list, n_tor_local, i_tor_local,                       &
+!$omp        H, H_s, H_t, H_ss, H_st, H_tt, Hz, Hz_p, mumps_par, wgauss2,             &
+!$omp        filter, filter_hyper, filter_parallel, F0, fix_axis_nodes, my_id_master) &
 !$omp private(ELM, i_elm, element, nodes, i, j, k, l, ms, mt, in, im, mp,           &
 !$omp         x_g, x_s, x_t, x_ss, x_st, x_tt,                                      &
 !$omp         y_g, y_s, y_t, y_ss, y_st, y_tt,                                      &
@@ -1056,24 +1252,24 @@ do i_elm=1,element_list%n_elements
   psi_g = 0.d0; psi_s = 0.d0; psi_t = 0.d0; psi_ss = 0.d0; psi_st = 0.d0; psi_tt = 0.d0
 
   do i=1,n_vertex_max
-    do j=1,n_order+1
+    do j=1,n_degrees
       do ms=1, n_gauss
         do mt=1, n_gauss
-          x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-          x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-          x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+          x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+          x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+          x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
 
-          x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-          x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-          x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+          x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+          x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+          x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
 
-          y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
-          y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-          y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+          y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
+          y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+          y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
-          y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-          y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-          y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+          y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+          y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+          y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
 
           psi_g(ms,mt)  = psi_g(ms,mt)  + nodes(i)%values(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
           psi_s(ms,mt)  = psi_s(ms,mt)  + nodes(i)%values(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
@@ -1104,18 +1300,19 @@ do i_elm=1,element_list%n_elements
       psi_x = (  y_t(ms,mt) * psi_s(ms,mt) - y_s(ms,mt) * psi_t(ms,mt)) / xjac
       psi_y = (- x_t(ms,mt) * psi_s(ms,mt) + x_s(ms,mt) * psi_t(ms,mt)) / xjac
 
-      BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)**2
+      BB2 = 1.d0
+      if (filter_parallel .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)**2
 
       do mp = 1, n_plane
 
         do i=1,n_vertex_max
-          do j=1,n_order+1
+          do j=1,n_degrees
 
             do im = 1, n_tor_local
 
               im_index = i_tor_local + im - 1   ! i_tor_local is the starting index in HZ
 
-              index_ij = n_tor_local*(n_order+1)*(i-1) + n_tor_local * (j-1) + im   ! index in the ELM matrix
+              index_ij = 2*n_degrees*(i-1) + 2 * (j-1) + im   ! index in the ELM matrix
 
               v    = H(i,j,ms,mt)    * element%size(i,j) * HZ(im_index,mp)
               v_s  = H_s(i,j,ms,mt)  * element%size(i,j) * HZ(im_index,mp)
@@ -1139,17 +1336,19 @@ do i_elm=1,element_list%n_elements
                    + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                    - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
 
-              Bgrad_v_star = ( F0 / x_g(ms,mt) * v_p  +  v_x  * psi_y - v_y  * psi_x ) / x_g(ms,mt)
+
+              Bgrad_v_star = 0.d0
+              if (filter_parallel .gt. 0.d0) Bgrad_v_star = ( F0 / x_g(ms,mt) * v_p  +  v_x  * psi_y - v_y  * psi_x ) / x_g(ms,mt)
 
 
               do k=1,n_vertex_max
-                do l=1,n_order+1
+                do l=1,n_degrees
 
                   do in = 1, n_tor_local
 
                     in_index = i_tor_local + in - 1
 
-                    index_kl = n_tor_local*(n_order+1)*(k-1) + n_tor_local * (l-1) + in   ! index in the ELM matrix
+                    index_kl = 2*n_degrees*(k-1) + 2 * (l-1) + in   ! index in the ELM matrix
 
                     p   = h(k,l,ms,mt)     * element%size(k,l) * HZ(in_index,mp)
                     p_s = h_s(k,l,ms,mt)   * element%size(k,l) * HZ(in_index,mp)
@@ -1173,7 +1372,8 @@ do i_elm=1,element_list%n_elements
                          + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                          - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
 
-                    Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
+                    Bgrad_p = 0.d0
+                    if (filter_parallel .gt. 0.d0) Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
 
                     ELM(index_ij,index_kl) = ELM(index_ij,index_kl) &
                     
@@ -1199,42 +1399,48 @@ do i_elm=1,element_list%n_elements
 
     inode = element_list%element(i_elm)%vertex(i)
   
-    do j=1,n_order+1
+    do j=1,n_degrees
 
       do im =1, n_tor_local
     
-        index_ij = n_tor_local*(n_order+1)*(i-1) + 2 * (j-1) + im   ! index in the ELM matrix
+        index_ij = 2*n_degrees*(i-1) + 2 * (j-1) + im   ! index in the ELM matrix
 
-        index_large_i = n_tor_local*(node_list%node(inode)%index(j)-1) + im   ! base index in the main matrix
+        index_large_i = 2*(node_list%node(inode)%index(j)-1) + im   ! base index in the main matrix
 
         do k=1,n_vertex_max
       
           knode = element_list%element(i_elm)%vertex(k)
         
-          do l=1,n_order+1
+          do l=1,n_degrees
 
             do in =1, n_tor_local
         
-              index_kl = n_tor_local*(n_order+1)*(k-1) + 2 * (l-1) + in   ! index in the ELM matrix
+              index_kl = 2*n_degrees*(k-1) + 2 * (l-1) + in   ! index in the ELM matrix
 
-              index_large_k = n_tor_local*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
+              index_large_k = 2*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
 
              ! Explicitly calculate the index
 
-              ilarge = in + (l-1) * n_tor_local + (k-1)*n_tor_local*(n_order+1) &
+              ilarge = in + (l-1) * 2 + (k-1)*2*n_degrees &
                       
-                     + (im-1) * n_tor_local    * n_vertex_max*(n_order+1)       &
+                     + (im-1) * 2    * n_vertex_max*n_degrees       &
                      
-                     + (j-1)  * n_tor_local**2 * n_vertex_max*(n_order+1)       &
+                     + (j-1)  * 4 * n_vertex_max*n_degrees       &
                      
-                     + (i-1)  * n_tor_local**2 * n_vertex_max*(n_order+1)**2    &
+                     + (i-1)  * 4 * n_vertex_max*n_degrees**2    &
                      
-                     + (i_elm-1)*(n_tor_local**2 * (n_vertex_max*(n_order+1))**2 )
+                     + (i_elm-1)*(4 * (n_vertex_max*n_degrees)**2 )
 
 !$omp critical
               mumps_par%irn(ilarge) = index_large_i
               mumps_par%jcn(ilarge) = index_large_k
-              mumps_par%A(ilarge)   = ELM(index_ij,index_kl) * TWOPI / real(n_plane,8)
+
+              if( fix_axis_nodes .and.  (node_list%node(inode)%axis_node .and. (j .eq. 3 .or. j .eq. 4)) &
+                 .and. (index_large_i .eq. index_large_k) ) then
+                  mumps_par%A(ilarge) = 1.d12
+              else
+                  mumps_par%A(ilarge)   = ELM(index_ij,index_kl) * TWOPI / real(n_plane,8)
+              endif
 !$omp end critical
 
             enddo
@@ -1251,10 +1457,11 @@ if (apply_dirichlet_condition) then
 
   do i=1,node_list%n_nodes
     
-    if (node_list%node(i)%boundary .eq. 2) then
+    if ((node_list%node(i)%boundary .eq. 2) .or. (node_list%node(i)%boundary .eq. 3) .or. &
+        (node_list%node(i)%boundary .eq. 5) .or. (node_list%node(i)%boundary .eq. 9)) then
 
-      do j=1,4
-        do k=1,2
+      do j=1,3,2             ! order
+        do k=1,2             ! variables
 
           index1 = node_list%node(i)%index(j)
 
@@ -1265,7 +1472,23 @@ if (apply_dirichlet_condition) then
           mumps_par%A(ilarge)   = 1.d12
         enddo
       enddo
-      
+
+    elseif ((node_list%node(i)%boundary .eq. 1) .or. (node_list%node(i)%boundary .eq. 3) .or. &
+            (node_list%node(i)%boundary .eq. 4) .or. (node_list%node(i)%boundary .eq. 9)) then
+
+      do j=1,2               ! order
+        do k=1,2             ! variables
+
+          index1 = node_list%node(i)%index(j)
+
+          ilarge = ilarge + 1
+
+          mumps_par%irn(ilarge) = 2*(index1-1) + k
+          mumps_par%jcn(ilarge) = 2*(index1-1) + k
+          mumps_par%A(ilarge)   = 1.d12
+        enddo
+      enddo
+  
     endif
   enddo
 
@@ -1287,13 +1510,20 @@ mumps_par%icntl(7)  = 7 ! compute symmetric permutation (PORD or SCOTCH autosele
 mumps_par%icntl(8)  = 8 ! scaling
 mumps_par%icntl(14) = 80 ! memory relaxation parameter
 
-if (present(skip_factorisation) .and. skip_factorisation) then
-else
+do_facto = .true.
+if (present(skip_factorisation)) then
+  if (skip_factorisation) then
+    do_facto = .false.
+  endif
+endif
+if (do_facto) then
   call ieee_get_halting_mode(IEEE_USUAL, halt)
   call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
   call DMUMPS(mumps_par)
   call ieee_set_halting_mode(IEEE_USUAL, halt)
 endif
+
+if (my_id_n .eq. 0) write(*,*) " n<>0 MUMPS INFO(1) : ",mumps_par%infog(1),mumps_par%infog(2),mumps_par%info(1),mumps_par%info(2)
 
 end subroutine prepare_mumps_par
 
@@ -1302,12 +1532,13 @@ subroutine prepare_mumps_par_n0(node_list, element_list, n_tor_local, i_tor_loca
                                 this_mpi_comm_world, this_mpi_comm_n, this_mpi_comm_master,  &
                                 mumps_par, area, volume,                                     &
                                 filter, filter_hyper, filter_parallel,                       &
-                                integral_weights, skip_factorisation, do_zonal)
-use phys_module, only : F0, TWOPI
+                                integral_weights, skip_factorisation, do_zonal,              &
+                                apply_dirichlet_condition_in)
+use phys_module, only : F0, TWOPI, fix_axis_nodes
 use data_structure
 use basis_at_gaussian
 use mod_basisfunctions
-use mpi
+use mpi_mod
 use, intrinsic :: ieee_exceptions
 implicit none
 
@@ -1321,6 +1552,7 @@ real*8, intent(in)                   :: filter_hyper
 real*8, intent(in)                   :: filter_parallel
 logical, intent(in), optional        :: do_zonal
 logical, intent(in), optional        :: skip_factorisation
+logical, intent(in), optional        :: apply_dirichlet_condition_in
 real*8, intent(out), dimension(:), allocatable :: integral_weights !< these will be filled with the volume of each basis function
 real*8, intent(out)                  :: area, volume
 type (type_element)      :: element
@@ -1339,9 +1571,9 @@ real*8     :: filter_n0, filter_hyper_n0, filter_parallel_n0, zonal_factor
 integer    :: i, j, k, l, m, in, im, ilarge, index_large_i, index_large_k, inode, knode
 integer    :: nz_AA, n_AA, nz_bnd, i_elm, index_ij, index_kl, im_index, in_index, index1, index2, index_rhs
 integer    :: ms, mt, mp, my_id, my_id_n, my_id_master, ierr, MPI_COMM_MUMPS
-logical    :: halt(size(IEEE_USUAL,1))
+logical    :: halt(size(IEEE_USUAL,1)), do_facto
 logical    :: apply_dirichlet_condition, apply_zonal
-real*8, dimension(n_vertex_max,n_order+1) :: basisfunction_volume
+real*8, dimension(n_vertex_max,n_degrees) :: basisfunction_volume
 
 ! We need a separate communicator to be able to run multiple MUMPSes
 call MPI_Comm_dup(this_mpi_comm_n, MPI_COMM_MUMPS, ierr)
@@ -1359,23 +1591,30 @@ call MPI_COMM_RANK(mumps_par%COMM,       my_id_n, ierr)
 apply_zonal = .false.
 if (present(do_zonal)) apply_zonal = do_zonal
 
-apply_dirichlet_condition = .false.
-if (do_zonal)  apply_dirichlet_condition = .true.
+apply_dirichlet_condition = .true.
+if (present(apply_dirichlet_condition_in)) apply_dirichlet_condition = apply_dirichlet_condition_in
+if (apply_zonal)  apply_dirichlet_condition = .true.
 
-nz_AA = 4 * element_list%n_elements * (n_vertex_max * (n_order+1))**2
+
+nz_AA = 4 * element_list%n_elements * (n_vertex_max * n_degrees)**2
 n_AA =  2 * maxval(node_list%node(1:node_list%n_nodes)%index(4))
 
 nz_bnd = 0
 if (apply_dirichlet_condition) then
   do i=1,node_list%n_nodes
-    if (node_list%node(i)%boundary .eq. 2) nz_bnd = nz_bnd + 8
+    if (node_list%node(i)%boundary .eq. 1) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 2) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 3) nz_bnd = nz_bnd + 8
+    if (node_list%node(i)%boundary .eq. 4) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 5) nz_bnd = nz_bnd + 4
+    if (node_list%node(i)%boundary .eq. 9) nz_bnd = nz_bnd + 8
   enddo
 endif
 
 ! Only perform the construction of the matrix on the host
 if (my_id_n .eq. 0) then
 
-  allocate(ELM(2*n_vertex_max*(n_order+1),2*n_vertex_max*(n_order+1)))
+  allocate(ELM(2*n_vertex_max*n_degrees,2*n_vertex_max*n_degrees))
   allocate(mumps_par%A(nz_AA+nz_bnd),mumps_par%irn(nz_AA+nz_bnd),mumps_par%jcn(nz_AA+nz_bnd))
   
   mumps_par%irn = 0
@@ -1390,7 +1629,7 @@ if (my_id_n .eq. 0) then
 ! thing https://groups.google.com/forum/#!topic/comp.lang.fortran/VKhoAm8m9KE
   wgauss2 = wgauss
 
-  area = 0.
+  area   = 0.
   volume = 0.
 
   filter_n0             = filter 
@@ -1401,16 +1640,18 @@ if (my_id_n .eq. 0) then
   write(*,*) '*************************************************'
   write(*,*) '* constructing particle projection matrix (n=0) *'
   write(*,*) '*************************************************'
+  write(*,*)  ' n_AA = ',n_AA
   write(*,'(2I3,A,3e12.4)') my_id, my_id_n,'  filters (n=0) : ',filter_n0, filter_hyper_n0, filter_parallel_n0
-  if (apply_zonal) write(*,*) 'using n=0 zonal flow equations'
-
+  
+  if (apply_zonal)               write(*,*) 'using n=0 zonal flow equations'
   if (apply_dirichlet_condition) write(*,*) 'applying Dirichlet conditions'
 
 !$omp parallel do default(none) &
 !$omp shared(element_list, node_list, n_tor_local, i_tor_local,                       &
 !$omp        apply_dirichlet_condition, zonal_factor, apply_zonal,                    &
 !$omp        H, H_s, H_t, H_ss, H_st, H_tt, Hz, Hz_p, mumps_par, wgauss2,             &
-!$omp        filter_n0, filter_hyper_n0, filter_parallel_n0, integral_weights, F0, my_id_master) &
+!$omp        filter_n0, filter_hyper_n0, filter_parallel_n0, integral_weights, F0,    &
+!$omp        fix_axis_nodes, my_id_master)                                            &
 !$omp private(ELM, i_elm, element, nodes, i, j, k, l, ms, mt, in, im, mp,           &
 !$omp         x_g, x_s, x_t, x_ss, x_st, x_tt,                                      &
 !$omp         y_g, y_s, y_t, y_ss, y_st, y_tt,                                      &
@@ -1436,24 +1677,24 @@ do i_elm=1,element_list%n_elements
   psi_g = 0.d0; psi_s = 0.d0; psi_t = 0.d0; psi_ss = 0.d0; psi_st = 0.d0; psi_tt = 0.d0
 
   do i=1,n_vertex_max
-    do j=1,n_order+1
+    do j=1,n_degrees
       do ms=1, n_gauss
         do mt=1, n_gauss
-          x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-          x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-          x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+          x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+          x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+          x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
 
-          x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-          x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-          x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+          x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+          x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+          x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
 
-          y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
-          y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-          y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+          y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
+          y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+          y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
-          y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-          y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-          y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+          y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+          y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+          y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
 
           psi_g(ms,mt)  = psi_g(ms,mt)  + nodes(i)%values(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
           psi_s(ms,mt)  = psi_s(ms,mt)  + nodes(i)%values(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
@@ -1462,6 +1703,7 @@ do i_elm=1,element_list%n_elements
           psi_ss(ms,mt) = psi_ss(ms,mt) + nodes(i)%values(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
           psi_st(ms,mt) = psi_st(ms,mt) + nodes(i)%values(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
           psi_tt(ms,mt) = psi_tt(ms,mt) + nodes(i)%values(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+
         enddo
       enddo
     enddo
@@ -1486,15 +1728,16 @@ do i_elm=1,element_list%n_elements
       psi_x = (  y_t(ms,mt) * psi_s(ms,mt) - y_s(ms,mt) * psi_t(ms,mt)) / xjac
       psi_y = (- x_t(ms,mt) * psi_s(ms,mt) + x_s(ms,mt) * psi_t(ms,mt)) / xjac
 
-      BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)
+      BB2 = 1.d0
+      if (filter_parallel_n0 .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)
 
       area   = area   + xjac * wst
       volume = volume + TWOPI * x_g(ms,mt) * xjac * wst
 
       do i=1,n_vertex_max
-        do j=1,n_order+1
+        do j=1,n_degrees
 
-          index_ij = 2*(n_order+1)*(i-1) + 2*(j-1) + 1   ! index in the ELM matrix
+          index_ij = 2*n_degrees*(i-1) + 2*(j-1) + 1   ! index in the ELM matrix
 
           v    = H(i,j,ms,mt)    * element%size(i,j) 
           v_s  = H_s(i,j,ms,mt)  * element%size(i,j)
@@ -1518,14 +1761,15 @@ do i_elm=1,element_list%n_elements
                + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
 
-          Bgrad_v_star = ( F0 / x_g(ms,mt) * v_p  +  v_x  * psi_y - v_y  * psi_x ) / x_g(ms,mt)
+          Bgrad_v_star = 0.d0
+          if (filter_parallel_n0 .gt. 0.d0) Bgrad_v_star = ( F0 / x_g(ms,mt) * v_p  +  v_x  * psi_y - v_y  * psi_x ) / x_g(ms,mt)
 
           basisfunction_volume(i,j) = basisfunction_volume(i,j) +  v * TWOPI * x_g(ms,mt) * xjac * wst
 
           do k=1,n_vertex_max
-            do l=1,n_order+1
+            do l=1,n_degrees
 
-              index_kl = 2*(n_order+1)*(k-1) + 2*(l-1) + 1   ! index in the ELM matrix
+              index_kl = 2*n_degrees*(k-1) + 2*(l-1) + 1   ! index in the ELM matrix
 
               p   = h(k,l,ms,mt)     * element%size(k,l) 
               p_s = h_s(k,l,ms,mt)   * element%size(k,l)
@@ -1549,7 +1793,8 @@ do i_elm=1,element_list%n_elements
                    + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                    - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
 
-              Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
+              Bgrad_p = 0.d0
+              if (filter_parallel_n0 .gt. 0.d0) Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
 
 
               if (apply_zonal) then
@@ -1581,8 +1826,8 @@ do i_elm=1,element_list%n_elements
 
                                            + filter_parallel_n0 * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
 
-                ELM(index_ij+1,index_kl+1) = + p * v      * xjac * x_g(ms,mt) * wst       ! (dummy equation)
-              
+                ELM(index_ij+1,index_kl+1) = ELM(index_ij+1,index_kl+1)  + p * v      * xjac * x_g(ms,mt) * wst       ! (dummy equation)
+                
               endif
               
             enddo
@@ -1597,7 +1842,7 @@ do i_elm=1,element_list%n_elements
 
     inode = element_list%element(i_elm)%vertex(i)
   
-    do j=1,n_order+1
+    do j=1,n_degrees
 
       index_rhs = 2*(node_list%node(inode)%index(j)-1) + 1   ! base index in the main matrix
 
@@ -1605,7 +1850,7 @@ do i_elm=1,element_list%n_elements
 
       do im =1, 2
     
-        index_ij = 2*(n_order+1)*(i-1) + 2 * (j-1) + im   ! index in the ELM matrix
+        index_ij = 2*n_degrees*(i-1) + 2 * (j-1) + im   ! index in the ELM matrix
 
         index_large_i = 2*(node_list%node(inode)%index(j)-1) + im   ! base index in the main matrix
 
@@ -1613,29 +1858,35 @@ do i_elm=1,element_list%n_elements
       
           knode = element_list%element(i_elm)%vertex(k)
         
-          do l=1,n_order+1
+          do l=1,n_degrees
 
             do in =1, 2
         
-              index_kl = 2*(n_order+1)*(k-1) + 2 * (l-1) + in   ! index in the ELM matrix
+              index_kl = 2*n_degrees*(k-1) + 2 * (l-1) + in   ! index in the ELM matrix
 
               index_large_k = 2*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
 
              ! Explicitly calculate the index
 
-              ilarge = in + 2*(l-1) + 2*(k-1)*(n_order+1) &
+              ilarge = in + 2*(l-1) + 2*(k-1)*n_degrees &
                       
-                     + 2*(im-1)   * n_vertex_max*(n_order+1)       &
+                     + 2*(im-1)* n_vertex_max*n_degrees       &
                      
-                     + 4*(j-1)    * n_vertex_max*(n_order+1)       &
+                     + 4*(j-1) * n_vertex_max*n_degrees       &
                      
-                     + 4*(i-1)    * n_vertex_max*(n_order+1)**2    &
+                     + 4*(i-1) * n_vertex_max*n_degrees**2    &
                      
-                     + 4*(i_elm-1)*((n_vertex_max*(n_order+1))**2 )
+                     + 4*(i_elm-1)*((n_vertex_max*n_degrees)**2 )
 
               mumps_par%irn(ilarge) = index_large_i
               mumps_par%jcn(ilarge) = index_large_k
-              mumps_par%A(ilarge)   = ELM(index_ij,index_kl) * TWOPI
+
+              if( fix_axis_nodes .and.  (node_list%node(inode)%axis_node .and. (j .eq. 3 .or. j .eq. 4)) .and. (index_large_i .eq. index_large_k) ) then
+                  mumps_par%A(ilarge) = 1.d12
+              else
+                  mumps_par%A(ilarge)   = ELM(index_ij,index_kl) * TWOPI
+!                 mumps_par%A(ilarge)   = ELM(index_ij,index_kl)
+              endif
 
             enddo
           enddo
@@ -1654,10 +1905,11 @@ if (apply_dirichlet_condition) then
 
   do i=1,node_list%n_nodes
     
-    if (node_list%node(i)%boundary .eq. 2) then
+    if ((node_list%node(i)%boundary .eq. 2) .or. (node_list%node(i)%boundary .eq. 3) .or. &
+        (node_list%node(i)%boundary .eq. 5) .or. (node_list%node(i)%boundary .eq. 9)) then
 
-      do j=1,4
-        do k=1,2
+      do j=1,3,2         ! order
+        do k=1,2         ! variables
 
           index1 = node_list%node(i)%index(j)
 
@@ -1668,7 +1920,23 @@ if (apply_dirichlet_condition) then
           mumps_par%A(ilarge)   = 1.d12
         enddo
       enddo
-      
+
+    elseif ((node_list%node(i)%boundary .eq. 1) .or. (node_list%node(i)%boundary .eq. 3) .or. &
+            (node_list%node(i)%boundary .eq. 4) .or. (node_list%node(i)%boundary .eq. 9)) then
+
+      do j=1,2           ! order
+        do k=1,2         ! variables
+
+          index1 = node_list%node(i)%index(j)
+
+          ilarge = ilarge + 1
+
+          mumps_par%irn(ilarge) = 2*(index1-1) + k
+          mumps_par%jcn(ilarge) = 2*(index1-1) + k
+          mumps_par%A(ilarge)   = 1.d12
+        enddo
+      enddo
+  
     endif
   enddo
 
@@ -1677,7 +1945,6 @@ endif
 nz_AA = ilarge
 
 write(*,'(A,2e16.8)') 'area volume : ',area, volume
-
 end if
 
 ! Perform the analysis and factorisation with all nodes
@@ -1692,13 +1959,20 @@ mumps_par%icntl(7)  = 7 ! compute symmetric permutation (PORD or SCOTCH autosele
 mumps_par%icntl(8)  = 8 ! scaling
 mumps_par%icntl(14) = 80 ! memory relaxation parameter
 
-if (present(skip_factorisation) .and. skip_factorisation) then
-else
+do_facto = .true.
+if (present(skip_factorisation)) then
+  if (skip_factorisation) then
+    do_facto = .false.
+  endif
+endif
+if (do_facto) then
   call ieee_get_halting_mode(IEEE_USUAL, halt)
   call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
   call DMUMPS(mumps_par)
   call ieee_set_halting_mode(IEEE_USUAL, halt)
 endif
+
+if (my_id_n .eq. 0) write(*,*) " n=0 MUMPS INFOG(1:2) : ",mumps_par%infog(1),mumps_par%infog(2)
 
 end subroutine prepare_mumps_par_n0
 
@@ -1732,27 +2006,25 @@ integer(HID_T)     :: file_id
 integer            :: ierr
 
 ! type_node, node_list%n_nodes
-real(RKIND), allocatable :: t_x(:,:,:)                   ! n_order+1, n_dim
-real(RKIND), allocatable :: t_values(:,:,:,:)            ! n_tor, n_order+1, n_fields
+real(RKIND), allocatable :: t_x(:,:,:,:)                   ! n_coord_tor, n_degrees, n_dim
+real(RKIND), allocatable :: t_values(:,:,:,:)              !       n_tor, n_degrees, n_fields
 
 ! element, element_list%n_elements
 integer,     allocatable :: t_vertex(:,:)                ! n_vertex_max
 integer,     allocatable :: t_neighbours(:,:)            ! n_vertex_max
-real(RKIND), allocatable :: t_size(:,:,:)                ! n_vertex_max,n_order+1
+real(RKIND), allocatable :: t_size(:,:,:)                ! n_vertex_max,n_degrees
 
 ! type_node, node_list%n_nodes
-call tr_allocate(t_x,1,node_list%n_nodes,1,n_order+1,1,n_dim, &
-     "node_list%x",CAT_UNKNOWN)
-call tr_allocate(t_values,1,node_list%n_nodes,1,n_tor,1,n_order+1,1,n_fields, &
-     "node_list%values",CAT_UNKNOWN)
+call tr_allocate(t_x,     1,node_list%n_nodes,1,n_coord_tor,1,n_degrees,1,n_dim,   "node_list%x",     CAT_UNKNOWN)
+call tr_allocate(t_values,1,node_list%n_nodes,1,n_tor,      1,n_degrees,1,n_fields,"node_list%values",CAT_UNKNOWN)
 
 ! element_list%n_elements
-call tr_allocate(t_vertex,1,element_list%n_elements,1,n_vertex_max,"vertex",CAT_UNKNOWN)
+call tr_allocate(t_vertex,    1,element_list%n_elements,1,n_vertex_max,"vertex",CAT_UNKNOWN)
 call tr_allocate(t_neighbours,1,element_list%n_elements,1,n_vertex_max,"neighbours",CAT_UNKNOWN)
-call tr_allocate(t_size,1,element_list%n_elements,1,n_vertex_max,1,n_order+1,"size",CAT_UNKNOWN)
+call tr_allocate(t_size,      1,element_list%n_elements,1,n_vertex_max,1,n_degrees,"size",CAT_UNKNOWN)
 
 do i=1,node_list%n_nodes
-   t_x(i,:,:)        = node_list%node(i)%x
+   t_x(i,:,:,:)      = node_list%node(i)%x
    t_values(i,:,:,:) = node_list%node(i)%values(:,:,1:n_fields)
 end do
 
@@ -1779,6 +2051,7 @@ call HDF5_integer_saving(file_id,n_fields,'n_var'//char(0))
 call HDF5_integer_saving(file_id,n_dim,'n_dim'//char(0))
 call HDF5_integer_saving(file_id,n_order,'n_order'//char(0))
 call HDF5_integer_saving(file_id,n_tor,'n_tor'//char(0))
+call HDF5_integer_saving(file_id,n_coord_tor,'n_coord_tor'//char(0))
 call HDF5_integer_saving(file_id,n_period,'n_period'//char(0))
 call HDF5_integer_saving(file_id,n_vertex_max,'n_vertex_max'//char(0))
 call HDF5_integer_saving(file_id,n_nodes_max,'n_nodes_max'//char(0))
@@ -1789,17 +2062,17 @@ call HDF5_integer_saving(file_id,node_list%n_nodes,'n_nodes'//char(0))
 call HDF5_integer_saving(file_id,element_list%n_elements,'n_elements'//char(0))
 call HDF5_integer_saving(file_id,node_list%n_dof,'n_dof'//char(0))
 
-call HDF5_array3D_saving(file_id,t_x, &
-     node_list%n_nodes,n_order+1,n_dim,'x'//char(0))
+call HDF5_array4D_saving(file_id,t_x, &
+     node_list%n_nodes,n_coord_tor,n_degrees,n_dim,'x'//char(0))
 call HDF5_array4D_saving(file_id,t_values, &
-     node_list%n_nodes,n_tor,n_order+1,n_fields,'values'//char(0))
+     node_list%n_nodes,n_tor,n_degrees,n_fields,'values'//char(0))
 
 call HDF5_array2D_saving_int(file_id,t_vertex, &
      element_list%n_elements,n_vertex_max,'vertex'//char(0))
 call HDF5_array2D_saving_int(file_id,t_neighbours, &
      element_list%n_elements,n_vertex_max,'neighbours'//char(0))
 call HDF5_array3D_saving(file_id,t_size, &
-     element_list%n_elements,n_vertex_max,n_order+1,'size'//char(0))
+     element_list%n_elements,n_vertex_max,n_degrees,'size'//char(0))
 call HDF5_real_saving(file_id,time,'t_now'//char(0))
 
 ! -> close file
@@ -1831,7 +2104,7 @@ integer, intent(in) :: ien(:,:)
 integer :: nnos, i, j, k, l, m, inode, ivar
 real*4, allocatable :: scalars(:,:), vectors(:,:,:)
 integer :: n_scalars, n_vectors = 0
-character*12, allocatable :: vector_names(:), scalar_names(:)
+character*36, allocatable :: vector_names(:), scalar_names(:)
 real*8 :: s, t
 real*8 :: P, P_s, P_t, P_st, P_ss, P_tt
 
@@ -1855,7 +2128,8 @@ scalars = 0.e0
 vectors = 0.e0
 
 ! Create points for each element
-!$omp parallel do default(none) shared(element_list,nsub,node_list,n_fields,scalars) &
+!$omp parallel do default(none) &
+!$omp shared(element_list,nsub,node_list,n_fields,scalars) &
 !$omp private(i,j,k,l,m,inode,ivar,s,t,P, P_s, P_t, P_st, P_ss, P_tt) schedule(static)
 do i=1,element_list%n_elements
   do j=1,n_fields

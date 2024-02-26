@@ -3,6 +3,7 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   
   use constants, only: mu_zero
   use mod_parameters,  only: n_tor, n_period
+  use mod_plasma_functions, only: initialise_reference_parameters
   use phys_module
   
   implicit none
@@ -22,9 +23,13 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   ! --- Initialize the time-stepping parameters.
   call update_time_evol_params()
   
-  ! --- Calculate normalization factors.
-  sqrt_mu0_rho0      = sqrt( mu_zero * ( central_density * 1.d20 * central_mass * mass_proton ) )
-  sqrt_mu0_over_rho0 = sqrt( mu_zero / ( central_density * 1.d20 * central_mass * mass_proton ) )
+  ! --- Initialize derived reference parameters
+  call initialise_reference_parameters()
+
+  ! --- Assign minimum values for parallel conduction if not given
+  if (T_min_ZKpar  < -1.d10) T_min_ZKpar  = T_min   
+  if (Ti_min_ZKpar < -1.d10) Ti_min_ZKpar = T_min   
+  if (Te_min_ZKpar < -1.d10) Te_min_ZKpar = T_min   
   
   ! --- Deprecated input parameters ---
   if ( use_murge ) then
@@ -48,5 +53,7 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
 #endif
   endif
   ! -----------------------------------
+  
+  prev_FB_fact = 1.d0 ! needed to make sure current_FB_fact is applied correctly in import_restart
   
 end subroutine initialise_and_broadcast_parameters

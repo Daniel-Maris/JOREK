@@ -10,7 +10,7 @@ $filename =~ /([^\/]*)[.]f90/;
 my $basename = $1;
 $filename =~ /(.*)\/[^\/]*[.]f90/;
 my $dirname = $1;
-my $skip_modules = "hdf5 mpi mpi_f08 omp_lib iso_c_binding iso_fortran_env h5lt pastixf pastix_enums spmf";
+my $skip_modules = "hdf5 mpi mpi_f08 omp_lib iso_c_binding iso_fortran_env h5lt pastixf pastix_enums spmf ids_schemas ids_routines";
 my $include_headers = "version.h"; # only include this header file if found
 
 sub uniq {
@@ -83,9 +83,6 @@ sub print_dependencies {
     $to_check =~ s/\blplot\b/ppplib/gi;
     $to_check =~ s/\bpplot\b/ppplib/gi;
     $to_check =~ s/\bbegplt\b/ppplib/gi;
-    $to_check =~ s/\bdrive_dgmres\b/dPackgmres/gi;
-    $to_check =~ s/\bdgmres\b/dPackgmres/gi;
-    $to_check =~ s/\binit_dgmres\b/dPackgmres/gi;
     $to_check =~ s/\bpcg32_srandom_r\b/pcg_basic/gi;
     $to_check =~ s/\bpcg32_random_double_r\b/pcg_basic/gi;
 

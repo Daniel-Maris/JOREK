@@ -17,6 +17,7 @@ use tr_module
 use diffusivities, only: get_dperp, get_zkperp    
 use corr_neg
 use equil_info, only : get_psi_n
+use mod_sources
 
 implicit none
 
@@ -86,7 +87,9 @@ RHS = 0.d0
 
 ! --- Take time evolution parameters from phys_module
 theta = time_evol_theta
-zeta  = time_evol_zeta
+!zeta  = time_evol_zeta
+! change zeta for variable dt
+zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
 x_g  = 0.d0; x_s  = 0.d0; x_t  = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0;
@@ -100,24 +103,24 @@ particle_source = 0.d0
 heat_source     = 0.d0
 
 do i=1,n_vertex_max
- do j=1,n_order+1
+ do j=1,n_degrees
 
    do ms=1, n_gauss
      do mt=1, n_gauss
 
-       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
-       x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
-       x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_st(i,j,ms,mt)
-       x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
+       x_g(ms,mt)  = x_g(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+       x_s(ms,mt)  = x_s(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+       x_t(ms,mt)  = x_t(ms,mt)  + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+       x_ss(ms,mt) = x_ss(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_ss(i,j,ms,mt)
+       x_st(ms,mt) = x_st(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_st(i,j,ms,mt)
+       x_tt(ms,mt) = x_tt(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_tt(i,j,ms,mt)
 
-       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
-       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
-       y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
-       y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_st(i,j,ms,mt)
-       y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
+       y_g(ms,mt)  = y_g(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
+       y_s(ms,mt)  = y_s(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+       y_t(ms,mt)  = y_t(ms,mt)  + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+       y_ss(ms,mt) = y_ss(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_ss(i,j,ms,mt)
+       y_st(ms,mt) = y_st(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_st(i,j,ms,mt)
+       y_tt(ms,mt) = y_tt(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_tt(i,j,ms,mt)
 
        do mp=1,n_plane
 
@@ -155,6 +158,11 @@ do i=1,n_vertex_max
    enddo
  enddo
 enddo
+
+! changes deltas for variable time steps
+delta_g = delta_g * tstep / tstep_prev
+delta_s = delta_s * tstep / tstep_prev
+delta_t = delta_t * tstep / tstep_prev
 
 !--------------------------------------------------- sum over the Gaussian integration points
 do ms=1, n_gauss
@@ -310,11 +318,11 @@ do ms=1, n_gauss
      n_tor_local = i_tor_max - i_tor_min + 1
      do i=1,n_vertex_max
 
-       do j=1,n_order+1
+       do j=1,n_degrees
 
          do im=i_tor_min, i_tor_max
 
-           index_ij = n_tor_local*n_var*(n_order+1)*(i-1) + n_tor_local * n_var * (j-1) + im - i_tor_min + 1  ! index in the ELM matrix
+           index_ij = n_tor_local*n_var*n_degrees*(i-1) + n_tor_local * n_var * (j-1) + im - i_tor_min + 1  ! index in the ELM matrix
 
            v   =  H(i,j,ms,mt) * element%size(i,j) * HZ(im,mp)
            v_x = (  y_t(ms,mt) * h_s(i,j,ms,mt) - y_s(ms,mt) * h_t(i,j,ms,mt) ) * element%size(i,j) / xjac * HZ(im,mp)
@@ -400,7 +408,7 @@ do ms=1, n_gauss
 
            do k=1,n_vertex_max
 
-             do l=1,n_order+1
+             do l=1,n_degrees
 
                do in = i_tor_min, i_tor_max
 
@@ -444,7 +452,7 @@ do ms=1, n_gauss
                  rho_y_hat = BigR**2 * rho_y
 
 
-                 index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local * n_var * (l-1) + in - i_tor_min + 1   ! index in the ELM matrix
+                 index_kl = n_tor_local*n_var*n_degrees*(k-1) + n_tor_local * n_var * (l-1) + in - i_tor_min + 1   ! index in the ELM matrix
 
 !---------------------------------------------------------------- equation 1
                  amat_11 = v * psi / BigR * xjac * (1.d0+zeta)                                       &

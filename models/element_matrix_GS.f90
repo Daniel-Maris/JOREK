@@ -17,7 +17,7 @@ real*8     :: y_g(n_gauss,n_gauss), y_s(n_gauss,n_gauss), y_t(n_gauss,n_gauss)
 real*8     :: factor(n_gauss,n_gauss)
 real*8     :: eq_g(n_gauss,n_gauss),  eq_s(n_gauss,n_gauss),  eq_t(n_gauss,n_gauss)
 real*8     :: eq2_g(n_gauss,n_gauss), eq2_s(n_gauss,n_gauss), eq2_t(n_gauss,n_gauss)
-real*8     :: ELM(n_vertex_max*(n_order+1),n_vertex_max*(n_order+1)), RHS(n_vertex_max*(n_order+1))
+real*8     :: ELM(n_vertex_max*n_degrees,n_vertex_max*n_degrees), RHS(n_vertex_max*n_degrees)
 
 real*8     :: xjac, wst
 real*8     :: ps0_x, ps0_y, v, v_x, v_y, psi, psi_x, psi_y, rhs_ij
@@ -41,17 +41,17 @@ eq_g(:,:)  = 0.d0; eq_s(:,:)  = 0.d0; eq_t(:,:)  = 0.d0;
 eq2_g(:,:) = 0.d0; eq2_s(:,:) = 0.d0; eq2_t(:,:) = 0.d0;
 
 do i=1,n_vertex_max
- do j=1,n_order+1
+ do j=1,n_degrees
    do ms=1, n_gauss
      do mt=1, n_gauss
 
-       x_g(ms,mt) = x_g(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H(i,j,ms,mt)
-       y_g(ms,mt) = y_g(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H(i,j,ms,mt)
+       x_g(ms,mt) = x_g(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H(i,j,ms,mt)
+       y_g(ms,mt) = y_g(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H(i,j,ms,mt)
 
-       x_s(ms,mt) = x_s(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_s(i,j,ms,mt)
-       x_t(ms,mt) = x_t(ms,mt) + nodes(i)%x(j,1) * element%size(i,j) * H_t(i,j,ms,mt)
-       y_s(ms,mt) = y_s(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_s(i,j,ms,mt)
-       y_t(ms,mt) = y_t(ms,mt) + nodes(i)%x(j,2) * element%size(i,j) * H_t(i,j,ms,mt)
+       x_s(ms,mt) = x_s(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_s(i,j,ms,mt)
+       x_t(ms,mt) = x_t(ms,mt) + nodes(i)%x(1,j,1) * element%size(i,j) * H_t(i,j,ms,mt)
+       y_s(ms,mt) = y_s(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_s(i,j,ms,mt)
+       y_t(ms,mt) = y_t(ms,mt) + nodes(i)%x(1,j,2) * element%size(i,j) * H_t(i,j,ms,mt)
 
        eq_g(ms,mt)  = eq_g(ms,mt)  + nodes(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H(i,j,ms,mt)
        eq_s(ms,mt)  = eq_s(ms,mt)  + nodes(i)%values(i_harm,j,ivar_in) * element%size(i,j) * H_s(i,j,ms,mt)
@@ -77,7 +77,7 @@ do ms=1, n_gauss
     call density(xpoint, xcase, y_g(ms,mt), Z_xpoint, eq2_g(ms,mt),psi_axis,psi_bnd, &
                 zn,dn_dpsi,dn_dz,ddn_dpsi,ddn_dz,ddn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2,dn_dpsi2_dz)
 
-    if (jorek_model .eq. 400) then  
+    if (with_TiTe) then  
        call temperature_i(xpoint, xcase, y_g(ms,mt), Z_xpoint, eq2_g(ms,mt),psi_axis,psi_bnd, &
     			zTi,dTi_dpsi,dTi_dz,ddTi_dpsi,ddTi_dz,ddTi_dpsi_dz,dTi_dpsi3,dTi_dpsi_dz2,dTi_dpsi2_dz)
        call temperature_e(xpoint, xcase, y_g(ms,mt), Z_xpoint, eq2_g(ms,mt),psi_axis,psi_bnd, &
@@ -101,9 +101,9 @@ do ms=1, n_gauss
 
     do i=1,n_vertex_max
 
-      do j=1,n_order+1
+      do j=1,n_degrees
 
-        index_ij = (i-1)*(n_order+1) + j
+        index_ij = (i-1)*n_degrees + j
 
         v   = h(i,j,ms,mt)  * element%size(i,j)
         v_x = (  y_t(ms,mt) * h_s(i,j,ms,mt) - y_s(ms,mt) * h_t(i,j,ms,mt) ) * element%size(i,j) / xjac
@@ -115,13 +115,13 @@ do ms=1, n_gauss
 
         do k=1,n_vertex_max
 
-          do l=1,n_order+1
+          do l=1,n_degrees
 
             psi   = h(k,l,ms,mt)  * element%size(k,l)
             psi_x = (   y_t(ms,mt) * h_s(k,l,ms,mt) - y_s(ms,mt) * h_t(k,l,ms,mt) ) * element%size(k,l) / xjac
             psi_y = ( - x_t(ms,mt) * h_s(k,l,ms,mt) + x_s(ms,mt) * h_t(k,l,ms,mt) ) * element%size(k,l) / xjac
 
-            index_kl = (k-1)*(n_order+1) + l
+            index_kl = (k-1)*n_degrees + l
 
             ELM(index_ij,index_kl) =  ELM(index_ij,index_kl) - (psi_x * v_x + psi_y * v_y) * factor(ms,mt) * xjac * wst  !&
 	   
