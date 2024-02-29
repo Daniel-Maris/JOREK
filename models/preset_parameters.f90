@@ -508,12 +508,15 @@ subroutine preset_parameters
   rho_1 =  1.d0   
   FF_0  =  1.d0
   FF_1  =  0.d0
-  
+  phi_0 =  0.d0
+  phi_1 =  0.d0
+
   zj_coef     = 0.d0;  zj_coef(1)  = -1.d0
   T_coef      = 0.d0;  T_coef(1)   = -1.d0
   Te_coef     = 0.d0;  Te_coef(1)  = -1.d0
   Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0
   rho_coef    = 0.d0;  rho_coef(1) =  0.d0
+  phi_coef    = 0.d0;  phi_coef(1) =  0.d0; phi_coef(4) = 1.d0
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
   dcoef       = 0.d0
 
@@ -561,6 +564,7 @@ subroutine preset_parameters
   T_file             = 'none'
   Te_file            = 'none'
   Ti_file            = 'none'
+  phi_file           = 'none'
   Fprofile_file      = 'none'
   ffprime_file       = 'none'
   d_perp_file        = 'none'

@@ -47,6 +47,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 Ti_0, Ti_1, Ti_coef,                                &
                 Te_0, Te_1, Te_coef, t_rat,                         &
                 FF_0,  FF_1,  FF_coef,                              &
+                Phi_0,  Phi_1,  Phi_coef,                           &
                 ZK_par, ZK_par_max, ZK_perp, D_par, D_perp,         &
                 particlesource, tauIC,                              &
                 heatsource, heatsource_i, heatsource_e,             &

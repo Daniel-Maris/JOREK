@@ -14,7 +14,7 @@ real*8,  intent(out) :: potential_profile, dPhi_dpsi, dPhi_dz, dPhi_dpsi2, dPhi_
 
 ! --- Internal variables.
 real*8  :: prof0, prof1, dprof0_dpsi, dprof0_dpsi2, dprof0_dpsi3, psi_barrier
-real*8  :: psi_n, psi_star, delta_psi, sig_T, sigz, dprof1_dpsi, dprof1_dpsi2, dprof1_dpsi3
+real*8  :: psi_n, psi_star, delta_psi, sig_phi, sigz, dprof1_dpsi, dprof1_dpsi2, dprof1_dpsi3
 real*8  :: atn, datn, d2atn, d3atn
 real*8  :: atn_z,   datn_z,   d2atn_z
 real*8  :: atn_z_u, datn_z_u, d2atn_z_u, factor
@@ -30,35 +30,62 @@ psi_n     = (psi - psi_axis) / delta_psi
 psi_n = max( min(psi_n, 2.), 0. )
 
 
-!!!!!
 if (.not. num_Phi) then
-        write(*,*) "Potential source must be numeric"
-        stop 
+  prof0        = (Phi_0-phi_1)*(1.d0 + phi_coef(1) * psi_n + phi_coef(2) * psi_n**2 + phi_coef(3) * psi_n**3)
+  dprof0_dpsi  = (phi_0-phi_1)*(phi_coef(1) + 2.d0 * phi_coef(2) * psi_n + 3.d0 * phi_coef(3) * psi_n**2) / delta_psi
+  dprof0_dpsi2 = (phi_0-phi_1)*(2.d0 * phi_coef(2) + 6.d0 * phi_coef(3) * psi_n)                          / delta_psi**2
+  dprof0_dpsi3 = (phi_0-phi_1)*(6.d0 * phi_coef(3))                                                       / delta_psi**3
+  
+  sig_phi     = phi_coef(4)
+  psi_barrier = phi_coef(5)
+  
+  psi_star = (psi_n - psi_barrier)/sig_phi
+  psi_star = min( max( psi_star, -40.d0), 40.d0) ! avoid floating-point exceptions
+  
+  tanh1 = tanh(psi_star)
+  cosh1 = cosh(psi_star)
+  cosh2 = cosh(2.d0*psi_star)
+  
+  atn   = (0.5d0 - 0.5d0*tanh1)
+  datn  = - 1.d0/cosh1**2 / (2.d0 * sig_phi) / delta_psi
+  d2atn =   1.d0/cosh1**2 / sig_phi**2 * tanh1 / delta_psi**2
+  d3atn = - 1.d0/cosh1**4 / sig_phi**3 * (-2.d0 + cosh2) / delta_psi**3
+  
+  potential_profile = prof0        * atn
+  dPhi_dpsi         = dprof0_dpsi  * atn +         prof0       * datn
+  dPhi_dpsi2        = dprof0_dpsi2 * atn + 2.d0 * dprof0_dpsi  * datn + prof0              * d2atn
+  dPhi_dpsi3        = dprof0_dpsi3 * atn + 3.d0 * dprof0_dpsi2 * datn + 3.d0 * dprof0_dpsi * d2atn + prof0 * d3atn
+  dPhi_dz2          = 0.0
+  dPhi_dpsi_dz      = 0.0
+  dPhi_dpsi_dz2     = 0.0
+  dPhi_dpsi2_dz     = 0.0
 
 else
-        left = 1
-        right = num_Phi_len
-        do
-                if(right == left + 1) exit
-                mid = left+right/2
-                if (num_Phi_x(mid) >= psi_n)
-                        right = mid
-                else
-                        left = mid
-                end if                    
-        end do        
-        !weights
-        aux1 = (psi_n - num_Phi_x(left))/(num_Phi_x(right) - num_Phi_x(left)) !d from desired point to left point, normalized2 step size
-        aux2 = (1. - aux1)
-        prof1 = num_Phi_y0(left)*aux2 + num_Phi_y0(right)*aux1 !Phi at the desired point
-        dprof1_dpsi = (num_Phi_y1(left)*aux2 - num_Phi_y1(right)*aux1) / delta_psi !first derivative at desired point
-        dprof2_dpsi = (num_Phi_y2(left)*aux2 - num_Phi_y2(right)*aux1) / delta_psi**2
-        dprof3_dpsi = (num_Phi_y3(left)*aux2 - num_Phi_y3(right)*aux1) / delta_psi**3 
-
+  left = 1
+  right = num_Phi_len
+  do
+    if(right == left + 1) exit
+    mid = left+right/2
+    if (num_Phi_x(mid) >= psi_n) then
+            right = mid
+    else
+            left = mid
+    end if                    
+  end do        
+  !weights
+  aux1 = (psi_n - num_Phi_x(left))/(num_Phi_x(right) - num_Phi_x(left)) 
+  aux2 = (1. - aux1)
+  potential_profile =  num_Phi_y0(left)*aux2 + num_Phi_y0(right)*aux1 !Phi at the desired point
+  dPhi_dpsi         = (num_Phi_y1(left)*aux2 - num_Phi_y1(right)*aux1) / delta_psi !first derivative at desired point
+  dPhi_dpsi2        = (num_Phi_y2(left)*aux2 - num_Phi_y2(right)*aux1) / delta_psi**2
+  dPhi_dpsi3        = (num_Phi_y3(left)*aux2 - num_Phi_y3(right)*aux1) / delta_psi**3
+  dPhi_dz2          = 0.0
+  dPhi_dpsi_dz      = 0.0
+  dPhi_dpsi_dz2     = 0.0
+  dPhi_dpsi2_dz     = 0.0
 end if
-!!!!!!!!!!!!!!!!!
-write(*,*)   "Potential source is currently not implemented!"
-stop
+
+potential_profile = potential_profile + phi_1
 
 return
 end subroutine potential_source

@@ -7,7 +7,6 @@ subroutine init_live_data_model(file_handle)
   use diffusivities, only: get_dperp, get_zkperp, get_zk_iperp, get_zk_eperp
   use mod_sources
   use mod_equations
-  use potential_source
  
   implicit none
   
@@ -26,10 +25,9 @@ subroutine init_live_data_model(file_handle)
   write(file_handle,'(A)') '@input_profiles_ylabel: input profiles'
   write(file_handle,'(A)') '@input_profiles_logy: 0'
   if (with_TiTe) then
-    write(file_handle,'(A)') '@input_profiles: %"psin"       "rho"    "drho/dpsin"   "S_rho"     "S_Ti"   "S_Te"   "D_perp"
-    "ZK_i_perp"     "ZK_e_perp"      "Phi"'
+    write(file_handle,'(A)') '@input_profiles: %"psin"       "rho"    "drho/dpsin"   "S_rho"     "S_Ti"   "S_Te"   "D_perp"   "ZK_i_perp"     "ZK_e_perp"      "Phi"'
   else
-    write(file_handle,'(A)') '@input_profiles: %"psin"       "rho"    "drho/dpsin"   "S_rho"     "S_T"        "D_perp"    "ZK_perp"     "Phi"'
+    write(file_handle,'(A)') '@input_profiles: %"psin"       "rho"    "drho/dpsin"   "S_rho"     "S_T"   "D_perp"    "ZK_perp"     "Phi"'
   end if
 
   do i = 0, 200

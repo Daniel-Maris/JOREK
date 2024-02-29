@@ -122,7 +122,7 @@ subroutine read_num_profiles(my_id)
     end if
   end if
 #endif
-  
+
   num_d_perp = ( d_perp_file /= 'none' )
   if ( num_d_perp .and. ( my_id == 0 ) ) then
     call readProf(num_d_perp_x, num_d_perp_y, num_d_perp_len, d_perp_file)
@@ -175,13 +175,13 @@ subroutine read_num_profiles(my_id)
     call check_num_prof(num_rot, num_rot_x, num_rot_y0, num_rot_len, 'rot', check_positive=.false.)
   end if
   
-  ! TO-DO: Add read in of Potential source data
   num_Phi = ( Phi_file /= 'none' )
   if ( num_Phi .and. ( my_id == 0 ) ) then
     call readProf(num_Phi_x, num_Phi_y0, num_Phi_len, Phi_file) !read this function
     call check_num_prof(num_Phi, num_Phi_x, num_Phi_y0, num_Phi_len, 'Phi', check_positive=.false.)
     Phi_1 = num_Phi_y0(num_Phi_len)
     Phi_0 = num_Phi_y0(1)
+    num_phi_y0 = num_phi_y0 - phi_1
   end if
   
   contains
