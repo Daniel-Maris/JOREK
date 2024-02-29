@@ -88,7 +88,7 @@ module hdf5_io_module
   ! close HDF5 file 
   !----------------------------------------
   subroutine HDF5_close(file_id,transfer_property)
-    integer(HID_T), intent(in) :: file_id   ! file identifier
+    integer(HID_T), intent(in)           :: file_id   ! file identifier
     integer(HID_T), intent(in), optional :: transfer_property
     integer :: error   ! error flag
     if(present(transfer_property)) call H5Pclose_f(transfer_property,error)
@@ -123,7 +123,7 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_open_or_create(filename,file_id,ierr,&
   access_type_in,mpi_comm,mpi_info)
-    use mpi
+    use mpi, only: MPI_Abort
     character(LEN=*) , intent(in)  :: filename  !< file name
     integer(HID_T)   , intent(out) :: file_id   !< file identifier
     integer, optional, intent(out) :: ierr
@@ -164,7 +164,7 @@ module hdf5_io_module
       else
         !*** Present an error ***!
         write(*,*) "ERROR: Invalid HDF5 file, exiting"
-        call MPI_Abort(MPI_COMM_WORLD, -1, ierr)
+        call MPI_Abort(mpi_comm, -1, ierr)
       end if
     else
       !*** Try to create an HDF5 file ***
