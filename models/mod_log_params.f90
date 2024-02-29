@@ -441,6 +441,7 @@ write(*,'(1x,a)',advance='no') ' USE_COMPLEX_PRECOND          : '
   write(*,LOGI_FMT) 'linear_run            ', linear_run
   write(*,LOGI_FMT) 'fix_psi_j_u_w         ', fix_psi_j_u_w
   write(*,LOGI_FMT) 'set_chi_perp_const    ', set_chi_perp_const
+  write(*,LOGI_FMT) 'BC_T_const_far_SOL    ', BC_T_const_far_SOL
   write(*,REAL_FMT) 'D_prof_neg            ', D_prof_neg
   write(*,REAL_FMT) 'D_prof_neg_thresh     ', D_prof_neg_thresh
   write(*,REAL_FMT) 'ZK_prof_neg           ', ZK_prof_neg

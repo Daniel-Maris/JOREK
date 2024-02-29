@@ -758,6 +758,16 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
         ZKpar_T = ZK_par
       endif
 
+      ! --- Increase diffusivity if very small density/temperature
+      if (xpoint) then
+        if (r0 .lt. D_prof_neg_thresh)  then
+          D_prof  = D_prof_neg
+        endif
+        if (T0 .lt. ZK_prof_neg_thresh) then
+          ZK_prof = ZK_prof_neg
+        endif
+      endif
+
       pflow       = - gamma/(gamma-1.d0) * r0 * T0 * vpar0 * ps0_sbnd * sign_out 
       kinflow     = - 0.5d0*r0*vpar0**3.d0*BB2* ps0_sbnd * sign_out 
 

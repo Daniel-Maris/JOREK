@@ -37,7 +37,8 @@ contains
        psi_RMP_sin, dpsi_RMP_sin_dR, dpsi_RMP_sin_dZ, t_now, RMP_growth_rate, RMP_ramp_up_time,            &
        RMP_start_time, tstep, RMP_har_cos, RMP_har_sin, T_min,                                             &
        mach_one_bnd_integral, Vpar_smoothing, vpar_smoothing_coef,                                         &
-       Number_RMP_harmonics, RMP_har_cos_spectrum,RMP_har_sin_spectrum, grid_to_wall, n_wall_blocks, keep_n0_const
+       Number_RMP_harmonics, RMP_har_cos_spectrum,RMP_har_sin_spectrum, grid_to_wall, n_wall_blocks,       &
+       keep_n0_const, BC_T_const_far_SOL
     USE tr_module
     use mpi_mod
     use mod_locate_irn_jcn
@@ -104,6 +105,13 @@ contains
   real*8  :: R_out, Z_out, s_elm, t_elm, QR,QR_s,QR_t,QR_st,QR_ss,QR_tt,QZ,QZ_s,QZ_t,QZ_st,QZ_ss,QZ_tt
   real*8  :: QPs0,QPs0_s,QPs0_t,QPs0_st,QPs0_ss,QPs0_tt
   integer :: ifail, i_elm
+
+  real*8  :: Z_max_T_BC, Z_min_T_BC
+
+  Z_min_T_BC = -2.5d0
+  Z_max_T_BC = 4.06d0
+
+  
 
   RMPspectrum: if (RMP_on .and. (n_tor .ge. 3)) then !*****
   
@@ -220,7 +228,7 @@ contains
 !              do n_rmp_harm=1, Number_RMP_harmonics !===========do RMP harmonics
 
                  do k=1, n_var ! ================================do variables
-                 
+                  !if(k==6 .and. node_list%node(inode)%x(1,2) > -3.d0) cycle
                                                                                       !-----(General for all bnd types)
                    !------------ Decide when Psi or Current need BCs --------------------------------------------------                      
                    !----Psi
@@ -327,7 +335,7 @@ contains
                               .or. (k .eq. 2)        &
                               .or. (k .eq. 4)        &
                              !.or. (k .eq. 5)        &
-                             !.or. (k .eq. 6)        &
+                              .or. ((k .eq. 6) .and. (node_list%node(inode)%x(1,2) > Z_min_T_BC) .and. (node_list%node(inode)%x(1,2) < Z_max_T_BC) .and. BC_T_const_far_SOL)      &
                              !.or. (k .eq. 7)        &
                            ) then
 
@@ -355,6 +363,7 @@ contains
 
 
                          if ( (k .eq. 7) .and. (.not. mach_one_bnd_integral) ) then
+
 
                             index_node  = node_list%node(inode)%index(1)             ! position of value
                             index_node2 = node_list%node(inode)%index(2)             ! position of first deriative
@@ -600,7 +609,7 @@ contains
                               .or. (k .eq. 4)        &
                              !.or. (k .eq. 5)        &
                              !.or. (k .eq. 6)        &
-                             !.or. (k .eq. 7)        &
+                              .or. ((k .eq. 6) .and. (node_list%node(inode)%x(1,2) > Z_min_T_BC) .and. (node_list%node(inode)%x(1,2) < Z_max_T_BC) .and. BC_T_const_far_SOL)      &
                               ) then
 
 
@@ -714,7 +723,7 @@ contains
                             cs0_T  =   0.5d0  * gamma    / cs0
                             cs0_TT = - 0.25d0 * gamma**2 / cs0**2 
 
-                            bn     = dot_product( (/ps0_y,-ps0_x/), normal ) /  (BigR*Btot)  ! B·n/Btot
+                            bn     = dot_product( (/ps0_y,-ps0_x/), normal ) /  (BigR*Btot)  ! Bï¿½n/Btot
 !                            bn     = ps0_t/(BigR*Btot*dl)
                             bn_t   = 1.d0 / (Btot*dl*BigR) * (ps0_tt - ps0_t * dl_dt /dl )
 
@@ -922,7 +931,9 @@ contains
                        ! decides when the boundary conditions should be applied (for freeboundary and RMP cases)
                         if (       apply_psi_BC                   &
                               .or. apply_current_BC               &
-                              .or. (( k /= 1 ) .and. ( k /= 3 ) .and. ( k /= 6 ))  ) then
+                              .or. (( k /= 1 ) .and. ( k /= 3 ) .and. ( k /= 6 )) &
+                              .or. ((k .eq. 6) .and. (node_list%node(inode)%x(1,2) > Z_min_T_BC) .and. (node_list%node(inode)%x(1,2) < Z_max_T_BC) .and. BC_T_const_far_SOL)      &
+                                ) then
 
                           index_node = node_list%node(inode)%index(1)
 
@@ -1055,7 +1066,9 @@ contains
                        ! decides when the boundary conditions should be applied (for freeboundary and RMP cases)
                         if (       apply_psi_BC                   &
                               .or. apply_current_BC               &
-                              .or. (( k /= 1 ) .and. ( k /= 3 ))  ) then
+                              .or. (( k /= 1 ) .and. ( k /= 3 ))  &
+                              .or. ((k .eq. 6) .and. (node_list%node(inode)%x(1,2) > Z_min_T_BC) .and. (node_list%node(inode)%x(1,2) < Z_max_T_BC) .and. BC_T_const_far_SOL)      &
+                              ) then
 
                           index_node = node_list%node(inode)%index(1)
 

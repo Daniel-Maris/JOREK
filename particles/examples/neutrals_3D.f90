@@ -147,7 +147,7 @@ else
 	type is (particle_kinetic_leapfrog)  
 	!> only set everything to zero when you do not initialise particles
 	p(:)%q      = 0 !< for neutrals
-	p(:)%weight = 0.0!weight
+	p(:)%weight = 0.d0!weight
 	p(:)%i_elm  = 0
 	p(:)%v(1)   = 0.d0 
 	p(:)%v(2)   = 0.d0

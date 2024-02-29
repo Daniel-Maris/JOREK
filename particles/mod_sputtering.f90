@@ -111,7 +111,7 @@ subroutine do_sputter(this, sim, ev)
       ! this source in this time divided by the number of
       ! simulation particles sputtered (all cpus). The number of simulation particles is given by
       ! n_free_all*this%fill_fraction
-      sim%groups(i)%particles(k)%weight = real(this%source * (sim%time - this%last_time),4) / real(n_sputter,4)
+      sim%groups(i)%particles(k)%weight = real(this%source * (sim%time - this%last_time),8) / real(n_sputter,8)
 
       ! Implementation only for kinetic leapfrog particles currently
       select type (p => sim%groups(i)%particles(k))

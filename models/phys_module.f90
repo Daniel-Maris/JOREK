@@ -74,6 +74,7 @@ module phys_module
   logical :: linear_run           !< Same as keep_n0_const, to be replaced soon by true linear run where modes are independent
   logical :: fix_psi_j_u_w        !< Forces the deltas of psi, j u and w to 0, to be able to compare to other codes without drifts
   logical :: set_chi_perp_const   !< Fixes the perpendicular heat diffusivity as a constant rather than heat conductivity kappa (KZ in this code)
+  logical :: BC_T_const_far_SOL   !< Fixes the temperature for Z>-3 by freezing the ecolution over time
   logical :: export_for_nemec     !< Export equilibrium information for the NEMEC code?
   logical :: use_murge            !< (Deprecated, Cannot be used any more)
   logical :: use_murge_element    !< (Deprecated, Cannot be used any more)

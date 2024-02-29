@@ -481,7 +481,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
       if (i_elm .ne. 0) then
         found(i) = .true.
         ! If we are here a suitable position has been found
-        particle%weight = 1. ! This is needed because the initializing values for
+        particle%weight = 1.d0 ! This is needed because the initializing values for
         ! the particles are not being used always!
         particle%i_elm = i_elm
         particle%st    = [s,t]
@@ -676,7 +676,7 @@ subroutine set_particle_weights_canonical_maxwellian(particles, node_list, eleme
       ! dominating the projection.
       T = max(1d1,T)
     end if
-    particles(i)%weight = real(n * exp(-H*my_alpha/T),4) ! if zero, all particles have equal weight n
+    particles(i)%weight = real(n * exp(-H*my_alpha/T),8) ! if zero, all particles have equal weight n
   end do
   !$omp end parallel do
 end subroutine set_particle_weights_canonical_maxwellian
@@ -699,7 +699,7 @@ subroutine normalize_with_projection(proj, particles, i_group)
       call interp_0(proj%node_list,proj%element_list,particles(i)%i_elm,[group],1, &
                     particles(i)%st(1),particles(i)%st(2),particles(i)%x(3),P)
       P = max(P, 1d-2) ! guard against divide-by-zero, maximum adjustment ratio is then 10^2
-      particles(i)%weight = real(particles(i)%weight/P(1),4)
+      particles(i)%weight = real(particles(i)%weight/P(1),8)
     end if
   end do
 end subroutine normalize_with_projection
@@ -743,12 +743,12 @@ subroutine normalize_with_projection_at_gc(proj, particles, fields, time, mass, 
       if (p_gc%i_elm .gt. 0) then
         call interp_0(proj%node_list,proj%element_list,p_gc%i_elm,[group],1, p_gc%st(1),p_gc%st(2),p_gc%x(3),P)
         P = max(P, 1d-2) ! guard against divide-by-zero, maximum adjustment ratio is then 10^2
-        particles(i)%weight = real(particles(i)%weight/P(1),4)
+        particles(i)%weight = real(particles(i)%weight/P(1),8)
       else
         call interp_0(proj%node_list,proj%element_list,particles(i)%i_elm,[group],1, &
                       particles(i)%st(1),particles(i)%st(2),particles(i)%x(3),P)
         P = max(P, 1d-2) ! guard against divide-by-zero, maximum adjustment ratio is then 10^2
-        particles(i)%weight = real(particles(i)%weight/P(1),4)
+        particles(i)%weight = real(particles(i)%weight/P(1),8)
         ! otherwise weigh at normal position to not screw up the weighting
       end if
     end if

@@ -146,7 +146,7 @@ else
 	type is (particle_kinetic_leapfrog)  
 	!> only set everything to zero when you do not initialise particles
 	p(:)%q      = 0 !< for neutrals
-	p(:)%weight = 0.0!weight
+	p(:)%weight = 0.d0!weight
 	p(:)%i_elm  = 0
 	p(:)%v(1)   = 0.d0 
 	p(:)%v(2)   = 0.d0
@@ -884,7 +884,7 @@ do ife = 1, size(rec_rate_local) ! loop over all local elements
 	! initialise particle in the element with Position, Weight, Energy, Momentum			
 	do i = 1, particles_per_element
 	    k = k *i !< update free particle index ! at begin of loop as k is initialized at k =0
-		particles(i_free(k))%weight = rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 !< rec_rate = in jorek units?
+		particles(i_free(k))%weight = rec_rate_local(ife) / real(particles_per_element,8)* central_density* 1.d20 !< rec_rate = in jorek units?
 		particles(i_free(k))%i_elm  = ielm  !x, i_elm, st
 		particles(i_free(k))%q      = 0
 		

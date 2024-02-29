@@ -114,7 +114,7 @@ subroutine rhs_convergence_square_10_10(node_list, element_list, n, rng)
 
   call initialise_particles(sim%groups(1)%particles, node_list, element_list, rng)
   do i=1,n
-    sim%groups(1)%particles(i)%weight = real(TWOPI,4)/real(n,4)
+    sim%groups(1)%particles(i)%weight = real(TWOPI,8)/real(n,8)
   end do
   call sample_rhs(p, sim)
   deallocate(sim%groups(1)%particles)
@@ -257,7 +257,7 @@ subroutine project_n(node_list, element_list, n, rng, name, volume, smoothing, r
     call find_RZ(node_list,element_list,2.d0,1.d0,R_out,Z_out,ielm_out,s_out,t_out,ifail)
     call initialise_particles(sim%groups(1)%particles, node_list, element_list, rng)
     do i=1,n(j)
-      sim%groups(1)%particles(i)%weight = volume/real(n(j))
+      sim%groups(1)%particles(i)%weight = volume/real(n(j),8)
     end do
 
     call p%do(sim) ! now results are in node_list

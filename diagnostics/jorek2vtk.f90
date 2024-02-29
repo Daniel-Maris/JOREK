@@ -788,6 +788,9 @@ do i=1,element_list%n_elements
         BP = ( AZ_R - AR_Z )    + F_prof/ R
 
         ZKpar_T = ZK_par * ((max(TT, T_min ))/T_0)**2.5
+        if (ZKpar_T .ge. ZK_par_max) then
+          ZKpar_T = ZK_par_max
+        endif
 
         BR_R = -1/R**2 * ( A3_Z - AZ_p ) + ( A3_RZ - AZ_Rp )/R
         BR_Z = ( A3_ZZ - AZ_Zp )/R
@@ -833,7 +836,11 @@ do i=1,element_list%n_elements
         grad_psi = sqrt(A3_R**2 + A3_Z**2)
 
         D_prof  = get_dperp (psi_norm)
+
         ZK_prof = get_zkperp(psi_norm)
+        if (set_chi_perp_const) then
+          ZK_prof = ZK_prof * max(scalars(inode,5),1.0d-2)
+        endif
 
         if ( eta_T_dependent ) then
           eta_T = eta * (max(TT,0.d0)/T_0)**(-1.5d0)
@@ -1039,9 +1046,16 @@ do i=1,element_list%n_elements
         v_perp  = R * sqrt(u_x*u_x + u_y * u_y)
         Btot    = sqrt(F0**2 + ps_x**2 + ps_y**2) / BigR
         D_prof  = get_dperp (psi_norm)
+        
         ZK_prof = get_zkperp(psi_norm)
-
+        if (set_chi_perp_const) then
+          ZK_prof = ZK_prof * max(scalars(inode,5),1.0d-2)
+        endif
+        
         ZKpar_T = ZK_par * ((max( scalars(inode,6), T_min ))/T_0)**2.5
+        if (ZKpar_T .ge. ZK_par_max) then
+          ZKpar_T = ZK_par_max
+        endif
 
         grad_psi = sqrt(ps_x*ps_x + ps_y*ps_y)
 
@@ -1049,13 +1063,13 @@ do i=1,element_list%n_elements
           scalars(inode,7) = scalars(inode,7) * sign(Btot,F0)   ! with si-units= .f. gives jorek variable, otherwise physical v_par
         endif
 
-        !   'E_flux_Kpar ','E_flux_kperp','E_flux_Vpar ','E_flux_Vperp','D_flux_Dperp','D_flux_Vpar ','D_flux_Vperp'/)
-
         if (include_fluxes) then
 
-          scalars(inode,s_fluxes+1)   = scalars(inode,5) * scalars(inode,6)
+          scalars(inode,s_fluxes+1)   = scalars(inode,5) * scalars(inode,6)! p = n T
 
           if (grad_psi .ne. 0.d0) then
+
+            !   'E_flux_Kpar ','E_flux_kperp','E_flux_Vpar ','E_flux_Vperp','D_flux_Dperp','D_flux_Vpar ','D_flux_Vperp'/)
 
             scalars(inode,s_fluxes+2)  = ZKpar_T * ( F0 * TT_p / BigR**2  + (TT_x * ps_y - TT_y * ps_x) / BigR ) / Btot
 

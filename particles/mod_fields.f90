@@ -21,7 +21,7 @@ type, abstract :: fields_base
     procedure(interp_PRZ_2), deferred, public :: interp_PRZ_2
     procedure, public :: calc_NeTe
     procedure, public :: calc_EBpsiU
-	procedure, public :: calc_vvector
+	  procedure, public :: calc_vvector
     procedure, public :: calc_Qin, calc_Qin_analytic
     procedure, public :: calc_rk4, calc_RK4_analytic
     procedure, public :: calc_EBNormBGradBCurlbDbdt
@@ -124,42 +124,50 @@ E(3)  = E(3) - R_inv*P_time(1) ! because this is not normalized with t_norm
 
 end subroutine calc_EBpsiU
 
-pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, grad_T_e)
-use phys_module, only: central_density
-use constants
-class(fields_base), intent(in)                    :: fields
-integer, intent(in)                               :: i_elm
-real*8, intent(in)                                :: time, st(2), phi
-real*8, intent(out)                               :: n_e !< electron density [m^-3]
-real*8, intent(out)                               :: T_e !< electron temperature [K]
-real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of electron temperature [K/m]
+pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, grad_T_e, vpar)
+  use phys_module, only: central_density, central_mass
+  use constants
+  class(fields_base), intent(in)                    :: fields
+  integer, intent(in)                               :: i_elm
+  real*8, intent(in)                                :: time, st(2), phi
+  real*8, intent(out)                               :: n_e !< electron density [m^-3]
+  real*8, intent(out)                               :: T_e !< electron temperature [K]
+  real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of electron temperature [K/m]
+  real*8, intent(out), optional                     :: vpar !< parallel velocity [m/s] !note this doesn't work for model 199
 
-real*8, dimension(2) :: P, P_s, P_t, P_phi, P_time
-real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
-real*8 :: T_norm !< temperature normalisation
+  real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time !used to be dimension(2)
+  real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
+  real*8               :: T_norm !< temperature normalisation
+  real*8               :: v_norm !< vpar normalisation
 
 #if (JOREK_MODEL == 400)
-! electron temperature
-call fields%interp_PRZ(time,i_elm,[5,8],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t) 
+  ! electron temperature
+  !call fields%interp_PRZ(time,i_elm,[5,8],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)  
+  call fields%interp_PRZ(time,i_elm,[5,8,7],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t) 
 #else
-! electron temperature + ion temperature (assumed equal)
-call fields%interp_PRZ(time,i_elm,[5,6],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
+  ! electron temperature + ion temperature (assumed equal)
+  !call fields%interp_PRZ(time,i_elm,[5,6],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
+  call fields%interp_PRZ(time,i_elm,[5,6,7],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 #endif
 
-n_e = max(central_density * P(1) * 1d20,1d16)                           ! plasma density [1/m^3], capped against negative
-T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
+  n_e = max(central_density * P(1) * 1d20,1d16)                           ! plasma density [1/m^3], capped against negative
+  T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
 #if (JOREK_MODEL == 400)
-T_norm = T_norm*2.d0 ! P(1) contains the electron temperature, reverse previous correction
+  T_norm = T_norm*2.d0 ! P(1) contains the electron temperature, reverse previous correction
 #endif
-T_e = max(P(2)*T_norm, 1.d0) ! temperature capped against going negative
+  T_e = max(P(2)*T_norm, 1.d0) ! temperature capped against going negative
 
-if (present(grad_T_e)) then
+  if (present(grad_T_e)) then
 
-  xjac = R_s * Z_t - R_t * Z_s
-  grad_T_e = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
-                     (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
-                     P_phi(2)/R]
-end if
+    xjac = R_s * Z_t - R_t * Z_s
+    grad_T_e = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
+                      (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
+                      P_phi(2)/R]
+  end if
+  if (present(vpar)) then
+    v_norm = 1.d0/sqrt(MU_ZERO*central_mass*central_density*1.d20*MASS_PROTON)
+    vpar = P(3)*v_norm !note that it should still be multiplied by the norm of the B field to be si
+  end if
 end subroutine calc_NeTe
 
 function rot_tmp(x,A,dA) result(rotA)

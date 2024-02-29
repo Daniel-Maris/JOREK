@@ -147,7 +147,7 @@ program recobmination_loop
         type is (particle_kinetic_leapfrog)  
         !> only set everything to zero when you do not initialise particles
         p(:)%q      = 0 !< for neutrals
-        p(:)%weight = 0.0!weight
+        p(:)%weight = 0.d0!weight
         p(:)%i_elm  = 0
         p(:)%v(1)   = 0.d0 
         p(:)%v(2)   = 0.d0
@@ -187,19 +187,37 @@ program recobmination_loop
     
     !Bot puff
     puff_t_dependent = .true. !< select if you want time dependent puffing
-    puff_rate = 11.d21 !70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-    fueling_rate_start = 11.d21 !40.d21 !40 40 worked, 20 before
+    puff_rate = 4.d23 !70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+    fueling_rate_start = 4.d23 !40 40 worked, 20 before
     r_valve     = 0.05d0 !0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
     R_valve_loc = 4.3d0 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
     Z_valve     = -3.8d0 !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
-    poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
-    poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
+    !pfr side of dome strips for puff
+    !poly_R = (/4.2566d0,4.474d0,4.27d0,4.4917d0 /)
+    !poly_Z = (/-3.85d0,-3.78d0,-3.876d0,-3.806d0 /)
+
+    !top puff
+    poly_R = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+    poly_Z = (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+    
+    !sep puff
+    !poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
+    !poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
     
     
     R_valve_loc2 = 5.5d0 !5.55d0!                  5.4d0 !5.46d0
     Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
-    poly_R2 = (/5.426d0 ,5.559d0 ,5.455d0 ,5.5586d0 /)
-    poly_Z2= (/-4.155d0 ,-4.4005d0 ,-4.0803d0 ,-4.330d0 /)
+    !pfr side of dome strip for puff
+    !poly_R2 = (/5.326d0,5.44d0,5.355d0,5.4586d0 /)
+    !poly_Z2 = (/-4.14d0,-4.32d0,-4.12d0,-4.30d0 /)
+
+    !top puff
+    poly_R2 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+    poly_Z2 = (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+    
+    !sep puff
+    !poly_R2 = (/5.426d0 ,5.559d0 ,5.455d0 ,5.5586d0 /)
+    !poly_Z2= (/-4.155d0 ,-4.4005d0 ,-4.0803d0 ,-4.330d0 /)
     
     
     puff_rate3 = 0.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
@@ -207,7 +225,7 @@ program recobmination_loop
     Z_valve3     = 4.15d0! 
     r_valve3    = 0.10d0!  .12
     poly_R3 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
-    poly_Z3= (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+    poly_Z3 = (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
     boxpuff = .true.
     
     
@@ -942,11 +960,13 @@ program recobmination_loop
         
         ! initialise particle in the element with Position, Weight, Energy, Momentum			
         do i = 1, particles_per_element
+            !this is very weird:
             k = k *i !< update free particle index ! at begin of loop as k is initialized at k =0
             particles(i_free(k))%weight = rec_rate_local(ife) / real(particles_per_element,8)* central_density* 1.d20 !< rec_rate = in jorek units?
             particles(i_free(k))%i_elm  = ielm  !x, i_elm, st
             particles(i_free(k))%q      = 0
-            
+
+            if(ielm .le. 0) write(*,'(A,6I8,E16.8)') 'WARNING: problem in recombination: ielm, k, i_free(k), ife, sim%my_id, sim%n_cpu, weight',ielm, k, i_free(k), ife, sim%my_id, sim%n_cpu, particles(i_free(k))%weight
             sanity_rec_local = sanity_rec_local + particles(i_free(k))%weight
             !write(31,*) "ielm,",ielm, "k,",k,"i_free(k)",i_free(k) , "particles(i_free(k))%weight,",particles(i_free(k))%weight
             

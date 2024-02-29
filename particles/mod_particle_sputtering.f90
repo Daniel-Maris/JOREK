@@ -99,12 +99,12 @@ module mod_particle_sputtering
     integer :: i = 0, n_save = 10 !100 !< used for diagnostics to see when the deposition diagnostic has to be evaluated, written
     integer :: n_sputter = -1 !< number of simulation particles to sputter from fluid-particle sputtering across all processes, across
     !< all fluid species (proportioned by sputtering yield, to get similar weights)
-	real*8  :: albedo_for_neutrals = 1.d0
+    real*8  :: albedo_for_neutrals = 1.d0
 
     real*8 :: last_time = 0.d0 !< When did we sputter last (used for integrating fluid flux and for calculating particle fluxes)
     real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
 
-    real*8 :: sputtered_particle_weight_threshold = 1d7 !< Minimum weight of a macroparticle to be sputtered from particle-particle sputtering
+    real*8 :: sputtered_particle_weight_threshold = 1.d7 !< Minimum weight of a macroparticle to be sputtered from particle-particle sputtering
   contains
     procedure :: do => do_particle_sputter
     procedure :: load_eckstein_data
@@ -306,6 +306,9 @@ subroutine do_particle_sputter(this, sim, ev)
   real*8  ::  reflbnd_kinetic_load_local,all_reflbnd_kinetic_load, reflbnd_kinetic_flux_local, all_reflbnd_kinetic_flux
   real*8  ::  energy_reflected_local, energy_reflected_all, enery_wall_recombi_local,enery_wall_recombi_all !0D quantities
   real*8  ::  energy_mol_recombi_local, energy_mol_recombi_all !<also wall assisted recombination
+  integer ::  lost_particles_local, all_lost_particles, lost_particles_local_1, lost_particles_local_2, lost_particles_local_3 !< keeps track of lost superparticles in different parts of the code
+  integer ::  lost_particles_local_4, all_lost_particles_1, all_lost_particles_2, all_lost_particles_3, all_lost_particles_4
+  real*8  ::  lost_weight_local, all_lost_weight !< keeps track of numerically lost weight
   !> binding energy of H molecule and ion in joule (2.2 eV and 13.6 eV)
   real*8  :: mol_binding_E=3.526d-19, ion_binding_E=2.18d-18  !< should be the sum of ionisation energies from 0 to q for impurities.
   
@@ -437,23 +440,36 @@ subroutine do_particle_sputter(this, sim, ev)
   
   !=============================================PARTICLE PART============================================================
   do i = 1,n_particle_groups ! source particles, i.e. those hitting the wall
-    sputtered_this_step_local = 0
-	bnd_kinetic_flux_local=0.d0
-	reflbnd_kinetic_flux_local=0.d0
-	bnd_kinetic_load_local = 0.d0
-	reflbnd_kinetic_load_local=0.d0 ;all_reflbnd_kinetic_load = 0.d0
+    sputtered_this_step_local  = 0
+    bnd_kinetic_flux_local     = 0.d0
+    reflbnd_kinetic_flux_local = 0.d0
+    bnd_kinetic_load_local     = 0.d0
+    reflbnd_kinetic_load_local = 0.d0 
+    all_reflbnd_kinetic_load   = 0.d0
+    lost_particles_local       = 0
+    lost_particles_local_1     = 0
+    lost_particles_local_2     = 0
+    lost_particles_local_3     = 0
+    lost_particles_local_4     = 0
+    all_lost_particles         = 0
+    all_lost_particles_1       = 0
+    all_lost_particles_2       = 0
+    all_lost_particles_3       = 0
+    all_lost_particles_4       = 0
+    lost_weight_local          = 0.d0
+    all_lost_weight            = 0.d0
     ! For each particle we need the location, the charge and the energy.
     ! instead of selecting type here we will loop first and use functions to get the charge and energy of the particle.
     ! the location requirement is fullfilled by particle_base already
-	!write(*,*) "PARTICLE PART sputtering group", i
+  	!write(*,*) "PARTICLE PART sputtering group", i
     ! gfortran wants and does not want to have the types in the shared section at the same time.... default(shared) it is
     ! be very very careful however!
 	
-	reflection = .false.
-	fast_reflection = .false.
-	if (sim%groups(i)%Z .le. 0) reflection = .true. !< Z .eq. -2 deuterium
-	if (sim%my_id == 0 .and. reflection) write(*,*) "group(i)%Z < 0, plasma will be reflected as neutrals -> yield = 1"
-	
+    reflection = .false.
+    fast_reflection = .false.
+    if (sim%groups(i)%Z .le. 0) reflection = .true. !< Z .eq. -2 deuterium
+    if (sim%my_id == 0 .and. reflection) write(*,*) "group(i)%Z < 0, plasma will be reflected as neutrals -> yield = 1"
+    
 #ifdef __GFORTRAN__
     !$omp parallel default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
 #else
@@ -462,37 +478,47 @@ subroutine do_particle_sputter(this, sim, ev)
     !$omp shared(this, sim, i,reflection), private(q, velocity, theta, E, &
     !$omp sputtering_yield, sputtered_energy_coeff, i_rng, u, i_patch,this_patch,j, i_edge_nodes, vector_normal, T_eV, &
     !$omp k, area, i_edge_elm, toroidal_offset, dphi, is_prompt_loss, Efield, B, psi, pot, T_e, n_e,fast_reflection)                    &
-    !$omp reduction(+:sputtered_this_step_local,bnd_kinetic_flux_local,reflbnd_kinetic_flux_local,bnd_kinetic_load_local,reflbnd_kinetic_load_local)
+    !$omp reduction(+:sputtered_this_step_local,bnd_kinetic_flux_local,reflbnd_kinetic_flux_local,bnd_kinetic_load_local,reflbnd_kinetic_load_local,lost_particles_local,lost_particles_local_1,lost_particles_local_2,lost_particles_local_3,lost_particles_local_4,lost_weight_local)
 	
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
     !$omp do schedule(dynamic, 10)
     do j = 1,size(sim%groups(i)%particles,1)
       ! Skip if this particle is not lost in a specific location (i_elm .eq. 0 means lost 'somewhere')
-	  ! if (sim%groups(i)%particles(j)%i_elm .lt. 0) write(*,*) "PARTICLE PART element at ", sim%groups(i)%particles(j)%i_elm
+	   !if (sim%groups(i)%particles(j)%i_elm .lt. 0) write(*,*) "PARTICLE PART element at ", sim%groups(i)%particles(j)%i_elm
 	  
-	  ! if (sim%groups(i)%particles(j)%i_elm .ne. 0) write(11,*) "PARTICLE PART, particle at element", sim%groups(i)%particles(j)%i_elm
+	   !if (sim%groups(i)%particles(j)%i_elm .ne. 0) write(11,*) "PARTICLE PART, particle at element", sim%groups(i)%particles(j)%i_elm
       if (sim%groups(i)%particles(j)%i_elm .ge. 0) cycle !< .not. .lt.!< if this is not a lost particle go to next particle
-        
+      !if (sim%groups(i)%particles(j)%i_elm .gt. 0) cycle !< still in domain
+      !if (sim%groups(i)%particles(j)%i_elm .eq. 0) then !< lost but no location, default is 0 so doesn't work
+      !  lost_particles_local = lost_particles_local + 1
+      !  cycle
+      !end if
+
       ! Find out if this particle is lost in any of the edge domains
       do i_patch = 1,size(this%fluid_sputter_yield%patch,1)
         ! if i_elm in the i_elm list of this edge domain exit the loop
         ! if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) exit
         ! Note that this has issues at sharp corners, where particles may be
         ! lost in a different patch but at the same element number!
-		if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) then
-			this_patch = i_patch
-			sputtered_this_step_local = sputtered_this_step_local + 1
-			bnd_kinetic_flux_local = bnd_kinetic_flux_local + sim%groups(i)%particles(j)%weight
-		endif
+        if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) then
+          this_patch = i_patch
+          sputtered_this_step_local = sputtered_this_step_local + 1
+          bnd_kinetic_flux_local = bnd_kinetic_flux_local + sim%groups(i)%particles(j)%weight
+        endif
       end do
-	  i_patch = this_patch
-	  ! write(*,*) "i_patch", i_patch, "size fluid_sputter_yield%patch", size(this%fluid_sputter_yield%patch,1)
-      if (i_patch .gt. size(this%fluid_sputter_yield%patch,1)) cycle ! particle not lost in the right area, skip it
-      
+      i_patch = this_patch
+      ! write(*,*) "i_patch", i_patch, "size fluid_sputter_yield%patch", size(this%fluid_sputter_yield%patch,1)
+      !if (i_patch .gt. size(this%fluid_sputter_yield%patch,1)) cycle ! particle not lost in the right area, skip it
+      if (i_patch .gt. size(this%fluid_sputter_yield%patch,1)) then
+        lost_particles_local   = lost_particles_local   + 1
+        lost_particles_local_1 = lost_particles_local_1 + 1
+        lost_weight_local = lost_weight_local + sim%groups(i)%particles(j)%weight
+        cycle
+      end if
       !> Check if the particle passes through the surface in a patch that acts as a pump
       !> if albedo = 0.98, 2% of particles will pass through the surface and are lost.
-	  ! if ( any(this%fluid_sputter_yield%patch(:)%wall_albedo .ne. 1.d0) ) then !< wall_albedo =1.0 by default
+	    ! if ( any(this%fluid_sputter_yield%patch(:)%wall_albedo .ne. 1.d0) ) then !< wall_albedo =1.0 by default
        ! call this%rng(i_rng)%next(u)
 	   ! if (u(1) .gt. this%fluid_sputter_yield%patch(this_patch)%wall_albedo) then
 	     ! !if particle passes through surface, set i_elm to zero
@@ -500,7 +526,7 @@ subroutine do_particle_sputter(this, sim, ev)
 		 ! !> TO DO: add counter for amount of pumped particles?
 		 ! cycle !< go to next particle
 	   ! endif
-	  ! endif
+	    ! endif
       !
 	   
       !> Place particle back into domain
@@ -536,39 +562,39 @@ subroutine do_particle_sputter(this, sim, ev)
           
         ! Update the particle energy from the potential drop in the sheath
         E = E + simple_potential_drop(q,T_eV)
-        
-		!Boundary kinetic heat load (and total particle flux?)
-		bnd_kinetic_load_local = bnd_kinetic_load_local + pa%weight * E *EL_CHG
-		!
-		!
-		!> reflecting atoms of the main plasma species/ D neutrals
-		!> here we try whether neutrals bounce of the wall (fast_reflection) or they are thermally released.
-        if (reflection) then
-			call this%rng(i_rng)%next(u)
-			sputtering_yield = this%yield(i)%interp(E,theta)
-			fast_reflection = .false. 
-			
-			if (u(1) .le. sputtering_yield) fast_reflection = .true.
-			sputtering_yield = 1.d0*this%albedo_for_neutrals !* this%fluid_sputter_yield%patch(this_patch)%wall_albedo !< * this%patch%wall_albedo ! decide per patch the reflection amount (albedo)
-			!< something like: this%fluid_sputter_yield%patch(this_patch)%wall_albedo
-			!< as we already know in which patch we are.
-		else !< normal sputtering
           
-			!> -------------Sputter yield---------------------------------------------------------------------     
-			! Hard-code theta to 0 to fix issues with sputtering module at strange angles
-			! the angle calculation should be revisited. Before using theta != 0 the
-			! surface roughness should be estimated, as this gives a distribution of
-			! impact angles as well
-			theta = 0.d0 
-			sputtering_yield = this%yield(i)%interp(E,theta)
+        !Boundary kinetic heat load (and total particle flux?)
+        bnd_kinetic_load_local = bnd_kinetic_load_local + pa%weight * E *EL_CHG
+        !
+        !
+        !> reflecting atoms of the main plasma species/ D neutrals
+        !> here we try whether neutrals bounce of the wall (fast_reflection) or they are thermally released.
+        if (reflection) then
+          call this%rng(i_rng)%next(u)
+          sputtering_yield = this%yield(i)%interp(E,theta)
+          fast_reflection = .false. 
+          
+          if (u(1) .le. sputtering_yield) fast_reflection = .true.
+          sputtering_yield = 1.d0*this%albedo_for_neutrals !* this%fluid_sputter_yield%patch(this_patch)%wall_albedo !< * this%patch%wall_albedo ! decide per patch the reflection amount (albedo)
+          !< something like: this%fluid_sputter_yield%patch(this_patch)%wall_albedo
+          !< as we already know in which patch we are.
+        else !< normal sputtering
+              
+          !> -------------Sputter yield---------------------------------------------------------------------     
+          ! Hard-code theta to 0 to fix issues with sputtering module at strange angles
+          ! the angle calculation should be revisited. Before using theta != 0 the
+          ! surface roughness should be estimated, as this gives a distribution of
+          ! impact angles as well
+          theta = 0.d0 
+          sputtering_yield = this%yield(i)%interp(E,theta)
 
-			if (sputtering_yield .gt. 1) then
-			  !!$omp critical
-			  !write(*,"(A,f5.0,A,f8.3)") "> 1 self-sputtering detected, E=", E, "yield=", sputtering_yield
-			  !!$omp end critical
-			end if
+          if (sputtering_yield .gt. 1) then
+            !!$omp critical
+            !write(*,"(A,f5.0,A,f8.3)") "> 1 self-sputtering detected, E=", E, "yield=", sputtering_yield
+            !!$omp end critical
+          end if
 
-		end if !< reflection or normal sputtering
+        end if !< reflection or normal sputtering
 		
         !> Write several diagnostics for the particle-particle sputtering
         ! the projection of a variable into the edge elements is simply a weighted addition to four points around an element
@@ -576,10 +602,15 @@ subroutine do_particle_sputter(this, sim, ev)
         ! find the corner point of the edge element we'll add the diagnostics to
         i_edge_elm = find_edge_element(this%diagnostics%patch(i_patch), pa%i_elm, pa%st(1), pa%st(2), pa%x(3))
         if (i_edge_elm .le. 0) then
+          pa%i_elm = -pa%i_elm ! Place particle back out of domain
+          !write(*,*) 'particle lost: i_edge_elm/i_elm/R/Z/phi/s/t/w/particle j/i_life ',i_edge_elm,pa%i_elm,pa%x(1),pa%x(2),pa%x(3),pa%st(1),pa%st(2),pa%weight,j,pa%i_life
           !!$omp critical
           !write(*,*) "ERROR: cannot find edge element for particle lost in this patch", pa%i_elm, pa%x(1), pa%x(2), i_edge_elm
           !call flush(6)
           !!$omp end critical
+          lost_particles_local   = lost_particles_local   + 1
+          lost_particles_local_2 = lost_particles_local_2 + 1
+          lost_weight_local = lost_weight_local + pa%weight
           cycle
         end if
         ! the weighting is done by inverse area
@@ -657,31 +688,34 @@ subroutine do_particle_sputter(this, sim, ev)
         
 
         ! update weight of simulated particle after sputtering
-        pa%weight = real(sputtering_yield,4) * pa%weight 
+        pa%weight = real(sputtering_yield,8) * pa%weight 
         !> If the weight gets too low, remove the particle
         if (pa%weight .le. this%sputtered_particle_weight_threshold) then ! this should really be an adaptive method based on something more rigorous
           pa%i_elm = 0
+          lost_particles_local   = lost_particles_local   + 1
+          lost_particles_local_3 = lost_particles_local_3 + 1
+          lost_weight_local = lost_weight_local + pa%weight
           cycle
         end if
 		
-		reflbnd_kinetic_flux_local = reflbnd_kinetic_flux_local+pa%weight !< particle weight sputtered/reflected into domain again
+        reflbnd_kinetic_flux_local = reflbnd_kinetic_flux_local+pa%weight !< particle weight sputtered/reflected into domain again
 
-		if (reflection) then
-			if (fast_reflection) then
-				sputtered_energy_coeff = this%energy(i)%interp(E,theta)
-				E = sputtered_energy_coeff * E
-			else ! thermal release
-			    E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
-			endif	
-		else
-			if (this%use_thompson) then
-			  call this%rng(i_rng)%next(u)
-			  E = sample_dist(this%E_dist, u(1))
-			else
-			  sputtered_energy_coeff = this%energy(i)%interp(E,theta)
-			  E = sputtered_energy_coeff * E
-			end if
-		end if
+        if (reflection) then
+          if (fast_reflection) then
+            sputtered_energy_coeff = this%energy(i)%interp(E,theta)
+            E = sputtered_energy_coeff * E
+          else ! thermal release
+              E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
+          endif	
+        else
+          if (this%use_thompson) then
+            call this%rng(i_rng)%next(u)
+            E = sample_dist(this%E_dist, u(1))
+          else
+            sputtered_energy_coeff = this%energy(i)%interp(E,theta)
+            E = sputtered_energy_coeff * E
+          end if
+        end if
       end associate
         
 	
@@ -703,7 +737,7 @@ subroutine do_particle_sputter(this, sim, ev)
         ! if so comment the line above
         !<------------------------------------------------------------------------------------------------------------------
 		
-		! energy of kinetic particles being sputtered/reflected
+		    ! energy of kinetic particles being sputtered/reflected
         reflbnd_kinetic_load_local = reflbnd_kinetic_load_local + pa%weight * E *EL_CHG 
 		
       class default
@@ -714,6 +748,9 @@ subroutine do_particle_sputter(this, sim, ev)
       associate (pa => sim%groups(i)%particles(j))
       if (any(pa%x .ne. pa%x) .or. E .ne. E .or. pa%weight .ne. pa%weight) then
         pa%i_elm = 0 ! skip this one since sputtering went wrong
+        lost_particles_local   = lost_particles_local   + 1
+        lost_particles_local_4 = lost_particles_local_4 + 1
+        lost_weight_local      = lost_weight_local      + pa%weight
         ! TODO debug logging? openmp threading though
       end if
       end associate
@@ -721,22 +758,33 @@ subroutine do_particle_sputter(this, sim, ev)
     !$omp end do
     !$omp end parallel
 	
-	! sputtered_this_step_local
-	call MPI_REDUCE(sputtered_this_step_local,all_sputtered_this_step,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
-	!bnd_kinetic_load_local
-	call MPI_REDUCE(bnd_kinetic_flux_local,all_bnd_kinetic_flux,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
-	call MPI_REDUCE(reflbnd_kinetic_flux_local,all_reflbnd_kinetic_flux,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
-	call MPI_REDUCE(bnd_kinetic_load_local,all_bnd_kinetic_load,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
-	call MPI_REDUCE(reflbnd_kinetic_load_local,all_reflbnd_kinetic_load,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
-	if (sim%my_id .eq. 0) then
-	write(*,'(A26,I2,A45,I7)') "Superparticles from group", i,"sputtered/reflected this sputter action = ", all_sputtered_this_step
-	write(*,'(A26,I2,A45,2E14.6)') "Superparticles from group", i,"kinetic particle flux going(in/out) [#/s] = ", all_reflbnd_kinetic_flux/delta_t, all_bnd_kinetic_flux/delta_t
-	!write(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i,"energy through boundary [J] = ", all_bnd_kinetic_load
-	!write(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i,"heat load [W] = ", all_bnd_kinetic_load/delta_t
-	!write(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i,"energy reflected [J] = ", all_reflbnd_kinetic_load
-	!rite(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i,"heat load reflected [W] = ", all_reflbnd_kinetic_load/delta_t
-	write(*,'(A26,I2,A48,2E14.6)') "Superparticles from group", i,"particle-particle heat load going(in/out) [W] = ", all_reflbnd_kinetic_load/delta_t, all_bnd_kinetic_load/delta_t
-endif
+    ! sputtered_this_step_local
+    call MPI_REDUCE(sputtered_this_step_local,all_sputtered_this_step,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+    !bnd_kinetic_load_local
+    call MPI_REDUCE(bnd_kinetic_flux_local,all_bnd_kinetic_flux,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
+    call MPI_REDUCE(reflbnd_kinetic_flux_local,all_reflbnd_kinetic_flux,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
+    call MPI_REDUCE(bnd_kinetic_load_local,all_bnd_kinetic_load,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
+    call MPI_REDUCE(reflbnd_kinetic_load_local,all_reflbnd_kinetic_load,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
+    
+    !lost_particles_local
+    call MPI_REDUCE(lost_particles_local,  all_lost_particles,  1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+    call MPI_REDUCE(lost_particles_local_1,all_lost_particles_1,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+    call MPI_REDUCE(lost_particles_local_2,all_lost_particles_2,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   !used to collect lost_particles_local3 here, resulting in all 0s, so 2 is likely the most important
+    call MPI_REDUCE(lost_particles_local_3,all_lost_particles_3,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+    call MPI_REDUCE(lost_particles_local_4,all_lost_particles_4,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+    call MPI_REDUCE(lost_weight_local,all_lost_weight,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+    
+    if (sim%my_id .eq. 0) then
+      write(*,'(A26,I2,A45,I7)') "Superparticles from group", i,                 "sputtered/reflected this sputter action = ", all_sputtered_this_step
+      write(*,'(A26,I2,A45,2E16.8)') "Superparticles from group", i,             "kinetic particle flux going(in/out) [#/s] = ", all_reflbnd_kinetic_flux/delta_t, all_bnd_kinetic_flux/delta_t
+      !write(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i,"energy through boundary [J] = ", all_bnd_kinetic_load
+      !write(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i,"heat load [W] = ", all_bnd_kinetic_load/delta_t
+      !write(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i,"energy reflected [J] = ", all_reflbnd_kinetic_load
+      !rite(*,'(A26,I2,A45,E14.6)') "Superparticles from group", i, "heat load reflected [W] = ", all_reflbnd_kinetic_load/delta_t
+      write(*,'(A26,I2,A48,2E14.6)') "Superparticles from group", i,             "particle-particle heat load going(in/out) [W] = ", all_reflbnd_kinetic_load/delta_t, all_bnd_kinetic_load/delta_t
+      write(*,'(A26,I2,A45,I16,I16,I16,I16,I16)') "Superparticles from group", i," numerically disappeared (tot/1/2/3/4)= ", all_lost_particles, all_lost_particles_1, all_lost_particles_2, all_lost_particles_3,all_lost_particles_4
+      write(*,'(A26,I2,A45,2E16.8)') "Superparticles from group", i,                "weight numerically disappeared = ", all_lost_weight
+    endif
 	
   end do
 
@@ -825,11 +873,11 @@ endif
     allocate(st_sampled(2,n_samples_fluid(i)))
     allocate(i_elm_sampled(n_samples_fluid(i)))
 
-	!> Set all 0D diagnostics for neutrals zero for every fluid group
-	enery_wall_recombi_local=0.d0 ; enery_wall_recombi_all=0.d0
-	energy_reflected_local=0.d0 ; energy_reflected_local=0.d0
-	energy_mol_recombi_local=0.d0 ; energy_mol_recombi_all=0.d0
-	
+    !> Set all 0D diagnostics for neutrals zero for every fluid group
+    enery_wall_recombi_local=0.d0 ; enery_wall_recombi_all=0.d0
+    energy_reflected_local=0.d0 ; energy_reflected_local=0.d0
+    energy_mol_recombi_local=0.d0 ; energy_mol_recombi_all=0.d0
+    
     ! We need to properly use all RNGS here to avoid missing numbers
     ! needs default(shared) for gfortran
 #ifdef __GFORTRAN__
@@ -848,10 +896,10 @@ endif
     !$omp end parallel
 
     q = this%background_species_Z(i)
-	! sim%groups(this%target_group)%Z
-	reflection = .false.
-	fast_reflection = .false.
-	if (q .le. 0 .and. sim%groups(this%target_group)%Z .le. 0) reflection = .true. !! deuterium, tritium special case ! may be .le. 1 to include hydrogen
+    ! sim%groups(this%target_group)%Z
+    reflection = .false.
+    fast_reflection = .false.
+    if (q .le. 0 .and. sim%groups(this%target_group)%Z .le. 0) reflection = .true. !! deuterium, tritium special case ! may be .le. 1 to include hydrogen
     if (q .le. 0) q = 1 ! deuterium, tritium special case
     q = min(q, 4) ! limit to 4 for divertor conditions
     Z = this%background_species_Z(i)
@@ -869,7 +917,7 @@ endif
       write(*,"(A,i3,A,i8,A,A,A,A,A,i1,A,i2,A,g12.4,A,g12.4)") "Sputtered ", sim%n_cpu, "x", n_samples_fluid(i), &
         " ", element_symbols(sim%groups(this%target_group)%Z),&
         " from ", element_symbols(Z), " in group ", this%target_group, &
-      " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral, "  particles flux #/s : ", integral/delta_t
+        " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral, "  particles flux #/s : ", integral/delta_t
     end if
 
 #ifdef __GFORTRAN__
@@ -897,7 +945,7 @@ endif
   
       !> weight of fluid particle is equally distributed as a fraction of the incoming flux. Such that the sum of all incoming fluid particles ,
       !> is the total amount of incoming particles over the edge domain area * delta_t
-      sim%groups(this%target_group)%particles(i_p)%weight = real(1.d0/(n_samples_fluid(i)*sim%n_cpu) * integral,4)
+      sim%groups(this%target_group)%particles(i_p)%weight = real(1.d0/(n_samples_fluid(i)*sim%n_cpu) * integral,8)
   
       ! Assume the particle is fully ionized! For D, He, Ar this is reasonable
       theta = 0 !< surface roughness leads to an average incoming angle of zero
@@ -908,19 +956,19 @@ endif
 
       ! sample from energy distribution of the plasma on the edge of the plasma sheath
       ! do not sample energies lower than E_threshold, since they will not sputter anyways
-	  if (reflection) then
-		call this%rng(i_rng)%next(u)
-		call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
-		! add to this energy the plasma sheath potential
-		E = E + simple_potential_drop(q, T_eV)
-		sputtering_yield = this%yield(i + n_particle_groups)%interp(E, theta) !this%yield(i)%interp(E,theta)
-		fast_reflection = .false. 
-		if (u(1) .le. sputtering_yield) fast_reflection = .true.
-		sputtering_yield = 1.d0
-	  else
-		E = 2 * T_eV !< 
-		! add to this energy the plasma sheath potential
-		E = E + simple_potential_drop(q, T_eV)
+      if (reflection) then
+        call this%rng(i_rng)%next(u)
+        call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
+        ! add to this energy the plasma sheath potential
+        E = E + simple_potential_drop(q, T_eV)
+        sputtering_yield = this%yield(i + n_particle_groups)%interp(E, theta) !this%yield(i)%interp(E,theta)
+        fast_reflection = .false. 
+        if (u(1) .le. sputtering_yield) fast_reflection = .true.
+        sputtering_yield = 1.d0
+      else
+        E = 2 * T_eV !< 
+        ! add to this energy the plasma sheath potential
+        E = E + simple_potential_drop(q, T_eV)
       endif
       ! If sampling from the incoming energy distribution function, the
       ! sputtered energy coefficient needs to be reweighed with the sputtering
@@ -944,28 +992,28 @@ endif
       ! threshold: use sputtered energy coeff just above threshold instead
       ! (note: all this doesn't take into account theta properly)
 	  if (reflection) then
-		enery_wall_recombi_local =  enery_wall_recombi_local+ sim%groups(this%target_group)%particles(i_p)%weight * ion_binding_E !< in joule
-		if (fast_reflection) then
-			E = max(E, this%energy(i + n_particle_groups)%E_threshold + 1d0)
-			sputtered_energy_coeff = this%energy(i + n_particle_groups)%interp(E, theta)
-			E = sputtered_energy_coeff * E !< E is in eV
-			!reflection 0D diagnostic
-			energy_reflected_local = energy_reflected_local+sim%groups(this%target_group)%particles(i_p)%weight * E * EL_CHG !< here, E is energy the neutral gets
-		else ! thermal release
-		    E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
-			energy_mol_recombi_local = energy_mol_recombi_local+sim%groups(this%target_group)%particles(i_p)%weight * mol_binding_E !< molecular wall-assisted recombination energy
-			endif
+      enery_wall_recombi_local =  enery_wall_recombi_local+ sim%groups(this%target_group)%particles(i_p)%weight * ion_binding_E !< in joule
+      if (fast_reflection) then
+        E = max(E, this%energy(i + n_particle_groups)%E_threshold + 1d0)
+        sputtered_energy_coeff = this%energy(i + n_particle_groups)%interp(E, theta)
+        E = sputtered_energy_coeff * E !< E is in eV
+        !reflection 0D diagnostic
+        energy_reflected_local = energy_reflected_local+sim%groups(this%target_group)%particles(i_p)%weight * E * EL_CHG !< here, E is energy the neutral gets
+      else ! thermal release
+        E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
+        energy_mol_recombi_local = energy_mol_recombi_local+sim%groups(this%target_group)%particles(i_p)%weight * mol_binding_E !< molecular wall-assisted recombination energy
+      endif
 	  else !< normal sputtering
 	    if (this%use_thompson) then
-			call this%rng(i_rng)%next(u)
-			! Remove the highest 2% of the distribution by clipping u (hacky)
-			u = min(u, 0.98d0)
-			E = sample_dist(this%E_dist, u(1))
-		else
-			E = max(E, this%energy(i + n_particle_groups)%E_threshold + 1d0) ! add little bit to prevent zeros
-			sputtered_energy_coeff = this%energy(i + n_particle_groups)%interp(E, theta)
-			E = sputtered_energy_coeff * E
-        end if
+        call this%rng(i_rng)%next(u)
+        ! Remove the highest 2% of the distribution by clipping u (hacky)
+        u = min(u, 0.98d0)
+        E = sample_dist(this%E_dist, u(1))
+      else
+        E = max(E, this%energy(i + n_particle_groups)%E_threshold + 1d0) ! add little bit to prevent zeros
+        sputtered_energy_coeff = this%energy(i + n_particle_groups)%interp(E, theta)
+        E = sputtered_energy_coeff * E
+      end if
 	  endif
       !av_yield = fluid_sputtering_yield(this%yield(i + n_particle), T_eV, Z, theta)
       ! we could probably avoid the calculation of fluid_sputtering_yield by
@@ -1167,7 +1215,7 @@ end function fluid_sputtering_yield
 subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coeff, fluid_sputter_yield, delta_t, target_group, diagnostics) !< add target_group%Z as input, we can use it for reflection
   use mod_edge_elements, only: edge_elements
   use mod_atomic_elements, only: atomic_weights
-  use phys_module, only: central_mass, xpoint, xcase
+  use phys_module, only: central_mass, xpoint, xcase, central_density !rm central_density
   use mod_parameters, only: n_plane, n_period
   
 
@@ -1182,9 +1230,10 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
 
   integer :: q, i, j, i_patch, n_offset, Z
   real*8 :: vector_normal(3), cos_alpha, mass_ion, c_s, Gamma_d, n_species
-  real*8 :: T_i, T_e, n_e, yield
+  real*8 :: T_i, T_e, n_e, yield, vpar
   real*8, dimension(3) :: E, B, B_hat
   real*8 :: m, psi, U
+  real*8 :: c_angle !used for minimum particle flux
 
   real*8, parameter :: gamma = 5.d0 / 3.d0 !< Heat capacity ratio, for adiabatic
   real*8 :: psi_axis, R_axis, Z_axis, s_axis, t_axis, psi_xpoint(2), psi_limit, R_xpoint(2), Z_xpoint(2), s_xpoint(2), t_xpoint(2)
@@ -1223,13 +1272,15 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
     !$omp parallel do default(none) &
 #endif
     !$omp shared(fluid_sputter_yield, sim, n_relative, background_species, coeff, diagnostics, delta_t, &
-    !$omp i_patch, central_mass, psi_axis, psi_limit,target_group) &
-    !$omp private(i, n_e, T_e, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, n_species, Gamma_d, &
-    !$omp         n_offset, yield, Z) schedule(static)
+    !$omp i_patch, central_mass, psi_axis, psi_limit,target_group,central_density) &
+    !$omp private(i, n_e, T_e, vpar, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, n_species, Gamma_d, &
+    !$omp         n_offset, yield, Z,c_angle) schedule(static)
     do i = 1, size(fluid_sputter_yield%patch(i_patch)%xyz, 2) !< over all nodes
+      !call sim%fields%calc_NeTe(sim%time, fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(i), fluid_sputter_yield%patch(i_patch)%st(:,i), &
+      !  real(fluid_sputter_yield%patch(i_patch)%xyz(3,i), 8), n_e, T_e)
       call sim%fields%calc_NeTe(sim%time, fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(i), fluid_sputter_yield%patch(i_patch)%st(:,i), &
-        real(fluid_sputter_yield%patch(i_patch)%xyz(3,i), 8), n_e, T_e)
-      
+        real(fluid_sputter_yield%patch(i_patch)%xyz(3,i), 8), n_e, T_e, vpar=vpar)
+      !write(*,'(A12,E14.6,E14.6,E14.6,E14.6,E14.6,E14.6)') 'DEBUG: ',1/sqrt(MU_ZERO*central_mass*central_density*1.d20*MASS_PROTON),central_density,central_mass,n_e,T_e,vpar
       call sim%fields%calc_EBpsiU(sim%time, fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(i), &
            fluid_sputter_yield%patch(i_patch)%st(:,i), &
            real(fluid_sputter_yield%patch(i_patch)%xyz(3,i), 8), &
@@ -1250,27 +1301,30 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
       T_i = T_e !< not made for model 400 [K]
       mass_ion = central_mass* ATOMIC_MASS_UNIT !< now we use only the deuterium soundspeed
       ! c_s = sqrt((k_boltz/mass_ion)*(T_e + gamma * T_i)) ! m/s !< gamma *(Te+Ti) in model303 and 307
-	  c_s = sqrt((k_boltz/mass_ion)*(gamma * (T_i+T_e))) !< IF model =303 / 307
-	  !<TODO: test c_s is vpar0, as this should account for all models
+	    c_s = sqrt((k_boltz/mass_ion)*(gamma * (T_i+T_e))) !< IF model =303 / 307
+	    !<TODO: test c_s is vpar0, as this should account for all models
       
+      c_angle = 0.0174524d0 ! beware that this is the same as in mod_boundary_matrix_open.f90, corresponds to 1 degree grazing angle, (cos(89*pi/180)=0.0174524)
+      !alpha is about 3 degrees
       do j = 1, size(n_relative,1) !< over all fluid groups
         Z = background_species(j)
         m = atomic_weights(Z) * ATOMIC_MASS_UNIT
         n_species = n_e * n_relative(j)
-        
-        Gamma_d = n_species * c_s * cos_alpha
-
+        !Gamma_d = n_species * c_s * cos_alpha
+        !Gamma_d = n_species * c_s * cos_alpha + n_species * c_s * c_angle
+        Gamma_d = n_species * abs(vpar) * norm2(B) * cos_alpha + n_species * c_s * c_angle ! vpar and Dperp contributions, note that vpar can be negative so we need to use abs(vpar)
+        !if ((sim%my_id .eq. 0) .and. (i .eq. 1) .and. (j .eq. 1)) write(*,'(A12,I2,E14.6,E14.6,E14.6,E14.6)') 'DEBUG: ',j,n_species, vpar, c_s, cos_alpha
         ! Assume an impact angle of 0!
         ! need the abs here because we cheat using negative numbers to indicate D, T
         ! cap ionisation level to 4
         q = min(abs(background_species(j)), 4)
         yield = fluid_sputtering_yield(coeff(j), T_e * K_BOLTZ/EL_CHG, q, 0.d0)
-		!if (reflection) yield = 1.d0 !======================================================================================================== with addition of target groupd knowledge
-		if (target_group .le. 0 .and. background_species(j) .le. 0) then !< hydrogren reflects on the wall
-			yield = 1.d0
-		else if (target_group .le. 0 .and. background_species(j) .gt. 0) then !< impurities don't turn into hydrogen
-			yield = 0.d0
-		endif	
+        !if (reflection) yield = 1.d0 !======================================================================================================== with addition of target groupd knowledge
+        if (target_group .le. 0 .and. background_species(j) .le. 0) then !< hydrogren reflects on the wall
+          yield = 1.d0
+        else if (target_group .le. 0 .and. background_species(j) .gt. 0) then !< impurities don't turn into hydrogen
+          yield = 0.d0
+        endif	
         fluid_sputter_yield%patch(i_patch)%scalars(i,j) = Gamma_d * delta_t * yield !< particles / m^2 in this timestep
 
         n_offset = size(sim%groups,1)*n_particle_diag

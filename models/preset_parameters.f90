@@ -300,6 +300,7 @@ subroutine preset_parameters
   linear_run         = .false.
   fix_psi_j_u_w      = .false.
   set_chi_perp_const = .false.
+  BC_T_const_far_SOL = .false.
   
   export_for_nemec   = .false.
   

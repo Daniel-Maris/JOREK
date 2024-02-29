@@ -149,7 +149,7 @@ subroutine do_particle_puffing(this,sim, ev)
   this%last_time = sim%time
   
   if (this%n_puff .le. -1.d-6) then ! 0.d0
-    if (sim%my_id .eq. 0) write(*,*) 'No puf quota set, exiting. --- n_puff == 0 this will now stop the program'
+    if (sim%my_id .eq. 0) write(*,*) 'No puff quota set, exiting. --- n_puff == 0 this will now stop the program'
     stop
   end if
   
@@ -178,25 +178,25 @@ subroutine do_particle_puffing(this,sim, ev)
   ! end do
 
   !============== Finding free particles !< make into a function?
-allocate(is_free(size(sim%groups(1)%particles,1))) 
-!$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
-!$omp private(j) schedule(dynamic, 100)
-do j=1,size(sim%groups(1)%particles,1) !sim%groups(1)%particles
-	is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
-end do
-!$omp end parallel do
-!$omp barrier
-n_free = count(is_free)
-allocate(i_free(n_free))
-k = 1
-do j=1,size(is_free,1)
-	if (is_free(j)) then
-	  i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(1)%particles(j)
-	  k = k+1
-	  !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
-	end if
-end do
-! ==================
+  allocate(is_free(size(sim%groups(1)%particles,1))) 
+  !$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
+  !$omp private(j) schedule(dynamic, 100)
+  do j=1,size(sim%groups(1)%particles,1) !sim%groups(1)%particles
+    is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
+  end do
+  !$omp end parallel do
+  !$omp barrier
+  n_free = count(is_free)
+  allocate(i_free(n_free))
+  k = 1
+  do j=1,size(is_free,1)
+    if (is_free(j)) then
+      i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(1)%particles(j)
+      k = k+1
+      !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
+    end if
+  end do
+  ! ==================
   
   
   n_group = 1   ! Puffing Hydrogen (or actually the element at groups(1)) only
@@ -218,20 +218,20 @@ end do
   vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, &
           i_elm, s, t)
 
-!------------- Decide how many superparticles to initiate		 
-!Adjust amount of superparticles + fueling rate if we use time dependent puffing 
-! same way as in model500
+  !------------- Decide how many superparticles to initiate		 
+  !Adjust amount of superparticles + fueling rate if we use time dependent puffing 
+  ! same way as in model500
   ! write(*,*) "puff_t_dependent", this%puff_t_dependent
   if (this%puff_t_dependent) then
-     to_puff        = n_puff_local !int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
-	 fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope, this%fueling_rate_start)
-	 !write(*,*) "n_puff", this%n_puff, "to_puff", to_puff, "fueling_rate_t", fueling_rate_t
-	 !write(*,*) "to_puff_real" , maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /))
-	 if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
-	 
-	 if (to_puff .ge. n_free) then
-		write(*,*) "Warning could not puff the requested amount."
-		to_puff = n_free
+    to_puff        = n_puff_local !int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
+	  fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope, this%fueling_rate_start)
+    !write(*,*) "n_puff", this%n_puff, "to_puff", to_puff, "fueling_rate_t", fueling_rate_t
+    !write(*,*) "to_puff_real" , maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /))
+    if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
+    
+    if (to_puff .ge. n_free) then
+      write(*,*) "Warning could not puff the requested amount."
+	  	to_puff = n_free
 	  end if
   else
       fueling_rate_t = this%fueling_rate
@@ -243,7 +243,7 @@ end do
 		if (sim%my_id .eq.0) write(*,"(A,g12.4, A)") "fueling_rate:",fueling_rate_t, "atoms/s"
 	  end if
   end if !< time dependent puffing
-!-------------  
+  !-------------  
   
   
   puffed_this_step_local = 0
@@ -298,7 +298,7 @@ end do
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
       pa(i_p)%i_elm   = i_elm
-      pa(i_p)%weight  = real(1.d0/n_puff_local) * delta_t * fueling_rate_t
+      pa(i_p)%weight  = 1.d0/real(n_puff_local,8) * delta_t * fueling_rate_t / real(sim%n_cpu,8)
       pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   ! <STIJN> Maybe this needs to be isotropic, or 1+cos like?
       pa(i_p)%q       = 0_1
       if (sim%groups(1)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 

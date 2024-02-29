@@ -147,7 +147,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 analytical_len, analytical_tmax, controller_K_p,    &
                 controller_K_i, controller_K_d, setpoint,           &
                 max_value, min_value, controller_type,              &
-                fix_psi_j_u_w, set_chi_perp_const                  
+                fix_psi_j_u_w, set_chi_perp_const,                  &
+                BC_T_const_far_SOL                  
 
 if (my_id .eq. 0) then
 

@@ -189,7 +189,7 @@ subroutine allocate_particles(particles, n)
   type is (particle_kinetic_leapfrog)
     do i=1,size(p,1)
       p(i)%x = real((/i,i+1,i+2/),8)
-      p(i)%weight = real(i+1,4)/4
+      p(i)%weight = real(i+1,8)/4.d0
       call random_number(p(i)%st)
       p(i)%i_elm = 100*i
       p(i)%q = int(3*i,1)
