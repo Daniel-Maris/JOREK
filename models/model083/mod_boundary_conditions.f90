@@ -106,8 +106,9 @@ contains
                       !------------------------------------ the open field lines (in case of x-point grid)
                       if ((node_list%node(inode)%boundary .eq. 1) .or. (node_list%node(inode)%boundary .eq. 3)) then
 
-                         if ((k .eq. 1) .or. (k .eq. 2) .or. (k .eq. 3) .or. &
-                              (k .eq. 4) .or. (k .eq. 5) .or. (k .eq. 6) .or. (k .eq. 7)) then
+                         if ((k .eq. var_Psi) .or. (k .eq. var_Phi) .or. (k .eq. var_zj) .or. &
+                              (k .eq. var_w) .or. (k .eq. var_rho) .or. (k .eq. var_T) .or. (k .eq. var_vpar) .or. &
+                              (k .eq. var_Ti) .or. (k .eq.  var_Te)) then
  
                           if ( (.not. is_freebound(in,k)) ) then ! apply fixed boundary conditions where necessary
 
