@@ -35,16 +35,16 @@ module hdf5_io_module
     if(access_type.eq.1) then
       call H5Pcreate_f(H5P_FILE_ACCESS_F,plist,ierr_HDF5)
     else
-      call H5Pcreate_f(H5P_DEFAULT_F,plist,ierr_HDF5)
+      plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm).and.present(mpi_info)) then
+    if(present(mpi_comm).and.present(mpi_info).and.(access_type.eq.1)) then
       call H5Pset_fapl_mpio_f(plist,mpi_comm,mpi_info,ierr_HDF5)
-      if(access_type.ne.1) write(*,*) "WARNING ACCESSING HDF5 PARALLEL MODE access_type SHOULD BE 1"
     endif
 
     !*** Create a new file using default properties ***
     call H5Fcreate_f(trim(filename)//char(0), &
       H5F_ACC_TRUNC_F,file_id,ierr_HDF5,access_prp=plist)
+    if(plist.ne.H5P_DEFAULT_F) call H5Pclose_f(plist,ierr_HDF5)
     if (present(ierr)) ierr = ierr_HDF5
   end subroutine HDF5_create
 
@@ -70,16 +70,16 @@ module hdf5_io_module
     if(access_type.eq.1) then
       call H5Pcreate_f(H5P_FILE_ACCESS_F,plist,ierr_HDF5)
     else
-      call H5Pcreate_f(H5P_DEFAULT_F,plist,ierr_HDF5)
+      plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm).and.present(mpi_info)) then
+    if(present(mpi_comm).and.present(mpi_info).and.(access_type.ne.1)) then
       call H5Pset_fapl_mpio_f(plist,mpi_comm,mpi_info,ierr_HDF5)
-      if(access_type.ne.1) write(*,*) "WARNING ACCESSING HDF5 PARALLEL MODE access_type SHOULD BE 1"
     endif
 
     !*** open the HDF5 file ***
     call H5Fopen_f(trim(filename)//char(0), &
       H5F_ACC_RDONLY_F,file_id,ierr_HDF5,access_prp=plist)
+    if(plist.ne.H5P_DEFAULT_F) call H5Pclose_f(plist,ierr_HDF5)
     if (present(ierr)) ierr = ierr_HDF5
   end subroutine HDF5_open
 
@@ -142,11 +142,10 @@ module hdf5_io_module
     if(access_type.eq.1) then
       call H5Pcreate_f(H5P_FILE_ACCESS_F,plist,ierr_HDF5)
     else
-      call H5Pcreate_f(H5P_DEFAULT_F,plist,ierr_HDF5)
+      plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm).and.present(mpi_info)) then
+    if(present(mpi_comm).and.present(mpi_info).and.(access_type.ne.1)) then
       call H5Pset_fapl_mpio_f(plist,mpi_comm,mpi_info,ierr_HDF5)
-      if(access_type.ne.1) write(*,*) "WARNING ACCESSING HDF5 PARALLEL MODE access_type SHOULD BE 1"
     endif
 
     !*** Test if the file exists ***
@@ -170,7 +169,7 @@ module hdf5_io_module
         H5F_ACC_EXCL_F, file_id, ierr_HDF5, access_prp=plist)
       if (present(ierr)) ierr = ierr_HDF5
     end if
-    call H5Pclose_f(plist,ierr_HDF5)
+    if(plist.ne.H5P_DEFAULT_F) call H5Pclose_f(plist,ierr_HDF5)
   end subroutine HDF5_open_or_create
 
   !*************************************************
