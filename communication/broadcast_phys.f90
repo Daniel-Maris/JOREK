@@ -91,6 +91,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(phi_0,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(phi_1,                  1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(phi_coef,              10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(delta_phi_source,       1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   call MPI_PACK(n_Fprofile_internal,                          1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(Fprofile_internal,      n_Fprofile_internal_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -916,6 +917,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,phi_0,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,phi_1,                  1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,phi_coef,              10,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,delta_phi_source,       1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,n_Fprofile_internal,                        1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,Fprofile_internal,    n_Fprofile_internal_max,MPI_REAL8,MPI_COMM_WORLD,ierr)

@@ -39,19 +39,20 @@ module mod_equations
   integer, parameter  :: var_S_e         = 2*n_var+16
   integer, parameter  :: var_S_e_i       = 2*n_var+17
   integer, parameter  :: var_S_e_e       = 2*n_var+18
-  integer, parameter  :: var_k_par       = 2*n_var+19
-  integer, parameter  :: var_k_par_i     = 2*n_var+20
-  integer, parameter  :: var_k_par_e     = 2*n_var+21
-  integer, parameter  :: var_dk_par_dT   = 2*n_var+22
-  integer, parameter  :: var_dk_par_dT_i = 2*n_var+23
-  integer, parameter  :: var_dk_par_dT_e = 2*n_var+24
-  integer, parameter  :: var_dTe_i       = 2*n_var+25
-  integer, parameter  :: var_ddTe_i_dT_i = 2*n_var+26
-  integer, parameter  :: var_ddTe_i_dT_e = 2*n_var+27
-  integer, parameter  :: var_ddTe_i_drho = 2*n_var+28
-  integer, parameter  :: var_Bv2         = 2*n_var+29
-  integer, parameter  :: var_B2          = 2*n_var+30
-  integer, parameter  :: var_zero        = 2*n_var+31
+  integer, parameter  :: var_S_Phi       = 2*n_var+19
+  integer, parameter  :: var_k_par       = 2*n_var+20
+  integer, parameter  :: var_k_par_i     = 2*n_var+21
+  integer, parameter  :: var_k_par_e     = 2*n_var+22
+  integer, parameter  :: var_dk_par_dT   = 2*n_var+23
+  integer, parameter  :: var_dk_par_dT_i = 2*n_var+24
+  integer, parameter  :: var_dk_par_dT_e = 2*n_var+25
+  integer, parameter  :: var_dTe_i       = 2*n_var+26
+  integer, parameter  :: var_ddTe_i_dT_i = 2*n_var+27
+  integer, parameter  :: var_ddTe_i_dT_e = 2*n_var+28
+  integer, parameter  :: var_ddTe_i_drho = 2*n_var+29
+  integer, parameter  :: var_Bv2         = 2*n_var+30
+  integer, parameter  :: var_B2          = 2*n_var+31
+  integer, parameter  :: var_zero        = 2*n_var+32
 
   ! Variables at current time step
   type(algexpr), parameter, private :: Psi0       = algexpr(basic=.true.,var=var_Psi)
@@ -110,6 +111,7 @@ module mod_equations
   type(algexpr), parameter, private :: S_e         = algexpr(basic=.true.,var=var_S_e        )
   type(algexpr), parameter, private :: S_e_i       = algexpr(basic=.true.,var=var_S_e_i      )
   type(algexpr), parameter, private :: S_e_e       = algexpr(basic=.true.,var=var_S_e_e      )
+  type(algexpr), parameter, private :: S_phi       = algexpr(basic=.true.,var=var_S_phi      )
   type(algexpr), parameter, private :: k_par       = algexpr(basic=.true.,var=var_k_par      ) 
   type(algexpr), parameter, private :: k_par_i     = algexpr(basic=.true.,var=var_k_par_i    )
   type(algexpr), parameter, private :: k_par_e     = algexpr(basic=.true.,var=var_k_par_e    )
@@ -129,7 +131,7 @@ module mod_equations
   type(algexpr), parameter, private :: zero       = algexpr(basic=.true., var=var_zero)
 
   type(const), private :: tstep, zeta, theta 
-  type(const), private :: visco_num, visco_par, visco_par_par, visco_par_num, eta_num, D_perp_num, k_perp_num, gamma, reta
+  type(const), private :: visco_num, visco_par, visco_par_par, visco_par_num, delta_phi_source, eta_num, D_perp_num, k_perp_num, gamma, reta
   
   type(algexpr), public  :: rhs_semianalytic(n_var)
   type(algexpr), public  :: amat_semianalytic(n_var, n_var)
@@ -150,7 +152,7 @@ module mod_equations
     use phys_module, only: time_evol_zeta, time_evol_theta, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num,    &
                            Ivisco_par => visco_par, Ivisco_par_par => visco_par_par, Ivisco_par_num => visco_par_num,     &
                            Ieta_num => eta_num, ID_perp_num => D_perp_num, zk_perp_num,  &
-                           Ieta => eta, eta_ohmic
+                           Ieta => eta, eta_ohmic, Idelta_phi_source => delta_phi_source
     implicit none
     
     integer  :: i, i_var, j_var
@@ -164,21 +166,22 @@ module mod_equations
     type(algexpr), dimension(DIMT, 7) :: T_expr
     type(algexpr)                     :: i_T0, i_delta_T, i_T, i_k_perp, i_k_par, i_dk_par_dT, i_S_e
 
-    tstep          = const(value = Itstep,          token = "tstep"        )
-    zeta           = const(value = time_evol_zeta,  token = "zeta"         )
-    theta          = const(value = time_evol_theta, token = "theta"        )
-    visco_num      = const(value = Ivisco_num,      token = "visco_num"    )
-    visco_par      = const(value = Ivisco_par,      token = "visco_par"    )
-    visco_par_par  = const(value = Ivisco_par_par,  token = "visco_par_par")
-    visco_par_num  = const(value = Ivisco_par_num,  token = "visco_par_num")
-    eta_num        = const(value = Ieta_num,        token = "eta_num"      )
-    D_perp_num     = const(value = ID_perp_num,     token = "D_perp_num"   )
-    k_perp_num     = const(value = zk_perp_num,     token = "zk_perp_num"  )
-    gamma          = const(value = Igamma,          token = "gamma"        )
+    tstep            = const(value = Itstep,            token = "tstep"        )
+    zeta             = const(value = time_evol_zeta,    token = "zeta"         )
+    theta            = const(value = time_evol_theta,   token = "theta"        )
+    visco_num        = const(value = Ivisco_num,        token = "visco_num"    )
+    visco_par        = const(value = Ivisco_par,        token = "visco_par"    )
+    visco_par_par    = const(value = Ivisco_par_par,    token = "visco_par_par")
+    visco_par_num    = const(value = Ivisco_par_num,    token = "visco_par_num")
+    delta_phi_source = const(value = Idelta_phi_source, token = "delta_phi_source") 
+    eta_num          = const(value = Ieta_num,          token = "eta_num"      )
+    D_perp_num       = const(value = ID_perp_num,       token = "D_perp_num"   )
+    k_perp_num       = const(value = zk_perp_num,       token = "zk_perp_num"  )
+    gamma            = const(value = Igamma,            token = "gamma"        )
     if (Ieta .ne. 0.d0) then
-      reta         = const(value = eta_ohmic/Ieta,  token = "reta")
+      reta           = const(value = eta_ohmic/Ieta,  token = "reta")
     else
-      reta         = const(value = 0.d0,            token = "reta")
+      reta           = const(value = 0.d0,            token = "reta")
     end if
 
     
@@ -253,7 +256,8 @@ module mod_equations
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor
-                              + visco_num*Lap(v)*Lap(w0))                               &            ! Hyper viscosity
+                              + visco_num*Lap(v)*Lap(w0)                                &            ! Hyper viscosity
+                              + delta_phi_source*rho0/Bv2*inprod(v,S_phi - Phi0))       &            ! Ad-hoc poloidal momentum source
                               - zeta*(rho0*inprod(v,delta_Phi)                          &            ! rho d(v_ExB)_dt
                               + delta_rho*inprod(v,Phi0))/Bv2                                        ! v_ExB d(rho)_dt
                                                                                                      
@@ -273,7 +277,8 @@ module mod_equations
                                         + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
                                         - (rho0*w0*Bv_pbrack(v,Phi)/Bv2                       &      ! rho omega x v_ExB
                                         + div_rhov_Phi*inprod(v,Phi0)                         &      ! v_ExB div(rho v)
-                                        + div_rhov0*inprod(v,Phi))/Bv2)                              ! v_ExB div(rho v)
+                                        + div_rhov0*inprod(v,Phi)                             &      ! v_ExB div(rho v)
+                                        + delta_phi_source*rho0*inprod(v,-Phi))/Bv2)                 ! Ad-hoc poloidal momentum source
                                                                                                      
     amat_semianalytic(var_Phi,  var_zj) = (-tstep*theta)*v*(Bv_parderiv(zj)                   &      ! j x B component
                                         + Bv_pbrack(zj,Psi0))                                        ! j x B component
@@ -285,7 +290,8 @@ module mod_equations
     amat_semianalytic(var_Phi, var_rho) = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2                    & ! v_ExB d(rho)_dt
                                         + tstep*theta*(Bv_pbrack(rho/Bv2,v)*v2/2.d0                & ! 1/2 rho grad(v^2)
                                         - (rho*w0*Bv_pbrack(v,Phi0)/Bv2                            & ! rho omega x v
-                                        + div_rhov_rho*inprod(v,Phi0))/Bv2)                          ! v_ExB div(rho v)
+                                        + div_rhov_rho*inprod(v,Phi0)                              & ! v_ExB div(rho v)
+                                        + delta_phi_source*rho*inprod(v,S_phi-Phi0))/Bv2)            ! Ad-hoc poloidal momentum source
 
     if (with_vpar) then
       amat_semianalytic(var_Phi, var_vpar) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_vpar/2.d0       & ! 1/2 rho grad(v^2)
@@ -552,7 +558,7 @@ module mod_equations
     if (.not. allocated(thread_eq)) then
       allocate(thread_eq(nbthreads))
       do i=1,nbthreads
-        allocate(thread_eq(i)%eq(2*n_var+31,0:n_order-1,0:n_order-1,0:n_order-1,4))
+        allocate(thread_eq(i)%eq(2*n_var+32,0:n_order-1,0:n_order-1,0:n_order-1,4))
       end do
     end if
   end subroutine init_eq_struct

@@ -733,10 +733,12 @@ module phys_module
   real*8, allocatable :: num_Fprofile_y2(:) !< Second derivatives of Fprofile profile (\f$ d^2F/d\Psi_N^2 \f$)
   real*8, allocatable :: num_Fprofile_y3(:) !< Third derivatives of Fprofile profile (\f$ d^2F/d\Psi_N^2 \f$)
 
+  !> @name Analytical input profile for the background Phi profile
   real*8  :: phi_0             !< Central normalized density (usually 1)
   real*8  :: phi_1             !< SOL normalized density
   real*8  :: phi_coef(10)      !< Density profile coefficients
-  !> @name Numerical input profile for the potential profile
+
+  !> @name Numerical input profile for the background potential profile
   character(len=512)  :: phi_file           !< ASCII file the neutral density profile is read from.
   logical             :: num_phi            !< is set true if rho_file /= 'none'
   integer             :: num_phi_len        !< Number of points in profile
@@ -746,15 +748,17 @@ module phys_module
   real*8, allocatable :: num_phi_y2(:)      !< Second derivatives of neutral density profile (\f$ d^2\rhon/d\Psi_N^2 \f$)
   real*8, allocatable :: num_phi_y3(:)      !< Third derivatives of neutral density profile (\f$ d^3\rhon/d\Psi_N^3 \f$)
 
+  real*8  :: delta_phi_source               !< Numerical parameter for the strength of the n=0 background potential profile source term (>~ visco)
+
   !> @name Numerical input profile for Fprofile
-  integer, parameter  :: n_Fprofile_internal_max = 300                !< INTERNAL Max Size of F-profile
-  integer             :: n_Fprofile_internal                          !< INTERNAL Size of F-profile
-  real*8              :: Fprofile_internal   (n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration
-  real*8              :: Fprofile_internal_d1(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (first derivative)
-  real*8              :: Fprofile_internal_d2(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (second derivative)
-  real*8              :: Fprofile_internal_d3(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (third derivative)
-  real*8              :: Fprofile_psi_max                             !< INTERNAL max psi_norm of F-profile
-  real*8              :: Fprofile_tolerance                           !< INTERNAL tolerance (in %) for accuracy of F-profile compared to input FFprime
+  integer, parameter  :: n_Fprofile_internal_max = 300                 !< INTERNAL Max Size of F-profile
+  integer             :: n_Fprofile_internal                           !< INTERNAL Size of F-profile
+  real*8              :: Fprofile_internal   (n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration
+  real*8              :: Fprofile_internal_d1(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (first derivative)
+  real*8              :: Fprofile_internal_d2(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (second derivative)
+  real*8              :: Fprofile_internal_d3(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (third derivative)
+  real*8              :: Fprofile_psi_max                              !< INTERNAL max psi_norm of F-profile
+  real*8              :: Fprofile_tolerance                            !< INTERNAL tolerance (in %) for accuracy of F-profile compared to input FFprime
 
   !> @name Analytical input profile for FFprime
   real*8  :: FF_0              !< FF' value in the plasma center
