@@ -1,5 +1,6 @@
 module mod_hdf5_io_module_mpi_test
-use mpi
+use mpi, only: MPI_INFO_NULL,MPI_COMM_WORLD
+use mpi, only: MPI_Info_create,MPI_Info_free
 use fruit
 use fruit_mpi
 use hdf5_io_module
