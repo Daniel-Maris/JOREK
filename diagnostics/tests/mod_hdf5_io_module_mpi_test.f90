@@ -28,6 +28,7 @@ subroutine run_fruit_hdf5_io_module_mpi(rank,n_tasks,ifail)
   call setup(rank,n_tasks,ifail) 
   if(rank.eq.master_rank) write(*,'(/A)') " ... running: hdf5 IO module mpi tests" 
   call run_test_case(test_create_hdf5_file,'test_create_hdf5_file')
+  call run_test_case(test_open_hdf5_file,'test_open_hdf5_file')
   if(rank.eq.master_rank) write(*,'(/A)') " ... tearing-down: hdf5 IO module mpi tests" 
   call teardown(rank,n_tasks,ifail)
 end subroutine run_fruit_hdf5_io_module_mpi
@@ -52,11 +53,12 @@ subroutine teardown(rank,n_tasks,ifail)
   ifail = ifail_loc; rank_loc = -1; n_tasks_loc = -1;
 end subroutine teardown
 !> Tests ------------------------------------------------------
+!> Test procedure for exclusively creating HDF5 files
 subroutine test_create_hdf5_file()
   implicit none
-  integer(HID_T)                 :: file_id
-  character(len=100)             :: filename
-  logical                        :: file_exists
+  integer(HID_T)     :: file_id
+  character(len=100) :: filename
+  logical            :: file_exists
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_create(trim(filename),file_id,ifail_loc)
@@ -74,6 +76,29 @@ subroutine test_create_hdf5_file()
   trim(filename)//" not created!")
   call remove_file(filename,file_exists_in=file_exists)
 end subroutine test_create_hdf5_file
+
+!> Test procedure for exclusively opening HDF5 file
+subroutine test_open_hdf5_file()
+  implicit none
+  integer(HID_T)     :: file_id
+  character(len=100) :: filename
+  logical            :: file_exists
+  write(filename,'(A,A,I'//trim(rank_format)//',A)') & 
+  trim(filename_base),'_rank',rank_loc,trim(extension)
+  ifail_loc=0; call HDF5_create(filename,file_id,ifail_loc); call HDF5_close(file_id); 
+  call HDF5_open(filename,file_id,ifail_loc); call HDF5_close(file_id);
+  call assert_equals(ifail_loc,0,"Error test open HDF5 file posix: file "//&
+  trim(filename)//" not opened!"); call remove_file(filename);
+  filename = trim(filename_base)//trim(extension); ifail_loc=0;
+  call HDF5_create(filename,file_id,access_type_in=access_hdf5_parallel,&
+  mpi_comm=mpi_comm_loc,mpi_info=mpi_info_loc); call HDF5_close(file_id); 
+  call HDF5_create(filename,file_id,ierr=ifail_loc,access_type_in=access_hdf5_parallel,&
+  mpi_comm=mpi_comm_loc,mpi_info=mpi_info_loc); call HDF5_close(file_id);
+  call assert_equals(ifail_loc,0,"Error test open HDF5 file access FILE_ACCESS: file "//&
+  trim(filename)//" not opened!")
+  call remove_file(filename)
+end subroutine test_open_hdf5_file
+
 !> Tools ------------------------------------------------------
 subroutine remove_file(filename,file_exists_in)
   implicit none
