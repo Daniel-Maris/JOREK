@@ -87,11 +87,9 @@ module hdf5_io_module
   !---------------------------------------- 
   ! close HDF5 file 
   !----------------------------------------
-  subroutine HDF5_close(file_id,transfer_property)
-    integer(HID_T), intent(in)           :: file_id   ! file identifier
-    integer(HID_T), intent(in), optional :: transfer_property
+  subroutine HDF5_close(file_id)
+    integer(HID_T), intent(in) :: file_id   ! file identifier
     integer :: error   ! error flag
-    if(present(transfer_property)) call H5Pclose_f(transfer_property,error)
     call H5Fclose_f(file_id,error)
     call H5close_f(error)
   end subroutine HDF5_close
@@ -317,17 +315,18 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 saving for a 1D array of integer
   !----------------------------------------
-  subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,transfer_property_in)
+  subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     integer, dimension(:), intent(in) :: array1D
     integer              , intent(in) :: dim1
     character(LEN=*)     , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
-    integer, intent(in), optional      :: compress_level !< if set and start is not provided compress with this level
-    integer(HID_T),intent(in),optional :: transfer_property_in !< hdf5 dataset transfer properties
+    integer, intent(in), optional     :: compress_level !< if set and start is not provided compress with this level
+    integer,intent(in),optional       :: type_dataset_transfert_in !< hdf5 dataset transfer properties
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)      :: dim               ! dataset dimensions
     integer(HID_T)      :: dataset           ! dataset identifier
@@ -337,9 +336,10 @@ module hdf5_io_module
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in
-    
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
     rank   = 1
@@ -373,22 +373,24 @@ module hdf5_io_module
     call H5Pclose_f(property,error)
     call H5Sclose_f(filespace,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array1D_saving_int
 
   !---------------------------------------- 
   ! HDF5 saving for a 2D array of integer
   !----------------------------------------
-  subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,compress_level,transfer_property_in)
+  subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)           , intent(in) :: file_id   ! file identifier
     integer, dimension(:,:)  , intent(in) :: array2D
     integer                  , intent(in) :: dim1, dim2
     character(LEN=*)         , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)         , intent(in), optional :: start(2) !< Begin position of data
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: transfer_property_in !< HDF5 dataset MPI transfer property
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(2)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -398,8 +400,9 @@ module hdf5_io_module
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
     
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -435,23 +438,25 @@ module hdf5_io_module
     call H5Pclose_f(property,error)
     call H5Sclose_f(filespace,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array2D_saving_int
 
 
   !---------------------------------------- 
   ! gzip HDF5 saving for a 1D array of real*4
   !----------------------------------------
-  subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,transfer_property_in)
+  subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     real(4), dimension(:), intent(in) :: array1D
     integer              , intent(in) :: dim1
     character(LEN=*)     , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)     , intent(in), optional :: start(1) !< Begin position of data
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: transfer_property_in !< HDF5 dataset MPI transfer property
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -461,8 +466,9 @@ module hdf5_io_module
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -497,23 +503,25 @@ module hdf5_io_module
     call H5Pclose_f(property,error)
     call H5Sclose_f(filespace,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array1D_saving_r4
 
 
   !-------------------------------------------- 
   ! gzip HDF5 saving for a 1D array of real*8
   !--------------------------------------------
-  subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,transfer_property_in)
+  subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)      , intent(in) :: file_id   ! file identifier
     real*8, dimension(:), intent(in) :: array1D
     integer             , intent(in) :: dim1
     character(LEN=*)    , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)     , intent(in), optional :: start(1) !< Begin position of data
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: transfer_property_in !< HDF5 dataset MPI transfer property
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -523,8 +531,9 @@ module hdf5_io_module
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in   
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -559,23 +568,25 @@ module hdf5_io_module
     call H5Sclose_f(filespace,error)
     call H5Pclose_f(property,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array1D_saving
 
 
   !---------------------------------------- 
   ! gzip HDF5 saving for a 2D array
   !----------------------------------------
-  subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,transfer_property_in)
+  subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)        , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:), intent(in) :: array2D
     integer               , intent(in) :: dim1, dim2
     character(LEN=*)      , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Offset of array to write
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: transfer_property_in !< HDF5 dataset MPI transfer property
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer              :: error      ! error flag
     integer              :: rank       ! dataset rank
+    integer              :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(2)       :: dim        ! dataset dimensions
     integer(HID_T)       :: dataset    ! dataset identifier
@@ -585,8 +596,9 @@ module hdf5_io_module
     integer(HID_T)       :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -622,6 +634,7 @@ module hdf5_io_module
     call H5Pclose_f(property,error)
     call H5Sclose_f(filespace,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array2D_saving
 
 
@@ -629,17 +642,18 @@ module hdf5_io_module
   ! gzip HDF5 saving for a 3D array
   !----------------------------------------
   subroutine HDF5_array3D_saving(file_id,array3D, &
-    dim1,dim2,dim3,dsetname,start,compress_level,transfer_property_in)
+    dim1,dim2,dim3,dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)          , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:), intent(in) :: array3D
     integer                 , intent(in) :: dim1, dim2, dim3
     character(LEN=*)        , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to write
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: transfer_property_in !< HDF5 dataset MPI transfer property
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(3)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -649,8 +663,9 @@ module hdf5_io_module
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -687,6 +702,7 @@ module hdf5_io_module
     call H5Pclose_f(property,error)
     call H5Sclose_f(filespace,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array3D_saving
 
 
@@ -694,17 +710,18 @@ module hdf5_io_module
   ! gzip HDF5 saving for a 4D array
   !----------------------------------------
   subroutine HDF5_array4D_saving(file_id,array4d,dim1,dim2,dim3,dim4,&
-  dsetname,start,compress_level,transfer_property_in)
+  dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:,:), intent(in) :: array4d
     integer                   , intent(in) :: dim1, dim2, dim3, dim4
     character(LEN=*)          , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(4), intent(in), optional :: start !< Offset of array to write
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: transfer_property_in !< HDF5 dataset MPI transfer property
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(4)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -714,8 +731,9 @@ module hdf5_io_module
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
     
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -753,6 +771,7 @@ module hdf5_io_module
     call H5Pclose_f(property,error)
     call H5Sclose_f(filespace,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array4D_saving
 
 
@@ -760,7 +779,7 @@ module hdf5_io_module
   ! gzip HDF5 saving for a 5D array
   !----------------------------------------
   subroutine HDF5_array5D_saving(file_id,array5d,dim1,dim2,dim3,dim4,dim5,&
-  dsetname,start,compress_level,transfer_property_in)
+  dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)              , intent(in) :: file_id  ! file identifier
     real*8, dimension(:,:,:,:,:), intent(in) :: array5d
     integer                     , intent(in) :: dim1, dim2
@@ -768,10 +787,11 @@ module hdf5_io_module
     character(LEN=*)            , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(5), intent(in), optional :: start !< Offset of array to write
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: transfer_property_in !< HDF5 dataset MPI transfer property
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(5)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -781,8 +801,9 @@ module hdf5_io_module
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
 
     !*** Check property for parallel IO
-    transfer_property = H5FD_MPIO_INDEPENDENT_F
-    if(present(transfer_property_in)) transfer_property = transfer_property_in
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -821,6 +842,7 @@ module hdf5_io_module
     call H5Pclose_f(property,error)
     call H5Sclose_f(filespace,error)
     call H5Dclose_f(dataset,error)
+    call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array5D_saving
 
 
