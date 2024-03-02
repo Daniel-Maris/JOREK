@@ -111,7 +111,7 @@ module mod_equations
   type(algexpr), parameter, private :: S_e         = algexpr(basic=.true.,var=var_S_e        )
   type(algexpr), parameter, private :: S_e_i       = algexpr(basic=.true.,var=var_S_e_i      )
   type(algexpr), parameter, private :: S_e_e       = algexpr(basic=.true.,var=var_S_e_e      )
-  type(algexpr), parameter, private :: S_phi       = algexpr(basic=.true.,var=var_S_phi      )
+  type(algexpr), parameter, private :: S_phi0       = algexpr(basic=.true.,var=var_S_phi      )
   type(algexpr), parameter, private :: k_par       = algexpr(basic=.true.,var=var_k_par      ) 
   type(algexpr), parameter, private :: k_par_i     = algexpr(basic=.true.,var=var_k_par_i    )
   type(algexpr), parameter, private :: k_par_e     = algexpr(basic=.true.,var=var_k_par_e    )
@@ -194,7 +194,7 @@ module mod_equations
 
     ! Magnitude of the total velocity squared used in poloidal and parallel momentum equation
 #if INCLUDE_ADDITIONAL_TERMS
-    v2      = inprod(Phi0,Phi0)/Bv2 + 2.d0*vpar0*inprod(Phi0,Psi0) + vpar0*vpar0*(Bv2*(1.d0 + inprod(Psi0,Psi0)))
+    v2      = inprod(Phi0,Phi0)/Bv2 + inprod(S_Phi0,S_Phi0)/Bv2 + 2.d0*vpar0*inprod(Phi0,Psi0) + vpar0*vpar0*(Bv2*(1.d0 + inprod(Psi0,Psi0)))
     v2_Psi  = 2.d0*vpar0*inprod(Phi0, Psi) + 2.d0*vpar0*vpar0*(Bv2*inprod(Psi0,Psi))
     v2_Phi  = 2.d0*inprod(Phi0,Phi)/Bv2 + 2.d0*vpar0*inprod(Phi, Psi0)
     v2_vpar = 2.d0*vpar*inprod(Phi0, Psi0) + 2.d0*vpar0*vpar*(Bv2*(1.d0 + inprod(Psi0,Psi0)))
@@ -204,7 +204,7 @@ module mod_equations
     vpar2_Phi  = v2_Phi 
     vpar2_vpar = v2_vpar
 #else
-    v2      = inprod(Phi0,Phi0)/Bv2 
+    v2      = inprod(Phi0,Phi0)/Bv2  + inprod(S_Phi0,S_Phi0)/Bv2
     v2_Psi  = zero 
     v2_Phi  = 2.d0*inprod(Phi0,Phi)/Bv2 
     v2_vpar = zero
@@ -251,8 +251,9 @@ module mod_equations
     !#     - rho omega x v_par                                                                         #
     !###################################################################################################
     rhs_semianalytic(var_Phi) = -tstep*(Bv_pbrack(rho0/Bv2,v)*v2/2.d0                   &            ! 1/2 rho grad(v^2)  
-                              - (Bv_pbrack(v,Phi0)*rho0*w0/Bv2                          &            ! rho omega x v_ExB
-                              + div_rhov0*inprod(v,Phi0))/Bv2                           &            ! v_ExB div(rho v)
+                              - (Bv_pbrack(v,Phi0+S_Phi0)*rho0*w0/Bv2                   &            ! rho omega x v_ExB
+                              + Bv_pbrack(rho0/Bv2,S_Phi0)*inprod(v,Phi0+S_Phi0)        &            ! v_E_sxB div(rho v)
+                              + div_rhov0*inprod(v,Phi0+S_Phi0))/Bv2                    &            ! v_ExB div(rho v)
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor

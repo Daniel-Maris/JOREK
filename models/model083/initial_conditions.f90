@@ -69,12 +69,12 @@ if (my_id .eq. 0) then
       node_list%node(i)%values(1,4,var_T) = 0.d0
     end if
 
-!    call potential_source(xpoint2, xcase2, Z, Z_xpoint, s_norm, 0.0, 1.0, Phi, dPhi_dpsi,dPhi_dz,dPhi_dpsi2,dPhi_dz2,dPhi_dpsi_dz,dPhi_dpsi3,dPhi_dpsi_dz2, dPhi_dpsi2_dz)
-!    ! values(i_tor, i_dof, i_variable)
-!    node_list%node(i)%values(1,1,2) = Phi
-!    node_list%node(i)%values(1,2,2) = dPhi_dpsi * s_factor * 1.0 / 3.0
-!    node_list%node(i)%values(1,3,2) = 0.d0
-!    node_list%node(i)%values(1,4,2) = 0.d0 
+    call potential_source(xpoint2, xcase2, Z, Z_xpoint, s_norm, 0.0, 1.0, Phi, dPhi_dpsi,dPhi_dz,dPhi_dpsi2,dPhi_dz2,dPhi_dpsi_dz,dPhi_dpsi3,dPhi_dpsi_dz2, dPhi_dpsi2_dz)
+    ! values(i_tor, i_dof, i_variable)
+    node_list%node(i)%values(1,1,2) = Phi
+    node_list%node(i)%values(1,2,2) = dPhi_dpsi * s_factor * 1.0 / 3.0
+    node_list%node(i)%values(1,3,2) = 0.d0
+    node_list%node(i)%values(1,4,2) = 0.d0 
   enddo
 
 endif
