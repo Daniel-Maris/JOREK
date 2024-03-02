@@ -326,12 +326,27 @@ do ms=1, n_gauss
       eq(var_S_rho,0,0,0,:) = particle_source(mp,ms,mt)   ! S_rho
       eq(  var_S_j,0,0,0,:) = current_source(mp,ms,mt)/F0 ! S_j
 
-      ! Poloidal momentum source based on artificial ExB flow
+      ! Background E_r x B flow - this is added directly to var_Phi terms on the RHS as a static background contribution.
+      ! It could also be implemented as separate terms in the equations, but as it should appear everywhere var_Phi appears, this is the simpler solution that avoids missing terms.
       call potential_source(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psi_norm, 0.0, 1.0, phi_source, dPhi_source_dpsi,dummy1,dPhi_source_dpsi2,dummy2,dummy3,dummy4,dummy5,dummy6)
-      eq(var_S_Phi,0,0,0,:) = phi_source
-      eq(var_S_Phi,1,0,0,:) = (y_t(mp,ms,mt)*dphi_source_dpsi* s_factor )/xjac
-      eq(var_S_Phi,0,1,0,:) = (-x_t(mp,ms,mt)*dphi_source_dpsi* s_factor)/xjac
-      eq(var_S_Phi,0,0,1,:) = -eq(var_S_Phi,1,0,0,:)*x_p(mp,ms,mt) - eq(var_S_Phi,0,1,0,:)*y_p(mp,ms,mt)
+      eq(var_S_Phi,0,0,0,1) = phi_source
+      eq(var_S_Phi,1,0,0,1) = (y_t(mp,ms,mt)*dphi_source_dpsi* s_factor )/xjac
+      eq(var_S_Phi,0,1,0,1) = (-x_t(mp,ms,mt)*dphi_source_dpsi* s_factor)/xjac
+      eq(var_S_Phi,0,0,1,1) = -eq(var_S_Phi,1,0,0,1)*x_p(mp,ms,mt) - eq(var_S_Phi,0,1,0,1)*y_p(mp,ms,mt)
+      eq(var_S_Phi,2,0,0,1) = (dphi_source_dpsi2*y_t(mp,ms,mt)**2  + dphi_source_dpsi*(y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt)))/xjac**2  &
+                          - xjac_x*(dphi_source_dpsi*y_t(mp,ms,mt))/xjac**2
+      eq(var_S_Phi,0,2,0,1) = (dphi_source_dpsi2*x_t(mp,ms,mt)**2 + dphi_source_dpsi*(x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt)))/xjac**2  &
+                          - xjac_y*(-dphi_source_dpsi*x_t(mp,ms,mt))/xjac**2
+      eq(var_S_Phi,1,1,0,1) = (-dphi_source_dpsi2*y_t(mp,ms,mt)*x_t(mp,ms,mt) - dphi_source_dpsi*(x_st(mp,ms,mt)*y_t(mp,ms,mt) - x_tt(mp,ms,mt)*y_s(mp,ms,mt)))/xjac**2         &
+                          - xjac_x*(-dphi_source_dpsi*x_t(mp,ms,mt))/xjac**2
+      !eq_px               = 0.0 
+      !eq_py               = 0.0 
+      ! Second derivatives wrt phi not implemented in FFT, and not necessary for stabilization (2nd derivatives only appear in hyperdissipation terms)
+      eq(var_S_phi,1,0,1,1) = -x_p_x*eq(var_S_phi,1,0,0,1) - x_p(mp,ms,mt)*eq(var_S_phi,2,0,0,1) - y_p_x*eq(var_S_phi,0,1,0,1) &
+                          - y_p(mp,ms,mt)*eq(var_S_phi,1,1,0,1)
+      eq(var_S_phi,0,1,1,1) = -x_p_y*eq(var_S_phi,1,0,0,1) - x_p(mp,ms,mt)*eq(var_S_phi,1,1,0,1) - y_p_y*eq(var_S_phi,0,1,0,1) &
+                          - y_p(mp,ms,mt)*eq(var_S_phi,0,2,0,1)
+      eq(var_Phi,:,:,:,1) = eq(var_Phi,:,:,:,1) + eq(var_S_Phi,:,:,:,:)
 
       if (with_TiTe) then
         

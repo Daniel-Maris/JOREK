@@ -256,8 +256,7 @@ module mod_equations
                               - v*Bv_parderiv(zj0)                                      &            ! j x B component
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor
-                              + visco_num*Lap(v)*Lap(w0)                                &            ! Hyper viscosity
-                              + delta_phi_source*rho0/Bv2*inprod(v,S_phi - Phi0))       &            ! Ad-hoc poloidal momentum source
+                              + visco_num*Lap(v)*Lap(w0))                               &            ! Hyper viscosity
                               - zeta*(rho0*inprod(v,delta_Phi)                          &            ! rho d(v_ExB)_dt
                               + delta_rho*inprod(v,Phi0))/Bv2                                        ! v_ExB d(rho)_dt
                                                                                                      
@@ -277,8 +276,7 @@ module mod_equations
                                         + tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_Phi/2.d0      &      ! 1/2 rho grad(v^2)
                                         - (rho0*w0*Bv_pbrack(v,Phi)/Bv2                       &      ! rho omega x v_ExB
                                         + div_rhov_Phi*inprod(v,Phi0)                         &      ! v_ExB div(rho v)
-                                        + div_rhov0*inprod(v,Phi)                             &      ! v_ExB div(rho v)
-                                        + delta_phi_source*rho0*inprod(v,-Phi))/Bv2)                 ! Ad-hoc poloidal momentum source
+                                        + div_rhov0*inprod(v,Phi))/Bv2)                              ! v_ExB div(rho v)
                                                                                                      
     amat_semianalytic(var_Phi,  var_zj) = (-tstep*theta)*v*(Bv_parderiv(zj)                   &      ! j x B component
                                         + Bv_pbrack(zj,Psi0))                                        ! j x B component
@@ -290,8 +288,7 @@ module mod_equations
     amat_semianalytic(var_Phi, var_rho) = -(1.d0 + zeta)*rho*inprod(v,Phi0)/Bv2                    & ! v_ExB d(rho)_dt
                                         + tstep*theta*(Bv_pbrack(rho/Bv2,v)*v2/2.d0                & ! 1/2 rho grad(v^2)
                                         - (rho*w0*Bv_pbrack(v,Phi0)/Bv2                            & ! rho omega x v
-                                        + div_rhov_rho*inprod(v,Phi0)                              & ! v_ExB div(rho v)
-                                        + delta_phi_source*rho*inprod(v,S_phi-Phi0))/Bv2)            ! Ad-hoc poloidal momentum source
+                                        + div_rhov_rho*inprod(v,Phi0))/Bv2)                          ! v_ExB div(rho v)
 
     if (with_vpar) then
       amat_semianalytic(var_Phi, var_vpar) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_vpar/2.d0       & ! 1/2 rho grad(v^2)
