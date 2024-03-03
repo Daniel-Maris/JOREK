@@ -330,7 +330,7 @@ do ms=1, n_gauss
       ! It could also be implemented as separate terms in the equations, but as it should appear everywhere var_Phi appears, this is the simpler solution that avoids missing terms.
       call potential_source(xpoint2, xcase2, y_g(mp,ms,mt), Z_xpoint, psi_norm, 0.0, 1.0, phi_source, dPhi_source_dpsi,dummy1,dPhi_source_dpsi2,dummy2,dummy3,dummy4,dummy5,dummy6)
       ! Change to local finite element derivatives
-      Phi_source = -1*phi_source; dPhi_source_dpsi = -1*dPhi_source_dpsi * s_factor; dPhi_source_dPsi = -1*dPhi_source_dPsi**2
+      Phi_source = phi_source; dPhi_source_dpsi = dPhi_source_dpsi * s_factor; dPhi_source_dPsi = dPhi_source_dPsi * s_factor**2
       eq(var_S_Phi,0,0,0,1) = phi_source
       eq(var_S_Phi,1,0,0,1) = (y_t(mp,ms,mt)*dphi_source_dpsi)/xjac
       eq(var_S_Phi,0,1,0,1) = (-x_t(mp,ms,mt)*dphi_source_dpsi)/xjac
@@ -348,6 +348,7 @@ do ms=1, n_gauss
                           - y_p(mp,ms,mt)*eq(var_S_phi,1,1,0,1)
       eq(var_S_phi,0,1,1,1) = -x_p_y*eq(var_S_phi,1,0,0,1) - x_p(mp,ms,mt)*eq(var_S_phi,1,1,0,1) - y_p_y*eq(var_S_phi,0,1,0,1) &
                           - y_p(mp,ms,mt)*eq(var_S_phi,0,2,0,1)
+      eq(var_Phi,:,:,:,1) = eq(var_Phi,:,:,:,1) + eq(var_S_phi,:,:,:,1)
 
       if (with_TiTe) then
         
