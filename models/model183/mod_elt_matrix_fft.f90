@@ -347,7 +347,7 @@ do ms=1, n_gauss
                           - y_p(mp,ms,mt)*eq(var_S_phi,1,1,0,1)
       eq(var_S_phi,0,1,1,1) = -x_p_y*eq(var_S_phi,1,0,0,1) - x_p(mp,ms,mt)*eq(var_S_phi,1,1,0,1) - y_p_y*eq(var_S_phi,0,1,0,1) &
                           - y_p(mp,ms,mt)*eq(var_S_phi,0,2,0,1)
-      eq(var_Phi,:,:,:,1) = eq(var_Phi,:,:,:,1) + eq(var_S_phi,:,:,:,1)
+      !eq(var_Phi,:,:,:,1) = eq(var_Phi,:,:,:,1) + eq(var_S_phi,:,:,:,1)
 
       if (with_TiTe) then
         

@@ -370,10 +370,10 @@ module mod_equations
       i_k_perp = T_expr(i,4); i_k_par      = T_expr(i,5); i_dk_par_dT = T_expr(i,6)
       i_S_e    = T_expr(i,7); 
 
-      rhs_semianalytic(i_var) = -tstep*(v*Bv_pbrack(rho0*i_T0, Phi0)/Bv2                             & ! v_ExB.grad(p) component
+      rhs_semianalytic(i_var) = -tstep*(v*Bv_pbrack(rho0*i_T0, Phi0)/Bv2                      & ! v_ExB.grad(p) component
                                + v*vpar0*Bv_parderiv(rho0*i_T0)                                      & ! v_par.grad(p) component
                                + v*vpar0*Bv_pbrack(rho0*i_T0, Psi0)                                  & ! v_par.grad(p) component
-                               - gamma*v*rho0*i_T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2)                     & ! gamma p div(v_ExB) component
+                               - gamma*v*rho0*i_T0*Bv_pbrack(Bv2,Phi0+S_Phi0)/(Bv2*Bv2)                     & ! gamma p div(v_ExB) component
                                + gamma*v*rho0*i_T0*Bv_parderiv(vpar0)                                & ! gamma p div(v_par) component
                                + gamma*v*rho0*i_T0*Bv_pbrack(vpar0, Psi0)                            & ! gamma p div(v_par) component 
                                + i_k_perp*gradprod(v,i_T0)                                           & ! K_perp grad(T)
@@ -393,20 +393,20 @@ module mod_equations
                                          - gamma*rho0*i_T0*Bv_pbrack(Bv2,Phi)/Bv2)/Bv2                 ! gamma p div(v_ExB) component
 
       amat_semianalytic(i_var, var_rho)  = (1.d0 + zeta)*v*rho*i_T0                                  & ! dp_dt
-                                         + tstep*theta*(v*Bv_pbrack(rho*i_T0,Phi0)/Bv2               & ! v_ExB.grad(p) component
+                                         + tstep*theta*(v*Bv_pbrack(rho*i_T0,Phi0)/Bv2        & ! v_ExB.grad(p) component
                                          + v*vpar0*Bv_parderiv(rho*i_T0)                             & ! v_par.grad(p) component
                                          + v*vpar0*Bv_pbrack(rho*i_T0, Psi0)                         & ! v_par.grad(p) component
-                                         - gamma*v*rho*i_T0*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2)            & ! gamma p div(v_ExB) component
+                                         - gamma*v*rho*i_T0*Bv_pbrack(Bv2,Phi0+S_Phi0)/(Bv2*Bv2)            & ! gamma p div(v_ExB) component
                                          + gamma*v*rho*i_T0*Bv_parderiv(vpar0)                       & ! gamma p div(v_par) component
                                          + gamma*v*rho*i_T0*Bv_pbrack(vpar0, Psi0)                   & ! gamma p div(v_par) component 
                                          + D_perp*i_T0*gradprod(v,rho)                               & ! D_perp T grad(rho)
                                          + (D_par - D_perp)*i_T0*B0_parderiv(v)*B0_parderiv(rho)/B2)   ! (D_par - D_perp) T grad_par(rho)
 
       amat_semianalytic(i_var, i_var)    = (1.d0 + zeta)*v*rho0*i_T                                  &  ! dp_dt
-                                         + tstep*theta*(v*Bv_pbrack(rho0*i_T,Phi0)/Bv2               &  ! v_ExB.grad(p) component 
+                                         + tstep*theta*(v*Bv_pbrack(rho0*i_T,Phi0)/Bv2        &  ! v_ExB.grad(p) component 
                                          + v*vpar0*Bv_parderiv(rho0*i_T)                             &  ! v_par.grad(p) component
                                          + v*vpar0*Bv_pbrack(rho0*i_T, Psi0)                         &  ! v_par.grad(p) component
-                                         - gamma*v*rho0*i_T*Bv_pbrack(Bv2,Phi0)/(Bv2*Bv2)            &  ! gamma p div(v_ExB) component
+                                         - gamma*v*rho0*i_T*Bv_pbrack(Bv2,Phi0+S_Phi0)/(Bv2*Bv2)            &  ! gamma p div(v_ExB) component
                                          + gamma*v*rho0*i_T*Bv_parderiv(vpar0)                       &  ! gamma p div(v_par) component
                                          + gamma*v*rho0*i_T*Bv_pbrack(vpar0, Psi0)                   &  ! gamma p div(v_par) component 
                                          + i_k_perp*gradprod(v,i_T)                                  &  ! K_perp grad(T)
