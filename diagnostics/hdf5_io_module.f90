@@ -144,7 +144,7 @@ module hdf5_io_module
     else
       plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm).and.present(mpi_info).and.(access_type.ne.1)) then
+    if(present(mpi_comm).and.present(mpi_info).and.(access_type.eq.1)) then
       call H5Pset_fapl_mpio_f(plist,mpi_comm,mpi_info,ierr_HDF5)
     endif
 
@@ -165,6 +165,7 @@ module hdf5_io_module
       end if
     else
       !*** Try to create an HDF5 file ***
+      !*** Create a new file using default properties ***
       call H5Fcreate_f(trim(filename)//char(0), &
         H5F_ACC_EXCL_F, file_id, ierr_HDF5, access_prp=plist)
       if (present(ierr)) ierr = ierr_HDF5
