@@ -1,7 +1,7 @@
 module mod_hdf5_io_module_mpi_test
-use mpi, only: MPI_INFO_NULL,MPI_COMM_WORLD
-use mpi, only: MPI_Info_create,MPI_Info_free
-use mpi, only: MPI_Barrier
+use mpi,           only: MPI_INFO_NULL,MPI_COMM_WORLD
+use mpi,           only: MPI_Info_create,MPI_Info_free
+use mod_pcg32_rng, only: pcg32_rng
 use fruit
 use fruit_mpi
 use hdf5_io_module
@@ -13,11 +13,16 @@ integer,parameter :: master_rank=0
 integer,parameter :: mpi_comm=MPI_COMM_WORLD
 integer,parameter :: mpi_info=MPI_INFO_NULL
 integer,parameter :: access_hdf5_parallel=1
+integer,parameter :: type_dataset_transfert_mpi=1
+integer,parameter :: ndims_tot=5
+integer,parameter :: n_elements=13
 character(len=14) :: filename_base="test_hdf5_file"
 character(len=3)  :: extension=".h5"
 character(len=1)  :: rank_format
-integer :: rank_loc,n_tasks_loc,ifail_loc
-integer :: mpi_comm_loc,mpi_info_loc
+integer           :: rank_loc,n_tasks_loc,ifail_loc
+integer           :: mpi_comm_loc,mpi_info_loc
+real*8,dimension(n_elements,ndims_tot) :: array_sol
+type(pcg32_rng)   :: rng
 !> Interfaces -------------------------------------------------
 contains
 !> Fruit basket -----------------------------------------------
@@ -31,20 +36,28 @@ subroutine run_fruit_hdf5_io_module_mpi(rank,n_tasks,ifail)
   call run_test_case(test_create_hdf5_file,'test_create_hdf5_file')
   call run_test_case(test_open_hdf5_file,'test_open_hdf5_file')
   call run_test_case(test_create_open_hdf5_file,'test_create_open_hdf5_file')
+  call run_test_case(test_HDF5_array1D_saving_int,"test_HDF5_array1D_saving_int")
   if(rank.eq.master_rank) write(*,'(/A)') " ... tearing-down: hdf5 IO module mpi tests" 
   call teardown(rank,n_tasks,ifail)
 end subroutine run_fruit_hdf5_io_module_mpi
 
 !> Set-up and tear-down ---------------------------------------
 subroutine setup(rank,n_tasks,ifail)
+  use mod_random_seed, only: random_seed
   implicit none
   integer,intent(in)    :: rank,n_tasks
   integer,intent(inout) :: ifail
+  integer               :: ii
   rank_loc = rank; n_tasks_loc = n_tasks; ifail_loc = ifail;
   mpi_info_loc = mpi_info; mpi_comm_loc = mpi_comm;
   if(mpi_info_loc.ne.MPI_INFO_NULL) call MPI_Info_create(mpi_info_loc,ifail_loc)
   rank_format = '1' 
   if(rank.gt.0) write(rank_format,'(I1)') int(log10(real(rank_loc,kind=8)))+1
+  !> setup the rng
+  call rng%initialize(n_elements,random_seed(),n_tasks_loc,rank_loc,ifail_loc)
+  do ii=1,ndims_tot
+    call rng%next(array_sol(:,ii))
+  enddo
 end subroutine setup
 
 subroutine teardown(rank,n_tasks,ifail)
@@ -122,13 +135,43 @@ subroutine test_create_open_hdf5_file()
   call HDF5_close(file_id); file_exists=.false.; 
   inquire(file=filename,exist=file_exists);
   call assert_true(file_exists,"Error test create-open HDF5 file access FILE_ACCESS: file "//&
-  trim(filename)//" not created!"); call MPI_Barrier(mpi_comm_loc,ifail_loc);
+  trim(filename)//" not created!");
   ifail_loc=0; call HDF5_open_or_create(filename,file_id,ierr=ifail_loc,&
   access_type_in=access_hdf5_parallel,mpi_comm=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_close(file_id);
   call assert_equals(ifail_loc,0,"Error test create-open HDF5 file access FILE_ACCESS: file "//&
   trim(filename)//" not opened!"); call remove_file(filename);
 end subroutine test_create_open_hdf5_file
+
+!> the the posix and collective writing / reading HDF5 file
+!> of integer 1D array
+subroutine test_HDF5_array1D_saving_int()
+  implicit none
+  character(len=11),parameter   :: datasetname='array1D_int'
+  integer,dimension(n_elements) :: test_array,result_array
+  integer(HID_T)                :: file_id
+  integer(HID_T),dimension(1)   :: offset
+  character(len=100)            :: filename 
+  !> initialise posix test
+  test_array = 0; result_array = int(1d3*array_sol(:,1));
+  write(filename,'(A,A,I'//trim(rank_format)//',A)') &
+  trim(filename_base),'_rank',rank_loc,trim(extension)
+  ifail_loc=0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
+  call HDF5_array1D_saving_int(file_id,result_array,n_elements,datasetname)
+  call HDF5_array1D_reading_int(file_id,test_array,datasetname)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals(test_array,result_array,n_elements,&
+  "Error test HDF5 I/O integer posix: test and result array mismatch!")
+  filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements];
+  call HDF5_open_or_create(filename,file_id,ierr=ifail_loc,&
+  access_type_in=access_hdf5_parallel,mpi_comm=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements,&
+  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals(test_array,result_array,n_elements,&
+  "Error test HDF5 I/O integer MPI collective: test and result array mismatch!")
+end subroutine test_HDF5_array1D_saving_int
 
 !> Tools ------------------------------------------------------
 subroutine remove_file(filename,file_exists_in)
