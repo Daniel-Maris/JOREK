@@ -15,13 +15,14 @@ integer,parameter :: mpi_info=MPI_INFO_NULL
 integer,parameter :: access_hdf5_parallel=1
 integer,parameter :: type_dataset_transfert_mpi=1
 integer,parameter :: ndims_tot=5
-integer,parameter :: n_elements=13
+integer,dimension(ndims_tot),parameter :: n_elements=[13,20,18,7,4]
 character(len=14) :: filename_base="test_hdf5_file"
 character(len=3)  :: extension=".h5"
 character(len=1)  :: rank_format
 integer           :: rank_loc,n_tasks_loc,ifail_loc
 integer           :: mpi_comm_loc,mpi_info_loc
-real*8,dimension(n_elements,ndims_tot) :: array_sol
+real*8,dimension(n_elements(1),n_elements(2),n_elements(3),&
+n_elements(4),n_elements(5)) :: array_sol
 type(pcg32_rng)   :: rng
 !> Interfaces -------------------------------------------------
 contains
@@ -47,16 +48,22 @@ subroutine setup(rank,n_tasks,ifail)
   implicit none
   integer,intent(in)    :: rank,n_tasks
   integer,intent(inout) :: ifail
-  integer               :: ii
+  integer               :: ii,jj,kk,pp
   rank_loc = rank; n_tasks_loc = n_tasks; ifail_loc = ifail;
   mpi_info_loc = mpi_info; mpi_comm_loc = mpi_comm;
   if(mpi_info_loc.ne.MPI_INFO_NULL) call MPI_Info_create(mpi_info_loc,ifail_loc)
   rank_format = '1' 
   if(rank.gt.0) write(rank_format,'(I1)') int(log10(real(rank_loc,kind=8)))+1
   !> setup the rng
-  call rng%initialize(n_elements,random_seed(),n_tasks_loc,rank_loc,ifail_loc)
-  do ii=1,ndims_tot
-    call rng%next(array_sol(:,ii))
+  call rng%initialize(n_elements(1),random_seed(),n_tasks_loc,rank_loc,ifail_loc)
+  do pp=1,n_elements(5)
+    do kk=1,n_elements(4)
+      do jj=1,n_elements(3)
+        do ii=1,n_elements(2)
+          call rng%next(array_sol(:,ii,jj,kk,pp))
+        enddo
+      enddo
+    enddo
   enddo
 end subroutine setup
 
@@ -147,30 +154,30 @@ end subroutine test_create_open_hdf5_file
 !> of integer 1D array
 subroutine test_HDF5_array1D_saving_int()
   implicit none
-  character(len=11),parameter   :: datasetname='array1D_int'
-  integer,dimension(n_elements) :: test_array,result_array
-  integer(HID_T)                :: file_id
-  integer(HID_T),dimension(1)   :: offset
-  character(len=100)            :: filename 
+  character(len=11),parameter      :: datasetname='array1D_int'
+  integer,dimension(n_elements(1)) :: test_array,result_array
+  integer(HID_T)                   :: file_id
+  integer(HID_T),dimension(1)      :: offset
+  character(len=100)               :: filename 
   !> initialise posix test
-  test_array = 0; result_array = int(1d3*array_sol(:,1));
+  test_array = 0; result_array = int(1d3*array_sol(:,1,1,1,1));
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
   trim(filename_base),'_rank',rank_loc,trim(extension)
   ifail_loc=0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
-  call HDF5_array1D_saving_int(file_id,result_array,n_elements,datasetname)
+  call HDF5_array1D_saving_int(file_id,result_array,n_elements(1),datasetname)
   call HDF5_array1D_reading_int(file_id,test_array,datasetname)
   call HDF5_close(file_id); call remove_file(filename);
-  call assert_equals(test_array,result_array,n_elements,&
-  "Error test HDF5 I/O integer posix: test and result array mismatch!")
-  filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements];
-  call HDF5_open_or_create(filename,file_id,ierr=ifail_loc,&
+  call assert_equals(test_array,result_array,n_elements(1),&
+  "Error test HDF5 I/O 1D integer posix: test and result array mismatch!")
+  filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
+  test_array = 0; call HDF5_open_or_create(filename,file_id,ierr=ifail_loc,&
   access_type_in=access_hdf5_parallel,mpi_comm=mpi_comm_loc,mpi_info=mpi_info_loc)
-  call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements,&
+  call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements(1),&
   datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
   call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
-  call assert_equals(test_array,result_array,n_elements,&
-  "Error test HDF5 I/O integer MPI collective: test and result array mismatch!")
+  call assert_equals(test_array,result_array,n_elements(1),&
+  "Error test HDF5 I/O 1D integer MPI collective: test and result array mismatch!")
 end subroutine test_HDF5_array1D_saving_int
 
 !> Tools ------------------------------------------------------
