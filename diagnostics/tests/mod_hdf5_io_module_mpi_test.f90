@@ -404,7 +404,7 @@ subroutine test_HDF5_array5D_saving_r8()
   n_elements(3),n_elements(4),n_tasks_loc*n_elements(5),datasetname,start=offset,&
   type_dataset_transfert_in=type_dataset_transfert_mpi)
   call HDF5_array5D_reading(file_id,test_array,datasetname,start=offset)
-  call HDF5_close(file_id); !call remove_file(filename);
+  call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),&
   n_elements(4),n_elements(5),test_array,result_array,tol_r8,&
   "Error test HDF5 I/O 5D double MPI collective: test and result array mismatch!")
