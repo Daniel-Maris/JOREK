@@ -38,6 +38,7 @@ subroutine run_fruit_hdf5_io_module_mpi(rank,n_tasks,ifail)
   call run_test_case(test_create_hdf5_file,'test_create_hdf5_file')
   call run_test_case(test_open_hdf5_file,'test_open_hdf5_file')
   call run_test_case(test_create_open_hdf5_file,'test_create_open_hdf5_file')
+  call run_test_case(test_HDF5_real_saving,"test_HDF5_integer_saving")
   call run_test_case(test_HDF5_array1D_saving_int,"test_HDF5_array1D_saving_int")
   call run_test_case(test_HDF5_array2D_saving_int,"test_HDF5_array2D_saving_int")
   call run_test_case(test_HDF5_array1D_saving_r4,"test_HDF5_array1D_saving_r4")
@@ -159,6 +160,35 @@ subroutine test_create_open_hdf5_file()
   trim(filename)//" not opened!"); call remove_file(filename);
 end subroutine test_create_open_hdf5_file
 
+!> the the posix and collective writing / reading HDF5 file of a single integer
+subroutine test_HDF5_integer_saving()
+  implicit none
+  character(len=12),parameter :: datasetname='integer_value'
+  integer                     :: test_value,result_value
+  integer(HID_T)              :: file_id
+  character(len=100)          :: filename 
+  !> initialise posix test
+  test_value = 0; result_value = int(1d3*array_sol(1,1,1,1,1));
+  write(filename,'(A,A,I'//trim(rank_format)//',A)') &
+  trim(filename_base),'_rank',rank_loc,trim(extension)
+  ifail_loc=0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
+  call HDF5_integer_saving(file_id,result_value,datasetname)
+  call HDF5_integer_reading(file_id,test_value,datasetname)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals(test_value,result_value,&
+  "Error test HDF5 I/O 0D integer posix: test and result array mismatch!")
+  filename = trim(filename_base)//trim(extension);
+  test_value = 0d0; call HDF5_open_or_create(filename,file_id,ierr=ifail_loc,&
+  access_type_in=access_hdf5_parallel,mpi_comm=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_integer_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
+  n_mpi_tasks=n_tasks_loc,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  call HDF5_integer_reading(file_id,test_value,datasetname,&
+  mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals(test_value,result_value,&
+  "Error test HDF5 I/O 0D integer MPI collective: test and result array mismatch!")
+end subroutine test_HDF5_integer_saving
+
 !> the the posix and collective writing / reading HDF5 file
 !> of integer 1D array
 subroutine test_HDF5_array1D_saving_int()
@@ -275,7 +305,7 @@ subroutine test_HDF5_real_saving()
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_value,result_value,&
-  "Error test HDF5 I/O 1D double MPI collective: test and result array mismatch!")
+  "Error test HDF5 I/O 0D double MPI collective: test and result array mismatch!")
 end subroutine test_HDF5_real_saving
 
 !> the the posix and collective writing / reading HDF5 file
