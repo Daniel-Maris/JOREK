@@ -281,34 +281,53 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 saving for a real double
   !----------------------------------------
-  subroutine HDF5_real_saving(file_id,rd,dsetname)
+  subroutine HDF5_real_saving(file_id,rd,dsetname,mpi_rank,n_mpi_tasks,type_dataset_transfert_in)
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     real*8          , intent(in) :: rd
     character(LEN=*), intent(in) :: dsetname  ! dataset name
+    integer,optional,intent(in)  :: mpi_rank,n_mpi_tasks
+    integer,optional,intent(in)  :: type_dataset_transfert_in
 
     integer              :: error      ! error flag
     integer              :: rank       ! dataset rank
+    integer              :: type_dataset_transfert
     integer(HSIZE_T), &
-      dimension(1)       :: dim        ! dataset dimensions
-    integer(HID_T)       :: dataset    ! dataset identifier
-    integer(HID_T)       :: dataspace  ! dataspace identifier
+      dimension(1)       :: dim               ! dataset dimensions
+    integer(HID_T)       :: filespace
+    integer(HID_T)       :: dataset           ! dataset identifier
+    integer(HID_T)       :: dataspace         ! dataspace identifier
+    integer(HID_T)       :: transfer_property ! HDF5 IO properties
+
+    !*** Check property for parallel IO
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Create and initialize dataspaces for datasets ***
-    dim(1) = 1
-    rank   = 1
-    call H5Screate_simple_f(rank,dim,dataspace,error)
+    dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
+    rank   = 1;
+ 
+    call H5Screate_simple_f(rank,dim,filespace,error)
 
-    !*** Create integer dataset ***
+    !*** Create double dataset ***
     call H5Dcreate_f(file_id,dsetname, &
-      H5T_NATIVE_DOUBLE,dataspace,dataset,error)
+      H5T_NATIVE_DOUBLE,filespace,dataset,error)
 
-    !*** Write the integer data to the dataset ***
-    !***  using default transfer properties    ***
-    call H5Dwrite_f(dataset,H5T_NATIVE_DOUBLE,rd,dim,error)
+    !*** Write the double data to the dataset ***
+    if(present(mpi_rank).and.present(n_mpi_tasks)) then
+      call H5Screate_simple_f(rank,int([1],kind=HSIZE_T),dataspace,error)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=[int(mpi_rank,kind=HSIZE_T)],count=[int(1,kind=HSIZE_T)],hdferr=error)
+      call H5Dwrite_f(dataset,H5T_NATIVE_DOUBLE,[rd],[int(1,kind=HSIZE_T)],error, &
+          file_space_id=filespace, mem_space_id=dataspace,xfer_prp=transfer_property)
+      call H5Sclose_f(dataspace,error)
+    else
+      call H5Dwrite_f(dataset,H5T_NATIVE_DOUBLE,rd,dim,error)
+    endif
 
     !*** Closing ***
-    call H5Sclose_f(dataspace,error)
     call H5Dclose_f(dataset,error)
+    call H5Sclose_f(filespace,error)
   end subroutine HDF5_real_saving
 
 
@@ -962,10 +981,12 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 reading for a real double
   !----------------------------------------
-  subroutine HDF5_real_reading(file_id,rd,dsetname)
+  subroutine HDF5_real_reading(file_id,rd,dsetname,mpi_rank,n_mpi_tasks)
     integer(HID_T)  , intent(in)  :: file_id   ! file identifier
     real*8          , intent(out) :: rd
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
+    integer,intent(in),optional   :: mpi_rank,n_mpi_tasks 
+    
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
@@ -974,13 +995,26 @@ module hdf5_io_module
     integer(HID_T)      :: dataset    ! dataset identifier
     integer(HID_T)      :: dataspace  ! dataspace identifier
     integer(HID_T)      :: data_type
+    integer(HID_T)      :: filespace
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)   
 
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
-    call H5Dread_f(dataset,H5T_NATIVE_DOUBLE,rd,dim,error)
+    dim(1) = int(1,kind=HSIZE_T)
+    if(present(mpi_rank).and.present(n_mpi_tasks)) then
+      call H5Dget_space_f(dataset,filespace,error)
+      call H5Screate_simple_f(1,dim,dataspace,error)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=int([mpi_rank],kind=HSIZE_T),count=int([1],kind=HSIZE_T),hdferr=error)
+      call H5Dread_f(dataset,H5T_NATIVE_DOUBLE,rd,dim,error, &
+          file_space_id=filespace, mem_space_id=dataspace)
+      call H5Sclose_f(filespace,error)
+      call H5Sclose_f(dataspace,error)
+    else
+      call H5Dread_f(dataset,H5T_NATIVE_DOUBLE,rd,dim,error)
+    endif
 
     !*** Closing ***
     call H5Dclose_f(dataset,error)
@@ -1054,7 +1088,7 @@ module hdf5_io_module
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
-      start=start, count=shape(array1D,kind=HSIZE_T), hdferr=error)
+      start=int(start,kind=HID_T), count=shape(array1D,kind=HSIZE_T), hdferr=error)
       call H5Dread_f(dataset,H5T_NATIVE_REAL,array1D,dim,error, &
           file_space_id=filespace, mem_space_id=dataspace)
       call H5Sclose_f(filespace,error)
