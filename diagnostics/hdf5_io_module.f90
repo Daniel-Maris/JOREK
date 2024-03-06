@@ -48,7 +48,6 @@ module hdf5_io_module
     if (present(ierr)) ierr = ierr_HDF5
   end subroutine HDF5_create
 
-
   !---------------------------------------- 
   ! open HDF5 file 
   !----------------------------------------
@@ -82,7 +81,6 @@ module hdf5_io_module
     if(plist.ne.H5P_DEFAULT_F) call H5Pclose_f(plist,ierr_HDF5)
     if (present(ierr)) ierr = ierr_HDF5
   end subroutine HDF5_open
-
 
   !---------------------------------------- 
   ! close HDF5 file 
@@ -207,7 +205,6 @@ module hdf5_io_module
     call H5Sclose_f(dataspace,ierr_HDF5)
   end subroutine HDF5_char_saving
 
-
   !---------------------------------------- 
   ! HDF5 saving for a character 1D array
   !----------------------------------------
@@ -242,7 +239,6 @@ module hdf5_io_module
     call H5Sclose_f(dataspace,ierr_HDF5)
     call H5Dclose_f(dataset,ierr_HDF5)
   end subroutine HDF5_array1D_saving_char
-
 
   !---------------------------------------- 
   ! HDF5 saving for an integer 
@@ -296,7 +292,6 @@ module hdf5_io_module
     call H5Sclose_f(filespace,error)
   end subroutine HDF5_integer_saving
 
-
   !---------------------------------------- 
   ! HDF5 saving for a real double
   !----------------------------------------
@@ -348,7 +343,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
     call H5Sclose_f(filespace,error)
   end subroutine HDF5_real_saving
-
 
   !---------------------------------------- 
   ! HDF5 saving for a 1D array of integer
@@ -479,7 +473,6 @@ module hdf5_io_module
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array2D_saving_int
 
-
   !---------------------------------------- 
   ! gzip HDF5 saving for a 1D array of real*4
   !----------------------------------------
@@ -543,7 +536,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array1D_saving_r4
-
 
   !-------------------------------------------- 
   ! gzip HDF5 saving for a 1D array of real*8
@@ -609,7 +601,6 @@ module hdf5_io_module
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array1D_saving
 
-
   !---------------------------------------- 
   ! gzip HDF5 saving for a 2D array
   !----------------------------------------
@@ -674,7 +665,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array2D_saving
-
 
   !---------------------------------------- 
   ! gzip HDF5 saving for a 3D array
@@ -743,7 +733,6 @@ module hdf5_io_module
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array3D_saving
 
-
   !---------------------------------------- 
   ! gzip HDF5 saving for a 4D array
   !----------------------------------------
@@ -811,7 +800,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array4D_saving
-
 
   !---------------------------------------- 
   ! gzip HDF5 saving for a 5D array
@@ -883,7 +871,6 @@ module hdf5_io_module
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array5D_saving
 
-
   !************************************************
   !  HDF5 READING
   !************************************************
@@ -927,7 +914,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array1D_reading_char
 
-
   !---------------------------------------- 
   ! HDF5 reading for an integer 
   !----------------------------------------
@@ -969,7 +955,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_integer_reading
 
-
   !---------------------------------------- 
   ! HDF5 reading for an integer array 1D
   !----------------------------------------
@@ -1009,7 +994,6 @@ module hdf5_io_module
     !*** Closing ***
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array1D_reading_int
-
 
   !---------------------------------------- 
   ! HDF5 reading for a real double
@@ -1052,7 +1036,6 @@ module hdf5_io_module
     !*** Closing ***
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_real_reading
-
 
   !---------------------------------------- 
   ! HDF5 reading for an array 1D
@@ -1174,7 +1157,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array2D_reading_int
 
-
   !---------------------------------------- 
   ! HDF5 reading for an array 2D
   !----------------------------------------
@@ -1214,7 +1196,6 @@ module hdf5_io_module
     !*** Closing ***
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array2D_reading
-
 
   !---------------------------------------- 
   ! HDF5 reading for an array 3D
@@ -1261,7 +1242,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array3D_reading
 
-
   !---------------------------------------- 
   ! HDF5 reading for an array 4D
   !----------------------------------------
@@ -1303,7 +1283,6 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
     if (present(ierr)) ierr = error
   end subroutine HDF5_array4D_reading
-
 
   !---------------------------------------- 
   ! HDF5 reading for an array 5D

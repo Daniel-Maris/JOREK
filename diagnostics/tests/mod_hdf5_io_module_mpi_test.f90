@@ -15,7 +15,14 @@ integer,parameter :: mpi_info=MPI_INFO_NULL
 integer,parameter :: access_hdf5_parallel=1
 integer,parameter :: type_dataset_transfert_mpi=1
 integer,parameter :: ndims_tot=5
-integer,dimension(ndims_tot),parameter :: n_elements=[13,20,18,7,4]
+integer,parameter :: n_sol_char=26
+integer,parameter :: len_char=5
+integer,parameter :: n_char=4
+integer,dimension(2),parameter                   :: seed_interval=(/1,900000/) 
+integer,dimension(ndims_tot),parameter           :: n_elements=[13,20,18,7,4]
+character(len=1),dimension(n_sol_char),parameter :: letters=(/'a','b','c','d',&
+'e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u',&
+'v','w','x','y','z'/)
 real*8,parameter  :: tol_r8=1.d-16
 character(len=14) :: filename_base="test_hdf5_file"
 character(len=3)  :: extension=".h5"
@@ -24,6 +31,7 @@ integer           :: rank_loc,n_tasks_loc,ifail_loc
 integer           :: mpi_comm_loc,mpi_info_loc
 real*8,dimension(n_elements(1),n_elements(2),n_elements(3),&
 n_elements(4),n_elements(5)) :: array_sol
+character(len=len_char),dimension(n_char) :: char_sol 
 type(pcg32_rng)   :: rng
 !> Interfaces -------------------------------------------------
 contains
@@ -54,17 +62,21 @@ end subroutine run_fruit_hdf5_io_module_mpi
 
 !> Set-up and tear-down ---------------------------------------
 subroutine setup(rank,n_tasks,ifail)
+  use mod_gnu_rng,     only: set_seed_sys_time
+  use mod_gnu_rng,     only: gnu_rng_interval 
   use mod_random_seed, only: random_seed
   implicit none
-  integer,intent(in)    :: rank,n_tasks
-  integer,intent(inout) :: ifail
-  integer               :: ii,jj,kk,pp
+  integer,intent(in)          :: rank,n_tasks
+  integer,intent(inout)       :: ifail
+  integer                     :: ii,jj,kk,pp
+  integer,dimension(len_char) :: id_array
+  character(len=len_char)     :: buffer
   rank_loc = rank; n_tasks_loc = n_tasks; ifail_loc = ifail;
   mpi_info_loc = mpi_info; mpi_comm_loc = mpi_comm;
   if(mpi_info_loc.ne.MPI_INFO_NULL) call MPI_Info_create(mpi_info_loc,ifail_loc)
   rank_format = '1' 
   if(rank.gt.0) write(rank_format,'(I1)') int(log10(real(rank_loc,kind=8)))+1
-  !> setup the rng
+  !> initialise double array for testing
   call rng%initialize(n_elements(1),random_seed(),n_tasks_loc,rank_loc,ifail_loc)
   do pp=1,n_elements(5)
     do kk=1,n_elements(4)
@@ -75,6 +87,16 @@ subroutine setup(rank,n_tasks,ifail)
       enddo
     enddo
   enddo
+  !> initialise character array for testing
+  call set_seed_sys_time(seed_interval,rank_loc); char_sol='';
+  do ii=1,n_char
+    call gnu_rng_interval(len_char,[1,n_sol_char],id_array)
+    buffer = ''
+    do jj=1,len_char
+      write(buffer,'(A,A)') trim(char_sol(ii)),trim(letters(id_array(jj)))
+      char_sol(ii) = trim(buffer) 
+    enddo
+  enddo   
 end subroutine setup
 
 subroutine teardown(rank,n_tasks,ifail)
