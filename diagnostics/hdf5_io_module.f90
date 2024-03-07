@@ -18,6 +18,7 @@ module hdf5_io_module
   ! create HDF5 file 
   !----------------------------------------
   subroutine HDF5_create(filename,file_id,ierr,access_type_in,mpi_comm,mpi_info)
+    implicit none
     character(LEN=*) , intent(in)  :: filename  ! file name
     integer(HID_T)   , intent(out) :: file_id   ! file identifier
     integer, optional, intent(out) :: ierr
@@ -52,6 +53,7 @@ module hdf5_io_module
   ! open HDF5 file 
   !----------------------------------------
   subroutine HDF5_open(filename,file_id,ierr,access_type_in,mpi_comm,mpi_info)
+    implicit none
     character(LEN=*) , intent(in)  :: filename  ! file name
     integer(HID_T)   , intent(out) :: file_id   ! file identifier
     integer, optional, intent(out) :: ierr
@@ -86,6 +88,7 @@ module hdf5_io_module
   ! close HDF5 file 
   !----------------------------------------
   subroutine HDF5_close(file_id)
+    implicit none
     integer(HID_T), intent(in) :: file_id   ! file identifier
     integer :: error   ! error flag
     call H5Fclose_f(file_id,error)
@@ -120,6 +123,7 @@ module hdf5_io_module
   subroutine HDF5_open_or_create(filename,file_id,ierr,&
   access_type_in,mpi_comm,mpi_info)
     use mpi, only: MPI_Abort
+    implicit none
     character(LEN=*) , intent(in)  :: filename  !< file name
     integer(HID_T)   , intent(out) :: file_id   !< file identifier
     integer, optional, intent(out) :: ierr
@@ -177,32 +181,68 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 saving for a character string
   !----------------------------------------
-  subroutine HDF5_char_saving(file_id,charvar,dsetname)
-    use H5LT
+  subroutine HDF5_char_saving(file_id,charvar,dsetname,mpi_rank,&
+  n_mpi_tasks,mpi_comm,type_dataset_transfert_in)
+    use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
+    implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(LEN=*), intent(in) :: charvar
     character(LEN=*), intent(in) :: dsetname  ! dataset name
+    integer,optional             :: mpi_rank,n_mpi_tasks,mpi_comm
+    integer,optional             :: type_dataset_transfert_in
 
     integer              :: ierr_HDF5  ! error flag
     integer              :: rank       ! dataset rank
+    integer              :: len_char,len_char_mpi
+    integer              :: type_dataset_transfert ! data transfer property
     integer(HSIZE_T), &
       dimension(1)       :: dim        ! dataset dimensions
     integer(HID_T)       :: dataset    ! dataset identifier
+    integer(HID_T)       :: filespace  ! filespace identifier
     integer(HID_T)       :: dataspace  ! dataspace identifier
-    integer(HID_T)       :: type_id  ! dataspace identifier
+    integer(HID_T)       :: type_id    ! datatype identifier
+    integer(HID_T)       :: transfer_property ! property for dset transfer
+
+   !*** Find the maximum string length and create the hdf5 string type
+   len_char = len(charvar)
+   if(present(mpi_comm)) then
+     call MPI_allreduce(len_char,len_char_mpi,1,MPI_INTEGER,&
+     MPI_MAX,mpi_comm,ierr_HDF5); len_char = len_char_mpi;
+   endif
+    call h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
+    call h5tset_size_f(type_id,int(len_char,kind=HSIZE_T),ierr_HDF5)
+
+    !*** Check property for parallel IO
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
    !*** Create and initialize dataspaces for datasets ***
-    dim(1) = 1
+    dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
     rank   = 1
-    !*** Create character dataset ***
-    CALL h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
-    CALL h5tset_size_f(type_id,int(len(charvar),SIZE_T),ierr_HDF5)
-    CALL h5screate_f(H5S_SCALAR_F,dataspace,ierr_HDF5)
-    CALL h5dcreate_f(file_id,dsetname,type_id,dataspace,dataset,ierr_HDF5)
-    CALL h5dwrite_f(dataset,type_id,charvar,dim,ierr_HDF5)
+    call H5Screate_simple_f(rank,dim,filespace,ierr_HDF5)
+
+    !*** Create real dataset ***
+    call H5Dcreate_f(file_id,trim(dsetname),type_id,&
+    filespace,dataset,ierr_HDF5)
+
+    !*** Write the character array data to the dataset using ***
+    !***  default transfer properties                     ***
+    if (present(mpi_rank).and.present(n_mpi_tasks)) then
+      call H5Screate_simple_f(rank,int([1],kind=HSIZE_T),dataspace,ierr_HDF5)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=[int(mpi_rank,kind=HSIZE_T)],count=[int(1,kind=HSIZE_T)],hdferr=ierr_HDF5)
+      call H5Dwrite_f(dataset,type_id,[charvar],[int(1,kind=HSIZE_T)],ierr_HDF5, &
+          file_space_id=filespace, mem_space_id=dataspace,xfer_prp=transfer_property)
+      call H5Sclose_f(dataspace,ierr_HDF5)
+    else
+      call h5dwrite_f(dataset,type_id,charvar,dim,ierr_HDF5)
+    endif
+
     !*** Closing ***
+    call H5Sclose_f(filespace,ierr_HDF5)
     call H5Dclose_f(dataset,ierr_HDF5)
-    call H5Sclose_f(dataspace,ierr_HDF5)
+    call H5Pclose_f(transfer_property,ierr_HDF5)
   end subroutine HDF5_char_saving
 
   !---------------------------------------- 
@@ -210,8 +250,8 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,&
   start,mpi_comm,type_dataset_transfert_in)
-    use mpi
-    use H5LT
+    use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
+    implicit none
     integer(HID_T)                , intent(in) :: file_id   ! file identifier
     character(LEN=*), dimension(:), intent(in) :: array1D
     integer                       , intent(in) :: dim1
@@ -285,6 +325,7 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_integer_saving(file_id,intv,dsetname,mpi_rank,&
   n_mpi_tasks,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     integer         , intent(in) :: intv
     character(LEN=*), intent(in) :: dsetname  ! dataset name
@@ -336,6 +377,7 @@ module hdf5_io_module
   ! HDF5 saving for a real double
   !----------------------------------------
   subroutine HDF5_real_saving(file_id,rd,dsetname,mpi_rank,n_mpi_tasks,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     real*8          , intent(in) :: rd
     character(LEN=*), intent(in) :: dsetname  ! dataset name
@@ -388,6 +430,7 @@ module hdf5_io_module
   ! HDF5 saving for a 1D array of integer
   !----------------------------------------
   subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     integer, dimension(:), intent(in) :: array1D
     integer              , intent(in) :: dim1
@@ -452,6 +495,7 @@ module hdf5_io_module
   ! HDF5 saving for a 2D array of integer
   !----------------------------------------
   subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)           , intent(in) :: file_id   ! file identifier
     integer, dimension(:,:)  , intent(in) :: array2D
     integer                  , intent(in) :: dim1, dim2
@@ -517,6 +561,7 @@ module hdf5_io_module
   ! gzip HDF5 saving for a 1D array of real*4
   !----------------------------------------
   subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     real(4), dimension(:), intent(in) :: array1D
     integer              , intent(in) :: dim1
@@ -581,6 +626,7 @@ module hdf5_io_module
   ! gzip HDF5 saving for a 1D array of real*8
   !--------------------------------------------
   subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)      , intent(in) :: file_id   ! file identifier
     real*8, dimension(:), intent(in) :: array1D
     integer             , intent(in) :: dim1
@@ -645,6 +691,7 @@ module hdf5_io_module
   ! gzip HDF5 saving for a 2D array
   !----------------------------------------
   subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)        , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:), intent(in) :: array2D
     integer               , intent(in) :: dim1, dim2
@@ -711,6 +758,7 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_array3D_saving(file_id,array3D, &
     dim1,dim2,dim3,dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)          , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:), intent(in) :: array3D
     integer                 , intent(in) :: dim1, dim2, dim3
@@ -778,6 +826,7 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_array4D_saving(file_id,array4d,dim1,dim2,dim3,dim4,&
   dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:,:), intent(in) :: array4d
     integer                   , intent(in) :: dim1, dim2, dim3, dim4
@@ -846,6 +895,7 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_array5D_saving(file_id,array5d,dim1,dim2,dim3,dim4,dim5,&
   dsetname,start,compress_level,type_dataset_transfert_in)
+    implicit none
     integer(HID_T)              , intent(in) :: file_id  ! file identifier
     real*8, dimension(:,:,:,:,:), intent(in) :: array5d
     integer                     , intent(in) :: dim1, dim2
@@ -917,20 +967,47 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 reading for a character
   !----------------------------------------
-  subroutine HDF5_char_reading(file_id,charvar,dsetname)
-    use H5LT
+  subroutine HDF5_char_reading(file_id,charvar,dsetname,mpi_rank,n_mpi_tasks)
+    implicit none
     integer(HID_T)  , intent(in)  :: file_id   ! file identifier
     character(LEN=*), intent(out) :: charvar
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
-    integer             :: error      ! error flag
-    call H5LTread_dataset_string_f(file_id,trim(dsetname),charvar,error)
+    integer,intent(in),optional   :: mpi_rank,n_mpi_tasks
+    
+    integer                       :: error     ! error flag
+    integer(HID_T)                :: dataset   ! dataset identifier
+    integer(HID_T)                :: filespace ! filespace identifier
+    integer(HID_T)                :: dataspace ! dataspace identifier
+    integer(HID_T)                :: type_id   ! string type identifier
+    integer(HSIZE_T),dimension(1) :: dim       ! dimensions
+    !*** file opening ***
+    call H5Dopen_f(file_id,trim(dsetname),dataset,error)
+    !*** set the string datatype
+    call H5Dget_type_f(dataset,type_id,error)
+    !*** read the string data to the dataset ***
+    !***   using default transfer properties  ***
+    dim(1) = int(1,kind=HSIZE_T)
+    if(present(mpi_rank).and.present(n_mpi_tasks)) then
+      call H5Dget_space_f(dataset,filespace,error)
+      call H5Screate_simple_f(1,dim,dataspace,error)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=int([mpi_rank],kind=HSIZE_T),count=int([1],kind=HSIZE_T),hdferr=error)
+      call H5Dread_f(dataset,type_id,charvar,dim,error, &
+          file_space_id=filespace, mem_space_id=dataspace)
+      call H5Sclose_f(filespace,error)
+      call H5Sclose_f(dataspace,error)
+    else
+      call H5Dread_f(dataset,type_id,charvar,dim,error)
+    endif
+    !*** Closing ***
+    call H5Dclose_f(dataset,error)
   end subroutine HDF5_char_reading
-
 
   !---------------------------------------- 
   ! HDF5 reading for a character array 1D
   !----------------------------------------
   subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start)
+    implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(len=*)       , intent(out), dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
@@ -952,7 +1029,7 @@ module hdf5_io_module
     !*** set the string datatype
     call H5Dget_type_f(dataset,type_id,error)
 
-    !*** read the integer data to the dataset ***
+    !*** read the character data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
     if (present(start)) then
@@ -976,6 +1053,7 @@ module hdf5_io_module
   ! HDF5 reading for an integer 
   !----------------------------------------
   subroutine HDF5_integer_reading(file_id,intv,dsetname,mpi_rank,n_mpi_tasks)
+    implicit none
     integer(HID_T)  , intent(in)  :: file_id   ! file identifier
     integer         , intent(out) :: intv
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
@@ -1017,6 +1095,7 @@ module hdf5_io_module
   ! HDF5 reading for an integer array 1D
   !----------------------------------------
   subroutine HDF5_array1D_reading_int(file_id,array1D,dsetname,start)
+    implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     integer         , intent(out), dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
@@ -1057,6 +1136,7 @@ module hdf5_io_module
   ! HDF5 reading for a real double
   !----------------------------------------
   subroutine HDF5_real_reading(file_id,rd,dsetname,mpi_rank,n_mpi_tasks)
+    implicit none
     integer(HID_T)  , intent(in)  :: file_id   ! file identifier
     real*8          , intent(out) :: rd
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
@@ -1098,6 +1178,7 @@ module hdf5_io_module
   ! HDF5 reading for an array 1D
   !----------------------------------------
   subroutine HDF5_array1D_reading(file_id,array1D,dsetname,start)
+    implicit none
     integer(HID_T), intent(in)   :: file_id   ! file identifier
     real*8        , dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
@@ -1138,6 +1219,7 @@ module hdf5_io_module
   ! HDF5 reading for an array 1D (real*4)
   !----------------------------------------
   subroutine HDF5_array1D_reading_r4(file_id,array1D,dsetname,start)
+    implicit none
     integer(HID_T), intent(in)   :: file_id   ! file identifier
     real*4        , dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
@@ -1178,6 +1260,7 @@ module hdf5_io_module
   ! HDF5 reading for an integer array 2D 
   !----------------------------------------
   subroutine HDF5_array2D_reading_int(file_id,array2D,dsetname,start)
+    implicit none
     integer(HID_T)  , intent(in)     :: file_id   ! file identifier
     integer         , dimension(:,:) :: array2D
     character(LEN=*), intent(in)     :: dsetname  ! dataset name
@@ -1218,6 +1301,7 @@ module hdf5_io_module
   ! HDF5 reading for an array 2D
   !----------------------------------------
   subroutine HDF5_array2D_reading(file_id,array2D,dsetname,start)
+    implicit none
     integer(HID_T)  , intent(in)     :: file_id   ! file identifier
     real*8          , dimension(:,:) :: array2D
     character(LEN=*), intent(in)     :: dsetname  ! dataset name
@@ -1259,6 +1343,7 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_array3D_reading(file_id,array3D,dsetname,&
        in1, in2, in3,start)
+    implicit none
     integer(HID_T)     , intent(in)       :: file_id   ! file identifier
     real*8             , dimension(:,:,:) :: array3D
     character(LEN=*)   , intent(in)       :: dsetname  ! dataset name
@@ -1303,6 +1388,7 @@ module hdf5_io_module
   ! HDF5 reading for an array 4D
   !----------------------------------------
   subroutine HDF5_array4D_reading(file_id,array4D,dsetname,ierr,start)
+    implicit none
     integer(HID_T), intent(in)     :: file_id   ! file identifier
     real*8, dimension(:,:,:,:)     :: array4D
     character(LEN=*), intent(in)   :: dsetname  ! dataset name
@@ -1345,6 +1431,7 @@ module hdf5_io_module
   ! HDF5 reading for an array 5D
   !----------------------------------------
   subroutine HDF5_array5D_reading(file_id,array5D,dsetname,start)
+    implicit none
     integer(HID_T), intent(in)   :: file_id   
     real*8, dimension(:,:,:,:,:) :: array5D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
@@ -1382,6 +1469,7 @@ module hdf5_io_module
   end subroutine HDF5_array5D_reading
 
   function get_HDF5_plist(rank, chunksize, gzip, level) result(property)
+    implicit none
     integer, intent(in) :: rank
     integer(HSIZE_T), dimension(rank), intent(in) :: chunksize
     logical, intent(in) :: gzip
