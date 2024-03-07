@@ -374,13 +374,13 @@ program recobmination_loop
     call with(sim, events, at=sim%time)
     
     ! do recombination to initialise particles. Maintains conservation with first jorek timestep
-    if (.not. restart_particles) then 
+    if (use_recombination .and. (.not. restart_particles)) then 
         if (sim%my_id .eq. 0) write(*,*) "Do 1 particle recombination"
         particle_step_time = 0.d0 !< results in first step Nans for recombination diagnostics
         call do_1particle_recombination(element_list,node_list,jorek_stepper,rng,particle_step_time) 
     
         call with(sim, project_density) !< directly project the first recombination at t=0
-    endif !.not. restart_particles
+    endif !use_recombination .and. (.not. restart_particles)
     
     do while (.not. sim%stop_now)
     
