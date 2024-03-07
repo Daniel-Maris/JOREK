@@ -208,22 +208,29 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 saving for a character 1D array
   !----------------------------------------
-  subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname)
+  subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,&
+  start,mpi_comm,type_dataset_transfert_in)
+    use mpi
     use H5LT
     integer(HID_T)                , intent(in) :: file_id   ! file identifier
     character(LEN=*), dimension(:), intent(in) :: array1D
     integer                       , intent(in) :: dim1
     character(LEN=*)              , intent(in) :: dsetname  ! dataset name
+    integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
+    integer,intent(in),optional                :: mpi_comm
+    integer,intent(in),optional                :: type_dataset_transfert_in
 
-    integer             :: ii,max_len_char
-    integer             :: ierr_HDF5  ! error flag
-    integer             :: rank       ! dataset rank
+    integer                       :: ii,max_len_char,max_len_char_mpi
+    integer                       :: type_dataset_transfert
+    integer                       :: ierr_HDF5  ! error flag
+    integer                       :: rank       ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim          ! dataset dimensions
-    integer(HID_T)      :: dataset      ! dataset identifier
-    integer(HID_T)      :: dataspace    ! dataspace identifier
-    integer(HID_T)      :: type_id      ! char datatype identifier
-    integer(HID_T)      :: attribute_id ! attribute identifier
+      dimension(1)                :: dim               ! dataset dimensions
+    integer(HID_T)                :: dataset           ! dataset identifier
+    integer(HID_T)                :: dataspace         ! dataspace identifier
+    integer(HID_T)                :: type_id           ! char datatype identifier
+    integer(HID_T)                :: filespace         ! filespace identifier
+    integer(HID_T)                :: transfer_property ! property for parallel writing
 
     !*** compute and max reduce the lenght of all strings ***
     !*** for each MPI rank ***
@@ -231,27 +238,46 @@ module hdf5_io_module
     do ii=1,dim1
       max_len_char = max(max_len_char,len(array1D(ii)))
     enddo
+    if(present(mpi_comm)) then
+      call MPI_allreduce(max_len_char,max_len_char_mpi,1,MPI_INTEGER,&
+      MPI_MAX,mpi_comm,ierr_HDF5); max_len_char = max_len_char_mpi;
+    endif
+
+    !*** Check property for parallel IO
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Set the maximum char length of HDF5 IO **
     call h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
     call h5tset_size_f(type_id,int(max_len_char,kind=SIZE_T),ierr_HDF5)
 
-    !*** Create and initialize dataspaces for datasets ***
+    !*** Create and initialize filespaces for datasets ***
     dim(1) = dim1
     rank   = 1
-    call H5Screate_simple_f(rank,dim,dataspace,ierr_HDF5)
+    call H5Screate_simple_f(rank,dim,filespace,ierr_HDF5)
 
     !*** Create real dataset ***
-    call H5Dcreate_f(file_id,trim(dsetname),type_id,dataspace,&
-    dataset,ierr_HDF5)
+    call H5Dcreate_f(file_id,trim(dsetname),type_id,&
+    filespace,dataset,ierr_HDF5)
 
     !*** Write the character array data to the dataset using ***
     !***  default transfer properties                     ***
-    call H5Dwrite_f(dataset,type_id,array1D,dim,ierr_HDF5)
+    if (present(start)) then
+      call H5Screate_simple_f(1,shape(array1D,kind=HSIZE_T),dataspace,ierr_HDF5)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=start, count=shape(array1D,kind=HSIZE_T), hdferr=ierr_HDF5)
+      call H5Dwrite_f(dataset,type_id,array1D,shape(array1D,kind=HSIZE_T),ierr_HDF5, &
+          file_space_id=filespace, mem_space_id=dataspace,xfer_prp=transfer_property)
+      call H5Sclose_f(dataspace,ierr_HDF5)
+    else
+      call H5Dwrite_f(dataset,type_id,array1D,dim,ierr_HDF5)
+    endif
 
     !*** Closing ***
-    call H5Sclose_f(dataspace,ierr_HDF5)
+    call H5Sclose_f(filespace,ierr_HDF5)
     call H5Dclose_f(dataset,ierr_HDF5)
+    call H5Pclose_f(transfer_property,ierr_HDF5)
   end subroutine HDF5_array1D_saving_char
 
   !---------------------------------------- 
@@ -904,20 +930,21 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 reading for a character array 1D
   !----------------------------------------
-  subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname)
+  subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start)
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(len=*)       , intent(out), dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
+    integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
 
     integer             :: len_char
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim,dima     ! dataset and attribute dimensions
+      dimension(1)      :: dim          ! dataset dimension
     integer(HID_T)      :: dataset      ! dataset identifier
     integer(HID_T)      :: dataspace    ! dataspace identifier
     integer(HID_T)      :: type_id      ! string datatype identifier
-    integer(HID_T)      :: attribute_id ! attribute identifier 
+    integer(HID_T)      :: filespace  ! filespace identifier
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
@@ -928,7 +955,18 @@ module hdf5_io_module
     !*** read the integer data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
-    call H5Dread_f(dataset,type_id,array1D,dim,error)
+    if (present(start)) then
+      call H5Dget_space_f(dataset,filespace,error)
+      call H5Screate_simple_f(1,dim,dataspace,error)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=start, count=shape(array1D,kind=HSIZE_T), hdferr=error)
+      call H5Dread_f(dataset,type_id,array1D,dim,error, &
+          file_space_id=filespace, mem_space_id=dataspace)
+      call H5Sclose_f(filespace,error)
+      call H5Sclose_f(dataspace,error)
+    else
+      call H5Dread_f(dataset,type_id,array1D,dim,error)
+    endif
 
     !*** Closing ***
     call H5Dclose_f(dataset,error)
@@ -1022,8 +1060,7 @@ module hdf5_io_module
     integer(HID_T)  , intent(in)  :: file_id   ! file identifier
     real*8          , intent(out) :: rd
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
-    integer,intent(in),optional   :: mpi_rank,n_mpi_tasks 
-    
+    integer,intent(in),optional   :: mpi_rank,n_mpi_tasks     
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
