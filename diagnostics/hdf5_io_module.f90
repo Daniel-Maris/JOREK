@@ -9,7 +9,9 @@ module hdf5_io_module
 #ifdef USE_HDF5  
   use HDF5
   implicit none
+#ifndef __GFORTRAN__
   integer,parameter :: master_task=0
+#endif
   !******************************
   contains
   !******************************
@@ -186,7 +188,7 @@ module hdf5_io_module
 #ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
 #else
-    use mpi, only: MPI_Reduce,MPI_Bcast,MPI_INTEGER,MPI_MAX
+    use mpi, only: MPI_Gather,MPI_Bcast,MPI_INTEGER,
 #endif
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
@@ -197,7 +199,12 @@ module hdf5_io_module
 
     integer              :: ierr_HDF5  ! error flag
     integer              :: rank       ! dataset rank
-    integer              :: len_char,len_char_mpi
+    integer              :: len_char   ! maximum length of strings locally
+#ifdef __GFORTRAN__
+    integer              :: len_char_mpi ! overall maximum lenght of strings
+#else
+    integer,dimension(:),allocatable :: len_char_mpi ! maximum length of each task string
+#endif
     integer              :: type_dataset_transfert ! data transfer property
     integer(HSIZE_T), &
       dimension(1)       :: dim        ! dataset dimensions
@@ -215,11 +222,15 @@ module hdf5_io_module
      MPI_MAX,mpi_comm,ierr_HDF5); len_char = len_char_mpi;
    endif
 #else
-   if(present(mpi_comm)) then
-     call MPI_Reduce(len_char,len_char_mpi,1,MPI_INTEGER,&
-     MPI_MAX,master_task,mpi_comm,ierr_HDF5)
-     call MPI_Bcast(len_char_mpi,1,MPI_INTEGER,master_task,&
-     mpi_comm,ierr_HDF5); len_char = len_char_mpi;
+   if(present(mpi_comm).and.present(mpi_rank).and.present(n_mpi_tasks)) then
+     if(allocated(len_char_mpi(n_mpi_tasks))) deallocate(len_char_mpi)
+     if(mpi_rank.eq.master_rank) allocate(len_char_mpi(n_mpi_tasks))
+     call MPI_Gather(len_char,1,MPI_INTEGER,len_char_mpi,n_mpi_tasks,&
+     MPI_INTEGER,master_task,mpi_comm,ierr_HDF5)
+     if(mpi_rank.eq.master_rank) len_char = maxval(len_char_mpi)
+     call MPI_Bcast(len_char,1,MPI_INTEGER,master_task,&
+     mpi_comm,ierr_HDF5);
+     if(allocated(len_char_mpi)) deallocate(len_char_mpi)
    endif
 #endif
     call h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
@@ -266,7 +277,7 @@ module hdf5_io_module
 #ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
 #else
-    use mpi, only: MPI_Reduce,MPI_Bcast,MPI_INTEGER,MPI_MAX
+    use mpi, only: MPI_Gather,MPI_Bcast,MPI_INTEGER
 #endif
     implicit none
     integer(HID_T)                , intent(in) :: file_id   ! file identifier
@@ -277,17 +288,23 @@ module hdf5_io_module
     integer,intent(in),optional                :: mpi_comm
     integer,intent(in),optional                :: type_dataset_transfert_in
 
-    integer                       :: ii,max_len_char,max_len_char_mpi
-    integer                       :: type_dataset_transfert
-    integer                       :: ierr_HDF5  ! error flag
-    integer                       :: rank       ! dataset rank
+    integer              :: ii
+    integer              :: max_len_char   ! maximum length of strings locally
+#ifdef __GFORTRAN__
+    integer              :: max_len_char_mpi ! overall maximum lenght of strings
+#else
+    integer,dimension(:),allocatable :: max_len_char_mpi ! maximum length of each task string
+#endif
+    integer              :: type_dataset_transfert
+    integer              :: ierr_HDF5  ! error flag
+    integer              :: rank       ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)                :: dim               ! dataset dimensions
-    integer(HID_T)                :: dataset           ! dataset identifier
-    integer(HID_T)                :: dataspace         ! dataspace identifier
-    integer(HID_T)                :: type_id           ! char datatype identifier
-    integer(HID_T)                :: filespace         ! filespace identifier
-    integer(HID_T)                :: transfer_property ! property for parallel writing
+      dimension(1)       :: dim               ! dataset dimensions
+    integer(HID_T)       :: dataset           ! dataset identifier
+    integer(HID_T)       :: dataspace         ! dataspace identifier
+    integer(HID_T)       :: type_id           ! char datatype identifier
+    integer(HID_T)       :: filespace         ! filespace identifier
+    integer(HID_T)       :: transfer_property ! property for parallel writing
 
     !*** compute and max reduce the lenght of all strings ***
     !*** for each MPI rank ***
@@ -297,16 +314,19 @@ module hdf5_io_module
     enddo
 #ifdef __GFORTRAN__
     if(present(mpi_comm)) then
-      call MPI_allreduce(max_len_char,max_len_char_mpi,1,MPI_INTEGER,&
+      call MPI_Allreduce(max_len_char,max_len_char_mpi,1,MPI_INTEGER,&
       MPI_MAX,mpi_comm,ierr_HDF5); max_len_char = max_len_char_mpi;
     endif
 #else
-   if(present(mpi_comm)) then
-     call MPI_Reduce(len_char,len_char_mpi,1,MPI_INTEGER,&
-     MPI_MAX,master_task,mpi_comm,ierr_HDF5)
-     call MPI_Bcast(len_char_mpi,1,MPI_INTEGER,master_task,&
-     mpi_comm,ierr_HDF5); max_len_char = max_len_char_mpi;
-
+   if(present(mpi_comm).and.present(mpi_rank).and.present(n_mpi_tasks)) then
+     if(allocated(max_len_char_mpi(n_mpi_tasks))) deallocate(max_len_char_mpi)
+     if(mpi_rank.eq.master_rank) allocate(max_len_char_mpi(n_mpi_tasks))
+     call MPI_Gather(max_len_char,1,MPI_INTEGER,max_len_char_mpi,n_mpi_tasks,&
+     MPI_INTEGER,master_task,mpi_comm,ierr_HDF5)
+     if(mpi_rank.eq.master_rank) max_len_char = maxval(max_len_char_mpi)
+     call MPI_Bcast(max_len_char,1,MPI_INTEGER,master_task,&
+     mpi_comm,ierr_HDF5);
+     if(allocated(max_len_char_mpi)) deallocate(max_len_char_mpi)
    endif
 #endif
     !*** Check property for parallel IO
