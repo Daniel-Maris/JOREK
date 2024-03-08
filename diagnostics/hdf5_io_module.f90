@@ -9,7 +9,7 @@ module hdf5_io_module
 #ifdef USE_HDF5  
   use HDF5
   implicit none
-
+  integer,parameter :: master_task=0
   !******************************
   contains
   !******************************
@@ -183,7 +183,11 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_char_saving(file_id,charvar,dsetname,mpi_rank,&
   n_mpi_tasks,mpi_comm,type_dataset_transfert_in)
+#ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
+#else
+    use mpi, only: MPI_Reduce,MPI_Bcast,MPI_INTEGER,MPI_MAX
+#endif
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(LEN=*), intent(in) :: charvar
@@ -205,10 +209,19 @@ module hdf5_io_module
 
    !*** Find the maximum string length and create the hdf5 string type
    len_char = len(charvar)
+#ifdef __GFORTRAN__
    if(present(mpi_comm)) then
-     call MPI_allreduce(len_char,len_char_mpi,1,MPI_INTEGER,&
+     call MPI_Allreduce(len_char,len_char_mpi,1,MPI_INTEGER,&
      MPI_MAX,mpi_comm,ierr_HDF5); len_char = len_char_mpi;
    endif
+#else
+   if(present(mpi_comm)) then
+     call MPI_Reduce(len_char,len_char_mpi,1,MPI_INTEGER,&
+     MPI_MAX,master_task,mpi_comm,ierr_HDF5)
+     call MPI_Bcast(len_char_mpi,1,MPI_INTEGER,master_task,&
+     mpi_comm,ierr_HDF5); len_char = len_char_mpi;
+   endif
+#endif
     call h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
     call h5tset_size_f(type_id,int(len_char,kind=HSIZE_T),ierr_HDF5)
 
@@ -250,7 +263,11 @@ module hdf5_io_module
   !----------------------------------------
   subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,&
   start,mpi_comm,type_dataset_transfert_in)
+#ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
+#else
+    use mpi, only: MPI_Reduce,MPI_Bcast,MPI_INTEGER,MPI_MAX
+#endif
     implicit none
     integer(HID_T)                , intent(in) :: file_id   ! file identifier
     character(LEN=*), dimension(:), intent(in) :: array1D
@@ -278,11 +295,20 @@ module hdf5_io_module
     do ii=1,dim1
       max_len_char = max(max_len_char,len(array1D(ii)))
     enddo
+#ifdef __GFORTRAN__
     if(present(mpi_comm)) then
       call MPI_allreduce(max_len_char,max_len_char_mpi,1,MPI_INTEGER,&
       MPI_MAX,mpi_comm,ierr_HDF5); max_len_char = max_len_char_mpi;
     endif
+#else
+   if(present(mpi_comm)) then
+     call MPI_Reduce(len_char,len_char_mpi,1,MPI_INTEGER,&
+     MPI_MAX,master_task,mpi_comm,ierr_HDF5)
+     call MPI_Bcast(len_char_mpi,1,MPI_INTEGER,master_task,&
+     mpi_comm,ierr_HDF5); max_len_char = max_len_char_mpi;
 
+   endif
+#endif
     !*** Check property for parallel IO
     type_dataset_transfert = -1
     if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
