@@ -9,9 +9,7 @@ module hdf5_io_module
 #ifdef USE_HDF5  
   use HDF5
   implicit none
-#ifndef __GFORTRAN__
-  integer,parameter :: master_task=0
-#endif
+
   !******************************
   contains
   !******************************
@@ -19,12 +17,12 @@ module hdf5_io_module
   !---------------------------------------- 
   ! create HDF5 file 
   !----------------------------------------
-  subroutine HDF5_create(filename,file_id,ierr,access_type_in,mpi_comm,mpi_info)
+  subroutine HDF5_create(filename,file_id,ierr,access_type_in,mpi_comm_in,mpi_info)
     implicit none
     character(LEN=*) , intent(in)  :: filename  ! file name
     integer(HID_T)   , intent(out) :: file_id   ! file identifier
     integer, optional, intent(out) :: ierr
-    integer, optional, intent(in)  :: access_type_in,mpi_comm,mpi_info
+    integer, optional, intent(in)  :: access_type_in,mpi_comm_in,mpi_info
 
     integer        :: ierr_HDF5,access_type
     integer(HID_T) :: plist
@@ -40,8 +38,8 @@ module hdf5_io_module
     else
       plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm).and.present(mpi_info).and.(access_type.eq.1)) then
-      call H5Pset_fapl_mpio_f(plist,mpi_comm,mpi_info,ierr_HDF5)
+    if(present(mpi_comm_in).and.present(mpi_info).and.(access_type.eq.1)) then
+      call H5Pset_fapl_mpio_f(plist,mpi_comm_in,mpi_info,ierr_HDF5)
     endif
 
     !*** Create a new file using default properties ***
@@ -54,12 +52,12 @@ module hdf5_io_module
   !---------------------------------------- 
   ! open HDF5 file 
   !----------------------------------------
-  subroutine HDF5_open(filename,file_id,ierr,access_type_in,mpi_comm,mpi_info)
+  subroutine HDF5_open(filename,file_id,ierr,access_type_in,mpi_comm_in,mpi_info)
     implicit none
     character(LEN=*) , intent(in)  :: filename  ! file name
     integer(HID_T)   , intent(out) :: file_id   ! file identifier
     integer, optional, intent(out) :: ierr
-    integer, optional, intent(in)  :: access_type_in,mpi_comm,mpi_info
+    integer, optional, intent(in)  :: access_type_in,mpi_comm_in,mpi_info
 
     integer        :: ierr_HDF5,access_type
     integer(HID_T) :: plist
@@ -75,8 +73,8 @@ module hdf5_io_module
     else
       plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm).and.present(mpi_info).and.(access_type.ne.1)) then
-      call H5Pset_fapl_mpio_f(plist,mpi_comm,mpi_info,ierr_HDF5)
+    if(present(mpi_comm_in).and.present(mpi_info).and.(access_type.ne.1)) then
+      call H5Pset_fapl_mpio_f(plist,mpi_comm_in,mpi_info,ierr_HDF5)
     endif
 
     !*** open the HDF5 file ***
@@ -123,14 +121,14 @@ module hdf5_io_module
   ! See https://support.hdfgroup.org/HDF5/doc1.6/Files.html for more information.
   !----------------------------------------
   subroutine HDF5_open_or_create(filename,file_id,ierr,&
-  access_type_in,mpi_comm,mpi_info)
+  access_type_in,mpi_comm_in,mpi_info)
     use mpi, only: MPI_Abort
     implicit none
     character(LEN=*) , intent(in)  :: filename  !< file name
     integer(HID_T)   , intent(out) :: file_id   !< file identifier
     integer, optional, intent(out) :: ierr
     integer          , intent(in), optional :: access_type_in !< Which features to use when opening
-    integer          , intent(in), optional :: mpi_comm,mpi_info !< mpi communicator and info
+    integer          , intent(in), optional :: mpi_comm_in,mpi_info !< mpi communicator and info
     
 
     integer        :: ierr_HDF5,access_type
@@ -148,8 +146,8 @@ module hdf5_io_module
     else
       plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm).and.present(mpi_info).and.(access_type.eq.1)) then
-      call H5Pset_fapl_mpio_f(plist,mpi_comm,mpi_info,ierr_HDF5)
+    if(present(mpi_comm_in).and.present(mpi_info).and.(access_type.eq.1)) then
+      call H5Pset_fapl_mpio_f(plist,mpi_comm_in,mpi_info,ierr_HDF5)
     endif
 
     !*** Test if the file exists ***
@@ -165,7 +163,7 @@ module hdf5_io_module
       else
         !*** Present an error ***!
         write(*,*) "ERROR: Invalid HDF5 file, exiting"
-        call MPI_Abort(mpi_comm, -1, ierr)
+        call MPI_Abort(mpi_comm_in, -1, ierr)
       end if
     else
       !*** Try to create an HDF5 file ***
@@ -184,27 +182,22 @@ module hdf5_io_module
   ! HDF5 saving for a character string
   !----------------------------------------
   subroutine HDF5_char_saving(file_id,charvar,dsetname,mpi_rank,&
-  n_mpi_tasks,mpi_comm,type_dataset_transfert_in)
+  n_mpi_tasks,mpi_comm_in,type_dataset_transfert_in)
 #ifdef __GFORTRAN__
-    use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
+    use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX,MPI_IN_PLACE
 #else
-    use mpi, only: MPI_Gather,MPI_Bcast,MPI_INTEGER,
+    use mpi
 #endif
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(LEN=*), intent(in) :: charvar
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer,optional             :: mpi_rank,n_mpi_tasks,mpi_comm
+    integer,optional             :: mpi_rank,n_mpi_tasks,mpi_comm_in
     integer,optional             :: type_dataset_transfert_in
 
     integer              :: ierr_HDF5  ! error flag
     integer              :: rank       ! dataset rank
     integer              :: len_char   ! maximum length of strings locally
-#ifdef __GFORTRAN__
-    integer              :: len_char_mpi ! overall maximum lenght of strings
-#else
-    integer,dimension(:),allocatable :: len_char_mpi ! maximum length of each task string
-#endif
     integer              :: type_dataset_transfert ! data transfer property
     integer(HSIZE_T), &
       dimension(1)       :: dim        ! dataset dimensions
@@ -216,23 +209,11 @@ module hdf5_io_module
 
    !*** Find the maximum string length and create the hdf5 string type
    len_char = len(charvar)
-#ifdef __GFORTRAN__
-   if(present(mpi_comm)) then
-     call MPI_Allreduce(len_char,len_char_mpi,1,MPI_INTEGER,&
-     MPI_MAX,mpi_comm,ierr_HDF5); len_char = len_char_mpi;
+   if(present(mpi_comm_in)) then
+     call MPI_Allreduce(MPI_IN_PLACE,len_char,1,MPI_INTEGER,&
+     MPI_MAX,mpi_comm_in,ierr_HDF5);
    endif
-#else
-   if(present(mpi_comm).and.present(mpi_rank).and.present(n_mpi_tasks)) then
-     if(allocated(len_char_mpi(n_mpi_tasks))) deallocate(len_char_mpi)
-     if(mpi_rank.eq.master_rank) allocate(len_char_mpi(n_mpi_tasks))
-     call MPI_Gather(len_char,1,MPI_INTEGER,len_char_mpi,n_mpi_tasks,&
-     MPI_INTEGER,master_task,mpi_comm,ierr_HDF5)
-     if(mpi_rank.eq.master_rank) len_char = maxval(len_char_mpi)
-     call MPI_Bcast(len_char,1,MPI_INTEGER,master_task,&
-     mpi_comm,ierr_HDF5);
-     if(allocated(len_char_mpi)) deallocate(len_char_mpi)
-   endif
-#endif
+
     call h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
     call h5tset_size_f(type_id,int(len_char,kind=HSIZE_T),ierr_HDF5)
 
@@ -273,11 +254,11 @@ module hdf5_io_module
   ! HDF5 saving for a character 1D array
   !----------------------------------------
   subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,&
-  start,mpi_comm,type_dataset_transfert_in)
+  start,mpi_comm_in,type_dataset_transfert_in)
 #ifdef __GFORTRAN__
-    use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX
+    use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX,MPI_IN_PLACE
 #else
-    use mpi, only: MPI_Gather,MPI_Bcast,MPI_INTEGER
+    use mpi
 #endif
     implicit none
     integer(HID_T)                , intent(in) :: file_id   ! file identifier
@@ -285,16 +266,11 @@ module hdf5_io_module
     integer                       , intent(in) :: dim1
     character(LEN=*)              , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
-    integer,intent(in),optional                :: mpi_comm
+    integer,intent(in),optional                :: mpi_comm_in
     integer,intent(in),optional                :: type_dataset_transfert_in
 
     integer              :: ii
     integer              :: max_len_char   ! maximum length of strings locally
-#ifdef __GFORTRAN__
-    integer              :: max_len_char_mpi ! overall maximum lenght of strings
-#else
-    integer,dimension(:),allocatable :: max_len_char_mpi ! maximum length of each task string
-#endif
     integer              :: type_dataset_transfert
     integer              :: ierr_HDF5  ! error flag
     integer              :: rank       ! dataset rank
@@ -312,23 +288,11 @@ module hdf5_io_module
     do ii=1,dim1
       max_len_char = max(max_len_char,len(array1D(ii)))
     enddo
-#ifdef __GFORTRAN__
-    if(present(mpi_comm)) then
-      call MPI_Allreduce(max_len_char,max_len_char_mpi,1,MPI_INTEGER,&
-      MPI_MAX,mpi_comm,ierr_HDF5); max_len_char = max_len_char_mpi;
+    if(present(mpi_comm_in)) then
+      call MPI_Allreduce(MPI_IN_PLACE,max_len_char,1,MPI_INTEGER,&
+      MPI_MAX,mpi_comm_in,ierr_HDF5);
     endif
-#else
-   if(present(mpi_comm).and.present(mpi_rank).and.present(n_mpi_tasks)) then
-     if(allocated(max_len_char_mpi(n_mpi_tasks))) deallocate(max_len_char_mpi)
-     if(mpi_rank.eq.master_rank) allocate(max_len_char_mpi(n_mpi_tasks))
-     call MPI_Gather(max_len_char,1,MPI_INTEGER,max_len_char_mpi,n_mpi_tasks,&
-     MPI_INTEGER,master_task,mpi_comm,ierr_HDF5)
-     if(mpi_rank.eq.master_rank) max_len_char = maxval(max_len_char_mpi)
-     call MPI_Bcast(max_len_char,1,MPI_INTEGER,master_task,&
-     mpi_comm,ierr_HDF5);
-     if(allocated(max_len_char_mpi)) deallocate(max_len_char_mpi)
-   endif
-#endif
+
     !*** Check property for parallel IO
     type_dataset_transfert = -1
     if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
