@@ -289,7 +289,9 @@ end subroutine load_eckstein_data
 !> Run this in an event every microsecond or less.
 !>
 !> Runs in 2 parts. First particle-particle sputtering and then particle-fluid
-!> sputtering.
+!> sputtering. 
+!>
+!> Is also used for neutral-neutral wall reflection and plasma-neutral recycling 
 subroutine do_particle_sputter(this, sim, ev)
   use mpi_mod
   use mod_atomic_elements, only: element_symbols
@@ -843,7 +845,7 @@ subroutine do_particle_sputter(this, sim, ev)
   end if
  
   if (n_samples .eq. n_free .and. this%n_sputter/sim%n_cpu .gt. n_free) then
-    write(*,"(i3,A,i3,A,i8,A,i8)") sim%my_id, 'Warning: could not sputter requested ', sim%n_cpu, 'x ', this%n_sputter/sim%n_cpu, ", bounded to ", n_samples
+    write(*,"(i3,A,i3,A,i8,A,i8)") sim%my_id, 'problem: could not sputter requested ', sim%n_cpu, 'x ', this%n_sputter/sim%n_cpu, ", bounded to ", n_samples
   end if
 
   ! Distribute the number of tries by integrated fluid sputtering yield (so the
@@ -1031,7 +1033,7 @@ subroutine do_particle_sputter(this, sim, ev)
       ! still is valid from the fluid perspective
       ! 10 mEv is very low already!
       if (sim%groups(this%target_group)%particles(i_p)%weight .le. 1.d4 .or. E .le. 1d-2) then ! if energy negative the sqrt below will cause trouble. If zero the particle will not enter the domain
-        !write(*,*) 'weight or E limit ', E, sputtered_energy_coeff, sputtering_yield, av_yield
+        write(*,*) 'problem: sputter weight or E limit ', E, sputtered_energy_coeff, sputtering_yield, av_yield
         sim%groups(this%target_group)%particles(i_p)%i_elm = 0
         cycle       
       end if
@@ -1058,7 +1060,7 @@ subroutine do_particle_sputter(this, sim, ev)
       ! NaN checks
       if (any(pa%x .ne. pa%x) .or. E .ne. E .or. pa%weight .ne. pa%weight) then
         pa%i_elm = 0 ! skip this one since sputtering went wrong
-        write(*,*) 'NaN check failed', E, pa%weight, pa%x
+        write(*,*) 'problem: NaN check failed', E, pa%weight, pa%x
         ! TODO debug logging? openmp threading though
       end if
       end associate

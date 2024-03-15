@@ -67,12 +67,11 @@ do i=1,n_cpu
         local_rec_elements(i) = local_rec_elements(i) +1	
 	endif
 enddo !n_cpu
-!write(*,*) "length local rec list", local_rec_elements(my_id+1)
-
+!write(*,*) "i, local rec el (i) / size",my_id, local_rec_elements(my_id+1), size(local_rec_elements), "sum ",sum(local_rec_elements(:)),"n_elem",element_list%n_elements
 
 !if not allocated, allocate rec_variables of size (n_elements)
 if(.not. allocated(rec_rate_local)) then
-    allocate(rec_rate_local(local_rec_elements(my_id+1)  )) !< local_rec_elements bcause it's local
+  allocate(rec_rate_local(local_rec_elements(my_id+1)  )) !< local_rec_elements bcause it's local
 	allocate(rec_v_R(local_rec_elements(my_id+1)    ))
 	allocate(rec_v_Z(local_rec_elements(my_id+1)    ))
 	allocate(rec_v_phi(local_rec_elements(my_id+1)  ))

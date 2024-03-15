@@ -4,7 +4,7 @@ implicit none
 contains
 !> Imports a restart file written out by the routine export_restart.
 
-subroutine import_restart(node_list, element_list, filename, format_rst, ierr, no_perturbations)
+subroutine import_restart(node_list, element_list, filename, format_rst, ierr, no_perturbations, index_start_out)
 
   use tr_module
   use data_structure
@@ -23,21 +23,25 @@ subroutine import_restart(node_list, element_list, filename, format_rst, ierr, n
   integer,                 intent(out)   :: ierr
   integer,                 intent(in)    :: format_rst  ! format of restart file 
   logical, optional,       intent(in)    :: no_perturbations ! don't initialize new harmonics
+  integer, optional,       intent(out)   :: index_start_out
  
   ! --- Local parameters
   type (type_bnd_element_list)           :: bnd_elm_list    
-  type (type_bnd_node_list)              :: bnd_node_list 
+  type (type_bnd_node_list)              :: bnd_node_list
+  integer                                :: ind_start
 
   if ( rst_hdf5 == 0 ) then
     write(*,*) " Restart from BINARY file " // trim(filename) // '.rst'
     call import_binary_restart(node_list, element_list, trim(filename)//'.rst', &
-            format_rst, ierr, no_perturbations)
+            format_rst, ierr, no_perturbations, ind_start)
   else if ( rst_hdf5 == 1 ) then
     write(*,*) " Restart from HDF5 file " // trim(filename) // '.h5'
     call import_hdf5_restart(node_list, element_list, trim(filename)//'.h5', &
-            format_rst,ierr, no_perturbations)
+            format_rst, ierr, no_perturbations, ind_start)
   end if
   
+if(present(index_start_out)) index_start_out = ind_start
+
   ! --- Required initializations to update equilibrium state
   call initialise_basis
   call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, .false.)
@@ -50,7 +54,7 @@ end subroutine import_restart
 
 !
 ! Import a binary restart file
-subroutine import_binary_restart(node_list, element_list, filename, format_rst, error, no_perturbations)
+subroutine import_binary_restart(node_list, element_list, filename, format_rst, error, no_perturbations, index_start_out)
 
   use tr_module 
   use data_structure
@@ -71,6 +75,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   integer,                 intent(out)   :: error
   integer,                 intent(in)    :: format_rst  ! format of restart file
   logical, optional,       intent(in)    :: no_perturbations ! don't initialize new harmonics
+  integer, optional,       intent(out)   :: index_start_out
   
   ! --- Local variables
   integer              :: i, j, m, k, n_tor_tmp
@@ -201,6 +206,8 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   read(21) index_start
   read(21) t_start
   
+  if(present(index_start_out)) index_start_out = index_start
+
   if (index_start .ge. 1) then
 
     if (allocated(xtime)) call tr_deallocate(xtime,"xtime",CAT_UNKNOWN)
@@ -726,7 +733,7 @@ end subroutine import_binary_restart
 
 !
 ! Import an HDF5 restart file
-subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, error, no_perturbations)
+subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, error, no_perturbations, index_start_out)
 
 #include "version.h"
 
@@ -755,7 +762,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   integer,                 intent(in)    :: format_rst  ! format of restart file
   integer,                 intent(out)   :: error
   logical, optional,       intent(in)    :: no_perturbations ! don't initialize new harmonics
-  
+  integer, optional,       intent(out)   :: index_start_out
+
   ! --- Perturbation-Import variables
   type (type_node_list)   , pointer	:: node_list_perturbation
   type (type_element_list), pointer	:: element_list_perturbation
@@ -1087,6 +1095,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_integer_reading(file_id,index_start,'index_now')
   call HDF5_real_reading(file_id,t_start,'t_now')
   
+  if(present(index_start_out)) index_start_out = index_start
+
   if (index_start .ge. 1) then
 
     if (allocated(xtime)) call tr_deallocate(xtime,"xtime",CAT_UNKNOWN)

@@ -122,7 +122,7 @@ subroutine do_particle_puffing(this,sim, ev)
 	
   class(particle_puffing) , intent(inout) :: this
   type(particle_sim), intent(inout)       :: sim
-  type(event), intent(inout), optional    :: ev !<STIJN> is this nececary?
+  type(event), intent(inout), optional    :: ev !! <STIJN> is this nececary?
 
   integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, n_puff_local,i_rng
   logical, allocatable, dimension(:) :: is_free
@@ -230,13 +230,13 @@ subroutine do_particle_puffing(this,sim, ev)
     if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
     
     if (to_puff .ge. n_free) then
-      write(*,*) "Warning could not puff the requested amount."
+      write(*,*) "problem: could not puff the requested amount."
 	  	to_puff = n_free
 	  end if
   else
       fueling_rate_t = this%fueling_rate
 	  if (n_puff_local .ge. n_free) then
-		write(*,*) "Warning could not puff the requested amount."
+		write(*,*) "problem: could not puff the requested amount."
 		to_puff = n_free
 	  else
 		to_puff = n_puff_local
@@ -263,22 +263,22 @@ subroutine do_particle_puffing(this,sim, ev)
  ! !$omp reduction(+:puffed_this_step_local,puff_weight_local)
     do j = 1, to_puff
       i_p = i_free(j)
-      do 
+      do !basically a do while .true. loop
 	  
-!	    !$ i_rng = omp_get_thread_num()+1
+        !	    !$ i_rng = omp_get_thread_num()+1
         call this%rng(1)%next(u) !rng(1)
-		if (.not. this%boxpuff) then
-			r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
-			theta = TWOPI * u(2)
-			R_new = this%R + r_valve * cos(theta)
-			Z_new = this%Z + r_valve * sin(theta)
-		else
-			s = u(1)
-			t = u(2)
-			R_new = this%poly_R(1)*(1.d0-s)*(1.d0-t) + this%poly_R(2)*s*(1.d0-t) + this%poly_R(3)*(1.d0-s)*t + this%poly_R(4)*s*t
-			Z_new = this%poly_Z(1)*(1.d0-s)*(1.d0-t) + this%poly_Z(2)*s*(1.d0-t) + this%poly_Z(3)*(1.d0-s)*t + this%poly_Z(4)*s*t
-		endif
-		
+        if (.not. this%boxpuff) then
+          r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
+          theta = TWOPI * u(2)
+          R_new = this%R + r_valve * cos(theta)
+          Z_new = this%Z + r_valve * sin(theta)
+        else
+          s = u(1)
+          t = u(2)
+          R_new = this%poly_R(1)*(1.d0-s)*(1.d0-t) + this%poly_R(2)*s*(1.d0-t) + this%poly_R(3)*(1.d0-s)*t + this%poly_R(4)*s*t
+          Z_new = this%poly_Z(1)*(1.d0-s)*(1.d0-t) + this%poly_Z(2)*s*(1.d0-t) + this%poly_Z(3)*(1.d0-s)*t + this%poly_Z(4)*s*t
+        endif
+        
         call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, R, Z, s, t, i_elm, &
         R_new, Z_new, s_new, t_new, i_elm_new, ifail)
         !call find_RZ(sim%fields%node_list, sim%fields%element_list, R_new, Z_new, R, Z, &
@@ -302,6 +302,7 @@ subroutine do_particle_puffing(this,sim, ev)
       pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   ! <STIJN> Maybe this needs to be isotropic, or 1+cos like?
       pa(i_p)%q       = 0_1
       if (sim%groups(1)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
+        if (sim%groups(1)%particles(i_p)%weight .ne. 0.d0) write(*,*) "problem: particle dumped in mod particle puffing due to extremely low weight",sim%groups(1)%particles(i_p)%weight
         sim%groups(1)%particles(i_p)%i_elm = 0
         cycle       
       end if
