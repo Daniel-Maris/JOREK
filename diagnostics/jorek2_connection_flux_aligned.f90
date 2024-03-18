@@ -284,8 +284,7 @@ program jorek2_connection_flux_aligned
         ! --- Record the first point
         R_all(i_line) = R_start
         Z_all(i_line) = Z_start
-        call get_rcoord(i_elm,s_line,t_line,phi_start,rcoord_all(i_line))
-        rcoord_all(i_line) = (rcoord_all(i_line) - ES%psi_axis) / (psi_bnd - ES%psi_axis)
+        call get_rcoord(i_elm,s_line,t_line,ES%psi_axis,psi_bnd,rcoord_all(i_line))
 
         R_turn(1,(i_dir+1)/2+1) = R_start
         Z_turn(1,(i_dir+1)/2+1) = Z_start
@@ -427,8 +426,7 @@ program jorek2_connection_flux_aligned
               ! --- Exit if we stepped out of domain
               if (i_elm .eq. 0) exit
               
-              call get_rcoord(i_elm,s_line,t_line,rcoord_tmp)
-              rcoord_tmp = (rcoord_tmp - ES%psi_axis) / (psi_bnd - ES%psi_axis)
+              call get_rcoord(i_elm,s_line,t_line,ES%psi_axis,psi_bnd,rcoord_tmp)
               if (rcoord_tmp .gt. rcoord_strike_bnd) exit
             enddo  ! end of loop over steps within one element
     
@@ -516,8 +514,8 @@ program jorek2_connection_flux_aligned
               
               if (ikeep .le. n_points_max) then
                 call find_RZ(node_list,element_list,R_turn(i_turn,i_dir),Z_turn(i_turn,i_dir),R_tmp,Z_tmp,ielm_tmp,s_tmp,t_tmp,ifail)
-                call get_rcoord(i_elm,s_tmp,t_tmp,rcoord_tmp)
-                RhoThetakeep(1,ikeep)      = (rcoord_tmp-ES%psi_axis)/(psi_bnd-ES%psi_axis)!small_r
+                call get_rcoord(i_elm,s_tmp,t_tmp,ES%psi_axis,psi_bnd,rcoord_tmp)
+                RhoThetakeep(1,ikeep)      = rcoord_tmp               !small_r
                 RhoThetakeep(2,ikeep)      = theta_pol / (2.d0*PI)
                 RZkeep(1,ikeep)            = R_turn(i_turn,i_dir)
                 RZkeep(2,ikeep)            = Z_turn(i_turn,i_dir)
@@ -672,7 +670,7 @@ program jorek2_connection_flux_aligned
 #if STELLARATOR_MODEL
     write(23,*) "# R    Z    phi    sqrt{Phi_N}    T    Connection_length    in_domain"
 #else
-    write(23,*) "# R    Z    phi    Psi_N    T    Connection_length    in_domain"
+    write(23,*) "# R    Z    phi    sqrt{Psi_N}    T    Connection_length    in_domain"
 #endif
     write(23,'(7f22.8)') ( (/ R_strike(i), Z_strike(i), P_strike(i), Ps0_strike(i), T0_strike(i), C_strike(i), in_domain_strike(i) /),i=1,i_strike0)
   endif
@@ -747,8 +745,8 @@ subroutine find_starting_element(i_elm, &
   ! local variables
   real*8                 :: r_lower, r_upper, r_tmp                                                    ! Upper and lower bounds for search
   real*8                 :: BigR_tmp, BigR_upper, BigR_lower, Z_upper, Z_lower, Z_tmp                  ! R-Z Coordinates of upper and lower bound
-  real*8                 :: rcoord_diff, delta_psi_bnd                                                 ! delta psi between upper and lower boundaries and normalising constant for psi
-  real*8                 :: rcoord_upper, rcoord_lower, rcoord_tmp, P0_s,P0_t,P0_st,P0_ss,P0_tt           ! rcoord_upper, rcoord_lower and dummy variables for interpolation
+  real*8                 :: rcoord_diff                                                                ! delta psi between upper and lower boundaries and normalising constant for psi
+  real*8                 :: rcoord_upper, rcoord_lower, rcoord_tmp, P0_s,P0_t,P0_st,P0_ss,P0_tt        ! rcoord_upper, rcoord_lower and dummy variables for interpolation
   logical                :: rcoord_lower_gt_rcoord_start, rcoord_upper_lt_rcoord_start                 ! truth statements for upper and lower bounds
   logical                :: z_beyond_xpoint                                                            ! logical to test if current bounds are in xpoint region
   integer                :: ifail=0                                                                    ! flag for algorithm failure
@@ -757,7 +755,6 @@ subroutine find_starting_element(i_elm, &
   integer                :: sub_iter=0                                                                 ! Number of sub-iterations in algorithm
   integer                :: max_iterations=100                                                         ! maximum iterations in hunting and bisection algorithms
   
-  delta_psi_bnd = psi_bnd - psi_axis
   if (previous_r_lower .ge. previous_r_upper) then
     write(*, *) 'Inconsistent starting values for finding new element: ', previous_r_lower, previous_r_upper
     stop
@@ -772,8 +769,7 @@ subroutine find_starting_element(i_elm, &
     write(*, *) 'Lower find_RZ failed'
     stop
   endif
-  call get_rcoord(i_elm,s_ini,t_ini,rcoord_lower)
-  rcoord_lower = (rcoord_lower - psi_axis) / delta_psi_bnd
+  call get_rcoord(i_elm,s_ini,t_ini,psi_axis,psi_bnd,rcoord_lower)
   
   r_upper = previous_r_upper
   BigR_tmp = R_axis + r_upper * cos(theta_start)
@@ -783,8 +779,7 @@ subroutine find_starting_element(i_elm, &
     write(*, *) 'Upper find_RZ failed'
     stop
   endif
-  call get_rcoord(i_elm,s_ini,t_ini,rcoord_upper)
-  rcoord_upper = (rcoord_upper - psi_axis) / delta_psi_bnd
+  call get_rcoord(i_elm,s_ini,t_ini,psi_axis,psi_bnd,rcoord_upper)
   
   ! Peform hunting algorithm
   ! Check boundaries are consistent
@@ -818,8 +813,7 @@ subroutine find_starting_element(i_elm, &
         write(*, *) 'Lower find_RZ failed'
         stop
       endif
-      call get_rcoord(i_elm,s_ini,t_ini,rcoord_lower)
-      rcoord_lower = (rcoord_lower - psi_axis) / delta_psi_bnd
+      call get_rcoord(i_elm,s_ini,t_ini,psi_axis,psi_bnd,rcoord_lower)
     else if (rcoord_upper_lt_rcoord_start) then
       r_tmp = r_upper
       r_upper = r_upper + 2 * abs(r_upper - r_lower)
@@ -850,8 +844,7 @@ subroutine find_starting_element(i_elm, &
           .or.( (xcase .eq. 2) .and. (Z_upper .gt. Z_xpoint(2)) ) &
           .or.( (xcase .eq. 3) .and. ((Z_upper .lt. Z_xpoint(1)) .or. (Z_upper .gt. Z_xpoint(2))))))
       enddo
-      call get_rcoord(i_elm,s_ini,t_ini,rcoord_upper)
-      rcoord_upper = (rcoord_upper - psi_axis) / delta_psi_bnd
+      call get_rcoord(i_elm,s_ini,t_ini,psi_axis,psi_bnd,rcoord_upper)
     endif
 
     rcoord_lower_gt_rcoord_start = (rcoord_lower .gt. rcoord_start)
@@ -874,8 +867,7 @@ subroutine find_starting_element(i_elm, &
     BigR_tmp = R_axis + r_tmp * cos(theta_start)
     Z_tmp = Z_axis + r_tmp * sin(theta_start)
     call find_RZ(node_list, element_list, BigR_tmp, Z_tmp, R_start, Z_start, i_elm, s_ini, t_ini, ifail)
-    call get_rcoord(i_elm, s_ini,t_ini, rcoord_tmp)
-    rcoord_tmp = (rcoord_tmp - psi_axis) / delta_psi_bnd
+    call get_rcoord(i_elm, s_ini,t_ini,psi_axis,psi_bnd,rcoord_tmp)
     
     ! Set new boundaries
     if (rcoord_start .lt. rcoord_tmp) then
@@ -888,7 +880,7 @@ subroutine find_starting_element(i_elm, &
   enddo
 end
 
-subroutine get_rcoord(i_elem,s_in,t_in,rcoord_out)
+subroutine get_rcoord(i_elem,s_in,t_in,psi_axis,psi_bnd,rcoord_out)
   use mod_parameters
   use elements_nodes_neighbours
   use phys_module
@@ -897,15 +889,18 @@ subroutine get_rcoord(i_elem,s_in,t_in,rcoord_out)
   implicit none
   
   integer, intent(in)   :: i_elem
-  real*8, intent(in)    :: s_in, t_in
+  real*8, intent(in)    :: s_in, t_in,psi_axis,psi_bnd
   real*8, intent(inout) :: rcoord_out
 
   real*8                :: dummy
-
+  
+  write(*,*) psi_axis, psi_bnd
 #if STELLARATOR_MODEL
   call interp_gvec(node_list,element_list,i_elem,4,1,1,s_in,t_in,rcoord_out,dummy,dummy,dummy,dummy,dummy)
+  rcoord_out = (rcoord_out - psi_axis) / (psi_bnd - psi_axis)
 #else
   call interp(node_list,element_list,i_elem,1,1,s_in,t_in,rcoord_out,dummy,dummy,dummy,dummy,dummy)
+  rcoord_out = sqrt((rcoord_out - psi_axis) / (psi_bnd - psi_axis))
 #endif
 
   return
