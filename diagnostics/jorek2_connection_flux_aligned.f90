@@ -894,7 +894,6 @@ subroutine get_rcoord(i_elem,s_in,t_in,psi_axis,psi_bnd,rcoord_out)
 
   real*8                :: dummy
   
-  write(*,*) psi_axis, psi_bnd
 #if STELLARATOR_MODEL
   call interp_gvec(node_list,element_list,i_elem,4,1,1,s_in,t_in,rcoord_out,dummy,dummy,dummy,dummy,dummy)
   rcoord_out = (rcoord_out - psi_axis) / (psi_bnd - psi_axis)
