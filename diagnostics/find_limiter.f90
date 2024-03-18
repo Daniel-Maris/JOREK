@@ -47,7 +47,7 @@ end if
 
 #if STELLARATOR_MODEL
 ! Psi cannot be used to define the limiter in stellarator cases
-psi_lim = 999.d0
+psi_lim = 1.d0
 R_lim   = 0.d0
 Z_lim   = 0.d0
 ifail   = 1
