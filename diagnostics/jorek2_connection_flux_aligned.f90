@@ -30,6 +30,7 @@ program jorek2_connection_flux_aligned
   use mod_neighbours
   use mod_interp
   use equil_info
+  use mod_chi
   
   implicit none
 
@@ -113,11 +114,10 @@ program jorek2_connection_flux_aligned
   endif
   
   ! --- Initilise data
+  call det_modes()
   call initialise_basis                                     ! define the basis functions at the Gaussian points
+  call init_chi_basis
   call initialise_parameters(my_id, "__NO_FILENAME__")
-  do i_tor=1, n_tor
-    mode(i_tor) = + int(i_tor / 2) * n_period
-  enddo
   
   call broadcast_phys(my_id)                                ! physics parameters
   call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr)
@@ -182,7 +182,7 @@ program jorek2_connection_flux_aligned
   allocate(R_turn(n_turns+1,2),Z_turn(n_turns+1,2),C_turn(n_turns+1,2),C_turn_tmp(n_turns+1,2))
   allocate(T_turn(n_turns+1,2),PSI_turn(n_turns+1,2),ZN_turn(n_turns+1,2))
   n_points_max = 10000000
-  allocate(RZkeep(2,n_points_max),RhoThetakeep(2,n_points_max))
+  allocate(RZkeep(3,n_points_max),RhoThetakeep(3,n_points_max))
 
   ! --- Initialise allocated data
   R_all     = 0.d0; Z_all     = 0.d0; rcoord_all=0.d0;   C_all = 0.d0;  
@@ -258,12 +258,8 @@ program jorek2_connection_flux_aligned
       rcoord_start = rcoord_range_min + j * delta_rcoord
       call find_starting_element(i_elm_start, rcoord_start, ES%psi_axis, psi_bnd, theta_start, ES%R_axis, ES%Z_axis, ES%Z_xpoint, s_ini, t_ini, previous_r_lower, previous_r_upper, R_start, Z_start)
 
-      ! ----------------------
-      ! --- We have a new line
-      ! ----------------------
+      ! Increment line count and Initialise temporary data (for the line)
       i_line = i_line + 1
-    
-      ! --- Initialise temporary data (for the line)
       R_turn     = 0.d0
       Z_turn     = 0.d0
       C_turn_tmp = 0.d0
@@ -416,7 +412,7 @@ program jorek2_connection_flux_aligned
     
               endif
 
-              ! --- Reset the toroial step
+              ! --- Reset the toroidal step
               delta_phi_local = delta_phi_local + small_delta * delta_phi_step
     
               ! --- Record total lengths
@@ -425,7 +421,6 @@ program jorek2_connection_flux_aligned
 
               ! --- Exit if we stepped out of domain
               if (i_elm .eq. 0) exit
-              
               call get_rcoord(i_elm,s_line,t_line,ES%psi_axis,psi_bnd,rcoord_tmp)
               if (rcoord_tmp .gt. rcoord_strike_bnd) exit
             enddo  ! end of loop over steps within one element
@@ -517,8 +512,10 @@ program jorek2_connection_flux_aligned
                 call get_rcoord(i_elm,s_tmp,t_tmp,ES%psi_axis,psi_bnd,rcoord_tmp)
                 RhoThetakeep(1,ikeep)      = rcoord_tmp               !small_r
                 RhoThetakeep(2,ikeep)      = theta_pol / (2.d0*PI)
+                RhoThetakeep(3,ikeep)      = C_all(i_line)
                 RZkeep(1,ikeep)            = R_turn(i_turn,i_dir)
                 RZkeep(2,ikeep)            = Z_turn(i_turn,i_dir)
+                RZkeep(3,ikeep)            = C_all(i_line)
               else
                 write(*,*) 'Warning! Exceeded maximum number of points',n_points_max
               endif
@@ -556,17 +553,17 @@ program jorek2_connection_flux_aligned
   
   ! --- Open file and write headers
   open(21,file='poinc_R-Z.dat',status='replace')
-  write(21,*) '#  R                 Z'
+  write(21,*) '#  R                 Z             Connection Length'
   open(22,file='poinc_rho-theta.dat',status='replace')
   write(22,*) '# rho=sqrt(psi_n)'
   write(22,*) '# psi_n=(psi - ES%psi_axis)/(psi_bnd - ES%psi_axis)'
   write(22,*) '#'
-  write(22,*) '#  rho               theta'
+  write(22,*) '#  rho               theta         Connection Length'
   
   ! --- Write points for local MPI (id=0)
   if (my_id .eq. 0) then
-    write(21,'(2e18.8)') (RZkeep(1,i),RZkeep(2,i), i=1,ikeep0 )
-    write(22,'(2e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i), i=1,ikeep0 )
+    write(21,'(3e18.8)') (RZkeep(1,i),RZkeep(2,i),RZkeep(3,i), i=1,ikeep0 )
+    write(22,'(3e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i),RhoThetakeep(3,i), i=1,ikeep0 )
     write(21,*)
     write(21,*)
     write(22,*)
@@ -579,11 +576,11 @@ program jorek2_connection_flux_aligned
     do j=1,n_cpu-1
       call mpi_recv(ikeep,1, MPI_INTEGER, j, j, MPI_COMM_WORLD, status, ierr)
       if (ikeep .gt. 0) then
-        nrecv = 2*ikeep
+        nrecv = 3*ikeep
         call mpi_recv(RZkeep,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         call mpi_recv(RhoThetakeep,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
-        write(21,'(2e18.8)') (RZkeep(1,i),RZkeep(2,i), i=1,ikeep0 )
-        write(22,'(2e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i), i=1,ikeep0 )
+        write(21,'(3e18.8)') (RZkeep(1,i),RZkeep(2,i),RZkeep(3,i), i=1,ikeep0 )
+        write(22,'(3e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i),RhoThetakeep(3,i), i=1,ikeep0 )
         write(21,*)
         write(21,*)
         write(22,*)
@@ -594,11 +591,12 @@ program jorek2_connection_flux_aligned
     ! --- If this is not mpi_0, we send data to the main MPI 0
     call mpi_send(ikeep, 1, MPI_INTEGER, 0, my_id, MPI_COMM_WORLD, ierr)
     if (ikeep .gt. 0) then
-      nsend = 2*ikeep
+      nsend = 3*ikeep
       call mpi_send(RZkeep, nsend,MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
       call mpi_send(RhoThetakeep, nsend,MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
     endif
   endif
+  deallocate(RZkeep,RhoThetakeep)
 
   ! -------------------------------------------------------------------------------------------------
   ! --- Fourth part: write connection lengths to file
@@ -648,8 +646,6 @@ program jorek2_connection_flux_aligned
     endif
   endif
   close(23)
-
-  deallocate(RZkeep,RhoThetakeep)
 
   ! -------------------------------------------------------------------------------------------------
   ! -------------------------------------------------------------------------------------------------
@@ -1010,7 +1006,6 @@ subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t,R,Z,R_s,R_t,Z_s,Z_t
   integer :: i_var_psi, i_elm, i_tor, i_harm
   
   real*8 :: s_in, t_in, p_in, delta_p, delta_s, delta_t
-  real*8 :: R_out, Z_out, Rs_out, Rt_out, Zs_out, Zt_out
   real*8 :: R,R_s,R_t,R_p,Z,Z_s,Z_t,Z_p,dummy
   real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
   real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, psi_R, psi_z, psi_p, st_psi_p, Zjac
