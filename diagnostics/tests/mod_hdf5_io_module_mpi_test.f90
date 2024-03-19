@@ -51,6 +51,7 @@ subroutine run_fruit_hdf5_io_module_mpi(rank,n_tasks,ifail)
   call run_test_case(test_HDF5_real_saving,"test_HDF5_integer_saving")
   call run_test_case(test_HDF5_array1D_saving_int,"test_HDF5_array1D_saving_int")
   call run_test_case(test_HDF5_array2D_saving_int,"test_HDF5_array2D_saving_int")
+  call run_test_case(test_HDF5_array3D_saving_int,"test_HDF5_array3D_saving_int")
   call run_test_case(test_HDF5_array1D_saving_r4,"test_HDF5_array1D_saving_r4")
   call run_test_case(test_HDF5_real_saving,"test_HDF5_real_saving")
   call run_test_case(test_HDF5_array1D_saving_r8,"test_HDF5_array1D_saving_r8")
@@ -334,6 +335,38 @@ subroutine test_HDF5_array2D_saving_int()
   call assert_equals(test_array,result_array,n_elements(1),n_elements(2),&
   "Error test HDF5 I/O 2D integer MPI collective: test and result array mismatch!")
 end subroutine test_HDF5_array2D_saving_int
+
+!> the the posix and collective writing / reading HDF5 file
+!> of double 3D array
+subroutine test_HDF5_array3D_saving_int()
+  use mod_assert_equals_tools, only: assert_equals_extended
+  implicit none
+  character(len=11),parameter                                  :: datasetname='array3D_int'
+  integer,dimension(n_elements(1),n_elements(2),n_elements(3)) :: test_array,result_array
+  integer(HID_T)                                               :: file_id
+  integer(HID_T),dimension(3)                                  :: offset
+  character(len=100)                                           :: filename 
+  !> initialise posix test
+  test_array = 0; result_array = int(1d3*array_sol(:,:,:,1,1));
+  write(filename,'(A,A,I'//trim(rank_format)//',A)') &
+  trim(filename_base),'_rank',rank_loc,trim(extension)
+  ifail_loc=0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
+  call HDF5_array3D_saving_int(file_id,result_array,n_elements(1),n_elements(2),&
+  n_elements(3),datasetname); call HDF5_array3D_reading_int(file_id,test_array,datasetname)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
+  result_array,"Error test HDF5 I/O 3D integer posix: test and result array mismatch!")
+  filename = trim(filename_base)//trim(extension); offset=[0,0,rank_loc*n_elements(3)];
+  test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
+  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_array3D_saving_int(file_id,result_array,n_elements(1),n_elements(2),&
+  n_tasks_loc*n_elements(3),datasetname,start=offset,&
+  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  call HDF5_array3D_reading_int(file_id,test_array,datasetname,start=offset)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
+  result_array,"Error test HDF5 I/O 3D integer MPI collective: test and result array mismatch!")
+end subroutine test_HDF5_array3D_saving_int
 
 !> the the posix and collective writing / reading HDF5 file
 !> of floats 1D array

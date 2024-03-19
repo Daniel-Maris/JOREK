@@ -610,22 +610,31 @@ module hdf5_io_module
   ! gzip HDF5 saving for a 3D array integer
   !----------------------------------------
   subroutine HDF5_array3D_saving_int(file_id,array3D, &
-    dim1,dim2,dim3,dsetname,start,compress_level)
+    dim1,dim2,dim3,dsetname,start,compress_level,type_dataset_transfert_in)
     integer(HID_T)          , intent(in) :: file_id   ! file identifier
     integer, dimension(:,:,:), intent(in) :: array3D
     integer                 , intent(in) :: dim1, dim2, dim3
     character(LEN=*)        , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to write
     integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
+    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(3)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
     integer(HID_T)      :: dataspace  ! dataspace identifier
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
+    integer(HID_T)      :: transfer_property ! Transfer property list identifier
+
+
+    !*** Check property for parallel IO
+    type_dataset_transfert = -1
+    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -652,7 +661,7 @@ module hdf5_io_module
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
       start=start, count=shape(array3D,kind=HSIZE_T), hdferr=error)
       call H5Dwrite_f(dataset,H5T_NATIVE_INTEGER,array3D,dim,error, &
-          file_space_id=filespace, mem_space_id=dataspace)
+          file_space_id=filespace, mem_space_id=dataspace,xfer_prp=transfer_property)
       call H5Sclose_f(dataspace,error)
     else
       call H5Dwrite_f(dataset,H5T_NATIVE_INTEGER,array3D,dim,error)
@@ -1556,6 +1565,52 @@ module hdf5_io_module
     call H5Sclose_f(dataspace_id,error)
     call H5Dclose_f(dataset_id,error)
   end subroutine HDF5_allocatable_array2D_reading_int
+
+  !---------------------------------------- 
+  ! HDF5 reading for an integer array 3D
+  !----------------------------------------
+  subroutine HDF5_array3D_reading_int(file_id,array3D,dsetname,&
+       in1, in2, in3,start)
+    implicit none
+    integer(HID_T)     , intent(in)       :: file_id   ! file identifier
+    integer            , dimension(:,:,:) :: array3D
+    character(LEN=*)   , intent(in)       :: dsetname  ! dataset name
+    integer, intent(in), optional  :: in1, in2, in3
+    integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to read
+    integer             :: error      ! error flag
+    integer             :: rank       ! dataset rank
+    integer(HSIZE_T), &
+      dimension(3)      :: dim        ! dataset dimensions
+    integer(HID_T)      :: dataset    ! dataset identifier
+    integer(HID_T)      :: dataspace  ! dataspace identifier
+    integer(HID_T)      :: filespace  ! dataspace identifier
+
+    !*** file opening ***
+    call H5Dopen_f(file_id,trim(dsetname),dataset,error)
+   
+    !*** read the integer data to the dataset ***
+    !***  using default transfer properties   ***
+    if (present(in1) .and. present(in2) .and. present(in3)) then
+      dim = [in1, in2, in3]
+    else
+      dim = shape(array3D)
+    end if
+    if (present(start)) then
+      call H5Dget_space_f(dataset,filespace,error)
+      call H5Screate_simple_f(3,dim,dataspace,error)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=start, count=shape(array3D,kind=HSIZE_T), hdferr=error)
+      call H5Dread_f(dataset,H5T_NATIVE_INTEGER,array3D,dim,error, &
+          file_space_id=filespace, mem_space_id=dataspace)
+      call H5Sclose_f(filespace,error)
+      call H5Sclose_f(dataspace,error)
+    else
+      call H5Dread_f(dataset,H5T_NATIVE_INTEGER,array3D,dim,error)
+    end if
+
+    !*** Closing ***
+    call H5Dclose_f(dataset,error)
+  end subroutine HDF5_array3D_reading_int
 
   !---------------------------------------- 
   ! HDF5 reading for an array 2D
