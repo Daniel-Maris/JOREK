@@ -1279,7 +1279,7 @@ module hdf5_io_module
         !*** load a data slab of size reqdims and start start ***
         !*** using default transfer properties ***
         allocate(array1D(reqdims(1))); array1D = 0;
-        call H5Screate_simple_f(1,reqdims,dataspace_req_id,error)
+        call H5Screate_simple_f(rank,reqdims,dataspace_req_id,error)
         call H5Sselect_hyperslab_f(dataspace_id, H5S_SELECT_SET_F, &
         start=start, count=shape(array1D,kind=HSIZE_T), hdferr=error)
         call H5Dread_f(dataset_id,H5T_NATIVE_INTEGER,array1D,reqdims,error, &
@@ -1372,8 +1372,8 @@ module hdf5_io_module
         !*** load a data slab of size reqdims and start start ***
         !*** using default transfer properties ***
         allocate(array2D(reqdims(1),reqdims(2))); array2D = 0;
-        call H5Screate_simple_f(1,reqdims,dataspace_req_id,error)
-        call H5Sselect_hyperslab_f(dataset_id, H5S_SELECT_SET_F, &
+        call H5Screate_simple_f(rank,reqdims,dataspace_req_id,error)
+        call H5Sselect_hyperslab_f(dataspace_id, H5S_SELECT_SET_F, &
         start=start, count=shape(array2D,kind=HSIZE_T), hdferr=error)
         call H5Dread_f(dataset_id,H5T_NATIVE_INTEGER,array2D,reqdims,error, &
             file_space_id=dataspace_id, mem_space_id=dataspace_req_id)
