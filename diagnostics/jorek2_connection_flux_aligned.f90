@@ -431,16 +431,6 @@ program jorek2_connection_flux_aligned
     
           ! --- Exit if we stepped out of domain
           if ((i_elm .eq. 0)) exit
-    
-          ! --- Record Poincare point
-          call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_in,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
-                                                                            Z_in,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
-          R_turn(i_turn+1,(i_dir+1)/2+1) = R_in
-          Z_turn(i_turn+1,(i_dir+1)/2+1) = Z_in
-          C_turn_tmp(i_turn+1,(i_dir+1)/2+1) = total_length
-          call var_value(i_elm, i_var_T, s_line,t_line,p_line, T_turn  (i_turn+1,(i_dir+1)/2+1) )
-          call var_value(i_elm, i_var_psi, s_line,t_line,p_line, PSI_turn(i_turn+1,(i_dir+1)/2+1) )
-          call var_value(i_elm, i_var_n, s_line,t_line,p_line, ZN_turn (i_turn+1,(i_dir+1)/2+1) )
           
           ! Finish line if it has struck the rcoord based boundary
           if (rcoord_tmp .gt. rcoord_strike_bnd) then
@@ -452,6 +442,16 @@ program jorek2_connection_flux_aligned
             call var_value(i_elm,i_var_n,s_line,t_line,p_line,ZN_strike(i_strike))
             exit
           endif
+
+          ! --- Record Poincare point
+          call interp_RZP(node_list,element_list,i_elm,s_line,t_line,p_line,R_in,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
+                                                                            Z_in,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
+          R_turn(i_turn+1,(i_dir+1)/2+1) = R_in
+          Z_turn(i_turn+1,(i_dir+1)/2+1) = Z_in
+          C_turn_tmp(i_turn+1,(i_dir+1)/2+1) = total_length
+          call var_value(i_elm, i_var_T, s_line,t_line,p_line, T_turn  (i_turn+1,(i_dir+1)/2+1) )
+          call var_value(i_elm, i_var_psi, s_line,t_line,p_line, PSI_turn(i_turn+1,(i_dir+1)/2+1) )
+          call var_value(i_elm, i_var_n, s_line,t_line,p_line, ZN_turn (i_turn+1,(i_dir+1)/2+1) )
         enddo  ! end of loop over toroidal turns
     
         ! --- Field line still in domain, after n_turn turns
