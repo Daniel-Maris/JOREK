@@ -224,7 +224,7 @@ subroutine test_HDF5_array1D_saving_char()
   character(len=12),parameter               :: datasetname='array1D_char'
   character(len=len_char),dimension(n_char) :: test_array,result_array
   integer(HID_T)                            :: file_id
-  integer(HID_T),dimension(1)               :: offset
+  integer(HSIZE_T),dimension(1)             :: offset
   character(len=100)                        :: filename 
   !> initialise posix test
   test_array = ''; result_array = char_sol;
@@ -286,8 +286,7 @@ subroutine test_HDF5_array1D_saving_int()
   integer,dimension(n_elements(1)) :: test_array,result_array
   integer,dimension(:),allocatable :: test_array_allocatable
   integer(HID_T)                   :: file_id
-  integer(HID_T),dimension(1)      :: offset
-  integer(HSIZE_T),dimension(1)    :: reqdim
+  integer(HSIZE_T),dimension(1)    :: offset,reqdim
   character(len=100)               :: filename 
   !> initialise posix test
   test_array = 0; result_array = int(1d3*array_sol(:,1,1,1,1));
@@ -338,8 +337,7 @@ subroutine test_HDF5_array2D_saving_int()
   integer,dimension(n_elements(1),n_elements(2)) :: test_array,result_array
   integer,dimension(:,:),allocatable             :: test_array_allocatable
   integer(HID_T)                                 :: file_id
-  integer(HID_T),dimension(2)                    :: offset
-  integer(HSIZE_T),dimension(2)                  :: reqdim
+  integer(HSIZE_T),dimension(2)                  :: offset,reqdim
   character(len=100)                             :: filename 
   !> initialise posix test
   test_array = 0; result_array = int(1d3*array_sol(:,:,1,1,1));
@@ -389,7 +387,7 @@ subroutine test_HDF5_array3D_saving_int()
   character(len=11),parameter                                  :: datasetname='array3D_int'
   integer,dimension(n_elements(1),n_elements(2),n_elements(3)) :: test_array,result_array
   integer(HID_T)                                               :: file_id
-  integer(HID_T),dimension(3)                                  :: offset
+  integer(HSIZE_T),dimension(3)                                :: offset
   character(len=100)                                           :: filename 
   !> initialise posix test
   test_array = 0; result_array = int(1d3*array_sol(:,:,:,1,1));
@@ -420,7 +418,7 @@ subroutine test_HDF5_array1D_saving_r4()
   character(len=11),parameter      :: datasetname='array1D_r4'
   real*4,dimension(n_elements(1))  :: test_array,result_array
   integer(HID_T)                   :: file_id
-  integer(HID_T),dimension(1)      :: offset
+  integer(HSIZE_T),dimension(1)    :: offset
   character(len=100)               :: filename 
   !> initialise posix test
   test_array = 0.0; result_array = real(array_sol(:,1,1,1,1),kind=4);
@@ -584,7 +582,7 @@ subroutine test_HDF5_array3D_saving_r8()
   real*8,dimension(n_elements(1),n_elements(2),n_elements(3)) :: test_array,result_array
   real*8,dimension(:,:,:),allocatable                         :: test_array_allocatable
   integer(HID_T)                                              :: file_id
-  integer(HID_T),dimension(3)                                 :: offset,reqdim
+  integer(HSIZE_T),dimension(3)                               :: offset,reqdim
   character(len=100)                                          :: filename 
   !> initialise posix test
   test_array = 0d0; result_array = array_sol(:,:,:,1,1);
@@ -639,7 +637,7 @@ subroutine test_HDF5_array4D_saving_r8()
   n_elements(3),n_elements(4))                    :: test_array,result_array
   real*8,dimension(:,:,:,:),allocatable           :: test_array_allocatable
   integer(HID_T)                                  :: file_id
-  integer(HID_T),dimension(4)                     :: offset,reqdim
+  integer(HSIZE_T),dimension(4)                   :: offset,reqdim
   character(len=100)                              :: filename 
   !> initialise posix test
   test_array = 0d0; result_array = array_sol(:,:,:,:,1);
@@ -688,12 +686,14 @@ end subroutine test_HDF5_array4D_saving_r8
 !> of double 5D array
 subroutine test_HDF5_array5D_saving_r8()
   use mod_assert_equals_tools, only: assert_equals_extended
+  use mod_assert_equals_tools, only: assert_equals_allocatable_arrays
   implicit none
   character(len=11),parameter                     :: datasetname='array5D_r8'
   real*8,dimension(n_elements(1),n_elements(2),&
   n_elements(3),n_elements(4),n_elements(5))      :: test_array,result_array
+  real*8,dimension(:,:,:,:,:),allocatable         :: test_array_allocatable
   integer(HID_T)                                  :: file_id
-  integer(HID_T),dimension(5)                     :: offset
+  integer(HSIZE_T),dimension(5)                   :: offset,reqdim
   character(len=100)                              :: filename 
   !> initialise posix test
   test_array = 0d0; result_array = array_sol;
@@ -718,6 +718,26 @@ subroutine test_HDF5_array5D_saving_r8()
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),&
   n_elements(4),n_elements(5),test_array,result_array,tol_r8,&
   "Error test HDF5 I/O 5D double MPI collective: test and result array mismatch!")
+  write(filename,'(A,A,I'//trim(rank_format)//',A)') &
+  trim(filename_base),'_rank',rank_loc,trim(extension)
+  call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
+  call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
+  n_elements(5),datasetname); call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
+  datasetname); call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),n_elements(5),&
+  result_array,test_array_allocatable,tol_r8,"Error test HDF5 I/O 5D double allocatable MPI collective:")
+  filename = trim(filename_base)//trim(extension); offset=[0,0,0,0,rank_loc*n_elements(5)];
+  reqdim = [int(n_elements(1),kind=HSIZE_T),int(n_elements(2),kind=HSIZE_T),int(n_elements(3),kind=HSIZE_T),&
+  int(n_elements(4),kind=HSIZE_T),int(n_elements(5),kind=HSIZE_T)]; test_array_allocatable = 0d0; 
+  call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
+  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
+  n_tasks_loc*n_elements(5),datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
+  datasetname,start=offset,reqdims=reqdim); call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),n_elements(5),&
+  result_array,test_array_allocatable,tol_r8,"Error test HDF5 I/O 5D double allocatable reqdims MPI collective:")
+  if(allocated(test_array_allocatable)) deallocate(test_array_allocatable)
 end subroutine test_HDF5_array5D_saving_r8
 
 !> Tools ------------------------------------------------------

@@ -1968,8 +1968,8 @@ module hdf5_io_module
         !*** load a data slab of size reqdims and start start ***
         !*** using default transfer properties ***
         allocate(array5D(reqdims(1),reqdims(2),reqdims(3),reqdims(4),reqdims(5))); 
-        array5D = 0d0; call H5Screate_simple_f(1,reqdims,dataspace_req_id,error)
-        call H5Sselect_hyperslab_f(dataset_id, H5S_SELECT_SET_F, &
+        array5D = 0d0; call H5Screate_simple_f(rank,reqdims,dataspace_req_id,error)
+        call H5Sselect_hyperslab_f(dataspace_id, H5S_SELECT_SET_F, &
         start=start, count=shape(array5D,kind=HSIZE_T), hdferr=error)
         call H5Dread_f(dataset_id,H5T_NATIVE_DOUBLE,array5D,reqdims,error, &
             file_space_id=dataspace_id, mem_space_id=dataspace_req_id)
