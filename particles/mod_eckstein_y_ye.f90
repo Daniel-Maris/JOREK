@@ -25,9 +25,12 @@ public :: eckstein_coeff_set, eckstein_sputter_yield, eckstein_sputtered_energy_
 
 !> Eckstein angle dependency fit coefficients, determining the function
 !> \[
-!>   \frac{Y(E_0,\theta_0)}{Y(E_0,0)} = \left( \cos\left[\left(\frac{\pi \theta}{2 theta^*}\right)^c\right] \right)^{-f}
-!>     \exp\left[b\left(1 - \left(\cos\left[\left(\frac{\pi\theta_0}{2\theta^*}\right)^c\right]\right)^{-1}\right]
+!>   \frac{Y(E_0,\theta_0)}{Y(E_0,0)} = \left( \cos\left[\left(\frac{\pi \theta_0}{2 \theta^*}
+!>      \right)^c\right] \right)^{-f} \exp\left[b\left(1 - \left(\cos\left[\left(\frac{\pi\theta_0}
+!>      {2\theta^*}\right)^c\right]\right)^{-1}\right)\right]
 !> \]
+
+
 !> where $\theta$ is in degrees, but $\theta^*$ is in radians.
 !> See [[evaluate_eckstein_formula]] for an implementation
 type :: eckstein_coeff
@@ -157,6 +160,7 @@ pure subroutine interp_factors(E,yn,i1,i2,a)
 
   E1 = yn(i1)%E0
   E2 = yn(i2)%E0
+  !if(abs(E1 - E2) .lt. 1.d-6) write(*,*) "problem in interpolation factor, mod_eckstein_y_ye, E1/E2",E1,E2
   a = (log(E2)-log(E))/(log(E2)-log(E1))
   if (a .lt. 0) then
     a = 0 ! disable extrapolation!
@@ -329,6 +333,15 @@ subroutine read(this)
       call move_alloc(temp, yn) ! temp gets deallocated
     end if
 
+    if (abs(yn(i)%theta_star) .lt. 1.d-6) then
+      if(my_id .eq. 0) then
+        write(*,*) 'problem in loading eckstein data file ',file
+        write(*,'(A16,I2,A4,ES12.2,A30)') 'theta_star at i=',i,' is ',yn(i)%theta_star,' leading to divide by 0 issues'
+        write(*,*) 'setting theta_star(i) to 1.d-6 instead'
+      end if
+      yn(i)%theta_star = 1.d-6
+    end if
+
     ! Ignore this line if it is a duplicate
     if (any(abs(yn(i)%E0-yn(1:i-1)%E0) .le. 1d-10)) i=i-1
   end do
@@ -347,7 +360,7 @@ pure function evaluate_eckstein_formula(this, theta) result(coeff) !< this , the
   real*8 ,intent(in)                :: theta !< angle in degrees
   real*8                            :: coeff
   ! Normalized angle of incidence dependency Y(E_0, theta_0)/Y(E_0,0)
-  if (abs(theta) .gt. 1d-6) then
+  if (abs(theta) .gt. 1d-6) then !< check for theta_star = 0 is done at loading of the file
     coeff = (cos( (theta/this%theta_star * pi/2.d0)**this%c) )**(-this%f) * &
         exp(this%b * (1.d0-1.d0/cos( (theta/this%theta_star * pi/2.d0)**this%c )))
   else

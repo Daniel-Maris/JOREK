@@ -35,23 +35,27 @@ module mod_particle_puffing
     real*8  :: R = -1.d0, Z = -1.d0, phi = -1.d0
     real*8  :: valve_r = -1.d0  !< radius of gas valve
     real*8  :: last_time = 0.d0 !< When did we puff last 
-    real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
+    real*8  :: last_diag_time = 0.d0 !< Last time of output of diagnostics
 	
-	!> Should maybe go into a shape function?
-	!box volume puff, define 4 RZ points to determine volume
-	real*8  :: poly_R(4) = -1.d0
-	real*8	:: poly_Z(4) = -1.d0
-	logical :: boxpuff = .false.
-	
-	
-	!Time dependent puffing
-	logical :: puff_t_dependent = .false.
-	real*8  :: fueling_rate_start = 0.d0
-	real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
-	real*8  :: t_puff_slope = 0.d0 !<defined in SI
-	
-	
-
+    !> Should maybe go into a shape function?
+    !box volume puff, define 4 RZ points to determine volume
+    real*8  :: poly_R(4) = -1.d0
+    real*8	:: poly_Z(4) = -1.d0
+    logical :: boxpuff = .false.
+    
+    
+    !Time dependent puffing
+    logical :: puff_t_dependent = .false. !< flat ramp flat
+    real*8  :: fueling_rate_start = 0.d0
+    real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
+    real*8  :: t_puff_slope = 0.d0 !<defined in SI
+    !Getting the puffingrate from a file
+    logical                          :: rate_from_file = .false.
+    character(len=64)                :: puff_rate_filename = 'none'
+    real*8,dimension(:), allocatable :: t_pts         !< ascending list with time in (s)
+    real*8,dimension(:), allocatable :: puff_rate_pts !< list with corresponding puffrates at those times
+    integer                          :: it_last = 2   !< index of t_pts at last puffing event
+    
   contains
     procedure :: do => do_particle_puffing
   end type particle_puffing
@@ -61,44 +65,71 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,fueling_rate_start,poly_R,poly_Z,boxpuff) result(new)
+function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent, &
+  t_puff_start,t_puff_slope,fueling_rate_start,poly_R,poly_Z,boxpuff,rate_from_file,puff_rate_filename,sim_id) result(new)
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
-  
+  use profiles,        only: readProf
+
   type(particle_puffing)    :: new
 
   integer, intent(in)           :: n_puff
-  real*8, intent(in)            :: fueling_rate
-  real*8, intent(in)            :: valve_r
-  real*8, intent(in)            :: R, Z
+  real*8, intent(in), optional  :: fueling_rate
+  real*8, intent(in), optional  :: valve_r
+  real*8, intent(in), optional  :: R, Z
   real*8, intent(in), optional  :: phi ! If no phi is given axisymmetric puffing will be excecuted.
-  logical, intent(in), optional :: puff_t_dependent
-  real*8, intent(in), optional  :: t_puff_start,t_puff_slope
-  real*8, intent(in), optional  :: fueling_rate_start 
   
   real*8, intent(in), optional  :: poly_R(4)
   real*8, intent(in), optional	:: poly_Z(4)
   logical, intent(in), optional :: boxpuff
   
+  logical, intent(in), optional :: puff_t_dependent
+  real*8, intent(in), optional  :: t_puff_start,t_puff_slope
+  real*8, intent(in), optional  :: fueling_rate_start 
+  
+  logical, intent(in), optional :: rate_from_file
+  character(len=64), intent(in), optional :: puff_rate_filename
+  
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
   integer                               :: my_seed
   
-  new%n_puff       = n_puff
-  new%fueling_rate = fueling_rate
-  new%R            = R
-  new%Z            = Z
-  new%valve_r      = valve_r
-  if (present(phi))  new%phi = phi
-  
-  if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
-  if (present(t_puff_start)) new%t_puff_start = t_puff_start
-  if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
-  if (present(fueling_rate_start)) new%fueling_rate_start = fueling_rate_start
+  integer, intent(in), optional         :: sim_id
 
-  if (present(poly_R)) new%poly_R = poly_R
-  if (present(poly_Z)) new%poly_Z = poly_Z
-  if (present(boxpuff)) new%boxpuff = boxpuff
+  !local variables
+  integer :: len, i
+  logical :: print_info
+  real*8,dimension(:), allocatable :: t_pts
+  real*8,dimension(:), allocatable :: puff_rate_pts
+
+  new%n_puff = n_puff
+  if (present(fueling_rate))       new%fueling_rate = fueling_rate
+  if (present(R))                  new%R = R
+  if (present(Z))                  new%Z = Z
+  if (present(valve_r))            new%valve_r = valve_r
+  if (present(phi))                new%phi = phi
+  if (present(puff_t_dependent))   new%puff_t_dependent  = puff_t_dependent
+  if (present(t_puff_start))       new%t_puff_start = t_puff_start
+  if (present(t_puff_slope))       new%t_puff_slope = t_puff_slope
+  if (present(fueling_rate_start)) new%fueling_rate_start = fueling_rate_start
+  if (present(poly_R))             new%poly_R = poly_R
+  if (present(poly_Z))             new%poly_Z = poly_Z
+  if (present(boxpuff))            new%boxpuff = boxpuff
+  if (present(rate_from_file))     new%rate_from_file = rate_from_file
+  if (present(puff_rate_filename)) new%puff_rate_filename = puff_rate_filename
+  
+  if(present(sim_id)) then
+    if(sim_id .eq. 0) then
+      print_info = .true.
+    else
+      print_info = .false.
+    end if
+  else
+    print_info = .true.
+  end if
+  
+  if(print_info) write(*,*) "---------puff event info-----------"
+  
   !> allocate random seed for sampling
   if (present(seed)) then
     my_seed = seed
@@ -110,6 +141,69 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
   else
     ! default to pcg32_rng for reflection
     call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=pcg32_rng(), rngs=new%rng)
+  end if
+
+  if(new%rate_from_file .and. present(puff_rate_filename)) then
+    call readProf(t_pts, puff_rate_pts, len, puff_rate_filename)
+    !some sanity checks, based on checks in read_num_profiles
+    if ( len < 2 ) then 
+      if (len == 1) then
+        if(print_info) write(*,'(A80, ES14.4)') 'WARNING: puff rate input file only has 1 point. Assuming constant puff rate of ',puff_rate_pts
+        t_pts = [0.d0,1.d0]
+        puff_rate_pts = [puff_rate_pts, puff_rate_pts]
+        !write(*,*) new%t_pts, new%puff_rate_pts
+      else
+        write(*,*) '  ERROR: Could not read the numerical profile for '//trim(puff_rate_filename)
+        stop
+      end if
+    end if
+    if ( t_pts(1)>1.d-6 ) then
+      if(print_info) write(*,*) 'WARNING: Numerical '//trim(puff_rate_filename)//' input does not start at t=0'
+    end if
+    if ( len > 500 ) then
+      if(print_info) write(*,*) 'WARNING: Numerical '//trim(puff_rate_filename)//' input has a very large number of points: ',len
+    end if
+    do i = 1, len-1
+      if ( t_pts(i+1)<=t_pts(i) ) then
+        write(*,*) 'ERROR: Numerical '//trim(puff_rate_filename)//' input not correct'
+        write(*,*) '  t values do not increase in a strictly monotonic way'
+        stop
+      end if
+    end do
+    if ( (minval(t_pts) /= minval(t_pts)) .or. (minval(puff_rate_pts) /= minval(puff_rate_pts)) ) then
+      write(*,*) 'ERROR: Numerical '//trim(puff_rate_filename)//' input contains NaNs'
+      stop
+    end if
+    if ( minval(puff_rate_pts) < 0.d0 ) then
+      write(*,*) 'ERROR: Numerical '//trim(puff_rate_filename)//' input has non-positive values'
+      stop
+    end if
+    
+    new%t_pts         = t_pts
+    new%puff_rate_pts = puff_rate_pts
+  end if
+
+  !print where the puffing will be done from
+  if (present(R) .and. present(Z) .and. present(valve_r) .and. (.not. new%boxpuff)) then 
+    if(print_info) write(*,'(A30,3E12.2)') "puffing at valve (R/Z/radius)",R,Z,valve_r 
+  else if (present(poly_R) .and. present(poly_Z) .and. new%boxpuff) then
+    if(print_info) write(*,'(A23,4F7.2,A8, 4F7.2)') "puffing at box: poly_R",poly_R," poly_Z",poly_Z 
+  else
+    write(*,*) "Invalid puffing location set. Please fill (R & Z & valve_r) or (poly_R & poly_Z)"
+    stop
+  end if
+
+  !print what the rate will be
+  if(new%rate_from_file .and. present(puff_rate_filename)) then
+    if(print_info) write(*,*) "puffing rate from file named ",trim(puff_rate_filename)
+  else if((.not. new%rate_from_file) .and. new%puff_t_dependent .and. present(t_puff_start) .and. &
+      present(t_puff_slope) .and. present(fueling_rate) ) then
+    if(print_info) write(*,*) "puffing flat-ramp-flat with puff slope",t_puff_slope,"starting at", t_puff_start, " and ending at ",fueling_rate
+  else if((.not. new%rate_from_file) .and. (.not. new%puff_t_dependent) .and. present(fueling_rate)) then
+    if(print_info) write(*,*) "constant puffing rate ",fueling_rate
+  else
+    write(*,*) "Invalid combination of puffing rate variables set up"
+    stop
   end if
 
 end function new_particle_puffing
@@ -134,6 +228,9 @@ subroutine do_particle_puffing(this,sim, ev)
 
   integer ::	  puffed_this_step_local, all_puffed_this_step
   real*8  ::	  puff_weight_local, all_puff_weight
+
+  integer :: it  !< index for loop through t_pts
+  real*8  :: time    !< sim%time (s)
 
   if (sim%my_id .eq. 0) write(*,*) "Started puffing!"
   
@@ -222,27 +319,50 @@ subroutine do_particle_puffing(this,sim, ev)
   !Adjust amount of superparticles + fueling rate if we use time dependent puffing 
   ! same way as in model500
   ! write(*,*) "puff_t_dependent", this%puff_t_dependent
-  if (this%puff_t_dependent) then
+  if (this%rate_from_file) then
+    to_puff = n_puff_local
+    
+    !find the linearly interpolated puffing rate at time sim%time from the input profile
+    time = sim%time
+    fueling_rate_t = -1.d0
+    do it=this%it_last,size(this%t_pts) !< starting value of this%it_last = 2, thus this loops for all linear interpolations between t_pts(1) and t_pts(end)
+      if(time .le. this%t_pts(it)) then
+        if(it .eq. 2) then
+          if(time .le. this%t_pts(1)) then !< if t<t_pts(1), take puff_rate = puff_rate_pts(1)
+            fueling_rate_t = this%puff_rate_pts(1)
+            exit
+          end if
+        end if
+        !linear interpolation between two (t,puffrate) points:
+        fueling_rate_t = this%puff_rate_pts(it-1) + (time - this%t_pts(it-1))*(this%puff_rate_pts(it)-this%puff_rate_pts(it-1))/(this%t_pts(it)-this%t_pts(it-1))
+        this%it_last = it !< reduces computation time of this do loop, making rate from file limited by data, not computation, thus many points can be used
+        exit
+      end if
+    end do
+    if(fueling_rate_t < 0.d0) then !< if t not in between t_pts(1) and t_pts(end)
+      if(time .gt. this%t_pts(size(this%t_pts))) then !< default to last point
+        fueling_rate_t = this%puff_rate_pts(size(this%t_pts))
+      else
+        write(*,*) 'problem in loading rate from file',this%puff_rate_filename,time,this%it_last,size(this%t_pts),this%puff_rate_pts(size(this%t_pts))
+        fueling_rate_t = 0.d0 
+      end if
+  end if
+  else if (this%puff_t_dependent) then
     to_puff        = n_puff_local !int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
 	  fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope, this%fueling_rate_start)
     !write(*,*) "n_puff", this%n_puff, "to_puff", to_puff, "fueling_rate_t", fueling_rate_t
     !write(*,*) "to_puff_real" , maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /))
-    if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
-    
-    if (to_puff .ge. n_free) then
-      write(*,*) "problem: could not puff the requested amount."
-	  	to_puff = n_free
-	  end if
   else
-      fueling_rate_t = this%fueling_rate
-	  if (n_puff_local .ge. n_free) then
-		write(*,*) "problem: could not puff the requested amount."
-		to_puff = n_free
-	  else
-		to_puff = n_puff_local
-		if (sim%my_id .eq.0) write(*,"(A,g12.4, A)") "fueling_rate:",fueling_rate_t, "atoms/s"
-	  end if
+    fueling_rate_t = this%fueling_rate
+	  to_puff = n_puff_local
   end if !< time dependent puffing
+  
+  if (to_puff .gt. n_free) then
+    write(*,*) "problem: not enough superparticles free for puffing (wanted/free)",to_puff,n_free
+    to_puff = n_free
+  end if
+
+  if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4, A)") "Planned puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
   !-------------  
   
   
@@ -270,7 +390,7 @@ subroutine do_particle_puffing(this,sim, ev)
         if (.not. this%boxpuff) then
           r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
           theta = TWOPI * u(2)
-          R_new = this%R + r_valve * cos(theta)
+          R_new = this%R + r_valve * cos(theta) !< this puffs only on the edge of the circle? I thought a valve puff means in a circular domain (so also it's centre)
           Z_new = this%Z + r_valve * sin(theta)
         else
           s = u(1)

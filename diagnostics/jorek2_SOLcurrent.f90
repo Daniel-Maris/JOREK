@@ -163,6 +163,11 @@ program jorek2_SOLcurrent
   write(*,*) ' nperiod : ',n_period
   Write(*,*)
   
+  if(.not. solve_j) then
+    write(*,*) 'j_hat_par will not be solved locally'
+    write(*,*)
+  end if
+
   !> Stangeby eq 17.17 \alpha = 1/2 (m_i/(π m_e))^0.5, only depends on ion mass
   alpha = 0.5d0*sqrt(central_mass * ATOMIC_MASS_UNIT/(PI * MASS_ELECTRON)) 
 
@@ -536,11 +541,7 @@ program jorek2_SOLcurrent
       if (solve_j) then
         if(L .ne. 0.d0) then
           gamma_fact = av_sigma * Te_h * EL_CHG / (EL_CHG ** 2 * L * ne_h * c_sh)
-          if(abs(gamma_fact) .gt. 1.d1) then
-            j_hat_par = 0.d0
-          else
-            j_hat_par = Newton_solver(gamma_fact, ratio_T, ratio_n, pe_term, alpha, write_debug_file)
-          end if
+          j_hat_par = Newton_solver(gamma_fact, ratio_T, ratio_n, pe_term, alpha, write_debug_file)
         else 
           gamma_fact = 0.d0
           j_hat_par  = 0.d0
@@ -607,7 +608,7 @@ contains
     end if
 
     tol            = 1.d-10 !< note that j_hat_par < 1 due to its normalisation
-    max_iterations = 200    !< there are cases where this is not enough to get small machine error in f but it's always enought to get small error in j
+    max_iterations = 500    !< there are cases where this is not enough to get small machine error in f but it's usually enought to get small error in j
    !x              = 0.1d0  !< simplistic initial guess
     !> initial guess which assumes the term with j on the RHS of Stangeby eq 17.29 is 0
     !> works well if |j_hat| << 1, otherwise the initial guess is set to 0 later on
