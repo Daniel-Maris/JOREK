@@ -39,7 +39,8 @@ program jorek2_connection_flux_aligned
   type (type_bnd_node_list)              :: bnd_node_list 
   
   ! --- Poincare data
-  real*8,allocatable  :: rp(:), zp(:), R_all(:), Z_all(:), rcoord_all(:), C_all(:)                        ! arrays for position variables, and connection length for all lines
+  real*8,allocatable  :: rp(:), zp(:), R_all(:), Z_all(:), rcoord_all(:), C_all(:)                      ! arrays for position variables, and connection length for all lines
+  real*8,allocatable  :: rcoord_min_all(:), rcoord_max_all(:)                                           ! array of minimum and maximum radial location reached by field line
   real*8,allocatable  :: R_strike(:),  Z_strike(:), P_strike(:)                                         ! position of strike points
   real*8,allocatable  :: C_strike(:),  B_strike(:)                                                      ! connection length, boundary type at strike points
   real*8,allocatable  :: T0_strike(:), T_strike(:)                                                      ! temperature at start and end of fieldline
@@ -48,7 +49,7 @@ program jorek2_connection_flux_aligned
   real*8,allocatable  :: in_domain_strike(:)                                                            ! Determine if field line is inside the domain
   real*8,allocatable  :: R_turn(:,:), Z_turn(:,:), C_turn(:,:), C_turn_tmp(:,:)                         ! position, and connection length of field line after each turn
   real*8,allocatable  :: T_turn(:,:), PSI_turn(:,:), ZN_turn(:,:)                                       ! physical parameters of field line after each turn
-  
+
   ! --- Extra data
   integer   :: ntheta, n_rcoord
   integer   :: my_id, ikeep, n_cpu, ierr, nsend, nrecv, ikeep0, i_line0
@@ -61,6 +62,7 @@ program jorek2_connection_flux_aligned
   real*8    :: delta_theta, delta_rcoord
   real*8    :: R_start, Z_start, phi_start
   real*8    :: R_line, Z_line, s_line, t_line, p_line
+  real*8    :: rcoord_min, rcoord_max
   real*8    :: s_mid, t_mid, p_mid
   real*8    :: s_ini, t_ini
   real*8    :: s_out, t_out
@@ -178,14 +180,14 @@ program jorek2_connection_flux_aligned
   ! --- Allocate data
   allocate(R_strike(n_lines),Z_strike(n_lines),P_strike(n_lines),C_strike(n_lines),B_strike(n_lines), in_domain_strike(n_lines))
   allocate(T0_strike(n_lines),T_strike(n_lines),ZN0_strike(n_lines),ZN_strike(n_lines),PS0_strike(n_lines))
-  allocate(R_all(n_lines),Z_all(n_lines),rcoord_all(n_lines),C_all(n_lines))
+  allocate(R_all(n_lines),Z_all(n_lines),rcoord_all(n_lines),C_all(n_lines),rcoord_min_all(:),rcoord_max_all(:))
   allocate(R_turn(n_turns+1,2),Z_turn(n_turns+1,2),C_turn(n_turns+1,2),C_turn_tmp(n_turns+1,2))
   allocate(T_turn(n_turns+1,2),PSI_turn(n_turns+1,2),ZN_turn(n_turns+1,2))
   n_points_max = 10000000
-  allocate(RZkeep(3,n_points_max),RhoThetakeep(3,n_points_max))
+  allocate(RZkeep(5,n_points_max),RhoThetakeep(5,n_points_max))
 
   ! --- Initialise allocated data
-  R_all     = 0.d0; Z_all     = 0.d0; rcoord_all=0.d0;   C_all = 0.d0;  
+  R_all     = 0.d0; Z_all     = 0.d0; rcoord_all=0.d0;   C_all = 0.d0; rcoord_min_all = 0.d0; rcoord_max_all = 0.d0
   R_strike  = 0.d0; Z_strike  = 0.d0; P_strike  = 0.d0;  C_strike   = 0.d0; in_domain_strike = 0.d0
   T0_strike = 0.d0; T_strike  = 0.d0; ZN0_strike = 0.d0; ZN_strike  = 0.d0; PS0_strike = 0.d0
   R_turn    = 0.d0; Z_turn    = 0.d0; C_turn  = 0.d0;    C_turn_tmp = 0.d0
@@ -285,7 +287,9 @@ program jorek2_connection_flux_aligned
         R_turn(1,(i_dir+1)/2+1) = R_start
         Z_turn(1,(i_dir+1)/2+1) = Z_start
         C_turn(1,(i_dir+1)/2+1) = 0.d0
-    
+        rcoord_min = rcoord_all(i_line)
+        rcoord_max = rcoord_all(i_line)
+
         ! --- Get variables at start
         call var_value(i_elm, i_var_T, s_line,t_line,phi_start, T_turn  (1,(i_dir+1)/2+1) )
         PSI_turn(1,(i_dir+1)/2+1) = rcoord_all(i_line)
@@ -422,6 +426,8 @@ program jorek2_connection_flux_aligned
               ! --- Exit if we stepped out of domain
               if (i_elm .eq. 0) exit
               call get_rcoord(i_elm,s_line,t_line,ES%psi_axis,psi_bnd,rcoord_tmp)
+              rcoord_min = min(rcoord_min, rcoord_tmp)
+              rcoord_max = max(rcoord_max, rcoord_tmp)
               if (rcoord_tmp .gt. rcoord_strike_bnd) exit
             enddo  ! end of loop over steps within one element
     
@@ -464,7 +470,11 @@ program jorek2_connection_flux_aligned
           call var_value(i_elm,i_var_T,s_line,t_line,p_line,T_strike(i_strike))
           call var_value(i_elm,i_var_n,s_line,t_line,p_line,ZN_strike(i_strike))
         endif
-    
+        
+        ! Record min/max radial extent reached by field line
+        rcoord_min_all(i_line) = min(rcoord_min_all(i_line), rcoord_min)
+        rcoord_max_all(i_line) = max(rcoord_max_all(i_line), rcoord_max)
+
         ! --- Record connection length
         if (i_dir .eq. -1) then  
           C_all(i_line)   = total_length
@@ -513,9 +523,13 @@ program jorek2_connection_flux_aligned
                 RhoThetakeep(1,ikeep)      = rcoord_tmp               !small_r
                 RhoThetakeep(2,ikeep)      = theta_pol / (2.d0*PI)
                 RhoThetakeep(3,ikeep)      = C_all(i_line)
+                RhoThetakeep(4,ikeep)      = rcoord_min_all(i_line)
+                RhoThetakeep(5,ikeep)      = rcoord_max_all(i_line)
                 RZkeep(1,ikeep)            = R_turn(i_turn,i_dir)
                 RZkeep(2,ikeep)            = Z_turn(i_turn,i_dir)
                 RZkeep(3,ikeep)            = C_all(i_line)
+                RZkeep(4,ikeep)            = rcoord_min_all(i_line)
+                RZkeep(5,ikeep)            = rcoord_max_all(i_line)
               else
                 write(*,*) 'Warning! Exceeded maximum number of points',n_points_max
               endif
@@ -576,7 +590,7 @@ program jorek2_connection_flux_aligned
     do j=1,n_cpu-1
       call mpi_recv(ikeep,1, MPI_INTEGER, j, j, MPI_COMM_WORLD, status, ierr)
       if (ikeep .gt. 0) then
-        nrecv = 3*ikeep
+        nrecv = 5*ikeep
         call mpi_recv(RZkeep,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         call mpi_recv(RhoThetakeep,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         write(21,'(3e18.8)') (RZkeep(1,i),RZkeep(2,i),RZkeep(3,i), i=1,ikeep0 )
@@ -591,7 +605,7 @@ program jorek2_connection_flux_aligned
     ! --- If this is not mpi_0, we send data to the main MPI 0
     call mpi_send(ikeep, 1, MPI_INTEGER, 0, my_id, MPI_COMM_WORLD, ierr)
     if (ikeep .gt. 0) then
-      nsend = 3*ikeep
+      nsend = 5*ikeep
       call mpi_send(RZkeep, nsend,MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
       call mpi_send(RhoThetakeep, nsend,MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
     endif
@@ -612,9 +626,9 @@ program jorek2_connection_flux_aligned
   ! --- Write points for local MPI (id=0)
   if (my_id .eq. 0) then
 #if STELLARATOR_MODEL
-    write(23,*) "# R    Z    sqrt{Phi_N}    Connection_length"
+    write(23,*) "# R    Z    sqrt{Phi_N}    Connection_length     min_sqrt{Phi_N}     max_sqrt{Phi_N}"
 #else
-    write(23,*) "# R    Z    sqrt{Psi_N}    Connection_length"
+    write(23,*) "# R    Z    sqrt{Psi_N}    Connection_length     min_sqrt{Psi_N}     max_sqrt{Psi_N}"
 #endif
     write(23,'(4e16.8)') ( (/ R_all(i), Z_all(i), rcoord_all(i), C_all(i) /),i=1,i_line0)
   endif
@@ -630,7 +644,9 @@ program jorek2_connection_flux_aligned
         call mpi_recv(Z_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         call mpi_recv(rcoord_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         call mpi_recv(C_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
-        write(23,'(4e16.8)') ( (/R_all(i), Z_all(i), rcoord_all(i), C_all(i) /),i=1,i_line)
+        call mpi_recv(rcoord_min_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(rcoord_max_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
+        write(23,'(4e16.8)') ( (/R_all(i), Z_all(i), rcoord_all(i), C_all(i), rcoord_min_all(i), rcoord_max_all(i) /),i=1,i_line)
       endif
       write(*, *) 'Received MPI task: ', j
     enddo
@@ -643,6 +659,8 @@ program jorek2_connection_flux_aligned
       call mpi_send(Z_all, nsend, MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
       call mpi_send(rcoord_all, nsend, MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
       call mpi_send(C_all, nsend, MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
+      call mpi_send(rcoord_min_all, nsend, MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
+      call mpi_send(rcoord_max_all, nsend, MPI_DOUBLE_PRECISION, 0, my_id, MPI_COMM_WORLD, ierr)
     endif
   endif
   close(23)
