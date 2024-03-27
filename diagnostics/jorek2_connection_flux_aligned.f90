@@ -180,7 +180,7 @@ program jorek2_connection_flux_aligned
   ! --- Allocate data
   allocate(R_strike(n_lines),Z_strike(n_lines),P_strike(n_lines),C_strike(n_lines),B_strike(n_lines), in_domain_strike(n_lines))
   allocate(T0_strike(n_lines),T_strike(n_lines),ZN0_strike(n_lines),ZN_strike(n_lines),PS0_strike(n_lines))
-  allocate(R_all(n_lines),Z_all(n_lines),rcoord_all(n_lines),C_all(n_lines),rcoord_min_all(:),rcoord_max_all(:))
+  allocate(R_all(n_lines),Z_all(n_lines),rcoord_all(n_lines),C_all(n_lines),rcoord_min_all(n_lines),rcoord_max_all(n_lines))
   allocate(R_turn(n_turns+1,2),Z_turn(n_turns+1,2),C_turn(n_turns+1,2),C_turn_tmp(n_turns+1,2))
   allocate(T_turn(n_turns+1,2),PSI_turn(n_turns+1,2),ZN_turn(n_turns+1,2))
   n_points_max = 10000000
@@ -1027,7 +1027,7 @@ subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t,R,Z,R_s,R_t,Z_s,Z_t
   real*8 :: R,R_s,R_t,R_p,Z,Z_s,Z_t,Z_p,dummy
   real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
   real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, psi_R, psi_z, psi_p, st_psi_p, Zjac
-  real*8 :: BR0, BZ0, Bp0
+  real*8 :: AR0_Z, AR0_p, AR0_s, AR0_t, AZ0_R, AZ0_p, AZ0_s, AZ0_t, A30_R, A30_Z, BR0, BZ0, Bp0, Fprof
   
   real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
   
@@ -1054,6 +1054,22 @@ subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t,R,Z,R_s,R_t,Z_s,Z_t
   psi_t = P0_t 
   st_psi_p = 0.d0
   
+#ifdef fullmhd
+  call interp(node_list,element_list,i_elm,var_AR,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  AR0_s = P0_s 
+  AR0_t = P0_t 
+
+  call interp(node_list,element_list,i_elm,var_AZ,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  AZ0_s = P0_s 
+  AZ0_t = P0_t 
+
+  AR0_p = 0.d0
+  AZ0_p = 0.d0
+
+  call interp(node_list,element_list,i_elm,710,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  Fprof = P0
+#endif
+
   do i_tor = 1, (n_tor-1)/2
     i_harm = 2*i_tor
   
@@ -1066,25 +1082,52 @@ subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t,R,Z,R_s,R_t,Z_s,Z_t
     psi_s = psi_s + Psin_s * sin(mode(i_harm+1)*p_in)
     psi_t = psi_t + Psin_t * sin(mode(i_harm+1)*p_in)
     st_psi_p = st_psi_p + Psin*mode(i_harm+1)*cos(mode(i_harm+1)*p_in)
+
+#ifdef fullmhd
+    call interp(node_list,element_list,i_elm,var_AR,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+    AR0_s = AR0_s + Pcos_s * cos(mode(i_harm)*p_in)
+    AR0_t = AR0_t + Pcos_t * cos(mode(i_harm)*p_in)
+    AR0_p = AR0_p - Pcos   * sin(mode(i_harm)*p_in) * mode(i_harm)
+    call interp(node_list,element_list,i_elm,var_AR,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+    AR0_s = AR0_s + Psin_s * sin(mode(i_harm+1)*p_in)
+    AR0_t = AR0_t + Psin_t * sin(mode(i_harm+1)*p_in)
+    AR0_p = AR0_p + Psin   * cos(mode(i_harm+1)*p_in) * mode(i_harm+1)
+    
+    call interp(node_list,element_list,i_elm,var_AZ,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+    AZ0_s = AZ0_s + Pcos_s * cos(mode(i_harm)*p_in)
+    AZ0_t = AZ0_t + Pcos_t * cos(mode(i_harm)*p_in)
+    AZ0_p = AZ0_p - Pcos   * sin(mode(i_harm)*p_in) * mode(i_harm)
+    call interp(node_list,element_list,i_elm,var_AZ,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+    AZ0_s = AZ0_s + Psin_s * sin(mode(i_harm+1)*p_in)
+    AZ0_t = AZ0_t + Psin_t * sin(mode(i_harm+1)*p_in)
+    AZ0_p = AZ0_p + Psin   * cos(mode(i_harm+1)*p_in) * mode(i_harm+1)
+#endif
+
   enddo
 
-#if STELLARATOR_MODEL
+#ifdef fullmhd
+  AR0_Z = ( - R_t * AR0_s  + R_s * AR0_t ) / Zjac
+  AZ0_R = (   Z_t * AZ0_s  - Z_s * AZ0_t ) / Zjac
+  A30_R = (   Z_t * psi_s  - Z_s * psi_t ) / Zjac
+  A30_Z = ( - R_t * psi_s  + R_s * psi_t ) / Zjac
+  
+  BR0 = ( A30_Z - AZ0_p )/ R
+  BZ0 = ( AR0_p - A30_R )/ R
+  Bp0 = ( AZ0_R - AR0_Z )       +   Fprof / R
+#else
   psi_R = ( Z_t*psi_s - Z_s*psi_t)/Zjac
   psi_z = (-R_t*psi_s + R_s*psi_t)/Zjac
   psi_p = st_psi_p - R_p*psi_R - Z_p*psi_z
   BR0 = chi(1,0,0)   + (psi_z*chi(0,0,1) - psi_p*chi(0,1,0))/(F0*R) ! comment out these lines to use the
   BZ0 = chi(0,1,0)   - (psi_R*chi(0,0,1) - psi_p*chi(1,0,0))/(F0*R) !   GVEC magnetic field instead of
   Bp0 = chi(0,0,1)/R + (psi_R*chi(0,1,0) - psi_z*chi(1,0,0))/F0     !   the reduced MHD magnetic field
+#endif
 
   ! dR/Rdphi = B_R / B_phi ; dz/Rdphi = B_z / B_phi
   ! ds/dphi = s_phi + s_R dR/dphi + s_z dz/dphi = (-z_t R_p + R_t z_p + z_t dR/dphi - R_t dz/dphi)/Zjac
   ! dt/dphi = t_phi + t_R dR/dphi + t_z dz/dphi = ( z_s R_p - R_s z_p - z_s dR/dphi + R_s dz/dphi)/Zjac
   delta_s = (-Z_t*R_p + R_t*Z_p + R*(Z_t*BR0 - R_t*BZ0)/Bp0)*delta_p/Zjac
   delta_t = ( Z_s*R_p - R_s*Z_p - R*(Z_s*BR0 - R_s*BZ0)/Bp0)*delta_p/Zjac
-#else
-  delta_s =   psi_t * R / (Zjac * F0) * delta_p
-  delta_t = - psi_s * R / (Zjac * F0) * delta_p
-#endif
   
   return
 end
