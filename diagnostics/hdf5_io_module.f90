@@ -142,6 +142,10 @@ module hdf5_io_module
     integer(HSIZE_T),dimension(:),allocatable :: maxdims !< maximum dataset shape
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
@@ -1098,6 +1102,10 @@ module hdf5_io_module
     integer(HSIZE_T),dimension(1) :: dim       ! dimensions
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** set the string datatype
     call H5Dget_type_f(dataset,type_id,error)
     !*** read the string data to the dataset ***
@@ -1141,10 +1149,12 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** set the string datatype
     call H5Dget_type_f(dataset,type_id,error)
-
     !*** read the character data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
@@ -1186,7 +1196,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)   
-
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
@@ -1227,7 +1240,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** read the integer data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
@@ -1269,6 +1285,10 @@ module hdf5_io_module
     dims = [int(0,kind=HSIZE_T)]; if(allocated(array1D)) deallocate(array1D)
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5Dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
@@ -1320,7 +1340,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-   
+     if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif  
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim = shape(array2D)
@@ -1353,6 +1376,7 @@ module hdf5_io_module
     !> inputs-outputs:
     integer,dimension(:,:),allocatable,intent(inout) :: array2D
     !> variables:
+    integer        :: ii
     integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
     integer(HID_T) :: dataset_id   !< dataset identifier
     integer        :: rank,error   !< dataset rank and hdf5 error
@@ -1362,6 +1386,10 @@ module hdf5_io_module
     dims = 0; if(allocated(array2D)) deallocate(array2D)
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
@@ -1369,6 +1397,10 @@ module hdf5_io_module
       !*** get space size ***
       call H5Sget_simple_extent_dims_f(dataspace_id,dims,maxdims,error)
       if(present(reqdims).and.present(start)) then
+        !> check validity of reqdims
+        do ii=1,rank
+          if(reqdims(ii).lt.1) reqdims(ii) = dims(ii)
+        enddo
         !*** load a data slab of size reqdims and start start ***
         !*** using default transfer properties ***
         allocate(array2D(reqdims(1),reqdims(2))); array2D = 0;
@@ -1413,7 +1445,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-   
+     if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif  
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     if (present(in1) .and. present(in2) .and. present(in3)) then
@@ -1459,7 +1494,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)   
-
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** read the double data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
@@ -1500,7 +1538,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** read the integer data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
@@ -1541,7 +1582,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** read the integer data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
@@ -1583,6 +1627,10 @@ module hdf5_io_module
     dims = 0; if(allocated(array1D)) deallocate(array1D)
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
@@ -1633,7 +1681,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-   
+     if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif  
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim = shape(array2D)
@@ -1666,6 +1717,7 @@ module hdf5_io_module
     !> inputs-outputs:
     real*8,dimension(:,:),allocatable,intent(inout) :: array2D
     !> variables:
+    integer        :: ii
     integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
     integer(HID_T) :: dataset_id   !< dataset identifier
     integer        :: rank,error   !< dataset rank and hdf5 error
@@ -1675,10 +1727,18 @@ module hdf5_io_module
     dims = 0; if(allocated(array2D)) deallocate(array2D)
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
     if(rank.eq.2) then
+      !> check validity of reqdims
+      do ii=1,rank
+        if(reqdims(ii).lt.1) reqdims(ii) = dims(ii)
+      enddo
       !*** get space size ***
       call H5Sget_simple_extent_dims_f(dataspace_id,dims,maxdims,error)
       if(present(reqdims).and.present(start)) then
@@ -1726,7 +1786,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-   
+     if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif  
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     if (present(in1) .and. present(in2) .and. present(in3)) then
@@ -1763,6 +1826,7 @@ module hdf5_io_module
     !> inputs-outputs:
     real*8,dimension(:,:,:),allocatable,intent(inout) :: array3D
     !> variables:
+    integer        :: ii
     integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
     integer(HID_T) :: dataset_id   !< dataset identifier
     integer        :: rank,error   !< dataset rank and hdf5 error
@@ -1772,10 +1836,18 @@ module hdf5_io_module
     dims = 0; if(allocated(array3D)) deallocate(array3D)
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
     if(rank.eq.3) then
+      !> check validity of reqdims
+      do ii=1,rank
+        if(reqdims(ii).lt.1) reqdims(ii) = dims(ii)
+      enddo
       !*** get space size ***
       call H5Sget_simple_extent_dims_f(dataspace_id,dims,maxdims,error)
       if(present(reqdims).and.present(start)) then
@@ -1823,7 +1895,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-   
+     if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif  
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim = shape(array4D)
@@ -1866,6 +1941,10 @@ module hdf5_io_module
     dims = 0; if(allocated(array4D)) deallocate(array4D)
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
@@ -1873,6 +1952,10 @@ module hdf5_io_module
       !*** get space size ***
       call H5Sget_simple_extent_dims_f(dataspace_id,dims,maxdims,error)
       if(present(reqdims).and.present(start)) then
+        !> check validity of reqdims
+        do ii=1,rank
+          if(reqdims(ii).lt.1) reqdims(ii) = dims(ii)
+        enddo
         !*** load a data slab of size reqdims and start start ***
         !*** using default transfer properties ***
         allocate(array4D(reqdims(1),reqdims(2),reqdims(3),reqdims(4))); array4D = 0d0;
@@ -1916,7 +1999,10 @@ module hdf5_io_module
 
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
-
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim = shape(array5D)
@@ -1936,6 +2022,35 @@ module hdf5_io_module
     !*** Closing ***
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array5D_reading
+
+  !---------------------------------------- 
+  ! HDF5 get dataset rank and dimensions
+  !----------------------------------------
+  subroutine HDF5_get_dataset_rank_dims(file_id,dsetname,rank,dims,maxdims)
+    !> inputs:
+    integer(HID_T),intent(in)   :: file_id
+    character(len=*),intent(in) :: dsetname
+    !> outputs:
+    integer,intent(out)                                   :: rank
+    integer(HSIZE_T),dimension(:),allocatable,intent(out) :: dims,maxdims
+    !> variables:
+    integer        :: error
+    integer(HID_T) :: dataset_id,dataspace_id
+    !*** get the dataset and dataspace ids ***
+    call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
+    call H5dget_space_f(dataset_id,dataspace_id,error)
+    !*** get the space rank ***
+    call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)
+    !*** datasapce dimensions
+    allocate(dims(rank)); allocate(maxdims(rank));
+    call H5Sget_simple_extent_dims_f(dataspace_id,dims,maxdims,error)
+    call H5Sclose_f(dataspace_id,error)
+    call H5Dclose_f(dataset_id,error)
+  end subroutine HDF5_get_dataset_rank_dims
 
   !---------------------------------------- 
   ! HDF5 reading for an allocatable array 5D
@@ -1958,6 +2073,10 @@ module hdf5_io_module
     dims = 0; if(allocated(array5D)) deallocate(array5D)
     !*** get the dataset and dataspace ids ***
     call H5Dopen_f(file_id,trim(dsetname),dataset_id,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
     call H5dget_space_f(dataset_id,dataspace_id,error)
     !*** get the space rank ***
     call H5Sget_simple_extent_ndims_f(dataspace_id,rank,error)

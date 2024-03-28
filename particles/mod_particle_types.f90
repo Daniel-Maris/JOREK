@@ -23,7 +23,7 @@ module mod_particle_types
   public :: copy_particle_kinetic_leapfrog
   public :: codify_particle_type
   public :: find_active_particle_id
-  public :: particle_arrays_from_list
+  public :: particle_arrays_from_list,particle_list_from_arrays
   public :: deallocate_particle_arrays
   !> publicity only for unit testing
 #ifdef UNIT_TESTS
@@ -612,11 +612,11 @@ contains
     call MPI_UNPACK(buffer,particle_base_size,buff_position,p_out%t_birth,1,MPI_REAL,MPI_COMM_WORLD,ierr)
   end subroutine mpi_unpack_particle_base
 
-!> Allocate and re-order particle lists in arrays
+!> Allocate and re-order a particle list in arrays
 subroutine particle_arrays_from_list(particle_list,n_particles,i_elm_arr,i_life_arr,&
 q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,B_norm_arr,vpar_m_arr,&
 st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,Astar_m_arr,Astar_k_arr,&
-Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
+Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr,particle_type_str)
   implicit none
   !> outputs:
   class(particle_base),dimension(:),allocatable,intent(in) :: particle_list
@@ -631,6 +631,7 @@ Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
   real*8,   dimension(:,:),  allocatable,intent(out) :: x_m_arr,Astar_m_arr,Astar_k_arr
   real*8,   dimension(:,:),  allocatable,intent(out) :: dBn_k_arr,Bnorm_k_arr,E_k_arr
   real*8,   dimension(:,:,:),allocatable,intent(out) :: dAstar_k_arr
+  character(len=:),          allocatable,intent(out) :: particle_type_str
   !> variables
   integer :: ii
   
@@ -644,12 +645,16 @@ Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
     type is (particle_fieldline)
     allocate(v_1d_arr(n_particles))
     allocate(B_hat_prev_arr(size(p%B_hat_prev,1),n_particles))
+    allocate(character(len=18)::particle_type_str); particle_type_str="particle_fieldline";
     type is (particle_gc)
     allocate(E_arr(n_particles)); allocate(mu_arr(n_particles));
-    allocate(q_arr(n_particles))
+    allocate(q_arr(n_particles)); allocate(character(len=11)::particle_type_str);
+    particle_type_str="particle_gc";
     type is (particle_gc_vpar)
     allocate(vpar_arr(n_particles));   allocate(mu_arr(n_particles));
     allocate(B_norm_arr(n_particles)); allocate(q_arr(n_particles));
+    allocate(character(len=16)::particle_type_str);
+    particle_type_str="particle_gc_vpar";
     type is (particle_gc_Qin)
     allocate(vpar_arr(n_particles)); allocate(mu_arr(n_particles));
     allocate(B_norm_arr(n_particles)); allocate(q_arr(n_particles));
@@ -659,15 +664,25 @@ Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
     allocate(dAstar_k_arr(size(p%dAstar_k,1),size(p%dAstar_k,2),n_particles));
     allocate(Bn_k_arr(n_particles)); allocate(dBn_k_arr(size(p%dBn_k,1),n_particles));
     allocate(Bnorm_k_arr(size(p%Bnorm_k,1),n_particles));
-    allocate(E_k_arr(size(p%E_k,1),n_particles));
+    allocate(E_k_arr(size(p%E_k,1),n_particles));    
+    allocate(character(len=15)::particle_type_str);
+    particle_type_str = "particle_gc_Qin";
     type is (particle_kinetic)
     allocate(v_2d_arr(size(p%v,1),n_particles)); allocate(q_arr(n_particles));
+    allocate(character(len=16)::particle_type_str);
+    particle_type_str = "particle_kinetic";
     type is (particle_kinetic_leapfrog)
     allocate(v_2d_arr(size(p%v,1),n_particles)); allocate(q_arr(n_particles));
+    allocate(character(len=25)::particle_type_str);
+    particle_type_str = "particle_kinetic_leapfrog";
     type is (particle_kinetic_relativistic)
     allocate(v_2d_arr(size(p%p,1),n_particles)); allocate(q_arr(n_particles));
+    allocate(character(len=29)::particle_type_str);
+    particle_type_str = "particle_kinetic_relativistic";
     type is (particle_gc_relativistic)
     allocate(v_2d_arr(size(p%p,1),n_particles)); allocate(q_arr(n_particles));
+    allocate(character(len=23)::particle_type_str);
+    particle_type_str = "particle_gc_relativistic";
   end select
   !$omp parallel do default(none) private(ii) firstprivate(n_particles) & 
   !$omp shared(x_arr,st_arr,t_birth_arr,weight_arr,i_elm_arr,i_life_arr,&
@@ -726,11 +741,99 @@ Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
   !$omp end parallel do
 end subroutine particle_arrays_from_list
 
+! fille a particle list from arrays
+subroutine particle_list_from_arrays(n_particles,i_elm_arr,i_life_arr,&
+t_birth_arr,weight_arr,x_arr,st_arr,q_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,
+B_norm_arr,vpar_m_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,Astar_m_arr,&
+Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr,&
+particle_list,ierr)
+  implicit none
+  !> inputs:
+  integer, intent(in)                                        :: n_particles
+  integer*4,dimension(:),    allocatable,intent(in),optional :: i_elm_arr,i_life_arr
+  real*4,   dimension(:),    allocatable,intent(in),optional :: t_birth_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional :: weight_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional :: x_arr,st_arr
+  integer*4,dimension(:),    allocatable,intent(in),optional :: q_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional :: v_1d_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional :: E_arr,mu_arr,vpar_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional :: B_norm_arr,vpar_m_arr,Bn_k_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional :: B_hat_prev_arr,v_2d_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional :: x_m_arr,Astar_m_arr,Astar_k_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional :: dBn_k_arr,Bnorm_k_arr,E_k_arr
+  real*8,   dimension(:,:,:),allocatable,intent(in),optional :: dAstar_k_arr
+  !> outputs:
+  class(particle_base),dimension(:),allocatable,intent(out)  :: particle_list
+  !> inputs-outputs:
+  integer,intent(inout) :: ierr
+  !> variables:
+  integer :: ii
+  !> check if the particle list is allocated
+  if(.not.allocated(particle_list)) then
+    write(*,*) "WARNING: particle list not allocated: exit!"
+    ierr = 1; return;
+  endif 
+  !> store particle base arrays
+  !$omp parallel do default(none) private(ii) firstprivate(n_particles) &
+  !$omp shared(particle_list,i_elm_arr,i_life_arr,t_birth_arr,weight_arr,&
+  !$omp st_arr,x_arr,v_1d_arr,B_hat_prev,E_arr,mu_arr,q_arr,vpar_arr,&
+  !$omp B_norm_arr,x_m_arr,vpar_m_arr,Astar_m_arr,Astar_k_arr,dAstar_k_arr,&
+  !$omp Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,v_2d_arr)
+  do ii=1,n_particles
+    if(present(i_elm_arr))   if(allocated(i_elm_arr))   particle_list(ii)%i_elm    = i_elm_arr(ii)
+    if(present(i_life_arr))  if(allocated(i_life_arr))  particle_list(ii)%i_life   = i_life_arr(ii)
+    if(present(t_birth_arr)) if(allocated(t_birth_arr)) particle_list(ii)%t_birth  = t_birth_arr(ii)
+    if(present(weigt_arr))   if(allocated(weight_arr))  particle_list(ii)%weight   = weight_arr(ii)
+    if(present(st_arr))      if(allocated(st_arr))      particle_list(ii)%st       = st_arr(:,ii)
+    if(present(x_arr))       if(allocated(x_arr))       particle_list(ii)%x        = x_arr(:,ii)
+    select type (p=>particle_list(ii))
+      type is (particle_fieldline)
+      if(present(v_1d_arr))       if(allocated(v_1d_arr))       p%v          = v_1d_arr(ii)
+      if(present(B_hat_prev_arr)) if(allocated(B_hat_prev_arr)) p%B_hat_prev = B_hat_prev(:,ii)
+      type is (particle_gc)
+      if(present(E_arr))          if(allocated(E_arr))          p%E          = E_arr(ii)
+      if(present(mu_arr))         if(allocated(mu_arr))         p%mu         = mu_arr(ii)
+      if(present(q_arr))          if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1)
+      type is (particle_gc_vpar)
+      if(present(vpar_arr))       if(allocated(vpar_arr))       p%vpar       = vpar_arr(ii)
+      if(present(mu_arr))         if(allocated(mu_arr))         p%mu         = mu_arr(ii)
+      if(present(q_arr))          if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1)
+      type is (particle_gc_Qin)
+      if(present(vpar_arr))       if(allocated(vpar_arr))       p%vpar       = vpar_arr(ii)
+      if(present(mu_arr))         if(allocated(mu_arr))         p%mu         = mu_arr(ii)
+      if(present(q_arr))          if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1)
+      if(present(B_norm_arr))     if(allocated(B_norm_arr))     p%B_norm     = B_norm_arr(ii)
+      if(present(x_m_arr))        if(allocated(x_m_arr))        p%x_m        = x_m_arr(:,ii)
+      if(present(vpar_m_arr))     if(allocated(vpar_m_arr))     p%vpar_m     = vpar_m_arr(ii)
+      if(present(Astar_m_arr))    if(allocated(Astar_m_arr))    p%Astar_m    = Astar_m_arr(:,ii)
+      if(present(Astar_k_arr))    if(allocated(Astar_k_arr))    p%Astar_k    = Astar_k_arr(:,ii)
+      if(present(dAstar_k_arr))   if(allocated(dAstart_k_arr))  p%dAstar_k   = dAstar_k_arr(:,:,ii)
+      if(present(Bn_k_arr))       if(allocated(Bn_k_arr))       p%Bn_k       = Bn_k_arr(ii)
+      if(present(dBn_k_arr))      if(allocated(dBn_k_arr))      p%dBn_k      = dBn_k_arr(:,ii)
+      if(present(Bnorm_k_arr))    if(allocated(Bnorm_k_arr))    p%Bnorm_k    = Bnorm_k_arr(:,ii)
+      if(present(E_k_arr))        if(allocated(E_k_arr))        p%E_k        = E_k_arr(:,ii)
+      type is (particle_kinetic)
+      if(present(v_2d_arr))       if(allocated(v_2d_arr))       p%v          = v_2d_arr(:,ii)
+      if(present(q_arr))          if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1)
+      type is (particle_kinetic_leapfrog) 
+      if(present(v_2d_arr))       if(allocated(vb_2d_arr))      p%v          = v_2d_arr(:,ii)
+      if(present(q_arr))          if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1)
+      type is (particle_kinetic_relativistic)
+      if(present(v_2d_arr))       if(allocated(v_2d_arr))       p%p          = v_2d_arr(:,ii)
+      if(present(q_arr))          if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1)     
+      type is (particle_gc_relativistic)
+      if(present(v_2d_arr))       if(allocated(v_2d_arr))       p%p          = v_2d_arr(:,ii)
+      if(present(q_arr))          if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1)     
+      end select
+  enddo 
+  !$omp end parallel do
+end subroutine particle_list_from_arrays
+
 !> deallocate all particle arrays
 subroutine deallocate_particle_arrays(n_particles,i_elm_arr,i_life_arr,q_arr,&
 t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,B_norm_arr,vpar_m_arr,&
 st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,Astar_m_arr,Astar_k_arr,&
-Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
+Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr,particle_type_str)
   implicit none 
   !> inputs-outputs:
   integer,intent(inout)                                :: n_particles
@@ -744,32 +847,34 @@ Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
   real*8,   dimension(:,:),  allocatable,intent(inout) :: x_m_arr,Astar_m_arr,Astar_k_arr
   real*8,   dimension(:,:),  allocatable,intent(inout) :: dBn_k_arr,Bnorm_k_arr,E_k_arr,v_2d_arr
   real*8,   dimension(:,:,:),allocatable,intent(inout) :: dAstar_k_arr
+  character(len=*),                      intent(inout) :: particle_type_str
   !> resets:
   n_particles = -1
   !> deallocates
-  if(allocated(i_elm_arr))      deallocate(i_elm_arr)
-  if(allocated(i_life_arr))     deallocate(i_life_arr)
-  if(allocated(t_birth_arr))    deallocate(t_birth_arr)
-  if(allocated(weight_arr))     deallocate(weight_arr)
-  if(allocated(st_arr))         deallocate(st_arr)
-  if(allocated(x_arr))          deallocate(x_arr)
-  if(allocated(v_1d_arr))       deallocate(v_1d_arr)
-  if(allocated(B_hat_prev_arr)) deallocate(B_hat_prev_arr)
-  if(allocated(E_arr))          deallocate(E_arr)
-  if(allocated(mu_arr))         deallocate(mu_arr)
-  if(allocated(q_arr))          deallocate(q_arr)
-  if(allocated(vpar_arr))       deallocate(vpar_arr)
-  if(allocated(B_norm_arr))     deallocate(B_norm_arr)
-  if(allocated(x_m_arr))        deallocate(x_m_arr)
-  if(allocated(vpar_m_arr))     deallocate(vpar_m_arr)
-  if(allocated(Astar_m_arr))    deallocate(Astar_m_arr)
-  if(allocated(Astar_k_arr))    deallocate(Astar_k_arr)
-  if(allocated(dAstar_k_arr))   deallocate(dAstar_k_arr)
-  if(allocated(Bn_k_arr))       deallocate(Bn_k_arr)
-  if(allocated(dBn_k_arr))      deallocate(dBn_k_arr)
-  if(allocated(Bnorm_k_arr))    deallocate(Bnorm_k_arr)
-  if(allocated(E_k_arr))        deallocate(E_k_arr)
-  if(allocated(v_2d_arr))       deallocate(v_2d_arr)
+  if(allocated(i_elm_arr))         deallocate(i_elm_arr)
+  if(allocated(i_life_arr))        deallocate(i_life_arr)
+  if(allocated(t_birth_arr))       deallocate(t_birth_arr)
+  if(allocated(weight_arr))        deallocate(weight_arr)
+  if(allocated(st_arr))            deallocate(st_arr)
+  if(allocated(x_arr))             deallocate(x_arr)
+  if(allocated(v_1d_arr))          deallocate(v_1d_arr)
+  if(allocated(B_hat_prev_arr))    deallocate(B_hat_prev_arr)
+  if(allocated(E_arr))             deallocate(E_arr)
+  if(allocated(mu_arr))            deallocate(mu_arr)
+  if(allocated(q_arr))             deallocate(q_arr)
+  if(allocated(vpar_arr))          deallocate(vpar_arr)
+  if(allocated(B_norm_arr))        deallocate(B_norm_arr)
+  if(allocated(x_m_arr))           deallocate(x_m_arr)
+  if(allocated(vpar_m_arr))        deallocate(vpar_m_arr)
+  if(allocated(Astar_m_arr))       deallocate(Astar_m_arr)
+  if(allocated(Astar_k_arr))       deallocate(Astar_k_arr)
+  if(allocated(dAstar_k_arr))      deallocate(dAstar_k_arr)
+  if(allocated(Bn_k_arr))          deallocate(Bn_k_arr)
+  if(allocated(dBn_k_arr))         deallocate(dBn_k_arr)
+  if(allocated(Bnorm_k_arr))       deallocate(Bnorm_k_arr)
+  if(allocated(E_k_arr))           deallocate(E_k_arr)
+  if(allocated(v_2d_arr))          deallocate(v_2d_arr)
+  if(allocated(particle_type_str)) deallocate(particle_type_str)
 end subroutine deallocate_particle_arrays
 
 end module mod_particle_types
