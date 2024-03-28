@@ -256,7 +256,10 @@ module mod_chi
   !!                         = 2*pi/N_p-phi_RH + Sum_m,l [a_{m,l} cos(m phi_RH) - b_{m,l} sin(m phi_RH)] D_{m,l}
   !!                                                    +[c_{m,l} cos(m phi_RH) - d_{m,l} sin(m phi_RH)] N_{m,l}
   !!
-  !! This leads to the equations for Chi and its derivatives below.  
+  !! This leads to the equations for Chi and its derivatives below.
+  !!
+  !! If this function is called from a tokamak model, the routine returns the dominant background toroidal field,
+  !! where F0 is assumed to be defined using a RH coordinate system.
   function get_chi_domm(R,z,phi,max_ord)
     implicit none
     real*8,  intent(in)                   :: R, z, phi
@@ -267,6 +270,7 @@ module mod_chi
     integer :: n_ord, i, j, k, m, l, i_ord, j_ord, k_ord
     
     get_chi_domm = 0.d0
+#if STELLARATOR_MODEL
     get_chi_domm(0,0,0) = 2 * PI / float(n_coord_period) - phi; get_chi_domm(0,0,1) = -1 ! Include the phi term
     
 #ifdef USE_DOMM
@@ -319,6 +323,10 @@ module mod_chi
         end do
       end do
     end if
+#endif
+
+#else
+    get_chi_domm(0,0,0) = phi; get_chi_domm(0,0,1) = 1
 #endif
 
     get_chi_domm = F0*get_chi_domm
