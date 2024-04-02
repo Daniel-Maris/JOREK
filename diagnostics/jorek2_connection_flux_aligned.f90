@@ -101,7 +101,7 @@ program jorek2_connection_flux_aligned
   ! -------------------------------------------------------------------------------------------------
   namelist /connect_params/ n_turns, n_phi, ntheta, n_rcoord, phi_start, tol, rcoord_range_min, rcoord_range_max, rcoord_strike_bnd
 
-#define DEGUB_Connection
+!#define DEGUB_Connection
 
   ! --- MPI initilisation
   call MPI_INIT(IERR)
@@ -567,17 +567,17 @@ program jorek2_connection_flux_aligned
   
   ! --- Open file and write headers
   open(21,file='poinc_R-Z.dat',status='replace')
-  write(21,*) '#  R                 Z             Connection Length'
+  write(21,*) '#  R                 Z             Connection Length    min_sqrt{Phi_N}     max_sqrt{Phi_N}'
   open(22,file='poinc_rho-theta.dat',status='replace')
   write(22,*) '# rho=sqrt(psi_n)'
   write(22,*) '# psi_n=(psi - ES%psi_axis)/(psi_bnd - ES%psi_axis)'
   write(22,*) '#'
-  write(22,*) '#  rho               theta         Connection Length'
+  write(22,*) '#  rho               theta         Connection Length    min_sqrt{Phi_N}     max_sqrt{Phi_N}'
   
   ! --- Write points for local MPI (id=0)
   if (my_id .eq. 0) then
-    write(21,'(3e18.8)') (RZkeep(1,i),RZkeep(2,i),RZkeep(3,i), i=1,ikeep0 )
-    write(22,'(3e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i),RhoThetakeep(3,i), i=1,ikeep0 )
+    write(21,'(5e18.8)') (RZkeep(1,i),RZkeep(2,i),RZkeep(3,i),RZkeep(4,i),RZkeep(5,i), i=1,ikeep0 )
+    write(22,'(5e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i),RhoThetakeep(3,i),RhoThetakeep(4,i),RhoThetakeep(5,i), i=1,ikeep0 )
     write(21,*)
     write(21,*)
     write(22,*)
@@ -593,8 +593,8 @@ program jorek2_connection_flux_aligned
         nrecv = 5*ikeep
         call mpi_recv(RZkeep,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         call mpi_recv(RhoThetakeep,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
-        write(21,'(3e18.8)') (RZkeep(1,i),RZkeep(2,i),RZkeep(3,i), i=1,ikeep0 )
-        write(22,'(3e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i),RhoThetakeep(3,i), i=1,ikeep0 )
+        write(21,'(5e18.8)') (RZkeep(1,i),RZkeep(2,i),RZkeep(3,i),RZkeep(4,i),RZkeep(5,i), i=1,ikeep0 )
+        write(22,'(5e18.8)') (RhoThetakeep(1,i),RhoThetakeep(2,i),RhoThetakeep(3,i),RhoThetakeep(4,i),RhoThetakeep(5,i), i=1,ikeep0 )
         write(21,*)
         write(21,*)
         write(22,*)
@@ -630,7 +630,7 @@ program jorek2_connection_flux_aligned
 #else
     write(23,*) "# R    Z    sqrt{Psi_N}    Connection_length     min_sqrt{Psi_N}     max_sqrt{Psi_N}"
 #endif
-    write(23,'(4e16.8)') ( (/ R_all(i), Z_all(i), rcoord_all(i), C_all(i) /),i=1,i_line0)
+    write(23,'(6e16.8)') ( (/ R_all(i), Z_all(i), rcoord_all(i), C_all(i), rcoord_min_all(i), rcoord_max_all(i) /),i=1,i_line0)
   endif
   
   ! --- Write points for all other MPIs
@@ -646,7 +646,7 @@ program jorek2_connection_flux_aligned
         call mpi_recv(C_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         call mpi_recv(rcoord_min_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
         call mpi_recv(rcoord_max_all,nrecv, MPI_DOUBLE_PRECISION, j, j, MPI_COMM_WORLD, status, ierr)
-        write(23,'(4e16.8)') ( (/R_all(i), Z_all(i), rcoord_all(i), C_all(i), rcoord_min_all(i), rcoord_max_all(i) /),i=1,i_line)
+        write(23,'(6e16.8)') ( (/R_all(i), Z_all(i), rcoord_all(i), C_all(i), rcoord_min_all(i), rcoord_max_all(i) /),i=1,i_line)
       endif
       write(*, *) 'Received MPI task: ', j
     enddo
