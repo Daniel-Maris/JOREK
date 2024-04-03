@@ -244,7 +244,8 @@ end subroutine write_simulation_hdf5
 !>   mpi_info_in:    (integer)(optional) MPI info structre for parallel IO
 !> outputs:
 !>   sim: (particle_sim) particle simulation object
-subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
+subroutine read_simulation_hdf5(sim,filename,access_type_in,&
+mpi_comm_in,mpi_info_in)
   use mpi
   use hdf5,               only: HSIZE_T,HID_T
   use hdf5,               only: H5Gopen_f,H5Gget_info_f
@@ -277,7 +278,7 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
   !> inputs:
   character(len=*),intent(in) :: filename
   integer,intent(in),optional :: access_type_in
-  integer,intent(in),optional :: mpi_comm,mpi_info
+  integer,intent(in),optional :: mpi_comm_in,mpi_info_in
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
@@ -302,9 +303,9 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
   access_type_loc = 1
   if(present(access_type_in)) access_type_loc = access_type_in
   mpi_comm_loc = MPI_COMM_WORLD
-  if(present(mpi_comm)) mpi_comm_loc = mpi_comm
+  if(present(mpi_comm_in)) mpi_comm_loc = mpi_comm_in
   mpi_info_loc = MPI_INFO_NULL
-  if(present(mpi_info)) mpi_info_loc = mpi_info
+  if(present(mpi_info_in)) mpi_info_loc = mpi_info_in
   !> open HDF5 file 
   call HDF5_open(filename,file_id,ierr,access_type_in=access_type_loc,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
