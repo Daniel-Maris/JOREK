@@ -1498,7 +1498,7 @@ module hdf5_io_module
         !> check validity of reqdims
         reqdims = reqdims_in
         do ii=1,rank
-          if(reqdims(ii).lt.1) dims(ii) = reqdims(ii)
+          if(reqdims(ii).lt.1) reqdims(ii) = dims(ii)
         enddo
         !*** load a data slab of size reqdims and start start ***
         !*** using default transfer properties ***
