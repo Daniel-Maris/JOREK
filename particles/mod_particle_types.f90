@@ -749,21 +749,21 @@ v_2d_arr,x_m_arr,Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,&
 Bnorm_k_arr,E_k_arr,dAstar_k_arr)
   implicit none
   !> inputs:
-  integer, intent(in)                                        :: n_particles
-  integer*4,dimension(:),    allocatable,intent(in),optional :: i_elm_arr,i_life_arr
-  real*4,   dimension(:),    allocatable,intent(in),optional :: t_birth_arr
-  real*8,   dimension(:),    allocatable,intent(in),optional :: weight_arr
-  real*8,   dimension(:,:),  allocatable,intent(in),optional :: x_arr,st_arr
-  integer*4,dimension(:),    allocatable,intent(in),optional :: q_arr
-  real*8,   dimension(:),    allocatable,intent(in),optional :: v_1d_arr
-  real*8,   dimension(:),    allocatable,intent(in),optional :: E_arr,mu_arr,vpar_arr
-  real*8,   dimension(:),    allocatable,intent(in),optional :: B_norm_arr,vpar_m_arr,Bn_k_arr
-  real*8,   dimension(:,:),  allocatable,intent(in),optional :: B_hat_prev_arr,v_2d_arr
-  real*8,   dimension(:,:),  allocatable,intent(in),optional :: x_m_arr,Astar_m_arr,Astar_k_arr
-  real*8,   dimension(:,:),  allocatable,intent(in),optional :: dBn_k_arr,Bnorm_k_arr,E_k_arr
-  real*8,   dimension(:,:,:),allocatable,intent(in),optional :: dAstar_k_arr
+  integer, intent(in)                                          :: n_particles
+  integer*4,dimension(:),    allocatable,intent(in),optional   :: i_elm_arr,i_life_arr
+  real*4,   dimension(:),    allocatable,intent(in),optional   :: t_birth_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional   :: weight_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional   :: x_arr,st_arr
+  integer*4,dimension(:),    allocatable,intent(in),optional   :: q_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional   :: v_1d_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional   :: E_arr,mu_arr,vpar_arr
+  real*8,   dimension(:),    allocatable,intent(in),optional   :: B_norm_arr,vpar_m_arr,Bn_k_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional   :: B_hat_prev_arr,v_2d_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional   :: x_m_arr,Astar_m_arr,Astar_k_arr
+  real*8,   dimension(:,:),  allocatable,intent(in),optional   :: dBn_k_arr,Bnorm_k_arr,E_k_arr
+  real*8,   dimension(:,:,:),allocatable,intent(in),optional   :: dAstar_k_arr
   !> outputs:
-  class(particle_base),dimension(:),allocatable,intent(out)  :: particle_list
+  class(particle_base),dimension(:),allocatable,intent(inout)  :: particle_list
   !> inputs-outputs:
   integer,intent(inout) :: ierr
   !> variables:

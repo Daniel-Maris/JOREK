@@ -251,6 +251,7 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
   use hdf5,               only: H5Gclose_f
   use hdf5_io_module,     only: HDF5_open,HDF5_close
   use hdf5_io_module,     only: HDF5_char_reading
+  use hdf5_io_module,     only: HDF5_allocatable_char_reading
   use hdf5_io_module,     only: HDF5_real_reading,HDF5_integer_reading
   use hdf5_io_module,     only: HDF5_get_dataset_rank_dims
   use hdf5_io_module,     only: HDF5_allocatable_array1D_reading_int
@@ -295,6 +296,8 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
   real*8,           dimension(:,:,:),allocatable :: array3D_r8
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
+  !> initialisation
+  allocate(n_particles_per_proc(sim%n_cpu))
   !> set optional parameters
   access_type_loc = 1
   if(present(access_type_in)) access_type_loc = access_type_in
@@ -316,14 +319,14 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
   do ii=1,n_groups
     !> read and load group datasets
     ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
-    call HDF5_char_reading(file_id,particle_type_str,trim(group_name)//"type")!,&
-    !mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
-    call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")!,&
-    !mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+    call HDF5_allocatable_char_reading(file_id,particle_type_str,&
+    trim(group_name)//"type",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+    call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z",&
+    mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
     call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass",&
     mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
-    call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")!,&
-    !mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+    call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//&
+    "adas_suffix",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
     if(len_trim(sim%groups(ii)%ad%suffix).gt.0) then
       sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
       sim%groups(ii)%cor = coronal(sim%groups(ii)%ad) 
@@ -332,8 +335,8 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
     call HDF5_get_dataset_rank_dims(file_id,trim(group_name)//"i_elm",&
     rank,n_particles_tot,n_particles_max)
     n_particles_per_proc = int(n_particles_tot(1))/sim%n_cpu
-    n_particles_per_proc(master_task+1) = n_particles_per_proc(master_task+1) + &
-    modulo(n_particles_per_proc(1),sim%n_cpu)
+    n_particles_per_proc(master_task+1) = int(n_particles_tot(1)) - &
+    (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
     offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
     n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
     !> allocate particle list
