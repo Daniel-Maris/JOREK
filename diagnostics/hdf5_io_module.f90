@@ -1100,6 +1100,13 @@ module hdf5_io_module
     integer(HID_T)                :: dataspace ! dataspace identifier
     integer(HID_T)                :: type_id   ! string type identifier
     integer(HSIZE_T),dimension(1) :: dim       ! dimensions
+    logical                       :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
     if(error.ne.0) then
@@ -1144,6 +1151,13 @@ module hdf5_io_module
     integer(HID_T)                :: type_id   ! string type identifier
     integer(HSIZE_T)              :: len_char  ! character length
     integer(HSIZE_T),dimension(1) :: dim       ! dimensions
+    logical                       :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
     if(error.ne.0) then
@@ -1186,15 +1200,21 @@ module hdf5_io_module
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
 
     integer             :: len_char
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim          ! dataset dimension
-    integer(HID_T)      :: dataset      ! dataset identifier
-    integer(HID_T)      :: dataspace    ! dataspace identifier
-    integer(HID_T)      :: type_id      ! string datatype identifier
-    integer(HID_T)      :: filespace  ! filespace identifier
-
+      dimension(1)      :: dim       ! dataset dimension
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: type_id   ! string datatype identifier
+    integer(HID_T)      :: filespace ! filespace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
     if(error.ne.0) then
@@ -1233,15 +1253,21 @@ module hdf5_io_module
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
     integer,intent(in),optional   :: mpi_rank,n_mpi_tasks 
 
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
+      dimension(1)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
     integer(HID_T)      :: data_type
-    integer(HID_T)      :: filespace  ! filespace identifier
-
+    integer(HID_T)      :: filespace ! filespace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)   
     if(error.ne.0) then
@@ -1276,16 +1302,22 @@ module hdf5_io_module
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     integer         , intent(out), dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
+    integer(HSIZE_T), dimension(1), intent(in), optional :: start ! Offset of array to read
 
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! filespace identifier
-
+      dimension(1)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! filespace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
     if(error.ne.0) then
@@ -1317,18 +1349,24 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array1D_reading_int(file_id,array1D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id  !< file identifier
-    character(len=*),intent(in)                       :: dsetname !< dataset name
-    integer(HSIZE_T),dimension(1),intent(in),optional :: start    !< offset array to read
-    integer(HSIZE_T),dimension(1),intent(in),optional :: reqdims_in  !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(1),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(1),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     integer,dimension(:),allocatable,intent(inout) :: array1D
     !> variables:
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
-    integer(HSIZE_T),dimension(1) :: dims,maxdims !< dataset dimensions
-
+    integer(HID_T) :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T) :: dataset_id ! dataset identifier
+    integer        :: rank,error ! dataset rank and hdf5 error
+    integer(HSIZE_T),dimension(1) :: dims,maxdims ! dataset dimensions
+    logical        :: exists     ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = [int(0,kind=HSIZE_T)]; if(allocated(array1D)) deallocate(array1D)
     !*** get the dataset and dataspace ids ***
@@ -1376,16 +1414,22 @@ module hdf5_io_module
     integer(HID_T)  , intent(in)     :: file_id   ! file identifier
     integer         , dimension(:,:) :: array2D
     character(LEN=*), intent(in)     :: dsetname  ! dataset name
-    integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Offset of array to read
+    integer(HSIZE_T), dimension(2), intent(in), optional :: start ! Offset of array to read
 
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(2)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+      dimension(2)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
      if(error.ne.0) then
@@ -1417,19 +1461,25 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array2D_reading_int(file_id,array2D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id    !< file identifier
-    character(len=*),intent(in)                       :: dsetname   !< dataset name
-    integer(HSIZE_T),dimension(2),intent(in),optional :: start      !< offset array to read
-    integer(HSIZE_T),dimension(2),intent(in),optional :: reqdims_in !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(2),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(2),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     integer,dimension(:,:),allocatable,intent(inout) :: array2D
     !> variables:
-    integer        :: ii
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
-    integer(HSIZE_T),dimension(2) :: dims,maxdims,reqdims !< dataset dimensions
-
+    integer                        :: ii
+    integer(HID_T)                :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T)                :: dataset_id ! dataset identifier
+    integer                       :: rank,error ! dataset rank and hdf5 error
+    integer(HSIZE_T),dimension(2) :: dims,maxdims,reqdims ! dataset dimensions
+    logical                       :: exists     ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = 0; if(allocated(array2D)) deallocate(array2D)
     !*** get the dataset and dataspace ids ***
@@ -1483,15 +1533,21 @@ module hdf5_io_module
     integer            , dimension(:,:,:) :: array3D
     character(LEN=*)   , intent(in)       :: dsetname  ! dataset name
     integer, intent(in), optional  :: in1, in2, in3
-    integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to read
+    integer(HSIZE_T), dimension(3), intent(in), optional :: start ! Offset of array to read
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
     integer(HSIZE_T), &
-      dimension(3)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+      dimension(3)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
      if(error.ne.0) then
@@ -1532,15 +1588,21 @@ module hdf5_io_module
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
     integer,intent(in),optional   :: mpi_rank,n_mpi_tasks     
 
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
+      dimension(1)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
     integer(HID_T)      :: data_type
     integer(HID_T)      :: filespace
-
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)   
     if(error.ne.0) then
@@ -1575,16 +1637,22 @@ module hdf5_io_module
     integer(HID_T), intent(in)   :: file_id   ! file identifier
     real*8        , dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
+    integer(HSIZE_T), dimension(1), intent(in), optional :: start ! Offset of array to read
 
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+      dimension(1)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
     if(error.ne.0) then
@@ -1619,16 +1687,21 @@ module hdf5_io_module
     integer(HID_T), intent(in)   :: file_id   ! file identifier
     real*4        , dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
-
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer(HSIZE_T), dimension(1), intent(in), optional :: start ! Offset of array to read
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+      dimension(1)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
     if(error.ne.0) then
@@ -1660,18 +1733,24 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array1D_reading_r4(file_id,array1D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id  !< file identifier
-    character(len=*),intent(in)                       :: dsetname !< dataset name
-    integer(HSIZE_T),dimension(1),intent(in),optional :: start    !< offset array to read
-    integer(HSIZE_T),dimension(1),intent(in),optional :: reqdims_in  !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(1),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(1),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     real*4,dimension(:),allocatable,intent(inout) :: array1D
     !> variables:
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
-    integer(HSIZE_T),dimension(1) :: dims,maxdims !< dataset dimensions
-
+    integer(HID_T)                :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T)                :: dataset_id   ! dataset identifier
+    integer                       :: rank,error   ! dataset rank and hdf5 error
+    integer(HSIZE_T),dimension(1) :: dims,maxdims ! dataset dimensions
+    logical                       :: exists       ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = 0; if(allocated(array1D)) deallocate(array1D)
     !*** get the dataset and dataspace ids ***
@@ -1715,18 +1794,24 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array1D_reading(file_id,array1D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id  !< file identifier
-    character(len=*),intent(in)                       :: dsetname !< dataset name
-    integer(HSIZE_T),dimension(1),intent(in),optional :: start    !< offset array to read
-    integer(HSIZE_T),dimension(1),intent(in),optional :: reqdims_in  !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(1),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(1),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     real*8,dimension(:),allocatable,intent(inout) :: array1D
     !> variables:
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
-    integer(HSIZE_T),dimension(1) :: dims,maxdims !< dataset dimensions
-
+    integer(HID_T)                :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T)                :: dataset_id   ! dataset identifier
+    integer                       :: rank,error   ! dataset rank and hdf5 error
+    integer(HSIZE_T),dimension(1) :: dims,maxdims ! dataset dimensions
+    logical                       :: exists       ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = 0; if(allocated(array1D)) deallocate(array1D)
     !*** get the dataset and dataspace ids ***
@@ -1773,16 +1858,22 @@ module hdf5_io_module
     integer(HID_T)  , intent(in)     :: file_id   ! file identifier
     real*8          , dimension(:,:) :: array2D
     character(LEN=*), intent(in)     :: dsetname  ! dataset name
-    integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Offset of array to read
+    integer(HSIZE_T), dimension(2), intent(in), optional :: start ! Offset of array to read
 
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(2)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+      dimension(2)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
      if(error.ne.0) then
@@ -1814,19 +1905,25 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array2D_reading(file_id,array2D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id    !< file identifier
-    character(len=*),intent(in)                       :: dsetname   !< dataset name
-    integer(HSIZE_T),dimension(2),intent(in),optional :: start      !< offset array to read
-    integer(HSIZE_T),dimension(2),intent(in),optional :: reqdims_in !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(2),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(2),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     real*8,dimension(:,:),allocatable,intent(inout) :: array2D
     !> variables:
     integer        :: ii
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
-    integer(HSIZE_T),dimension(2) :: dims,maxdims,reqdims !< dataset dimensions
-
+    integer(HID_T) :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T) :: dataset_id   ! dataset identifier
+    integer        :: rank,error   ! dataset rank and hdf5 error
+    integer(HSIZE_T),dimension(2) :: dims,maxdims,reqdims ! dataset dimensions
+    logical        :: exists       ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = 0; if(allocated(array2D)) deallocate(array2D)
     !*** get the dataset and dataspace ids ***
@@ -1880,15 +1977,21 @@ module hdf5_io_module
     real*8             , dimension(:,:,:) :: array3D
     character(LEN=*)   , intent(in)       :: dsetname  ! dataset name
     integer, intent(in), optional  :: in1, in2, in3
-    integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to read
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer(HSIZE_T), dimension(3), intent(in), optional :: start ! Offset of array to read
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(3)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+      dimension(3)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
      if(error.ne.0) then
@@ -1924,19 +2027,25 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array3D_reading(file_id,array3D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id    !< file identifier
-    character(len=*),intent(in)                       :: dsetname   !< dataset name
-    integer(HSIZE_T),dimension(3),intent(in),optional :: start      !< offset array to read
-    integer(HSIZE_T),dimension(3),intent(in),optional :: reqdims_in !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(3),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(3),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     real*8,dimension(:,:,:),allocatable,intent(inout) :: array3D
     !> variables:
     integer        :: ii
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
+    integer(HID_T) :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T) :: dataset_id ! dataset identifier
+    integer        :: rank,error ! dataset rank and hdf5 error
     integer(HSIZE_T),dimension(3) :: dims,maxdims,reqdims !< dataset dimensions
-
+    logical        :: exists     ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = 0; if(allocated(array3D)) deallocate(array3D)
     !*** get the dataset and dataspace ids ***
@@ -1989,16 +2098,22 @@ module hdf5_io_module
     real*8, dimension(:,:,:,:)     :: array4D
     character(LEN=*), intent(in)   :: dsetname  ! dataset name
     integer, optional, intent(out) :: ierr
-    integer(HSIZE_T), dimension(4), intent(in), optional :: start !< Offset of array to read
+    integer(HSIZE_T), dimension(4), intent(in), optional :: start ! Offset of array to read
 
-    integer             :: error      ! error flag
-    integer             :: rank           ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(4)      :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+      dimension(4)      :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
      if(error.ne.0) then
@@ -2031,19 +2146,25 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array4D_reading(file_id,array4D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id    !< file identifier
-    character(len=*),intent(in)                       :: dsetname   !< dataset name
-    integer(HSIZE_T),dimension(4),intent(in),optional :: start      !< offset array to read
-    integer(HSIZE_T),dimension(4),intent(in),optional :: reqdims_in !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(4),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(4),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     real*8,dimension(:,:,:,:),allocatable,intent(inout) :: array4D
     !> variables:
     integer        :: ii
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
-    integer(HSIZE_T),dimension(4) :: dims,maxdims,reqdims !< dataset dimensions
-
+    integer(HID_T) :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T) :: dataset_id ! dataset identifier
+    integer        :: rank,error ! dataset rank and hdf5 error
+    integer(HSIZE_T),dimension(4) :: dims,maxdims,reqdims ! dataset dimensions
+    logical        :: exists     ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = 0; if(allocated(array4D)) deallocate(array4D)
     !*** get the dataset and dataspace ids ***
@@ -2095,16 +2216,22 @@ module hdf5_io_module
     integer(HID_T), intent(in)   :: file_id   
     real*8, dimension(:,:,:,:,:) :: array5D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer(HSIZE_T), dimension(4), intent(in), optional :: start !< Offset of array to read
+    integer(HSIZE_T), dimension(4), intent(in), optional :: start ! Offset of array to read
 
-    integer             :: error      ! error flag
-    integer             :: rank       ! dataset rank
+    integer             :: error     ! error flag
+    integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-           dimension(5) :: dim        ! dataset dimensions
-    integer(HID_T)      :: dataset    ! dataset identifier
-    integer(HID_T)      :: dataspace  ! dataspace identifier
-    integer(HID_T)      :: filespace  ! dataspace identifier
-
+           dimension(5) :: dim       ! dataset dimensions
+    integer(HID_T)      :: dataset   ! dataset identifier
+    integer(HID_T)      :: dataspace ! dataspace identifier
+    integer(HID_T)      :: filespace ! dataspace identifier
+    logical             :: exists    ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** file opening ***
     call H5Dopen_f(file_id,trim(dsetname),dataset,error)
     if(error.ne.0) then
@@ -2165,19 +2292,25 @@ module hdf5_io_module
   !---------------------------------------- 
   subroutine HDF5_allocatable_array5D_reading(file_id,array5D,dsetname,reqdims_in,start)
     !> inputs:
-    integer(HID_T),intent(in)                         :: file_id    !< file identifier
-    character(len=*),intent(in)                       :: dsetname   !< dataset name
-    integer(HSIZE_T),dimension(5),intent(in),optional :: start      !< offset array to read
-    integer(HSIZE_T),dimension(5),intent(in),optional :: reqdims_in !< requested slab dimensions
+    integer(HID_T),intent(in)                         :: file_id    ! file identifier
+    character(len=*),intent(in)                       :: dsetname   ! dataset name
+    integer(HSIZE_T),dimension(5),intent(in),optional :: start      ! offset array to read
+    integer(HSIZE_T),dimension(5),intent(in),optional :: reqdims_in ! requested slab dimensions
     !> inputs-outputs:
     real*8,dimension(:,:,:,:,:),allocatable,intent(inout) :: array5D
     !> variables:
     integer        :: ii
-    integer(HID_T) :: dataspace_id,dataspace_req_id !< dataspace identifier
-    integer(HID_T) :: dataset_id   !< dataset identifier
-    integer        :: rank,error   !< dataset rank and hdf5 error
-    integer(HSIZE_T),dimension(5) :: dims,maxdims,reqdims !< dataset dimensions
-
+    integer(HID_T) :: dataspace_id,dataspace_req_id ! dataspace identifier
+    integer(HID_T) :: dataset_id ! dataset identifier
+    integer        :: rank,error ! dataset rank and hdf5 error
+    integer(HSIZE_T),dimension(5) :: dims,maxdims,reqdims ! dataset dimensions
+    logical        :: exists     ! true if dataset exists
+    !*** check if dataset exists otherwise return ***
+    call H5Lexists_f(file_id,trim(dsetname),exists,error)
+    if(.not.exists) then
+      write(*,*) "WARNING: dataset ",dsetname," does not exists!"
+      return
+    endif
     !*** initialisation ***
     dims = 0; if(allocated(array5D)) deallocate(array5D)
     !*** get the dataset and dataspace ids ***
