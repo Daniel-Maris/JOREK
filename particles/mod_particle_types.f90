@@ -798,6 +798,7 @@ Bnorm_k_arr,E_k_arr,dAstar_k_arr)
       if(present(vpar_arr))       then; if(allocated(vpar_arr))       p%vpar       = vpar_arr(ii);          endif;
       if(present(mu_arr))         then; if(allocated(mu_arr))         p%mu         = mu_arr(ii);            endif;
       if(present(q_arr))          then; if(allocated(q_arr))          p%q          = int(q_arr(ii),kind=1); endif;
+      if(present(B_norm_arr))     then; if(allocated(B_norm_arr))     p%B_norm     = B_norm_arr(ii);        endif;
       type is (particle_gc_Qin)
       if(present(vpar_arr))       then; if(allocated(vpar_arr))       p%vpar       = vpar_arr(ii);          endif;
       if(present(mu_arr))         then; if(allocated(mu_arr))         p%mu         = mu_arr(ii);            endif;

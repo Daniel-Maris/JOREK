@@ -152,7 +152,7 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
       if(allocated(E_arr)) call HDF5_array1D_saving(file_id,E_arr,&
       n_particles_per_group,trim(group_name)//"E",start=[n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(E_arr)) call HDF5_array1D_saving(file_id,mu_arr,&
+      if(allocated(mu_arr)) call HDF5_array1D_saving(file_id,mu_arr,&
       n_particles_per_group,trim(group_name)//"mu",start=[n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(vpar_arr)) call HDF5_array1D_saving(file_id,vpar_arr,&
@@ -396,7 +396,7 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
     reqdims_in=[n_particles_hsizet],start=[offset])
     call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
     mu_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"vpar",&
+    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"Vpar",&
     reqdims_in=[n_particles_hsizet],start=[offset])
     call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
     vpar_arr=array1D_r8)
@@ -404,7 +404,7 @@ subroutine read_simulation_hdf5(sim,filename,access_type_in,mpi_comm,mpi_info)
     reqdims_in=[n_particles_hsizet],start=[offset])
     call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
     B_norm_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"vpar_m",&
+    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"Vpar_m",&
     reqdims_in=[n_particles_hsizet],start=[offset])
     call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
     vpar_m_arr=array1D_r8)
