@@ -1128,6 +1128,54 @@ module hdf5_io_module
   end subroutine HDF5_char_reading
 
   !---------------------------------------- 
+  ! HDF5 reading for a allocatable character
+  !----------------------------------------
+  subroutine HDF5_allocatable_char_reading(file_id,charvar,dsetname,mpi_rank,n_mpi_tasks)
+    implicit none
+    integer(HID_T)  , intent(in)                        :: file_id  ! file identifier
+    character(LEN=:), allocatable, intent(out)          :: charvar
+    character(LEN=*),              intent(in)           :: dsetname ! dataset name
+    integer,                       intent(in), optional :: mpi_rank,n_mpi_tasks
+    
+    integer                       :: error     ! error flag
+    integer(HID_T)                :: dataset   ! dataset identifier
+    integer(HID_T)                :: filespace ! filespace identifier
+    integer(HID_T)                :: dataspace ! dataspace identifier
+    integer(HID_T)                :: type_id   ! string type identifier
+    integer(HSIZE_T)              :: len_char  ! character length
+    integer(HSIZE_T),dimension(1) :: dim       ! dimensions
+    !*** file opening ***
+    call H5Dopen_f(file_id,trim(dsetname),dataset,error)
+    if(error.ne.0) then
+      write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
+      return
+    endif
+    !*** set the string datatype
+    call H5Dget_type_f(dataset,type_id,error)
+    call H5Tget_size_f(type_id,len_char,error)
+    !*** allocate character 
+    if(allocated(charvar)) deallocate(charvar)
+    allocate(character(len=int(len_char))::charvar)
+    !*** read the string data to the dataset ***
+    !***   using default transfer properties  ***
+    dim(1) = int(1,kind=HSIZE_T)
+    if(present(mpi_rank).and.present(n_mpi_tasks)) then
+      call H5Dget_space_f(dataset,filespace,error)
+      call H5Screate_simple_f(1,dim,dataspace,error)
+      call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
+      start=int([mpi_rank],kind=HSIZE_T),count=int([1],kind=HSIZE_T),hdferr=error)
+      call H5Dread_f(dataset,type_id,charvar,dim,error, &
+          file_space_id=filespace, mem_space_id=dataspace)
+      call H5Sclose_f(filespace,error)
+      call H5Sclose_f(dataspace,error)
+    else
+      call H5Dread_f(dataset,type_id,charvar,dim,error)
+    endif
+    !*** Closing ***
+    call H5Dclose_f(dataset,error)
+  end subroutine HDF5_allocatable_char_reading
+
+  !---------------------------------------- 
   ! HDF5 reading for a character array 1D
   !----------------------------------------
   subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start)
