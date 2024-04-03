@@ -43,6 +43,8 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
   use mod_particle_types, only: deallocate_particle_arrays
   use mod_particle_sim,   only: particle_sim
   implicit none
+  !> parameters
+  integer(HSIZE_T),parameter    :: i0_HSIZE_T=int(0,kind=HSIZE_T)
   !> input variables
   type(particle_sim),intent(in) :: sim
   character(len=*),  intent(in) :: filename 
@@ -53,7 +55,7 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
   integer                       :: file_access_loc,access_type_loc
   integer                       :: mpi_comm_loc,mpi_info_loc
   integer                       :: type_dataset_transfert_loc
-  integer                       :: ii,jj,ierr,h5err,n_groups,n_particles
+  integer                       :: ii,ierr,h5err,n_groups,n_particles
   integer                       :: n_particles_per_group
   integer(HID_T)                :: file_id,group_id
   integer(HSIZE_T)              :: n_particles_offset
@@ -163,50 +165,49 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
       n_particles_per_group,trim(group_name)//"Vpar_m",start=[n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(st_arr)) call HDF5_array2D_saving(file_id,st_arr,size(st_arr,1),&
-      n_particles_per_group,trim(group_name)//"st",start=[int(size(st_arr,1),kind=HSIZE_T),&
+      n_particles_per_group,trim(group_name)//"st",start=[i0_HSIZE_T,&
       n_particles_offset],type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(x_arr)) call HDF5_array2D_saving(file_id,x_arr,size(x_arr,1),&
-      n_particles_per_group,trim(group_name)//"x",start=[int(size(x_arr,1),kind=HSIZE_T),&
+      n_particles_per_group,trim(group_name)//"x",start=[i0_HSIZE_T,&
       n_particles_offset],type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(B_hat_prev_arr)) call HDF5_array2D_saving(file_id,B_hat_prev_arr,&
-      size(B_hat_prev_arr,1),n_particles_per_group,trim(group_name)//"B_hat_prev",start=[&
-      int(size(B_hat_prev_arr,1),kind=HSIZE_T),n_particles_offset],&
+      if(allocated(B_hat_prev_arr)) call HDF5_array2D_saving(&
+      file_id,B_hat_prev_arr,size(B_hat_prev_arr,1),n_particles_per_group,&
+      trim(group_name)//"B_hat_prev",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(v_2d_arr)) call HDF5_array2D_saving(file_id,v_2d_arr,&
-      size(v_2d_arr),n_particles_per_group,trim(group_name)//"v",start=[&
-      int(size(v_2d_arr,1),kind=HSIZE_T),n_particles_offset],&
+      if(allocated(v_2d_arr)) call HDF5_array2D_saving(&
+      file_id,v_2d_arr,size(v_2d_arr,1),n_particles_per_group,&
+      trim(group_name)//"v",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(x_m_arr)) call HDF5_array2D_saving(file_id,x_m_arr,&
-      size(x_m_arr,1),n_particles_per_group,trim(group_name)//"x_m",start=[&
-      int(size(x_m_arr,1),kind=HSIZE_T),n_particles_offset],&
+      if(allocated(x_m_arr)) call HDF5_array2D_saving(&
+      file_id,x_m_arr,size(x_m_arr,1),n_particles_per_group,&
+      trim(group_name)//"x_m",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(Astar_m_arr)) call HDF5_array2D_saving(file_id,Astar_m_arr,&
-      size(Astar_m_arr,1),n_particles_per_group,trim(group_name)//"Astar_m",start=[&
-      int(size(Astar_m_arr,1),kind=HSIZE_T),n_particles_offset],&
+      if(allocated(Astar_m_arr)) call HDF5_array2D_saving(&
+      file_id,Astar_m_arr,size(Astar_m_arr,1),n_particles_per_group,&
+      trim(group_name)//"Astar_m",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(Astar_k_arr)) call HDF5_array2D_saving(file_id,Astar_k_arr,&
-      size(Astar_k_arr),n_particles_per_group,trim(group_name)//"Astar_k",start=[&
-      int(size(Astar_k_arr,1),kind=HSIZE_T),n_particles_offset],&
+      if(allocated(Astar_k_arr)) call HDF5_array2D_saving(&
+      file_id,Astar_k_arr,size(Astar_k_arr,1),n_particles_per_group,&
+      trim(group_name)//"Astar_k",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(Bn_k_arr)) call HDF5_array1D_saving(file_id,Bn_k_arr,&
       n_particles_per_group,trim(group_name)//"Bn_k",start=[n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(dBn_k_arr)) call HDF5_array2D_saving(file_id,&
-      dBn_k_arr,size(dBn_k_arr),n_particles_per_group,trim(group_name)//"dBn_k",&
-      start=[int(size(dBn_k_arr,1),kind=HSIZE_T),n_particles_offset],&
+      dBn_k_arr,size(dBn_k_arr,1),n_particles_per_group,&
+      trim(group_name)//"dBn_k",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(Bnorm_k_arr)) call HDF5_array2D_saving(file_id,&
-      Bnorm_k_arr,size(Bnorm_k_arr),n_particles_per_group,trim(group_name)//"Bnorm_k",&
-      start=[int(size(Bnorm_k_arr,1),kind=HSIZE_T),n_particles_offset],&
+      Bnorm_k_arr,size(Bnorm_k_arr,1),n_particles_per_group,&
+      trim(group_name)//"Bnorm_k",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(E_k_arr)) call HDF5_array2D_saving(file_id,&
-      E_k_arr,size(E_k_arr,1),n_particles_per_group,trim(group_name)//"E_k",&
-      start=[int(size(E_k_arr,1),kind=HSIZE_T),n_particles_offset],&
+      if(allocated(E_k_arr)) call HDF5_array2D_saving(&
+      file_id,E_k_arr,size(E_k_arr,1),n_particles_per_group,&
+      trim(group_name)//"E_k",start=[i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(dAstar_k_arr)) call HDF5_array3D_saving(file_id,&
       dAstar_k_arr,size(dAstar_k_arr,1),size(dAstar_k_arr,2),n_particles_per_group,&
-      trim(group_name)//"dAstar_k",start=[int(size(dAstar_k_arr,1),kind=HSIZE_T),&
-      int(size(dAstar_k_arr,2),kind=HSIZE_T),n_particles_offset],&
+      trim(group_name)//"dAstar_k",start=[i0_HSIZE_T,i0_HSIZE_T,n_particles_offset],&
       type_dataset_transfert_in=type_dataset_transfert_loc)
       if(allocated(particle_type_str)) call HDF5_char_saving(file_id,particle_type_str,&
       trim(group_name)//"type",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,&
