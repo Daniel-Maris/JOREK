@@ -191,10 +191,11 @@ end subroutine test_create_open_hdf5_file
 !> of a single string
 subroutine test_HDF5_saving_char()
   implicit none
-  character(len=12),parameter :: datasetname='char_value'
-  character(len=len_char)     :: test_value,result_value
-  integer(HID_T)              :: file_id
-  character(len=100)          :: filename 
+  character(len=12),parameter  :: datasetname='char_value'
+  character(len=len_char)      :: test_value,result_value
+  character(len=:),allocatable :: test_value_alloc
+  integer(HID_T)               :: file_id
+  character(len=100)           :: filename 
   !> initialise posix test
   test_value = ''; result_value = char_sol(1);
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
@@ -204,7 +205,7 @@ subroutine test_HDF5_saving_char()
   call HDF5_char_reading(file_id,test_value,datasetname)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_value,result_value,&
-  "Error test HDF5 I/O 0D character posix: test and result array mismatch!")
+  "Error test HDF5 I/O 0D character posix: test and result values mismatch!")
   filename = trim(filename_base)//trim(extension);
   test_value = ''; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -215,7 +216,18 @@ subroutine test_HDF5_saving_char()
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_value,result_value,&
-  "Error test HDF5 I/O 0D character MPI collective: test and result array mismatch!")
+  "Error test HDF5 I/O 0D character MPI collective: test and result values mismatch!")
+  call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
+  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_char_saving(file_id,result_value,&
+  datasetname,mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc,&
+  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  call HDF5_allocatable_char_reading(file_id,test_value_alloc,datasetname,&
+  mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals(test_value_alloc,result_value,&
+  "Error test HDF5 I/O 0D character allocatable MPI collective: test and result values mismatch!")
+  if(allocated(test_value_alloc)) deallocate(test_value_alloc)
 end subroutine test_HDF5_saving_char
 
 !> the the posix and collective writing / reading HDF5 file
