@@ -1,11 +1,9 @@
 !> Particle input-output module, containing hdf5 data_type and writing routines
 !> TODO: add metadata and/or use H5MD format (http://nongnu.org/h5md/h5md.html)
 module mod_particle_io
-use iso_c_binding
-use hdf5_io_module
-use hdf5
 use mpi
-use mod_interp, only: interp_0
+use hdf5
+use hdf5_io_module
 use mod_particle_types
 use mod_particle_sim
 implicit none
