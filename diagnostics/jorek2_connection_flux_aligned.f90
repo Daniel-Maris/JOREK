@@ -101,7 +101,7 @@ program jorek2_connection_flux_aligned
   ! -------------------------------------------------------------------------------------------------
   namelist /connect_params/ n_turns, n_phi, ntheta, n_rcoord, phi_start, tol, rcoord_range_min, rcoord_range_max, rcoord_strike_bnd
 
-!#define DEGUB_Connection
+#define DEGUB_Connection
 
   ! --- MPI initilisation
   call MPI_INIT(IERR)
@@ -471,15 +471,14 @@ program jorek2_connection_flux_aligned
           call var_value(i_elm,i_var_n,s_line,t_line,p_line,ZN_strike(i_strike))
         endif
         
-        ! Record min/max radial extent reached by field line
-        rcoord_min_all(i_line) = min(rcoord_min_all(i_line), rcoord_min)
+        ! Record connection length and min/max radial extent reached by field line
         rcoord_max_all(i_line) = max(rcoord_max_all(i_line), rcoord_max)
-
-        ! --- Record connection length
         if (i_dir .eq. -1) then  
+          rcoord_min_all(i_line) = min(rcoord_all(i_line), rcoord_min)
           C_all(i_line)   = total_length
           partial(1)      = total_length
         else
+          rcoord_min_all(i_line) = min(rcoord_all(i_line), rcoord_min)
           C_all(i_line)   = C_all(i_line)+total_length!min(C_all(i_line),total_length)
           partial(2)      = total_length
         endif
@@ -567,12 +566,14 @@ program jorek2_connection_flux_aligned
   
   ! --- Open file and write headers
   open(21,file='poinc_R-Z.dat',status='replace')
-  write(21,*) '#  R                 Z             Connection Length    min_sqrt{Phi_N}     max_sqrt{Phi_N}'
+  write(21,*) '#  R       Z       Connection Length    min_rho     max_rho'
+  write(21,*) '# For tokamaks     : rho=sqrt(psi_n)'
+  write(21,*) '# For stellarators : rho=sqrt(phi_n)'
   open(22,file='poinc_rho-theta.dat',status='replace')
-  write(22,*) '# rho=sqrt(psi_n)'
-  write(22,*) '# psi_n=(psi - ES%psi_axis)/(psi_bnd - ES%psi_axis)'
+  write(22,*) '# For tokamaks     : rho=sqrt(psi_n)'
+  write(22,*) '# For stellarators : rho=sqrt(phi_n)'
   write(22,*) '#'
-  write(22,*) '#  rho               theta         Connection Length    min_sqrt{Phi_N}     max_sqrt{Phi_N}'
+  write(22,*) '#  rho               theta         Connection Length    min_rho     max_rho'
   
   ! --- Write points for local MPI (id=0)
   if (my_id .eq. 0) then
@@ -626,9 +627,9 @@ program jorek2_connection_flux_aligned
   ! --- Write points for local MPI (id=0)
   if (my_id .eq. 0) then
 #if STELLARATOR_MODEL
-    write(23,*) "# R    Z    sqrt{Phi_N}    Connection_length     min_sqrt{Phi_N}     max_sqrt{Phi_N}"
+    write(23,*) "# R    Z    sqrt{Phi_N}    Connection_length   min_sqrt{Phi_N}   max_sqrt{Phi_N}"
 #else
-    write(23,*) "# R    Z    sqrt{Psi_N}    Connection_length     min_sqrt{Psi_N}     max_sqrt{Psi_N}"
+    write(23,*) "# R    Z    sqrt{Psi_N}    Connection_length   min_sqrt{Psi_N}   max_sqrt{Psi_N}"
 #endif
     write(23,'(6e16.8)') ( (/ R_all(i), Z_all(i), rcoord_all(i), C_all(i), rcoord_min_all(i), rcoord_max_all(i) /),i=1,i_line0)
   endif
