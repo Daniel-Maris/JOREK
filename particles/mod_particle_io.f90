@@ -242,10 +242,11 @@ end subroutine write_simulation_hdf5
 !>                   default: H5P_FILE_ACCESS_F
 !>   mpi_comm_in:    (integer)(optional) MPI communicator identifier
 !>   mpi_info_in:    (integer)(optional) MPI info structre for parallel IO
+!>   legacy_in:      (logical)(optional) true for old particle restart
 !> outputs:
 !>   sim: (particle_sim) particle simulation object
 subroutine read_simulation_hdf5(sim,filename,access_type_in,&
-mpi_comm_in,mpi_info_in)
+mpi_comm_in,mpi_info_in,legacy_in)
   use mpi
   use hdf5,               only: HSIZE_T,HID_T
   use hdf5,               only: H5Gopen_f,H5Gget_info_f
@@ -279,6 +280,7 @@ mpi_comm_in,mpi_info_in)
   character(len=*),intent(in) :: filename
   integer,intent(in),optional :: access_type_in
   integer,intent(in),optional :: mpi_comm_in,mpi_info_in
+  logical,intent(in),optional :: legacy_in
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
@@ -297,6 +299,7 @@ mpi_comm_in,mpi_info_in)
   real*8,           dimension(:,:,:),allocatable :: array3D_r8
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
+  logical                                        :: legacy_loc
   !> initialisation
   allocate(n_particles_per_proc(sim%n_cpu))
   !> set optional parameters
@@ -306,6 +309,7 @@ mpi_comm_in,mpi_info_in)
   if(present(mpi_comm_in)) mpi_comm_loc = mpi_comm_in
   mpi_info_loc = MPI_INFO_NULL
   if(present(mpi_info_in)) mpi_info_loc = mpi_info_in
+  legacy_loc = .false.; if(present(legacy_in)) legacy_loc = legacy_in;
   !> open HDF5 file 
   call HDF5_open(filename,file_id,ierr,access_type_in=access_type_loc,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -321,13 +325,14 @@ mpi_comm_in,mpi_info_in)
     !> read and load group datasets
     ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
     call HDF5_allocatable_char_reading(file_id,particle_type_str,&
-    trim(group_name)//"type",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+    trim(group_name)//"type",mpi_rank=sim%my_id,&
+    n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
     call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z",&
     mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
     call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass",&
     mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
     call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//&
-    "adas_suffix",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+    "adas_suffix",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
     if(len_trim(sim%groups(ii)%ad%suffix).gt.0) then
       sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
       sim%groups(ii)%cor = coronal(sim%groups(ii)%ad) 
