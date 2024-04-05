@@ -334,9 +334,9 @@ mpi_comm_in,mpi_info_in,legacy_in)
     trim(group_name)//"type",mpi_rank=sim%my_id,&
     n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
     call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z",&
-    mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+    mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
     call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass",&
-    mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+    mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
     call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//&
     "adas_suffix",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
     if(len_trim(sim%groups(ii)%ad%suffix).gt.0) then

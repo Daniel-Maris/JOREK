@@ -1203,13 +1203,13 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 reading for a character array 1D
   !----------------------------------------
-  subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start)
+  subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start,legacy_in)
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(len=*)       , intent(out), dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
-
+    logical,                        intent(in), optional :: legacy_in
     integer             :: len_char
     integer             :: error     ! error flag
     integer             :: rank      ! dataset rank
@@ -1220,6 +1220,10 @@ module hdf5_io_module
     integer(HID_T)      :: type_id   ! string datatype identifier
     integer(HID_T)      :: filespace ! filespace identifier
     logical             :: exists    ! true if dataset exists
+    logical             :: legacy    ! check if legacy reading as to be used
+                                     ! for backward compatibility
+    !*** check for leagcy reading ***
+    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -1237,7 +1241,7 @@ module hdf5_io_module
     !*** read the character data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
-    if (present(start)) then
+    if (present(start).and.(.not.legacy)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
@@ -1257,13 +1261,14 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 reading for an integer 
   !----------------------------------------
-  subroutine HDF5_integer_reading(file_id,intv,dsetname,mpi_rank,n_mpi_tasks)
+  subroutine HDF5_integer_reading(file_id,intv,dsetname,mpi_rank,&
+  n_mpi_tasks,legacy_in)
     implicit none
-    integer(HID_T)  , intent(in)  :: file_id   ! file identifier
-    integer         , intent(out) :: intv
-    character(LEN=*), intent(in)  :: dsetname  ! dataset name
-    integer,intent(in),optional   :: mpi_rank,n_mpi_tasks 
-
+    integer(HID_T)  , intent(in)          :: file_id  ! file identifier
+    integer         , intent(out)         :: intv
+    character(LEN=*), intent(in)          :: dsetname ! dataset name
+    integer,          intent(in),optional :: mpi_rank,n_mpi_tasks 
+    logical,          intent(in),optional :: legacy_in
     integer             :: error     ! error flag
     integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
@@ -1273,6 +1278,10 @@ module hdf5_io_module
     integer(HID_T)      :: data_type
     integer(HID_T)      :: filespace ! filespace identifier
     logical             :: exists    ! true if dataset exists
+    logical             :: legacy    ! check if legacy reading as to be used
+                                     ! for backward compatibility
+    !*** check for leagcy reading ***
+    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -1288,7 +1297,7 @@ module hdf5_io_module
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks)) then
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
@@ -1592,13 +1601,14 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 reading for a real double
   !----------------------------------------
-  subroutine HDF5_real_reading(file_id,rd,dsetname,mpi_rank,n_mpi_tasks)
+  subroutine HDF5_real_reading(file_id,rd,dsetname,mpi_rank,&
+  n_mpi_tasks,legacy_in)
     implicit none
-    integer(HID_T)  , intent(in)  :: file_id   ! file identifier
-    real*8          , intent(out) :: rd
-    character(LEN=*), intent(in)  :: dsetname  ! dataset name
-    integer,intent(in),optional   :: mpi_rank,n_mpi_tasks     
-
+    integer(HID_T)  , intent(in)          :: file_id  ! file identifier
+    real*8          , intent(out)         :: rd
+    character(LEN=*), intent(in)          :: dsetname ! dataset name
+    integer,          intent(in),optional :: mpi_rank,n_mpi_tasks     
+    logical,          intent(in),optional :: legacy_in
     integer             :: error     ! error flag
     integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
@@ -1608,6 +1618,10 @@ module hdf5_io_module
     integer(HID_T)      :: data_type
     integer(HID_T)      :: filespace
     logical             :: exists    ! true if dataset exists
+    logical             :: legacy    ! check if legacy reading as to be used
+                                     ! for backward compatibility
+    !*** check for leagcy reading ***
+    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -1623,7 +1637,7 @@ module hdf5_io_module
     !*** read the double data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks)) then
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
