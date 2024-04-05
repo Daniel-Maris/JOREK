@@ -24,6 +24,7 @@ module mod_particle_types
   public :: codify_particle_type
   public :: find_active_particle_id
   public :: particle_arrays_from_list,particle_list_from_arrays
+  public :: initialize_particle_list_to_zero
   public :: deallocate_particle_arrays
   !> publicity only for unit testing
 #ifdef UNIT_TESTS
@@ -740,6 +741,51 @@ Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr,particle_type_str)
   enddo
   !$omp end parallel do
 end subroutine particle_arrays_from_list
+
+! initialise a particle list to 0
+subroutine initialize_particle_list_to_zero(n_particles,particle_list,ierr)
+  !> inputs:
+  integer,intent(in) :: n_particles
+  !> outputs:
+  class(particle_base),dimension(:),allocatable,intent(inout)  :: particle_list
+  !> inputs-outputs:
+  integer,intent(inout) :: ierr
+  !> variables:
+  integer :: ii
+  !> check if the particle list is allocated
+  if(.not.allocated(particle_list)) then
+    write(*,*) "WARNING: particle list not allocated: exit!"
+    ierr = 1; return;
+  endif
+  !$omp parallel do default(none) private(ii),firstprivate(n_particles) &
+  !$omp shared(particle_list)
+  do ii=1,n_particles
+    particle_list(ii)%i_elm=0;    particle_list(ii)%i_life=0; 
+    particle_list(ii)%t_birth=0.; particle_list(ii)%weight=0d0;
+    particle_list(ii)%st=0d0;     particle_list(ii)%x=0d0;
+    select type (p=>particle_list(ii))
+      type is (particle_fieldline)
+      p%v=0d0; p%B_hat_prev=0d0;
+      type is (particle_gc)
+      p%E=0d0; p%mu=0d0; p%q=int(0,kind=1);
+      type is (particle_gc_vpar)
+      p%vpar=0d0; p%mu=0d0; p%B_norm=0d0; p%q=int(0,kind=1);
+      type is (particle_gc_Qin)
+      p%vpar=0d0;    p%mu=0d0;      p%q=int(0,kind=1); p%B_norm=0d0; p%x_m=0d0; p%vpar_m=0d0;
+      p%Astar_m=0d0; p%Astar_k=0d0; p%dAstar_k=0d0;    p%Bn_k=0d0;   p%dBn_k=0d0;
+      p%Bnorm_k=0d0; p%E_k=0d0;
+      type is (particle_kinetic)
+      p%v=0d0; p%q=int(0,kind=1);
+      type is (particle_kinetic_leapfrog) 
+      p%v=0d0; p%q=int(0,kind=1);
+      type is (particle_kinetic_relativistic)
+      p%p=0d0; p%q=int(0,kind=1);
+      type is (particle_gc_relativistic)
+      p%p=0d0; p%q=int(0,kind=1);
+      end select   
+  enddo
+  !$omp end parallel do
+end subroutine initialize_particle_list_to_zero
 
 ! fille a particle list from arrays
 subroutine particle_list_from_arrays(n_particles,particle_list,ierr,&
