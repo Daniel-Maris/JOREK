@@ -262,6 +262,7 @@ mpi_comm_in,mpi_info_in,legacy_in)
   use hdf5_io_module,     only: HDF5_allocatable_array2D_reading
   use hdf5_io_module,     only: HDF5_allocatable_array3D_reading
   use mod_particle_types, only: particle_list_from_arrays
+  use mod_particle_types, only: initialize_particle_list_to_zero
   use mod_particle_types, only: deallocate_particle_arrays
   use mod_particle_types, only: particle_kinetic,particle_kinetic_leapfrog
   use mod_particle_types, only: particle_gc,particle_gc_vpar
@@ -291,12 +292,17 @@ mpi_comm_in,mpi_info_in,legacy_in)
   integer(HID_T)                                 :: file_id,group_id
   integer(HSIZE_T)                               :: offset,n_particles_hsizet
   integer,          dimension(:),    allocatable :: n_particles_per_proc
-  integer*4,        dimension(:),    allocatable :: array1D_int
+  integer*4,        dimension(:),    allocatable :: i_elm_arr,i_life_arr
+  integer*4,        dimension(:),    allocatable :: q_arr
   integer(HSIZE_T), dimension(:),    allocatable :: n_particles_tot,n_particles_max
-  real*4,           dimension(:),    allocatable :: array1D_r4
-  real*8,           dimension(:),    allocatable :: array1D_r8
-  real*8,           dimension(:,:),  allocatable :: array2D_r8
-  real*8,           dimension(:,:,:),allocatable :: array3D_r8
+  real*4,           dimension(:),    allocatable :: t_birth_arr
+  real*8,           dimension(:),    allocatable :: weight_arr,v_1d_arr
+  real*8,           dimension(:),    allocatable :: E_arr,mu_arr,vpar_arr
+  real*8,           dimension(:),    allocatable :: B_norm_arr,vpar_m_arr,Bn_k_arr
+  real*8,           dimension(:,:),  allocatable :: st_arr,x_arr,B_hat_prev_arr,v_2d_arr
+  real*8,           dimension(:,:),  allocatable :: x_m_arr,Astar_m_arr,Astar_k_arr
+  real*8,           dimension(:,:),  allocatable :: dBn_k_arr,Bnorm_k_arr,E_k_arr
+  real*8,           dimension(:,:,:),allocatable :: dAstar_k_arr
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
   logical                                        :: legacy_loc
@@ -345,7 +351,7 @@ mpi_comm_in,mpi_info_in,legacy_in)
     (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
     offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
     n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
-    !> allocate particle list
+    !> allocate particle list and initialise to 0 (for legacy)
     select case (trim(particle_type_str))
     case ("particle_kinetic")
       allocate(particle_kinetic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
@@ -367,114 +373,77 @@ mpi_comm_in,mpi_info_in,legacy_in)
       write(*,*) "Error: missing type name declaration ",trim(particle_type_str)," for reading: ABORT!"
       call MPI_Abort(mpi_comm_loc,errorcode,ierr)
     end select
+    call initialize_particle_list_to_zero(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr)
     !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array
-    call HDF5_allocatable_array1D_reading_int(file_id,array1D_int,trim(group_name)//"i_elm",&
+    call HDF5_allocatable_array1D_reading_int(file_id,i_elm_arr,trim(group_name)//"i_elm",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    i_elm_arr=array1D_int)
-    call HDF5_allocatable_array1D_reading_int(file_id,array1D_int,trim(group_name)//"i_life",&
+    call HDF5_allocatable_array1D_reading_int(file_id,i_life_arr,trim(group_name)//"i_life",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    i_life_arr=array1D_int)
-    call HDF5_allocatable_array1D_reading_int(file_id,array1D_int,trim(group_name)//"q",&
+    call HDF5_allocatable_array1D_reading_int(file_id,q_arr,trim(group_name)//"q",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    q_arr=array1D_int)
     !> Read particle base datasets from HDF5 and fill the particle lists: float 1D array
-    call HDF5_allocatable_array1D_reading_r4(file_id,array1D_r4,trim(group_name)//"t_birth",&
+    call HDF5_allocatable_array1D_reading_r4(file_id,t_birth_arr,trim(group_name)//"t_birth",&
     reqdims_in=[n_particles_hsizet],start=[offset])
     !> Read particle base datasets from HDF5 and fill the particle lists: double 1D array
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    t_birth_arr=array1D_r4)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"weight",&
+    call HDF5_allocatable_array1D_reading(file_id,weight_arr,trim(group_name)//"weight",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    weight_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"v",&
+    call HDF5_allocatable_array1D_reading(file_id,v_1d_arr,trim(group_name)//"v",&
+    reqdims_in=[n_particles_hsizet],start=[offset])   
+    call HDF5_allocatable_array1D_reading(file_id,E_arr,trim(group_name)//"E",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    v_1d_arr=array1D_r8)   
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"E",&
+    call HDF5_allocatable_array1D_reading(file_id,mu_arr,trim(group_name)//"mu",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    E_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"mu",&
+    call HDF5_allocatable_array1D_reading(file_id,vpar_arr,trim(group_name)//"Vpar",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    mu_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"Vpar",&
+    call HDF5_allocatable_array1D_reading(file_id,B_norm_arr,trim(group_name)//"B_norm",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    vpar_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"B_norm",&
+    call HDF5_allocatable_array1D_reading(file_id,vpar_m_arr,trim(group_name)//"Vpar_m",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    B_norm_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"Vpar_m",&
+    call HDF5_allocatable_array1D_reading(file_id,Bn_k_arr,trim(group_name)//"Bn_k",&
     reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    vpar_m_arr=array1D_r8)
-    call HDF5_allocatable_array1D_reading(file_id,array1D_r8,trim(group_name)//"Bn_k",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    Bn_k_arr=array1D_r8)
     !> Read particle base datasets from HDF5 and fill the particle lists: integer 2D array
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"st",&
+    call HDF5_allocatable_array2D_reading(file_id,st_arr,trim(group_name)//"st",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    st_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"x",&
+    call HDF5_allocatable_array2D_reading(file_id,x_arr,trim(group_name)//"x",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    x_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"B_hat_prev",&
+    call HDF5_allocatable_array2D_reading(file_id,B_hat_prev_arr,trim(group_name)//"B_hat_prev",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    B_hat_prev_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"x_m",&
+    call HDF5_allocatable_array2D_reading(file_id,x_m_arr,trim(group_name)//"x_m",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    x_m_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"Astar_m",&
+    call HDF5_allocatable_array2D_reading(file_id,Astar_m_arr,trim(group_name)//"Astar_m",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    Astar_m_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"Astar_k",&
+    call HDF5_allocatable_array2D_reading(file_id,Astar_k_arr,trim(group_name)//"Astar_k",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    Astar_k_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"dBn_k",&
+    call HDF5_allocatable_array2D_reading(file_id,dBn_k_arr,trim(group_name)//"dBn_k",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    dBn_k_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"Bnorm_k",&
+    call HDF5_allocatable_array2D_reading(file_id,Bnorm_k_arr,trim(group_name)//"Bnorm_k",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    Bnorm_k_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"E_k",&
+    call HDF5_allocatable_array2D_reading(file_id,E_k_arr,trim(group_name)//"E_k",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    E_k_arr=array2D_r8)
-    call HDF5_allocatable_array2D_reading(file_id,array2D_r8,trim(group_name)//"v",&
+    call HDF5_allocatable_array2D_reading(file_id,v_2d_arr,trim(group_name)//"v",&
     reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    v_2d_arr=array2D_r8)
     !> Read particle base datasets from HDF5 and fill the particle lists: integer 3D array
-    call HDF5_allocatable_array3D_reading(file_id,array3D_r8,trim(group_name)//"dAstar_k",&
+    call HDF5_allocatable_array3D_reading(file_id,dAstar_k_arr,trim(group_name)//"dAstar_k",&
     reqdims_in=[n1_HSIZE_T,n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,i0_HSIZE_T,offset])
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),&
-    sim%groups(ii)%particles,ierr,dAstar_k_arr=array3D_r8)
+    !> fill particle list from arrays
+    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
+    i_elm_arr=i_elm_arr,i_life_arr=i_life_arr,t_birth_arr=t_birth_arr,weight_arr=weight_arr,&
+    x_arr=x_arr,st_arr=st_arr,q_arr=q_arr,v_1d_arr=v_1d_arr,E_arr=E_arr,mu_arr=mu_arr,&
+    vpar_arr=vpar_arr,B_norm_arr=B_norm_arr,vpar_m_arr=vpar_m_arr,B_hat_prev_arr=B_hat_prev_arr,&
+    v_2d_arr=v_2d_arr,x_m_arr=x_m_arr,Astar_m_arr=Astar_m_arr,Astar_k_arr=Astar_k_arr,&
+    Bn_k_arr=Bn_k_arr,dBn_k_arr=dBn_k_arr,Bnorm_k_arr=Bnorm_k_arr,&
+    E_k_arr=E_k_arr,dAstar_k_arr=dAstar_k_arr)
+    !> deallocate structures
+    call deallocate_particle_arrays(n_particles_per_proc(sim%my_id+1),i_elm_arr,&
+    i_life_arr,q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,&
+    B_norm_arr,vpar_m_arr,st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,&
+    Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)   
   enddo
   !> clean-up
   call HDF5_close(file_id)
   if(allocated(n_particles_tot))      deallocate(n_particles_tot)
   if(allocated(n_particles_max))      deallocate(n_particles_max)
   if(allocated(n_particles_per_proc)) deallocate(n_particles_per_proc)
-  if(allocated(array1D_int))          deallocate(array1D_int)
-  if(allocated(array1D_r4))           deallocate(array1D_r4)
-  if(allocated(array1D_r8))           deallocate(array1D_r8)
-  if(allocated(array2D_r8))           deallocate(array2D_r8)
-  if(allocated(array3D_r8))           deallocate(array3D_r8)
   if(allocated(particle_type_str))    deallocate(particle_type_str)
 end subroutine read_simulation_hdf5
 
