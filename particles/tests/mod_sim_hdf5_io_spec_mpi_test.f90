@@ -14,6 +14,7 @@ public :: run_fruit_sim_hdf5_io_spec_mpi
 !> Variables --------------------------------------
 integer,parameter :: master_rank=1
 integer           :: rank_loc,n_tasks_loc,ifail_loc
+integer           :: mpi_comm_loc,mpi_info_loc,file_access
 contains
 !> Fruit basket -----------------------------------
 subroutine run_fruit_sim_hdf5_io_spec_mpi(rank,n_tasks,ifail)
@@ -34,12 +35,17 @@ end subroutine run_fruit_sim_hdf5_io_spec_mpi
 
 !> Set-up and Tear-down
 subroutine setup(rank,n_tasks,ifail)
+  use mpi
+  use hdf5, only: H5F_ACC_TRUNC_F
   implicit none
   integer,intent(inout) :: ifail
   integer,intent(in) :: rank,n_tasks
-  rank_loc    = rank
-  n_tasks_loc = n_tasks
-  ifail_loc   = ifail
+  rank_loc     = rank
+  n_tasks_loc  = n_tasks
+  ifail_loc    = ifail
+  mpi_comm_loc = MPI_COMM_WORLD
+  mpi_info_loc = MPI_INFO_NULL
+  file_access  = H5F_ACC_TRUNC_F
 end subroutine setup
 
 subroutine teardown(rank,n_tasks,ifail)
@@ -48,6 +54,9 @@ subroutine teardown(rank,n_tasks,ifail)
   integer,intent(in) :: rank,n_tasks
   ifail = ifail_loc
   n_tasks_loc = 0; rank_loc = 0;
+  mpi_comm_loc = 0
+  mpi_info_loc = 0
+  file_access  = 0
 end subroutine teardown
 
 !> Tests ------------------------------------------
@@ -80,13 +89,15 @@ subroutine test_write_read_sim_time
 
   sim_to_write%time = 21.19d0
   writer%decimal_digits = 2; writer%fractional_digits = 0
-
+  writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
+  writer%file_access = file_access;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
   inquire(file='part21.h5', exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   reader%filename = 'part21.h5'
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
 
   ! Test that the right time was read
@@ -108,7 +119,8 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   allocate(sim_to_write%groups(1))
   call allocate_particles(sim_to_write%groups(1)%particles, 1)
   sim_to_write%time = 21.d0
-
+  writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
+  writer%file_access = file_access;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
@@ -116,6 +128,7 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   call assert_true(file_exists, 'file with the right name should be created')
 
   reader%time = sim_to_write%time
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   n_groups = size(sim_to_read%groups, 1)
@@ -148,7 +161,8 @@ subroutine test_write_sim_one_group_boris
   sim_to_write%time = 21.d0
   sim_to_write%groups(1)%Z = 2
   sim_to_write%groups(1)%mass = 2.0
-
+  writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
+  writer%file_access = file_access;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
@@ -156,6 +170,7 @@ subroutine test_write_sim_one_group_boris
   call assert_true(file_exists, 'file with the right name should be created')
 
   reader%time = sim_to_write%time
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   n_groups = size(sim_to_read%groups, 1)
@@ -192,7 +207,8 @@ subroutine test_write_sim_two_groups_boris
   call allocate_particles(sim_to_write%groups(1)%particles, 2)
   call allocate_particles(sim_to_write%groups(2)%particles, 2)
   sim_to_write%time = 21.d0
-
+  writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
+  writer%file_access = file_access;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
@@ -200,6 +216,7 @@ subroutine test_write_sim_two_groups_boris
   call assert_true(file_exists, 'file with the right name should be created')
 
   reader%time = sim_to_write%time
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   n_groups = size(sim_to_read%groups, 1)
