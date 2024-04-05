@@ -455,7 +455,7 @@ end subroutine read_simulation_hdf5
 !> outputs:
 !>   time:     (real8) restart simulation time
 function get_simulation_hdf5_time(filename,access_type_in,mpi_comm_in,&
-mpi_info_in,my_id_in,n_cpu_in) result(time)
+mpi_info_in,my_id_in,n_cpu_in,legacy_in) result(time)
   use mpi
   use hdf5, only: HID_T
   use hdf5_io_module, only: HDF5_open,HDF5_close,HDF5_real_reading
@@ -463,10 +463,12 @@ mpi_info_in,my_id_in,n_cpu_in) result(time)
   character(len=*),intent(in) :: filename
   integer,intent(in),optional :: access_type_in,mpi_comm_in,mpi_info_in 
   integer,intent(in),optional :: my_id_in,n_cpu_in
+  logical,intent(in),optional :: legacy_in
   real*8                      :: time
   integer                     :: h5err,access_type_loc,mpi_comm_loc
   integer                     :: mpi_info_loc,my_id,n_cpu
   integer(HID_T)              :: file_id
+  logical                     :: legacy_loc
   !> set optional parameters
   access_type_loc = 1
   if(present(access_type_in)) access_type_loc = access_type_in
@@ -474,11 +476,13 @@ mpi_info_in,my_id_in,n_cpu_in) result(time)
   if(present(mpi_comm_in)) mpi_comm_loc = mpi_comm_in
   mpi_info_loc = MPI_INFO_NULL
   if(present(mpi_info_in)) mpi_comm_loc = mpi_comm_in
-  my_id = master_task; if(present(my_id_in)) my_id = my_id_in;
-  n_cpu = n_cpu_1;     if(present(n_cpu_in)) n_cpu = n_cpu_in;
+  legacy_loc = .false.; if(present(legacy_in)) legacy_loc = legacy_in;
+  my_id = master_task;  if(present(my_id_in)) my_id = my_id_in;
+  n_cpu = n_cpu_1;      if(present(n_cpu_in)) n_cpu = n_cpu_in;
   call HDF5_open(trim(filename),file_id,h5err,access_type_in=access_type_loc,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
-  call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,n_mpi_tasks=n_cpu)
+  call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,&
+  n_mpi_tasks=n_cpu,legacy_in=legacy_loc)
   call HDF5_close(file_id)
 end function get_simulation_hdf5_time
 
