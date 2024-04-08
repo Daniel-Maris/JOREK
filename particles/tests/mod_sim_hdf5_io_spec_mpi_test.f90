@@ -86,8 +86,8 @@ subroutine test_write_read_sim_time
   class(read_action), allocatable  :: reader
   logical :: file_exists
   allocate(writer, reader)
-
-  sim_to_write%time = 21.19d0
+  sim_to_write%time = 21.19d0; sim_to_write%my_id = rank_loc;
+  sim_to_write%n_cpu = n_tasks_loc;
   writer%decimal_digits = 2; writer%fractional_digits = 0
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access;
@@ -96,10 +96,10 @@ subroutine test_write_read_sim_time
   ! test if a file with the right name was created
   inquire(file='part21.h5', exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%filename = 'part21.h5'
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
-
   ! Test that the right time was read
   call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file")
   ! Delete the file
@@ -114,11 +114,10 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer, reader)
-
-  allocate(sim_to_write%groups(1))
+  allocate(writer, reader);  allocate(sim_to_write%groups(1));
   call allocate_particles(sim_to_write%groups(1)%particles, 1)
-  sim_to_write%time = 21.d0
+  sim_to_write%time = 21.d0; sim_to_write%my_id = rank_loc;
+  sim_to_write%n_cpu = n_tasks_loc;
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access;
   call writer%run(sim_to_write)
@@ -126,7 +125,7 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   ! test if a file with the right name was created
   inquire(file='part021.00000000.h5', exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-
+  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -141,7 +140,6 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
           'particle i must be as written')
     end if
   end if
-
   ! Delete the file
   call remove_file(rank_loc,'part021.00000000.h5',ifail_loc)
 end subroutine test_write_sim_one_particle_kinetic_leapfrog
@@ -154,12 +152,10 @@ subroutine test_write_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer, reader)
-
-  allocate(sim_to_write%groups(1))
+  allocate(writer, reader); allocate(sim_to_write%groups(1));
   call allocate_particles(sim_to_write%groups(1)%particles, 2)
-  sim_to_write%time = 21.d0
-  sim_to_write%groups(1)%Z = 2
+  sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
+  sim_to_write%time = 21.d0; sim_to_write%groups(1)%Z = 2;
   sim_to_write%groups(1)%mass = 2.0
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access;
@@ -168,7 +164,7 @@ subroutine test_write_sim_one_group_boris
   ! test if a file with the right name was created
   inquire(file='part021.00000000.h5', exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-
+  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -184,11 +180,9 @@ subroutine test_write_sim_one_group_boris
             'particle i must be as written')
       end do
     end if
-
     call assert_equals(2, sim_to_read%groups(1)%Z, 'Z equal')
     call assert_equals(2.0, sim_to_read%groups(1)%mass, 'mass equal')
   end if
-
   ! Delete the file
   call remove_file(rank_loc,'part021.00000000.h5',ifail_loc)
 end subroutine test_write_sim_one_group_boris
@@ -201,12 +195,11 @@ subroutine test_write_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
-  allocate(writer, reader)
-
-  allocate(sim_to_write%groups(2))
+  allocate(writer, reader); allocate(sim_to_write%groups(2));
   call allocate_particles(sim_to_write%groups(1)%particles, 2)
   call allocate_particles(sim_to_write%groups(2)%particles, 2)
-  sim_to_write%time = 21.d0
+  sim_to_write%time = 21.d0; sim_to_write%my_id = rank_loc;
+  sim_to_write%n_cpu = n_tasks_loc;
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access;
   call writer%run(sim_to_write)
@@ -214,7 +207,7 @@ subroutine test_write_sim_two_groups_boris
   ! test if a file with the right name was created
   inquire(file='part021.00000000.h5', exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-
+  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -233,7 +226,6 @@ subroutine test_write_sim_two_groups_boris
       end if
     end do
   end if
-
   ! Delete the file
   call remove_file(rank_loc,'part021.00000000.h5',ifail_loc)
 end subroutine test_write_sim_two_groups_boris
