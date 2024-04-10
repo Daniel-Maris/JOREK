@@ -13,6 +13,7 @@ use mod_fields_linear
 use mod_fields_hermite_birkhoff
 use mod_gc_relativistic
 use mod_kinetic_relativistic
+use mod_coordinate_transforms, only: cylindrical_to_cartesian, cartesian_to_cylindrical
 use mod_wall_collision
 use hdf5_io_module
 use constants, only: PI
@@ -21,13 +22,15 @@ use phys_module, only : sqrt_mu0_rho0, F0
 implicit none
 
 ! Set up the simulation variables
-real(kind=8)                      :: timesteps(1) = [0.1d-11] 
-real(kind=8)                      :: target_time, t, R, phi, v_part
+real(kind=8)                      :: timesteps(1) = [1d-7] 
+real(kind=8)                      :: target_time, t, R, phi, v_part, norm_R, dir_sign, tstep_field=1.d-3
 integer(kind=4)                   :: n_part, i, j, k, l, n_steps, ifail, max_depth, wall_id
-integer                           :: n_tri    
+integer(kind=4),allocatable       :: indices(:,:)
+integer                           :: n_tri, n_nodes
+integer             :: filehandle = 60
 integer(HID_T)                    :: file_id                       
 type(write_particle_diagnostics)  :: diag
-real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v
+real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz
 real*8, allocatable :: iangle(:,:), l_part(:)
 
 type(particle_kinetic_relativistic), allocatable :: prtkin(:)
@@ -35,7 +38,7 @@ real*8 :: rnd(1), psi, U, B(3), E(3)
 
 type(octree_node) :: wall
 type(octree_triangle), allocatable :: triangles(:)
-real*8, allocatable                :: wtmp(:)
+real*8, allocatable                :: wtmp(:),nodes_xyz(:,:), normals_all(:,:)
 
 ! --- Read wall with octree
 max_depth = 6
@@ -48,6 +51,9 @@ call HDF5_integer_reading(file_id,n_tri,'ntriangle')
 
 allocate(wtmp(9*n_tri))
 call HDF5_array1D_reading(file_id, wtmp, 'nodes')
+
+allocate(indices(n_tri,3))
+call HDF5_array2D_reading_int(file_id, indices, 'indices')
 call HDF5_close(file_id)
 
 ! Convert wall array into triangles
@@ -65,9 +71,12 @@ call sim%initialize(num_groups=1)
 ! One can use read_jorek_fields_interp_linear or read_jorek_fields_interp_hermite_birkhoff,
 ! and i=-1 (to read jorek_restart.h5 and keep this field at all time) or i=last_file_before_time(sim%time)
 ! (to read a sequel of jorekXXXXX.h5 files and use time-evolving fields)
-events = [event(read_jorek_fields_interp_linear(i=last_file_before_time(sim%time))), & 
-     !event(diag,start=sim%time,step=1d-8),         &
-     event(stop_action(),start=sim%time+7.d-4)]
+! events = [event(read_jorek_fields_interp_linear(i=last_file_before_time(sim%time))), & 
+!      !event(diag,start=sim%time,step=1d-8),         &
+!      event(stop_action(),start=sim%time+7.d-4)]
+
+events = [event(read_jorek_fields_interp_linear(i=-1)), & 
+event(stop_action(),start=sim%time+7.d-4)]
 
 ! Run first event to read the JOREK fields
 call with(sim, events, at=0.d0)
@@ -78,21 +87,23 @@ sim%groups(:)%mass = 2.d0 !< atomic mass units
 
 n_part = n_tri
 
-allocate(particle_gc_relativistic::sim%groups(1)%particles(n_tri))
+allocate(particle_fieldline::sim%groups(1)%particles(n_tri))
+allocate(normals_all(n_tri,3))
 
 do i=1, n_tri
   
   select type (p=>sim%groups(1)%particles(i))
   
-  type is (particle_gc_relativistic)
+  type is (particle_fieldline)
   
-   !--- Calculate wall normals
+   !--- Calculate wall normals (we assume they point towards the domain)
    v21 = triangles(i)%v1 - triangles(i)%v0 
    v31 = triangles(i)%v2 - triangles(i)%v0 
 
    norm_tria = [v21(2)*v31(3)- v21(3)*v31(2), v21(3)*v31(1)- v21(1)*v31(3), v21(1)*v31(2)- v21(2)*v31(1)]
 
-   norm_tria = norm_tria / norm2(norm_tria)
+   norm_tria        = norm_tria / norm2(norm_tria)
+   normals_all(i,:) = norm_tria
    
    ! Assign particle position to triangle center
    xyz_tria = (triangles(i)%v0 + triangles(i)%v1 + triangles(i)%v2) / 3.d0
@@ -100,11 +111,10 @@ do i=1, n_tri
    !--- Move the point 1 mm away from the triangle
    xyz_tria  = xyz_tria + norm_tria * 0.001
 
-   R   = sqrt(xyz_tria(1)**2.0 + xyz_tria(2)**2.0)
-   phi = atan2(xyz_tria(2),xyz_tria(1)) 
-   if (phi < 0) phi = phi  + 2.0*PI
+   p%x = cartesian_to_cylindrical(xyz_tria)
 
-   p%x = [R,xyz_tria(3),phi]
+   norm_R = (xyz_tria(1)*norm_tria(1) + xyz_tria(2)*norm_tria(2))/p%x(1)
+   write(121,'(6ES16.6)') p%x(1), p%x(2), p%x(3), norm_R, norm_tria(3)
 
    call find_RZ(sim%fields%node_list, sim%fields%element_list, &
             p%x(1), p%x(2), &
@@ -112,14 +122,8 @@ do i=1, n_tri
    
    if (ifail /= 0) write(*,*) 'Initial position of triangle id = ', i, ' not found in JOREK grid, move the wall inside'
 
-   Bphi_v = [-sin(phi), -cos(phi), 0.d0] * F0 / R
-
-   ! --- Particle momentum in the field direction (must be corrected to point towards the domain)
    p%weight = 1.0
-   p%q      = 1
-   p%p(1)   = sign(1.d0,dot_product(Bphi_v,norm_tria))   ! parallel momentum aligns with normal (towards plasma)
-   p%p(1)   = p%p(1) * 2.014 * 6.9d4    ! thermal velocity for 100 eV deuterium
-   p%p(2)   = 0.d0    ! No perp momentum, fully parallel
+   p%v      = 1.d0 ! --- not really used
 
    end select
   
@@ -130,12 +134,6 @@ allocate(l_part(n_part))
 iangle = 0
 ! ----------- end paticle initialization -----------------------------------------------------------------------
 
-
-! Set up the diagnostics output
-!diag = write_particle_diagnostics(filename='diag.h5',only=[1,2,6,12,13,14,15]) ! store total and kinetic energies, p_phi, ielm, phi, R, Z
-
-
-
 call check_and_fix_timesteps(timesteps, events)
 
 do while (.not. sim%stop_now)
@@ -144,23 +142,42 @@ do while (.not. sim%stop_now)
   do i=1,1
     n_steps = nint((target_time - sim%time)/timesteps(i))
 
+    n_steps = 10000
+    write(*,*) 'nsteps = ', n_steps
+
     select type (particles => sim%groups(i)%particles)
-    type is (particle_gc_relativistic)	
+    type is (particle_fieldline)	
        l_part = 0.d0
       !$omp parallel do default(private) &
-      !$omp shared (i, n_steps, timesteps, sim, wall, iangle, l_part)
+      !$omp shared (i, n_steps, timesteps, sim, wall, iangle, l_part, normals_all, tstep_field)
        do j=1,size(particles,1)
 
-          if (l_part(j) > 6.0) cycle  !--- If the particle is able to move away X m from the wall, it is a wetted area
           do k=1,n_steps
+
              if(particles(j)%i_elm .le. 0) exit
+             if (l_part(j) > 5.0) exit  !--- If the particle is able to move away X m from the wall, it is a wetted area
 
              pos_prev = particles(j)%x
 
-             call runge_kutta_fixed_dt_gc_push_jorek(sim%fields,sim%time,timesteps(i), &
-                  sim%groups(i)%mass,particles(j))
+             ! --- Do a step and check if the particle moves in the normal direction (away from the wall), otherwise correct direction
+             if (k==1) then
+               call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, 1.d-2)!*particles(j)%v)
+               xyz_prev = cylindrical_to_cartesian(pos_prev)
+               xyz      = cylindrical_to_cartesian(particles(j)%x)
 
-             l_part(j) = l_part(j) + norm2(pos_prev-particles(j)%x)
+               if (dot_product(xyz-xyz_prev,normals_all(j,:)) > 0.d0) then
+                  dir_sign =  1.d0 
+               else
+                  dir_sign = -1.d0
+               endif
+             endif
+
+             call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, tstep_field*dir_sign)
+
+             xyz_prev = cylindrical_to_cartesian(pos_prev)
+             xyz      = cylindrical_to_cartesian(particles(j)%x)
+
+             l_part(j) = l_part(j) + norm2(xyz-xyz_prev)
 
              if (particles(j)%i_elm .le. 0) exit
 
@@ -205,6 +222,55 @@ call mod_wall_collision_free(wall)
 call write_simulation_hdf5(sim, 'part_out.h5')
 
 call mod_wall_collision_export(sim, 'wallload.h5', iangle)
+
+! --- Write results to vtk
+open(filehandle, file='wetted_area.vtk', status='replace', action='write')
+140 format(a)
+141 format(a,i8,a)
+142 format(3es16.8)
+143 format(a,2i8)
+144 format(4i8)
+write(filehandle,140) '# vtk DataFile Version 2.0'
+write(filehandle,140) 'testdata'
+write(filehandle,140) 'ASCII'
+write(filehandle,140) 'DATASET POLYDATA'
+
+n_nodes = maxval(indices) + 1
+write(*,*) n_nodes
+allocate(nodes_xyz(n_nodes,3))
+do i = 1, n_tri
+   nodes_xyz(indices(i,1)+1,:) = triangles(i)%v0
+   nodes_xyz(indices(i,2)+1,:) = triangles(i)%v1
+   nodes_xyz(indices(i,3)+1,:) = triangles(i)%v2
+end do
+
+! --- Triangle node positions
+write(filehandle,141) 'POINTS', n_nodes, ' float'
+do i = 1, n_nodes
+  write(filehandle,142) nodes_xyz(i,:)
+end do
+
+! --- Node indices corresponding to triangles
+write(filehandle,143) 'POLYGONS', n_tri, n_tri * 4
+do i = 1, n_tri
+  write(filehandle,144) 3, indices(i,:) 
+end do
+
+! --- Write cell data
+write(filehandle,141) 'CELL_DATA', n_tri
+write(filehandle,140) 'SCALARS L_pre_collision float'
+write(filehandle,140) 'LOOKUP_TABLE default'
+
+do i = 1, n_tri
+   if (l_part(i)>4.9) then
+      write(filehandle,142) 1.d0
+   else 
+      write(filehandle,142) 0.d0
+   endif
+ end do
+
+! --- Close file, clean up
+close(filehandle)
 
 deallocate(iangle)
 
