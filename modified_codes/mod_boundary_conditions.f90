@@ -184,7 +184,8 @@ contains
     type(type_node_list),        intent(in) :: node_list
     type(type_bnd_element_list), intent(in) :: boundary_list
 
-    real*8  :: Bp_n, grad_chi_n, phi, theta, element_size_ij, element_size_perp, BigR, grad_chi(3), Jgrad_ps(3), B_field(3)
+    real*8  :: Bp_n, grad_chi_n, phi, theta, element_size_ij, element_size_perp, BigR, grad_chi(3), Jgrad_ps(3)
+    real*8  :: Jgrad_ps_cart(3), B_field(3)
     real*8  :: theta_points, phi_points, x_points, y_points, z_points, s_points
     integer :: N_tht, mp, ms, ielm, i, j, j2, n, m, nn, mm, in, ind1, ind2, info
     integer :: number_of_points, i_tht, j_gauss, k_plane, np
@@ -341,16 +342,23 @@ contains
           Jgrad_ps = (/ -BigR*y_s(mp,ms,ielm), BigR*x_s(mp,ms,ielm), x_p(mp,ms,ielm)*y_s(mp,ms,ielm) - x_s(mp,ms,ielm)*y_p(mp,ms,ielm) /)
           Jgrad_ps = Jgrad_ps*N_tht/(2.d0*pi) ! Multiply by dt/dtheta since J = 1/(grad(psi).(grad(theta)xgrad(phi))) and (s,t,phi) CS used above
           ! Note that J'*dchi/dphi = J, where J' = 1/(grad(psi).(grad(theta)xgrad(chi))) and dchi/dphi is from the switch dtheta*dchi -> dtheta*dphi
-
-          Bp_n = dot_product(Jgrad_ps,B_field)
+          
+          ! Jgrad_ps is needed in cartesian coordinates, since the B field is in cartesian coordinates
+          ! e_theta x e_phi, e_theta=dr(x,y,z)/dtheta, e_phi=dr(x,y,z)/dphi
+          Jgrad_ps_cart = (/ -x_s(mp,ms,ielm)*Sin(phi)*y_p(mp,ms,ielm) - y_s(mp,ms,ielm)*(-x_p(mp,ms,ielm)*Sin(phi)-BigR*Cos(phi)), &
+                              y_s(mp,ms,ielm)*(x_p*Cos(phi)-BigR*Sin(phi)) - x_s(mp,ms,ielm)*Cos(phi)*y_p(mp,ms,ielm), &
+                              x_s(mp,ms,ielm)*Cos(phi)*(-x_p(mp,ms,ielm)*Sin(phi)-BigR*Cos(phi)) + x_s(mp,ms,ielm)*Sin(phi)*(x_p(mp,ms,ielm)*Cos(phi)-BigR*Sin(phi)) /)
+          Jgrad_ps_cart = Jgrad_ps_cart*N_tht/(2.d0*pi)
           grad_chi_n = dot_product(Jgrad_ps,grad_chi)
-          write(69,*), dot_product(Jgrad_ps,B_field),',',dot_product(Jgrad_ps,grad_chi),',',2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht),',', 2.d0*pi*float(mp-1)/float(n_plane*n_period)
+          Bp_n = dot_product(Jgrad_ps_cart,B_field)
+          ! write(69,*), x_xyz(mp,ms,ielm),',', y_xyz(mp,ms,ielm),',', z_xyz(mp,ms,ielm),',', bx_p(mp,ms,ielm),',', by_p(mp,ms,ielm),',', bz_p(mp,ms,ielm)
+          write(69,*), dot_product(Jgrad_ps_cart,B_field),',',dot_product(Jgrad_ps,grad_chi),',',2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht),',', 2.d0*pi*float(mp-1)/float(n_plane*n_period)
 
           ind1 = 1
           do n=1,n_tor
             do m=1,m_pol_bc
               RHS(ind1) = RHS(ind1) + dot_product(Jgrad_ps,grad_chi)*Zn(n,chi(0,0,0))*Zm(m,theta)*wgauss(ms) ! grad(chi) version
-              ! RHS(ind1) = RHS(ind1) + dot_product(Jgrad_ps,B_field)*Zn(n,chi(0,0,0))*Zm(m,theta)*wgauss(ms) ! B-field version
+              ! RHS(ind1) = RHS(ind1) + dot_product(Jgrad_ps_cart,B_field)*Zn(n,chi(0,0,0))*Zm(m,theta)*wgauss(ms) ! B-field version
               ind1 = ind1 + 1
             end do
           end do
