@@ -23,8 +23,8 @@ implicit none
 
 ! Set up the simulation variables
 real(kind=8)                      :: timesteps(1) = [1d-7] 
-real(kind=8)                      :: target_time, t, R, phi, v_part, norm_R, dir_sign, tstep_field=1.d-3
-integer(kind=4)                   :: n_part, i, j, k, l, n_steps, ifail, max_depth, wall_id
+real(kind=8)                      :: target_time, t, R, phi, v_part, norm_R, dir_sign, tstep_field=1.d-2
+integer(kind=4)                   :: n_part, i, j, k, l, ifail, max_depth, wall_id, n_steps = 1000
 integer(kind=4),allocatable       :: indices(:,:)
 integer                           :: n_tri, n_nodes
 integer             :: filehandle = 60
@@ -46,7 +46,7 @@ call mod_wall_collision_init('wall.h5',max_depth,wall)
 
 ! Read wall to initialize particles
 file_id = 1
-call HDF5_open('wall.h5',file_id)
+call HDF5_open('wall_to_load.h5',file_id)
 call HDF5_integer_reading(file_id,n_tri,'ntriangle')
 
 allocate(wtmp(9*n_tri))
@@ -109,7 +109,7 @@ do i=1, n_tri
    xyz_tria = (triangles(i)%v0 + triangles(i)%v1 + triangles(i)%v2) / 3.d0
 
    !--- Move the point 1 mm away from the triangle
-   xyz_tria  = xyz_tria + norm_tria * 0.001
+   !xyz_tria  = xyz_tria + norm_tria * 0.0001
 
    p%x = cartesian_to_cylindrical(xyz_tria)
 
@@ -140,10 +140,6 @@ do while (.not. sim%stop_now)
   target_time = next_event_at(sim, events)
 
   do i=1,1
-    n_steps = nint((target_time - sim%time)/timesteps(i))
-
-    n_steps = 10000
-    write(*,*) 'nsteps = ', n_steps
 
     select type (particles => sim%groups(i)%particles)
     type is (particle_fieldline)	
@@ -161,7 +157,7 @@ do while (.not. sim%stop_now)
 
              ! --- Do a step and check if the particle moves in the normal direction (away from the wall), otherwise correct direction
              if (k==1) then
-               call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, 1.d-2)!*particles(j)%v)
+               call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, 1.d-3)!*particles(j)%v)
                xyz_prev = cylindrical_to_cartesian(pos_prev)
                xyz      = cylindrical_to_cartesian(particles(j)%x)
 
@@ -189,26 +185,7 @@ do while (.not. sim%stop_now)
              end if
           end do
        end do
-       !$omp end parallel do
 
-    type is (particle_kinetic_relativistic)
-       !$omp parallel do default(private) &
-       !$omp shared (i, n_steps, timesteps, sim, wall, iangle)
-       do j=1,size(particles,1)
-          do k=1,n_steps
-             if (particles(j)%i_elm .le. 0) exit
-             pos_prev = particles(j)%x
-
-             call volume_preserving_push_jorek(particles(j),sim%fields,sim%groups(i)%mass,sim%time,timesteps(i),ifail)
-             if (particles(j)%i_elm .le. 0) exit
-             call mod_wall_collision_check(pos_prev, particles(j)%x, wall, wall_id, wall_pos, iangle(i,j))
-             if(wall_id .gt. 0) then
-                particles(j)%x      = wall_pos
-                particles(j)%i_elm  = -wall_id
-             end if
-          end do
-       end do
-       !$omp end parallel do
     end select
 
   enddo
@@ -247,7 +224,7 @@ end do
 ! --- Triangle node positions
 write(filehandle,141) 'POINTS', n_nodes, ' float'
 do i = 1, n_nodes
-  write(filehandle,142) nodes_xyz(i,:)
+  write(filehandle,142) nodes_xyz(i,:)*1000
 end do
 
 ! --- Node indices corresponding to triangles
