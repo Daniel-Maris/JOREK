@@ -117,8 +117,9 @@ function do_convert () {
   for copyfile in $copyfiles; do
       cp $startDir/$copyfile .
   done
-  filenames=$(grep "$\s*comp_name" CARIDDI_plot.nml | sed 's/comp_name\s*=\s*//')
-  if [ -z $filenames ]; then
+
+  filenames=$(grep "comp_name" CARIDDI_plot.nml | awk -F "'" '{ for(i=2; i<NF; i+=2) print $i }')
+  if [ -z "$filenames" ]; then
       filenames='CARIDDI_all'
   fi
   for f in $filenames
@@ -179,7 +180,7 @@ function do_convert () {
       gzip $targetFile
     fi
   fi
-  
+  echo "$stepnum finished"
   unmark_running $ithread
 }
 
@@ -336,7 +337,7 @@ ERROR_STOP_FILE="$local_tmp_dir/ERROR_STOP"
 if [ -f "CARIDDI_plot.nml" ]; then
   # If parameters -nsub, -i_tor, -i_plane were not provided, but
   # a vtk.nml file exists, include it automatically
-  struct_path=$(grep -oP "$\s*dir_struct\s*=\s*'\K[^']+" CARIDDI_plot.nml | sed "s/'//g")
+  struct_path=$(grep -oP "\s*dir_struct\s*=\s*'\K[^']+" CARIDDI_plot.nml | sed "s/'//g")
   if [ -z $struct_path ]; then
       struct_path="./"
   fi
