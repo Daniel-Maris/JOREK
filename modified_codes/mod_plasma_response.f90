@@ -405,12 +405,13 @@ module mod_plasma_response
     
     real*8     :: x_g(n_plane,n_gauss,n_gauss), x_s(n_plane,n_gauss,n_gauss), x_t(n_plane,n_gauss,n_gauss), x_p(n_plane,n_gauss,n_gauss)
     real*8     :: y_g(n_plane,n_gauss,n_gauss), y_s(n_plane,n_gauss,n_gauss), y_t(n_plane,n_gauss,n_gauss), y_p(n_plane,n_gauss,n_gauss)
+    real*8     :: s_norm(n_gauss,n_gauss)
     real*8     :: B_gvec(3,n_plane,n_gauss,n_gauss), B_gvec_s(3,n_plane,n_gauss,n_gauss), B_gvec_t(3,n_plane,n_gauss,n_gauss), B_gvec_p(3,n_plane,n_gauss,n_gauss)
     
     integer    :: i, j, ms, mt, iv, inode, ife, mp, in, i_R, i_Z, i_Phi
     integer    :: ierr, n_cpu, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
     real*8     :: R, xp,yp,zp, dd, wst, xjac, delta_phi, phi
-    real*8     :: BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z
+    real*8     :: B_theta, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z
     real*8     :: d_vec(3), J_vec(3), cross(3), dB(3)
     real*8     :: wgauss_copy(n_gauss)
     integer    :: n_points
@@ -444,9 +445,9 @@ module mod_plasma_response
     !$omp          i_R, i_Z, i_phi, delta_phi, n_points, x, y, z, bx_tmp, by_tmp, bz_tmp,  &
     !$omp          wgauss_copy)      &
     !$omp   private(ife,iv,inode,element,nodes,i,j, in, mp, ms, mt,                        &
-    !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, B_gvec, B_gvec_s, B_gvec_t, B_gvec_p,  &
+    !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, B_gvec, B_gvec_s, B_gvec_t, B_gvec_p, s_norm, &
     !$omp           xjac, R, xp, yp, zp, dd, phi,                               &
-    !$omp           BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z, &
+    !$omp           B_theta, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z, &
     !$omp           d_vec, J_vec, cross, dB, wst, omp_nthreads,omp_tid)
     
 #ifdef OPENMP
@@ -471,7 +472,8 @@ module mod_plasma_response
       
       x_g(:,:,:) = 0.d0; x_s(:,:,:) = 0.d0; x_t(:,:,:) = 0.d0; x_p(:,:,:) = 0.d0
       y_g(:,:,:) = 0.d0; y_s(:,:,:) = 0.d0; y_t(:,:,:) = 0.d0; y_p(:,:,:) = 0.d0
-      B_gvec(:,:,:) = 0.d0; B_gvec_s(:,:,:,:) = 0.d0; B_gvec_t(:,:,:,:) = 0.d0; B_gvec_p(:,:,:,:) = 0.d0
+      B_gvec(:,:,:,:) = 0.d0; B_gvec_s(:,:,:,:) = 0.d0; B_gvec_t(:,:,:,:) = 0.d0; B_gvec_p(:,:,:,:) = 0.d0
+      s_norm(:,:) = 0.d0
       
       !--- Calculate R,Z and derivatives at gausstian points
       do i=1,n_vertex_max
@@ -518,7 +520,7 @@ module mod_plasma_response
       do ms=1, n_gauss
         do mt=1, n_gauss
           
-          if (s_norm(ms,mt) .gt. 0.8) cycle ! 0.8 because it should be outside the minor radius
+          !if (s_norm(ms,mt) .gt. 0.6) cycle ! 0.8 because it should be outside the minor radius
 
           wst  = wgauss_copy(ms)*wgauss_copy(mt)
 
@@ -547,12 +549,14 @@ module mod_plasma_response
             Bp_R = ( y_t(mp,ms,mt)*B_gvec_s(i_phi,mp,ms,mt) - y_s(mp,ms,mt)*B_gvec_t(i_phi,mp,ms,mt))/xjac
             Bp_z = (-x_t(mp,ms,mt)*B_gvec_s(i_phi,mp,ms,mt) + x_s(mp,ms,mt)*B_gvec_t(i_phi,mp,ms,mt))/xjac
             Bp_p = B_gvec_p(i_phi,mp,ms,mt) - x_p(mp,ms,mt)*Bp_R - y_p(mp,ms,mt)*Bp_z
+
+            B_theta = B_gvec(i_phi,mp,ms,mt)
   
             !       (ii)   get JR, JZ, J_phi from J = curl(B), curl in JOREK cylindrical coordinates
             
             JR    =                             (-1/R)* Bz_p - Bp_z
             J_phi =                                     BR_z - Bz_R
-            JZ    = (-1/R)*(-R*Bp_R + B_gvec(i_phi,mp,ms,mt) - BR_p)
+            JZ    = (-1/R)*(-R*Bp_R + B_theta - BR_p)
 
             !       (iii)  convert to Cartesian coordinates 
 
@@ -574,7 +578,7 @@ module mod_plasma_response
                               d_vec(3)*J_vec(1) - d_vec(1)*J_vec(3),  &
                               d_vec(1)*J_vec(2) - d_vec(2)*J_vec(1) /)
     
-              dB(:)     =  cross(:) / (dd**3.d0) / (4.d0*PI) * wst * xjac * R * delta_phi
+              dB(:)     =  cross(:) / (dd**3.d0) / (4.d0*PI) * wst * xjac * R * delta_phi ! no mu_0, see JOREK normilization
     
               bx_tmp(i) = bx_tmp(i) + dB(1)
               by_tmp(i) = by_tmp(i) + dB(2)

@@ -326,8 +326,9 @@ contains
     ! Integration of the RHS: it is much easier to integrate over one period than over the manifold [0,2*pi]x[chi_0,chi_0+2*pi*F_0/N_p]
     ! Due to periodicity, integration over the manifold above is equivalent to integration over one period
     ! The Jacobian for dtheta*dchi -> dtheta*dphi is dchi/dphi
-    open(69, file="Bpn_theta_phi.csv", action="write")
-    write(69, *), "B_p * n, grad_chi * n, theta, phi"
+    open(69, file="Bpn_theta_phi.csv", action="write") ! currently modified to write out theta, phi and B-field components
+    !write(69, *), "B_p * n, grad_chi * n, theta, phi"
+    write(69,*), "theta, phi, Bx, By, Bz"
 
     do ielm=1,N_tht
       do ms=1,n_gauss
@@ -351,8 +352,8 @@ contains
           Jgrad_ps_cart = Jgrad_ps_cart*N_tht/(2.d0*pi)
           grad_chi_n = dot_product(Jgrad_ps,grad_chi)
           Bp_n = dot_product(Jgrad_ps_cart,B_field)
-          ! write(69,*), x_xyz(mp,ms,ielm),',', y_xyz(mp,ms,ielm),',', z_xyz(mp,ms,ielm),',', bx_p(mp,ms,ielm),',', by_p(mp,ms,ielm),',', bz_p(mp,ms,ielm)
-          write(69,*), dot_product(Jgrad_ps_cart,B_field),',',dot_product(Jgrad_ps,grad_chi),',',2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht),',', 2.d0*pi*float(mp-1)/float(n_plane*n_period)
+          write(69,*), 2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht),',', 2.d0*pi*float(mp-1)/float(n_plane*n_period),',', bx_p(mp,ms,ielm),',', by_p(mp,ms,ielm),',', bz_p(mp,ms,ielm)
+          !write(69,*), dot_product(Jgrad_ps_cart,B_field),',',dot_product(Jgrad_ps,grad_chi),',',2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht),',', 2.d0*pi*float(mp-1)/float(n_plane*n_period)
 
           ind1 = 1
           do n=1,n_tor
