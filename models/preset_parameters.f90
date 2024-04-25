@@ -520,7 +520,6 @@ subroutine preset_parameters
   dcoef       = 0.d0
 
   phi_coef    = 0.d0;  phi_coef(1) =  0.d0; phi_coef(4) = 1.d0
-  delta_phi_source = 0.d0
 
   rhon_0 =  0.d0
   rhon_1 =  0.d0
