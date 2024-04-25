@@ -13,7 +13,6 @@ integer, intent(in) :: my_id
 
 integer :: ierr
 
-
 if ( num_rho ) then
   call MPI_BCAST(num_rho_len,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
   if ( my_id /= 0 ) then

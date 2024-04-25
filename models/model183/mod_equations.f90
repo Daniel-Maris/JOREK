@@ -166,21 +166,21 @@ module mod_equations
     type(algexpr), dimension(DIMT, 7) :: T_expr
     type(algexpr)                     :: i_T0, i_delta_T, i_T, i_k_perp, i_k_par, i_dk_par_dT, i_S_e
 
-    tstep            = const(value = Itstep,            token = "tstep"        )
-    zeta             = const(value = time_evol_zeta,    token = "zeta"         )
-    theta            = const(value = time_evol_theta,   token = "theta"        )
-    visco_num        = const(value = Ivisco_num,        token = "visco_num"    )
-    visco_par        = const(value = Ivisco_par,        token = "visco_par"    )
-    visco_par_par    = const(value = Ivisco_par_par,    token = "visco_par_par")
-    visco_par_num    = const(value = Ivisco_par_num,    token = "visco_par_num")
-    eta_num          = const(value = Ieta_num,          token = "eta_num"      )
-    D_perp_num       = const(value = ID_perp_num,       token = "D_perp_num"   )
-    k_perp_num       = const(value = zk_perp_num,       token = "zk_perp_num"  )
-    gamma            = const(value = Igamma,            token = "gamma"        )
+    tstep          = const(value = Itstep,            token = "tstep"        )
+    zeta           = const(value = time_evol_zeta,    token = "zeta"         )
+    theta          = const(value = time_evol_theta,   token = "theta"        )
+    visco_num      = const(value = Ivisco_num,        token = "visco_num"    )
+    visco_par      = const(value = Ivisco_par,        token = "visco_par"    )
+    visco_par_par  = const(value = Ivisco_par_par,    token = "visco_par_par")
+    visco_par_num  = const(value = Ivisco_par_num,    token = "visco_par_num")
+    eta_num        = const(value = Ieta_num,          token = "eta_num"      )
+    D_perp_num     = const(value = ID_perp_num,       token = "D_perp_num"   )
+    k_perp_num     = const(value = zk_perp_num,       token = "zk_perp_num"  )
+    gamma          = const(value = Igamma,            token = "gamma"        )
     if (Ieta .ne. 0.d0) then
-      reta           = const(value = eta_ohmic/Ieta,  token = "reta")
+      reta         = const(value = eta_ohmic/Ieta,  token = "reta")
     else
-      reta           = const(value = 0.d0,            token = "reta")
+      reta         = const(value = 0.d0,            token = "reta")
     end if
 
     
