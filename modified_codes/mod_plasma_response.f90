@@ -411,7 +411,7 @@ module mod_plasma_response
     integer    :: i, j, ms, mt, iv, inode, ife, mp, in, i_R, i_Z, i_Phi
     integer    :: ierr, n_cpu, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
     real*8     :: R, xp,yp,zp, dd, wst, xjac, delta_phi, phi
-    real*8     :: B_theta, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z
+    real*8     :: B_phi, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z
     real*8     :: d_vec(3), J_vec(3), cross(3), dB(3)
     real*8     :: wgauss_copy(n_gauss)
     integer    :: n_points
@@ -447,7 +447,7 @@ module mod_plasma_response
     !$omp   private(ife,iv,inode,element,nodes,i,j, in, mp, ms, mt,                        &
     !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, B_gvec, B_gvec_s, B_gvec_t, B_gvec_p, s_norm, &
     !$omp           xjac, R, xp, yp, zp, dd, phi,                               &
-    !$omp           B_theta, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z, &
+    !$omp           B_phi, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z, &
     !$omp           d_vec, J_vec, cross, dB, wst, omp_nthreads,omp_tid)
     
 #ifdef OPENMP
@@ -550,13 +550,17 @@ module mod_plasma_response
             Bp_z = (-x_t(mp,ms,mt)*B_gvec_s(i_phi,mp,ms,mt) + x_s(mp,ms,mt)*B_gvec_t(i_phi,mp,ms,mt))/xjac
             Bp_p = B_gvec_p(i_phi,mp,ms,mt) - x_p(mp,ms,mt)*Bp_R - y_p(mp,ms,mt)*Bp_z
 
-            B_theta = B_gvec(i_phi,mp,ms,mt)
+            B_phi = B_gvec(i_phi,mp,ms,mt)
   
             !       (ii)   get JR, JZ, J_phi from J = curl(B), curl in JOREK cylindrical coordinates
             
-            JR    =                             (-1/R)* Bz_p - Bp_z
-            J_phi =                                     BR_z - Bz_R
-            JZ    = (-1/R)*(-R*Bp_R + B_theta - BR_p)
+            !JR    =                             (-1/R)* Bz_p - Bp_z
+            !J_phi =                                     BR_z - Bz_R
+            !JZ    = (-1/R)*(-R*Bp_R + B_phi - BR_p)
+
+            JR = 0
+            JZ = 0
+            J_phi = 1
 
             !       (iii)  convert to Cartesian coordinates 
 
@@ -564,7 +568,15 @@ module mod_plasma_response
             J_y   = -JR*Sin(phi) - J_phi*Cos(phi)
             J_z   =  JZ
             J_vec =  (/ J_x, J_y, J_z /) 
-            !J_vec = (/ 0.d0, 0.d0, 0.d0 /)    !??????      
+            !J_vec = (/ 0.d0, 0.d0, 0.d0 /)    !?????? 
+
+            ! new way to calculate J_vec, curl and coverting in one step, see JOREK coordinates -> curl in cylindical coords
+
+            !J_x = 1/R*(Bp_z-Bz_p)*Cos(phi)    + 1/R*(Bz_R-BR_z)*(-R*Sin(phi)) 
+            !J_y = 1/R*(Bp_z-Bz_p)*(-Sin(phi)) + 1/R*(Bz_R-BR_z)*(-R*Cos(phi)) 
+            !J_z = 1/R*(BR_p-Bp_R)
+
+            ! J_vec =  (/ J_x, J_y, J_z /)
 
             ! --- Go over the given points and calculate magnetic field from Biot-Savart
 
