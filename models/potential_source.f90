@@ -65,7 +65,7 @@ else
   right = num_Phi_len
   do
     if(right == left + 1) exit
-    mid = left+right/2
+    mid = (left+right)/2
     if (num_Phi_x(mid) >= psi_n) then
             right = mid
     else
