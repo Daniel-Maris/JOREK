@@ -570,10 +570,9 @@ program jorek2_connection_flux_aligned
   write(21,*) '# For tokamaks     : rho=sqrt(psi_n)'
   write(21,*) '# For stellarators : rho=sqrt(phi_n)'
   open(22,file='poinc_rho-theta.dat',status='replace')
+  write(22,*) '#  rho               theta         Connection Length    min_rho     max_rho'
   write(22,*) '# For tokamaks     : rho=sqrt(psi_n)'
   write(22,*) '# For stellarators : rho=sqrt(phi_n)'
-  write(22,*) '#'
-  write(22,*) '#  rho               theta         Connection Length    min_rho     max_rho'
   
   ! --- Write points for local MPI (id=0)
   if (my_id .eq. 0) then
