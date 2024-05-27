@@ -126,7 +126,7 @@ program jorek2_fields_xyz_stel
   ! ------------  Open output file and set up header  -------------
   ! ---------------------------------------------------------------
   if (my_id==0) then
-    open(87,file='fields_xyz.dat',action='write')
+    open(87,file='fields_xyz.dat',action='write') 
     write(87,'(a)', advance='no')  '#Step  '
     write(87,'(a)', advance='no')  'time(norm)    '
     write(87,'(a)', advance='no')  'time(ms)      '
@@ -177,7 +177,7 @@ program jorek2_fields_xyz_stel
       bx = bx_p(i)
       by = by_p(i)
       bz = bz_p(i)
-      write(87,'(I5.5,8ES14.6)') istep, t_start, t_start*sqrt_mu0_rho0*1.d3,x(i),y(i),z(i), bx_p(i), by_p(i), bz_p(i)      
+      write(87,'(I5.5,8ES16.8)') istep, t_start, t_start*sqrt_mu0_rho0*1.d3, x(i),y(i),z(i),bx_p(i), by_p(i), bz_p(i)      
     enddo
   endif
   

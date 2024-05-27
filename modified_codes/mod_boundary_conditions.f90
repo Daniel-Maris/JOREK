@@ -269,6 +269,8 @@ contains
     end do
  
     write(*,*) "xyz.nml file is created"
+    write(*,*) "if you changed the resolution (n_plane), please re-run jorek2_fields_xyz_stel with this new xyz.nml file"
+    write(*,*) "run model083 again afterwards"
     close(66)
 
     ! replace grad_chi by B-field
@@ -298,27 +300,10 @@ contains
       enddo
       close(26)
     else
-       open(66,file='xyz.nml',action='write')
-       
-       write(66,*), number_of_points
-    
-       do i_tht=1,N_tht
-         do j_gauss=1,n_gauss
-           do k_plane=1, n_plane
-             phi_points = 2.d0*pi*float(k_plane-1)/float(n_plane*n_period)
-      
-             x_points =  x_g(k_plane,j_gauss,i_tht)*Cos(phi_points)       ! x=R, y=Z see jorek Wiki: coordinates
-             y_points = -x_g(k_plane,j_gauss,i_tht)*Sin(phi_points)      
-             z_points =  y_g(k_plane,j_gauss,i_tht)              
-             write(66,*), x_g(k_plane,j_gauss,i_tht)*Cos(phi_points), -x_g(k_plane,j_gauss,i_tht)*Sin(phi_points), y_g(k_plane,j_gauss,i_tht)
-           end do
-         end do
-       end do
-    
        write(*,*) "Could not find fields_xyz.dat file"
-       write(*,*) "xyz.nml file is created"
-       write(*,*) "please run jorek2_fields_xyz_stel.f90 to create fields_xyz.dat file and run model083 again afterwards"
-       close(66)
+       !write(*,*) "xyz.nml file is created"
+       write(*,*) "please run jorek2_fields_xyz_stel.f90 with genereated xyz.nml file to create fields_xyz.dat file"
+       write(*,*) "run model083 again afterwards"
     endif
 
 
@@ -326,9 +311,10 @@ contains
     ! Integration of the RHS: it is much easier to integrate over one period than over the manifold [0,2*pi]x[chi_0,chi_0+2*pi*F_0/N_p]
     ! Due to periodicity, integration over the manifold above is equivalent to integration over one period
     ! The Jacobian for dtheta*dchi -> dtheta*dphi is dchi/dphi
-    open(69, file="Bpn_theta_phi.csv", action="write") ! currently modified to write out theta, phi and B-field components
-    !write(69, *), "B_p * n, grad_chi * n, theta, phi"
-    write(69,*), "theta, phi, Bx, By, Bz"
+    open(69, file="Bpn_theta_phi.dat", action="write")
+    write(69, '(a)') "B_p * n, grad_chi * n, theta, phi"
+    !open(70, file="xyz_and_BxByBz.dat", action="write")
+    !write(70,'(a)') "x , y , z , Bx , By , Bz, Jgrad_ps, grad_chi"
 
     do ielm=1,N_tht
       do ms=1,n_gauss
@@ -347,19 +333,19 @@ contains
           ! Jgrad_ps is needed in cartesian coordinates, since the B field is in cartesian coordinates
           ! e_theta x e_phi, e_theta=dr(x,y,z)/dtheta, e_phi=dr(x,y,z)/dphi
           Jgrad_ps_cart = (/ -x_s(mp,ms,ielm)*Sin(phi)*y_p(mp,ms,ielm) - y_s(mp,ms,ielm)*(-x_p(mp,ms,ielm)*Sin(phi)-BigR*Cos(phi)), &
-                              y_s(mp,ms,ielm)*(x_p*Cos(phi)-BigR*Sin(phi)) - x_s(mp,ms,ielm)*Cos(phi)*y_p(mp,ms,ielm), &
+                              y_s(mp,ms,ielm)*(x_p(mp,ms,ielm)*Cos(phi)-BigR*Sin(phi)) - x_s(mp,ms,ielm)*Cos(phi)*y_p(mp,ms,ielm), &
                               x_s(mp,ms,ielm)*Cos(phi)*(-x_p(mp,ms,ielm)*Sin(phi)-BigR*Cos(phi)) + x_s(mp,ms,ielm)*Sin(phi)*(x_p(mp,ms,ielm)*Cos(phi)-BigR*Sin(phi)) /)
           Jgrad_ps_cart = Jgrad_ps_cart*N_tht/(2.d0*pi)
           grad_chi_n = dot_product(Jgrad_ps,grad_chi)
           Bp_n = dot_product(Jgrad_ps_cart,B_field)
-          write(69,*), 2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht),',', 2.d0*pi*float(mp-1)/float(n_plane*n_period),',', bx_p(mp,ms,ielm),',', by_p(mp,ms,ielm),',', bz_p(mp,ms,ielm)
-          !write(69,*), dot_product(Jgrad_ps_cart,B_field),',',dot_product(Jgrad_ps,grad_chi),',',2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht),',', 2.d0*pi*float(mp-1)/float(n_plane*n_period)
+          !write(70,'(8ES18.10)') x_xyz(mp,ms,ielm), y_xyz(mp,ms,ielm), z_xyz(mp,ms,ielm), bx_p(mp,ms,ielm), by_p(mp,ms,ielm), bz_p(mp,ms,ielm), Jgrad_ps, grad_chi
+          write(69,'(10ES18.10)') Jgrad_ps_cart, B_field, Bp_n, grad_chi_n, 2.d0*pi*(float(ielm-1) + xgauss(ms))/float(N_tht), 2.d0*pi*float(mp-1)/float(n_plane*n_period)
 
           ind1 = 1
           do n=1,n_tor
             do m=1,m_pol_bc
-              RHS(ind1) = RHS(ind1) + dot_product(Jgrad_ps,grad_chi)*Zn(n,chi(0,0,0))*Zm(m,theta)*wgauss(ms) ! grad(chi) version
-              ! RHS(ind1) = RHS(ind1) + dot_product(Jgrad_ps_cart,B_field)*Zn(n,chi(0,0,0))*Zm(m,theta)*wgauss(ms) ! B-field version
+              ! RHS(ind1) = RHS(ind1) + dot_product(Jgrad_ps,grad_chi)*Zn(n,chi(0,0,0))*Zm(m,theta)*wgauss(ms) ! grad(chi) version
+              RHS(ind1) = RHS(ind1) + dot_product(Jgrad_ps_cart,B_field)*Zn(n,chi(0,0,0))*Zm(m,theta)*wgauss(ms) ! B-field version
               ind1 = ind1 + 1
             end do
           end do

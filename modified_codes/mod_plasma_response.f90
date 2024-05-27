@@ -528,6 +528,7 @@ module mod_plasma_response
      
             xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
             R       = x_g(mp,ms,mt)
+            !R       = x_g(mp,ms,mt) + 100
             zp      = y_g(mp,ms,mt)
 
             phi   =  float(mp-1) * delta_phi
@@ -558,25 +559,25 @@ module mod_plasma_response
             !J_phi =                                     BR_z - Bz_R
             !JZ    = (-1/R)*(-R*Bp_R + B_phi - BR_p)
 
-            JR = 0
-            JZ = 0
-            J_phi = 1
+            !JR = 0
+            !JZ = 0
+            !J_phi = 1
 
             !       (iii)  convert to Cartesian coordinates 
 
-            J_x   =  JR*Cos(phi) - J_phi*Sin(phi)
-            J_y   = -JR*Sin(phi) - J_phi*Cos(phi)
-            J_z   =  JZ
-            J_vec =  (/ J_x, J_y, J_z /) 
+            !J_x   =  JR*Cos(phi) - J_phi*Sin(phi)
+            !J_y   = -JR*Sin(phi) - J_phi*Cos(phi)
+            !J_z   =  JZ
+            !J_vec =  (/ J_x, J_y, J_z /) 
             !J_vec = (/ 0.d0, 0.d0, 0.d0 /)    !?????? 
 
             ! new way to calculate J_vec, curl and coverting in one step, see JOREK coordinates -> curl in cylindical coords
 
-            !J_x = 1/R*(Bp_z-Bz_p)*Cos(phi)    + 1/R*(Bz_R-BR_z)*(-R*Sin(phi)) 
-            !J_y = 1/R*(Bp_z-Bz_p)*(-Sin(phi)) + 1/R*(Bz_R-BR_z)*(-R*Cos(phi)) 
-            !J_z = 1/R*(BR_p-Bp_R)
+            J_x = 1/R*(Bp_z-Bz_p)*Cos(phi)    + 1/R*(Bz_R-BR_z)*(-R*Sin(phi)) 
+            J_y = 1/R*(Bp_z-Bz_p)*(-Sin(phi)) + 1/R*(Bz_R-BR_z)*(-R*Cos(phi)) 
+            J_z = 1/R*(BR_p-Bp_R)
 
-            ! J_vec =  (/ J_x, J_y, J_z /)
+            J_vec =  (/ J_x, J_y, J_z /)
 
             ! --- Go over the given points and calculate magnetic field from Biot-Savart
 
@@ -590,7 +591,8 @@ module mod_plasma_response
                               d_vec(3)*J_vec(1) - d_vec(1)*J_vec(3),  &
                               d_vec(1)*J_vec(2) - d_vec(2)*J_vec(1) /)
     
-              dB(:)     =  cross(:) / (dd**3.d0) / (4.d0*PI) * wst * xjac * R * delta_phi ! no mu_0, see JOREK normilization
+              dB(:)     =  cross(:) / (dd**3.d0) / (4.d0*PI) * wst * xjac * R * delta_phi ! no mu_0, because also no mu_0 in curl(B)
+              !dB(:)     =  wst * xjac * R * delta_phi ! no mu_0, because also no mu_0 in curl(B)
     
               bx_tmp(i) = bx_tmp(i) + dB(1)
               by_tmp(i) = by_tmp(i) + dB(2)
