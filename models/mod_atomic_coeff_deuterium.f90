@@ -224,17 +224,10 @@ subroutine atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradD
 
     ne_si_log10= log10(ne_si)
 
-<<<<<<< HEAD
-    call ad_deuterium%scd%interp( 1, ne_si_log10, Te_si_log10, Sion_T, dSion_dT)
-    call ad_deuterium%acd%interp( 1, ne_si_log10, Te_si_log10, Srec_T, dSrec_dT)
-    call ad_deuterium%prb%interp( 1, ne_si_log10, Te_si_log10, LradDcont_T, dLradDCont_dT)
-    call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
-=======
     call ad_deuterium%scd%interp( 0, ne_si_log10, Te_si_log10, Sion_T, dSion_dT)
     call ad_deuterium%acd%interp( 1, ne_si_log10, Te_si_log10, Srec_T, dSrec_dT)
     call ad_deuterium%prb%interp( 1, ne_si_log10, Te_si_log10, LradDcont_T, dLradDCont_dT)
     call ad_deuterium%plt%interp( 0, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
->>>>>>> develop
 
     if ( Te_eV < 0.2d0) then  ! --- Don't radiate or ionize below 0.2 eV, recombination allowed
       LradDcont_T   = 0.d0

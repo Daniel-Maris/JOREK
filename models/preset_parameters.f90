@@ -729,10 +729,7 @@ subroutine preset_parameters
   D_neutral_p = 1.d-5
   delta_n_convection = 0
   nimp_bg = 0.
-<<<<<<< HEAD
-  !n_adas = 0
-  adas_dir = ''
-=======
+
   n_adas = 1
   adas_dir = ' '
   imp_type = ' '
@@ -745,7 +742,6 @@ subroutine preset_parameters
 
   L_tube = 0. ! Needed to ensure injection starts at t_ns when JET_MGI=ASDEX_MGI=.false.
 
->>>>>>> develop
   !====== JET DMV-2 parameters
   !L_tube = 2.4d0
   K_Dmv = 4.d-2
@@ -796,22 +792,6 @@ subroutine preset_parameters
   jw2=1.d0  ! outer cut-off
   jw3=1.d0  ! outer cut-off
   
-<<<<<<< HEAD
-  
-  !========================== kinetic particle parameters
-  restart_particles = .false.
-  use_ncs           = .false.
-  use_ccs           = .false.
-  use_pcs           = .false.
-  use_cx            = .false.
-  use_sputtering    = .false.
-  use_ionisation    = .false.
-  use_recombination = .false.
-  use_puffing       = .false.
-  use_line_radiation= .false.
-  
-  
-=======
   !> @name Mode families preconditioner parameters
   n_mode_families      = (n_tor + 1)/2
   autodistribute_modes = .true.
@@ -853,6 +833,9 @@ use_ionisation     = .true.
 use_sputtering     = .false.
 use_cx             = .true.
 use_marker         = .false.
->>>>>>> develop
+use_recombination = .false.
+use_puffing       = .false.
+use_line_radiation= .false.
+
 
 end subroutine preset_parameters

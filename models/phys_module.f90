@@ -896,17 +896,6 @@ module phys_module
 
   !> @name Particles-related input parameters
   logical :: restart_particles
-<<<<<<< HEAD
-  logical :: use_ncs
-  logical :: use_ccs
-  logical :: use_pcs
-  logical :: use_cx
-  logical :: use_sputtering
-  logical :: use_ionisation
-  logical :: use_recombination
-  logical :: use_puffing
-  logical :: use_line_radiation
-=======
   logical :: use_ncs          ! use neutral particles
   logical :: use_ccs          ! use current coupling scheme for fast particles
   logical :: use_pcs          ! use pressure coupling scheme for fast particles
@@ -915,7 +904,9 @@ module phys_module
   logical :: use_marker       ! This flag determines whether to use marker particles to treat impurity (Placeholder)
   logical :: use_sputtering   ! switch on charge-exchange    (in particle module)
   logical :: use_ionisation   ! switch on ionisation         (in particle module)
->>>>>>> develop
+  logical :: use_recombination ! switch on recombination         (in particle module)
+  logical :: use_puffing       ! switch on particle puffing         (in particle module)
+  logical :: use_line_radiation ! switch on line radiation         (in particle module)
   real*8  :: n_particles      ! the number of particles (real on purpose)
   real*8  :: tstep_particles  ! the time step for the particles
   integer :: nstep_particles  ! the number of particle time steps
@@ -926,7 +917,6 @@ module phys_module
   real*8  :: filter_perp_n0   ! particle projection smoothing parameter, poloidal plane (n=0)
   real*8  :: filter_hyper_n0  ! particle projection smoothing parameter, poloidal plane (n=0)
   real*8  :: filter_par_n0    ! particle projection smoothing parameter, parallel direction (n=0)
-<<<<<<< HEAD
 
   real*8  :: puff_rate        ! physical atoms/sec puffed (shared over 2 places)
   real*8  :: r_valve          ! radius of poloidal circular source
@@ -935,10 +925,7 @@ module phys_module
   real*8  :: R_valve_loc2     ! R position valve 2
   real*8  :: Z_valve2         ! Z position valve 2
   integer :: n_puff           ! superparticles used per puffing action per valve
-  
-  
-=======
-  
+    
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
   integer :: n_mode_families                          !< number of families
@@ -949,7 +936,7 @@ module phys_module
   logical :: autodistribute_ranks                     !< use automatic or manual rank distribution
   integer :: ranks_per_family(n_fam_max)              !< Number of MPI ranks per mode families
  
->>>>>>> develop
+
   contains
   
 end module phys_module
