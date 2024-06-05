@@ -495,10 +495,7 @@ mpi_required = 0
   mhd_sim%bnd_elm_list  => bnd_elm_list
 
   ! --- Load deuterium ADAS data if required
-  if (deuterium_adas) ad_deuterium = read_adf11(my_id,'96_h') 
-
-  ! --- Load deuterium ADAS data if required
-  if (deuterium_adas) ad_deuterium =  read_adf11('96_h')   
+  if (deuterium_adas) ad_deuterium = read_adf11(my_id,'96_h')  
   
    ! --- Initialize FFTW
 #ifdef USE_FFTW
