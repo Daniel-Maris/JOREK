@@ -812,7 +812,7 @@ mpi_required = 0
        write(*,*)
     endif   !--- my_id=0
 
-    call int3d_new(my_id, mhd_sim%node_list, mhd_sim%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1, aux_node_list)
+    call int3d_new(my_id, mhd_sim%node_list, mhd_sim%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
 
     if (my_id .eq. 0 ) then
       ! --- Output energies and growth_rates to text files during the code run
