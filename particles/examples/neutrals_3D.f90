@@ -121,7 +121,7 @@ else
 
 	! Read Open ADAS data
 	write(*,*) "deuterium_adas (12)",  deuterium_adas
-	adas = read_adf11('12_h')
+	adas = read_adf11(sim%my_id,'12_h')
 
 	!> is this needed for neutrals?
 	if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
@@ -173,7 +173,7 @@ use_recombination = .true.  !
 use_line_radiation= .true.
 
 ! Read Open ADAS data for plasma fluid
- if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
+ if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
  
 n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
@@ -276,7 +276,7 @@ if (sim%my_id .eq.0) then
   write(*,*) "tstep = ", tstep_si, n_steps, timesteps
   write(*,*) "check :", n_steps, tstep_si - n_steps*timesteps
 endif
-!< sim%time = t_start ? 
+
 
 !partwriter = event(write_action()) !< event writing particle restart files
 ! Set up feedback
@@ -285,10 +285,7 @@ jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 filter = filter_perp, filter_hyper = filter_hyper, filter_parallel=filter_par, fractional_digits = 9, &
                                 do_zonal = .false., calc_integrals=.false., to_vtk=.TRUE., to_h5 = .false., basename='projections', nsub=2)
 
-! jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
-                     ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
-                     ! fractional_digits = 9,  to_vtk=.TRUE., to_h5 = .FALSE., basename='projections')
+
 aux_node_list => jorek_feedback%node_list
 
 !> define feedback size as function of the coupling scheme
@@ -304,11 +301,6 @@ endif
 jorek_feedback%rhs = 0.d0
 
 !Setting up projections 
-!project_density = new_projection(sim%fields%node_list, sim%fields%element_list,   &
-!                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
-!                      f=[proj_f(proj_one, group = 1)], fractional_digits = 9,     &
-!                      calc_integrals=.true., to_vtk=.true., to_h5=.false., basename='density', nsub=5)
-
 project_density = new_projection(sim%fields%node_list, sim%fields%element_list, &
                      filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
                      filter_n0 = 5.d-6, filter_hyper_n0 = 2.d-11, filter_parallel_n0 = filter_par_n0, &
@@ -317,18 +309,6 @@ project_density = new_projection(sim%fields%node_list, sim%fields%element_list, 
 
 call with(sim, project_density)
 
-
-! if (use_line_radiation) then
-	! project_PLT = new_projection(sim%fields%node_list, sim%fields%element_list, &
-                     ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
-                     ! f=[proj_f(proj_PLT, group = 1)], &
-                     ! fractional_digits = 9,calc_integrals=.true.,  to_vtk=.TRUE., to_h5=.FALSE., basename='linerad', nsub=5)
-! endif	 !use_line_radiation				 
-!project_current = new_projection(sim%fields%node_list, sim%fields%element_list,   &
-!                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
-!                      f=[proj_f(proj_jPhi, group = 1)], fractional_digits = 9,    &
-!                      calc_integrals=.true., to_vtk=.false., to_h5=.false., basename='current', nsub=5)
 
 ! For proper timestepping, the projections need to be defined before the jorek timestepper
 jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
@@ -850,7 +830,7 @@ use particle_tracer
 use mpi
 use mod_atomic_elements
 use mod_particle_io
-use mod_integrate_recomb, only : integrate_recombination
+use mod_integrate_recomb_3D, only : integrate_recombination
 !mod_integrate_recomb.f90
 implicit none
 

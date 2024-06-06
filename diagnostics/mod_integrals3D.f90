@@ -55,7 +55,6 @@ type (type_bnd_element_list), intent(in)    :: bnd_elm_list
 type (t_expr_list),           intent(in)    :: expr_list
 real*8,                    intent(inout)    :: res(:)
 integer,                      intent(in)    :: units
-!type (type_node_list)        ,intent(in)    :: aux_node_list !< , optional
 type(type_node_list),pointer, intent(inout), optional :: aux_node_list
 logical, optional,            intent(in)    :: exclude_n0     !< Ommit n=0 component
 
@@ -156,8 +155,6 @@ real*8  :: u0_x, u0_y
 real*8  :: viscopar_flux, viscopar_f, vpar_s, vpar_t, vpar_x, vpar_y, li3_tot, li3
 real*8  :: varmin(n_var), varmax(n_var), V_min(n_var), V_max(n_var)
 
-!real*8  :: heating_impl_in, heating_impl_out, H_impl_int, H_impl_ext,heating_impl_tot
-
 !> for use_ncs
 real*8  :: aux_rho0, aux_T0, aux_Vpar0
 real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
@@ -174,7 +171,6 @@ real*8     :: Sion_T_ncs, dSion_dT_ncs
 real*8     :: Srec_T_ncs, dSrec_dT_ncs                                ! Recombination rate and its derivative wrt. temperature
 !   -Radiation from injected gas/impurities
 real*8     :: LradDcont_T_ncs, dLradDcont_dT_ncs                      ! Continuum (Brem.) radiation rate and its derivative wrt. T
-!real*8     :: Te_eV_ncs                                           ! Temperature used in radiation rate
 !end for use_ncs
 real*8  :: R_curr_cent, Z_curr_cent, Zcurr_tmp, R2curr_tmp, R2curr
 real*8  :: heating_impl_in, heating_impl_out, H_impl_int, H_impl_ext,heating_impl_tot

@@ -16,13 +16,12 @@ contains
 
     ! --- Modules
     use mod_parameters,           only : n_tor, jorek_model, n_vertex_max, n_degrees, unified_element_matrix
-    use phys_module,              only : bc_natural_open, bc_natural_flux, n_tor_fft_thresh, grid_to_wall, n_wall_blocks, keep_n0_const, use_ncs, central_density, sqrt_mu0_over_rho0
+    use phys_module,              only : bc_natural_open, bc_natural_flux, n_tor_fft_thresh, grid_to_wall, n_wall_blocks, keep_n0_const
     USE data_structure,           only : type_element, type_node, type_node_list, thread_struct
     use mod_boundary_matrix_open, only : boundary_matrix_open
     use mod_elt_matrix,           only : element_matrix
     use mod_elt_matrix_fft,       only : element_matrix_fft
     use mpi_mod
-    use mod_ionisation_recombination, only : rec_rate_global, rec_rate_local, rec_mom_local, rec_energy_local, rec_v_R, rec_v_Z, rec_v_phi
 	
     ! --- Routine parameters
     type (type_element),              intent(inout)  :: element
@@ -44,11 +43,10 @@ contains
     type (type_node), optional,       intent(inout)  :: aux_nodes(n_vertex_max)
     
     ! -- internal parameters
-    integer :: iv, iv2, iv3, iv4, inode1, inode2, inode3, inode4, i, j, inode, im
+    integer :: iv, iv2, iv3, iv4, inode1, inode2, inode3, inode4, i, j
     integer :: vertex(2), direction(n_degrees_1d), bnd1, bnd2, side1, side2
     integer :: i_max   ! for keep_n0_const max index which should be updated
     integer :: n_tor_local
-    real*8 :: rec_rate_total, volume_local(n_local_elms)
 
 #ifdef COMPARE_ELEMENT_MATRIX
     integer  :: jvertex, jorder, jvar, jtor, ivertex, iorder, ivar, itor
@@ -81,59 +79,7 @@ contains
         i_tor_min, i_tor_max, aux_nodes)
     endif
     
-    rec_rate_total = 0.d0
-    rec_rate_local(ife) = 0.d0
-    rec_mom_local(ife)  = 0.d0
-    rec_energy_local(ife) = 0.d0
-    rec_v_R(ife) = 0.d0
-    rec_v_Z(ife) = 0.d0
-    rec_v_phi(ife) = 0.d0
-    volume_local(ife)    =0.d0
     
-	if (.false.) then !(use_ncs) then !< indicates using kinetic particles. change to (use_ncs .or. use_pcs.or. use_ccs ) When implemented 
-		
-		do i = 1,n_vertex_max !over nodes
-			inode = element%vertex(i)
-			do j = 1,n_order+1 ! finite order of elements
-				do im = 1,n_tor  !over toroidal
-				
-				!rec_rate_global(inode,:,:) = rec_rate_global(inode,:,:) + aux_nodes(i)%values(1,:,n_var)
-				!rec_rate_global(:,:,inode) = rec_rate_global(:,:,inode) + aux_nodes(i)%values(im,:,n_var) use for FEM description
-				
-				rec_rate_local(ife)   = rec_rate_local(ife)   + aux_nodes(i)%values(im,j,n_var)
-				rec_mom_local(ife)    = rec_mom_local(ife)    + aux_nodes(i)%values(im,j,n_var-1)
-				rec_energy_local(ife) = rec_energy_local(ife) + aux_nodes(i)%values(im,j,n_var-2)
-				
-				rec_v_R(ife)          = rec_v_R(ife)          + aux_nodes(i)%values(im,j,1)
-				rec_v_Z(ife)          = rec_v_Z(ife)          + aux_nodes(i)%values(im,j,2)
-				rec_v_phi(ife)        = rec_v_phi(ife)        + aux_nodes(i)%values(im,j,3)
-				
-				volume_local(ife) = volume_local(ife) + aux_nodes(i)%values(im,j,4)
-				!aux_node_list%node(inode) = aux_node_list%node(inode) + aux_nodes(i)%values(im,:,n_var)
-				!rec_rate_total = rec_rate_total + rec_rate_local(i_elm)
-				  !real*8, dimension(n_vertex_max, n_order+1, n_nodes_max) :: rec_rate_global
-				  !values(n_tor,n_order+1, n_var)
-				  
-				!rec_rate_local(ife)   = rec_rate_local(ife)   * central_density* 1.d20
-				!rec_mom_local(ife)    = rec_mom_local(ife)    / sqrt_mu0_over_rho0
-				!rec_energy_local(ife) = rec_energy_local(ife) / (2.d0 *6.2831853071795864769d0 * 1.d-7 )
-				  
-				  enddo !< im
-			  enddo !< j
-		enddo	!< i
-		
-		
-!!	    !rec_rate_total = rec_rate_total + rec_rate_local(ife)
-		!write(20,*) 'i_elm=', ife,  'rec_rate_total=', rec_rate_total
-		!write(22,*) 'i_elm=', ife,  'rec_rate_local(i_elm)=', rec_rate_local(ife)
-	    !write(23,*) 'i_elm=', ife,  'rec_mom_local(i_elm)=', rec_mom_local(ife)
-		!write(24,*) 'i_elm=', ife,  'rec_energy_local(i_elm)=', rec_energy_local(ife)
-		!write(25,*) 'i_elm=', ife,  'rec_v_R(i_elm)=', rec_v_R(ife)
-		!write(26,*) 'i_elm=', ife,  'rec_v_Z(i_elm)=', rec_v_Z(ife)
-		!write(27,*) 'i_elm=', ife,  'rec_v_phi(i_elm)=', rec_v_phi(ife)
-		!write(28,*) 'i_elm=', ife,  'volume_local(i_elm)=', volume_local(ife)
-	endif !use_ncs
-	
     ! --- Apply sheath boundary conditions at the targets
     if (bc_natural_open) then
       ! --- Loop over the 4 nodes
@@ -388,7 +334,6 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   integer                           :: random_element, n_var_reduced, v1, v2, im, index_ij_model400_e, index_kl_model400_e
   real*8                            :: tmp_rhs, tmp_elm, tmp_elm_v2_8
   CHARACTER(LEN=128)                :: fname
-  real*8 :: rec_rate_total
   integer                           :: i_v(n_var)
   integer, allocatable              :: i_harm(:)
   integer                           :: comm, ierr, counts
@@ -499,7 +444,7 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   !$omp           l,index_kl,ilarge2,iv2,vertex,direction,inode2,omp_nthreads,omp_tid,                     &
   !$omp           i_father,element_father, nodes_father, inode_father, node_out, ivertex, iorder,          &
   !$omp           ivar, itor, jvertex, jorder, jvar, jtor, random_element, n_var_reduced, v1, v2, im,      &
-  !$omp           index_ij_model400_e, index_kl_model400_e,  tmp_rhs, tmp_elm, tmp_elm_v2_8,rec_rate_total,&
+  !$omp           index_ij_model400_e, index_kl_model400_e,  tmp_rhs, tmp_elm, tmp_elm_v2_8,               &
   !$omp           i_v, i_harm                                                                              )
 
 ! --- omp id
@@ -522,15 +467,12 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
      enddo
   endif
   
-  rec_rate_total = 0.d0 !--------------------------------------- move to other location
-  
 ! --- Loop over local elements
   !$omp do schedule(runtime)
   do ife = 1, n_local_elms
     
     ! --- Get element
     ielm = local_elms(ife)
-	!write(21,*) 'ielm,', ielm
     element = element_list%element(ielm)
     
     ! --- Define nodes (mhd_sim% depends on whether our element has been refined)

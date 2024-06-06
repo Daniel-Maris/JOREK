@@ -176,23 +176,12 @@ do ms=1, n_gauss
 
   grad_t = (/ - y_s(ms),   x_s(ms) /) / xjac
 
-!  normal_direction = (/R_mid - R_cnt, Z_mid - Z_cnt /) / norm2((/R_mid - R_cnt, Z_mid - Z_cnt /))
+
   normal_direction = (/x_g(ms) - R_cnt, y_g(ms) - Z_cnt /) / norm2((/x_g(ms) - R_cnt, y_g(ms) - Z_cnt /))
 
   normal = dot_product(grad_t,normal_direction) * grad_t      ! outward pointing normal
   normal = normal / norm2(normal)
 
-  ! neutral_source = 0.d-0
-
-  ! do is = 1, 10
-    ! if     ( ((x_g(ms) - neutral_line_R_start(is))*(x_g(ms) - neutral_line_R_end(is)) .lt. 0.d0) &
-       ! .and. ((y_g(ms) - neutral_line_Z_start(is))*(y_g(ms) - neutral_line_Z_end(is)) .lt. 0.d0) ) then
-       ! neutral_source = neutral_source + neutral_line_source(is)
-    ! endif
-  ! enddo
-  
-!  c_angle = 0.0174524d0 
-!  if (y_g(ms) .lt. -3.68) c_angle = 0.d0
 
   do mp = 1, n_plane
 
@@ -223,13 +212,13 @@ do ms=1, n_gauss
     u0_s  = eq_s(mp,2,ms)
     Vpar0 = eq_g(mp,7,ms)
 
-    T0_corr = T0 !*-dble( (T0 .lt. 0.d0) .and. (r0 .lt. 0.d0) )!max(T0,1.d-8) !corr_neg_temp1(T0)
-	T0_corr_sqrt = max(T0,1.d-6)!corr_neg_temp(T0)
-    r0_corr = r0  !corr_neg_dens(r0)
+    T0_corr = T0 !
+	T0_corr_sqrt = max(T0,1.d-6)! force above 0 for calculating sound speed
+    r0_corr = r0  !
 
 	bnd_outflux_sign = 1.d0 
 	if ((T0 .lt. 0.d0) .and. (r0 .lt. 0.d0) ) bnd_outflux_sign = 1.0
-	!if ((r0 .lt. 0.d0) ) bnd_outflux_sign = 1.0
+	
     cs0      = sqrt(gamma*T0_corr_sqrt)
 
     Btot = sqrt(F0**2 + ps0_x**2 + ps0_y**2) / BigR
@@ -264,16 +253,12 @@ do ms=1, n_gauss
           rhs_ij_5 = + v * density_reflection * r0_corr * vpar0 * ps0_s * normal_sign3 * tstep  & ! right hand side equation 5
                      - v * r0_corr * cs0 * BigR * dl * c_angle * tstep                          & ! particle flux at 1 degree angle  
                      - v * r0_corr * BigR**2.d0 * u0_s * normal_sign3 * tstep                    ! reflect v_perp particle flow
-					 !+ v * (0.5d0* rho_min + 0.5d0*rho_min *exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -min(r0,rho_min))  * tstep     &
-					 !+ v * (0.5d0* rho_min + 0.5d0*rho_min *exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -min(r0,rho_min)) * tstep     
-					 !+ v * 1.d-5 * ( exp(- r0 / 5.d-7 ) - exp(- (r0 +5.d-7)/ 5.d-7 ) ) * xjac * tstep   
-					 ! TODO: add source
+					 
            
           rhs_ij_6 = - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * vpar0 * ps0_s * normal_sign3 * tstep * bnd_outflux_sign & ! right hand side equation 6
                      - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * cs0   * BigR  * dl * c_angle * tstep * bnd_outflux_sign &
                      - v *                        r0_corr * T0_corr * BigR**2.d0    * u0_s  * normal_sign3 * tstep* bnd_outflux_sign  &
 					 + v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * tstep     
-					 !+ v * 1.d-5 * ( exp(- T0 / 5.d-7 ) - exp(- (T0 +5.d-7)/ 5.d-7 ) ) * xjac * tstep           
 
           rhs_ij_7 = - v * (vpar0 * Btot * normal_sign - cs0 * factor) * dl * Zbig                ! right hand side equation 7
 
@@ -321,7 +306,6 @@ do ms=1, n_gauss
                 amat_55 = - v * density_reflection * rho      * vpar0 * ps0_s * normal_sign3 * theta * tstep & 
                           + v                      * rho      * cs0   * BigR * dl * c_angle  * theta * tstep &
                           + v * rho * BigR**2.d0 * u0_s                       * normal_sign3 * theta * tstep  
-						  !- v * (exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -1.d0)*rho*   theta* tstep 
 
 
                 amat_56 = + v                      * r0_corr  * cs_T  * BigR * dl * c_angle  * theta * tstep
