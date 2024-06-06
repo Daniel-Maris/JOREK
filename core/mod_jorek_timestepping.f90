@@ -203,19 +203,21 @@ subroutine setup_solvers(this, sim)
   index_size  = sim%n_cpu
   id_elements = sim%my_id
 
-  call tr_allocate(this%local_elms,1,sim%fields%element_list%n_elements,"local_elms",CAT_FEM)
-  call tr_allocate(this%index_min,1,index_size,"index_min",CAT_FEM)
-  call tr_allocate(this%index_max,1,index_size,"index_max",CAT_FEM)
+  call tr_allocatep(this%local_elms,1,sim%fields%element_list%n_elements,"local_elms",CAT_FEM)
+
+  ! call tr_allocate(this%local_elms,1,sim%fields%element_list%n_elements,"local_elms",CAT_FEM)
+  ! call tr_allocate(this%index_min,1,index_size,"index_min",CAT_FEM)
+  ! call tr_allocate(this%index_max,1,index_size,"index_max",CAT_FEM)
   !
   ! Construct index_min, index_max and local_elems
   !
-  call distribute_nodes_elements(id_elements,this%n_cpu_n,index_size,sim%fields%node_list,sim%fields%element_list, .false., &
-                                 this%local_elms, this%n_local_elms, ndof_glob, this%index_min, this%index_max)
+  ! call distribute_nodes_elements(id_elements,this%n_cpu_n,index_size,sim%fields%node_list,sim%fields%element_list, .false., &
+  !                                this%local_elms, this%n_local_elms, ndof_glob, this%index_min, this%index_max)
   
 
     
-  sim%fields%node_list%n_dof = ndof_glob
-  call tr_allocatep(this%local_elms,1,sim%fields%element_list%n_elements,"local_elms",CAT_FEM)
+  ! sim%fields%node_list%n_dof = ndof_glob
+  ! call tr_allocatep(this%local_elms,1,sim%fields%element_list%n_elements,"local_elms",CAT_FEM)
 
   this%a_mat%comm = MPI_COMM_WORLD
   

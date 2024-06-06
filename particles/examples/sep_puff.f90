@@ -121,7 +121,7 @@ else
 
 	! Read Open ADAS data
 	write(*,*) "deuterium_adas (12)",  deuterium_adas
-	adas = read_adf11('12_h')
+	adas = read_adf11(sim%my_id,'12_h')
 
 	!> is this needed for neutrals?
 	if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
@@ -173,7 +173,7 @@ use_recombination = .true.  !
 use_line_radiation= .true.
 
 ! Read Open ADAS data for plasma fluid
- if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
+ if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
  
 n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
