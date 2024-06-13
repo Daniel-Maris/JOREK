@@ -146,6 +146,8 @@ module mod_expression
     call add(exprs_all, 'omega       ', 'Toroidal Vorticity Component                          ')
     call add(exprs_all, 'rho         ', 'Mass Density                                          ')
     call add(exprs_all, 'ne          ', 'Electron Density                                      ')
+    call add(exprs_all, 'ni_main     ', 'Main ion Density                                      ')
+    call add(exprs_all, 'nn_main     ', 'Density of main ion neutrals                          ')
 #ifdef WITH_Impurities
     call add(exprs_all, 'nimp        ', 'Impurity Density                                      ')
     call add(exprs_all, 'Z_eff       ', 'Effective charge of all species                       ')
@@ -336,6 +338,7 @@ module mod_expression
     call add(exprs_all_int, 'LCFS_deltaL ', 'Lower triangularity   (as in PPCF 55 (2013) 095009)   ')
     call add(exprs_all_int, 'tot_radiated', 'Total radiated power by the main impurities           ')
     call add(exprs_all_int, 'saw_ene     ', 'SAW energy functional (linear MHD)                    ')
+    call add(exprs_all_int, 'int_dBn_norm', 'Surface integral of Bnorm (bn in PoP 28 (2021) 032501)')    
 
     call add(exprs_all_four, 'absolute    ', 'Absolute value of 2D Fourier analysis                 ')
     call add(exprs_all_four, 'real        ', 'Real part      of 2D Fourier analysis                 ')
@@ -1713,12 +1716,21 @@ module mod_expression
                 
               case ( 'rho' )
                 res = r0 * fact_rho
+
+              case ( 'nn_main' )
+                res = rn0 * fact_ne
                 
               case ( 'ne' )
 #ifdef WITH_Impurities
                 res = ne_JOREK * fact_ne 
 #else
                 res = r0 * fact_ne
+#endif
+              case ( 'ni_main' )
+#ifdef WITH_Impurities
+                  res = (r0-rimp0) * fact_ne 
+#else
+                  res = r0 * fact_ne
 #endif
 
 #ifdef WITH_Impurities
