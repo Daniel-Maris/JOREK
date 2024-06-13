@@ -41,7 +41,7 @@ module mod_integrals3D
   contains
 
 
-subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units)
+subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units, exclude_n0)
 
 !$ use omp_lib
  
@@ -54,6 +54,7 @@ type (type_bnd_element_list), intent(in)    :: bnd_elm_list
 type (t_expr_list),           intent(in)    :: expr_list
 real*8,                    intent(inout)    :: res(:)
 integer,                      intent(in)    :: units
+logical, optional,            intent(in)    :: exclude_n0     !< Ommit n=0 component
 
 ! --- Local variables
 type (type_element)      :: element, elm_k
@@ -149,6 +150,7 @@ real*8  :: varmin(n_var), varmax(n_var), V_min(n_var), V_max(n_var)
 real*8  :: R_curr_cent, Z_curr_cent, Zcurr_tmp, R2curr_tmp, R2curr
 real*8  :: heating_impl_in, heating_impl_out, H_impl_int, H_impl_ext,heating_impl_tot
 real*8  :: Tie_min_neg, lnA
+real*8  :: Bnorm, int_B_norm , L
 #if (defined WITH_Neutrals)
 real*8  :: source_neutral, source_neutral_drift
 real*8  :: source_neutral_arr(n_inj_max), source_neutral_drift_arr(n_inj_max)
@@ -309,6 +311,10 @@ Dperp_part_flux  = 0.d0
 vpar_part_flux   = 0.d0
 vperp_part_flux  = 0.d0
 neut_part_flux   = 0.d0
+
+Bnorm = 0.d0
+L = 0.d0 
+int_B_norm = 0.d0
 
 local_pellet_particles = 0.d0
 local_plasma_particles = 0.d0
@@ -1377,7 +1383,16 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 
       do k=1,n_var
         do mp=1, n_plane 
-          do in=1,n_tor
+          do in=1, n_tor
+            if (present(exclude_n0)) then 
+              if (exclude_n0 .and. in == 1) then
+                if (n_tor > 1) then
+                  cycle
+                else  
+                  write(*,*) 'n_tor = 1 , cannot exclude axisymmetric part'
+                endif
+              endif  
+            endif
             eq_g_1D(mp,k,:) = eq_g_1D(mp,k,:) + node_k%values(in,k_dir,k) * k_size * H1(k_vertex,k_dof,:)   * HZ(in,mp)
             eq_s_1D(mp,k,:) = eq_s_1D(mp,k,:) + node_k%values(in,k_dir,k) * k_size * H1_s(k_vertex,k_dof,:) * HZ(in,mp)
 
@@ -1492,6 +1507,15 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       vpar_s = 0.d0; vpar_t = 0.d0; 
 
       do in = 1,n_tor
+        if (present(exclude_n0)) then
+          if (exclude_n0 .and. in == 1) then
+            if (n_tor > 1) then
+              cycle
+            else
+              write(*,*) 'n_tor = 1 , cannot exclude axisymmetric part'
+            endif
+          endif
+        endif
         call interp(node_list,element_list,m_elm,var_psi,in,sg,tg,PS,PS_s,PS_t,PS_st,PS_ss,PS_tt)
         psi_s = psi_s + PS_s * HZ(in,mp)
         psi_t = psi_t + PS_t * HZ(in,mp)
@@ -1580,6 +1604,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       drhoimpdy = ( - R_t * rhoimp_s + R_s * rhoimp_t ) / xjac
 
       BB2    = (F0*F0 + dpsidx*dpsidx + dpsidy*dpsidy) / BigR**2
+      Bnorm  = (dpsidx * grad_t(1) - dpsidy * grad_t(2)) / BigR   ! normal magnetic field to the JOREK boundary
 
       ! --- get normalized flux 
       psi_n = get_psi_n(ps0,Z)
@@ -1746,7 +1771,9 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       viscopar_flux = viscopar_flux  +  viscopar_f  * wgauss(ms) * delta_phi
       poynting_flux = poynting_flux  + poynting_tmp * wgauss(ms) * delta_phi
 
+      int_B_norm = int_B_norm +  Bnorm**2 / BB2 * sqrt(x_s_1D(ms)**2 + y_s_1D(ms)**2) * wgauss(ms) * delta_phi  
     enddo
+    L = L + sqrt(x_s_1D(ms)**2 + y_s_1D(ms)**2) * wgauss(ms)
   enddo
 
 enddo !--- bnd elements, end of calculation of boundary fluxes
@@ -1999,6 +2026,12 @@ vpar_part_flux       =  n_period * vpar_part_flux * fact_part / t_norm2
 vperp_part_flux      =  n_period * vperp_part_flux* fact_part / t_norm2
 neut_part_flux       =  n_period * neut_part_flux * fact_part / t_norm2
 poynting_flux        =  n_period * poynting_flux  * fact_flux
+if (L > 0) then
+  int_B_norm         =  sqrt(n_period * int_B_norm / (2 * PI * L ))
+else 
+  write(*,*) 'WARNING: The length of contour : L = 0'
+  int_B_norm         = 0.d0
+endif
 
 ! --- Derived quantities
 E_tot        = mag_tot + pressure     + kin_par_tot + kin_perp_tot 
@@ -2316,6 +2349,9 @@ if (my_id .eq. 0) then
 
       case ( 'TPF_halo' )
         res(iexpr) = TPF 
+
+      case ('int_dBn_norm')
+        res(iexpr) = int_B_norm
 
       case ( 'LCFS_Rgeo' )
         res(iexpr) = ES%LCFS_Rgeo 
