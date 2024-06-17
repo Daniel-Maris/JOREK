@@ -44,7 +44,7 @@ subroutine preset_parameters
   visco = 1.d-5
   T_max_visco   = 1.d99
   visco_par = 1.d-5
-  visco_par_par = 0.d0
+  visco_par_par = visco_par  ! chosing visco_par = visco_par_par turns off all terms relating to visco_par_par
   visco_heating     = 0.d0
   visco_par_heating = 0.d0
   visco_old_setup   = .false.
