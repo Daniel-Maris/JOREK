@@ -22,7 +22,7 @@ implicit none
 
 !--- Input parameters --------------------!
 !-----------------------------------------!
-integer, parameter :: points_per_turn = 1000
+integer, parameter :: points_per_turn = 2500
 real*8, parameter  :: delta_phi = 2*PI/float(n_period*points_per_turn)
 integer, parameter :: n_lines = 20
 integer, parameter :: num_pol_turns = 200
