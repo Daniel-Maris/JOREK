@@ -181,7 +181,7 @@ program jorek2_IDS
     if (rad_only_projections_h5 .and. export_radiation) then
       write(name_proj,'(a,i5.5,a)') 'projections', i_step, '.h5'  ! This formatting should be improved
       inquire (file=trim(name_proj), exist=file_exists)
-      if (.not. file_exists) 
+      if (.not. file_exists) then
         write(*,*) 'Warning:',name_proj,'is not found'
         cycle
       endif
