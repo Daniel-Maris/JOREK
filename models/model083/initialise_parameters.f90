@@ -63,7 +63,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 ellip,tria_u,tria_l,quad_u,quad_l,                  &
                 xampl,xwidth,xsig,xtheta,xshift,xleft, xpoint,      &
                 xcase, D_perp_file, ZK_perp_file,                   &
-                rho_file, T_file, ffprime_file, rot_file, domm_file,phi_file,&
+                rho_file, T_file, ffprime_file,                     &
+                rot_file, domm_file, phi_file,                      &
                 normalized_velocity_profile,                        &
                 freeboundary_equil, freeboundary,  freeb_change_indices, &
                 resistive_wall,                                     &
