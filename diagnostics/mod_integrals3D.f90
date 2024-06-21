@@ -1873,6 +1873,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       int_B_norm = int_B_norm +  Bnorm**2 / BB2 * sqrt(x_s_1D(mp,ms)**2 + y_s_1D(mp,ms)**2) * wgauss(ms) * delta_phi  
       surface_area      = surface_area       + dA * wgauss(ms) * delta_phi
     enddo
+    mp = 1
     L = L + sqrt(x_s_1D(mp,ms)**2 + y_s_1D(mp,ms)**2) * wgauss(ms)
   enddo
 
