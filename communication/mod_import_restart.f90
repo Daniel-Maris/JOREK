@@ -1203,7 +1203,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_real_reading(file_id,Ti_0_hdf5,'Ti_0')
   call HDF5_real_reading(file_id,Te_0_hdf5,'Te_0')
   if ((abs(Ti_0_hdf5 - Ti_0) .gt. 1.d-16) .or. (abs(Te_0_hdf5 - Te_0) .gt. 1.d-16)) then
-    write(*,*) "Error: Value of Ti_0 or Te_0 in hdf5 restart file and namelist are inconsistent: ", Ti_0_hdf5, Ti_0, Te_0_hdf5, Te_0
+    write(*,*) "Error: Value of Ti_0 or Te_0 in restart file and namelist are inconsistent: ", Ti_0_hdf5, Ti_0, Te_0_hdf5, Te_0
     stop
   endif
 #else
