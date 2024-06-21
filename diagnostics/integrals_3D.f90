@@ -118,9 +118,6 @@ local_pellet_particles = 0.d0
 local_plasma_particles = 0.d0
 local_pellet_volume    = 0.d0
 
-omp_nthreads= 1
-omp_tid= 0
-
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
 local_n_particles_inj = 0.d0
 local_n_particles     = 0.d0
