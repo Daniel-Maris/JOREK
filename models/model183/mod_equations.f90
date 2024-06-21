@@ -131,7 +131,7 @@ module mod_equations
   type(algexpr), parameter, private :: zero       = algexpr(basic=.true., var=var_zero)
 
   type(const), private :: tstep, zeta, theta 
-  type(const), private :: visco_num, visco_par, visco_par_par, visco_par_num, eta_num, D_perp_num, k_perp_num, gamma, reta
+  type(const), private :: visco_num, visco_par, visco_par_par, visco_par_num, nu_phi_source, eta_num, D_perp_num, k_perp_num, gamma, reta
   
   type(algexpr), public  :: rhs_semianalytic(n_var)
   type(algexpr), public  :: amat_semianalytic(n_var, n_var)
@@ -152,7 +152,7 @@ module mod_equations
     use phys_module, only: time_evol_zeta, time_evol_theta, Igamma => gamma, Itstep => tstep, Ivisco_num => visco_num,    &
                            Ivisco_par => visco_par, Ivisco_par_par => visco_par_par, Ivisco_par_num => visco_par_num,     &
                            Ieta_num => eta_num, ID_perp_num => D_perp_num, zk_perp_num,  &
-                           Ieta => eta, eta_ohmic
+                           Ieta => eta, eta_ohmic, Inu_phi_source => nu_phi_source
     implicit none
     
     integer  :: i, i_var, j_var
@@ -166,21 +166,22 @@ module mod_equations
     type(algexpr), dimension(DIMT, 7) :: T_expr
     type(algexpr)                     :: i_T0, i_delta_T, i_T, i_k_perp, i_k_par, i_dk_par_dT, i_S_e
 
-    tstep          = const(value = Itstep,            token = "tstep"        )
-    zeta           = const(value = time_evol_zeta,    token = "zeta"         )
-    theta          = const(value = time_evol_theta,   token = "theta"        )
-    visco_num      = const(value = Ivisco_num,        token = "visco_num"    )
-    visco_par      = const(value = Ivisco_par,        token = "visco_par"    )
-    visco_par_par  = const(value = Ivisco_par_par,    token = "visco_par_par")
-    visco_par_num  = const(value = Ivisco_par_num,    token = "visco_par_num")
-    eta_num        = const(value = Ieta_num,          token = "eta_num"      )
-    D_perp_num     = const(value = ID_perp_num,       token = "D_perp_num"   )
-    k_perp_num     = const(value = zk_perp_num,       token = "zk_perp_num"  )
-    gamma          = const(value = Igamma,            token = "gamma"        )
+    tstep            = const(value = Itstep,            token = "tstep"        )
+    zeta             = const(value = time_evol_zeta,    token = "zeta"         )
+    theta            = const(value = time_evol_theta,   token = "theta"        )
+    visco_num        = const(value = Ivisco_num,        token = "visco_num"    )
+    visco_par        = const(value = Ivisco_par,        token = "visco_par"    )
+    visco_par_par    = const(value = Ivisco_par_par,    token = "visco_par_par")
+    visco_par_num    = const(value = Ivisco_par_num,    token = "visco_par_num")
+    nu_phi_source    = const(value = Inu_phi_source,    token = "nu_phi_source") 
+    eta_num          = const(value = Ieta_num,          token = "eta_num"      )
+    D_perp_num       = const(value = ID_perp_num,       token = "D_perp_num"   )
+    k_perp_num       = const(value = zk_perp_num,       token = "zk_perp_num"  )
+    gamma            = const(value = Igamma,            token = "gamma"        )
     if (Ieta .ne. 0.d0) then
-      reta         = const(value = eta_ohmic/Ieta,  token = "reta")
+      reta           = const(value = eta_ohmic/Ieta,  token = "reta")
     else
-      reta         = const(value = 0.d0,            token = "reta")
+      reta           = const(value = 0.d0,            token = "reta")
     end if
 
     
@@ -256,7 +257,7 @@ module mod_equations
                               - v*Bv_pbrack(zj0,Psi0)                                   &            ! j x B component
                               + visco*inprod(v,w0)                                      &            ! Ad-hoc viscous tensor
                               + visco_num*Lap(v)*Lap(w0)                                &            ! Hyper viscosity
-                              + delta_phi_source*rho0/Bv2*inprod(v,S_phi0 - Phi0))      &            ! Ad-hoc poloidal momentum source
+                              + nu_phi_source*rho0/Bv2*inprod(v,S_phi0 - Phi0))         &            ! Ad-hoc poloidal momentum source
                               - zeta*(rho0*inprod(v,delta_Phi)                          &            ! rho d(v_ExB)_dt
                               + delta_rho*inprod(v,Phi0))/Bv2                                        ! v_ExB d(rho)_dt
                                                                                                      
@@ -277,7 +278,7 @@ module mod_equations
                                         - (rho0*w0*Bv_pbrack(v,Phi)/Bv2                       &      ! rho omega x v_ExB
                                         + div_rhov_Phi*inprod(v,Phi0)                         &      ! v_ExB div(rho v)
                                         + div_rhov0*inprod(v,Phi)                             &      ! v_ExB div(rho v)
-                                        + delta_phi_source*rho0*inprod(v,-Phi))/Bv2)                 ! Ad-hoc poloidal momentum source
+                                        + nu_phi_source*rho0*inprod(v,-Phi))/Bv2)                    ! Ad-hoc poloidal momentum source
                                                                                                      
     amat_semianalytic(var_Phi,  var_zj) = (-tstep*theta)*v*(Bv_parderiv(zj)                   &      ! j x B component
                                         + Bv_pbrack(zj,Psi0))                                        ! j x B component
@@ -290,7 +291,7 @@ module mod_equations
                                         + tstep*theta*(Bv_pbrack(rho/Bv2,v)*v2/2.d0                & ! 1/2 rho grad(v^2)
                                         - (rho*w0*Bv_pbrack(v,Phi0)/Bv2                            & ! rho omega x v
                                         + div_rhov_rho*inprod(v,Phi0)                              & ! v_ExB div(rho v)
-                                        + delta_phi_source*rho*inprod(v,S_phi0-Phi0))/Bv2)           ! Ad-hoc poloidal momentum source
+                                        + nu_phi_source*rho*inprod(v,S_phi0-Phi0))/Bv2)              ! Ad-hoc poloidal momentum source
 
     if (with_vpar) then
       amat_semianalytic(var_Phi, var_vpar) = tstep*theta*(Bv_pbrack(rho0/Bv2,v)*v2_vpar/2.d0       & ! 1/2 rho grad(v^2)
@@ -326,7 +327,6 @@ module mod_equations
     !#  Vorticity Definition Equation                                                                  #
     !###################################################################################################
     rhs_semianalytic(var_w) = -inprod(v,Phi0)                                                       & ! Lap(Phi) 
-                            + inprod(v, S_phi0)                                                     & ! Lap(S_phi0) momentum source
                             - v*w0                                                                    ! current w
     
     amat_semianalytic(var_w, var_Phi) = theta*inprod(v,Phi)                                           ! change in Lap(Phi)
