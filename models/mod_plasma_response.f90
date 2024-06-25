@@ -22,7 +22,7 @@ module mod_plasma_response
   public ::  find_Icoils, find_Icoils_JET
   public ::  t_pol_coil, t_coil, psi_coils
   public ::  read_coils, construct_test_coil, destruct_coils, log_coils, log_coil
-  public ::  plasma_fields_at_xyz
+  public ::  plasma_fields_at_xyz, plasma_fields_at_xyz_gvec
   
   ! --- Derived datatypes
   type :: t_pol_coil
@@ -382,9 +382,274 @@ module mod_plasma_response
 
   end subroutine plasma_fields_at_xyz
   
+
+  !-------------------------------------------------------------------------------------------
+  !> Calculates the magnetic field produced by GVEC plasma currents at arbitrary x,y,z points 
+  !-------------------------------------------------------------------------------------------
+  subroutine plasma_fields_at_xyz_gvec(my_id, node_list,element_list, x,y,z, bx, by, bz)
+
+    !$ use omp_lib
+    use mpi_mod
+
+    implicit none
+
+    integer,                  intent(in) :: my_id
+    type (type_node_list),    intent(in) :: node_list
+    type (type_element_list), intent(in) :: element_list
+    real*8,  intent(in)                  :: x(:), y(:), z(:)     ! Points where fields are calculated
+    real*8,  intent(inout)               :: bx(:), by(:), bz(:)
+
+    ! --- local variables    
+    type (type_element)      :: element
+    type (type_node)         :: nodes(n_vertex_max)
+    
+    real*8     :: x_g(n_plane,n_gauss,n_gauss), x_s(n_plane,n_gauss,n_gauss), x_t(n_plane,n_gauss,n_gauss), x_p(n_plane,n_gauss,n_gauss)
+    real*8     :: y_g(n_plane,n_gauss,n_gauss), y_s(n_plane,n_gauss,n_gauss), y_t(n_plane,n_gauss,n_gauss), y_p(n_plane,n_gauss,n_gauss)
+    real*8     :: s_norm(n_gauss,n_gauss)
+    real*8     :: B_gvec(3,n_plane,n_gauss,n_gauss), B_gvec_s(3,n_plane,n_gauss,n_gauss), B_gvec_t(3,n_plane,n_gauss,n_gauss), B_gvec_p(3,n_plane,n_gauss,n_gauss)
+    
+    integer    :: i, j, ms, mt, iv, inode, ife, mp, in, i_R, i_Z, i_Phi, k, k_tor
+    integer    :: ierr, n_cpu, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
+    real*8     :: R, xp,yp,zp, dd, wst, xjac, delta_phi, phi, phi_HZ
+    real*8     :: B_phi, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z
+    real*8     :: d_vec(3), J_vec(3), cross(3), dB(3)
+    real*8     :: wgauss_copy(n_gauss)
+    integer    :: n_points
+
+    real*8, allocatable :: bx_tmp(:), by_tmp(:), bz_tmp(:)
+
+
+#if (JOREK_MODEL == 83)
+    ! --- MPI initialization
+    call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr) ! number of MPI procs
+    n_cpu = max(n_cpu,1)
+
+    ife_delta = ceiling(float(element_list%n_elements) / n_cpu)
+    ife_min   =      my_id     * ife_delta + 1
+    ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
+
+   
+    n_points = size(x,1)
+    allocate(bx_tmp(n_points), by_tmp(n_points), bz_tmp(n_points))
+    
+    bx     = 0.d0;  by     = 0.d0;  bz     = 0.d0;
+    bx_tmp = 0.d0;  by_tmp = 0.d0;  bz_tmp = 0.d0;
+
+    delta_phi = 2.d0 * PI / float(n_plane) 
+    i_R = 1; i_Z = 2; i_Phi = 3  
+
+    wgauss_copy = wgauss
+
+    ! implementing new HZ_coord
+    do k=1,n_plane
+      phi_HZ = 2.d0*PI*float(k-1)/float(n_plane)  
+      do k_tor=1, n_tor
+        mode(k_tor) = + int(k_tor / 2) * n_period
+      enddo
+      HZ(1,k)   = 1.d0
+      do i=1,(n_tor-1)/2
+        HZ(2*i,k)      = cos(mode(2*i)   * phi_HZ )
+        HZ(2*i+1,k)    = sin(mode(2*i+1) * phi_HZ )
+      enddo
+        
+      do k_tor=1, n_coord_tor
+        mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
+      enddo
+      HZ_coord(1,k)   = 1.d0
+      do i=1,(n_coord_tor-1)/2
+        HZ_coord(2*i,k)      = + cos(mode_coord(2*i)   * phi_HZ )
+        HZ_coord_p(2*i,k)          = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *phi_HZ)
+        HZ_coord_pp(2*i,k)         = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *phi_HZ)
+        HZ_coord(2*i+1,k)    = - sin(mode_coord(2*i+1) * phi_HZ )
+        HZ_coord_p(2*i+1,k)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*phi_HZ)
+        HZ_coord_pp(2*i+1,k)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*phi_HZ)
+      enddo
+    enddo
+
+
+    ! --- OpenMP parallelization of element loop
+    !$omp parallel default(none)                                                           &
+    !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ_coord, HZ_coord_p, ife_min, ife_max,        &
+    !$omp          i_R, i_Z, i_phi, delta_phi, n_points, x, y, z, bx_tmp, by_tmp, bz_tmp,  &
+    !$omp          wgauss_copy)      &
+    !$omp   private(ife,iv,inode,element,nodes,i,j, in, mp, ms, mt, k, k_tor,                      &
+    !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, B_gvec, B_gvec_s, B_gvec_t, B_gvec_p, s_norm, &
+    !$omp           xjac, R, xp, yp, zp, dd, phi, phi_HZ,                              &
+    !$omp           B_phi, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z, &
+    !$omp           d_vec, J_vec, cross, dB, wst, omp_nthreads,omp_tid)
+    
+#ifdef OPENMP
+    omp_nthreads = omp_get_num_threads()
+    omp_tid      = omp_get_thread_num()
+#else
+    omp_nthreads = 1
+    omp_tid      = 0
+#endif
+    
+    !$omp do reduction(+:bx_tmp, by_tmp, bz_tmp)     
+ 
   
+    !--- Go through all the elements
+    do ife = ife_min, ife_max
+    
+      element = element_list%element(ife)
+
+      do iv = 1, n_vertex_max
+        inode     = element%vertex(iv)
+        nodes(iv) = node_list%node(inode)
+      enddo
+      
+      x_g(:,:,:) = 0.d0; x_s(:,:,:) = 0.d0; x_t(:,:,:) = 0.d0; x_p(:,:,:) = 0.d0
+      y_g(:,:,:) = 0.d0; y_s(:,:,:) = 0.d0; y_t(:,:,:) = 0.d0; y_p(:,:,:) = 0.d0
+      B_gvec(:,:,:,:) = 0.d0; B_gvec_s(:,:,:,:) = 0.d0; B_gvec_t(:,:,:,:) = 0.d0; B_gvec_p(:,:,:,:) = 0.d0
+      s_norm(:,:) = 0.d0
+      
+      !--- Calculate R,Z and derivatives at gausstian points
+      do i=1,n_vertex_max
+        do j=1,n_degrees
+
+          do ms=1, n_gauss
+            do mt=1, n_gauss
+              s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
+
+              do mp=1,n_plane
+
+                do in=1,n_coord_tor          
+
+                  x_g(mp,ms,mt)  = x_g(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
+                  x_s(mp,ms,mt)  = x_s(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
+                  x_t(mp,ms,mt)  = x_t(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
+                  x_p(mp,ms,mt)  = x_p(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(in,mp)
+                  
+                  y_g(mp,ms,mt)  = y_g(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
+                  y_s(mp,ms,mt)  = y_s(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
+                  y_t(mp,ms,mt)  = y_t(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
+                  y_p(mp,ms,mt)  = y_p(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(in,mp)
+                  
+                  B_gvec(i_R,mp,ms,mt)   = B_gvec(i_R,mp,ms,mt)   + nodes(i)%b_field(in,j,i_R)*element%size(i,j)*H(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_s(i_R,mp,ms,mt) = B_gvec_s(i_R,mp,ms,mt) + nodes(i)%b_field(in,j,i_R)*element%size(i,j)*H_s(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_t(i_R,mp,ms,mt) = B_gvec_t(i_R,mp,ms,mt) + nodes(i)%b_field(in,j,i_R)*element%size(i,j)*H_t(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_p(i_R,mp,ms,mt) = B_gvec_p(i_R,mp,ms,mt) + nodes(i)%b_field(in,j,i_R)*element%size(i,j)*H(i,j,ms,mt)*HZ_coord_p(in,mp)
+                  
+                  B_gvec(i_Z,mp,ms,mt)   = B_gvec(i_Z,mp,ms,mt)   + nodes(i)%b_field(in,j,i_Z)*element%size(i,j)*H(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_s(i_Z,mp,ms,mt) = B_gvec_s(i_Z,mp,ms,mt) + nodes(i)%b_field(in,j,i_Z)*element%size(i,j)*H_s(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_t(i_Z,mp,ms,mt) = B_gvec_t(i_Z,mp,ms,mt) + nodes(i)%b_field(in,j,i_Z)*element%size(i,j)*H_t(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_p(i_Z,mp,ms,mt) = B_gvec_p(i_Z,mp,ms,mt) + nodes(i)%b_field(in,j,i_Z)*element%size(i,j)*H(i,j,ms,mt)*HZ_coord_p(in,mp)
+                  
+                  B_gvec(i_phi,mp,ms,mt)   = B_gvec(i_phi,mp,ms,mt)   + nodes(i)%b_field(in,j,i_phi)*element%size(i,j)*H(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_s(i_phi,mp,ms,mt) = B_gvec_s(i_phi,mp,ms,mt) + nodes(i)%b_field(in,j,i_phi)*element%size(i,j)*H_s(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_t(i_phi,mp,ms,mt) = B_gvec_t(i_phi,mp,ms,mt) + nodes(i)%b_field(in,j,i_phi)*element%size(i,j)*H_t(i,j,ms,mt)*HZ_coord(in,mp)
+                  B_gvec_p(i_phi,mp,ms,mt) = B_gvec_p(i_phi,mp,ms,mt) + nodes(i)%b_field(in,j,i_phi)*element%size(i,j)*H(i,j,ms,mt)*HZ_coord_p(in,mp)
+                enddo
+              enddo
+            enddo
+          enddo
+        enddo
+      enddo
+      
+      !---Do gaussian and toroidal planes integration
+      do ms=1, n_gauss
+        do mt=1, n_gauss
+          
+          ! if (s_norm(ms,mt) .gt. 0.7) cycle ! 0.8 because it should be outside the minor radius
+
+          wst  = wgauss_copy(ms)*wgauss_copy(mt)
+
+          do mp=1,n_plane
+     
+            xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
+            R       = x_g(mp,ms,mt)
+            !R       = x_g(mp,ms,mt) + 100
+            zp      = y_g(mp,ms,mt)
+
+            phi   =  float(mp-1) * delta_phi
+            xp    =  R * Cos(phi)
+            yp    = -R * Sin(phi)
+                         
+            ! TO-DO: COMPUTE CURRENT FROM GVEC BASIS IN CARTESIAN COORDINATES  
+            ! Hint: (i)    calculate the R, Z and phi derivatives of B_gvec from the JOREK basis
+            !                  - look how it is done for Psi in diagnostics/q_stel.f90 l. 477-479
+
+            BR_R = ( y_t(mp,ms,mt)*B_gvec_s(i_R,mp,ms,mt) - y_s(mp,ms,mt)*B_gvec_t(i_R,mp,ms,mt))/xjac
+            BR_z = (-x_t(mp,ms,mt)*B_gvec_s(i_R,mp,ms,mt) + x_s(mp,ms,mt)*B_gvec_t(i_R,mp,ms,mt))/xjac
+            BR_p = B_gvec_p(i_R,mp,ms,mt) - x_p(mp,ms,mt)*BR_R - y_p(mp,ms,mt)*BR_z
+
+            Bz_R = ( y_t(mp,ms,mt)*B_gvec_s(i_Z,mp,ms,mt) - y_s(mp,ms,mt)*B_gvec_t(i_Z,mp,ms,mt))/xjac
+            Bz_z = (-x_t(mp,ms,mt)*B_gvec_s(i_Z,mp,ms,mt) + x_s(mp,ms,mt)*B_gvec_t(i_Z,mp,ms,mt))/xjac
+            Bz_p = B_gvec_p(i_Z,mp,ms,mt) - x_p(mp,ms,mt)*Bz_R - y_p(mp,ms,mt)*Bz_z
+
+            Bp_R = ( y_t(mp,ms,mt)*B_gvec_s(i_phi,mp,ms,mt) - y_s(mp,ms,mt)*B_gvec_t(i_phi,mp,ms,mt))/xjac
+            Bp_z = (-x_t(mp,ms,mt)*B_gvec_s(i_phi,mp,ms,mt) + x_s(mp,ms,mt)*B_gvec_t(i_phi,mp,ms,mt))/xjac
+            Bp_p = B_gvec_p(i_phi,mp,ms,mt) - x_p(mp,ms,mt)*Bp_R - y_p(mp,ms,mt)*Bp_z
+
+            B_phi = B_gvec(i_phi,mp,ms,mt)
   
-  
+            !       (ii)   get JR, JZ, J_phi from J = curl(B), curl in JOREK cylindrical coordinates
+            
+            !JR    =                             (-1/R)* Bz_p - Bp_z
+            !J_phi =                                     BR_z - Bz_R
+            !JZ    = (-1/R)*(-R*Bp_R + B_phi - BR_p)
+
+            !JR = 0
+            !JZ = 0
+            !J_phi = 1
+
+            !       (iii)  convert to Cartesian coordinates 
+
+            !J_x   =  JR*Cos(phi) - J_phi*Sin(phi)
+            !J_y   = -JR*Sin(phi) - J_phi*Cos(phi)
+            !J_z   =  JZ
+            !J_vec =  (/ J_x, J_y, J_z /) 
+            !J_vec = (/ 0.d0, 0.d0, 0.d0 /)    !?????? 
+
+            ! new way to calculate J_vec, curl and coverting in one step, see JOREK coordinates -> curl in cylindical coords
+
+            J_x = 1/R*(Bp_z-Bz_p)*Cos(phi)    + 1/R*(Bz_R-BR_z)*(-R*Sin(phi)) 
+            J_y = 1/R*(Bp_z-Bz_p)*(-Sin(phi)) + 1/R*(Bz_R-BR_z)*(-R*Cos(phi)) 
+            J_z = 1/R*(BR_p-Bp_R)
+
+            J_vec =  (/ J_x, J_y, J_z /)
+
+            ! --- Go over the given points and calculate magnetic field from Biot-Savart
+
+            do i=1, n_points
+
+              d_vec(:)  = (/ xp-x(i), yp-y(i), zp-z(i) /)
+
+              dd        = max(sqrt( sum( d_vec(:)**2.d0 ) ) , 1.d-9)
+    
+              cross     = (/  d_vec(2)*J_vec(3) - d_vec(3)*J_vec(2),  &
+                              d_vec(3)*J_vec(1) - d_vec(1)*J_vec(3),  &
+                              d_vec(1)*J_vec(2) - d_vec(2)*J_vec(1) /)
+    
+              dB(:)     =  cross(:) / (dd**3.d0) / (4.d0*PI) * wst * xjac * R * delta_phi ! no mu_0, because also no mu_0 in curl(B)
+              !dB(:)     =  wst * xjac * R * delta_phi ! no mu_0, because also no mu_0 in curl(B)
+    
+              bx_tmp(i) = bx_tmp(i) + dB(1)
+              by_tmp(i) = by_tmp(i) + dB(2)
+              bz_tmp(i) = bz_tmp(i) + dB(3)
+            enddo
+
+          enddo
+        enddo
+      enddo
+      
+    
+    enddo !---elements
+    !$omp end do
+    !$omp end parallel
+
+
+    call MPI_AllReduce(bx_tmp,bx,n_points,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call MPI_AllReduce(by_tmp,by,n_points,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call MPI_AllReduce(bz_tmp,bz,n_points,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+
+    deallocate(bx_tmp, by_tmp, bz_tmp)   
+#else
+    write(*,*) "This routine can only be used with model 083"
+    stop
+#endif 
+  end subroutine plasma_fields_at_xyz_gvec
  
  
   !------------------------------------------------------------------
