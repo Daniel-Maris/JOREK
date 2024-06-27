@@ -28,7 +28,7 @@ module phys_module
   real*8  :: visco_par            !< Cross B-field viscosity acting on parallel flow (normalized)
   real*8  :: visco_par_par        !< B-field Parallel viscosity acting on parallel flow (normalized)
   real*8  :: visco_par_heating    !< Parallel viscosity used in the parallel viscous heating term (normalized)
-  real*8  :: t_rat                !< ratio to set ion and electron temperature from T: Ti=t_rat*T; Te=(1.0-t_rat)*T
+  real*8  :: TiTe_ratio           !< ratio to set ion and electron temperature from T (in model 083): Ti=TiTe_ratio*T; Te=(1.0-TiTe_ratio)*T
   real*8  :: F0                   !< Determines fixed toroidal magnetic field: \f$ B_\phi = F_0/R \f$
   real*8  :: central_density      !< particle density at the magnetic axis (in units of \f$10^{20} m^{-3}\f$)
   real*8  :: central_mass         !< average ion mass in atomic mass units (constant in time and space)

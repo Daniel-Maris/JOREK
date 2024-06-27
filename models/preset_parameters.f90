@@ -41,7 +41,7 @@ subroutine preset_parameters
   eta_ohmic     = 0.d0
   T_max_eta_ohm = 1.d99
   
-  t_rat         = 0.5d0
+  TiTe_ratio    = 0.5d0
 
   visco = 1.d-5
   T_max_visco   = 1.d99

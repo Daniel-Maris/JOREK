@@ -415,7 +415,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
 
   if (with_TiTe) then ! (with_TiTe), i.e. single temperature ***************************************
-    write(*,REAL_FMT) 't_rat                  ', t_rat
+#if (JOREK_MODEL == 83)
+    write(*,REAL_FMT)   'TiTe_ratio             ', TiTe_ratio
+#endif
     if ( .not. num_Te ) then
       write(*,REAL_FMT) 'Te_0                   ', Te_0
       write(*,REAL_FMT) 'Te_1                   ', Te_1
