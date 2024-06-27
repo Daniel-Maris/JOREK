@@ -1,3 +1,8 @@
+!> This diagnostic module can be used to calculate magnetic and kinetic energies in individual 
+!! mode families (see: C. Schwab 1993 Phys. Fluids B 5 3195-206 Section III). 
+!!
+!! This routine is intended for use with stellarator models. It can also be used as part of
+!! jorek2_postproc. 
 module mod_energy3D
 
   implicit none
@@ -9,13 +14,10 @@ module mod_energy3D
   contains
 
 
-
-subroutine energy3D_new(node_list,element_list,W_mag,W_kin)
-!---------------------------------------------------------------
-! This subroutine calculates the energies of each individual mode
-! family in a stellarator by summing up the energies of all modes
-! and cross terms in the mode family.
-!---------------------------------------------------------------
+!> This subroutine calculates the energies of each individual mode
+!! family in a stellarator by summing up the energies of all modes
+!! and cross terms in the mode family.
+subroutine energy3d_new(node_list,element_list,W_mag,W_kin)
 use data_structure
 use gauss
 use basis_at_gaussian
@@ -159,6 +161,6 @@ W_mag = W_mag + W_mag_local
 W_kin = W_kin + W_kin_local
 !$omp end critical
 !$omp end parallel
-end subroutine energy3D_new
+end subroutine energy3d_new
 
 end module mod_energy3D

@@ -1,24 +1,26 @@
 program jorek2_connection_flux_aligned
-  !-----------------------------------------------------------------------
-  ! This routine is a modified version of jorek2_poincare. Field lines are traced around the simulated domain in order
-  ! to determine the distance travelled before reaching the simulation boundary, or an radial coordinate for an 
-  ! approximate flux surface within the plasma.
-  !
-  ! Currently the diagnostic calculates the connection length and strike points on the set end boundary.
-  ! 
-  ! STEPS:
-  ! 1.  Read input parameters from connect.nml and distribute start points among MPI tasks.
-  ! 2.  Loop over start points
-  !   3. Trace field lines around torus for a pre-set number of turns using a pre-set number of steps.
-  !      4. Loop over max turns and steps per turn
-  !        5. Perform step.
-  !        6. Check if element boundary is crossed.
-  !        7. If end boundary is crossed - signal to break and start new field line
-  !      8. Record turn based data for poincares. 
-  ! 9.  Write out poincare 
-  ! 10. Write connection length
-  ! 11. Write strike points
-  !-----------------------------------------------------------------------
+ !> This routine is a modified version of jorek2_poincare, which works for tokamak and stellarator 
+ !! models. 
+ !!
+ !! Field lines are traced around the simulated domain in order to determine the distance travelled 
+ !! before reaching the simulation boundary, or a radial coordinate for an approximate flux surface 
+ !! within the plasma.
+ !!
+ !! Currently the diagnostic calculates the connection length and strike points on the prescribed radial
+ !! end boundary.
+ !! 
+ !! STEPS:
+ !! 1.  Read input parameters from connect.nml and distribute start points among MPI tasks.
+ !! 2.  Loop over start points
+ !!   3. Trace field lines around torus for a pre-set number of turns using a pre-set number of steps.
+ !!      4. Loop over max turns and steps per turn
+ !!        5. Perform step.
+ !!        6. Check if element boundary is crossed.
+ !!        7. If end boundary is crossed - signal to break and start new field line
+ !!      8. Record turn based data for poincares. 
+ !! 9.  Write out poincare 
+ !! 10. Write connection length
+ !! 11. Write strike points
   use data_structure
   use phys_module
   use basis_at_gaussian

@@ -1,10 +1,9 @@
+!> This is a simple program intended for use with stellarator models.
+!!
+!! It re-calculates energies and growth rates of each mode family in a simulation 
+!! that has already completed. For the sake of simplicity, this program does not 
+!! take inputs and all parameters are hard-coded.
 program recalc_egr
-!---------------------------------------------------------------------
-! This is a simple program to re-calculate energies and growth rates of
-! each mode family in a simulation that has already completed. For the
-! sake of simplicity, this program does not take inputs and all parameters
-! are hard-coded.
-!---------------------------------------------------------------------
   use data_structure
   use nodes_elements
   use basis_at_gaussian
@@ -39,7 +38,7 @@ program recalc_egr
   do ts=1,nts
     write(filein,'(A,i5.5)') 'jorek', index_now
     call import_restart(node_list,element_list, filein, rst_format, ierr, .true.)
-    call energy3D_new(node_list,element_list,Wmag(:,ts),Wkin(:,ts))
+    call energy3d_new(node_list,element_list,Wmag(:,ts),Wkin(:,ts))
     time(ts) = xtime(index_now)
     index_now = index_now + 1
   end do

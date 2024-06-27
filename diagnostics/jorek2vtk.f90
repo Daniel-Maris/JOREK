@@ -206,9 +206,9 @@ without_n0_mode        = .false. ! If true, do not include the n=0 mode (i_tor=1
 SI_units               = .false. ! when true, write variables in SI units
 include_fluxes         = .false. ! include energy and density fluxes (or not)
 include_neo            = .false. ! include neoclassical and more terms (or not)
-include_gvec_field     = .false.  ! include current and magnetic field from GVEC
+include_gvec_field     = .false. ! include current and magnetic field from GVEC (or not) - only for model 083
 include_magnetic_field = .false. ! include vector of magnetic field (or not)
-include_vacuum_field   = .false. ! include vector of vacuum magnetic field (or not)
+include_vacuum_field   = .false. ! include vector of vacuum magnetic field (or not) - only for stellarator models
 include_velocity_field = .false. ! include vector of velocity field (or not)
 include_electric_field = .false. ! include vector of E-field (or not), evaluated at t-dt/2 
 include_Jpol           = .false. ! include poloidal current vector (J_phi=0 for visualization)
@@ -251,9 +251,13 @@ write(*,*) 'without_n0_mode =', without_n0_mode
 write(*,*) 'si_units        =', si_units
 write(*,*) 'include_fluxes  =', include_fluxes
 write(*,*) 'include_neo     =', include_neo
+#if STELLARATOR_MODEL
+#if (JOREK_MODEL == 083)
 write(*,*) 'include_gvec_field     =', include_gvec_field
-write(*,*) 'include_magnetic_field =',include_magnetic_field
+#endif
 write(*,*) 'include_vacuum_field   =',include_vacuum_field
+#endif
+write(*,*) 'include_magnetic_field =',include_magnetic_field
 write(*,*) 'include_velocity_field =',include_velocity_field
 write(*,*) 'include_electric_field =',include_electric_field
 write(*,*) 'include_Jpol      =', include_Jpol

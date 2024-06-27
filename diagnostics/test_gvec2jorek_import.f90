@@ -1,4 +1,5 @@
-! Program to compare jorek imported 3D equilibrium points to GVEC equilibrium points from higher resolution import
+!> Program to compare jorek imported 3D equilibrium points to GVEC equilibrium points 
+!! from a higher resolution import. This test program is used for model 083 only.
 program test_gvec2jorek_import
 
 use data_structure

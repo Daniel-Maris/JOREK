@@ -1,9 +1,10 @@
+!> This program plots s=const curves on a specified poloidal plane, where
+!! s is one of the JOREK element-local coordinates. If the grid is flux-aligned,
+!! these s=const curves correspond to flux surfaces in the initial equilibrium.
+!!
+!! Note that this routine will not work if s=const curves are plotted in the open 
+!! field line region
 program flux_surface
-!---------------------------------------------------------------------
-! This program plots s=const curves on a specified poloidal plane, where
-! s is one of the JOREK element-local coordinates. If the grid is flux-aligned,
-! these s=const curves correspond to flux surfaces in the initial equilibrium.
-!---------------------------------------------------------------------
   use data_structure
   use nodes_elements
   use mod_import_restart
