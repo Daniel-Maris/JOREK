@@ -905,7 +905,7 @@ subroutine get_auxiliary(eq)
 
   real*8, dimension(:,:,:,:,:), pointer, intent(inout) :: eq
   
-#include "aux_unreadable.h"
+#include "aux_automatic.h"
 end subroutine
 
 subroutine get_rhs(rhs_ij, eq)
@@ -931,7 +931,7 @@ subroutine get_rhs(rhs_ij, eq)
     reta = 0.d0
   end if
   
-#include "rhs_unreadable.h"
+#include "rhs_automatic.h"
 end subroutine
 
 subroutine get_amat(amat_ij, eq)
@@ -957,7 +957,7 @@ subroutine get_amat(amat_ij, eq)
     reta = 0.d0
   end if
   
-#include "amat_unreadable.h"
+#include "amat_automatic.h"
 end subroutine
 
 end module mod_elt_matrix_fft

@@ -1,3 +1,7 @@
+!> This module is used in some models for automatic code generation of the RHS and AMAT in the 
+!! matrix construction routines. It contains algebraic types and operators that can be used to
+!! construct the matrix contributions in a compact, legible format that is then converted into 
+!! code
 module mod_semianalytical
   implicit none
 

@@ -195,7 +195,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,  112) ' n_order        =  ', n_order           
   write(*,  112) ' n_tor          =  ', n_tor             
   write(*,  112) ' n_coord_tor    =  ', n_coord_tor
+#ifdef USE_DOMM
   write(*,  112) ' l_pol_domm     =  ', l_pol_domm
+#endif
   write(*,  112) ' n_period       =  ', n_period          
   write(*,  112) ' n_coord_period =  ', n_coord_period
   write(*,  112) ' n_plane        =  ', n_plane           
