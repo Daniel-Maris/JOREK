@@ -13,7 +13,9 @@ module mod_model_settings
   ! The following line is needed by ./util/config.sh:
   ! #SETTINGS# with_vpar with_TiTe
 
-  integer, parameter :: jorek_model    = 183       !< JOREK physics model
+  ! JOREK stellarator reduced MHD model time evolution model: 
+  !    See https://www.jorek.eu/wiki/doku.php?id=stellarator_setup
+  integer, parameter :: jorek_model    = 183
 
   logical, parameter :: hydrodynamics   = .false.
   logical, parameter :: reduced_MHD     = .true.
