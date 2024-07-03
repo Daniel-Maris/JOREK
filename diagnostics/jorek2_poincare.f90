@@ -134,10 +134,10 @@ if ( ierr == 0 ) then ! stpts file exists, use it.
     curr = nr
     
   end do
-  
+#if STELLARATOR_MODEL
   read(21,*) s
   if (trim(adjustl(s)) .eq. "override_phi") P_start = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
-  
+#endif
   close(21)
 
 else ! if no stpts file exists, use the following hard-coded default startpoints
