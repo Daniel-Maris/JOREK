@@ -249,7 +249,7 @@ do m=1, n_toroidal
         enddo
 
         if(.not. density_only) then 
-          if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
+          if (     (jorek_model .eq. 180).or. (jorek_model .eq. 183) )then
               Bx = chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*R)
               By = chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*R)
               Bz = chi(0,0,1)/R    + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0       

@@ -40,7 +40,7 @@ program algexpr2fort
   open(10, file="models/model"//model_num//"/rhs_automatic.h", action="write", status="replace")
   do i_var=1,n_var
     if ((associated(rhs_semianalytic(i_var)%operand1)) .and. (associated(rhs_semianalytic(i_var)%operand2))) then
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
       full = "rhs_ij("// index_names(i_var) // ") = " // gencode(rhs_semianalytic(i_var), varname)
 #else
       full = "rhs_ij("// index_names(i_var) // ",:) = " // gencode(rhs_semianalytic(i_var), varname)
@@ -55,7 +55,7 @@ program algexpr2fort
   do i_var = 1, n_var
     do j_var = 1, n_var
       if ((associated(amat_semianalytic(i_var, j_var)%operand1)) .and. (associated(amat_semianalytic(i_var, j_var)%operand2))) then
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
         full = "amat_ij("// index_names(i_var) // "," // index_names(j_var) // ") = " // gencode(amat_semianalytic(i_var, j_var), varname)
 #else 
         full = "amat_ij("// index_names(i_var) // "," // index_names(j_var) // ",:) = " // gencode(amat_semianalytic(i_var, j_var), varname)

@@ -13,7 +13,7 @@ module mod_model_settings
   ! The following line is needed by ./util/config.sh:
   ! #SETTINGS# with_vpar with_TiTe
 
-  integer, parameter :: jorek_model    = 083       !< JOREK physics model
+  integer, parameter :: jorek_model    = 180       !< JOREK physics model
 
   logical, parameter :: hydrodynamics   = .false.
   logical, parameter :: reduced_MHD     = .true.

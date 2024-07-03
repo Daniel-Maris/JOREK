@@ -794,7 +794,7 @@ contains
     end if
     
     if (expr%basic) then
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
       write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ",1)"
 #else
       write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ",:)"

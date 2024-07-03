@@ -29,7 +29,7 @@ real*8     :: Z_xpoint(2) =  (/ 0.0, 0.0 /)
 
 if (my_id .eq. 0) then
   write(*,*) '***************************************'
-  write(*,*) '*      initial conditions  (083)      *'
+  write(*,*) '*      initial conditions  (180)      *'
   write(*,*) '***************************************'
 endif
 

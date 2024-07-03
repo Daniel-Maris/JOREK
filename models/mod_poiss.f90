@@ -19,7 +19,7 @@ use mod_basisfunctions
 use mod_integer_types
 use mod_node_indices
 
-#if JOREK_MODEL == 83
+#if JOREK_MODEL == 180
 use mod_boundary_matrix_open, only: boundary_matrix_open_chi_correction
 #endif
 
@@ -435,7 +435,7 @@ if (freeboundary_equil .and. (itype .eq. -1)) then
   call vacuum_equil(my_id,node_list,bnd_node_list,bnd_elm_list,psi_axis,psi_bnd, a_mat, rhs_vec)
 
 elseif (itype .eq. 4) then
-#if JOREK_MODEL == 83
+#if JOREK_MODEL == 180
   if (my_id .eq. 0) then
     ! Apply n.B = 0 condition at boundary
     do ife = 1, element_list%n_elements
@@ -527,7 +527,7 @@ elseif (itype .eq. 4) then
   nz_AA     = ilarge
   a_mat%nnz = nz_AA
 #else
-  write(*,*) "itype == 4 is only possible for model 083"
+  write(*,*) "itype == 4 is only possible for model 180"
   stop
 #endif
 elseif (itype .ne. 0) then        ! apply fixed boundary conditions (not for variable projection)

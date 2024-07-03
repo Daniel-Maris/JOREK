@@ -206,7 +206,7 @@ without_n0_mode        = .false. ! If true, do not include the n=0 mode (i_tor=1
 SI_units               = .false. ! when true, write variables in SI units
 include_fluxes         = .false. ! include energy and density fluxes (or not)
 include_neo            = .false. ! include neoclassical and more terms (or not)
-include_gvec_field     = .false. ! include current and magnetic field from GVEC (or not) - only for model 083
+include_gvec_field     = .false. ! include current and magnetic field from GVEC (or not) - only for model 180
 include_magnetic_field = .false. ! include vector of magnetic field (or not)
 include_vacuum_field   = .false. ! include vector of vacuum magnetic field (or not) - only for stellarator models
 include_velocity_field = .false. ! include vector of velocity field (or not)
@@ -252,7 +252,7 @@ write(*,*) 'si_units        =', si_units
 write(*,*) 'include_fluxes  =', include_fluxes
 write(*,*) 'include_neo     =', include_neo
 #if STELLARATOR_MODEL
-#if (JOREK_MODEL == 083)
+#if JOREK_MODEL == 180
 write(*,*) 'include_gvec_field     =', include_gvec_field
 #endif
 write(*,*) 'include_vacuum_field   =',include_vacuum_field
@@ -586,7 +586,7 @@ do i=1,element_list%n_elements
       i_tor_old = i_tor
       i_tor     = 1
       ! compute all derivatives, as in loop below
-      if ( (xjac .gt. 1.d-6) .and. (jorek_model .ge. 83) ) then
+      if ( (xjac .gt. 1.d-6) .and. (jorek_model .ge. 100) ) then
 
 #ifndef fullmhd
         call interp(node_list,element_list,i,var_psi,i_tor,s,t,Ps0,Ps0_s,Ps0_t,Ps0_st,Ps0_ss,Ps0_tt)
@@ -734,7 +734,7 @@ do i=1,element_list%n_elements
           end do
         end if
 
-        if (jorek_model .lt. 83) cycle
+        if (jorek_model .lt. 100) cycle
         
         ! The real current density
         currdens(inode) = -scalars(inode,3)/BigR
@@ -1089,7 +1089,7 @@ do i=1,element_list%n_elements
             end do
           end if
 
-          if (jorek_model .lt. 83) cycle
+          if (jorek_model .lt. 100) cycle
           
           call interp_delta(node_list,element_list,i,var_psi,i_tor,s,t,dpsi,dPs_s, dPs_t, dPs_st, dPs_ss, dPs_tt)
           call interp_delta(node_list,element_list,i,var_u,  i_tor,s,t,dU,dU_s, dU_t, dU_st, dU_ss, dU_tt)         
@@ -1192,7 +1192,7 @@ do i=1,element_list%n_elements
         ! --- Full toroidal electric field evaluated at t_now - dt/2
         E_R   = - F0 * (U_x - 0.5d0*dU_x)
         E_Z   = - F0 * (U_y - 0.5d0*dU_y)
-        if (jorek_model .lt. 83) cycle
+        if (jorek_model .lt. 100) cycle
 
         if (include_gvec_field) then
           call interp_gvec(node_list,element_list,i,3,1,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
@@ -1216,11 +1216,11 @@ do i=1,element_list%n_elements
            Psi_tot = Psi_tot + P * HZ(i_tor,i_plane)
         enddo
         
-        if (mod(jorek_model, 100) .eq. 83) then
-          call interp_gvec(node_list,element_list,i,4,1,i_tor,s,t,psi_norm,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
-        else
-          psi_norm = get_psi_n(Psi_tot, Z)
-        endif
+#if STELLARATOR_MODEL
+        call interp_gvec(node_list,element_list,i,4,1,i_tor,s,t,psi_norm,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+#else
+        psi_norm = get_psi_n(Psi_tot, Z)
+#endif
 
         if (include_bootstrap) then
           call bootstrap_current(R, Z, ES%R_axis, ES%Z_axis, ES%psi_axis, ES%R_xpoint, ES%Z_xpoint, ES%psi_bnd, psi_norm,&
@@ -1275,13 +1275,13 @@ do i=1,element_list%n_elements
         endif ! include_fluxes
 
         if (include_magnetic_field) then
-        if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
+#if STELLARATOR_MODEL
           vectors(inode,:,i_vec_B)  = (/ chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*BigR), &
-                                             chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*BigR), &
-                                             chi(0,0,1)/BigR + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0         /)
-        else
+                                         chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*BigR), &
+                                         chi(0,0,1)/BigR + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0         /)
+#else
           vectors(inode,:,i_vec_B) = (/ ps_y/BigR, -ps_x/BigR, F0/BigR /)          
-        endif
+#endif
         endif
 
         if (include_vacuum_field) then
@@ -1298,13 +1298,13 @@ do i=1,element_list%n_elements
         endif
 
         if (include_velocity_field) then
-        if (     (jorek_model .eq. 083).or. (jorek_model .eq. 183) )then
+#if STELLARATOR_MODEL
           vectors(inode,:,i_vec_V) = (/  ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(BigR*Bv2), &
-                                              (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(BigR*Bv2), &
-                                              ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2         /)  
-        else
+                                         (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(BigR*Bv2), &
+                                         ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2         /)  
+#else
           vectors(inode,:,i_vec_V) = (/ -BigR*u_y + V_sum/BigR*ps_y, BigR*u_x - V_sum/BigR*ps_x, V_sum*F0/BigR /)       
-        endif
+#endif
         endif
 
         if (include_electric_field) then

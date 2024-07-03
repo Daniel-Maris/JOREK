@@ -175,7 +175,7 @@ USE_DOMM ?= 1
 ifeq ($(USE_DOMM), 1)
   DEFINES := $(DEFINES) -DUSE_DOMM              # Use Dommaschk potentials, without FE correction of n.B on boundary 
 endif
-ifeq (model083, $(MODEL))
+ifeq (model180, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL -DSTELLARATOR_MODEL
   FFLAGS  := $(FFLAGS) -heap-arrays
 endif
