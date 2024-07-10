@@ -76,9 +76,9 @@ else
   aux1 = (psi_n - num_Phi_x(left))/(num_Phi_x(right) - num_Phi_x(left)) 
   aux2 = (1. - aux1)
   potential_profile =  num_Phi_y0(left)*aux2 + num_Phi_y0(right)*aux1 !Phi at the desired point
-  dPhi_dpsi         = (num_Phi_y1(left)*aux2 - num_Phi_y1(right)*aux1) / delta_psi !first derivative at desired point
-  dPhi_dpsi2        = (num_Phi_y2(left)*aux2 - num_Phi_y2(right)*aux1) / delta_psi**2
-  dPhi_dpsi3        = (num_Phi_y3(left)*aux2 - num_Phi_y3(right)*aux1) / delta_psi**3
+  dPhi_dpsi         = (num_Phi_y1(left)*aux2 + num_Phi_y1(right)*aux1) / delta_psi !first derivative at desired point
+  dPhi_dpsi2        = (num_Phi_y2(left)*aux2 + num_Phi_y2(right)*aux1) / delta_psi**2
+  dPhi_dpsi3        = (num_Phi_y3(left)*aux2 + num_Phi_y3(right)*aux1) / delta_psi**3
   dPhi_dz2          = 0.0
   dPhi_dpsi_dz      = 0.0
   dPhi_dpsi_dz2     = 0.0
