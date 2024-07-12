@@ -45,7 +45,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rho_0, rho_1, rho_coef,                             &
                 T_0,   T_1,   T_coef,                               &
                 Ti_0, Ti_1, Ti_coef,                                &
-                Te_0, Te_1, Te_coef, t_rat,                         &
+                Te_0, Te_1, Te_coef, TiTe_ratio,                    &
                 FF_0,  FF_1,  FF_coef,                              &
                 ZK_par, ZK_par_max, ZK_perp, D_par, D_perp,         &
                 particlesource, tauIC,                              &
@@ -227,10 +227,10 @@ if (domm .and. my_id .eq. 0 ) then
   end if
 end if
   
-! --- T_rat has to be between 1 and 0
+! --- TiTe_ratio has to be between 1 and 0
 if ((with_TiTe) .and. (my_id .eq. 0)) then
-  if ((t_rat .ge. 1.0) .or. (t_rat<0.d0)) then
-    write(*,*) 'ERROR: The temperature ratio coefficient should be 0<=t_rat<1.0 but is ', t_rat
+  if ((TiTe_ratio .ge. 1.0) .or. (TiTe_ratio<0.d0)) then
+    write(*,*) 'ERROR: The temperature ratio coefficient should be 0<=TiTe_ratio<1.0 but is ', TiTe_ratio
     stop
   end if
 end if

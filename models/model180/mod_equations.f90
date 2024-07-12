@@ -61,8 +61,6 @@ module mod_equations
 
   integer, parameter :: n_aux = 4
 
-  type(const), private :: t_rat
-
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p
 
   type(type_thread_eq), dimension(:), allocatable, target :: thread_eq
@@ -70,12 +68,9 @@ module mod_equations
   contains
 
   subroutine init_equations()
-    use phys_module, only: It_rat => t_rat
 
     implicit none
 
-    t_rat  = const(value = It_rat,      token = "t_rat")
- 
     !###################################################################################################
     !#  Auxiliary vacuum magnetic field                                                                #
     !###################################################################################################

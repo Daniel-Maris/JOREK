@@ -25,10 +25,10 @@ module phys_module
   real*8  :: eta_rst              !< eta value from restart file
   logical :: visco_T_dependent    !< Viscosity dependent on temperature? Otherwise constant.
   logical :: visco_old_setup      !< If true, the old perp. viscosity treatment is used for compatibility (old visco depends on R^2)
-  real*8  :: visco_par            !< Cross field viscosity acting on parallel flow (normalized)
-  real*8  :: visco_par_par        !< Parallel viscosity acting on parallel flow (normalized)
+  real*8  :: visco_par            !< Cross B-field viscosity acting on parallel flow (normalized)
+  real*8  :: visco_par_par        !< B-field Parallel viscosity acting on parallel flow (normalized)
   real*8  :: visco_par_heating    !< Parallel viscosity used in the parallel viscous heating term (normalized)
-  real*8  :: t_rat                !< ratio to set ion and electron temperature from T: Ti=t_rat*T; Te=(1.0-t_rat)*T
+  real*8  :: TiTe_ratio           !< ratio to set ion and electron temperature from T (in model 180): Ti=TiTe_ratio*T; Te=(1.0-TiTe_ratio)*T
   real*8  :: F0                   !< Determines fixed toroidal magnetic field: \f$ B_\phi = F_0/R \f$
   real*8  :: central_density      !< particle density at the magnetic axis (in units of \f$10^{20} m^{-3}\f$)
   real*8  :: central_mass         !< average ion mass in atomic mass units (constant in time and space)
@@ -216,7 +216,7 @@ module phys_module
   integer :: last_target_point		   !< index of the last  target point on the limiter (does NOT need to be > first_target_point)
    
   ! Stellarator parameters
-  logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC TO-DO: remove this routine by making the GVEC import part of the restart file routine
+  logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC
 
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   real*8  :: surface_cross_tol                                                  !< Tolerance when looking for crossing of polar lines and surfaces, needs to be > 1.0

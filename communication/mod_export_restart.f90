@@ -495,7 +495,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
 
 #if STELLARATOR_MODEL
      t_r_tor_eq(i,:)           = node_list%node(i)%r_tor_eq
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
      t_pressure(i,:)           = node_list%node(i)%pressure
      t_j_field(i,:,:,:)        = node_list%node(i)%j_field
      t_b_field(i,:,:,:)        = node_list%node(i)%b_field
@@ -628,7 +628,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
 #if STELLARATOR_MODEL
   call HDF5_array2D_saving(file_id,t_r_tor_eq, &
        node_list%n_nodes,n_degrees,'r_tor_eq'//char(0))
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
   ! Save GVEC fields
   call HDF5_array2D_saving(file_id,t_pressure, &
        node_list%n_nodes,n_degrees,'pressure'//char(0))

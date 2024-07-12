@@ -1,7 +1,9 @@
-module mod_chi
 !> This module is for the calculation of the vacuum magnetic scalar potential (chi) and its derivatives via the Dommaschk potentials
 !! For more details, see
 !! [*] W. Dommaschk, "Representations for vacuum potentials in stellarators", Computer Physics Communications 40, pg. 203 (1986)
+!!
+!! This module is used by stellarator models to represent the vacuum field.
+module mod_chi
   use mod_parameters
   use phys_module, only: domm, dcoef, F0, R_domm, PI
   implicit none

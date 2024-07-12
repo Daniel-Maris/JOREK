@@ -1182,8 +1182,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     call HDF5_array3D_reading(file_id,t_x(:,1,:,:),        'x')
   endif
   call HDF5_array4D_reading(file_id,t_values,   'values')
-  if (jorek_model_tmp .eq. 83) then
-    t_deltas = 0.d0 ! There are no meaningful deltas in the stellarator initialization "model" 083
+  if (jorek_model_tmp .eq. 180) then
+    t_deltas = 0.d0 ! There are no meaningful deltas in the stellarator initialization "model" 180
   else
     call HDF5_array4D_reading(file_id,t_deltas,   'deltas')
   end if
@@ -1193,7 +1193,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
 #if STELLARATOR_MODEL
   call HDF5_array2D_reading(file_id,t_r_tor_eq, 'r_tor_eq')
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
   call HDF5_array2D_reading(file_id,t_pressure, 'pressure')
   call HDF5_array4D_reading(file_id,t_j_field,  'j_field')
   call HDF5_array4D_reading(file_id,t_b_field,   'b_field')
@@ -1316,7 +1316,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
  
 #if STELLARATOR_MODEL    
     node_list%node(i)%r_tor_eq = t_r_tor_eq(i,:)
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
     node_list%node(i)%pressure = t_pressure(i,:)
     node_list%node(i)%b_field  = t_b_field(i,:,:,:)
     node_list%node(i)%j_field  = t_j_field(i,:,:,:)
