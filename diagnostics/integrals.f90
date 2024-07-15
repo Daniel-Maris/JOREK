@@ -126,7 +126,7 @@ do ife =1, element_list%n_elements
     do j=1,n_degrees
       do ms=1, n_gauss
         do mt=1, n_gauss
-#if (JOREK_MODEL == 83) || (JOREK_MODEL == 183)
+#if STELLARATOR_MODEL
           s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
 #endif
 
@@ -263,7 +263,7 @@ do ife =1, element_list%n_elements
       pressure = pressure + rho_00 * T_00 * xjac * 2.d0 * PI * BigR * wst
 #endif
 
-#if (JOREK_MODEL == 83) || (JOREK_MODEL == 183)
+#if STELLARATOR_MODEL
       if (s_norm(ms, mt) <= 1.0) then
 #else
       if ( in_plasma(node_list,element_list,x_g(ms,mt),y_g(ms,mt),eq_g(1,ms,mt),xpoint,&

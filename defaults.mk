@@ -156,11 +156,6 @@ endef
 LIBS += $(LIBLAPACK) $(LIBBLAS) $(OPENMPLIB)
 DEFINES += -DJOREK_MODEL=$(MODEL_NUMBER) -DUSE_MPI
 
-# Debug flag
-ifeq ($(DEBUG), 1)
-#  DEFINES := $(DEFINES) -DDEBUG
-endif
-
 # Full-MHD models flags
 ifeq (model710, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
@@ -180,7 +175,7 @@ USE_DOMM ?= 1
 ifeq ($(USE_DOMM), 1)
   DEFINES := $(DEFINES) -DUSE_DOMM              # Use Dommaschk potentials, without FE correction of n.B on boundary 
 endif
-ifeq (model083, $(MODEL))
+ifeq (model180, $(MODEL))
   DEFINES := $(DEFINES) -DSEMIANALYTICAL -DSTELLARATOR_MODEL
   FFLAGS  := $(FFLAGS) -heap-arrays
 endif
@@ -282,6 +277,14 @@ ifeq (1, $(USE_BLOCK))
   DEFINES := $(DEFINES) -DUSE_BLOCK
 endif
 
+ifeq (1, $(USE_NO_TREE))
+  DEFINES := $(DEFINES) -DUSE_NO_TREE
+endif
+
+ifeq (1, $(USE_QUADTREE))
+  DEFINES := $(DEFINES) -DUSE_QUADTREE
+endif
+
 ifeq (1, $(USE_DIRECT_CONSTRUCTION))
   DEFINES  := $(DEFINES) -DDIRECT_CONSTRUCTION
 endif
@@ -299,6 +302,20 @@ ifeq (1, $(USE_STRUMPACK))
   LIBS     := $(LIBS) $(STRUMPACKLIB)
   INCLUDES := $(INCLUDES) $(STRUMPACKINC)
   EXTRA_FLAGS := $(EXTRA_FLAGS) -lstdc++ -std=c++14
+endif
+
+ifeq (1, $(USE_STD_BESSELK))
+  DEFINES := $(DEFINES) -DUSE_STD_BESSELK
+  EXTRA_FLAGS := $(EXTRA_FLAGS) -lstdc++ -std=c++17
+  USE_BOOST = 0
+endif
+
+ifeq (1, $(USE_BOOST))
+  DEFINES := $(DEFINES) -DUSE_BOOST
+  LIBS    := $(LIBS) $(LIB_BOOST)
+  INCLUDES := $(INCLUDES) $(INC_BOOST)
+  EXTRA_FLAGS := $(EXTRA_FLAGS) -lstdc++ -std=c++17
+  USE_STD_BESSELK = 0
 endif
 
 ifeq (1, $(USE_BICGSTAB))
@@ -319,6 +336,9 @@ ifeq (1, $(USE_CATALYST))
   DEFINES  := $(DEFINES) -DUSE_CATALYST
 endif
 
+ifeq (1, $(USE_TASKLOOP))
+  DEFINES  := $(DEFINES) -DUSE_TASKLOOP
+endif
 
 # Do not check to make these files to speed up and clean -d output
 Makefile: ;
