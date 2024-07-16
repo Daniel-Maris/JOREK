@@ -212,6 +212,7 @@ module phys_module
   integer :: last_target_point		   !< index of the last  target point on the limiter (does NOT need to be > first_target_point)
    
   ! Stellarator parameters
+  logical :: extended_boundary    ! choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
   logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC TO-DO: remove this routine by making the GVEC import part of the restart file routine
 
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
