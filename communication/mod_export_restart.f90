@@ -655,14 +655,14 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
   write(*,*) "Stored value of T_0: ", T_0_hdf5
   call HDF5_real_saving(file_id,T_0_hdf5,'T_0'//char(0))
 #endif
-#else
+#else /* JOREK_MODEL != 180 */
 #ifdef WITH_TiTe
   call HDF5_real_saving(file_id,Ti_0,'Ti_0'//char(0))
   call HDF5_real_saving(file_id,Te_0,'Te_0'//char(0))
 #else
   call HDF5_real_saving(file_id,T_0,'T_0'//char(0))
 #endif
-#endif
+#endif /* JOREK_MODEL == 180 */
 
 #ifndef USE_DOMM
   call HDF5_array3D_saving(file_id,t_chi_correction, &
@@ -673,7 +673,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
   
   call HDF5_integer_saving(file_id,n_flux,'n_flux'//char(0))
   call HDF5_integer_saving(file_id,n_tht, 'n_tht'//char(0))
-#endif
+#endif /* STELLARATOR_MODEL */
 
 #ifdef fullmhd
   call HDF5_array2D_saving(file_id,t_psi_eq, &

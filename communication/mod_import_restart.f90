@@ -1232,7 +1232,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 #endif
 
   call HDF5_array3D_reading(file_id,t_j_source, 'j_source')
-#endif
+#endif /* STELLARATOR_MODEL */
 
 #ifdef fullmhd
   call HDF5_array2D_reading(file_id,t_psi_eq,   'psi_eq')
