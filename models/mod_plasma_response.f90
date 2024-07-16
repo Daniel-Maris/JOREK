@@ -441,30 +441,30 @@ module mod_plasma_response
     wgauss_copy = wgauss
 
     ! implementing new HZ_coord
-    do k=1,n_plane
-      phi_HZ = 2.d0*PI*float(k-1)/float(n_plane)  
-      do k_tor=1, n_tor
-        mode(k_tor) = + int(k_tor / 2) * n_period
-      enddo
-      HZ(1,k)   = 1.d0
-      do i=1,(n_tor-1)/2
-        HZ(2*i,k)      = cos(mode(2*i)   * phi_HZ )
-        HZ(2*i+1,k)    = sin(mode(2*i+1) * phi_HZ )
-      enddo
-        
-      do k_tor=1, n_coord_tor
-        mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
-      enddo
-      HZ_coord(1,k)   = 1.d0
-      do i=1,(n_coord_tor-1)/2
-        HZ_coord(2*i,k)      = + cos(mode_coord(2*i)   * phi_HZ )
-        HZ_coord_p(2*i,k)          = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *phi_HZ)
-        HZ_coord_pp(2*i,k)         = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *phi_HZ)
-        HZ_coord(2*i+1,k)    = - sin(mode_coord(2*i+1) * phi_HZ )
-        HZ_coord_p(2*i+1,k)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*phi_HZ)
-        HZ_coord_pp(2*i+1,k)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*phi_HZ)
-      enddo
-    enddo
+   ! do k=1,n_plane
+   !   phi_HZ = 2.d0*PI*float(k-1)/float(n_plane)  
+   !   do k_tor=1, n_tor
+   !     mode(k_tor) = + int(k_tor / 2) * n_period
+   !   enddo
+   !   HZ(1,k)   = 1.d0
+   !   do i=1,(n_tor-1)/2
+   !     HZ(2*i,k)      = cos(mode(2*i)   * phi_HZ )
+   !     HZ(2*i+1,k)    = sin(mode(2*i+1) * phi_HZ )
+   !   enddo
+   !     
+   !   do k_tor=1, n_coord_tor
+   !     mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
+   !   enddo
+   !   HZ_coord(1,k)   = 1.d0
+   !   do i=1,(n_coord_tor-1)/2
+   !     HZ_coord(2*i,k)            = + cos(mode_coord(2*i)   * phi_HZ )
+   !     HZ_coord_p(2*i,k)          = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *phi_HZ)
+   !     HZ_coord_pp(2*i,k)         = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *phi_HZ)
+   !     HZ_coord(2*i+1,k)          = - sin(mode_coord(2*i+1) * phi_HZ )
+   !     HZ_coord_p(2*i+1,k)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*phi_HZ)
+   !     HZ_coord_pp(2*i+1,k)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*phi_HZ)
+   !   enddo
+   ! enddo
 
 
     ! --- OpenMP parallelization of element loop
@@ -551,7 +551,7 @@ module mod_plasma_response
       do ms=1, n_gauss
         do mt=1, n_gauss
           
-          ! if (s_norm(ms,mt) .gt. 0.7) cycle ! 0.8 because it should be outside the minor radius
+          ! if (s_norm(ms,mt) .gt. (1/1.2)) cycle ! limitation on s_norm
 
           wst  = wgauss_copy(ms)*wgauss_copy(mt)
 
@@ -602,11 +602,11 @@ module mod_plasma_response
             !J_vec =  (/ J_x, J_y, J_z /) 
             !J_vec = (/ 0.d0, 0.d0, 0.d0 /)    !?????? 
 
-            ! new way to calculate J_vec, curl and coverting in one step, see JOREK coordinates -> curl in cylindical coords
+            ! new way to calculate J_vec, curl and coverting in one step
 
-            J_x = 1/R*(Bp_z-Bz_p)*Cos(phi)    + 1/R*(Bz_R-BR_z)*(-R*Sin(phi)) 
-            J_y = 1/R*(Bp_z-Bz_p)*(-Sin(phi)) + 1/R*(Bz_R-BR_z)*(-R*Cos(phi)) 
-            J_z = 1/R*(BR_p-Bp_R)
+            J_x = (Bp_z-1/R*Bz_p)*Cos(phi)    + (Bz_R-BR_z)*(-Sin(phi)) 
+            J_y = (Bp_z-1/R*Bz_p)*(-Sin(phi)) + (Bz_R-BR_z)*(-Cos(phi)) 
+            J_z = -1/R*(B_phi + R*Bp_R) + 1/R*BR_p
 
             J_vec =  (/ J_x, J_y, J_z /)
 
