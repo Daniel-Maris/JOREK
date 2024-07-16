@@ -440,33 +440,6 @@ module mod_plasma_response
 
     wgauss_copy = wgauss
 
-    ! implementing new HZ_coord
-   ! do k=1,n_plane
-   !   phi_HZ = 2.d0*PI*float(k-1)/float(n_plane)  
-   !   do k_tor=1, n_tor
-   !     mode(k_tor) = + int(k_tor / 2) * n_period
-   !   enddo
-   !   HZ(1,k)   = 1.d0
-   !   do i=1,(n_tor-1)/2
-   !     HZ(2*i,k)      = cos(mode(2*i)   * phi_HZ )
-   !     HZ(2*i+1,k)    = sin(mode(2*i+1) * phi_HZ )
-   !   enddo
-   !     
-   !   do k_tor=1, n_coord_tor
-   !     mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
-   !   enddo
-   !   HZ_coord(1,k)   = 1.d0
-   !   do i=1,(n_coord_tor-1)/2
-   !     HZ_coord(2*i,k)            = + cos(mode_coord(2*i)   * phi_HZ )
-   !     HZ_coord_p(2*i,k)          = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *phi_HZ)
-   !     HZ_coord_pp(2*i,k)         = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *phi_HZ)
-   !     HZ_coord(2*i+1,k)          = - sin(mode_coord(2*i+1) * phi_HZ )
-   !     HZ_coord_p(2*i+1,k)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*phi_HZ)
-   !     HZ_coord_pp(2*i+1,k)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*phi_HZ)
-   !   enddo
-   ! enddo
-
-
     ! --- OpenMP parallelization of element loop
     !$omp parallel default(none)                                                           &
     !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ_coord, HZ_coord_p, ife_min, ife_max,        &
