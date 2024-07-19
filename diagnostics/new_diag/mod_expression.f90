@@ -696,7 +696,12 @@ module mod_expression
          stop
      end select
 #endif
-    
+   
+    if ( (tor_pos_list%n_pos > 1) .and. pol_pos_list%has_dedicated_tor_pos ) then
+      write(*,*) 'ERROR: When giving dedicated phi coords to each poloidal coordinate, tor_pos_list%n_pos must be 1'
+      stop
+    endif
+
     if ( allocated(result) ) deallocate(result)
     allocate( result(tor_pos_list%n_pos, pol_pos_list%n_pos(1), pol_pos_list%n_pos(2),             &
       expr_list%n_expr) )
@@ -763,7 +768,12 @@ module mod_expression
           tor_pos => tor_pos_list%pos(itorpos)
           
           ! --- Toroidal Coordinate and Basis Functions
-          phi     = tor_pos%phi
+          if (pol_pos_list%has_dedicated_tor_pos) then
+            phi     = pol_pos%phi
+          else
+            phi     = tor_pos%phi
+          endif 
+
           HZ(1)   = 1.d0
           HZ_p(1) = 0.d0
           do i = 1, (n_tor-1) / 2

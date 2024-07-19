@@ -18,7 +18,14 @@ use mod_wall_collision
 use hdf5_io_module
 use constants, only: PI
 use phys_module, only : sqrt_mu0_rho0, F0
-                  
+use equil_info, only: ES
+use mod_new_diag
+use mod_expression
+use exec_commands,  only: average, expr_list, clean_up
+use settings,       only: set_setting
+use mod_position
+
+
 implicit none
 
 ! Set up the simulation variables
@@ -26,12 +33,13 @@ real(kind=8)                      :: timesteps(1) = [1d-7]
 real(kind=8)                      :: target_time, t, R, phi, v_part, norm_R, dir_sign, tstep_field=1.d-2
 integer(kind=4)                   :: n_part, i, j, k, l, ifail, max_depth, wall_id, n_steps = 1000
 integer(kind=4),allocatable       :: indices(:,:)
-integer                           :: n_tri, n_nodes
+integer                           :: n_tri, n_nodes, n_tri_wet, i_count, ierr 
 integer             :: filehandle = 60
+real*8, parameter                 :: l_par_min = 4.9d0
 integer(HID_T)                    :: file_id                       
 type(write_particle_diagnostics)  :: diag
-real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz
-real*8, allocatable :: iangle(:,:), l_part(:)
+real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz, r_cyl
+real*8, allocatable :: iangle(:,:), l_part(:), q_heat_perp_3d(:)
 
 type(particle_kinetic_relativistic), allocatable :: prtkin(:)
 real*8 :: rnd(1), psi, U, B(3), E(3)
@@ -40,6 +48,12 @@ type(octree_node) :: wall
 type(octree_triangle), allocatable :: triangles(:)
 real*8, allocatable                :: wtmp(:),nodes_xyz(:,:), normals_all(:,:)
 
+! --- Posptroc 
+type(t_pol_pos),      pointer :: pos
+type(t_pol_pos_list), target  :: pol_pos_list
+type(t_tor_pos_list)          :: tor_pos_list
+real*8, allocatable           :: result(:,:,:,:)
+ 
 ! --- Read wall with octree
 max_depth = 6
 call mod_wall_collision_init('wall.h5',max_depth,wall)
@@ -200,6 +214,69 @@ call write_simulation_hdf5(sim, 'part_out.h5')
 
 call mod_wall_collision_export(sim, 'wallload.h5', iangle)
 
+! --- Initialize postproc tools
+call init_new_diag(.false.)
+call set_setting('units',           '1',     ierr, 'Calculate quantities in which units (0=JOREK, 1=SI)')
+call set_setting('loop_units',      '1',     ierr, 'Use which units for time-loops (0=JOREK, 1=SI)'     )
+call set_setting('linepoints',      '200',   ierr, 'Number of points along a line e.g. for pol_line'    )
+call set_setting('tor_points',      '200',   ierr, 'Number of toroidal points e.g. for tor_line'        )
+call set_setting('surfaces',        '100',   ierr, 'number for flux surfaces e.g. for qprofile'         )
+call set_setting('nsmallsteps',     '3',     ierr, 'numerical parameter for field line tracing'         )
+call set_setting('nmaxsteps',       '2500',  ierr, 'numerical parameter for field line tracing'         )
+call set_setting('deltaphi',        '0.3',   ierr, 'numerical parameter for field line tracing'         )
+call set_setting('rad_range_min',   '0.001', ierr, 'numerical parameter for field line tracing'         )
+call set_setting('rad_range_max',   '0.999', ierr, 'numerical parameter for field line tracing'         )
+call set_setting('nTht',            '32',    ierr, 'numerical parameter for field line tracing'         )
+
+call clean_up()
+
+! --- Allocate and initialize heatflux
+allocate( q_heat_perp_3d(n_part) )
+q_heat_perp_3d(:) = 0.d0
+
+! --- Count wetted wall triagnles
+n_tri_wet = 0
+do i=1, n_tri
+  if (l_part(i) > l_par_min) then
+    n_tri_wet = n_tri_wet + 1
+  endif
+enddo
+
+! --- Get list of local coordinates at wall triangles for postproc
+! --- Initialize list of poloidal positions
+call alloc_pol_pos(pol_pos_list, (/1, n_tri_wet /))
+
+i_count = 0
+do i=1, n_tri
+
+  if (l_part(i) < l_par_min) cycle  
+
+  i_count = i_count + 1
+
+  ! Field line position is at triangle center
+  xyz_tria = (triangles(i)%v0 + triangles(i)%v1 + triangles(i)%v2) / 3.d0
+
+  r_cyl   = cartesian_to_cylindrical(xyz_tria)
+
+  pos     => pol_pos_list%pos(1,i_count)
+  pos%R   = r_cyl(1)
+  pos%Z   = r_cyl(2)
+  pos%phi = r_cyl(3)
+
+  call find_RZ(sim%fields%node_list, sim%fields%element_list, &
+           pos%R, pos%Z, &
+           pos%R, pos%Z, pos%ielm, pos%s, pos%t, ifail)
+  
+  if (ifail /= 0) write(*,*) 'Initial position of triangle id = ', i, ' not found in JOREK grid, move the wall inside'
+end do
+
+tor_pos_list = tor_pos(nphi=1) 
+
+!--- Evalueate the list of expressions
+expr_list = exprs((/'Psi_N', 'BR', 'BZ', 'Btor', 'Psi', 'ne', 'T_e', 'Jtor'/), 9)
+call eval_expr(ES, 1, expr_list, pol_pos_list, tor_pos_list, result, ierr)
+
+
 ! --- Write results to vtk
 open(filehandle, file='wetted_area.vtk', status='replace', action='write')
 140 format(a)
@@ -238,9 +315,11 @@ write(filehandle,141) 'CELL_DATA', n_tri
 write(filehandle,140) 'SCALARS L_pre_collision float'
 write(filehandle,140) 'LOOKUP_TABLE default'
 
+i_count = 0
 do i = 1, n_tri
-   if (l_part(i)>4.9) then
-      write(filehandle,142) 1.d0
+   if (l_part(i)>l_par_min) then
+      i_count = i_count + 1
+      write(filehandle,142) result(1,1,i_count,9)
    else 
       write(filehandle,142) 0.d0
    endif
