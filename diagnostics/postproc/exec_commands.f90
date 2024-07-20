@@ -3350,7 +3350,7 @@ module exec_commands
 #endif  
 
   end subroutine RHS_terms_vtk   
-  
+ 
   !> Output the separatrix.
   recursive subroutine separatrix(command, ierr, R_sep, Z_sep)
   

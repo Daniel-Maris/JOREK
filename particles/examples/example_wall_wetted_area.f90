@@ -13,17 +13,18 @@ use mod_fields_linear
 use mod_fields_hermite_birkhoff
 use mod_gc_relativistic
 use mod_kinetic_relativistic
-use mod_coordinate_transforms, only: cylindrical_to_cartesian, cartesian_to_cylindrical
+use mod_coordinate_transforms, only: cylindrical_to_cartesian, cartesian_to_cylindrical, vector_cartesian_to_cylindrical 
 use mod_wall_collision
 use hdf5_io_module
 use constants, only: PI
 use phys_module, only : sqrt_mu0_rho0, F0
-use equil_info, only: ES
-use mod_new_diag
+use equil_info, only: ES, update_equil_state
+use mod_new_diag, only: init_new_diag
 use mod_expression
-use exec_commands,  only: average, expr_list, clean_up
-use settings,       only: set_setting
+use exec_commands,  only: expr_list, clean_up
 use mod_position
+use nodes_elements
+use mod_boundary
 
 
 implicit none
@@ -38,11 +39,11 @@ integer             :: filehandle = 60
 real*8, parameter                 :: l_par_min = 4.9d0
 integer(HID_T)                    :: file_id                       
 type(write_particle_diagnostics)  :: diag
-real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz, r_cyl
+real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz, r_cyl, norm_cyl
 real*8, allocatable :: iangle(:,:), l_part(:), q_heat_perp_3d(:)
 
 type(particle_kinetic_relativistic), allocatable :: prtkin(:)
-real*8 :: rnd(1), psi, U, B(3), E(3)
+real*8 :: rnd(1), psi, U, B(3), E(3), BR, BZ, Btor, Btot, Jpar, qpar
 
 type(octree_node) :: wall
 type(octree_triangle), allocatable :: triangles(:)
@@ -91,6 +92,7 @@ call sim%initialize(num_groups=1)
 
 events = [event(read_jorek_fields_interp_linear(i=-1)), & 
 event(stop_action(),start=sim%time+7.d-4)]
+
 
 ! Run first event to read the JOREK fields
 call with(sim, events, at=0.d0)
@@ -184,12 +186,14 @@ do while (.not. sim%stop_now)
 
              call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, tstep_field*dir_sign)
 
+             if (any(isnan(pos_prev)) .or. any(isnan(particles(j)%x))) cycle
+
              xyz_prev = cylindrical_to_cartesian(pos_prev)
              xyz      = cylindrical_to_cartesian(particles(j)%x)
 
-             l_part(j) = l_part(j) + norm2(xyz-xyz_prev)
-
              if (particles(j)%i_elm .le. 0) exit
+
+             l_part(j) = l_part(j) + norm2(xyz-xyz_prev)
 
              if (k < 3) cycle  ! don't check collisions during the initial steps to allow the particle to move away from the wall
              call mod_wall_collision_check(pos_prev, particles(j)%x, wall, wall_id, wall_pos, iangle(i,j))
@@ -210,24 +214,12 @@ enddo
 
 call mod_wall_collision_free(wall)
 
-call write_simulation_hdf5(sim, 'part_out.h5')
+!call write_simulation_hdf5(sim, 'part_out.h5')
 
-call mod_wall_collision_export(sim, 'wallload.h5', iangle)
+!call mod_wall_collision_export(sim, 'wallload.h5', iangle)
 
 ! --- Initialize postproc tools
 call init_new_diag(.false.)
-call set_setting('units',           '1',     ierr, 'Calculate quantities in which units (0=JOREK, 1=SI)')
-call set_setting('loop_units',      '1',     ierr, 'Use which units for time-loops (0=JOREK, 1=SI)'     )
-call set_setting('linepoints',      '200',   ierr, 'Number of points along a line e.g. for pol_line'    )
-call set_setting('tor_points',      '200',   ierr, 'Number of toroidal points e.g. for tor_line'        )
-call set_setting('surfaces',        '100',   ierr, 'number for flux surfaces e.g. for qprofile'         )
-call set_setting('nsmallsteps',     '3',     ierr, 'numerical parameter for field line tracing'         )
-call set_setting('nmaxsteps',       '2500',  ierr, 'numerical parameter for field line tracing'         )
-call set_setting('deltaphi',        '0.3',   ierr, 'numerical parameter for field line tracing'         )
-call set_setting('rad_range_min',   '0.001', ierr, 'numerical parameter for field line tracing'         )
-call set_setting('rad_range_max',   '0.999', ierr, 'numerical parameter for field line tracing'         )
-call set_setting('nTht',            '32',    ierr, 'numerical parameter for field line tracing'         )
-
 call clean_up()
 
 ! --- Allocate and initialize heatflux
@@ -241,6 +233,10 @@ do i=1, n_tri
     n_tri_wet = n_tri_wet + 1
   endif
 enddo
+
+! --- Additional initialization
+call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
+call update_equil_state(0,sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase)
 
 ! --- Get list of local coordinates at wall triangles for postproc
 ! --- Initialize list of poloidal positions
@@ -267,15 +263,15 @@ do i=1, n_tri
            pos%R, pos%Z, &
            pos%R, pos%Z, pos%ielm, pos%s, pos%t, ifail)
   
+  call fill_pol_pos(pos, sim%fields%node_list, sim%fields%element_list)
   if (ifail /= 0) write(*,*) 'Initial position of triangle id = ', i, ' not found in JOREK grid, move the wall inside'
 end do
 
 tor_pos_list = tor_pos(nphi=1) 
 
 !--- Evalueate the list of expressions
-expr_list = exprs((/'Psi_N', 'BR', 'BZ', 'Btor', 'Psi', 'ne', 'T_e', 'Jtor'/), 9)
+expr_list = exprs((/'Psi_N', 'BR', 'BZ', 'Btor', 'Psi', 'ne', 'T_e', 'Jpar', 'qpar_tot'/), 9)
 call eval_expr(ES, 1, expr_list, pol_pos_list, tor_pos_list, result, ierr)
-
 
 ! --- Write results to vtk
 open(filehandle, file='wetted_area.vtk', status='replace', action='write')
@@ -312,24 +308,55 @@ end do
 
 ! --- Write cell data
 write(filehandle,141) 'CELL_DATA', n_tri
-write(filehandle,140) 'SCALARS L_pre_collision float'
+write(filehandle,140) 'SCALARS Jperp[A/m2] float'
 write(filehandle,140) 'LOOKUP_TABLE default'
 
 i_count = 0
 do i = 1, n_tri
    if (l_part(i)>l_par_min) then
       i_count = i_count + 1
-      write(filehandle,142) result(1,1,i_count,9)
+      BR   = result(1,1,i_count,2)
+      BZ   = result(1,1,i_count,3)
+      Btor = result(1,1,i_count,4)
+      Jpar = result(1,1,i_count,8)
+      qpar = result(1,1,i_count,9)
+      B    = (/ BR, BZ, Btor /)
+
+      Btot     = norm2( B ) 
+
+      xyz_tria = (triangles(i)%v0 + triangles(i)%v1 + triangles(i)%v2) / 3.d0
+      r_cyl    = cartesian_to_cylindrical(xyz_tria)
+      phi      = r_cyl(3)
+      norm_cyl = vector_cartesian_to_cylindrical(phi,  normals_all(i,:) ) 
+
+      q_heat_perp_3d(i) = abs( qpar * sum( norm_cyl(:) * B(:) ) / Btot )
+
+      write(filehandle,142) Jpar * sum( norm_cyl(:) * B(:) ) / Btot 
    else 
       write(filehandle,142) 0.d0
    endif
  end do
+
+write(filehandle,140) 'SCALARS L_pre_collision[m] float'
+write(filehandle,140) 'LOOKUP_TABLE default'
+
+do i = 1, n_tri
+  write(filehandle,142) l_part(i) 
+end do
+
+write(filehandle,140) 'SCALARS q_perp[W/m2] float'
+write(filehandle,140) 'LOOKUP_TABLE default'
+do i = 1, n_tri
+  write(filehandle,142) q_heat_perp_3d(i)
+end do
+
 
 ! --- Close file, clean up
 close(filehandle)
 
 deallocate(iangle)
 
+call clean_up()
 ! Finalize the simulation
 call sim%finalize
 
