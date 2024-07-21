@@ -259,6 +259,7 @@ call update_equil_state(0,sim%fields%node_list, sim%fields%element_list, bnd_elm
 ! --- Get list of local coordinates for wet wall triangles for postproc
 ! --- Initialize list of poloidal positions
 call alloc_pol_pos(pol_pos_list, (/1, n_tri_wet /))
+pol_pos_list%has_dedicated_tor_pos = .true.
 
 i_count = 0
 do i=1, n_tri
