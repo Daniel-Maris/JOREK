@@ -1,10 +1,28 @@
-!> Assess wall loads using relativistic guiding centers.
-!>
-!> This script requires that markers are given as an input in a part_restart.h5 file. You will
-!> also need the wall input. See the wiki page "How to assess wall loads with the particle tracker?"
-!> for details.
-!>
-Program  example_wallload
+!> What does this code do?
+!>    Calculates fluid fluxes (heat and current loads) on a 3D thin wall discretized with triangles.
+!>    The wall loads are exported in VTK format (wetted_area.vtk)
+!> How?
+!>    It works like the SMITER code, it traces Field Lines (FLs) from the wall triangles towards the plasma.
+!>    If the FLs do not intersect a wall component after a given distance (l_par_min), then the wall triangle
+!>    is considered wetted by the plasma.
+!>    If a triangle is wet, the perpendicular heat flux, current density and other quantities are given
+!>    there by calling expressions from jorek2_postroc
+!> Usage?
+!>    ./executable < input_file_jorek
+!>    l_par_min is hardcoded, you may want to adapt it to your tokamak
+!> Required inputs?
+!>    You need to provide two walls in .h5 format
+!>        1. wall_to_load.h5 : This is the wall where FL tracing will be done and the fluxes will be calcaulted
+!>        2. wall.h5         : This wall is the wall with which field lines intersect, normally you will add here
+!>                             structures around the loaded wall + the loaded structure itself
+!>    The format for these files is explained here https://www.jorek.eu/wiki/doku.php?id=particles_wall_load
+!> Other important things to know
+!>    1. For the FL tracing to be effective, the wall triangles must be within the JOREK domain, otherwise those
+!>    triangles are considered shadowed (not connected to the plasma) and there are no loads there. So choose
+!>    your wall carefully
+!>    2. Be careful with the ordering of the wall triangles, we assume the normals point towards the plasma
+
+Program  fluid_loads_on_3D_wall
 
 use particle_tracer
 use mod_particle_io
@@ -26,7 +44,6 @@ use mod_position
 use nodes_elements
 use mod_boundary
 
-
 implicit none
 
 ! Set up the simulation variables
@@ -35,12 +52,12 @@ real(kind=8)                      :: target_time, t, R, phi, v_part, norm_R, dir
 integer(kind=4)                   :: n_part, i, j, k, l, ifail, max_depth, wall_id, n_steps = 1000
 integer(kind=4),allocatable       :: indices(:,:)
 integer                           :: n_tri, n_nodes, n_tri_wet, i_count, ierr 
-integer             :: filehandle = 60
+integer                           :: filehandle = 60
 real*8, parameter                 :: l_par_min = 4.9d0
 integer(HID_T)                    :: file_id                       
 type(write_particle_diagnostics)  :: diag
 real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz, r_cyl, norm_cyl
-real*8, allocatable :: iangle(:,:), l_part(:), q_heat_perp_3d(:)
+real*8, allocatable :: iangle(:,:), l_part(:), q_heat_perp_3d(:), field_wall_angle(:)
 
 type(particle_kinetic_relativistic), allocatable :: prtkin(:)
 real*8 :: rnd(1), psi, U, B(3), E(3), BR, BZ, Btor, Btot, Jpar, qpar
@@ -55,11 +72,11 @@ type(t_pol_pos_list), target  :: pol_pos_list
 type(t_tor_pos_list)          :: tor_pos_list
 real*8, allocatable           :: result(:,:,:,:)
  
-! --- Read wall with octree
+! --- Read wall for collisions with octree
 max_depth = 6
 call mod_wall_collision_init('wall.h5',max_depth,wall)
 
-! Read wall to initialize particles
+! --- Read wall to initialize particles (this is the wall where loads are calculated)
 file_id = 1
 call HDF5_open('wall_to_load.h5',file_id)
 call HDF5_integer_reading(file_id,n_tri,'ntriangle')
@@ -71,7 +88,7 @@ allocate(indices(n_tri,3))
 call HDF5_array2D_reading_int(file_id, indices, 'indices')
 call HDF5_close(file_id)
 
-! Convert wall array into triangles
+! --- Convert wall array into triangles
 allocate(triangles(n_tri))
 do i=1,n_tri
    triangles(i)%triangle_id = i
@@ -93,18 +110,17 @@ call sim%initialize(num_groups=1)
 events = [event(read_jorek_fields_interp_linear(i=-1)), & 
 event(stop_action(),start=sim%time+7.d-4)]
 
-
 ! Run first event to read the JOREK fields
 call with(sim, events, at=0.d0)
 
-! ------------- Initialize particles -----------------------------------------------------------------------------
+! ------------- Initialize FL particles (one per wall triangle) ---------------------------------------------------------
 sim%groups(:)%Z    = 1
 sim%groups(:)%mass = 2.d0 !< atomic mass units
 
-n_part = n_tri
+n_part = n_tri  !< As many particle-field lines as wall triangles
 
 allocate(particle_fieldline::sim%groups(1)%particles(n_tri))
-allocate(normals_all(n_tri,3))
+allocate(normals_all(n_tri,3))  !--- Wall triangle normals
 
 do i=1, n_tri
   
@@ -121,7 +137,7 @@ do i=1, n_tri
    norm_tria        = norm_tria / norm2(norm_tria)
    normals_all(i,:) = norm_tria
    
-   ! Assign particle position to triangle center
+   ! Assign initial particle-FL position to triangle center
    xyz_tria = (triangles(i)%v0 + triangles(i)%v1 + triangles(i)%v2) / 3.d0
 
    !--- Move the point 1 mm away from the triangle
@@ -130,19 +146,18 @@ do i=1, n_tri
    p%x = cartesian_to_cylindrical(xyz_tria)
 
    norm_R = (xyz_tria(1)*norm_tria(1) + xyz_tria(2)*norm_tria(2))/p%x(1)
-   write(121,'(6ES16.6)') p%x(1), p%x(2), p%x(3), norm_R, norm_tria(3)
+  !write(121,'(6ES16.6)') p%x(1), p%x(2), p%x(3), norm_R, norm_tria(3)
 
    call find_RZ(sim%fields%node_list, sim%fields%element_list, &
             p%x(1), p%x(2), &
             p%x(1), p%x(2), p%i_elm, p%st(1), p%st(2), ifail)
    
-   if (ifail /= 0) write(*,*) 'Initial position of triangle id = ', i, ' not found in JOREK grid, move the wall inside'
+   !if (ifail /= 0) write(*,*) 'Initial position of triangle id = ', i, ' not found in JOREK grid, move the wall inside'
 
    p%weight = 1.0
    p%v      = 1.d0 ! --- not really used
 
    end select
-  
 end do
 
 allocate(iangle(1,n_part))
@@ -152,6 +167,7 @@ iangle = 0
 
 call check_and_fix_timesteps(timesteps, events)
 
+! ----------- Start field line tracing -------------------------------------------------------------------------
 do while (.not. sim%stop_now)
   target_time = next_event_at(sim, events)
 
@@ -166,8 +182,8 @@ do while (.not. sim%stop_now)
 
           do k=1,n_steps
 
-             if(particles(j)%i_elm .le. 0) exit
-             if (l_part(j) > 5.0) exit  !--- If the particle is able to move away X m from the wall, it is a wetted area
+             if(particles(j)%i_elm .le. 0) exit !--- Don't trace lost particles
+             if (l_part(j) > l_par_min)   exit  !--- If the FL is able to move away X m from the wall w/o collision, it is wet
 
              pos_prev = particles(j)%x
 
@@ -183,7 +199,7 @@ do while (.not. sim%stop_now)
                   dir_sign = -1.d0
                endif
              endif
-
+             ! --- Advance the field line
              call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, tstep_field*dir_sign)
 
              if (any(isnan(pos_prev)) .or. any(isnan(particles(j)%x))) cycle
@@ -191,7 +207,7 @@ do while (.not. sim%stop_now)
              xyz_prev = cylindrical_to_cartesian(pos_prev)
              xyz      = cylindrical_to_cartesian(particles(j)%x)
 
-             if (particles(j)%i_elm .le. 0) exit
+             if (particles(j)%i_elm .le. 0) exit   !< If the particle leaves the domain, stop tracing it
 
              l_part(j) = l_part(j) + norm2(xyz-xyz_prev)
 
@@ -214,19 +230,21 @@ enddo
 
 call mod_wall_collision_free(wall)
 
-!call write_simulation_hdf5(sim, 'part_out.h5')
+! ----------- End field line tracing --------------------------------------------------------------------------
 
+!call write_simulation_hdf5(sim, 'part_out.h5')
 !call mod_wall_collision_export(sim, 'wallload.h5', iangle)
 
 ! --- Initialize postproc tools
 call init_new_diag(.false.)
 call clean_up()
 
-! --- Allocate and initialize heatflux
-allocate( q_heat_perp_3d(n_part) )
-q_heat_perp_3d(:) = 0.d0
+! --- Allocate and initialize some values
+allocate( q_heat_perp_3d(n_part), field_wall_angle(n_part) )
+q_heat_perp_3d(:)   = 0.d0
+field_wall_angle(:) = 0.d0
 
-! --- Count wetted wall triagnles
+! --- Count wet wall triangles
 n_tri_wet = 0
 do i=1, n_tri
   if (l_part(i) > l_par_min) then
@@ -234,11 +252,11 @@ do i=1, n_tri
   endif
 enddo
 
-! --- Additional initialization
+! --- Additional initialization required for postproc
 call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
 call update_equil_state(0,sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase)
 
-! --- Get list of local coordinates at wall triangles for postproc
+! --- Get list of local coordinates for wet wall triangles for postproc
 ! --- Initialize list of poloidal positions
 call alloc_pol_pos(pol_pos_list, (/1, n_tri_wet /))
 
@@ -264,12 +282,11 @@ do i=1, n_tri
            pos%R, pos%Z, pos%ielm, pos%s, pos%t, ifail)
   
   call fill_pol_pos(pos, sim%fields%node_list, sim%fields%element_list)
-  if (ifail /= 0) write(*,*) 'Initial position of triangle id = ', i, ' not found in JOREK grid, move the wall inside'
 end do
 
 tor_pos_list = tor_pos(nphi=1) 
 
-!--- Evalueate the list of expressions
+!--- Evaluate a list of expressions
 expr_list = exprs((/'Psi_N', 'BR', 'BZ', 'Btor', 'Psi', 'ne', 'T_e', 'Jpar', 'qpar_tot'/), 9)
 call eval_expr(ES, 1, expr_list, pol_pos_list, tor_pos_list, result, ierr)
 
@@ -322,14 +339,15 @@ do i = 1, n_tri
       qpar = result(1,1,i_count,9)
       B    = (/ BR, BZ, Btor /)
 
-      Btot     = norm2( B ) 
+      Btot = norm2( B ) 
 
       xyz_tria = (triangles(i)%v0 + triangles(i)%v1 + triangles(i)%v2) / 3.d0
       r_cyl    = cartesian_to_cylindrical(xyz_tria)
       phi      = r_cyl(3)
       norm_cyl = vector_cartesian_to_cylindrical(phi,  normals_all(i,:) ) 
 
-      q_heat_perp_3d(i) = abs( qpar * sum( norm_cyl(:) * B(:) ) / Btot )
+      q_heat_perp_3d(i)   = abs( qpar * sum( norm_cyl(:) * B(:) ) / Btot )
+      field_wall_angle(i) = ASIN(abs( sum( norm_cyl(:) * B(:) ) / Btot ))*180.d0/PI
 
       write(filehandle,142) Jpar * sum( norm_cyl(:) * B(:) ) / Btot 
    else 
@@ -350,6 +368,12 @@ do i = 1, n_tri
   write(filehandle,142) q_heat_perp_3d(i)
 end do
 
+write(filehandle,140) 'SCALARS B_wall_angle[deg] float'
+write(filehandle,140) 'LOOKUP_TABLE default'
+do i = 1, n_tri
+  write(filehandle,142) field_wall_angle(i)
+end do
+
 
 ! --- Close file, clean up
 close(filehandle)
@@ -360,4 +384,4 @@ call clean_up()
 ! Finalize the simulation
 call sim%finalize
 
-end program example_wallload
+end program fluid_loads_on_3D_wall
