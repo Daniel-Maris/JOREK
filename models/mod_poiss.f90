@@ -131,13 +131,6 @@ if (my_id == 0) then
 
   call tr_debug_write("Deb_poisson",nz_AA)
 
-#ifdef USE_PASTIX
-#if defined USE_STRUMPACK || defined USE_MUMPS
-  write(*,*) 'Please disable USE_STRUMPACK and USE_MUMPS if USE_PASTIX is enabled'
-  call exit(-1)
-#endif
-#endif
-  
   n_border = 0
   if (itype .ne. 0) then
     do i=1,node_list%n_nodes
@@ -173,8 +166,7 @@ if (my_id == 0) then
     enddo
   endif
 
-#ifndef USE_PASTIX
-  if (itype .eq. 0 .and. ivar_out .eq. 710) then
+  if (.not. use_pastix_eq .and. (itype .eq. 0 .and. ivar_out .eq. 710)) then
     do i=1,node_list%n_nodes
       if(treat_axis)then
         ! --- Only one fixed for fixed-axis (only valid for G1-cases at the moment!!!)
@@ -185,7 +177,6 @@ if (my_id == 0) then
       endif
     enddo
   endif
-#endif
 
   if ((.not. freeboundary_equil) .or. (itype .ne. -1)) then
     nz_AA = nz_AA + n_border
@@ -552,8 +543,7 @@ elseif (itype .eq. 4) then
   stop
 #endif
 
-#ifndef USE_PASTIX
-elseif (itype .eq. 0 .and. ivar_out .eq. 710) then
+elseif (.not. use_pastix_eq .and. (itype .eq. 0 .and. ivar_out .eq. 710)) then
   if (my_id == 0 ) then
 
     ! --- calculate node_indices
@@ -592,7 +582,6 @@ elseif (itype .eq. 0 .and. ivar_out .eq. 710) then
     nz_AA     = ilarge
     a_mat%nnz = nz_AA
   endif
-#endif
 
 elseif (itype .ne. 0) then        ! apply fixed boundary conditions (not for variable projection)
   if (my_id == 0 ) then
