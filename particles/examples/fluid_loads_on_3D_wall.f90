@@ -48,19 +48,23 @@ implicit none
 
 ! Set up the simulation variables
 real(kind=8)                      :: timesteps(1) = [1d-7] 
-real(kind=8)                      :: target_time, t, R, phi, v_part, norm_R, dir_sign, tstep_field=1.d-2
+real(kind=8)                      :: target_time, s, t, R, phi, v_part, norm_R, dir_sign, tstep_field=1.d-2
 integer(kind=4)                   :: n_part, i, j, k, l, ifail, max_depth, wall_id, n_steps = 1000
 integer(kind=4),allocatable       :: indices(:,:)
-integer                           :: n_tri, n_nodes, n_tri_wet, i_count, ierr 
-integer                           :: filehandle = 60
+integer                           :: n_tri, n_nodes, n_tri_wet, i_count, ierr, i_elm, i_best(2), i_min, i_s, side, i_elm_min, i_bnd
+integer, parameter                :: filehandle = 60, n_sbnd = 20
 real*8, parameter                 :: l_par_min = 4.9d0
+logical, parameter                :: map_wall_to_JOREK_bnd = .true. !< Maps 3D wall points to JOREK's 2D boundary to evaluate parallel fluxes,
+                                                                    !< otherwise fluxes are calculated inside the domain at exact given locations
 integer(HID_T)                    :: file_id                       
 type(write_particle_diagnostics)  :: diag
 real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz, r_cyl, norm_cyl
 real*8, allocatable :: iangle(:,:), l_part(:), q_heat_perp_3d(:), field_wall_angle(:)
+real*8, allocatable :: R_elm(:), Z_elm(:), distance(:)   
 
 type(particle_kinetic_relativistic), allocatable :: prtkin(:)
-real*8 :: rnd(1), psi, U, B(3), E(3), BR, BZ, Btor, Btot, Jpar, qpar
+real*8 :: rnd(1), psi, U, B(3), E(3), BR, BZ, Btor, Btot, Jpar, qpar, s_bnd
+real*8 :: R1, R_s, R_t, Z1, Z_s, Z_t, R_min, Z_min, smin, tmin, dist_min
 
 type(octree_node) :: wall
 type(octree_triangle), allocatable :: triangles(:)
@@ -261,6 +265,16 @@ call update_equil_state(0,sim%fields%node_list, sim%fields%element_list, bnd_elm
 call alloc_pol_pos(pol_pos_list, (/1, n_tri_wet /))
 pol_pos_list%has_dedicated_tor_pos = .true.
 
+! --- Get R, Z coordinates of the middle of the boundary elements (necessary to find closest point to bnd later)
+allocate(R_elm(bnd_elm_list%n_bnd_elements), Z_elm(bnd_elm_list%n_bnd_elements))
+allocate(distance(bnd_elm_list%n_bnd_elements))
+do i_bnd = 1, bnd_elm_list%n_bnd_elements
+  i_elm = bnd_elm_list%bnd_element(i_bnd)%element 
+  call interp_RZ(sim%fields%node_list, sim%fields%element_list, i_elm, 0.5d0, 0.5d0, R1, R_s, R_t, Z1, Z_s, Z_t)
+  R_elm(i_bnd) = R1
+  Z_elm(i_bnd) = Z1
+enddo
+
 i_count = 0
 do i=1, n_tri
 
@@ -278,10 +292,54 @@ do i=1, n_tri
   pos%Z   = r_cyl(2)
   pos%phi = r_cyl(3)
 
-  call find_RZ(sim%fields%node_list, sim%fields%element_list, &
-           pos%R, pos%Z, &
-           pos%R, pos%Z, pos%ielm, pos%s, pos%t, ifail)
+  if (map_wall_to_JOREK_bnd) then
+
+    ! --- Find closest point to the boundary of the domain
+    distance  = sqrt( (R_elm-pos%R)**2  + (Z_elm-pos%Z)**2)
+    i_best(1) = minloc(distance,dim=1)
+    dist_min  = distance(i_best(1))
+    
+    distance(i_best(1)) = 1d99             ! Mask the minimum value to find the second minimum
+    i_best(2)           = minloc(distance, dim=1)
+    distance(i_best(1)) = dist_min      ! Restore the original minimum distance value
+
+    dist_min = 1.d99
+
+    ! Go along two best boundary elements and find closest local coordinate
+    do i_min=1, 2
+      side   = bnd_elm_list%bnd_element(i_best(i_min))%side
+      i_elm  = bnd_elm_list%bnd_element(i_best(i_min))%element
+      ! Go along discretized element
+      do i_s=1, n_sbnd
+        s_bnd = float(i_s-1)/float(n_sbnd-1)
+        call get_st_on_bnd(s_bnd, side, s, t)
+        call interp_RZ(sim%fields%node_list, sim%fields%element_list, i_elm, s, t, R1, R_s, R_t, Z1, Z_s, Z_t)
+        if ( sqrt((R1-pos%R)**2  + (Z1-pos%Z)**2) < dist_min ) then
+          R_min     = R1
+          Z_min     = Z1
+          i_elm_min = i_elm
+          smin      = s
+          tmin      = t
+          dist_min  = sqrt((R1-pos%R)**2  + (Z1-pos%Z)**2)
+        endif
+      end do
+    enddo
+
+    ! Assign point to closest boundary point (to evaluate expressions)
+    pos%R    = R_min
+    pos%Z    = Z_min
+    pos%ielm = i_elm_min
+    pos%s    = smin
+    pos%t    = tmin
   
+  else
+    ! Directly evaluate the fluxes at the given points of the 3D wall
+    call find_RZ(sim%fields%node_list, sim%fields%element_list, &
+            pos%R, pos%Z, &
+            pos%R, pos%Z, pos%ielm, pos%s, pos%t, ifail)
+            
+  endif ! mapping points to 2D boundary or not
+
   call fill_pol_pos(pos, sim%fields%node_list, sim%fields%element_list)
 end do
 
