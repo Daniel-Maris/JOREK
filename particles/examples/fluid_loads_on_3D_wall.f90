@@ -346,7 +346,8 @@ end do
 tor_pos_list = tor_pos(nphi=1) 
 
 !--- Evaluate a list of expressions
-expr_list = exprs((/'Psi_N', 'BR', 'BZ', 'Btor', 'Psi', 'ne', 'T_e', 'Jpar', 'qpar_tot'/), 9)
+expr_list = exprs((/'Psi_N   ', 'BR      ', 'BZ      ', 'Btor    ', 'Psi     ', 'ne      ', &
+  'T_e     ', 'Jpar    ', 'qpar_tot'/), 9)
 call eval_expr(ES, 1, expr_list, pol_pos_list, tor_pos_list, result, ierr)
 
 ! --- Write results to vtk
