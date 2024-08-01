@@ -195,7 +195,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,  112) ' n_order        =  ', n_order           
   write(*,  112) ' n_tor          =  ', n_tor             
   write(*,  112) ' n_coord_tor    =  ', n_coord_tor
+#ifdef USE_DOMM
   write(*,  112) ' l_pol_domm     =  ', l_pol_domm
+#endif
   write(*,  112) ' n_period       =  ', n_period          
   write(*,  112) ' n_coord_period =  ', n_coord_period
   write(*,  112) ' n_plane        =  ', n_plane           
@@ -413,7 +415,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
 
   if (with_TiTe) then ! (with_TiTe), i.e. single temperature ***************************************
-    write(*,REAL_FMT) 't_rat                  ', t_rat
+#if JOREK_MODEL == 180
+    write(*,REAL_FMT)   'TiTe_ratio             ', TiTe_ratio
+#endif
     if ( .not. num_Te ) then
       write(*,REAL_FMT) 'Te_0                   ', Te_0
       write(*,REAL_FMT) 'Te_1                   ', Te_1

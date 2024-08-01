@@ -222,7 +222,7 @@ do ms=1, n_gauss
      eq( var_zj,:,:,:,1) = eq( var_zj,:,:,:,1)/F0
 
      ! Auxiliary variables (aux)
-#include "aux_unreadable.h"
+#include "aux_automatic.h"
      
      n_tor_local = i_tor_max - i_tor_min + 1
      do i=1,n_vertex_max
@@ -263,7 +263,7 @@ do ms=1, n_gauss
            eq(var_v,1,0,1,1) = v_px - x_p_x*eq(n_var+1,1,0,0,1) - x_p(mp,ms,mt)*eq(n_var+1,2,0,0,1) - y_p_x*eq(n_var+1,0,1,0,1) - y_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
            eq(var_v,0,1,1,1) = v_py - x_p_y*eq(n_var+1,1,0,0,1) - y_p(mp,ms,mt)*eq(n_var+1,0,2,0,1) - y_p_y*eq(n_var+1,0,1,0,1) - x_p(mp,ms,mt)*eq(n_var+1,1,1,0,1)
 
-#include "rhs_unreadable.h"
+#include "rhs_automatic.h"
            do i_var=1,n_var
              rhs_ij(i_var) = rhs_ij(i_var)*wst*BigR*xjac
            enddo
@@ -312,7 +312,7 @@ do ms=1, n_gauss
                  
                  index_kl = n_tor_local*n_var*(n_order+1)*(k-1) + n_tor_local*n_var*(l-1) + in - i_tor_min + 1   ! index in the ELM matrix
                  
-#include "amat_unreadable.h"
+#include "amat_automatic.h"
                  
                  ! Include pre-factor to contribution
                  do i_var = 1, n_var

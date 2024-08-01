@@ -1,3 +1,7 @@
+!> This module is used in some models for automatic code generation of the RHS and AMAT in the 
+!! matrix construction routines. It contains algebraic types and operators that can be used to
+!! construct the matrix contributions in a compact, legible format that is then converted into 
+!! code
 module mod_semianalytical
   implicit none
 
@@ -790,7 +794,7 @@ contains
     end if
     
     if (expr%basic) then
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
       write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ",1)"
 #else
       write(indices,'(A,I2,A,I1,A,I1,A,I1,A)') "(", expr%var, ",", expr%dx, ",", expr%dy, ",", expr%dp, ",:)"

@@ -54,6 +54,7 @@ module exec_commands
   logical,             private, save :: dir_created   = .false. !< Postproc directory created?
   logical,             private, save :: verbose
   logical,             private, save :: debug
+  logical,             private, save :: exclude_n0  
   type(t_expr_list),            save :: expr_list, expr_list_four
   real*8, allocatable, private, save :: result(:,:,:,:), res2d(:,:,:), res1d(:,:), res0d(:), the_sum(:)
   complex*16, allocatable, private, save :: cp(:,:,:,:)
@@ -143,8 +144,8 @@ module exec_commands
           call int3d(command, first_step, ierr)
         case ( 'equil_params' )
           call equil_params(command, first_step, ierr)
-        case ( 'energy3D' )
-          call energy3D(command, first_step, ierr)
+        case ( 'energy3d' )
+          call energy3d(command, first_step, ierr)
         case ( 'energy_spectrum' )
           call energy_spectrum(command, first_step, ierr)
         case ( 'expressions' )
@@ -239,7 +240,7 @@ module exec_commands
     else
       
       select case ( trim(command%args(0)) )
-        case ( 'expressions', 'expressions_int', 'mark_coords', 'int2d', 'int3d','energy3D','midplane',       &
+        case ( 'expressions', 'expressions_int', 'mark_coords', 'int2d', 'int3d','energy3d','midplane',       &
           'average', 'point', 'pol_line', 'int_along_pol_line', 'tor_line', 'equil_params',        &
           'qprofile', 'q_at_psin', 'fluxsurfaces', 'fluxsurface', 'separatrix', 'set', 'four2d',   &
           'gourdon', 'jorek-units', 'jnorm_bnd_curr', 'si-units', 'grid', 'grid_diagnostics',      &
@@ -2194,10 +2195,12 @@ module exec_commands
       write(i_file,'(a)')
     end if
     close(i_file)
- 
-   call int3d_new(0, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units)        
+   
+    exclude_n0 = .false.
+    exclude_n0 = get_log_setting('exclude_n0', ierr) 
+    call int3d_new(0, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units, exclude_n0)        
 
-   call write_ascii_0d(ierr, ES, expr_list, res, FORM_TABLE, header=.false.,                   &
+    call write_ascii_0d(ierr, ES, expr_list, res, FORM_TABLE, header=.false.,                   &
      filename=filename, append=.true., blanks=.false.)
    
   end subroutine int3D
@@ -2207,8 +2210,11 @@ module exec_commands
 
 
 
-  !> Output energies distributed among mode families
-  subroutine energy3D(command, first_step, ierr)
+  !> Output energies distributed among mode families. This routine is intended for use with stellarator models.
+  !!
+  !! The magnetic and kinetic energies are integrated over the plasma volume and separated into the configuration
+  !! mode families (see: C. Schwab 1993 Phys. Fluids B 5 3195-206 Section III)
+  subroutine energy3d(command, first_step, ierr)
     
     use mod_energy3D
 
@@ -2252,13 +2258,13 @@ module exec_commands
     end if
  
     ! Compute energy in mode families
-    call energy3D_new(node_list,element_list,Wmag(:),Wkin(:))        
+    call energy3d_new(node_list,element_list,Wmag(:),Wkin(:))        
 
     ! Output time step to file
     write(i_file,'(12E18.8)')  time_now, Wmag(:), Wkin(:)
     close(i_file)
    
-  end subroutine energy3D
+  end subroutine energy3d
   
   
  

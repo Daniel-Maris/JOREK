@@ -32,9 +32,9 @@ clean:
 	-@find . -name '*.mod' -delete -or -name '*.o' -delete
 	-@rm mpiversion.mk
 	@echo ">> Deleting Dynamically Generated Header Files <<"
-	-@rm -f models/$(MODEL)/rhs_unreadable.h
-	-@rm -f models/$(MODEL)/amat_unreadable.h
-	-@rm -f models/$(MODEL)/aux_unreadable.h
+	-@rm -f models/$(MODEL)/rhs_automatic.h
+	-@rm -f models/$(MODEL)/amat_automatic.h
+	-@rm -f models/$(MODEL)/aux_automatic.h
 	-@rm -f algexpr2fort
 	-@rm -f generate_code
 cleandep:
