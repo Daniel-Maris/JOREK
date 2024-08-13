@@ -1,6 +1,6 @@
 !> What does this code do?
 !>    Calculates fluid fluxes (heat and current loads) on a 3D thin wall discretized with triangles.
-!>    The wall loads are exported in VTK format (wetted_area.vtk)
+!>    The wall loads are exported in VTK format (3D_wall_fluid_loads.vtk)
 !> How?
 !>    It works like the SMITER code, it traces Field Lines (FLs) from the wall triangles towards the plasma.
 !>    If the FLs do not intersect a wall component after a given distance (l_par_min), then the wall triangle
@@ -46,35 +46,41 @@ use mod_boundary
 
 implicit none
 
-! Set up the simulation variables
-real(kind=8)                      :: timesteps(1) = [1d-7] 
-real(kind=8)                      :: target_time, s, t, R, phi, v_part, norm_R, dir_sign, tstep_field=1.d-2
-integer(kind=4)                   :: n_part, i, j, k, l, ifail, max_depth, wall_id, n_steps = 1000
-integer(kind=4),allocatable       :: indices(:,:)
-integer                           :: n_tri, n_nodes, n_tri_wet, i_count, ierr, i_elm, i_best(2), i_min, i_s, side, i_elm_min, i_bnd
-integer, parameter                :: filehandle = 60, n_sbnd = 20
-real*8, parameter                 :: l_par_min = 4.9d0
-logical, parameter                :: map_wall_to_JOREK_bnd = .true. !< Maps 3D wall points to JOREK's 2D boundary to evaluate parallel fluxes,
-                                                                    !< otherwise fluxes are calculated inside the domain at exact given locations
-integer(HID_T)                    :: file_id                       
-type(write_particle_diagnostics)  :: diag
-real(kind=8),dimension(3)         :: pos_prev, wall_pos, xyz_tria, norm_tria, v21, v31, Bphi_v, xyz_prev, xyz, r_cyl, norm_cyl
-real*8, allocatable :: iangle(:,:), l_part(:), q_heat_perp_3d(:), field_wall_angle(:)
-real*8, allocatable :: R_elm(:), Z_elm(:), distance(:)   
-
-type(particle_kinetic_relativistic), allocatable :: prtkin(:)
-real*8 :: rnd(1), psi, U, B(3), E(3), BR, BZ, Btor, Btot, Jpar, qpar, s_bnd
-real*8 :: R1, R_s, R_t, Z1, Z_s, Z_t, R_min, Z_min, smin, tmin, dist_min
-
+! --- Important hard-coded parameters for the simulation
+real*8,  parameter :: tstep_field = 1.d-2  !< 
+real*8,  parameter :: l_par_min   = 4.9d0  !< Distance above which a field line is considered to connect the plasma and the wall (wetted wall)
+integer, parameter :: n_steps = 1000       !< Maximum number of steps to advance field lines
+integer, parameter :: n_sbnd  = 20         !< Number of boundary element subdivisions to find closest point to the boundary
+integer, parameter :: filehandle = 60      !< File handle for vtk file
+logical, parameter :: map_wall_to_JOREK_bnd = .true. !< Maps 3D wall points to JOREK's 2D boundary to evaluate parallel fluxes,
+                                                     !< otherwise fluxes are calculated inside the domain at exact given locations
+! --- Related to the input wall
 type(octree_node) :: wall
 type(octree_triangle), allocatable :: triangles(:)
+integer(HID_T)                     :: file_id
+integer*4                          :: n_part, max_depth, wall_id, n_tri
+integer*4, allocatable             :: indices(:,:)
 real*8, allocatable                :: wtmp(:),nodes_xyz(:,:), normals_all(:,:)
 
-! --- Posptroc 
+! --- Vectors
+real*8, dimension(3) :: pos_prev, wall_pos, xyz_tria, norm_tria, &
+                        v21, v31, Bphi_v, xyz_prev, xyz, r_cyl, norm_cyl, B
+! --- Others
+integer :: i, j, k, l, ifail
+real*8  :: phi, norm_R, dir_sign 
+
+! --- To calculate closest point to the boundary from the wall
+real*8, allocatable :: R_elm(:), Z_elm(:), distance(:)   
+real*8              :: R1, R_s, R_t, Z1, Z_s, Z_t, R_min, Z_min, smin, tmin, dist_min, s, t
+integer             :: ierr, i_elm, i_best(2), i_min, i_s, side, i_elm_min, i_bnd
+
+! --- To calculate quantities with posptroc commmands
 type(t_pol_pos),      pointer :: pos
 type(t_pol_pos_list), target  :: pol_pos_list
 type(t_tor_pos_list)          :: tor_pos_list
-real*8, allocatable           :: result(:,:,:,:)
+integer                       :: n_nodes, n_tri_wet, i_count
+real*8, allocatable           :: result(:,:,:,:), iangle(:,:), l_part(:), q_heat_perp_3d(:), field_wall_angle(:)
+real*8                        :: BR, BZ, Btor, Btot, Jpar, qpar, s_bnd
  
 ! --- Read wall for collisions with octree
 max_depth = 6
@@ -103,18 +109,8 @@ end do
 
 call sim%initialize(num_groups=1)
 
-! Set events to write output data and stop the simulation.
-! One can use read_jorek_fields_interp_linear or read_jorek_fields_interp_hermite_birkhoff,
-! and i=-1 (to read jorek_restart.h5 and keep this field at all time) or i=last_file_before_time(sim%time)
-! (to read a sequel of jorekXXXXX.h5 files and use time-evolving fields)
-! events = [event(read_jorek_fields_interp_linear(i=last_file_before_time(sim%time))), & 
-!      !event(diag,start=sim%time,step=1d-8),         &
-!      event(stop_action(),start=sim%time+7.d-4)]
-
-events = [event(read_jorek_fields_interp_linear(i=-1)), & 
-event(stop_action(),start=sim%time+7.d-4)]
-
 ! Run first event to read the JOREK fields
+events = [event(read_jorek_fields_interp_linear(i=-1))] !< i=-1 means read the jorek_restart.h5 file
 call with(sim, events, at=0.d0)
 
 ! ------------- Initialize FL particles (one per wall triangle) ---------------------------------------------------------
@@ -144,9 +140,6 @@ do i=1, n_tri
    ! Assign initial particle-FL position to triangle center
    xyz_tria = (triangles(i)%v0 + triangles(i)%v1 + triangles(i)%v2) / 3.d0
 
-   !--- Move the point 1 mm away from the triangle
-   !xyz_tria  = xyz_tria + norm_tria * 0.0001
-
    p%x = cartesian_to_cylindrical(xyz_tria)
 
    norm_R = (xyz_tria(1)*norm_tria(1) + xyz_tria(2)*norm_tria(2))/p%x(1)
@@ -169,68 +162,54 @@ allocate(l_part(n_part))
 iangle = 0
 ! ----------- end paticle initialization -----------------------------------------------------------------------
 
-call check_and_fix_timesteps(timesteps, events)
-
 ! ----------- Start field line tracing -------------------------------------------------------------------------
-do while (.not. sim%stop_now)
-  target_time = next_event_at(sim, events)
+select type (particles => sim%groups(1)%particles)
+type is (particle_fieldline)	
+    l_part = 0.d0
+    !$omp parallel do default(private) &
+    !$omp shared (sim, wall, iangle, l_part, normals_all)
+    do j=1,size(particles,1)
 
-  do i=1,1
+      do k=1,n_steps
 
-    select type (particles => sim%groups(i)%particles)
-    type is (particle_fieldline)	
-       l_part = 0.d0
-      !$omp parallel do default(private) &
-      !$omp shared (i, n_steps, timesteps, sim, wall, iangle, l_part, normals_all, tstep_field)
-       do j=1,size(particles,1)
+          if(particles(j)%i_elm .le. 0) exit !--- Don't trace lost particles
+          if (l_part(j) > l_par_min)   exit  !--- If the FL is able to move away X m from the wall w/o collision, it is wet
 
-          do k=1,n_steps
+          pos_prev = particles(j)%x
 
-             if(particles(j)%i_elm .le. 0) exit !--- Don't trace lost particles
-             if (l_part(j) > l_par_min)   exit  !--- If the FL is able to move away X m from the wall w/o collision, it is wet
+          ! --- Do a step and check if the particle moves in the normal direction (away from the wall), otherwise correct direction
+          if (k==1) then
+            call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, tstep_field*0.1d0)
+            xyz_prev = cylindrical_to_cartesian(pos_prev)
+            xyz      = cylindrical_to_cartesian(particles(j)%x)
 
-             pos_prev = particles(j)%x
+            if (dot_product(xyz-xyz_prev,normals_all(j,:)) > 0.d0) then
+              dir_sign =  1.d0 
+            else
+              dir_sign = -1.d0
+            endif
+          endif
+          ! --- Advance the field line
+          call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, tstep_field*dir_sign)
 
-             ! --- Do a step and check if the particle moves in the normal direction (away from the wall), otherwise correct direction
-             if (k==1) then
-               call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, 1.d-3)!*particles(j)%v)
-               xyz_prev = cylindrical_to_cartesian(pos_prev)
-               xyz      = cylindrical_to_cartesian(particles(j)%x)
+          if (any(isnan(pos_prev)) .or. any(isnan(particles(j)%x))) cycle
 
-               if (dot_product(xyz-xyz_prev,normals_all(j,:)) > 0.d0) then
-                  dir_sign =  1.d0 
-               else
-                  dir_sign = -1.d0
-               endif
-             endif
-             ! --- Advance the field line
-             call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, particles(j), sim%time, tstep_field*dir_sign)
+          xyz_prev = cylindrical_to_cartesian(pos_prev)
+          xyz      = cylindrical_to_cartesian(particles(j)%x)
 
-             if (any(isnan(pos_prev)) .or. any(isnan(particles(j)%x))) cycle
+          if (particles(j)%i_elm .le. 0) exit   !< If the particle leaves the domain, stop tracing it
 
-             xyz_prev = cylindrical_to_cartesian(pos_prev)
-             xyz      = cylindrical_to_cartesian(particles(j)%x)
+          l_part(j) = l_part(j) + norm2(xyz-xyz_prev)
 
-             if (particles(j)%i_elm .le. 0) exit   !< If the particle leaves the domain, stop tracing it
-
-             l_part(j) = l_part(j) + norm2(xyz-xyz_prev)
-
-             if (k < 3) cycle  ! don't check collisions during the initial steps to allow the particle to move away from the wall
-             call mod_wall_collision_check(pos_prev, particles(j)%x, wall, wall_id, wall_pos, iangle(i,j))
-             if(wall_id .gt. 0) then
-                particles(j)%x      = wall_pos
-                particles(j)%i_elm  = -wall_id
-             end if
-          end do
-       end do
-
-    end select
-
-  enddo
-
-  sim%time = target_time
-  call with(sim, events, at=sim%time)
-enddo
+          if (k < 3) cycle  ! don't check collisions during the initial steps to allow the particle to move away from the wall
+          call mod_wall_collision_check(pos_prev, particles(j)%x, wall, wall_id, wall_pos, iangle(1,j))
+          if(wall_id .gt. 0) then
+            particles(j)%x      = wall_pos
+            particles(j)%i_elm  = -wall_id
+          end if
+      end do
+    end do
+end select
 
 call mod_wall_collision_free(wall)
 
@@ -351,7 +330,7 @@ expr_list = exprs((/'Psi_N   ', 'BR      ', 'BZ      ', 'Btor    ', 'Psi     ', 
 call eval_expr(ES, 1, expr_list, pol_pos_list, tor_pos_list, result, ierr)
 
 ! --- Write results to vtk
-open(filehandle, file='wetted_area.vtk', status='replace', action='write')
+open(filehandle, file='3D_wall_fluid_loads.vtk', status='replace', action='write')
 140 format(a)
 141 format(a,i8,a)
 142 format(3es16.8)
@@ -445,3 +424,4 @@ call clean_up()
 call sim%finalize
 
 end program fluid_loads_on_3D_wall
+
