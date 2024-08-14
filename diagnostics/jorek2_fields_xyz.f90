@@ -67,10 +67,10 @@ program jorek2_fields_xyz
   integer*4 :: rank, comm_size 
   logical   :: first_step
 
-  real*8               :: bx,      by,      bz
-  real*8, allocatable  :: bx_c(:), by_c(:), bz_c(:)
-  real*8, allocatable  :: bx_w(:), by_w(:), bz_w(:)
-  real*8, allocatable  :: bx_p(:), by_p(:), bz_p(:)
+  real*8               :: bx,      by,      bz,      psi
+  real*8, allocatable  :: bx_c(:), by_c(:), bz_c(:), psi_c(:)
+  real*8, allocatable  :: bx_w(:), by_w(:), bz_w(:), psi_w(:)
+  real*8, allocatable  :: bx_p(:), by_p(:), bz_p(:), psi_p(:)
   real*8, allocatable  ::    x(:),    y(:),    z(:)
 
   character*17      :: file_in
@@ -159,12 +159,16 @@ program jorek2_fields_xyz
     write(87,'(a)', advance='no') 'Bz_w(T)       '
     write(87,'(a)', advance='no') 'Bx_c(T)       '
     write(87,'(a)', advance='no') 'By_c(T)       '
-    write(87,'(a)')               'Bz_c(T)       '
+    write(87,'(a)', advance='no') 'Bz_c(T)       '
+    write(87,'(a)', advance='no') 'psi(Wb/rad)   '
+    write(87,'(a)', advance='no') 'psi_p(Wb/rad) '
+    write(87,'(a)', advance='no') 'psi_w(Wb/rad) '
+    write(87,'(a)')               'psi_c(Wb/rad) '
   endif
 
-  allocate(bx_c(np), by_c(np), bz_c(np))
-  allocate(bx_w(np), by_w(np), bz_w(np))
-  allocate(bx_p(np), by_p(np), bz_p(np))
+  allocate(bx_c(np), by_c(np), bz_c(np), psi_c(np))
+  allocate(bx_w(np), by_w(np), bz_w(np), psi_w(np))
+  allocate(bx_p(np), by_p(np), bz_p(np), psi_p(np))
 
   ! --- Loop over restart files
   do istep = istart, iend, delta_step 
@@ -211,7 +215,7 @@ program jorek2_fields_xyz
     !***********************************************************************
   
     if (freeboundary) then
-      call wall_fields_at_xyz(my_id, x, y, z, bx_w, by_w, bz_w)
+      call wall_fields_at_xyz(my_id, x, y, z, bx_w, by_w, bz_w, psi_w)
       if (sr%ncoil > 0) then
         if (.not. starwall_equil_coils) then
           if (my_id==0) then
@@ -221,7 +225,7 @@ program jorek2_fields_xyz
             write(*,*) '******************************************************'
           endif
         endif
-        call coil_fields_at_xyz(my_id, x, y, z, bx_c, by_c, bz_c)
+        call coil_fields_at_xyz(my_id, x, y, z, bx_c, by_c, bz_c, psi_c)
       else
         if (my_id==0) then
           write(*,*) '******************************************************'
@@ -229,7 +233,7 @@ program jorek2_fields_xyz
           write(*,*) '***    coil fields are set to 0 !                     '
           write(*,*) '******************************************************'
         endif
-        bx_c = 0.d0;    by_c = 0.d0;    bz_c = 0.d0;
+        bx_c = 0.d0;    by_c = 0.d0;    bz_c = 0.d0;    psi_c = 0.d0;
       endif
     else
       if (my_id==0) then
@@ -238,19 +242,21 @@ program jorek2_fields_xyz
         write(*,*) '***    coils and wall fields are set to 0 !           '
         write(*,*) '******************************************************'
       endif
-      bx_c = 0.d0;    by_c = 0.d0;    bz_c = 0.d0;
-      bx_w = 0.d0;    by_w = 0.d0;    bz_w = 0.d0;
+      bx_c = 0.d0;    by_c = 0.d0;    bz_c = 0.d0;    psi_c = 0.d0;
+      bx_w = 0.d0;    by_w = 0.d0;    bz_w = 0.d0;    psi_w = 0.d0;
     endif 
 
-    call plasma_fields_at_xyz(my_id, node_list,element_list, x, y, z, bx_p, by_p, bz_p)
+    call plasma_fields_at_xyz(my_id, node_list,element_list, x, y, z, bx_p, by_p, bz_p, psi_p)  
  
     if (my_id==0) then
       do i=1, np
-        bx = bx_p(i) + bx_w(i) + bx_c(i)
-        by = by_p(i) + by_w(i) + by_c(i)
-        bz = bz_p(i) + bz_w(i) + bz_c(i)
-        write(87,'(I5.5,17ES14.6)') istep, t_start, t_start*sqrt_mu0_rho0*1.d3,x(i),y(i),z(i), bx, by, bz, &
-                                    bx_p(i), by_p(i), bz_p(i), bx_w(i), by_w(i), bz_w(i), bx_c(i), by_c(i), bz_c(i)      
+        bx  = bx_p(i)  + bx_w(i)  + bx_c(i)
+        by  = by_p(i)  + by_w(i)  + by_c(i)
+        bz  = bz_p(i)  + bz_w(i)  + bz_c(i)
+        psi = psi_p(i) + psi_w(i) + psi_c(i)
+        write(87,'(I5.5,22ES14.6)') istep, t_start, t_start*sqrt_mu0_rho0*1.d3,x(i),y(i),z(i), bx, by, bz, &
+                                    bx_p(i), by_p(i), bz_p(i), bx_w(i), by_w(i), bz_w(i), bx_c(i), by_c(i), bz_c(i), &
+                                    psi, psi_p(i), psi_w(i), psi_c(i) 
       enddo
     endif
     

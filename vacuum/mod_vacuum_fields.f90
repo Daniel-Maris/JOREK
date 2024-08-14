@@ -41,9 +41,9 @@ module mod_vacuum_fields
 
     ! --- Local parameters
     real*8               :: bx, by, bz
-    real*8, allocatable  :: bx_c(:), by_c(:), bz_c(:)
-    real*8, allocatable  :: bx_w(:), by_w(:), bz_w(:)
-    real*8, allocatable  :: bx_p(:), by_p(:), bz_p(:)
+    real*8, allocatable  :: bx_c(:), by_c(:), bz_c(:), psi_c(:)
+    real*8, allocatable  :: bx_w(:), by_w(:), bz_w(:), psi_w(:)
+    real*8, allocatable  :: bx_p(:), by_p(:), bz_p(:), psi_p(:)
     real*8, allocatable  ::  x_w(:),  y_w(:),  z_w(:)
     real*8               :: tri_area, B2, Bn, r1(3), r2(3), r3(3), r21(3), r32(3) 
     real*8               :: nx, ny, nz, r21_cross_r32(3), x_mid, y_mid, R_mid
@@ -62,13 +62,13 @@ module mod_vacuum_fields
     end do 
 
     ! --- Calculate the total magnetic field at the triangle centers
-    allocate(bx_c(sr%ntri_w), by_c(sr%ntri_w), bz_c(sr%ntri_w))
-    allocate(bx_w(sr%ntri_w), by_w(sr%ntri_w), bz_w(sr%ntri_w))
-    allocate(bx_p(sr%ntri_w), by_p(sr%ntri_w), bz_p(sr%ntri_w))
+    allocate(bx_c(sr%ntri_w), by_c(sr%ntri_w), bz_c(sr%ntri_w), psi_c(sr%ntri_w))
+    allocate(bx_w(sr%ntri_w), by_w(sr%ntri_w), bz_w(sr%ntri_w), psi_w(sr%ntri_w))
+    allocate(bx_p(sr%ntri_w), by_p(sr%ntri_w), bz_p(sr%ntri_w), psi_p(sr%ntri_w))
 
-    call coil_fields_at_xyz(my_id, x_w, y_w, z_w, bx_c, by_c, bz_c)
-    call wall_fields_at_xyz(my_id, x_w, y_w, z_w, bx_w, by_w, bz_w)
-    call plasma_fields_at_xyz(my_id, node_list,element_list, x_w, y_w, z_w, bx_p, by_p, bz_p)
+    call coil_fields_at_xyz(my_id, x_w, y_w, z_w, bx_c, by_c, bz_c, psi_c)
+    call wall_fields_at_xyz(my_id, x_w, y_w, z_w, bx_w, by_w, bz_w, psi_w)
+    call plasma_fields_at_xyz(my_id, node_list,element_list, x_w, y_w, z_w, bx_p, by_p, bz_p, psi_p)
 
     ! ---- Do integral of the force tensor over the triangle discretized surface
     Fx = 0.d0;    Fy = 0.d0;   Fz = 0.d0
@@ -128,7 +128,7 @@ module mod_vacuum_fields
   !< This routine calculates the fields created by the STARWALL wall at given cartesian coordinates
   !< DO NOT calculate the fields exactly at the STARWALL's coil/wall triangles
   !< Otherwise singularities at those points may occur!
-  subroutine wall_fields_at_xyz(my_id,x,y,z,bx,by,bz)
+  subroutine wall_fields_at_xyz(my_id,x,y,z,bx,by,bz,psi)
 
     use constants
 
@@ -137,7 +137,7 @@ module mod_vacuum_fields
     ! --- External parameters
     integer, intent(in)     :: my_id
     real*8,  intent(in)     :: x(:), y(:), z(:)     ! Points where fields are calculated
-    real*8,  intent(inout)  :: bx(:), by(:), bz(:)
+    real*8,  intent(inout)  :: bx(:), by(:), bz(:), psi(:)
 
     ! --- Local parameters
     real*8,  allocatable    :: tripot_w(:)
@@ -168,7 +168,7 @@ module mod_vacuum_fields
 
     phi_w   = phi_w / mu_zero  ! Wall current potentials in Amperes
 
-    call triang_fields_at_xyz(my_id,x,y,z,x_w,y_w,z_w,phi_w,bx,by,bz)
+    call triang_fields_at_xyz(my_id,x,y,z,x_w,y_w,z_w,phi_w,bx,by,bz,psi)
 
     deallocate(phi_w, x_w, y_w, z_w)
 
@@ -181,7 +181,7 @@ module mod_vacuum_fields
   !< This routine calculates the fields created by the STARWALL coils at given cartesian coordinates
   !< DO NOT calculate the fields exactly at the STARWALL's coil/wall triangles
   !< Otherwise singularities at those points may occur!
-  subroutine coil_fields_at_xyz(my_id,x,y,z,bx,by,bz, icoil)
+  subroutine coil_fields_at_xyz(my_id,x,y,z,bx,by,bz,psi,icoil)
 
     use constants
 
@@ -190,7 +190,7 @@ module mod_vacuum_fields
     ! --- External parameters
     integer,           intent(in)     :: my_id
     real*8,            intent(in)     :: x(:), y(:), z(:)     ! Points where fields are calculated
-    real*8,            intent(inout)  :: bx(:), by(:), bz(:)
+    real*8,            intent(inout)  :: bx(:), by(:), bz(:), psi(:)
     integer, optional, intent(in)     :: icoil ! If present, gets fields only from coil number "icoil"
 
     ! --- Local parameters
@@ -232,7 +232,7 @@ module mod_vacuum_fields
 
     phi_c   = phi_c / mu_zero  ! Wall current potentials in Amperes
 
-    call triang_fields_at_xyz(my_id,x,y,z,sr%x_coil,sr%y_coil,sr%z_coil,phi_c,bx,by,bz)
+    call triang_fields_at_xyz(my_id,x,y,z,sr%x_coil,sr%y_coil,sr%z_coil,phi_c,bx,by,bz,psi)
 
     deallocate(phi_c)
 
@@ -245,7 +245,7 @@ module mod_vacuum_fields
 
   !< This routine calculates the fields produced by currents flowing on a set of triangles
   !! at given xyz points (taken from STARWALL)
-  subroutine triang_fields_at_xyz(my_id,x,y,z,x_tri,y_tri,z_tri,phi_tri,bx,by,bz)
+  subroutine triang_fields_at_xyz(my_id,x,y,z,x_tri,y_tri,z_tri,phi_tri,bx,by,bz,psi)
 
     use constants
     use mpi_mod
@@ -257,7 +257,7 @@ module mod_vacuum_fields
     integer, intent(in)     :: my_id
     real*8,  intent(in)     :: x(:), y(:), z(:) ! Points where fields are calculated
     real*8,  intent(in)     :: x_tri(:,:), y_tri(:,:), z_tri(:,:), phi_tri(:,:)
-    real*8,  intent(inout)  :: bx(:), by(:), bz(:)
+    real*8,  intent(inout)  :: bx(:), by(:), bz(:), psi(:)
 
     ! --- Local parameters
     integer :: ierr, n_cpu, k_delta, k_min, k_max
@@ -272,19 +272,20 @@ module mod_vacuum_fields
               ,tx1,ty1,tz1,tx2,ty2,tz2,tx3,ty3,tz3         &
               ,nx,ny,nz,pi41,area,d21,d32,d13,jx,jy,jz     &
               ,dep1,dep2,dep3,dem1,dem2,dem3
-    real*8  :: Rcent, jphi, cosx, siny
+    real*8  :: Rcent, jphi, cosx, siny, green
     real*8  :: x1,y1,z1,x2,y2,z2,x3,y3,z3,sn
-    real*8,  allocatable  :: bx_tmp(:), by_tmp(:), bz_tmp(:)
+    real*8,  allocatable  :: bx_tmp(:), by_tmp(:), bz_tmp(:), Ax_tmp(:), Ay_tmp(:),  Ax(:), Ay(:)
 
     np   = size(x,1)
     ntri = size(x_tri,1)
 
     pi41 = 0.125d0/asin(1.d0)
 
-    allocate(bx_tmp(np), by_tmp(np), bz_tmp(np))
+    allocate(bx_tmp(np), by_tmp(np), bz_tmp(np), Ax_tmp(np), Ay_tmp(np))
 
-    bx     = 0.d0;  by     = 0.d0;  bz     = 0.d0;
+    bx     = 0.d0;  by     = 0.d0;  bz     = 0.d0;  psi    = 0.d0;
     bx_tmp = 0.d0;  by_tmp = 0.d0;  bz_tmp = 0.d0;
+    Ax_tmp = 0.d0;  Ay_tmp = 0.d0;  
 
     ! --- MPI initialization
     call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr) ! number of MPI procs
@@ -296,13 +297,13 @@ module mod_vacuum_fields
     ! --- OpenMP parallelization of given points loop
     !$omp parallel default(none)                                                            &
     !$omp   shared(np,x_tri,y_tri,z_tri,x,y,z, k_min, k_max,pi41,phi_tri,                   &
-    !$omp          bx_tmp, by_tmp, bz_tmp)                                                  &
+    !$omp          bx_tmp, by_tmp, bz_tmp, Ax_tmp, Ay_tmp)                                  &
     !$omp   private(i,x1,y1,z1,x2,y2,z2,x3,y3,z3,sn,h,s21,s22,s23,s1,s2,s3,al1,al2,al3,     &
     !$omp           ar1,ar2,ar3,dp1,dp2,dp3,dm1,dm2,dm3,ap1,ap2,ap3,dep1,dep2,dep3,         &
     !$omp           d21,d32,d13,tx2,ty2,tz2,tx3,ty3,tz3,d221, d232,d213,area,Rcent,cosx,    &
     !$omp           nx,ny,nz, jx,jy,jz, tx1,ty1,tz1,k,x21,y21,z21,x32,y32,z32,x13,y13,z13,  &
     !$omp           dem1,dem2,dem3,am1,am2,am3,ata1,ata2,ata3,at,vx,vy,vz,siny,jphi,        &
-    !$omp           omp_nthreads,omp_tid)
+    !$omp           omp_nthreads,omp_tid, green)
     
 #ifdef OPENMP
     omp_nthreads = omp_get_num_threads()
@@ -312,7 +313,7 @@ module mod_vacuum_fields
     omp_tid      = 0
 #endif
 
-    !$omp do reduction(+:bx_tmp, by_tmp, bz_tmp)     
+    !$omp do reduction(+:bx_tmp, by_tmp, bz_tmp, Ax_tmp, Ay_tmp)     
  
     do k=k_min, k_max    ! --- integral over wall triangles
 
@@ -418,26 +419,43 @@ module mod_vacuum_fields
         vx    = -nx*at + al1*tx3/d21+al2*tx1/d32+al3*tx2/d13
         vy    = -ny*at + al1*ty3/d21+al2*ty1/d32+al3*ty2/d13
         vz    = -nz*at + al1*tz3/d21+al2*tz1/d32+al3*tz2/d13
+        green = -h*(ata1+ata2+ata3) + ar1*al1/d21+ar2*al2/d32+ar3*al3/d13
 
         bx_tmp(i) = bx_tmp(i) + vy*jz-vz*jy
         by_tmp(i) = by_tmp(i) + vz*jx-vx*jz
         bz_tmp(i) = bz_tmp(i) + vx*jy-vy*jx
 
+        Ax_tmp(i) = Ax_tmp(i) + green*jx
+        Ay_tmp(i) = Ay_tmp(i) + green*jy
       enddo
     enddo
     !$omp end do
     !$omp end parallel
 
+    call MPI_AllReduce(bx_tmp, bx, np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call MPI_AllReduce(by_tmp, by, np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call MPI_AllReduce(bz_tmp, bz, np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 
-    call MPI_AllReduce(bx_tmp,bx,np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-    call MPI_AllReduce(by_tmp,by,np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-    call MPI_AllReduce(bz_tmp,bz,np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    deallocate(bx_tmp, by_tmp, bz_tmp) 
+    allocate(Ax(np), Ay(np))
+    Ax = 0.d0;   Ay = 0.d0;
 
-    bx = -bx * mu_zero
-    by = -by * mu_zero
-    bz = -bz * mu_zero
+    call MPI_AllReduce(Ax_tmp, Ax, np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call MPI_AllReduce(Ay_tmp, Ay, np,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+    deallocate(Ax_tmp, Ay_tmp) 
 
-    deallocate(bx_tmp, by_tmp, bz_tmp)   
+    !--- Convert Ax and Ay to psi
+    do i=1, np
+      ! --- psi  = A . ephi * R
+      ! --- ephi = (-sin, -cos),  x = Rcos, y = -R sin, thus ephi = (y,-x)/R
+      psi(i) = Ax(i)*y(i) - Ay(i)*x(i)
+    enddo ! --- evaluation points
+    deallocate(Ax, Ay)
+
+    bx  = -bx * mu_zero
+    by  = -by * mu_zero
+    bz  = -bz * mu_zero
+    psi = psi * mu_zero
 
   end subroutine triang_fields_at_xyz
 
