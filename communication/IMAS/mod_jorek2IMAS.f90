@@ -1918,8 +1918,8 @@ module mod_jorek2IMAS
     ggd_scalar%grid_index = grid_ind
     ggd_scalar%grid_subset_index = grid_sub_ind
  
-   ! --- Re-scale coefficients
-    ggd_scalar%coefficients = ggd_scalar%coefficients * res_fact
+   ! --- Re-scale values
+    ggd_scalar%values = ggd_scalar%values * res_fact
   
   end subroutine fill_node_values_with_harmonics
   

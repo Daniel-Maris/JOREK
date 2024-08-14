@@ -292,7 +292,7 @@ do i=1, n_tri
       ! Go along discretized element
       do i_s=1, n_sbnd
         s_bnd = float(i_s-1)/float(n_sbnd-1)
-        call get_st_on_bnd(s_bnd, side, s, t)
+        call get_st_on_bnd(s_bnd, side, s, t, s_const)
         call interp_RZ(sim%fields%node_list, sim%fields%element_list, i_elm, s, t, R1, R_s, R_t, Z1, Z_s, Z_t)
         if ( sqrt((R1-pos%R)**2  + (Z1-pos%Z)**2) < dist_min ) then
           R_min     = R1
