@@ -1017,6 +1017,249 @@ module mod_vacuum_fields
 
 
 
+  !< Caculate the magnetic field in a poloidal grid which 
+  !< can be larger than the JOREK domain. Needs free-boundary
+  !< since it calculates plasma, wall and coil contributions
+  !< for each Fourier harmonic.
+  subroutine mag_field_including_vacuum(RZ,B_tot)  
+
+    use phys_module, only : R_geo
+    use mod_interp
+    use mod_plasma_response,  only: plasma_fields_at_xyz
+    use mod_boundary, only: get_st_on_bnd
+    use nodes_elements
+    use constants
+
+    implicit none
+
+    ! --- External parameters
+    real*8, allocatable, dimension(:,:), intent(in)      :: RZ    !< R,Z coordinates of points 
+                                                                  !< in poloidal plane (:,1) for R, (:,2) for Z
+    real*8, allocatable, dimension(:,:,:), intent(inout) :: B_tot !< Magnetic field at given points 
+                                                                  !< B_tot(i_pol, i_harmonic, i_comp) i_comp=1 for BR
+                                                                  !< and i_comp=2 for BZ
+ 
+    ! --- Local parameters
+    real*8, allocatable, dimension(:)     :: psi_tmp, psi_sing, R_elm, Z_elm, distance 
+    real*8, allocatable, dimension(:,:)   :: RZ_vac, r_pts, r_pts_sing, psi, psi_vac, &
+                                             psi_vac_four, B_sing, B_tmp 
+    real*8, allocatable, dimension(:,:,:) :: B_vac, B_vac_four
+    real*8  :: R_out,Z_out,s_out,t_out, Ps0,Ps0_s,Ps0_t
+    real*8  :: R, R_s, R_t, Z, Z_s, Z_t, xjac, phi, tor_coeff, dist_sing
+    real*8  :: R1, Z1, dist_min, s_bnd, s_2d, t_2d, s, t
+    integer, allocatable, dimension(:)    :: i_vac, i_sing
+    integer, parameter :: n_sbnd=20, n_phi_plasma_vac = 180
+    integer :: i, j, k, m, etype, irst, int, i_var, i_tor, index, index_node, my_id, ierr
+    integer :: np, i_pol, n_out_pol, i_plane, i_glob, i_elm, i_bnd, i_min, i_s, i_glob_sing
+    integer :: ielm_out, ifail, n_sing, side,  i_best(2), n_plane_four
+    logical :: s_const
+
+    
+    n_plane_four = n_tor*2      ! Necessary number of planes for Fourier transform 
+    dist_sing    = R_geo/200.d0 ! Bad (singular) points behaviour seen below a distance of 3 cm in ITER grids
+    np = size(RZ(:,1),1)        ! Number of poloidal points
+
+    write(*,*) ' '
+    write(*,*) ' **************************************************************************'
+    write(*,*) ' *** Extend magnetic field to vacuum region *******************************'
+    write(*,*) ' **************************************************************************'
+    write(*,*) ' '
+    write(*,*) '   n_bnd_elm        = ', bnd_elm_list%n_bnd_elements
+    write(*,*) '   n_phi_plasma_vac = ', n_phi_plasma_vac
+    write(*,*) '   n_plane_four     = ', n_plane_four
+    write(*,*) '   n_poloidal       = ', np
+    write(*,'(A, F12.6, A)') '   dist_sing        = ', dist_sing, ' m, (distance below which points are treated as singular)'
+    write(*,*) ' '
+
+
+    allocate(i_vac(np))
+    allocate(psi(np,n_tor))
+    allocate(B_tot(np,n_tor,2))
+    n_out_pol = 0
+    i_vac     = 0
+    do i_pol=1, np
+      ! Check whether the point is in the JOREK domain
+      call find_RZ(node_list,element_list,RZ(i_pol,1),RZ(i_pol,2),R_out,Z_out,ielm_out,s_out,t_out,ifail)  
+      if (ifail==0) then  ! is inside domain
+        call interp_RZ(node_list, element_list, ielm_out, s_out, t_out, R, R_s, R_t, Z, Z_s, Z_t)
+        xjac = R_s * Z_t - R_t * Z_s
+        do i_tor=1, n_tor
+          call interp(node_list,element_list,ielm_out,var_psi,i_tor,s_out,t_out,Ps0,Ps0_s,Ps0_t)
+          psi(i_pol,i_tor)     = Ps0
+          B_tot(i_pol,i_tor,1) =   ( - Ps0_s * R_t + Ps0_t * R_s ) / xjac / R ! BR =  dpsi/dZ / R
+          B_tot(i_pol,i_tor,2) = - (   Ps0_s * Z_t - Ps0_t * Z_s ) / xjac / R ! BZ = -dpsi/dR / R
+        enddo
+      else
+        n_out_pol = n_out_pol + 1
+        i_vac(i_pol) = n_out_pol
+      endif
+    enddo
+
+    ! --- Get R, Z coordinates of the middle of the boundary elements (necessary to find closest point to bnd later)
+    allocate(R_elm(bnd_elm_list%n_bnd_elements), Z_elm(bnd_elm_list%n_bnd_elements))
+    allocate(distance(bnd_elm_list%n_bnd_elements))
+    do i_bnd = 1, bnd_elm_list%n_bnd_elements
+      i_elm = bnd_elm_list%bnd_element(i_bnd)%element 
+      side  = bnd_elm_list%bnd_element(i_bnd)%side
+      call get_st_on_bnd(0.5d0, side, s_2d, t_2d, s_const)
+      call interp_RZ(node_list, element_list, i_elm, 0.5d0, 0.5d0, R1, R_s, R_t, Z1, Z_s, Z_t)
+      R_elm(i_bnd) = R1
+      Z_elm(i_bnd) = Z1
+    enddo
+
+    ! --- Map RZ points outside domain to a reduced array (RZ_vac) and check whether points are too close to the bnd (singular)
+    allocate(i_sing(np))
+    allocate(RZ_vac(n_out_pol,2))
+    n_sing = 0
+    i_sing = 0
+
+    do i_pol=1, np
+      if (i_vac(i_pol)>0) then
+
+        RZ_vac(i_vac(i_pol),:) = RZ(i_pol,:)
+
+        ! --- Check whether this points are dangerously close to the boundary (singularities)
+        ! Find closest point to the boundary of the domain
+        distance  = sqrt( (R_elm-RZ(i_pol,1))**2  + (Z_elm-RZ(i_pol,2))**2)
+        i_best(1) = minloc(distance,dim=1)
+        dist_min  = distance(i_best(1))
+        
+        distance(i_best(1)) = 1d99             ! Mask the minimum value to find the second minimum
+        i_best(2)           = minloc(distance, dim=1)
+        distance(i_best(1)) = dist_min      ! Restore the original minimum distance value
+
+        dist_min = 1.d99
+
+        ! Go along two best boundary elements and find closest local coordinate
+        do i_min=1, 2
+          side   = bnd_elm_list%bnd_element(i_best(i_min))%side
+          i_elm  = bnd_elm_list%bnd_element(i_best(i_min))%element
+          ! Go along discretized element
+          do i_s=1, n_sbnd
+            s_bnd = float(i_s-1)/float(n_sbnd-1)
+            call get_st_on_bnd(s_bnd, side, s, t, s_const)
+            call interp_RZ(node_list, element_list, i_elm, s, t, R1, R_s, R_t, Z1, Z_s, Z_t)
+            if ( sqrt(  (R1-RZ(i_pol,1))**2  + (Z1-RZ(i_pol,2))**2) < dist_min ) then
+              dist_min  = sqrt((R1-RZ(i_pol,1))**2  + (Z1-RZ(i_pol,2))**2)
+            endif
+          end do
+        enddo
+        if (dist_min < dist_sing) then  
+          n_sing = n_sing + 1
+          i_sing(n_sing) = i_vac(i_pol)
+        endif
+      endif ! point is in vacuum
+    enddo  ! finished collecting vacuum and checking singular points
+
+    allocate(r_pts(n_out_pol,3))
+    allocate(r_pts_sing(n_sing,3))
+    allocate(psi_vac(n_out_pol,n_plane_four), B_vac(n_out_pol,n_plane_four,2))
+    allocate(psi_tmp(n_out_pol), B_tmp(n_out_pol,3))
+    allocate(psi_sing(n_sing),   B_sing(n_sing,3))
+    psi_vac = 0.d0;    B_vac = 0.d0;
+
+    ! --- Calculate fields for vacuum points from different contributions for each poloidal plane
+    write(*,*) '   --> Calculating plasma, wall and coil fields outside the JOREK domain...'
+    do i_plane=1, n_plane_four
+
+      ! --- Get cartesian coordinates for outside points
+      phi = 2.d0*PI*float(i_plane-1)/float(n_plane_four) / float(n_period)
+        
+      r_pts(:,1) =  RZ_vac(:,1) * cos(phi)
+      r_pts(:,2) = -RZ_vac(:,1) * sin(phi)
+      r_pts(:,3) =  RZ_vac(:,2)
+    
+      ! --- Collect singular point coordinates
+      do i=1, n_sing
+        r_pts_sing(i,:) = r_pts(i_sing(i),:)
+      enddo
+
+      ! --- Calculate fields in the vacuum produced by the plasma
+      ! --- 2D surface efficient integral (but singular in proximity of the JOREK bnd)
+      call vacuum_plasma_fields(node_list, element_list, bnd_node_list, bnd_elm_list, &
+                                n_phi_plasma_vac, r_pts, B_tmp, psi_tmp, print_params=.false. )
+      ! --- Expensive volume integral (only for singular points)
+      call plasma_fields_at_xyz(0, node_list,element_list,r_pts_sing(:,1),r_pts_sing(:,2),r_pts_sing(:,3), &
+                                B_sing(:,1),B_sing(:,2),B_sing(:,3),psi_sing) 
+
+      ! --- Replace singular points with 3D integral calculation
+      do i=1, n_sing
+        B_tmp(i_sing(i),:) = B_sing(i,:)
+        psi_tmp(i_sing(i)) = psi_sing(i)
+      enddo
+
+      psi_vac(:,i_plane) = psi_vac(:,i_plane) + psi_tmp
+      B_vac(:,i_plane,1) = B_vac(:,i_plane,1) + B_tmp(:,1)*cos(phi)-B_tmp(:,2)*sin(phi)  ! BR component
+      B_vac(:,i_plane,2) = B_vac(:,i_plane,2) + B_tmp(:,3)                               ! BZ component
+      psi_tmp  = 0.d0;     B_tmp  = 0.d0;
+      psi_sing = 0.d0;     B_sing = 0.d0;
+
+      call wall_fields_at_xyz(0,r_pts(:,1),r_pts(:,2),r_pts(:,3),B_tmp(:,1),B_tmp(:,2),B_tmp(:,3),psi_tmp) 
+      psi_vac(:,i_plane) = psi_vac(:,i_plane) + psi_tmp
+      B_vac(:,i_plane,1) = B_vac(:,i_plane,1) + B_tmp(:,1)*cos(phi)-B_tmp(:,2)*sin(phi)  ! BR component
+      B_vac(:,i_plane,2) = B_vac(:,i_plane,2) + B_tmp(:,3)                               ! BZ component
+      psi_tmp = 0.d0;     B_tmp = 0.d0;
+
+      call coil_fields_at_xyz(0,r_pts(:,1),r_pts(:,2),r_pts(:,3),B_tmp(:,1),B_tmp(:,2),B_tmp(:,3),psi_tmp) 
+      psi_vac(:,i_plane) = psi_vac(:,i_plane) + psi_tmp
+      B_vac(:,i_plane,1) = B_vac(:,i_plane,1) + B_tmp(:,1)*cos(phi)-B_tmp(:,2)*sin(phi)  ! BR component
+      B_vac(:,i_plane,2) = B_vac(:,i_plane,2) + B_tmp(:,3)                               ! BZ component
+      psi_tmp = 0.d0;     B_tmp = 0.d0;
+
+      write(*,*) '      finished with plane ', i_plane
+    enddo
+
+    deallocate(psi_tmp, B_tmp, psi_sing, B_sing)
+    write(*,*) '   done.'
+
+    ! --- Do the Fourier transform of the outside points
+    write(*,*) '   --> Transform results to Fourier series...'
+    allocate(psi_vac_four(n_out_pol,n_tor))
+    allocate(B_vac_four(n_out_pol,n_tor,2))
+    psi_vac_four = 0.d0
+    B_vac_four   = 0.d0
+    do i_tor=1, n_tor
+      do i_plane=1, n_plane_four
+
+        phi = 2.d0*PI*float(i_plane-1)/float(n_plane_four) / float(n_period)
+        if (i_tor==1) then
+          tor_coeff = 1.d0
+        else if ( mod(i_tor,2) ==0 ) then
+          tor_coeff = 2.d0 * cos(phi*float(n_period*i_tor/2) )
+        else
+          tor_coeff = 2.d0 * sin(phi*float(n_period*(i_tor-1)/2)) 
+        endif
+
+        psi_vac_four(:,i_tor) = psi_vac_four(:,i_tor) + psi_vac(:,i_plane)*tor_coeff/ float(n_plane_four)
+        B_vac_four(:,i_tor,:) = B_vac_four(:,i_tor,:) + B_vac(:,i_plane,:)*tor_coeff/ float(n_plane_four)
+        
+      enddo
+    enddo
+    
+    ! --- Map vacuum points to array for the complete set of points
+    do i_pol=1, np
+      if (i_vac(i_pol)>0) then
+        do i_tor=1, n_tor
+          psi(i_pol,i_tor)     = psi_vac_four(i_vac(i_pol),i_tor)
+          B_tot(i_pol,i_tor,:) = B_vac_four(i_vac(i_pol),i_tor,:)
+        enddo
+      endif
+    enddo
+    write(*,*) '   done.'
+
+    ! --- Some printing for debugging
+    ! do i=1, np
+    !   write(5555,'(32ES14.6)') RZ(i,1), RZ(i,2), B_tot(i,:,1)  ! BR
+    !   write(5556,'(32ES14.6)') RZ(i,1), RZ(i,2), B_tot(i,:,2)  ! BZ
+    ! enddo
+      
+  end subroutine mag_field_including_vacuum
+
+
+
+
+
+
   pure subroutine get_tri_area_norm(x, y, z, area, norm)
     real(8), intent(in) :: x(3), y(3), z(3)
     real(8), intent(inout) :: area, norm(3)
