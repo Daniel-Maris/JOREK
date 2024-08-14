@@ -41,6 +41,8 @@ jorek2vtk*
 jorek2_fieldlines_vtk
 jorek2vtk_3d
 jorek2_diagno*
+jorek2_IDS
+jorek2_fields_xyz
 jorek_to_helena
 import_eqdsk
 jorek2_main
