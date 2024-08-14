@@ -209,7 +209,7 @@ module mod_plasma_response
   !-------------------------------------------------------------------------------------
   !> Calculates the magnetic field produced by plasma currents at arbitrary x,y,z points 
   !-------------------------------------------------------------------------------------
-  subroutine plasma_fields_at_xyz(my_id, node_list,element_list, x,y,z, bx, by, bz, psip)
+  subroutine plasma_fields_at_xyz(my_id, node_list,element_list, x,y,z, bx, by, bz, psip, n_phi_int)
 
     !$ use omp_lib
     use mpi_mod
@@ -221,6 +221,7 @@ module mod_plasma_response
     type (type_element_list), intent(in) :: element_list
     real*8,  intent(in)                  :: x(:), y(:), z(:)     ! Points where fields are calculated
     real*8,  intent(inout)               :: bx(:), by(:), bz(:), psip(:)
+    integer,                  intent(in) :: n_phi_int  ! Number of points for integration in the phi direction
 
     ! --- local variables    
     type (type_element)      :: element
@@ -228,7 +229,7 @@ module mod_plasma_response
     
     real*8     :: x_g(n_gauss,n_gauss),        x_s(n_gauss,n_gauss),        x_t(n_gauss,n_gauss)
     real*8     :: y_g(n_gauss,n_gauss),        y_s(n_gauss,n_gauss),        y_t(n_gauss,n_gauss)
-    real*8     :: eq_g(n_plane,n_gauss,n_gauss)
+    real*8     :: eq_g(n_phi_int,n_gauss,n_gauss)
     
     integer    :: i, j, ms, mt, iv, inode, ife, mp, in
     integer    :: ierr, n_cpu, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
@@ -258,13 +259,13 @@ module mod_plasma_response
     bx_tmp = 0.d0;  by_tmp = 0.d0;  bz_tmp = 0.d0;
     Ax_tmp = 0.d0;  Ay_tmp = 0.d0;  Az_tmp = 0.d0;  
 
-    delta_phi = 2.d0 * PI / float(n_plane) 
+    delta_phi = 2.d0 * PI / float(n_phi_int) 
  
     wgauss_copy = wgauss
 
     ! --- OpenMP parallelization of element loop
     !$omp parallel default(none)                                                           &
-    !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ, ife_min, ife_max,        &
+    !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ, ife_min, ife_max, n_phi_int,    &
     !$omp          delta_phi, n_points, x, y, z, bx_tmp, by_tmp, bz_tmp, Ax_tmp, Ay_tmp, Az_tmp, wgauss_copy)      &
     !$omp   private(ife,iv,inode,element,nodes,i,j, in, mp, ms, mt,                        &
     !$omp           x_g, y_g, x_s, y_s, x_t, y_t, xjac, eq_g, zj0, R, xp, yp, zp, dd, phi, &
@@ -319,7 +320,7 @@ module mod_plasma_response
       do i=1,n_vertex_max
         do j=1,n_degrees
 
-          do mp=1,n_plane
+          do mp=1,n_phi_int
             do ms=1, n_gauss
               do mt=1, n_gauss
                 do in=1,n_tor
@@ -341,7 +342,7 @@ module mod_plasma_response
           R    = x_g(ms,mt)
           zp   = y_g(ms,mt)
 
-          do mp=1,n_plane
+          do mp=1,n_phi_int
 
             phi   =  float(mp-1) * delta_phi
             xp    =  R * Cos(phi)

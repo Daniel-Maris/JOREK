@@ -23,7 +23,7 @@ module mod_vacuum_fields
 
   !< This routine calculates the total wall forces by integrating the force tensor on a closed surface
   !! outside the wall (doi:10.1088/1741-4326/aa8876)
-  subroutine total_wall_forces(my_id, node_list, element_list, scale_fact, Fx, Fy, Fz)
+  subroutine total_wall_forces(my_id, node_list, element_list, scale_fact, Fx, Fy, Fz, n_phi_int)
 
     use constants
     use data_structure
@@ -38,6 +38,7 @@ module mod_vacuum_fields
     type (type_element_list),  intent(in)    :: element_list   
     real*8,                    intent(in)    :: scale_fact
     real*8,                    intent(inout) :: Fx, Fy, Fz  ! --- The total force in SI units (cartesian components)
+    integer,                   intent(in)    :: n_phi_int  ! --- Number of points for integration in the phi direction
 
     ! --- Local parameters
     real*8               :: bx, by, bz
@@ -68,7 +69,8 @@ module mod_vacuum_fields
 
     call coil_fields_at_xyz(my_id, x_w, y_w, z_w, bx_c, by_c, bz_c, psi_c)
     call wall_fields_at_xyz(my_id, x_w, y_w, z_w, bx_w, by_w, bz_w, psi_w)
-    call plasma_fields_at_xyz(my_id, node_list,element_list, x_w, y_w, z_w, bx_p, by_p, bz_p, psi_p)
+    call plasma_fields_at_xyz(my_id, node_list,element_list, x_w, y_w, z_w, &
+                              bx_p, by_p, bz_p, psi_p, n_phi_int)
 
     ! ---- Do integral of the force tensor over the triangle discretized surface
     Fx = 0.d0;    Fy = 0.d0;   Fz = 0.d0
@@ -1180,7 +1182,7 @@ module mod_vacuum_fields
                                 n_phi_plasma_vac, r_pts, B_tmp, psi_tmp, print_params=.false. )
       ! --- Expensive volume integral (only for singular points)
       call plasma_fields_at_xyz(0, node_list,element_list,r_pts_sing(:,1),r_pts_sing(:,2),r_pts_sing(:,3), &
-                                B_sing(:,1),B_sing(:,2),B_sing(:,3),psi_sing) 
+                                B_sing(:,1),B_sing(:,2),B_sing(:,3),psi_sing, n_phi_plasma_vac) 
 
       ! --- Replace singular points with 3D integral calculation
       do i=1, n_sing

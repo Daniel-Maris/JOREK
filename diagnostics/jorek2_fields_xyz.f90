@@ -59,6 +59,9 @@ program jorek2_fields_xyz
                                             stderr=>error_unit
   implicit none
  
+  ! --- Number of integration points in the toroidal direction to compute plasma fields
+  integer, parameter :: n_phi_int=64
+
   integer   :: my_id, my_id_n, my_id_master, ierr, ierr2
   integer   :: i_rank(n_tor), n_cpu, n_cpu_n, n_cpu_master, m_cpu, n_masters, n_cpu_trans, my_id_trans
   integer   :: MPI_COMM_N, MPI_GROUP_MASTER, MPI_GROUP_WORLD, MPI_COMM_MASTER, MPI_COMM_TRANS
@@ -246,7 +249,7 @@ program jorek2_fields_xyz
       bx_w = 0.d0;    by_w = 0.d0;    bz_w = 0.d0;    psi_w = 0.d0;
     endif 
 
-    call plasma_fields_at_xyz(my_id, node_list,element_list, x, y, z, bx_p, by_p, bz_p, psi_p)  
+    call plasma_fields_at_xyz(my_id, node_list,element_list, x, y, z, bx_p, by_p, bz_p, psi_p, n_phi_int)  
  
     if (my_id==0) then
       do i=1, np
