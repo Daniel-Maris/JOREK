@@ -1240,10 +1240,15 @@ module mod_vacuum_fields
     
     ! --- Map vacuum points to array for the complete set of points
     do i_pol=1, np
-      if (i_vac(i_pol)>0) then
+      if (i_vac(i_pol)>0) then ! point is in the vacuum region
         do i_tor=1, n_tor
-          psi(i_pol,i_tor)     = psi_vac_four(i_vac(i_pol),i_tor)
-          B_tot(i_pol,i_tor,:) = B_vac_four(i_vac(i_pol),i_tor,:)
+          if (is_freebound(i_tor,var_psi)) then
+            psi(i_pol,i_tor)     = psi_vac_four(i_vac(i_pol),i_tor)
+            B_tot(i_pol,i_tor,:) = B_vac_four(i_vac(i_pol),i_tor,:)
+          else ! set to 0 the harmonics that are not free-boundary in vacuum
+            psi(i_pol,i_tor)     = 0.d0
+            B_tot(i_pol,i_tor,:) = 0.d0
+          endif
         enddo
       endif
     enddo
