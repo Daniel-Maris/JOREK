@@ -411,7 +411,7 @@ module mod_plasma_response
     integer    :: i, j, ms, mt, iv, inode, ife, mp, in, i_R, i_Z, i_Phi, k, k_tor
     integer    :: ierr, n_cpu, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
     real*8     :: R, xp,yp,zp, dd, wst, xjac, delta_phi, phi, phi_HZ
-    real*8     :: B_phi, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z
+    real*8     :: B_phi, BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p, JR, JZ, J_phi, J_x, J_y, J_z, phi_points
     real*8     :: d_vec(3), J_vec(3), cross(3), dB(3)
     real*8     :: wgauss_copy(n_gauss)
     integer    :: n_points
@@ -440,6 +440,67 @@ module mod_plasma_response
 
     wgauss_copy = wgauss
 
+    ! Integration point check
+
+   ! if (my_id .eq. 0)  then
+   !   open(16072, file="integration_points_mod_plasma_response.dat", action="write")
+   !   write(16072, '(a)') "R coord, Z coord, phi coord"
+   !   do ife = ife_min, ife_max
+   !   
+   !     element = element_list%element(ife)
+   !   
+   !     do iv = 1, n_vertex_max
+   !       inode     = element%vertex(iv)
+   !       nodes(iv) = node_list%node(inode)
+   !     enddo
+   !     
+   !     x_g(:,:,:) = 0.d0; x_s(:,:,:) = 0.d0; x_t(:,:,:) = 0.d0; x_p(:,:,:) = 0.d0
+   !     y_g(:,:,:) = 0.d0; y_s(:,:,:) = 0.d0; y_t(:,:,:) = 0.d0; y_p(:,:,:) = 0.d0
+   !     B_gvec(:,:,:,:) = 0.d0; B_gvec_s(:,:,:,:) = 0.d0; B_gvec_t(:,:,:,:) = 0.d0; B_gvec_p(:,:,:,:) = 0.d0
+   !     s_norm(:,:) = 0.d0
+   !     
+   !     !--- Calculate R,Z and derivatives at gausstian points for integration point check
+   !     
+   !     do i=1,n_vertex_max
+   !       do j=1,n_degrees
+   !   
+   !         do ms=1, n_gauss
+   !           do mt=1, n_gauss
+   !             s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
+   !   
+   !             do mp=1,n_plane
+   !   
+   !               do in=1,n_coord_tor          
+   !   
+   !                 x_g(mp,ms,mt)  = x_g(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
+   !                 x_s(mp,ms,mt)  = x_s(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
+   !                 x_t(mp,ms,mt)  = x_t(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
+   !                 x_p(mp,ms,mt)  = x_p(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(in,mp)
+   !                 
+   !                 y_g(mp,ms,mt)  = y_g(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
+   !                 y_s(mp,ms,mt)  = y_s(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
+   !                 y_t(mp,ms,mt)  = y_t(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
+   !                 y_p(mp,ms,mt)  = y_p(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(in,mp)
+   !                 
+   !               enddo
+   !             enddo
+   !           enddo
+   !         enddo
+   !       enddo
+   !     enddo
+   !   
+   !     do ms=1, n_gauss
+   !       do mt=1, n_gauss
+   !         do mp=1,n_plane
+   !           phi_points   =  float(mp-1) * delta_phi   
+   !           write(16072,*), x_g(mp,ms,mt), y_g(mp,ms,mt), float(mp-1) * delta_phi
+   !         enddo
+   !       enddo
+   !     enddo
+   !   enddo
+   !   close(16072)
+   ! endif
+
     ! --- OpenMP parallelization of element loop
     !$omp parallel default(none)                                                           &
     !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ_coord, HZ_coord_p, ife_min, ife_max,        &
@@ -457,11 +518,9 @@ module mod_plasma_response
 #else
     omp_nthreads = 1
     omp_tid      = 0
-#endif
-    
-    !$omp do reduction(+:bx_tmp, by_tmp, bz_tmp)     
- 
-  
+#endif 
+
+    !$omp do reduction(+:bx_tmp, by_tmp, bz_tmp) 
     !--- Go through all the elements
     do ife = ife_min, ife_max
     
@@ -478,6 +537,7 @@ module mod_plasma_response
       s_norm(:,:) = 0.d0
       
       !--- Calculate R,Z and derivatives at gausstian points
+      
       do i=1,n_vertex_max
         do j=1,n_degrees
 
@@ -498,6 +558,7 @@ module mod_plasma_response
                   y_s(mp,ms,mt)  = y_s(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
                   y_t(mp,ms,mt)  = y_t(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
                   y_p(mp,ms,mt)  = y_p(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(in,mp)
+
                   
                   B_gvec(i_R,mp,ms,mt)   = B_gvec(i_R,mp,ms,mt)   + nodes(i)%b_field(in,j,i_R)*element%size(i,j)*H(i,j,ms,mt)*HZ_coord(in,mp)
                   B_gvec_s(i_R,mp,ms,mt) = B_gvec_s(i_R,mp,ms,mt) + nodes(i)%b_field(in,j,i_R)*element%size(i,j)*H_s(i,j,ms,mt)*HZ_coord(in,mp)
@@ -519,12 +580,13 @@ module mod_plasma_response
           enddo
         enddo
       enddo
-      
+
+                  
       !---Do gaussian and toroidal planes integration
       do ms=1, n_gauss
         do mt=1, n_gauss
           
-          ! if (s_norm(ms,mt) .gt. (1/1.2)) cycle ! limitation on s_norm
+          !if (s_norm(ms,mt) .gt. (1/1.2)) cycle ! limitation on s_norm
 
           wst  = wgauss_copy(ms)*wgauss_copy(mt)
 
@@ -532,7 +594,6 @@ module mod_plasma_response
      
             xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
             R       = x_g(mp,ms,mt)
-            !R       = x_g(mp,ms,mt) + 100
             zp      = y_g(mp,ms,mt)
 
             phi   =  float(mp-1) * delta_phi
@@ -606,12 +667,10 @@ module mod_plasma_response
           enddo
         enddo
       enddo
-      
-    
     enddo !---elements
     !$omp end do
     !$omp end parallel
-
+    
 
     call MPI_AllReduce(bx_tmp,bx,n_points,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
     call MPI_AllReduce(by_tmp,by,n_points,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)

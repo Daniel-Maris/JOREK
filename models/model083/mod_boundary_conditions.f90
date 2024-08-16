@@ -219,6 +219,9 @@ contains
 
     x_g  = 0.d0; x_s = 0.d0; x_p = 0.d0
     y_g  = 0.d0; y_s = 0.d0; y_p = 0.d0
+    
+    !open(1607, file="integration_points_mod_boundary_condition.dat", action="write")
+    !write(1607, '(a)') "R coord, Z coord"
 
     do ielm=1,N_tht
       bnd_element = boundary_list%bnd_element(ielm)
@@ -240,12 +243,21 @@ contains
                 y_g(mp,ms,ielm)  = y_g(mp,ms,ielm)  + node%x(in,j2,2)*element_size_ij*H1(i,j,ms)   *HZ_coord(in,mp)
                 y_s(mp,ms,ielm)  = y_s(mp,ms,ielm)  + node%x(in,j2,2)*element_size_ij*H1_s(i,j,ms) *HZ_coord(in,mp)
                 y_p(mp,ms,ielm)  = y_p(mp,ms,ielm)  + node%x(in,j2,2)*element_size_ij*H1(i,j,ms)   *HZ_coord_p(in,mp)
+
               end do
             end do
           end do
         end do
-      end do
+      end do 
+
+      !do ms=1,n_gauss
+      !  do mp=1,n_plane
+      !    write(1607,*), x_g(mp,ms,ielm), y_g(mp,ms,ielm)
+      !  enddo
+      !enddo
     end do
+    
+    !close(1607)
     
     Amat = 0.d0; RHS = 0.d0
     ! Integration of the RHS: it is much easier to integrate over one period than over the manifold [0,2*pi]x[chi_0,chi_0+2*pi*F_0/N_p]
