@@ -438,8 +438,8 @@ if (my_id == 0) then
 #ifndef fullmhd
   do i=1,node_list%n_nodes
   
-    node_list%node(i)%values(1,1,1) = node_list%node(i)%values(1,1,1) - psi_offset_freeb
-    psi = node_list%node(i)%values(1,1,1)
+    node_list%node(i)%values(1,1,var_psi) = node_list%node(i)%values(1,1,var_psi) - psi_offset_freeb
+    psi = node_list%node(i)%values(1,1,var_psi)
     R   = node_list%node(i)%x(1,1,1)
     Z   = node_list%node(i)%x(1,1,2)
   
@@ -493,28 +493,28 @@ if (my_id == 0) then
                                             + dn_dpsi2    * dT_dz + zn    * dT_dpsi2_dz  + 2.d0 * dn_dpsi    * dT_dpsi_dz)
   
   
-    node_list%node(i)%values(1,1,3) = zjz
+    node_list%node(i)%values(1,1,var_zj) = zjz
   
-    node_list%node(i)%values(1,2,3) = dj_dpsi * node_list%node(i)%values(1,2,1) &
-                                    + dj_dR   * node_list%node(i)%x(1,2,1)        &
-                                    + dj_dZ   * node_list%node(i)%x(1,2,2)
+    node_list%node(i)%values(1,2,var_zj) = dj_dpsi * node_list%node(i)%values(1,2,var_psi) &
+                                         + dj_dR   * node_list%node(i)%x(1,2,1)        &
+                                         + dj_dZ   * node_list%node(i)%x(1,2,2)
   
-    node_list%node(i)%values(1,3,3) = dj_dpsi * node_list%node(i)%values(1,3,1) &
-                                    + dj_dR   * node_list%node(i)%x(1,3,1)        &
-                                    + dj_dZ   * node_list%node(i)%x(1,3,2)
+    node_list%node(i)%values(1,3,var_zj) = dj_dpsi * node_list%node(i)%values(1,3,var_psi) &
+                                         + dj_dR   * node_list%node(i)%x(1,3,1)        &
+                                         + dj_dZ   * node_list%node(i)%x(1,3,2)
   
-    node_list%node(i)%values(1,4,3) = dj_dpsi  * node_list%node(i)%values(1,4,1) &
-                                    + dj_dR    * node_list%node(i)%x(1,4,1)        &
-                                    + dj_dZ    * node_list%node(i)%x(1,4,2)        &
-                                    + dj_dR_dR * node_list%node(i)%x(1,2,1) * node_list%node(i)%x(1,3,1)  &
-                                    + dj_dZ_dZ * node_list%node(i)%x(1,2,2) * node_list%node(i)%x(1,3,2)  &
-                                    + dj_dpsi2 * node_list%node(i)%values(1,2,1) * node_list%node(i)%values(1,3,1)  &
-                                    + dj_dR_dZ * ( node_list%node(i)%x(1,2,1) * node_list%node(i)%x(1,3,2)          &
-                                                 + node_list%node(i)%x(1,3,1) * node_list%node(i)%x(1,2,2) )        &
-                                    + dj_dR_dpsi*( node_list%node(i)%x(1,2,1) * node_list%node(i)%values(1,3,1)   &
-                                                 + node_list%node(i)%x(1,3,1) * node_list%node(i)%values(1,2,1) ) &
-                                    + dj_dZ_dpsi*( node_list%node(i)%x(1,2,2) * node_list%node(i)%values(1,3,1)   &
-                                                 + node_list%node(i)%x(1,3,2) * node_list%node(i)%values(1,2,1) )
+    node_list%node(i)%values(1,4,var_zj) = dj_dpsi  * node_list%node(i)%values(1,4,var_psi) &
+                                         + dj_dR    * node_list%node(i)%x(1,4,1)        &
+                                         + dj_dZ    * node_list%node(i)%x(1,4,2)        &
+                                         + dj_dR_dR * node_list%node(i)%x(1,2,1) * node_list%node(i)%x(1,3,1)  &
+                                         + dj_dZ_dZ * node_list%node(i)%x(1,2,2) * node_list%node(i)%x(1,3,2)  &
+                                         + dj_dpsi2 * node_list%node(i)%values(1,2,var_psi) * node_list%node(i)%values(1,3,var_psi)  &
+                                         + dj_dR_dZ * ( node_list%node(i)%x(1,2,1) * node_list%node(i)%x(1,3,2)          &
+                                                      + node_list%node(i)%x(1,3,1) * node_list%node(i)%x(1,2,2) )        &
+                                         + dj_dR_dpsi*( node_list%node(i)%x(1,2,1) * node_list%node(i)%values(1,3,var_psi)   &
+                                                      + node_list%node(i)%x(1,3,1) * node_list%node(i)%values(1,2,var_psi) ) &
+                                         + dj_dZ_dpsi*( node_list%node(i)%x(1,2,2) * node_list%node(i)%values(1,3,var_psi)   &
+                                                      + node_list%node(i)%x(1,3,2) * node_list%node(i)%values(1,2,var_psi) )
 
     ! --- Add contribution of current ropes
     if ((.not. restart) .and. (n_jropes .ne. 0)) then
