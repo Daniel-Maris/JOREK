@@ -1215,7 +1215,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 #endif
   
   call HDF5_real_reading(file_id,F_0,'F0')
-  if (F_0 .ne. F0) then
+  if (abs(F_0 - F0) .gt. 1.d-16) then
     write(*,*) "Error: F0 in restart file and namelist are inconsistent: ", F_0, F0
     stop
   endif
