@@ -367,9 +367,6 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
 
   ! for axis treatment setting
   character(len=50)        :: t_treat_axis
-  
-  ! stellarator fixed temperature parameters
-  real*8                   :: T_0_hdf5, Ti_0_hdf5, Te_0_hdf5
 
   ! local variables
   real*8, allocatable :: spi_R_arr (:)
