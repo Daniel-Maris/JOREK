@@ -636,33 +636,14 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
        node_list%n_nodes,n_coord_tor,n_degrees,n_dim+1,'j_field'//char(0))
   call HDF5_array4D_saving(file_id,t_b_field, &
        node_list%n_nodes,n_coord_tor,n_degrees,n_dim+1,'b_field'//char(0))
+#endif /* JOREK_MODEL == 180 */
 
-  ! Loop through nodes to find maximum temperature in the domain
-#ifdef WITH_TiTe
-  Ti_0_hdf5 = -1.0; Te_0_hdf5 = -1.0
-  do i=1,node_list%n_nodes
-    Ti_0_hdf5 = max(Ti_0_hdf5, node_list%node(i)%values(1,1,var_Ti))
-    Te_0_hdf5 = max(Te_0_hdf5, node_list%node(i)%values(1,1,var_Te))
-  enddo ! n_nodes
-  write(*,*) "Stored value of Ti_0, Te_0: ", Ti_0_hdf5, Te_0_hdf5
-  call HDF5_real_saving(file_id,Ti_0_hdf5,'Ti_0'//char(0))
-  call HDF5_real_saving(file_id,Te_0_hdf5,'Te_0'//char(0))
-#else
-  T_0_hdf5 = -1.0
-  do i=1,node_list%n_nodes
-    T_0_hdf5 = max(T_0_hdf5, node_list%node(i)%values(1,1,var_T))
-  enddo ! n_nodes
-  write(*,*) "Stored value of T_0: ", T_0_hdf5
-  call HDF5_real_saving(file_id,T_0_hdf5,'T_0'//char(0))
-#endif
-#else /* JOREK_MODEL != 180 */
 #ifdef WITH_TiTe
   call HDF5_real_saving(file_id,Ti_0,'Ti_0'//char(0))
   call HDF5_real_saving(file_id,Te_0,'Te_0'//char(0))
 #else
   call HDF5_real_saving(file_id,T_0,'T_0'//char(0))
 #endif
-#endif /* JOREK_MODEL == 180 */
 
 #ifndef USE_DOMM
   call HDF5_array3D_saving(file_id,t_chi_correction, &
