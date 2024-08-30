@@ -81,12 +81,14 @@ end subroutine test_get_filename
 subroutine test_write_read_sim_time
   use mpi
   implicit none
-  type(particle_sim) :: sim_to_write, sim_to_read
+  real*8,parameter           :: filename_time=21.19d0
+  character(len=9),parameter :: expected_filename='part21.h5'
+  type(particle_sim)         :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
   class(read_action), allocatable  :: reader
   logical :: file_exists
   allocate(writer, reader)
-  sim_to_write%time = 21.19d0; sim_to_write%my_id = rank_loc;
+  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc;
   writer%decimal_digits = 2; writer%fractional_digits = 0
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
@@ -94,36 +96,38 @@ subroutine test_write_read_sim_time
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
-  inquire(file='part21.h5', exist=file_exists)
+  inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%filename = 'part21.h5'
+  reader%filename = expected_filename
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that the right time was read
   call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file")
   ! Delete the file
-  call remove_file(rank_loc,'part21.h5',ifail_loc)
+  call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_read_sim_time
 
 subroutine test_write_sim_one_particle_kinetic_leapfrog
   use mpi
   implicit none
-  type(particle_sim) :: sim_to_write, sim_to_read
+  real*8,parameter                 :: filename_time=20d0
+  character(len=19),parameter      :: expected_filename='part020.00000000.h5'
+  type(particle_sim)               :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
   allocate(writer, reader);  allocate(sim_to_write%groups(1));
   call allocate_particles(sim_to_write%groups(1)%particles, 1)
-  sim_to_write%time = 21.d0; sim_to_write%my_id = rank_loc;
+  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc;
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
-  inquire(file='part020.00000000.h5', exist=file_exists)
+  inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time
@@ -141,13 +145,15 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
     end if
   end if
   ! Delete the file
-  call remove_file(rank_loc,'part020.00000000.h5',ifail_loc)
+  call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_one_particle_kinetic_leapfrog
 
 subroutine test_write_sim_one_group_boris
   use mpi
   implicit none
-  type(particle_sim) :: sim_to_write, sim_to_read
+  real*8,parameter                 :: filename_time=21d0
+  character(len=19),parameter      :: expected_filename='part021.00000000.h5'
+  type(particle_sim)               :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
   class(read_action), allocatable  :: reader
   logical :: file_exists
@@ -155,14 +161,14 @@ subroutine test_write_sim_one_group_boris
   allocate(writer, reader); allocate(sim_to_write%groups(1));
   call allocate_particles(sim_to_write%groups(1)%particles, 2)
   sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
-  sim_to_write%time = 21.d0; sim_to_write%groups(1)%Z = 2;
+  sim_to_write%time = filename_time; sim_to_write%groups(1)%Z = 2;
   sim_to_write%groups(1)%mass = 2.0
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
-  inquire(file='part021.00000000.h5', exist=file_exists)
+  inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time
@@ -184,13 +190,15 @@ subroutine test_write_sim_one_group_boris
     call assert_equals(2.0, sim_to_read%groups(1)%mass, 'mass equal')
   end if
   ! Delete the file
-  call remove_file(rank_loc,'part021.00000000.h5',ifail_loc)
+  call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_one_group_boris
 
 subroutine test_write_sim_two_groups_boris
   use mpi
   implicit none
-  type(particle_sim) :: sim_to_write, sim_to_read
+  real*8,parameter                 :: filename_time=22d0;
+  character(len=19),parameter      :: expected_filename='part022.00000000.h5'
+  type(particle_sim)               :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
   class(read_action), allocatable  :: reader
   logical :: file_exists
@@ -198,14 +206,14 @@ subroutine test_write_sim_two_groups_boris
   allocate(writer, reader); allocate(sim_to_write%groups(2));
   call allocate_particles(sim_to_write%groups(1)%particles, 2)
   call allocate_particles(sim_to_write%groups(2)%particles, 2)
-  sim_to_write%time = 21.d0; sim_to_write%my_id = rank_loc;
+  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc;
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
-  inquire(file='part022.00000000.h5', exist=file_exists)
+  inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time
@@ -227,11 +235,10 @@ subroutine test_write_sim_two_groups_boris
     end do
   end if
   ! Delete the file
-  call remove_file(rank_loc,'part022.00000000.h5',ifail_loc)
+  call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_two_groups_boris
 
 !> Tools ------------------------------------------
-
 !> Helper function for removing files
 subroutine remove_file(rank,filename,ifail)
   use mpi
