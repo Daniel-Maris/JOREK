@@ -15,7 +15,18 @@ module data_structure
     real*8     :: x(n_coord_tor,n_degrees,n_dim)        !< x,y,z coordinates of points and additional nodal geometry
     real*8     :: values(n_tor,n_degrees,n_var)   !< Variable values and derivatives
     real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
-#ifdef fullmhd
+#if STELLARATOR_MODEL
+    real*8     :: r_tor_eq(n_degrees)                     !< radial coordinate from GVEC (square root of normalised toroidal flux)
+#if JOREK_MODEL == 180
+    real*8     :: pressure(n_degrees)                     !< scalar pressure from GVEC
+    real*8     :: j_field(n_coord_tor,n_degrees,n_dim+1)  !< current density R, Z, phi components from GVEC
+    real*8     :: b_field(n_coord_tor,n_degrees,n_dim+1)  !< magnetic field  R, Z, phi components from GVEC
+#endif
+#ifndef USE_DOMM
+    real*8     :: chi_correction(n_coord_tor,n_degrees)   !< correction to the vacuum magnetic field
+#endif 
+    real*8     :: j_source(n_tor,n_degrees)               !< Current source in a stellarator
+#elif fullmhd
     real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes
     real*8     :: Fprof_eq(n_degrees)             !< equilibrium profile R*B_phi at the nodes
 #elif altcs
@@ -52,6 +63,9 @@ module data_structure
     integer :: sons(4)                            !< Sons of the element (=0 if no son)"refinement"
     integer :: contain_node(5)                    !< nodes belonging to the element"refinement"
     integer :: nref                               !< How the element has been refined (if so)"refinement"
+#if STELLARATOR_MODEL
+    real*8,dimension(:,:,:,:,:,:),allocatable :: chi       !< Vacuum field potential chi on Gaussian points
+#endif
   end type type_element
 
   type type_element_list                          !< type definition for a list of elements
@@ -115,9 +129,9 @@ module data_structure
      real*8, dimension (:)    , allocatable :: RHS2
 
      real*8, dimension(:,:,:,:) , allocatable :: eq_g, eq_s, eq_t
-     real*8, dimension(:,:,:,:) , allocatable :: eq_p, eq_pp
-     real*8, dimension(:,:,:,:) , allocatable:: eq_ss, eq_st, eq_tt   
-     real*8, dimension(:,:,:,:) , allocatable :: delta_g, delta_s, delta_t
+     real*8, dimension(:,:,:,:) , allocatable :: eq_p, eq_pp, eq_sp, eq_tp
+     real*8, dimension(:,:,:,:) , allocatable :: eq_ss, eq_st, eq_tt   
+     real*8, dimension(:,:,:,:) , allocatable :: delta_g, delta_s, delta_t, delta_p
 
      real*8, dimension(:), allocatable  :: synch_buff
   END TYPE type_thread_buffer
@@ -252,9 +266,12 @@ contains
           call tr_allocate(thread_struct(i)%eq_st  ,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"eq_st",CAT_MATELEM)
           call tr_allocate(thread_struct(i)%eq_tt  ,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"eq_tt",CAT_MATELEM)
           call tr_allocate(thread_struct(i)%eq_pp  ,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"eq_pp",CAT_MATELEM) 
+          call tr_allocate(thread_struct(i)%eq_sp  ,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"eq_sp",CAT_MATELEM) 
+          call tr_allocate(thread_struct(i)%eq_tp  ,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"eq_tp",CAT_MATELEM) 
           call tr_allocate(thread_struct(i)%delta_g,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"delta_g",CAT_MATELEM) 
           call tr_allocate(thread_struct(i)%delta_s,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"delta_s",CAT_MATELEM)
           call tr_allocate(thread_struct(i)%delta_t,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"delta_t",CAT_MATELEM)
+          call tr_allocate(thread_struct(i)%delta_p,1,n_plane,1,n_var,1,n_gauss,1,n_gauss,"delta_p",CAT_MATELEM)
           thread_struct(i)%eq_g    = 0.d0
           thread_struct(i)%eq_s    = 0.d0
           thread_struct(i)%eq_t    = 0.d0
@@ -263,9 +280,12 @@ contains
           thread_struct(i)%eq_st   = 0.d0
           thread_struct(i)%eq_tt   = 0.d0
           thread_struct(i)%eq_pp   = 0.d0
+          thread_struct(i)%eq_sp   = 0.d0
+          thread_struct(i)%eq_tp   = 0.d0
           thread_struct(i)%delta_g = 0.d0
           thread_struct(i)%delta_s = 0.d0
           thread_struct(i)%delta_t = 0.d0
+          thread_struct(i)%delta_p = 0.d0
 #ifdef COMPARE_ELEMENT_MATRIX
           call tr_allocate(thread_struct(i)%ELM2,  1,n_tor*n_vertex_max*n_degrees*n_var,1,n_tor*n_vertex_max*n_degrees*n_var,"ELM2",CAT_MATELEM)
           call tr_allocate(thread_struct(i)%RHS2,  1,n_tor*n_vertex_max*n_degrees*n_var,"RHS2",CAT_MATELEM)
@@ -297,9 +317,12 @@ contains
        call tr_deallocate(thread_struct(i)%eq_st  ,"eq_st",CAT_MATELEM)
        call tr_deallocate(thread_struct(i)%eq_tt  ,"eq_tt",CAT_MATELEM)
        call tr_deallocate(thread_struct(i)%eq_pp  ,"eq_pp",CAT_MATELEM) 
+       call tr_deallocate(thread_struct(i)%eq_sp  ,"eq_sp",CAT_MATELEM) 
+       call tr_deallocate(thread_struct(i)%eq_tp  ,"eq_tp",CAT_MATELEM) 
        call tr_deallocate(thread_struct(i)%delta_g,"delta_g",CAT_MATELEM) 
        call tr_deallocate(thread_struct(i)%delta_s,"delta_s",CAT_MATELEM)
        call tr_deallocate(thread_struct(i)%delta_t,"delta_t",CAT_MATELEM)
+       call tr_deallocate(thread_struct(i)%delta_p,"delta_p",CAT_MATELEM)
 #ifdef COMPARE_ELEMENT_MATRIX
        call tr_deallocate(thread_struct(i)%ELM2,"ELM2",CAT_MATELEM)
        call tr_deallocate(thread_struct(i)%RHS2,"RHS2",CAT_MATELEM)
