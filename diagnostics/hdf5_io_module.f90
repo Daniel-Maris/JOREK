@@ -1096,11 +1096,13 @@ module hdf5_io_module
     integer,intent(in),optional   :: mpi_rank,n_mpi_tasks
     logical,intent(in),optional   :: legacy_in    
     integer                       :: error     ! error flag
+    integer                       :: rank      ! dataset rank
     integer(HID_T)                :: dataset   ! dataset identifier
     integer(HID_T)                :: filespace ! filespace identifier
     integer(HID_T)                :: dataspace ! dataspace identifier
     integer(HID_T)                :: type_id   ! string type identifier
     integer(HSIZE_T),dimension(1) :: dim       ! dimensions
+    integer(HSIZE_T),dimension(1) :: dims,maxdims ! sized of the datsets
     logical                       :: exists    ! true if dataset exists
     logical                       :: legacy    ! if true, do not use hyperslab
                                                ! for backward compatibility
@@ -1120,10 +1122,15 @@ module hdf5_io_module
     endif
     !*** set the string datatype
     call H5Dget_type_f(dataset,type_id,error)
+    !*** get size of the dataspace
+    call H5dget_space_f(dataset,dataspace,error)
+    call H5Sget_simple_extent_ndims_f(dataspace,rank,error)
+    if(rank.eq.1) call H5Sget_simple_extent_dims_f(dataspace,dims,maxdims,error)
     !*** read the string data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy)) then
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    (rank.eq.1).and.(dims(1).gt.1)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
@@ -1272,7 +1279,9 @@ module hdf5_io_module
     integer             :: error     ! error flag
     integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
-      dimension(1)      :: dim       ! dataset dimensions
+      dimension(1)      :: dim       ! desired dataset dimensions
+    integer(HSIZE_T), &
+      dimension(1)      :: dims,maxdims ! dataset dimensions
     integer(HID_T)      :: dataset   ! dataset identifier
     integer(HID_T)      :: dataspace ! dataspace identifier
     integer(HID_T)      :: data_type
@@ -1294,10 +1303,15 @@ module hdf5_io_module
       write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
       return
     endif
+    !*** get size of the dataspace
+    call H5dget_space_f(dataset,dataspace,error)
+    call H5Sget_simple_extent_ndims_f(dataspace,rank,error)
+    if(rank.eq.1) call H5Sget_simple_extent_dims_f(dataspace,dims,maxdims,error)
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy)) then
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    (rank.eq.1).and.(dims(1).gt.1)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
@@ -1613,6 +1627,7 @@ module hdf5_io_module
     integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
       dimension(1)      :: dim       ! dataset dimensions
+    integer(HSIZE_T),dimension(1) :: dims,maxdims ! dataset dimensions
     integer(HID_T)      :: dataset   ! dataset identifier
     integer(HID_T)      :: dataspace ! dataspace identifier
     integer(HID_T)      :: data_type
@@ -1634,10 +1649,15 @@ module hdf5_io_module
       write(*,*) "WARNING: error in opening the dataset ",dsetname,"!"
       return
     endif
+    !*** get size of the dataspace
+    call H5dget_space_f(dataset,dataspace,error)
+    call H5Sget_simple_extent_ndims_f(dataspace,rank,error)
+    if(rank.eq.1) call H5Sget_simple_extent_dims_f(dataspace,dims,maxdims,error)
     !*** read the double data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy)) then
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    (rank.eq.1).and.(dims(1).gt.int(1,kind=HSIZE_T))) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
