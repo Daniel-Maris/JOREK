@@ -1158,16 +1158,18 @@ module hdf5_io_module
     integer,                       intent(in), optional :: mpi_rank,n_mpi_tasks
     logical,                       intent(in), optional :: legacy_in
     
-    integer                       :: error     ! error flag
-    integer(HID_T)                :: dataset   ! dataset identifier
-    integer(HID_T)                :: filespace ! filespace identifier
-    integer(HID_T)                :: dataspace ! dataspace identifier
-    integer(HID_T)                :: type_id   ! string type identifier
-    integer(HSIZE_T)              :: len_char  ! character length
-    integer(HSIZE_T),dimension(1) :: dim       ! dimensions
-    logical                       :: exists    ! true if dataset exists
-    logical                       :: legacy    ! if true, do not use hyperslab
-                                               ! for backward compatibility
+    integer                       :: error        ! error flag
+    integer                       :: rank         ! rank of the array
+    integer(HID_T)                :: dataset      ! dataset identifier
+    integer(HID_T)                :: filespace    ! filespace identifier
+    integer(HID_T)                :: dataspace    ! dataspace identifier
+    integer(HID_T)                :: type_id      ! string type identifier
+    integer(HSIZE_T)              :: len_char     ! character length
+    integer(HSIZE_T),dimension(1) :: dim          ! dimensions
+    integer(HSIZE_T),dimension(1) :: dims,maxdims ! dimensions of the array
+    logical                       :: exists       ! true if dataset exists
+    logical                       :: legacy       ! if true, do not use hyperslab
+                                                  ! for backward compatibility
     !*** preset parameters ***
     legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
     !*** check if dataset exists otherwise return ***
@@ -1188,10 +1190,15 @@ module hdf5_io_module
     !*** allocate character 
     if(allocated(charvar)) deallocate(charvar)
     allocate(character(len=int(len_char))::charvar)
+    !*** get size of the dataspace
+    call H5dget_space_f(dataset,dataspace,error)
+    call H5Sget_simple_extent_ndims_f(dataspace,rank,error)
+    if(rank.eq.1) call H5Sget_simple_extent_dims_f(dataspace,dims,maxdims,error)
     !*** read the string data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy)) then
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    (rank.eq.1).and.(dims(1).gt.int(1,kind=HSIZE_T))) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
