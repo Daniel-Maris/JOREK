@@ -93,7 +93,7 @@ subroutine test_write_read_sim_time
   sim_to_write%n_cpu = n_tasks_loc;
   writer%decimal_digits = 2; writer%fractional_digits = 0
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
-  writer%file_access = file_access;
+  writer%file_access = file_access; writer%original = .false.;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
@@ -134,6 +134,7 @@ subroutine test_write_original_read_sim_time
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%filename = expected_filename; reader%original = .false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  reader%original = .false.;
   call reader%run(sim_to_read)
   ! Test that the right time was read
   call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file (write original)")
@@ -153,28 +154,35 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   integer,dimension(1),parameter   :: n_particles_expect=(/1/)
   real*8,parameter                 :: filename_time=20d0
   character(len=19),parameter      :: expected_filename='part020.00000000.h5'
-  type(particle_sim)               :: sim_to_write, sim_to_read
+  type(particle_sim)               :: sim_to_write, sim_to_read, sim_to_read_original
   class(write_action), allocatable :: writer
-  class(read_action), allocatable  :: reader
+  class(read_action), allocatable  :: reader, reader_original
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer, reader);  allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader, reader_original); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc;
+  sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
+  sim_to_write%groups(1)%mass = 1d3
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
-  writer%file_access = file_access;
+  writer%file_access = file_access; writer%original = .false.;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write%time
+  reader%time = sim_to_write%time; reader%original = .false.
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect)
+  ! Test compatibility with old reader
+  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
+  reader_original%time = sim_to_write%time; reader_original%original = .true.;
+  call reader_original%run(sim_to_read_original)
+  ! Test that we have the right stuff in sim_to_read_original now
+  call groups_same(sim_to_write,sim_to_read_original,n_groups_expect,n_particles_expect)
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_one_particle_kinetic_leapfrog
