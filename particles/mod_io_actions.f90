@@ -9,21 +9,22 @@ public io_action, read_action, write_action, &
     get_filename
 
 type, extends(action), abstract :: io_action
-  character(len=120), public :: filename = '' !< Filename to use
-  character(len=80), public  :: basename = 'part' !< If no filename, use basename + digits
-  integer, public            :: decimal_digits = 3 !< Number of decimals before the point in timestamp
+  character(len=120), public :: filename = ''         !< Filename to use
+  character(len=80), public  :: basename = 'part'     !< If no filename, use basename + digits
+  integer, public            :: decimal_digits = 3    !< Number of decimals before the point in timestamp
   integer, public            :: fractional_digits = 8 !< Number of decimals after the point
-  character(len=5), public   :: extension = '.h5'
-  integer, public            :: access_type = 1 !< type of access to the hdf5 file 1: mpi collective
-  integer, public            :: mpi_comm_io !< mpi communicator
-  integer, public            :: mpi_info_io !< mpi information 
+  character(len=5), public   :: extension = '.h5'     !< I/O file type extension
+  integer, public            :: access_type = 1       !< type of access to the hdf5 file 1: mpi collective
+  integer, public            :: mpi_comm_io           !< mpi communicator
+  integer, public            :: mpi_info_io           !< mpi information 
+  logical, public            :: original = .false.    !< if true, use original I/O procedures (needed only for legacy)
   contains
     procedure :: get_filename
 end type io_action
 
 type, extends(io_action) :: read_action
-  real*8  :: time !< used with the formats from io_action if filename is unset
-  logical :: legacy=.false. !< if true read old io files
+  real*8  :: time             !< used with the formats from io_action if filename is unset
+  logical :: legacy = .false. !< if true read old io files
 contains
   procedure :: do => do_read_action
 end type read_action
@@ -65,7 +66,7 @@ end function get_filename
 !> Constructor for read_action.
 !> Be sure to use keyword arguments when initializing, to avoid confusion
 function new_read_action(filename, basename, decimal_digits, fractional_digits, extension, &
-access_type_in, mpi_comm_in, mpi_info_in, legacy_in)
+access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in)
   use mpi
   implicit none
   type(read_action) :: new_read_action
@@ -75,7 +76,7 @@ access_type_in, mpi_comm_in, mpi_info_in, legacy_in)
   integer, intent(in), optional          :: fractional_digits
   character(len=*), intent(in), optional :: extension
   integer,          intent(in), optional :: access_type_in,mpi_comm_in,mpi_info_in
-  logical,          intent(in), optional :: legacy_in
+  logical,          intent(in), optional :: legacy_in,original_in
   new_read_action%mpi_comm_io = MPI_COMM_WORLD
   new_read_action%mpi_info_io = MPI_INFO_NULL
   if (present(filename)) new_read_action%filename = filename
@@ -87,6 +88,7 @@ access_type_in, mpi_comm_in, mpi_info_in, legacy_in)
   if (present(mpi_comm_in)) new_read_action%mpi_comm_io = mpi_comm_in
   if (present(mpi_info_in)) new_read_action%mpi_info_io = mpi_info_in
   if (present(legacy_in)) new_read_action%legacy = legacy_in
+  if (present(original_in)) new_read_action%original = original_in
   new_read_action%name = "ReadAction"
   new_read_action%log = .true.
 end function new_read_action
@@ -97,13 +99,21 @@ subroutine do_read_action(this, sim, ev)
   type(particle_sim), intent(inout) :: sim
   type(event), intent(inout), optional :: ev
   if (len_trim(this%filename) .eq. 0) then
-    call read_simulation_hdf5(sim, trim(this%get_filename(this%time)), &
-    access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
-    mpi_info_in=this%mpi_info_io, legacy_in=this%legacy)
+    if (this%original) then
+      call read_simulation_hdf5_original(sim, trim(this%get_filename(this%time)))
+    else
+      call read_simulation_hdf5(sim, trim(this%get_filename(this%time)), &
+      access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
+      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy)
+    end if
   else
-    call read_simulation_hdf5(sim, trim(this%filename), &
-    access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
-    mpi_info_in=this%mpi_info_io, legacy_in=this%legacy)
+    if (this%original) then
+      call read_simulation_hdf5_original(sim, trim(this%filename))
+    else
+      call read_simulation_hdf5(sim, trim(this%filename), &
+      access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
+      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy)
+    end if
   end if
 end subroutine do_read_action
 
@@ -111,7 +121,7 @@ end subroutine do_read_action
 !> Constructor for write_action
 !> Be sure to use keyword arguments when initializing, to avoid confusion
 function new_write_action(filename, basename, decimal_digits, fractional_digits, extension, &
-file_access_in, access_type_in, mpi_comm_in, mpi_info_in, type_dataset_transfert_in)
+file_access_in, access_type_in, mpi_comm_in, mpi_info_in, type_dataset_transfert_in,original_in)
   use mpi
   use hdf5, only: H5F_ACC_TRUNC_F
   implicit none
@@ -123,6 +133,7 @@ file_access_in, access_type_in, mpi_comm_in, mpi_info_in, type_dataset_transfert
   character(len=*), intent(in), optional :: extension
   integer,          intent(in), optional :: file_access_in,mpi_comm_in,mpi_info_in
   integer,          intent(in), optional :: access_type_in,type_dataset_transfert_in
+  logical,          intent(in), optional :: original_in
   new_write_action%name = "WriteAction"
   new_write_action%log = .true.
   new_write_action%file_access = H5F_ACC_TRUNC_F
@@ -138,6 +149,7 @@ file_access_in, access_type_in, mpi_comm_in, mpi_info_in, type_dataset_transfert
   if (present(mpi_comm_in)) new_write_action%mpi_comm_io = mpi_comm_in
   if (present(mpi_info_in)) new_write_action%mpi_info_io = mpi_info_in
   if (present(type_dataset_transfert_in)) new_write_action%type_dataset_transfert = type_dataset_transfert_in
+  if (present(original_in)) new_write_action%original = original_in
 end function new_write_action
 
 !> Action for writing the simulation
@@ -146,15 +158,23 @@ subroutine do_write_action(this, sim, ev)
   type(particle_sim), intent(inout)  :: sim
   type(event), intent(inout), optional :: ev
   if (len_trim(this%filename) .eq. 0) then
-    call write_simulation_hdf5(sim, trim(this%get_filename(sim%time)), &
-    file_access_in=this%file_access, access_type_in=this%access_type, &
-    type_dataset_transfert_in=this%type_dataset_transfert, &
-    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
+    if (this%original) then
+      call write_simulation_hdf5_original(sim, trim(this%get_filename(sim%time))) 
+    else
+      call write_simulation_hdf5(sim, trim(this%get_filename(sim%time)), &
+      file_access_in=this%file_access, access_type_in=this%access_type, &
+      type_dataset_transfert_in=this%type_dataset_transfert, &
+      mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
+    end if
   else
-    call write_simulation_hdf5(sim, trim(this%filename), &
-    file_access_in=this%file_access, access_type_in=this%access_type, &
-    type_dataset_transfert_in=this%type_dataset_transfert, &
-    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
+    if (this%original) then
+      call write_simulation_hdf5_original(sim, trim(this%filename)) 
+    else
+      call write_simulation_hdf5(sim, trim(this%filename), &
+      file_access_in=this%file_access, access_type_in=this%access_type, &
+      type_dataset_transfert_in=this%type_dataset_transfert, &
+      mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
+    end if
   end if
 end subroutine do_write_action
 end module mod_io_actions
