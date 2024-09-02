@@ -697,6 +697,7 @@ use hdf5_io_module, only: HDF5_real_reading,HDF5_char_reading,HDF5_integer_readi
 use hdf5_io_module, only: HDF5_array1D_reading,HDF5_array2D_reading
 use hdf5_io_module, only: HDF5_array1D_reading_int,HDF5_array1D_reading_r4
 use hdf5_io_module, only: HDF5_allocatable_array1D_reading
+use hdf5_io_module, only: HDF5_array1D_reading_char
 use mod_particle_types, only: particle_kinetic,particle_kinetic_leapfrog
 use mod_particle_types, only: particle_gc,particle_gc_vpar
 use mod_particle_types, only: particle_gc_Qin
@@ -707,6 +708,7 @@ use mod_openadas,   only: read_adf11
 use mod_coronal
 use mod_particle_sim, only: particle_sim
 integer(HSIZE_T), parameter :: particle_type_name_length = 40 !< length of the string used to identify a specific type of particle. Required for using the original I/O procedures
+integer(HSIZE_T), parameter :: adas_suffix_length = 8
 type(particle_sim) , intent(inout) :: sim
 character*(*)      , intent(in)    :: filename
 
@@ -723,6 +725,8 @@ integer           :: n_here
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
 character(len=particle_type_name_length) :: particle_type_name
+character(len=particle_type_name_length),dimension(:),allocatable :: particle_type_names !< DEBUG DEBUG DEBUG
+character(len=adas_suffix_length),dimension(:),allocatable        :: adas_suffices !< DEBUG DEBUG DEBUG
 integer           :: i, j, n, hdferr, n_alive
 integer, allocatable :: n_alive_all(:)
 logical           :: exists
@@ -760,6 +764,7 @@ call h5gclose_f(group_id, hdferr)
 ! Reallocate groups if necessary
 if (allocated(sim%groups)) deallocate(sim%groups)
 allocate(sim%groups(n))
+allocate(particle_type_names(n_cpu)); allocate(adas_suffices(n_cpu));
 do i=1,n
   ! Open the dataset for x
   write(group_name,'(A,i0.3,A)') '/groups/', i, '/'
@@ -782,7 +787,9 @@ do i=1,n
   n_here = particles_per_proc(my_id)
 
   ! Get the particle type from the attribute
-  call HDF5_char_reading(file,particle_type_name,group_name//"type")
+  !call HDF5_char_reading(file,particle_type_name,group_name//"type") !< DEBUG DEBUG DEBUG 
+  call HDF5_array1D_reading_char(file,particle_type_names,group_name//"type") !< DEBUG DEBUG DEBUG
+  particle_type_name = particle_type_names(1); !< DEBUG DEBUG DEBUG
 
   ierr = 0
   select case (trim(particle_type_name))
@@ -809,7 +816,9 @@ do i=1,n
 
   call HDF5_integer_reading(file,sim%groups(i)%Z,group_name//"Z")
   call HDF5_real_reading(file,sim%groups(i)%mass,group_name//"mass")
-  call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
+!  call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix") !< DEBUG DEBUG DEBUG
+  call HDF5_array1D_reading_char(file,adas_suffices,group_name//"adas_suffix") !< DEBUG DEBUG DEBUG
+  sim%groups(i)%ad%suffix = adas_suffices(1) !< DEBUG DEBUG DEBUG
   if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
     sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
     sim%groups(i)%cor = coronal(sim%groups(i)%ad)
@@ -1008,7 +1017,8 @@ do i=1,n
     deallocate(int4_1D)    
 
   end select
-
+  if(allocated(particle_type_names)) deallocate(particle_type_names) !< DEBUG DEBUG DEBUG
+  if(allocated(adas_suffices))       deallocate(adas_suffices)       !< DEBUG DEBUG DEBUG
   ! Check if the balance between processors is okay, by comparing the number of
   ! alive particles
   n_alive = count(sim%groups(i)%particles(:)%i_elm .gt. 0)
