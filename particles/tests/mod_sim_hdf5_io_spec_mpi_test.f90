@@ -182,6 +182,8 @@ end subroutine test_write_sim_one_particle_kinetic_leapfrog
 subroutine test_write_sim_one_group_boris
   use mpi
   implicit none
+  integer,parameter                :: n_groups_expect=1
+  integer,dimension(1),parameter   :: n_particles_expect=(/2/)
   real*8,parameter                 :: filename_time=21d0
   character(len=19),parameter      :: expected_filename='part021.00000000.h5'
   type(particle_sim)               :: sim_to_write, sim_to_read
@@ -189,8 +191,8 @@ subroutine test_write_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer, reader); allocate(sim_to_write%groups(1));
-  call allocate_particles(sim_to_write%groups(1)%particles, 2)
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
   sim_to_write%time = filename_time; sim_to_write%groups(1)%Z = 2;
   sim_to_write%groups(1)%mass = 2.0
@@ -206,20 +208,7 @@ subroutine test_write_sim_one_group_boris
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  n_groups = size(sim_to_read%groups, 1)
-  call assert_equals(1, n_groups, 'should have one group exactly')
-  if (n_groups .eq. 1 .and. lbound(sim_to_read%groups,1) .eq. 1) then
-    n_particles = size(sim_to_read%groups(1)%particles, 1)
-    call assert_equals(2, n_particles, 'should have two particles exactly')
-    if (n_particles .eq. 2 .and. lbound(sim_to_read%groups(1)%particles,1) .eq. 1) then
-      do i=1,2
-        call assert_true(particles_same(sim_to_write%groups(1)%particles(i), sim_to_read%groups(1)%particles(i)), &
-            'particle i must be as written')
-      end do
-    end if
-    call assert_equals(2, sim_to_read%groups(1)%Z, 'Z equal')
-    call assert_equals(2.0, sim_to_read%groups(1)%mass, 'mass equal')
-  end if
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect)
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_one_group_boris
@@ -227,6 +216,8 @@ end subroutine test_write_sim_one_group_boris
 subroutine test_write_sim_two_groups_boris
   use mpi
   implicit none
+  integer,parameter                :: n_groups_expect=2
+  integer,dimension(2),parameter   :: n_particles_expect=(/2,2/)
   real*8,parameter                 :: filename_time=22d0;
   character(len=19),parameter      :: expected_filename='part022.00000000.h5'
   type(particle_sim)               :: sim_to_write, sim_to_read
@@ -234,9 +225,10 @@ subroutine test_write_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
-  allocate(writer, reader); allocate(sim_to_write%groups(2));
-  call allocate_particles(sim_to_write%groups(1)%particles, 2)
-  call allocate_particles(sim_to_write%groups(2)%particles, 2)
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  do i=1,n_groups_expect
+    call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
+  enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc;
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
@@ -251,20 +243,7 @@ subroutine test_write_sim_two_groups_boris
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  n_groups = size(sim_to_read%groups, 1)
-  call assert_equals(2, n_groups, 'should have one group exactly')
-  if (n_groups .eq. 2 .and. lbound(sim_to_read%groups,1) .eq. 1) then
-    do i=1,2
-      n_particles = size(sim_to_read%groups(i)%particles, 1)
-      call assert_equals(2, n_particles, 'should have two particles exactly')
-      if (n_particles .eq. 2 .and. lbound(sim_to_read%groups(i)%particles,1) .eq. 1) then
-        do j=1,2
-          call assert_true(particles_same(sim_to_write%groups(i)%particles(j), sim_to_read%groups(i)%particles(j)), &
-              'particle j must be as written')
-        end do
-      end if
-    end do
-  end if
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect)
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_two_groups_boris
@@ -321,7 +300,6 @@ subroutine groups_same(sim,sim_target,n_groups_expect,n_particles_expect)
   if (n_groups .eq. n_groups_expect) then
     do jj=1,n_groups
       n_particles = size(sim%groups(jj)%particles,1)
-      write(*,*) "n_particles: ",size(sim%groups(jj)%particles,1),jj
       call assert_equals(n_particles_expect(jj), n_particles, 'number of expected particles mismatch!')
       if (n_particles .eq. n_particles_expect(jj)) then
         do ii=1,n_particles
