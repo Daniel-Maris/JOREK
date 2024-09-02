@@ -149,6 +149,8 @@ end subroutine test_write_original_read_sim_time
 subroutine test_write_sim_one_particle_kinetic_leapfrog
   use mpi
   implicit none
+  integer,parameter                :: n_groups_expect=1
+  integer,dimension(1),parameter   :: n_particles_expect=(/1/)
   real*8,parameter                 :: filename_time=20d0
   character(len=19),parameter      :: expected_filename='part020.00000000.h5'
   type(particle_sim)               :: sim_to_write, sim_to_read
@@ -156,8 +158,8 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer, reader);  allocate(sim_to_write%groups(1));
-  call allocate_particles(sim_to_write%groups(1)%particles, 1)
+  allocate(writer, reader);  allocate(sim_to_write%groups(n_groups_expect));
+  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc;
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
@@ -172,16 +174,7 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  n_groups = size(sim_to_read%groups, 1)
-  call assert_equals(1, n_groups, 'should have one group exactly')
-  if (n_groups .eq. 1 .and. lbound(sim_to_read%groups,1) .eq. 1) then
-    n_particles = size(sim_to_read%groups(1)%particles, 1)
-    call assert_equals(1, n_particles, 'should have one particle exactly')
-    if (n_particles .eq. 1 .and. lbound(sim_to_read%groups(1)%particles,1) .eq. 1) then
-      call assert_true(particles_same(sim_to_write%groups(1)%particles(1), sim_to_read%groups(1)%particles(1)), &
-          'particle i must be as written')
-    end if
-  end if
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect)
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_one_particle_kinetic_leapfrog
@@ -311,6 +304,36 @@ subroutine allocate_particles(particles, n)
     end do
   end select
 end subroutine allocate_particles
+
+!> test if groups of a simulations are equals
+subroutine groups_same(sim,sim_target,n_groups_expect,n_particles_expect)
+  use mod_particle_sim, only: particle_sim
+  implicit none
+  !> inputs
+  type(particle_sim),intent(in)                 :: sim,sim_target
+  integer,intent(in)                            :: n_groups_expect
+  integer,dimension(n_groups_expect),intent(in) :: n_particles_expect
+  !> variables
+  integer :: ii,jj,n_groups,n_particles
+  ! Test that we have the right stuff in sim_to_read now
+  n_groups = size(sim%groups,1)
+  call assert_equals(n_groups_expect, n_groups, 'number of expected groups mismatch!')
+  if (n_groups .eq. n_groups_expect) then
+    do jj=1,n_groups
+      n_particles = size(sim%groups(jj)%particles,1)
+      write(*,*) "n_particles: ",size(sim%groups(jj)%particles,1),jj
+      call assert_equals(n_particles_expect(jj), n_particles, 'number of expected particles mismatch!')
+      if (n_particles .eq. n_particles_expect(jj)) then
+        do ii=1,n_particles
+          call assert_true(particles_same(sim_target%groups(jj)%particles(ii), sim%groups(jj)%particles(ii)), &
+              'particle must be as written')
+        end do
+      end if
+      call assert_equals(sim_target%groups(jj)%Z, sim%groups(jj)%Z, 'Z equal mismatch!')
+      call assert_equals(sim_target%groups(jj)%mass, sim%groups(jj)%mass, 'mass equal mismatch!')
+    enddo
+  end if
+end subroutine groups_same
 
 !> Helper function for comparing particles
 function particles_same(p1, p2) result(same)
