@@ -26,6 +26,7 @@ subroutine run_fruit_sim_hdf5_io_spec_mpi(rank,n_tasks,ifail)
   if(rank.eq.master_rank) write(*,'(/A)') "  ... running: "
   call run_test_case(test_get_filename,'test_get_filename')
   call run_test_case(test_write_read_sim_time,'test_write_read_sim_time')
+  call run_test_case(test_write_original_read_sim_time,'test_write_original_read_sim_time')
   call run_test_case(test_write_sim_one_particle_kinetic_leapfrog,'test_write_sim_one_particle_kinetic_leapfrog')
   call run_test_case(test_write_sim_one_group_boris,'test_write_sim_one_group_boris')
   call run_test_case(test_write_sim_two_groups_boris,'test_write_sim_two_groups_boris')
@@ -83,11 +84,11 @@ subroutine test_write_read_sim_time
   implicit none
   real*8,parameter           :: filename_time=21.19d0
   character(len=9),parameter :: expected_filename='part21.h5'
-  type(particle_sim)         :: sim_to_write, sim_to_read
+  type(particle_sim)         :: sim_to_write, sim_to_read, sim_to_read_original
   class(write_action), allocatable :: writer
-  class(read_action), allocatable  :: reader
+  class(read_action), allocatable  :: reader,reader_original
   logical :: file_exists
-  allocate(writer, reader)
+  allocate(writer, reader, reader_original)
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc;
   writer%decimal_digits = 2; writer%fractional_digits = 0
@@ -99,14 +100,51 @@ subroutine test_write_read_sim_time
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%filename = expected_filename
+  reader%filename = expected_filename; reader%original = .false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that the right time was read
   call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file")
+  ! Test that the original (legacy) reader works as well
+   reader_original%filename = expected_filename; reader_original%original = .true.;
+  call reader_original%run(sim_to_read_original)
+  call assert_equals(sim_to_write%time, sim_to_read_original%time, "time should be read from the file (read original)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_read_sim_time
+
+subroutine test_write_original_read_sim_time
+  use mpi
+  implicit none
+  real*8,parameter           :: filename_time=21.19d0
+  character(len=9),parameter :: expected_filename='part21.h5'
+  type(particle_sim)         :: sim_to_write, sim_to_read, sim_to_read_original
+  class(write_action), allocatable :: writer_original
+  class(read_action), allocatable  :: reader,reader_original
+  logical :: file_exists
+  allocate(writer_original, reader, reader_original)
+  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
+  sim_to_write%n_cpu = n_tasks_loc; writer_original%original = .true.;
+  writer_original%decimal_digits = 2; writer_original%fractional_digits = 0;
+  call writer_original%run(sim_to_write)
+  call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
+  ! test if a file with the right name was created
+  inquire(file=expected_filename, exist=file_exists)
+  call assert_true(file_exists, 'file with the right name should be created')
+  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  reader%filename = expected_filename; reader%original = .false.;
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  call reader%run(sim_to_read)
+  ! Test that the right time was read
+  call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file (write original)")
+  ! Test that the original (legacy) reader works as well
+   reader_original%filename = expected_filename; reader_original%original = .true.;
+  call reader_original%run(sim_to_read_original)
+  call assert_equals(sim_to_write%time, sim_to_read_original%time, &
+  "time should be read from the file (write/read original)")
+  ! Delete the file
+  call remove_file(rank_loc,expected_filename,ifail_loc)
+end subroutine test_write_original_read_sim_time
 
 subroutine test_write_sim_one_particle_kinetic_leapfrog
   use mpi
