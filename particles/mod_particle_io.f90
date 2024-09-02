@@ -696,6 +696,7 @@ use hdf5, only: h5sclose_f,h5dclose_f,h5lexists_f,h5fclose_f,h5close_f
 use hdf5_io_module, only: HDF5_real_reading,HDF5_char_reading,HDF5_integer_reading
 use hdf5_io_module, only: HDF5_array1D_reading,HDF5_array2D_reading
 use hdf5_io_module, only: HDF5_array1D_reading_int,HDF5_array1D_reading_r4
+use hdf5_io_module, only: HDF5_allocatable_array1D_reading
 use mod_particle_types, only: particle_kinetic,particle_kinetic_leapfrog
 use mod_particle_types, only: particle_gc,particle_gc_vpar
 use mod_particle_types, only: particle_gc_Qin
@@ -748,7 +749,8 @@ call h5fopen_f(filename, H5F_ACC_RDONLY_F, file, hdferr, access_prp=plist)
 call h5pclose_f(plist, hdferr)
 
 ! read the time
-call HDF5_real_reading(file,sim%time,'/time')
+call HDF5_allocatable_array1D_reading(file,real8_1D,'/time')
+sim%time = real8_1D(1); if(allocated(real8_1D)) deallocate(real8_1D);
 
 ! Get the number of groups
 call h5gopen_f(file, '/groups/', group_id, hdferr)
@@ -837,7 +839,7 @@ do i=1,n
     sim%groups(i)%particles(j)%weight = real8_1D(j)
   end do
   deallocate(real8_1D)
-  ! i_elm
+ ! i_elm
   allocate(int4_1D(n_here))
   call HDF5_array1D_reading_int(file, int4_1D, group_name//"i_elm", start=[i_here])
   do j=1,n_here
@@ -931,7 +933,7 @@ do i=1,n
     deallocate(int4_1D)
   
   type is (particle_gc_vpar)
-    ! 
+    ! vpar 
     allocate(real8_1D(n_here))
     call HDF5_array1D_reading(file, real8_1D, group_name//"Vpar",start=[i_here])
     do j=1,n_here
