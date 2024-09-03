@@ -176,13 +176,15 @@ subroutine test_write_sim_one_particle_kinetic_leapfrog
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect)
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect,&
+  " (write mpi/read mpi)")
   ! Test compatibility with old reader
   sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
   reader_original%time = sim_to_write%time; reader_original%original = .true.;
   call reader_original%run(sim_to_read_original)
   ! Test that we have the right stuff in sim_to_read_original now
-  call groups_same(sim_to_write,sim_to_read_original,n_groups_expect,n_particles_expect)
+  call groups_same(sim_to_write,sim_to_read_original,n_groups_expect,n_particles_expect,&
+  " (write mpi/read original)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_one_particle_kinetic_leapfrog
@@ -293,32 +295,44 @@ subroutine allocate_particles(particles, n)
 end subroutine allocate_particles
 
 !> test if groups of a simulations are equals
-subroutine groups_same(sim,sim_target,n_groups_expect,n_particles_expect)
+subroutine groups_same(sim,sim_target,n_groups_expect,n_particles_expect,message_in)
   use mod_particle_sim, only: particle_sim
   implicit none
   !> inputs
   type(particle_sim),intent(in)                 :: sim,sim_target
   integer,intent(in)                            :: n_groups_expect
   integer,dimension(n_groups_expect),intent(in) :: n_particles_expect
+  character(len=*),intent(in),optional          :: message_in
   !> variables
   integer :: ii,jj,n_groups,n_particles
+  character(len=:),allocatable                  :: message
+  if(present(message_in)) then
+    allocate(character(len=len(message_in))::message); message=message_in;
+  else
+    allocate(character(len=1)::message); message = "";
+  endif
   ! Test that we have the right stuff in sim_to_read now
   n_groups = size(sim%groups,1)
-  call assert_equals(n_groups_expect, n_groups, 'number of expected groups mismatch!')
+  call assert_equals(n_groups_expect, n_groups, &
+  'number of expected groups mismatch! '//trim(message))
   if (n_groups .eq. n_groups_expect) then
     do jj=1,n_groups
       n_particles = size(sim%groups(jj)%particles,1)
-      call assert_equals(n_particles_expect(jj), n_particles, 'number of expected particles mismatch!')
+      call assert_equals(n_particles_expect(jj), n_particles, &
+      'number of expected particles mismatch! '//trim(message))
       if (n_particles .eq. n_particles_expect(jj)) then
         do ii=1,n_particles
           call assert_true(particles_same(sim_target%groups(jj)%particles(ii), sim%groups(jj)%particles(ii)), &
-              'particle must be as written')
+              'particle must be as written '//trim(message))
         end do
       end if
-      call assert_equals(sim_target%groups(jj)%Z, sim%groups(jj)%Z, 'Z equal mismatch!')
-      call assert_equals(sim_target%groups(jj)%mass, sim%groups(jj)%mass, 'mass equal mismatch!')
+      call assert_equals(sim_target%groups(jj)%Z, sim%groups(jj)%Z,&
+      'Z equal mismatch! '//trim(message))
+      call assert_equals(sim_target%groups(jj)%mass, sim%groups(jj)%mass, &
+      'mass equal mismatch! '//trim(message))
     enddo
   end if
+  if(allocated(message)) deallocate(message)
 end subroutine groups_same
 
 !> Helper function for comparing particles

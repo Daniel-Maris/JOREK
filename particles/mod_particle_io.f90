@@ -693,11 +693,10 @@ use hdf5, only: h5open_f,h5pcreate_f,h5pset_fapl_mpio_f,h5fopen_f,h5pclose_f
 use hdf5, only: h5gopen_f,h5gget_info_f,h5gclose_f,h5dopen_f,h5dget_space_f
 use hdf5, only: h5sget_simple_extent_ndims_f,h5sget_simple_extent_dims_f
 use hdf5, only: h5sclose_f,h5dclose_f,h5lexists_f,h5fclose_f,h5close_f
-use hdf5_io_module, only: HDF5_real_reading,HDF5_char_reading,HDF5_integer_reading
+use hdf5_io_module, only: HDF5_real_reading,HDF5_allocatable_char_reading,HDF5_integer_reading
 use hdf5_io_module, only: HDF5_array1D_reading,HDF5_array2D_reading
 use hdf5_io_module, only: HDF5_array1D_reading_int,HDF5_array1D_reading_r4
 use hdf5_io_module, only: HDF5_allocatable_array1D_reading
-use hdf5_io_module, only: HDF5_array1D_reading_char
 use mod_particle_types, only: particle_kinetic,particle_kinetic_leapfrog
 use mod_particle_types, only: particle_gc,particle_gc_vpar
 use mod_particle_types, only: particle_gc_Qin
@@ -707,8 +706,6 @@ use mod_particle_types, only: particle_gc_relativistic
 use mod_openadas,   only: read_adf11
 use mod_coronal
 use mod_particle_sim, only: particle_sim
-integer(HSIZE_T), parameter :: particle_type_name_length = 40 !< length of the string used to identify a specific type of particle. Required for using the original I/O procedures
-integer(HSIZE_T), parameter :: adas_suffix_length = 8
 type(particle_sim) , intent(inout) :: sim
 character*(*)      , intent(in)    :: filename
 
@@ -716,20 +713,18 @@ integer                            :: my_id, n_cpu, ierr, rank, n_particles
 integer, allocatable, dimension(:) :: particles_per_proc
 
 ! For HDF5 reading
-integer(HID_T)    :: file, file_space, mem_space, dset, plist ! handles
-integer(HID_T)    :: data_type
-integer(HID_T)    :: group_id
-integer(HID_T)    :: time_set_id
-integer(HSIZE_T)  :: i_here
-integer           :: n_here
-integer           :: storage_type, max_corder
-character(len=12) :: group_name
-character(len=particle_type_name_length) :: particle_type_name
-character(len=particle_type_name_length),dimension(:),allocatable :: particle_type_names !< DEBUG DEBUG DEBUG
-character(len=adas_suffix_length),dimension(:),allocatable        :: adas_suffices !< DEBUG DEBUG DEBUG
-integer           :: i, j, n, hdferr, n_alive
-integer, allocatable :: n_alive_all(:)
-logical           :: exists
+integer(HID_T)               :: file, file_space, mem_space, dset, plist ! handles
+integer(HID_T)               :: data_type
+integer(HID_T)               :: group_id
+integer(HID_T)               :: time_set_id
+integer(HSIZE_T)             :: i_here
+integer                      :: n_here
+integer                      :: storage_type, max_corder
+character(len=12)            :: group_name
+character(len=:),allocatable :: particle_type_name,adas_suffix
+integer                      :: i, j, n, hdferr, n_alive
+integer, allocatable         :: n_alive_all(:)
+logical                      :: exists
 
 type(c_ptr) :: p_ptr
 integer*8, dimension(1:2) :: tmp, maxdims
@@ -764,7 +759,6 @@ call h5gclose_f(group_id, hdferr)
 ! Reallocate groups if necessary
 if (allocated(sim%groups)) deallocate(sim%groups)
 allocate(sim%groups(n))
-allocate(particle_type_names(n_cpu)); allocate(adas_suffices(n_cpu));
 do i=1,n
   ! Open the dataset for x
   write(group_name,'(A,i0.3,A)') '/groups/', i, '/'
@@ -787,9 +781,8 @@ do i=1,n
   n_here = particles_per_proc(my_id)
 
   ! Get the particle type from the attribute
-  !call HDF5_char_reading(file,particle_type_name,group_name//"type") !< DEBUG DEBUG DEBUG 
-  call HDF5_array1D_reading_char(file,particle_type_names,group_name//"type") !< DEBUG DEBUG DEBUG
-  particle_type_name = particle_type_names(1); !< DEBUG DEBUG DEBUG
+  call HDF5_allocatable_char_reading(file,particle_type_name,group_name//"type",&
+  mpi_rank=0,n_mpi_tasks=1)
 
   ierr = 0
   select case (trim(particle_type_name))
@@ -811,14 +804,14 @@ do i=1,n
     write(*,*) "error: missing type name declaration ", trim(particle_type_name), " for read"
     call exit(1)
   end select
+
   if (ierr .gt. 0) write(*,"(i3,a,i12,a)") my_id, &
       "unable to allocate particles(", particles_per_proc(my_id), ")"
-
   call HDF5_integer_reading(file,sim%groups(i)%Z,group_name//"Z")
   call HDF5_real_reading(file,sim%groups(i)%mass,group_name//"mass")
-!  call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix") !< DEBUG DEBUG DEBUG
-  call HDF5_array1D_reading_char(file,adas_suffices,group_name//"adas_suffix") !< DEBUG DEBUG DEBUG
-  sim%groups(i)%ad%suffix = adas_suffices(1) !< DEBUG DEBUG DEBUG
+  call HDF5_allocatable_char_reading(file,adas_suffix,group_name//"adas_suffix",&
+  mpi_rank=0,n_mpi_tasks=1)
+  sim%groups(i)%ad%suffix = adas_suffix; 
   if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
     sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
     sim%groups(i)%cor = coronal(sim%groups(i)%ad)
@@ -848,6 +841,7 @@ do i=1,n
     sim%groups(i)%particles(j)%weight = real8_1D(j)
   end do
   deallocate(real8_1D)
+
  ! i_elm
   allocate(int4_1D(n_here))
   call HDF5_array1D_reading_int(file, int4_1D, group_name//"i_elm", start=[i_here])
@@ -940,7 +934,7 @@ do i=1,n
       p(j)%q = int4_1D(j)
     end do
     deallocate(int4_1D)
-  
+
   type is (particle_gc_vpar)
     ! vpar 
     allocate(real8_1D(n_here))
@@ -970,7 +964,7 @@ do i=1,n
       p(j)%q = int4_1D(j)
     end do
     deallocate(int4_1D)
-  
+
   type is (particle_fieldline)
     ! v
     allocate(real8_1D(n_here))
@@ -999,7 +993,6 @@ do i=1,n
     deallocate(int4_1D)    
 
   type is (particle_gc_relativistic)
-
     ! momenta (parallel momentum and magnetic moment)
     allocate(real8_2D(2,n_here))
     call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
@@ -1017,14 +1010,11 @@ do i=1,n
     deallocate(int4_1D)    
 
   end select
-  if(allocated(particle_type_names)) deallocate(particle_type_names) !< DEBUG DEBUG DEBUG
-  if(allocated(adas_suffices))       deallocate(adas_suffices)       !< DEBUG DEBUG DEBUG
   ! Check if the balance between processors is okay, by comparing the number of
   ! alive particles
   n_alive = count(sim%groups(i)%particles(:)%i_elm .gt. 0)
   allocate(n_alive_all(sim%n_cpu))
   call MPI_Gather(n_alive, 1, MPI_INTEGER, n_alive_all, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
   ! Check if the imbalance is not too great
   if (sim%my_id .eq. 0) then
     if (maxval(n_alive_all) .gt. minval(n_alive_all) * 1.5) then
@@ -1033,7 +1023,8 @@ do i=1,n
     end if
   end if
   deallocate(n_alive_all)
-
+  if(allocated(particle_type_name)) deallocate(particle_type_name)
+  if(allocated(adas_suffix))        deallocate(adas_suffix);
 end do
 
 ! Close everything else
