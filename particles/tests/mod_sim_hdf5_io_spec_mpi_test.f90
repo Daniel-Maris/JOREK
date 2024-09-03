@@ -218,7 +218,8 @@ subroutine test_write_sim_one_group_boris
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect)
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
+  n_particles_expect,"(new writer/new reader)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_one_group_boris
@@ -253,7 +254,8 @@ subroutine test_write_sim_two_groups_boris
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect)
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
+  n_particles_expect,"(new writer/new reader)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_two_groups_boris
