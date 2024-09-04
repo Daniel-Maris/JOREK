@@ -685,7 +685,7 @@ end subroutine write_simulation_hdf5
 !> Reads the number of particles from a file, determines a
 !> particle distribution over all processors and read this many
 !> particles per processor.
-subroutine read_simulation_hdf5_original(sim, filename)
+subroutine read_simulation_hdf5_original(sim, filename, test_in)
 use iso_c_binding, only: c_ptr
 use mpi
 use hdf5, only: HSIZE_T,HID_T,H5F_ACC_TRUNC_F,H5P_FILE_ACCESS_F,H5F_ACC_RDONLY_F
@@ -706,8 +706,9 @@ use mod_particle_types, only: particle_gc_relativistic
 use mod_openadas,   only: read_adf11
 use mod_coronal
 use mod_particle_sim, only: particle_sim
-type(particle_sim) , intent(inout) :: sim
-character*(*)      , intent(in)    :: filename
+type(particle_sim) , intent(inout)         :: sim
+character*(*)      , intent(in)            :: filename
+logical            , intent(in) , optional :: test_in
 
 integer                            :: my_id, n_cpu, ierr, rank, n_particles
 integer, allocatable, dimension(:) :: particles_per_proc
@@ -724,7 +725,7 @@ character(len=12)            :: group_name
 character(len=:),allocatable :: particle_type_name,adas_suffix
 integer                      :: i, j, n, hdferr, n_alive
 integer, allocatable         :: n_alive_all(:)
-logical                      :: exists
+logical                      :: exists,test
 
 type(c_ptr) :: p_ptr
 integer*8, dimension(1:2) :: tmp, maxdims
@@ -738,6 +739,7 @@ call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)      ! id of each MPI proc
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)      ! number of MPI procs
 call h5open_f(hdferr)
 allocate(particles_per_proc(0:n_cpu-1))
+test = .false.; if(present(test_in)) test = test_in;
 
 ! Create file property list for parallel access
 call h5pcreate_f(H5P_FILE_ACCESS_F, plist, hdferr)
@@ -812,7 +814,7 @@ do i=1,n
   call HDF5_allocatable_char_reading(file,adas_suffix,group_name//"adas_suffix",&
   mpi_rank=0,n_mpi_tasks=1)
   sim%groups(i)%ad%suffix = adas_suffix; 
-  if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
+  if ((len_trim(sim%groups(i)%ad%suffix) .gt. 0) .and. (.not.test)) then
     sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
     sim%groups(i)%cor = coronal(sim%groups(i)%ad)
   end if
@@ -1046,7 +1048,7 @@ end subroutine read_simulation_hdf5_original
 !> outputs:
 !>   sim: (particle_sim) particle simulation object
 subroutine read_simulation_hdf5(sim,filename,access_type_in,&
-mpi_comm_in,mpi_info_in,legacy_in)
+mpi_comm_in,mpi_info_in,legacy_in,test_in)
   use mpi
   use hdf5,               only: HSIZE_T,HID_T
   use hdf5,               only: H5Gopen_f,H5Gget_info_f
@@ -1081,7 +1083,7 @@ mpi_comm_in,mpi_info_in,legacy_in)
   character(len=*),intent(in) :: filename
   integer,intent(in),optional :: access_type_in
   integer,intent(in),optional :: mpi_comm_in,mpi_info_in
-  logical,intent(in),optional :: legacy_in
+  logical,intent(in),optional :: legacy_in,test_in
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
@@ -1105,7 +1107,7 @@ mpi_comm_in,mpi_info_in,legacy_in)
   real*8,           dimension(:,:,:),allocatable :: dAstar_k_arr
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
-  logical                                        :: legacy_loc
+  logical                                        :: legacy_loc,test
   !> initialisation
   allocate(n_particles_per_proc(sim%n_cpu))
   !> set optional parameters
@@ -1116,6 +1118,7 @@ mpi_comm_in,mpi_info_in,legacy_in)
   mpi_info_loc = MPI_INFO_NULL
   if(present(mpi_info_in)) mpi_info_loc = mpi_info_in
   legacy_loc = .false.; if(present(legacy_in)) legacy_loc = legacy_in;
+  test = .false.; if(present(test_in)) test = test_in;
   !> open HDF5 file 
   call HDF5_open(filename,file_id,ierr,access_type_in=access_type_loc,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -1139,7 +1142,7 @@ mpi_comm_in,mpi_info_in,legacy_in)
     mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
     call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//&
     "adas_suffix",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
-    if(len_trim(sim%groups(ii)%ad%suffix).gt.0) then
+    if((len_trim(sim%groups(ii)%ad%suffix).gt.0).and.(.not.test)) then
       sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
       sim%groups(ii)%cor = coronal(sim%groups(ii)%ad) 
     endif
