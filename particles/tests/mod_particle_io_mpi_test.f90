@@ -18,7 +18,7 @@ character(len=28),parameter :: test_filename="test_particle_io_mpi_hdf5.h5"
 !> particle_gc_Qin is commented because the I/O for particle_gc_Qin
 !> has not been implemented yet
 integer,parameter :: fill_type=-1
-integer,parameter :: n_groups=7!8
+integer,parameter :: n_groups=8
 integer,parameter :: n_particles=5 !< N# of particles per group per task
 real*8,parameter  :: tol_real8=1.d-15
 integer           :: rank_loc,n_tasks_loc,ifail_loc
@@ -98,7 +98,7 @@ subroutine setup(rank,n_tasks,ifail)
   allocate(particle_kinetic_leapfrog::sim_particles%groups(5)%particles(n_particles))
   allocate(particle_kinetic_relativistic::sim_particles%groups(6)%particles(n_particles))
   allocate(particle_gc_relativistic::sim_particles%groups(7)%particles(n_particles))
-  !allocate(particle_gc_Qin::sim_particles%groups(8)%particles(n_particles)) !< IO not implemented
+  allocate(particle_gc_Qin::sim_particles%groups(8)%particles(n_particles))
 
   !> fill-up the group and particle base variables
   call fill_groups(n_groups,sim_particles%groups,rank,ifail)
@@ -145,7 +145,7 @@ subroutine test_particle_mpi_io
   call sim_particles_new%initialize(n_groups,.false.,rank_loc,n_tasks_loc,.false.)
 
   !> read default simulation from file and store in new sim
-  call read_simulation_hdf5(sim_particles_new,trim(test_filename))
+  call read_simulation_hdf5(sim_particles_new,trim(test_filename),test_in=.true.)
 
   !> compu variables which are not read from hdf5
   call copy_group_fieldline_B_hat_prev(n_groups,&
@@ -159,6 +159,10 @@ subroutine test_particle_mpi_io
   do ii=1,n_groups
     call assert_equals(sim_particles_new%groups(ii)%mass,sim_particles%groups(ii)%mass,&
     tol_real8,"Error writing/reading particle simulation: mass mismatch!")
+    call assert_equals(sim_particles_new%groups(ii)%Z,sim_particles%groups(ii)%Z,&
+    "Error writing/reading particle simulation: Z mismatch!")
+    call assert_equals(sim_particles_new%groups(ii)%ad%suffix,sim_particles%groups(ii)%ad%suffix,&
+    "Error writing/reading particle simulation: adas suffix mismatch!")
     call assert_equal_particle(n_particles,sim_particles_new%groups(ii)%particles,&
     sim_particles%groups(ii)%particles)
   enddo
