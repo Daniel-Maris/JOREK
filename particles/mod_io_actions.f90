@@ -25,6 +25,7 @@ end type io_action
 type, extends(io_action) :: read_action
   real*8  :: time             !< used with the formats from io_action if filename is unset
   logical :: legacy = .false. !< if true read old io files
+  logical :: test   = .false. !< if true avoid to read adas for unit testing
 contains
   procedure :: do => do_read_action
 end type read_action
@@ -66,7 +67,7 @@ end function get_filename
 !> Constructor for read_action.
 !> Be sure to use keyword arguments when initializing, to avoid confusion
 function new_read_action(filename, basename, decimal_digits, fractional_digits, extension, &
-access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in)
+access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in, test_in)
   use mpi
   implicit none
   type(read_action) :: new_read_action
@@ -76,7 +77,7 @@ access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in)
   integer, intent(in), optional          :: fractional_digits
   character(len=*), intent(in), optional :: extension
   integer,          intent(in), optional :: access_type_in,mpi_comm_in,mpi_info_in
-  logical,          intent(in), optional :: legacy_in,original_in
+  logical,          intent(in), optional :: legacy_in,original_in,test_in
   new_read_action%mpi_comm_io = MPI_COMM_WORLD
   new_read_action%mpi_info_io = MPI_INFO_NULL
   if (present(filename)) new_read_action%filename = filename
@@ -89,6 +90,7 @@ access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in)
   if (present(mpi_info_in)) new_read_action%mpi_info_io = mpi_info_in
   if (present(legacy_in)) new_read_action%legacy = legacy_in
   if (present(original_in)) new_read_action%original = original_in
+  if (present(test_in)) new_read_action%test = test_in
   new_read_action%name = "ReadAction"
   new_read_action%log = .true.
 end function new_read_action
@@ -100,19 +102,21 @@ subroutine do_read_action(this, sim, ev)
   type(event), intent(inout), optional :: ev
   if (len_trim(this%filename) .eq. 0) then
     if (this%original) then
-      call read_simulation_hdf5_original(sim, trim(this%get_filename(this%time)))
+      call read_simulation_hdf5_original(sim, trim(this%get_filename(this%time)),&
+      test_in=this%test)
     else
       call read_simulation_hdf5(sim, trim(this%get_filename(this%time)), &
       access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
-      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy)
+      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy, test_in=this%test)
     end if
   else
     if (this%original) then
-      call read_simulation_hdf5_original(sim, trim(this%filename))
+      call read_simulation_hdf5_original(sim, trim(this%filename), &
+      test_in=this%test)
     else
       call read_simulation_hdf5(sim, trim(this%filename), &
       access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
-      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy)
+      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy, test_in=this%test)
     end if
   end if
 end subroutine do_read_action
