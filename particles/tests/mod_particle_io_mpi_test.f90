@@ -131,8 +131,7 @@ end subroutine teardown
 !> Tests ------------------------------------------------
 !> procedure for testing the particle io
 subroutine test_particle_mpi_io
-  use mod_particle_common_test_tools, only: copy_group_fieldline_B_hat_prev
-  use mod_particle_assert_equal,      only: assert_equal_particle
+  use mod_particle_assert_equal,      only: assert_equal_particle_group
   use mod_particle_sim,               only: particle_sim
   use mod_particle_io,                only: read_simulation_hdf5
   implicit none
@@ -147,25 +146,12 @@ subroutine test_particle_mpi_io
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename),test_in=.true.)
 
-  !> compu variables which are not read from hdf5
-  call copy_group_fieldline_B_hat_prev(n_groups,&
-  sim_particles%groups,sim_particles_new%groups)
-
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
   "Error writing/reading particle simulation: time mismatch!")
 
   !> check groups
-  do ii=1,n_groups
-    call assert_equals(sim_particles_new%groups(ii)%mass,sim_particles%groups(ii)%mass,&
-    tol_real8,"Error writing/reading particle simulation: mass mismatch!")
-    call assert_equals(sim_particles_new%groups(ii)%Z,sim_particles%groups(ii)%Z,&
-    "Error writing/reading particle simulation: Z mismatch!")
-    call assert_equals(sim_particles_new%groups(ii)%ad%suffix,sim_particles%groups(ii)%ad%suffix,&
-    "Error writing/reading particle simulation: adas suffix mismatch!")
-    call assert_equal_particle(n_particles,sim_particles_new%groups(ii)%particles,&
-    sim_particles%groups(ii)%particles)
-  enddo
+  call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
 end subroutine test_particle_mpi_io
 
 !> subroutine for testing the reading of simulation time
