@@ -1004,6 +1004,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   real*8, allocatable :: t_energies4(:,:,:)  !< Magnetic and kinetic mode energies at previous timesteps.
   logical                               :: no_pert
   
+  logical, parameter  :: use_defensive_checks = .true.
+
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
   
@@ -1202,15 +1204,23 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 #ifdef WITH_TiTe
   call HDF5_real_reading(file_id,Ti_0_hdf5,'Ti_0')
   call HDF5_real_reading(file_id,Te_0_hdf5,'Te_0')
-  if ((abs(Ti_0_hdf5 - Ti_0) .gt. 1.d-16) .or. (abs(Te_0_hdf5 - Te_0) .gt. 1.d-16)) then
-    write(*,*) "Error: Value of Ti_0 or Te_0 in restart file and namelist are inconsistent: ", Ti_0_hdf5, Ti_0, Te_0_hdf5, Te_0
-    stop
+  if (use_defensive_checks) then
+    if ((abs(Ti_0_hdf5 - Ti_0) .gt. 1.d-16) .or. (abs(Te_0_hdf5 - Te_0) .gt. 1.d-16)) then
+      write(*,*) "Error: Value of Ti_0 or Te_0 in restart file and namelist are inconsistent: ", Ti_0_hdf5, Ti_0, Te_0_hdf5, Te_0
+      stop
+    endif
+  else
+    Ti_0 = Ti_0_hdf5; Te_0 = Te_0_hdf5
   endif
 #else
   call HDF5_real_reading(file_id,T_0_hdf5,'T_0')
-  if (abs(T_0_hdf5 - T_0) .gt. 1.d-16) then
-    write(*,*) "Error: Value of T_0 in restart file and namelist are inconsistent: ", T_0_hdf5, T_0
-    stop
+  if (use_denfensive_checks) then
+    if (abs(T_0_hdf5 - T_0) .gt. 1.d-16) then
+      write(*,*) "Error: Value of T_0 in restart file and namelist are inconsistent: ", T_0_hdf5, T_0
+      stop
+    endif
+  else
+    T_0 = T_0_hdf5
   endif
 #endif
   
