@@ -49,7 +49,10 @@ subroutine run_fruit_particle_io_mpi(rank,n_tasks,ifail)
   call run_test_case(test_particle_mpi_io_write_new_read_original,'test_particle_mpi_io_write_new_read_original')
   call run_test_case(test_particle_mpi_io_write_original_read_new,'test_particle_mpi_io_write_original_read_new')
   call run_test_case(test_particle_mpi_io_write_original_read_original,'test_particle_mpi_io_write_original_read_original')
-  call test_get_simulation_hdf5_time()
+  call run_test_case(test_get_simulation_hdf5_time_new_write_new,'test_get_simulation_hdf5_time_new_write_new')
+  call run_test_case(test_get_simulation_hdf5_time_new_write_original,'test_get_simulation_hdf5_time_new_write_original')
+  call run_test_case(test_get_simulation_hdf5_time_original_write_new,'test_get_simulation_hdf5_time_original_write_new')
+  call run_test_case(test_get_simulation_hdf5_time_original_write_original,'test_get_simulation_hdf5_time_original_write_original')
   if(rank.eq.0) write(*,'(/A)') "  ... tearing-down: particle io mpi tests"
   call teardown(rank,n_tasks,ifail)
 end subroutine run_fruit_particle_io_mpi
@@ -237,15 +240,45 @@ subroutine test_particle_mpi_io_write_original_read_original
   call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
 end subroutine test_particle_mpi_io_write_original_read_original
 
-!> subroutine for testing the reading of simulation time
-subroutine test_get_simulation_hdf5_time()
+!> subroutine for testing the reading of simulation time new with writer new
+subroutine test_get_simulation_hdf5_time_new_write_new()
   use mod_particle_io, only: get_simulation_hdf5_time
   implicit none
   real*8 :: time_new
-  time_new = get_simulation_hdf5_time(test_filename)
+  time_new = get_simulation_hdf5_time(trim(test_filename))
   call assert_equals(sim_particles%time,time_new,tol_real8,&
-  "Error get simulation time hdf5: time mismatch!")
-end subroutine test_get_simulation_hdf5_time
+  "Error get simulation time hdf5 new (write new): time mismatch!")
+end subroutine test_get_simulation_hdf5_time_new_write_new
+
+!> subroutine for testing the reading of simulation time new with writer original
+subroutine test_get_simulation_hdf5_time_new_write_original()
+  use mod_particle_io, only: get_simulation_hdf5_time
+  implicit none
+  real*8 :: time_new
+  time_new = get_simulation_hdf5_time(trim(test_filename_original))
+  call assert_equals(sim_particles%time,time_new,tol_real8,&
+  "Error get simulation time hdf5 new (write original): time mismatch!")
+end subroutine test_get_simulation_hdf5_time_new_write_original
+
+!> subroutine for testing the reading of simulation time original with writer new
+subroutine test_get_simulation_hdf5_time_original_write_new()
+  use mod_particle_io, only: get_simulation_hdf5_time_original
+  implicit none
+  real*8 :: time_new
+  time_new = get_simulation_hdf5_time_original(trim(test_filename))
+  call assert_equals(sim_particles%time,time_new,tol_real8,&
+  "Error get simulation time hdf5 original (write new): time mismatch!")
+end subroutine test_get_simulation_hdf5_time_original_write_new
+
+!> subroutine for testing the reading of simulation time original with writer original
+subroutine test_get_simulation_hdf5_time_original_write_original()
+  use mod_particle_io, only: get_simulation_hdf5_time_original
+  implicit none
+  real*8 :: time_new
+  time_new = get_simulation_hdf5_time_original(trim(test_filename_original))
+  call assert_equals(sim_particles%time,time_new,tol_real8,&
+  "Error get simulation time hdf5 original (write original): time mismatch!")
+end subroutine test_get_simulation_hdf5_time_original_write_original
 
 !>-------------------------------------------------------
 end module mod_particle_io_mpi_test
