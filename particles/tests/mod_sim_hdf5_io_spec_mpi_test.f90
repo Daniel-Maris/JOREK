@@ -352,6 +352,7 @@ subroutine test_write_sim_two_groups_boris
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time; reader%original = .false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  reader%test = .true.;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
@@ -359,6 +360,7 @@ subroutine test_write_sim_two_groups_boris
   ! Test backward compatibility original reader with new writer
   sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
   reader_original%time = sim_to_write%time; reader_original%original = .true.;
+  reader_original%test = .true.;
   call reader_original%run(sim_to_read_original)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read_original,n_groups_expect,&
@@ -402,6 +404,13 @@ subroutine test_write_sim_all_particles
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call assert_equal_particle_group(n_groups_expect,sim_to_write%groups,sim_to_read%groups)
+  ! Test backward compatibility original reader with new writer
+  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
+  reader_original%time = sim_to_write%time; reader_original%original = .true.;
+  reader_original%test = .true.;
+  call reader_original%run(sim_to_read_original)
+  ! Test that we have the right stuff in sim_to_read_original now
+  call assert_equal_particle_group(n_groups_expect,sim_to_write%groups,sim_to_read_original%groups)
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_all_particles
