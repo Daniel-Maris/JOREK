@@ -13,6 +13,7 @@ public :: run_fruit_particle_io_mpi
 !> Variables --------------------------------------------
 type(particle_sim)          :: sim_particles
 character(len=28),parameter :: test_filename="test_particle_io_mpi_hdf5.h5"
+character(len=37),parameter :: test_filename_original="test_particle_io_mpi_hdf5_original.h5"
 !> the number of particle groups is set equal to the number
 !> of particle types for testing all of them
 !> particle_gc_Qin is commented because the I/O for particle_gc_Qin
@@ -44,7 +45,7 @@ subroutine run_fruit_particle_io_mpi(rank,n_tasks,ifail)
   if(rank.eq.0) write(*,'(/A)') "  ... setting-up: particle io mpi tests"
   call setup(rank,n_tasks,ifail)
   if(rank.eq.0) write(*,'(/A)') "  ... running: particle io mpi tests"
-  call run_test_case(test_particle_mpi_io,'test_particle_mpi_io')
+  call run_test_case(test_particle_mpi_io_write_new_read_new,'test_particle_mpi_io_write_new_read_new')
   call test_get_simulation_hdf5_time()
   if(rank.eq.0) write(*,'(/A)') "  ... tearing-down: particle io mpi tests"
   call teardown(rank,n_tasks,ifail)
@@ -68,6 +69,7 @@ subroutine setup(rank,n_tasks,ifail)
   use mod_particle_types,           only: particle_gc_relativistic
   use mod_particle_types,           only: particle_gc_vpar,particle_gc_Qin
   use mod_particle_io,              only: write_simulation_hdf5
+  use mod_particle_io,              only: write_simulation_hdf5_original
   use mod_gnu_rng,                  only: gnu_rng_interval
   implicit none
   !> inputs
@@ -104,9 +106,9 @@ subroutine setup(rank,n_tasks,ifail)
   call fill_groups(n_groups,sim_particles%groups,rank,ifail)
   call fill_particles(n_groups,sim_particles%groups,fill_type,rank)
 
-  !> write default simulation in file and read it in new simulation
+  !> write filename with new and original methods
   call write_simulation_hdf5(sim_particles,trim(test_filename))
-
+  call write_simulation_hdf5_original(sim_particles,trim(test_filename_original))
 end subroutine setup
 
 !> tear-down the test simulation features
@@ -117,6 +119,7 @@ end subroutine setup
 !> outputs:
 !>   ifail:   (integer) 0 if success
 subroutine teardown(rank,n_tasks,ifail)
+  use mod_common_test_tools, only: remove_file
   implicit none
   !> inputs
   integer,intent(in) :: rank,n_tasks
@@ -125,12 +128,14 @@ subroutine teardown(rank,n_tasks,ifail)
 
   call MPI_Barrier(MPI_COMM_WORLD,ifail)
   !> remove test file
-  if(rank.eq.0) call system("rm "//test_filename)
+  call remove_file(test_filename,rank_in=rank_loc)
+  call remove_file(test_filename_original,rank_in=rank_loc)
   rank_loc = -1; n_tasks_loc = -1; ifail = ifail_loc;
 end subroutine teardown
+
 !> Tests ------------------------------------------------
 !> procedure for testing the particle io
-subroutine test_particle_mpi_io
+subroutine test_particle_mpi_io_write_new_read_new
   use mod_particle_assert_equal,      only: assert_equal_particle_group
   use mod_particle_sim,               only: particle_sim
   use mod_particle_io,                only: read_simulation_hdf5
@@ -148,11 +153,11 @@ subroutine test_particle_mpi_io
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
-  "Error writing/reading particle simulation: time mismatch!")
+  "Error writing (new)/reading (new) particle simulation: time mismatch!")
 
   !> check groups
   call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
-end subroutine test_particle_mpi_io
+end subroutine test_particle_mpi_io_write_new_read_new
 
 !> subroutine for testing the reading of simulation time
 subroutine test_get_simulation_hdf5_time()
