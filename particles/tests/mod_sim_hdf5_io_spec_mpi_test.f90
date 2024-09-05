@@ -33,6 +33,7 @@ subroutine run_fruit_sim_hdf5_io_spec_mpi(rank,n_tasks,ifail)
   call run_test_case(test_write_sim_one_group_boris,'test_write_sim_one_group_boris')
   call run_test_case(test_write_original_sim_one_group_boris,'test_write_original_sim_one_group_boris')
   call run_test_case(test_write_sim_all_particles,'test_write_sim_all_particles')
+  call run_test_case(test_write_original_sim_all_particles,'test_write_original_sim_all_particles')
   call run_test_case(test_write_sim_two_groups_boris,'test_write_sim_two_groups_boris')
   call run_test_case(test_write_original_sim_two_groups_boris,'test_write_original_sim_two_groups_boris')
   if(rank.eq.master_rank) write(*,'(/A)') "  ... tearing-down: "
@@ -377,7 +378,7 @@ subroutine test_write_sim_all_particles
   use mod_particle_assert_equal,      only: assert_equal_particle_group
   implicit none
   integer,parameter               :: n_groups_expect=8
-  integer,parameter               :: n_particles_expect=1
+  integer,parameter               :: n_particles_expect=10
   real*8,parameter                :: filename_time=27d0;
   character(len=19),parameter     :: expected_filename='part027.00000000.h5'
   type(particle_sim)              :: sim_to_write, sim_to_read, sim_to_read_original
@@ -414,6 +415,52 @@ subroutine test_write_sim_all_particles
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
 end subroutine test_write_sim_all_particles
+
+!> test the writing original and reading of all particle types
+subroutine test_write_original_sim_all_particles
+  use mpi
+  use mod_particle_common_test_tools, only: allocate_one_particle_list_type
+  use mod_particle_common_test_tools, only: fill_groups,fill_particles
+  use mod_particle_assert_equal,      only: assert_equal_particle_group
+  implicit none
+  integer,parameter               :: n_groups_expect=8
+  integer,parameter               :: n_particles_expect=10
+  real*8,parameter                :: filename_time=37d0;
+  character(len=19),parameter     :: expected_filename='part037.00000000.h5'
+  type(particle_sim)              :: sim_to_write_original, sim_to_read, sim_to_read_original
+  class(write_action),allocatable :: writer_original
+  class(read_action),allocatable  :: reader,reader_original
+  logical :: file_exists
+  allocate(writer_original, reader, reader_original); allocate(sim_to_write_original%groups(n_groups_expect));
+  sim_to_write_original%time = filename_time; sim_to_write_original%my_id = rank_loc;
+  sim_to_write_original%n_cpu = n_tasks_loc; 
+  call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,sim_to_write_original%groups,ifail_loc)
+  call fill_groups(n_groups_expect,sim_to_write_original%groups,rank_loc,ifail_loc)
+  call fill_particles(n_groups_expect,sim_to_write_original%groups,rank_in=rank_loc)
+  writer_original%mpi_comm_io = mpi_comm_loc; writer_original%mpi_info_io = mpi_info_loc;
+  writer_original%file_access = file_access; writer_original%original = .true.;
+  call writer_original%run(sim_to_write_original)
+  call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
+  ! test if a file with the right name was created
+  inquire(file=expected_filename, exist=file_exists)
+  call assert_true(file_exists, 'file with the right name should be created')
+  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  reader%time = sim_to_write_original%time; reader%original = .false.;
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  reader%test = .true.;
+  call reader%run(sim_to_read)
+  ! Test that we have the right stuff in sim_to_read now
+  call assert_equal_particle_group(n_groups_expect,sim_to_write_original%groups,sim_to_read%groups)
+  ! Test backward compatibility original reader with new writer
+  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
+  reader_original%time = sim_to_write_original%time; reader_original%original = .true.;
+  reader_original%test = .true.;
+  call reader_original%run(sim_to_read_original)
+  ! Test that we have the right stuff in sim_to_read_original now
+  call assert_equal_particle_group(n_groups_expect,sim_to_write_original%groups,sim_to_read_original%groups)
+  ! Delete the file
+  call remove_file(rank_loc,expected_filename,ifail_loc)
+end subroutine test_write_original_sim_all_particles
 
 subroutine test_write_original_sim_two_groups_boris
   use mpi
