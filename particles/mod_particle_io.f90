@@ -23,7 +23,7 @@ use mpi
 use hdf5, only: HSIZE_T,HID_T,H5F_ACC_TRUNC_F
 use hdf5, only: h5open_f,h5fcreate_f,h5gcreate_f,h5gclose_f,h5fclose_f,h5close_f
 use hdf5_io_module,     only: HDF5_real_saving,HDF5_integer_saving,HDF5_char_saving
-use hdf5_io_module,     only: HDF5_array1D_saving,HDF5_array2D_saving
+use hdf5_io_module,     only: HDF5_array1D_saving,HDF5_array2D_saving,HDF5_array3D_saving
 use hdf5_io_module,     only: HDF5_array1D_saving_r4,HDF5_array1D_saving_int
 use mod_particle_types, only: particle_kinetic,particle_kinetic_leapfrog
 use mod_particle_types, only: particle_gc,particle_gc_vpar
@@ -49,14 +49,22 @@ integer(HID_T)                :: data_type
 integer(HID_T)                :: time_space_id, time_set_id
 character(len=12)             :: group_name
 character(len=particle_type_name_length) :: particle_type_name
-integer                       :: i, j, hdferr
+integer                       :: i, j, hdferr, n_total_subarray
+integer                       :: subarray2dtype, subarray3dtype, doublesize
+integer                       :: resized2dtype, resized3dtype
+integer(kind=MPI_Address_kind) :: startresized, extent2d, extent3d
 type(c_ptr) :: p_ptr
-real*8, dimension(:,:), allocatable :: x, v, x_all, v_all, st, st_all
-real*8, dimension(:), allocatable   :: weight, weight_all, Vpar, E, mu, v1, B_norm
-real*8, dimension(:), allocatable   :: E_all, mu_all, v1_all, Vpar_all, B_norm_all
-real*4, dimension(:), allocatable   :: t_birth, t_birth_all
-integer, dimension(:), allocatable  :: i_elm, i_elm_all, i_life, i_life_all
-integer, dimension(:), allocatable  :: q, q_all, lost, lost_all
+real*8,  dimension(:,:),   allocatable :: x, v, x_all, v_all, st, st_all
+real*8,  dimension(:,:),   allocatable :: x_m, x_m_all, Astar_m, Astar_m_all
+real*8,  dimension(:,:),   allocatable :: Astar_k, Astar_k_all, dBn_k, dBn_k_all 
+real*8,  dimension(:,:),   allocatable :: Bnorm_k, Bnorm_k_all, E_k, E_k_all
+real*8,  dimension(:,:,:), allocatable :: dAstar_k, dAstar_k_all
+real*8,  dimension(:),     allocatable :: weight, weight_all, Vpar, E, mu, v1, B_norm
+real*8,  dimension(:),     allocatable :: E_all, mu_all, v1_all, Vpar_all, B_norm_all
+real*8,  dimension(:),     allocatable :: Vpar_m, Vpar_m_all, Bn_k, Bn_k_all
+real*4,  dimension(:),     allocatable :: t_birth, t_birth_all
+integer, dimension(:),     allocatable :: i_elm, i_elm_all, i_life, i_life_all
+integer, dimension(:),     allocatable :: q, q_all, lost, lost_all
 
 ! Preparation
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)      ! id of each MPI proc
@@ -94,6 +102,8 @@ if (allocated(sim%groups)) then
     call MPI_Gather(n_here,1,MPI_INTEGER,particles_per_proc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
     n_total = sum(particles_per_proc,1) ! set it on other processes as well (to
     ! 0) so they can allocate the useless arrays
+    n_total_subarray = n_total
+    call MPI_Bcast(n_total_subarray,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
     if (my_id .eq. 0) then
       ! Create group to write in
@@ -101,6 +111,21 @@ if (allocated(sim%groups)) then
       call h5gcreate_f(file, group_name, group_id, hdferr)
       call h5gclose_f(group_id, hdferr)
     end if
+
+    ! create MPI types for transfering 2D arrays [3,n_particles] and 3d arrays [3,3,n_particles]
+    call MPI_Type_size(MPI_DOUBLE_PRECISION,doublesize,ierr); startresized = 0;
+    ! 2D array type
+    call MPI_Type_create_subarray(2,[3,n_total_subarray],[3,n_here],[0,0],&
+    MPI_ORDER_FORTRAN,MPI_REAL8,subarray2dtype,ierr)
+    call MPI_Type_commit(subarray2dtype,ierr); extent2d = 3*doublesize;
+    call MPI_Type_create_resized(subarray2dtype,startresized,extent2d,resized2dtype,ierr)
+    call MPI_Type_commit(resized2dtype,ierr)
+    ! 3D !< DEBUG DEBUG DEBUG
+    call MPI_Type_create_subarray(3,[3,3,n_total_subarray],[3,3,n_here],[0,0,0],&
+    MPI_ORDER_FORTRAN,MPI_REAL8,subarray3dtype,ierr) 
+    call MPI_Type_commit(subarray3dtype,ierr); extent3d = 9*doublesize;
+    call MPI_Type_create_resized(subarray3dtype,startresized,extent3d,resized3dtype,ierr)
+    call MPI_type_commit(resized3dtype,ierr)  
 
     ! particle_base properties
     ! x
@@ -334,6 +359,139 @@ if (allocated(sim%groups)) then
       end if
       deallocate(Vpar,mu,B_norm,q,Vpar_all,mu_all,B_norm_all,q_all)
 
+    type is (particle_gc_Qin)
+      particle_type_name = 'particle_gc_Qin'
+
+      ! Vpar
+      allocate(Vpar(n_here), Vpar_all(n_total))
+      do j=1,n_here
+        Vpar(j) = p(j)%Vpar
+      end do
+      call MPI_Gatherv(Vpar(:), n_here, MPI_REAL8, &
+        Vpar_all(:), particles_per_proc, [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)], &
+        MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+
+      ! mu
+      allocate(mu(n_here), mu_all(n_total))
+      do j=1,n_here
+        mu(j) = p(j)%mu
+      end do
+      call MPI_Gatherv(mu(:), n_here, MPI_REAL8, &
+        mu_all(:), particles_per_proc, [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)], &
+        MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+
+      ! B_norm
+      allocate(B_norm(n_here), B_norm_all(n_total))
+      do j=1,n_here
+        B_norm(j) = p(j)%B_norm
+      end do
+      call MPI_Gatherv(B_norm(:), n_here, MPI_REAL8, &
+        B_norm_all(:), particles_per_proc, [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)], &
+        MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+
+      ! q
+      allocate(q(n_here), q_all(n_total))
+      do j=1,n_here
+        q(j) = p(j)%q
+      end do
+      call MPI_Gatherv(q(:), n_here, MPI_INTEGER, &
+        q_all(:), particles_per_proc, [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)], &
+        MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+      ! x_m
+      allocate(x_m(3,n_here), x_m_all(3,n_total))
+      do j=1,n_here
+        x_m(:,j) = p(j)%x_m
+      enddo      
+      call MPI_gatherv(x_m,3*n_here,MPI_REAL8,x_m_all,[(1,i=0,n_cpu-1)],&
+      [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)],resized2dtype,0,MPI_COMM_WORLD,ierr) 
+
+      ! Vpar_m
+      allocate(Vpar_m(n_here), Vpar_m_all(n_total))
+      do j=1,n_here
+        Vpar_m(j) = p(j)%Vpar_m
+      end do
+      call MPI_Gatherv(Vpar_m(:), n_here, MPI_REAL8, &
+        Vpar_m_all(:), particles_per_proc, [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)], &
+        MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+
+      ! Astar_m
+      allocate(Astar_m(3,n_here), Astar_m_all(3,n_total))
+      do j=1,n_here
+        Astar_m(:,j) = p(j)%Astar_m
+      enddo      
+      call MPI_gatherv(Astar_m,3*n_here,MPI_REAL8,Astar_m_all,[(1,i=0,n_cpu-1)],&
+      [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)],resized2dtype,0,MPI_COMM_WORLD,ierr)
+
+      ! Astar_k
+      allocate(Astar_k(3,n_here), Astar_k_all(3,n_total))
+      do j=1,n_here
+        Astar_k(:,j) = p(j)%Astar_k
+      enddo      
+      call MPI_gatherv(Astar_k,3*n_here,MPI_REAL8,Astar_k_all,[(1,i=0,n_cpu-1)],&
+      [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)],resized2dtype,0,MPI_COMM_WORLD,ierr)
+
+      ! dAstar_k
+      allocate(dAstar_k(3,3,n_here), dAstar_k_all(3,3,n_total))
+      do j=1,n_here
+        dAstar_k(:,:,j) = p(j)%dAstar_k
+      enddo
+      call MPI_gatherv(dAstar_k,9*n_here,MPI_REAL8,dAstar_k_all,[(1,i=0,n_cpu-1)],&
+      [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)],resized3dtype,0,MPI_COMM_WORLD,ierr)
+
+      ! Bn_k
+      allocate(Bn_k(n_here), Bn_k_all(n_total))
+      do j=1,n_here
+        Bn_k(j) = p(j)%Bn_k
+      end do
+      call MPI_Gatherv(Bn_k(:), n_here, MPI_REAL8, &
+        Bn_k_all(:), particles_per_proc, [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)], &
+        MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+
+      ! dBn_k
+      allocate(dBn_k(3,n_here), dBn_k_all(3,n_total))
+      do j=1,n_here
+        dBn_k(:,j) = p(j)%dBn_k
+      enddo      
+      call MPI_gatherv(dBn_k,3*n_here,MPI_REAL8,dBn_k_all,[(1,i=0,n_cpu-1)],&
+      [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)],resized2dtype,0,MPI_COMM_WORLD,ierr)
+
+      ! Bnorm_k
+      allocate(Bnorm_k(3,n_here), Bnorm_k_all(3,n_total))
+      do j=1,n_here
+        Bnorm_k(:,j) = p(j)%Bnorm_k
+      enddo      
+      call MPI_gatherv(Bnorm_k,3*n_here,MPI_REAL8,Bnorm_k_all,[(1,i=0,n_cpu-1)],&
+      [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)],resized2dtype,0,MPI_COMM_WORLD,ierr)
+
+      ! E_k
+      allocate(E_k(3,n_here), E_k_all(3,n_total))
+      do j=1,n_here
+        E_k(:,j) = p(j)%E_k
+      enddo      
+      call MPI_gatherv(E_k,3*n_here,MPI_REAL8,E_k_all,[(1,i=0,n_cpu-1)],&
+      [(sum(particles_per_proc(0:i-1),1), i=0,n_cpu-1)],resized2dtype,0,MPI_COMM_WORLD,ierr)
+
+      if (my_id .eq. 0) then
+        call HDF5_array1D_saving(file,Vpar_all,n_total,group_name//"Vpar")
+        call HDF5_array1D_saving(file,mu_all,n_total,group_name//"mu")
+        call HDF5_array1D_saving(file,B_norm_all,n_total,group_name//"B_norm")
+        call HDF5_array1D_saving_int(file,q_all,n_total,group_name//"q")
+        call HDF5_array2D_saving(file,x_m_all,3,n_total,group_name//"x_m")
+        call HDF5_array1D_saving(file,Vpar_m_all,n_total,group_name//"Vpar_m")
+        call HDF5_array2D_saving(file,Astar_m_all,3,n_total,group_name//"Astar_m")
+        call HDF5_array2D_saving(file,Astar_k_all,3,n_total,group_name//"Astar_k")
+        call HDF5_array3D_saving(file,dAstar_k_all,3,3,n_total,group_name//"dAstar_k")
+        call HDF5_array1D_saving(file,Bn_k_all,n_total,group_name//"Bn_k")
+        call HDF5_array2D_saving(file,dBn_k_all,3,n_total,group_name//"dBn_k")
+        call HDF5_array2D_saving(file,Bnorm_k_all,3,n_total,group_name//"Bnorm_k")
+        call HDF5_array2D_saving(file,E_k_all,3,n_total,group_name//"E_k")
+        
+      end if
+      deallocate(Vpar,mu,B_norm,q,Vpar_all,mu_all,B_norm_all,q_all,x_m,x_m_all,&
+      Vpar_m,Vpar_m_all,Astar_m,Astar_m_all,Astar_k,Astar_k_all,dAstar_k,dAstar_k_all,&
+      dBn_k,dBn_k_all,Bnorm_k,Bnorm_k_all,E_k,E_k_all)
+
     type is (particle_fieldline)
       particle_type_name = 'particle_fieldline'
       ! v
@@ -451,6 +609,8 @@ if (my_id .eq. 0) then
 
   write(*,*) "Writing particle output file to ", filename, " succeeded"
 end if
+call MPI_Type_free(subarray2dtype,ierr); call MPI_Type_free(subarray3dtype,ierr);
+call MPI_Type_free(resized2dtype,ierr);  call MPI_Type_free(resized3dtype,ierr);
 end subroutine write_simulation_hdf5_original
 
 
@@ -1041,6 +1201,13 @@ do i=1,n
       p(j)%Bn_k = real8_1D(j)
     end do
     deallocate(real8_1D)
+    ! dBn_k
+    allocate(real8_2D(3,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"dBn_k",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      p(j)%dBn_k = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
     ! Bnorm_k
     allocate(real8_2D(3,n_here))
     call HDF5_array2D_reading(file, real8_2D, group_name//"Bnorm_k",start=[0_HSIZE_T,i_here])
