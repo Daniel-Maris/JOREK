@@ -599,6 +599,8 @@ if (allocated(sim%groups)) then
       call HDF5_char_saving(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
     end if
     deallocate(x,x_all,st,st_all,weight,weight_all,t_birth,t_birth_all,i_elm,i_elm_all,i_life,i_life_all)
+    call MPI_Type_free(subarray2dtype,ierr); call MPI_Type_free(subarray3dtype,ierr);
+    call MPI_Type_free(resized2dtype,ierr);  call MPI_Type_free(resized3dtype,ierr);
   end do
 end if
 
@@ -609,8 +611,7 @@ if (my_id .eq. 0) then
 
   write(*,*) "Writing particle output file to ", filename, " succeeded"
 end if
-call MPI_Type_free(subarray2dtype,ierr); call MPI_Type_free(subarray3dtype,ierr);
-call MPI_Type_free(resized2dtype,ierr);  call MPI_Type_free(resized3dtype,ierr);
+
 end subroutine write_simulation_hdf5_original
 
 
