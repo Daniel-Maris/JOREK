@@ -694,7 +694,7 @@ use hdf5, only: h5gopen_f,h5gget_info_f,h5gclose_f,h5dopen_f,h5dget_space_f
 use hdf5, only: h5sget_simple_extent_ndims_f,h5sget_simple_extent_dims_f
 use hdf5, only: h5sclose_f,h5dclose_f,h5lexists_f,h5fclose_f,h5close_f
 use hdf5_io_module, only: HDF5_real_reading,HDF5_allocatable_char_reading,HDF5_integer_reading
-use hdf5_io_module, only: HDF5_array1D_reading,HDF5_array2D_reading
+use hdf5_io_module, only: HDF5_array1D_reading,HDF5_array2D_reading,HDF5_array3D_reading
 use hdf5_io_module, only: HDF5_array1D_reading_int,HDF5_array1D_reading_r4
 use hdf5_io_module, only: HDF5_allocatable_array1D_reading
 use mod_particle_types, only: particle_kinetic,particle_kinetic_leapfrog
@@ -729,10 +729,11 @@ logical                      :: exists,test
 
 type(c_ptr) :: p_ptr
 integer*8, dimension(1:2) :: tmp, maxdims
-real*8, dimension(:,:), allocatable :: real8_2D
-integer*4, dimension(:), allocatable :: int4_1D
-real*4, dimension(:), allocatable :: real4_1D
-real*8, dimension(:), allocatable :: real8_1D
+real*8,    dimension(:,:,:), allocatable :: real8_3D
+real*8,    dimension(:,:),   allocatable :: real8_2D
+integer*4, dimension(:),     allocatable :: int4_1D
+real*4,    dimension(:),     allocatable :: real4_1D
+real*8,    dimension(:),     allocatable :: real8_1D
 
 ! Preparation
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)      ! id of each MPI proc
@@ -802,6 +803,8 @@ do i=1,n
     allocate(particle_kinetic_relativistic::sim%groups(i)%particles(n_here), stat=ierr)
   case ('particle_gc_relativistic')
     allocate(particle_gc_relativistic::sim%groups(i)%particles(n_here), stat=ierr)
+  case ('particle_gc_Qin')
+    allocate(particle_gc_Qin::sim%groups(i)%particles(n_here), stat=ierr)
   case default
     write(*,*) "error: missing type name declaration ", trim(particle_type_name), " for read"
     call exit(1)
@@ -967,6 +970,92 @@ do i=1,n
     end do
     deallocate(int4_1D)
 
+  type is (particle_gc_Qin)
+    ! vpar 
+    allocate(real8_1D(n_here))
+    call HDF5_array1D_reading(file, real8_1D, group_name//"Vpar",start=[i_here])
+    do j=1,n_here
+      p(j)%vpar = real8_1D(j)
+    end do
+    deallocate(real8_1D)
+    ! mu
+    allocate(real8_1D(n_here))
+    call HDF5_array1D_reading(file, real8_1D, group_name//"mu",start=[i_here])
+    do j=1,n_here
+      p(j)%mu = real8_1D(j)
+    end do
+    deallocate(real8_1D)
+    ! Bnorm
+    allocate(real8_1D(n_here))
+    call HDF5_array1D_reading(file, real8_1D, group_name//"B_norm",start=[i_here])
+    do j=1,n_here
+      p(j)%B_norm = real8_1D(j)
+    end do
+    deallocate(real8_1D)
+    ! q
+    allocate(int4_1D(n_here))
+    call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
+    do j=1,n_here
+      p(j)%q = int4_1D(j)
+    end do
+    deallocate(int4_1D)
+    ! x_m
+    allocate(real8_2D(3,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"x_m",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      p(j)%x_m = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
+    ! Vpar_m
+    allocate(real8_1D(n_here))
+    call HDF5_array1D_reading(file, real8_1D, group_name//"Vpar_m",start=[i_here])
+    do j=1,n_here
+      p(j)%vpar_m = real8_1D(j)
+    end do
+    deallocate(real8_1D)
+    ! Astar_m
+    allocate(real8_2D(3,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"Astar_m",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      p(j)%Astar_m = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
+    ! Astar_k
+    allocate(real8_2D(3,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"Astar_k",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      p(j)%Astar_k = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
+    ! dAstar_k
+    allocate(real8_3D(3,3,n_here))
+    call HDF5_array3D_reading(file, real8_3D, group_name//"dAstar_k",start=[0_HSIZE_T,0_HSIZE_T,i_here])
+    do j=1,n_here
+      p(j)%dAstar_k = real8_3D(:,:,j)
+    end do
+    deallocate(real8_3D)
+    ! Bn_k 
+    allocate(real8_1D(n_here))
+    call HDF5_array1D_reading(file, real8_1D, group_name//"Bn_k",start=[i_here])
+    do j=1,n_here
+      p(j)%Bn_k = real8_1D(j)
+    end do
+    deallocate(real8_1D)
+    ! Bnorm_k
+    allocate(real8_2D(3,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"Bnorm_k",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      p(j)%Bnorm_k = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
+    ! E_k
+    allocate(real8_2D(3,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"E_k",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      p(j)%E_k = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
+   
   type is (particle_fieldline)
     ! v
     allocate(real8_1D(n_here))
