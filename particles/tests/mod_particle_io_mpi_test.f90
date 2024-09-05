@@ -46,6 +46,9 @@ subroutine run_fruit_particle_io_mpi(rank,n_tasks,ifail)
   call setup(rank,n_tasks,ifail)
   if(rank.eq.0) write(*,'(/A)') "  ... running: particle io mpi tests"
   call run_test_case(test_particle_mpi_io_write_new_read_new,'test_particle_mpi_io_write_new_read_new')
+  call run_test_case(test_particle_mpi_io_write_new_read_original,'test_particle_mpi_io_write_new_read_original')
+  call run_test_case(test_particle_mpi_io_write_original_read_new,'test_particle_mpi_io_write_original_read_new')
+  call run_test_case(test_particle_mpi_io_write_original_read_original,'test_particle_mpi_io_write_original_read_original')
   call test_get_simulation_hdf5_time()
   if(rank.eq.0) write(*,'(/A)') "  ... tearing-down: particle io mpi tests"
   call teardown(rank,n_tasks,ifail)
@@ -128,13 +131,13 @@ subroutine teardown(rank,n_tasks,ifail)
 
   call MPI_Barrier(MPI_COMM_WORLD,ifail)
   !> remove test file
-  call remove_file(test_filename,rank_in=rank_loc)
-  call remove_file(test_filename_original,rank_in=rank_loc)
+  call remove_file(trim(test_filename),rank_in=rank_loc)
+  call remove_file(trim(test_filename_original),rank_in=rank_loc)
   rank_loc = -1; n_tasks_loc = -1; ifail = ifail_loc;
 end subroutine teardown
 
 !> Tests ------------------------------------------------
-!> procedure for testing the particle io
+!> procedure for testing the particle io new writier/reader
 subroutine test_particle_mpi_io_write_new_read_new
   use mod_particle_assert_equal,      only: assert_equal_particle_group
   use mod_particle_sim,               only: particle_sim
@@ -158,6 +161,81 @@ subroutine test_particle_mpi_io_write_new_read_new
   !> check groups
   call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
 end subroutine test_particle_mpi_io_write_new_read_new
+
+!> procedure for testing the particle io new writier/original reader
+subroutine test_particle_mpi_io_write_new_read_original
+  use mod_particle_assert_equal,      only: assert_equal_particle_group
+  use mod_particle_sim,               only: particle_sim
+  use mod_particle_io,                only: read_simulation_hdf5_original
+  implicit none
+  !> variables
+  type(particle_sim) :: sim_particles_new
+  integer :: ii
+  real*8 :: comp_real8_1,comp_real8_2
+
+  !> initialize the new particle simulation
+  call sim_particles_new%initialize(n_groups,.false.,rank_loc,n_tasks_loc,.false.)
+
+  !> read default simulation from file and store in new sim
+  call read_simulation_hdf5_original(sim_particles_new,trim(test_filename),test_in=.true.)
+
+  !> check simulation 
+  call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
+  "Error writing (new)/reading (original) particle simulation: time mismatch!")
+
+  !> check groups
+  call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
+end subroutine test_particle_mpi_io_write_new_read_original
+
+!> procedure for testing the particle io original writier/ new reader
+subroutine test_particle_mpi_io_write_original_read_new
+  use mod_particle_assert_equal,      only: assert_equal_particle_group
+  use mod_particle_sim,               only: particle_sim
+  use mod_particle_io,                only: read_simulation_hdf5
+  implicit none
+  !> variables
+  type(particle_sim) :: sim_particles_new
+  integer :: ii
+  real*8 :: comp_real8_1,comp_real8_2
+
+  !> initialize the new particle simulation
+  call sim_particles_new%initialize(n_groups,.false.,rank_loc,n_tasks_loc,.false.)
+
+  !> read default simulation from file and store in new sim
+  call read_simulation_hdf5(sim_particles_new,trim(test_filename_original),test_in=.true.)
+
+  !> check simulation 
+  call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
+  "Error writing (original)/reading (new) particle simulation: time mismatch!")
+
+  !> check groups
+  call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
+end subroutine test_particle_mpi_io_write_original_read_new
+
+!> procedure for testing the particle io original writier/reader
+subroutine test_particle_mpi_io_write_original_read_original
+  use mod_particle_assert_equal,      only: assert_equal_particle_group
+  use mod_particle_sim,               only: particle_sim
+  use mod_particle_io,                only: read_simulation_hdf5_original
+  implicit none
+  !> variables
+  type(particle_sim) :: sim_particles_new
+  integer :: ii
+  real*8 :: comp_real8_1,comp_real8_2
+
+  !> initialize the new particle simulation
+  call sim_particles_new%initialize(n_groups,.false.,rank_loc,n_tasks_loc,.false.)
+
+  !> read default simulation from file and store in new sim
+  call read_simulation_hdf5_original(sim_particles_new,trim(test_filename_original),test_in=.true.)
+
+  !> check simulation 
+  call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
+  "Error writing (original)/reading (original) particle simulation: time mismatch!")
+
+  !> check groups
+  call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
+end subroutine test_particle_mpi_io_write_original_read_original
 
 !> subroutine for testing the reading of simulation time
 subroutine test_get_simulation_hdf5_time()
