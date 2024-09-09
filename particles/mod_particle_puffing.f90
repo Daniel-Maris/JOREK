@@ -362,7 +362,7 @@ subroutine do_particle_puffing(this,sim, ev)
     to_puff = n_free
   end if
 
-  if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g12.4, A)") "Planned puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
+  if (sim%my_id .eq. 0) write(*,"(A,g12.4,A,g16.8, A)") "Planned puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
   !-------------  
   
   

@@ -14,6 +14,11 @@
 ! North-Holland, Amsterdam (1983) ISBN: 9780444866455
 !
 ! *** warning *** currently does not work with full MHD or two temperature model
+!
+! *** warning *** please check whether for a given fluxline the calculated current density 
+! starting at the inner target is the same as that starting at the outer target. It should, but
+! for some cases you need to increase n_phi_steps to be able to resolve strong fluctuations
+! in the parallel pressure gradient
 program jorek2_SOLcurrent
 
   use constants
@@ -57,13 +62,18 @@ program jorek2_SOLcurrent
   real*8  :: pe_s, pe_t, pe_R, pe_Z, pe_phi    !< pressure and their derivatives at the tracer
   real*8  :: B, B_s, B_t, B_r, B_z, B_phi, Jac !< magnetic field and jacobian for \grad_\parallel Pe equation
   real*8  :: par_grad_p                        !< parallel pressure gradient at the tracer
-  real*8  :: par_grad_p_av                     !< used for debugging
+  real*8  :: pressure_drop                     !< Sanity check: integral of parallel pe gradient, i.e. electron pressure drop from hot to cold side (Pa)
   real*8  :: pe_integral                       !< pressure integral \int (1/n) dp_e/ds_\parallel ds_\parallel
   real*8  :: pe_term                           !< pressure contribution to j_hat_par (1/(T_h[eV] e)) \int (1/n) dp_e/ds_\parallel ds_\parallel
   real*8  :: gamma_fact                        !< \gamma factor as given by Stangeby eq 17.24
   real*8  :: alpha                             !< constant factor defined in Stangeby eq 17.17
-  real*8  :: j_hat_par                         !< normalised parallel current density along the fluxline
-  real*8  :: j_par                             !< j_\parallel [A], current density along fluxline
+  real*8  :: j_hat_par                         !< normalised parallel current density along the fluxline, direction from hold to cold target
+  real*8  :: j_par                             !< j_\parallel [A/m²], current density along fluxline, direction from hot to cold target
+  real*8  :: j_wall                            !< j_{target} [A/m²], current density perpendicular to the target, direction from hot to cold target
+  real*8  :: I_loc                             !< [A], current onto the wall corresponding to the area represented by this starting position and - angle
+  real*8  :: int_I_wall                        !< \int I over the full wall [A], should be 0 (sanity check)
+  logical, parameter :: correct4fluxexpansion = .true. !< whether to correct the j_wall for the fact that j_par is not actually constant due to flux expansion. Only takes major radius into account
+  real*8,  parameter :: R_average = 5.d0               !< [m] average major radius of the two targets, used for the flux expansion correction
   integer :: my_id
   integer :: i, j, iside_i, iside_j, ip, np, i_tor, i_harm, i_var_psi = 1,i_var_n=5,i_var_T=6
   integer :: i_elm, ifail, n_phi_steps, i_elm_out, i_elm_prev, i_elm_tmp,i_steps
@@ -78,8 +88,8 @@ program jorek2_SOLcurrent
   integer :: ierr
   real*8  :: dr,R_old,Z_old   !< integration variables
   logical :: in_domain        !< keeps track of whether tracer position is inside the domain or on its boundary
-  real*8  :: B2(2)            !< Magnetic field [T]
-  real*8  :: Bdotn            !< B dot outward pointing normal to the boundary
+  real*8  :: B3(3)            !< Magnetic field [T]
+  real*8  :: bdotn            !< b (=B/|B|) dot outward pointing normal to the boundary
   real*8  :: inv_st_jac, psi_R, psi_Z
   logical :: debug = .false.            !< useful for debugging the main code 
   logical :: write_debug_file = .false. !< useful for debugging the Newton solver
@@ -102,7 +112,7 @@ program jorek2_SOLcurrent
   call det_modes()
 
   call initialise_parameters(my_id,  "__NO_FILENAME__")
-  call log_parameters(my_id)
+  !call log_parameters(my_id)
 
   call import_restart(node_list,element_list, 'jorek_restart', rst_format, ierr, .true., t_index)
 
@@ -128,7 +138,7 @@ program jorek2_SOLcurrent
   enddo
 
   ! NUMERICAL PARAMETERS
-  n_phi_steps   = 15000 !number of steps in the toroidal direction
+  n_phi_steps   = 150000 !number of steps in the toroidal direction
   n_phi0        = 1!2    !number of toroidal angles to start from for each poloidal bnd point
   n_elm_pts     = 1!10   !number of starting points along each bnd element
 
@@ -140,9 +150,9 @@ program jorek2_SOLcurrent
     Phi_start_list(i_phi0) = float(i_phi0-1)/float(n_phi0) * 2.d0 * PI / float(n_period)
   end do
 
-  initial_bnd_pos = bnd_pos(node_list, element_list, bnd_node_list, bnd_elm_list, n_elm_pts)
+  initial_bnd_pos = bnd_pos(node_list, element_list, bnd_node_list, bnd_elm_list, n_elm_pts, .true.)
 
-  np = size(initial_bnd_pos%pos(1,:))
+  np = initial_bnd_pos%n_pos(2)
 
   write(*,*)
   write(*,*) 'minimal number of steps in toroidal turn:          ',n_phi_steps
@@ -176,22 +186,30 @@ program jorek2_SOLcurrent
 
   write(t_index_char,'(I5.5)') t_index
   open(21,file=trim(DIR)//'step'//t_index_char//'.dat')
-  if(write_debug_file) open(22,file='debug.dat')
-  write(21,'(A17, 14A18)') '#            R_b','Z_b','Phi_b','R_e','Z_e','Phi_e','ne_b','ne_e','Te_b','Te_e','L','av_sigma_par','pe_term','j_hat_par','j_par'
+  if(write_debug_file) open(22,file='debug_Newton_solver.dat')
+  if(debug) open(23,file='debug2.dat')
+
+  write(21,'(A17, 19A18)') '#            R_b','Z_b','Phi_b','R_e','Z_e','Phi_e','ne_b','ne_e','Te_b','Te_e','L','av_sigma_par','P_h - P_c','pe_term','j_hat_par','j_par','bdotn','j_wall','dl','I_loc'
   
   !normalisation constants to be used
   n_norm = central_density*1.d20                     ! ne[atoms/m³]     = n[jor] * n_norm
   T_norm = 1.d0 / (2.d0 * EL_CHG * MU_ZERO * n_norm) ! Te[eV] = T[eV]/2 = T[jor] * T_norm
 
+  !setting sanity check current integral over full domain to 0
+  int_I_wall = 0
+  
   ! --- Trace the fieldlines
   L_p: do ip=1,np !loop over the starting positions
     
-    L_phi0: do i_phi0 = 1, n_phi0
+    L_phi0: do i_phi0 = 1, n_phi0 !loop over starting angles
       if(write_debug_file) then
         write(22,*)
         write(22,'(A80)') '-------------------------------------------------------------------------------'
         write(22,'(A3,I5,A7,I3,A1,I3)') 'ip=',ip,' angle ',i_phi0,'/',n_phi0
       end if
+      !write(23,*)
+      !write(23,'(A80)') '-------------------------------------------------------------------------------'
+      !write(23,'(A3,I5,A7,I3,A1,I3)') 'ip=',ip,' angle ',i_phi0,'/',n_phi0
 
       s_line = initial_bnd_pos%pos(1,ip)%s
       t_line = initial_bnd_pos%pos(1,ip)%t
@@ -216,24 +234,26 @@ program jorek2_SOLcurrent
       Z_old = Z
 
       if(debug) write(*,*) 'R,Z',R,Z
-      
+      !write(*,'(I8,7es18.8)') i_elm,s_line,t_line,initial_bnd_pos%pos(1,ip)%R,initial_bnd_pos%pos(1,ip)%Z,R_b,Z_b,initial_bnd_pos%pos(1,ip)%dl
+
       !determine sign of delta_phi
       
       inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
       psi_R      = (  P_s(1) * Z_t - P_t(1) * Z_s ) * inv_st_jac
       psi_Z      = (- P_s(1) * R_t + P_t(1) * R_s ) * inv_st_jac
 
-      B2         = [+psi_Z, -psi_R] * 1.d0/R
-      Bdotn      = dot_product(B2,initial_bnd_pos%pos(i,ip)%bnd_normal)
-      delta_phi  = sign(abs(delta_phi),-Bdotn*F0/R)
-      if(debug) write(*,*) 'B:',B2, 'Bdotn:',Bdotn, 'delta_phi:',delta_phi,'F0:', F0, 'Bphi',F0/R
+      B3         = [+psi_Z, -psi_R, F0] * 1.d0/R
+      !> since the phi element of the wall normal vector is 0, the dot product is that of the first two elements 
+      bdotn      = dot_product(B3(1:2),initial_bnd_pos%pos(i,ip)%bnd_normal)/norm2(B3)
+      delta_phi  = sign(abs(delta_phi),-bdotn*F0/R)
+      if(debug) write(*,*) 'B:',B3, 'bdotn:',bdotn, 'delta_phi:',delta_phi
       
       !resetting running integrals
       L             = 0.d0
      !resisty_Spitz = 0.d0
       resisty       = 0.d0
       pe_integral   = 0.d0
-     !par_grad_p_av = 0.d0
+      pressure_drop = 0.d0
 
       i_steps = 0
 
@@ -469,17 +489,17 @@ program jorek2_SOLcurrent
         !grad_p_deb = [pe_R,pe_Z,pe_phi]
         !if((abs(dot_product(B_deb/norm2(B_deb),grad_p_deb) - par_grad_p) .gt. 1.d-10) .or. (abs(norm2(B_deb) - B) .gt. 1.d-10 )) &
         !  write(*,*) 'PROBLEM! ', dot_product(B_deb/norm2(B_deb),grad_p_deb), par_grad_p, norm2(B_deb), B 
-        !write(*,'(A10,10es18.8)') 'debug: ',pe_s, pe_t, pe_phi, pe_R, pe_Z, B_R, B_Z, B_phi, B, par_grad_p
+        !if((ip .eq. 344) .and. (i_steps .lt. 1000) ) write(23,'(A10,I8,10es18.8)') 'debug: ',i_steps,pe_s, pe_t, pe_phi, pe_R, pe_Z, B_R, B_Z, B_phi, B, par_grad_p
 
         !the direction of the integral is either the direction of B or -B
-        !dp_e/ds_\parallel = par_grad_p if \vec{s} = \vec{b}, but dp_e/ds_\parallel = - par_grad_p if \vec{s} = - \vec{s}
+        !dp_e/ds_\parallel = par_grad_p if \vec{s} = \vec{b}, but dp_e/ds_\parallel = - par_grad_p if \vec{s} = - \vec{b}
         par_grad_p = sign(abs(par_grad_p), B_phi * delta_phi_local * par_grad_p)
         
         L             = L             +  1.d0                 * dr
        !resisty_Spitz = resisty_Spitz + (1.d0 / Spitzer_cond) * dr
         resisty       = resisty       + (nu_ei / ne )         * dr !1/(n_e \tau_ei) = \nu_ei / n_e
         pe_integral   = pe_integral   + (1 / ne) * par_grad_p * dr
-       !par_grad_p_av = par_grad_p_av + par_grad_p            * dr !useful for debugging
+        pressure_drop = pressure_drop + par_grad_p            * dr !useful sanity check for debugging
         R_old = R
         Z_old = Z
 
@@ -532,7 +552,7 @@ program jorek2_SOLcurrent
         !> the integral should be hot to cold side, so correct the - sign afterwards 
         !> if it was cold to hot
         pe_integral   = - pe_integral 
-       !par_grad_p_av = - par_grad_p_av
+        pressure_drop = - pressure_drop
       end if
 
       pe_term    = pe_integral / (Te_h * EL_CHG)
@@ -554,21 +574,36 @@ program jorek2_SOLcurrent
         j_par     = 0.d0
       end if
 
-     !write(21,'(19es18.8)') R_b, Z_b, Phi_b, R_e, Z_e, Phi_e, ne_b, ne_e, Te_b, Te_e, L, av_sigma, av_sigma, par_grad_p_av, pe_integral, pe_term, j_hat_par, j_par,gamma_fact
-      write(21,'(15es18.8)') R_b, Z_b, Phi_b, R_e, Z_e, Phi_e, ne_b, ne_e, Te_b, Te_e, L, av_sigma, pe_term, j_hat_par, j_par
+      j_wall = j_par*abs(bdotn)
+      if(correct4fluxexpansion) j_wall = j_wall*R_average/R_b 
+      !< approximately corrects the radial component of the flux expansion dependence of j_par
+      if (.not. hot2cold) j_wall = - j_wall 
+      !< defining the sign of j_wall as positive when current flows out of the starting wall, and negative 
+      !< when current flows into the starting wall; since j_par is defined as positive for hot -> 
+      !< cold, if e.g. the tracer started at the hot side and j_par > 0, current is out of the 
+      !< starting wall, thus j_wall is positive
+      
+      !write(*,'(A15,3f10.4)') 'length / R / Z', initial_bnd_pos%pos(1,ip)%length, R_b, Z_b
+      ! I_loc = j * A = j_wall * angle*R*dl
+      I_loc = j_wall * (TWOPI/n_phi0)*R_b*initial_bnd_pos%pos(1,ip)%dl
+      int_I_wall = int_I_wall + I_loc
+
+      write(21,'(20es18.8)') R_b, Z_b, Phi_b, R_e, Z_e, Phi_e, ne_b, ne_e, Te_b, Te_e, L, av_sigma, pressure_drop, pe_term, j_hat_par, j_par, bdotn, j_wall, initial_bnd_pos%pos(1,ip)%dl, I_loc
 
     enddo L_phi0 !traced all starting angles for one bnd point
     
     !if(debug) write(*,*) 'ip/np',ip,np
     if (mod(ip,(np/10+1)) == 0) then !< writes some intermediate progress updates
-      write(*,'(A17,I10,A4,I10,A13,f10.7,A1,f10.7,A10,ES16.6)') 'starting point = ',ip,' of ',np,' at (R,Z) = (',R_b,',',Z_b,') and L =',L
+      write(*,'(A17,I10,A4,I10)') 'starting point = ',ip,' of ',np
     endif
 
   end do L_p !traced all starting points and angles
 
+  write(*,'(A64, e18.8)') 'Sanity check: total current over the whole wall (should be 0) = ',int_I_wall
+
   close(21)
   if(write_debug_file) close(22)
-
+  if(debug) close(23)
 contains
 
   !> calculates the Coulomb Logarithm for the given Te [eV] and ne [m⁻³]

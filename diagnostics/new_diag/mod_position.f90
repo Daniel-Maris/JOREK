@@ -52,6 +52,7 @@ module mod_position
     real*8             :: length     !< Length along a line (for line)
     ! --- Quantities related to boundary elements
     real*8             :: bnd_normal(2) = 0.d0 !< Normal vector to the computational boundary (pointing outside)
+    real*8             :: dl = 0.d0  !< Poloidal distance represented by this poloidal position (m)
   end type t_pol_pos
   
   !> Data structure for a list of poloidal positions
@@ -406,7 +407,7 @@ module mod_position
 
 
   !> Function to generate positions on the boundary of the JOREK's domain 
-  function bnd_pos(node_list, element_list, bnd_node_list, bnd_elm_list, n_elm_pts) result(pos_list)
+  function bnd_pos(node_list, element_list, bnd_node_list, bnd_elm_list, n_elm_pts, avoid_elem_bnd) result(pos_list)
 
     type(t_pol_pos_list), target :: pos_list
     
@@ -416,6 +417,7 @@ module mod_position
     type(type_bnd_node_list),     intent(in)    :: bnd_node_list
     type(type_bnd_element_list),  intent(in)    :: bnd_elm_list
     integer,                      intent(in)    :: n_elm_pts
+    logical, optional,            intent(in)    :: avoid_elem_bnd !if .false., s_or_t goes from 0, else s_or_t is never 0 or 1
 
     ! --- Local variables
     integer                  :: i_bnd, m_bndelem, mv1, m_elm, m_pt
@@ -424,6 +426,10 @@ module mod_position
     real*8                   :: vec_out(2)
     logical                  :: s_const
     type(t_pol_pos), pointer :: pos
+    logical                  :: avoid_elem_bnd_internal
+    
+    avoid_elem_bnd_internal = .false.
+    if(present(avoid_elem_bnd)) avoid_elem_bnd_internal = avoid_elem_bnd
 
     i_bnd = 0  ! index for bnd point
   
@@ -440,8 +446,12 @@ module mod_position
       do m_pt = 1, n_elm_pts
 
         i_bnd  = i_bnd + 1 
-        s_or_t = float(m_pt-1)/float(n_elm_pts)
-
+        if(avoid_elem_bnd_internal) then 
+          s_or_t = (float(m_pt)-0.5d0)/float(n_elm_pts) !linear distribution without s_or_t being 0 or 1
+        else
+          s_or_t = float(m_pt-1)/float(n_elm_pts)
+        end if
+        
         ! --- Which s and t values correspond to the current point and is the
         !     boundary element an s=const or t=const side of the 2D element?
         select case (mv1)
@@ -465,8 +475,10 @@ module mod_position
         ! --- Normal vector to the boundary
         if ( s_const ) then
           pos%bnd_normal = (/ -pos%Z_t, pos%R_t /) / sqrt(pos%R_t**2.d0 + pos%Z_t**2.d0)  
+          pos%dl         = sqrt(pos%R_t**2.d0 + pos%Z_t**2.d0)/float(n_elm_pts)  
         else
           pos%bnd_normal = (/ -pos%Z_s, pos%R_s /) / sqrt(pos%R_s**2.d0 + pos%Z_s**2.d0)
+          pos%dl         = sqrt(pos%R_s**2.d0 + pos%Z_s**2.d0)/float(n_elm_pts) 
         end if
 
         ! --- Correct normal direction to point outwards 

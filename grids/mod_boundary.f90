@@ -491,6 +491,7 @@ module mod_boundary
   !> Get a normal vector from the wall on your element. It is your own responsibility to ensure
   !> that it is actually on the wall ;) We just find the closest edge of the element and calculate the gradient
   !> towards the inside of the element.
+  !> ***WARNING*** does not resolve the sign, so might be pointing inward or outward
   pure function wall_normal_vector(node_list, element_list, i_elm, s, t) result(n)
     use data_structure
     use mod_interp, only: interp_RZ

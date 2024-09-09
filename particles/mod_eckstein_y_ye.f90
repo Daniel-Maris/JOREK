@@ -23,15 +23,16 @@ private
 public :: eckstein_coeff_set, eckstein_sputter_yield, eckstein_sputtered_energy_coeff
  
 
-!> Eckstein angle dependency fit coefficients, determining the function
+!> Eckstein angle dependency fit coefficients, determining equation 8 from
+!> Eckstein (2003) Journal Nuclear Materials 209-213
+!> https://doi.org/10.1016/S0022-3115(03)00192-2
+!>
 !> \[
 !>   \frac{Y(E_0,\theta_0)}{Y(E_0,0)} = \left( \cos\left[\left(\frac{\pi \theta_0}{2 \theta^*}
 !>      \right)^c\right] \right)^{-f} \exp\left[b\left(1 - \left(\cos\left[\left(\frac{\pi\theta_0}
 !>      {2\theta^*}\right)^c\right]\right)^{-1}\right)\right]
 !> \]
-
-
-!> where $\theta$ is in degrees, but $\theta^*$ is in radians.
+!> where $\theta$ and $\theta^*$ are in degrees and $90\degree \leq \theta^* \leq 180\degree$ (eq. 9)
 !> See [[evaluate_eckstein_formula]] for an implementation
 type :: eckstein_coeff
   real*8 :: E0 !< energy [eV]
@@ -333,13 +334,21 @@ subroutine read(this)
       call move_alloc(temp, yn) ! temp gets deallocated
     end if
 
-    if (abs(yn(i)%theta_star) .lt. 1.d-6) then
+    if (yn(i)%theta_star .lt. 90.d0) then
       if(my_id .eq. 0) then
         write(*,*) 'problem in loading eckstein data file ',file
-        write(*,'(A16,I2,A4,ES12.2,A30)') 'theta_star at i=',i,' is ',yn(i)%theta_star,' leading to divide by 0 issues'
-        write(*,*) 'setting theta_star(i) to 1.d-6 instead'
+        write(*,'(A16,I2,A4,ES12.2)') 'theta_star at i=',i,' is ',yn(i)%theta_star
+        write(*,*) 'setting theta_star(i) to 90.d0 degree instead'
       end if
-      yn(i)%theta_star = 1.d-6
+      yn(i)%theta_star = 90.d0
+    end if
+    if (yn(i)%theta_star .gt. 180.d0) then
+      if(my_id .eq. 0) then
+        write(*,*) 'problem in loading eckstein data file ',file
+        write(*,'(A16,I2,A4,ES12.2)') 'theta_star at i=',i,' is ',yn(i)%theta_star
+        write(*,*) 'setting theta_star(i) to 180.d0 degree instead'
+      end if
+      yn(i)%theta_star = 180.d0
     end if
 
     ! Ignore this line if it is a duplicate
@@ -360,7 +369,7 @@ pure function evaluate_eckstein_formula(this, theta) result(coeff) !< this , the
   real*8 ,intent(in)                :: theta !< angle in degrees
   real*8                            :: coeff
   ! Normalized angle of incidence dependency Y(E_0, theta_0)/Y(E_0,0)
-  if (abs(theta) .gt. 1d-6) then !< check for theta_star = 0 is done at loading of the file
+  if (abs(theta) .gt. 1d-6) then !< check for 90 < theta_star < 180 is done at loading of the file
     coeff = (cos( (theta/this%theta_star * pi/2.d0)**this%c) )**(-this%f) * &
         exp(this%b * (1.d0-1.d0/cos( (theta/this%theta_star * pi/2.d0)**this%c )))
   else
