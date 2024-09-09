@@ -1214,7 +1214,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   endif
 #else
   call HDF5_real_reading(file_id,T_0_hdf5,'T_0')
-  if (use_denfensive_checks) then
+  if (use_defensive_checks) then
     if (abs(T_0_hdf5 - T_0) .gt. 1.d-16) then
       write(*,*) "Error: Value of T_0 in restart file and namelist are inconsistent: ", T_0_hdf5, T_0
       stop
