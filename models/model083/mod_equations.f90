@@ -99,7 +99,7 @@ module mod_equations
     !###################################################################################################
     !rhs_semianalytic(var_zj)  = (-dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R)   &
     !                          +  dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R)   &
-    !                          -  dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R) * heaviside
+    !                          -  dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R)
 
     ! new version of rhs, curl of B has to be in cylindrical coordinates
 

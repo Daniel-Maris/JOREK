@@ -2,12 +2,12 @@ module mod_settings
 
 implicit none
 
-integer, parameter :: n_tor             = 17      !< number of toroidal harmonics
-integer, parameter :: n_coord_tor       = 37      !< number of toroidal harmonics in (R, Z) coordinates
-integer, parameter :: l_pol_domm        = 12      !< highest poloidal mode in the Dommaschk potentials        
-integer, parameter :: n_period          = 1      !< periodicity in toroidal direction
+integer, parameter :: n_tor             = 21      !< number of toroidal harmonics
+integer, parameter :: n_coord_tor       = 41      !< number of toroidal harmonics in (R, Z) coordinates
+integer, parameter :: l_pol_domm        = 8      !< highest poloidal mode in the Dommaschk potentials        
+integer, parameter :: n_period          = 5      !< periodicity in toroidal direction
 integer, parameter :: n_coord_period    = 5      !< periodicity of the device in toroidal direction: equivalent to number of field periods
-integer, parameter :: n_plane           = 256      !< number of toroidal angles
+integer, parameter :: n_plane           = 128      !< number of toroidal angles
 integer, parameter :: n_order           = 3      !< order of the polynomial basis
 integer, parameter :: n_nodes_max       = 60001  !< maximum number of nodes
 integer, parameter :: n_elements_max    = 60001  !< maximum number of elements

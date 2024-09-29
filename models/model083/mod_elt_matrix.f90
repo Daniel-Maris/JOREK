@@ -254,7 +254,7 @@ do ms=1, n_gauss
      eq(var_B0p_gvec,0,0,1,1) = Bp_p
 
      psi_norm = s_norm(ms,mt)
-     eq(var_heaviside,0,0,0,1) = 0.5-0.5*tanh((psi_norm-1/1.2)/0.1)
+     eq(var_heaviside,0,0,0,1) = 0.5-0.5*tanh((psi_norm-0.826)/0.025)  ! use psi_norm-0.826
 
      ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi
      eq(var_Psi,:,:,:,1) = eq(var_Psi,:,:,:,1)/F0

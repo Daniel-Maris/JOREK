@@ -586,7 +586,7 @@ module mod_plasma_response
       do ms=1, n_gauss
         do mt=1, n_gauss
           
-          !if (s_norm(ms,mt) .gt. (1/1.2)) cycle ! limitation on s_norm
+          if (s_norm(ms,mt) .gt. 0.826) cycle ! limitation on s_norm
 
           wst  = wgauss_copy(ms)*wgauss_copy(mt)
 
