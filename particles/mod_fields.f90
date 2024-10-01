@@ -67,16 +67,15 @@ module mod_fields
     end subroutine interp_PRZ_2
     !> Interpolate a variable at s, t, phi in i_elm, returning first
     !> derivatives of the variable and of space
-    pure subroutine interp_PRZP_1(this, time, i_elm, i_v, n_v, s, t, phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_phi, R_t, Z, Z_s, Z_t, Z_phi)
+    pure subroutine interp_PRZP_1(this, time, i_elm, i_v, n_v, s, t, phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi)
       import fields_base
       class(fields_base),  intent(in)  :: this
       real*8,                   intent(in)  :: time !< Time at which to calculate this variable
       integer,                  intent(in)  :: i_elm
       integer,                  intent(in)  :: n_v, i_v(n_v)
       real*8,                   intent(in)  :: s, t, phi
-      real*8,                   intent(out) :: P(n_v), P_s(n_v), P_t(n_v), P_time(n_v)
+      real*8,                   intent(out) :: P(n_v), P_s(n_v), P_t(n_v), P_phi(n_v), P_time(n_v)
       real*8,                   intent(out) :: R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi
-      real*8,                   intent(out) :: P_phi(n_v)
     end subroutine interp_PRZP_1
   end interface
 
@@ -87,6 +86,7 @@ pure subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
   use phys_module, only: F0, mode, central_mass, central_density
   use constants, only: mu_zero, mass_proton
   use mod_coordinate_transforms, only: transform_derivatives_st_to_RZ
+  use mod_chi
   ! Routine parameters
   class(fields_base), intent(in) :: fields
   real*8, intent(in)  :: time
@@ -108,10 +108,11 @@ pure subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
   real*8             :: P(2), P_s(2), P_t(2), P_phi(2), P_time(2) ! Placeholder for evaluating variables and derivatives locally
 #endif
   ! Values
-  real*8             :: R, R_s, R_t, Z, Z_s, Z_t
+  real*8             :: R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi
   ! Others
   real*8             :: inv_st_jac, R_inv
   real*8             :: psi_R, psi_Z, psi_phi, U_R, U_Z, U_phi, t_norm
+  real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi
 
   t_norm  = sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
 
@@ -149,7 +150,7 @@ pure subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
   B=[(A3_Z-AZ_p)*R_inv, (AR_p-A3_R)*R_inv, AZ_R-AR_Z + Fprof*R_inv]
   E=[-AR_t, -AZ_t, -R_inv*A3_t]
 #else
-  call fields%interp_PRZP(time, i_elm, i_var, 2, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi)
+  call fields%interp_PRZP_1(time, i_elm, i_var, 2, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi)
   ! Calculate the derivatives to R and Z
 
   R_inv = 1.d0/R
@@ -169,9 +170,11 @@ pure subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
   if(fields%flag_zero_dpsidt) P_time(1) = 0.d0
 
 #if STELLARATOR_MODEL
+  chi = get_chi(R,Z,phi,fields%node_list,fields%element_list,i_elm,st(1),st(2))
+
   B = (/ chi(1,0,0)      + (psi_Z*chi(0,0,1) - psi_phi*chi(0,1,0))/(F0*R), &
          chi(0,1,0)      - (psi_R*chi(0,0,1) - psi_phi*chi(1,0,0))/(F0*R), &
-         chi(0,0,1)/BigR + (psi_R*chi(0,1,0) - psi_Z * chi(1,0,0))/F0         /)
+         chi(0,0,1)/R    + (psi_R*chi(0,1,0) - psi_Z * chi(1,0,0))/F0         /)
   
   E     = [-U_R, -U_Z, -U_phi*R_inv]/t_norm
   E     = E - P_time(1)/F0*(/ chi(1,0,0), chi(0,1,0), chi(0,0,1)*R_inv /) 

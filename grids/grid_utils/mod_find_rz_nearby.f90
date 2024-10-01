@@ -62,10 +62,11 @@ real*8,  parameter :: element_tolerance   = 1.d-24 !< Tolerance for finding a po
 integer, parameter :: newton_iter_max     = 8 !< Number of iterations to try
 
 !> Internal variables
+real*8  :: p              
 integer :: newton_iter_number, i_elm_tmp
-real*8 :: inv_st_jac_det, R_s, R_t, Z_s, Z_t
-real*8 :: st_step(2), x_step(2), x_tmp(2), st_new(2), x_new(2) ! x_step = (R,Z) of trial position
-real*8 :: err2, err2_old, dist(2), fact
+real*8  :: inv_st_jac_det, R_s, R_t, Z_s, Z_t
+real*8  :: st_step(2), x_step(2), x_tmp(2), st_new(2), x_new(2) ! x_step = (R,Z) of trial position
+real*8  :: err2, err2_old, dist(2), fact
 
 ! Check if element is valid
 if (i_elm_old .lt. 1 .or. i_elm_old .gt. element_list%n_elements) then
@@ -78,15 +79,15 @@ if (i_elm_old .lt. 1 .or. i_elm_old .gt. element_list%n_elements) then
 #endif
 end if
 
-  if present(phi) then
-    p = phi
-  else
+if (present(phi)) then
+  p = phi
+else
 #if STELLARATOR_MODEL
-    write(*,*) "Toroidal angle phi must be defined for stellarator models"
-    stop
+  write(*,*) "Toroidal angle phi must be defined for stellarator models"
+  stop
 #endif
-    p = 0.0
-  endif
+  p = 0.0
+endif
 
 ! Setup initial values
 x_step = [R_old,Z_old] ! start at the current position
@@ -197,7 +198,7 @@ implicit none
 !> Input parameters
 type (type_node_list),    intent(in)    :: node_list
 type (type_element_list), intent(in)    :: element_list
-real*8,                   intent(in)    :: st(2)
+real*8,                   intent(in)    :: st(2), p
 integer,                  intent(in)    :: i_elm
 real*8,                   intent(out)   :: x(2), R_s, R_t, Z_s, Z_t, inv_st_jac_det
 
