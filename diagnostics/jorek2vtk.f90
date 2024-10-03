@@ -531,8 +531,9 @@ if (toroidal_angle .ne. 0.d0) then
     HZ_coord(2*i+1,i_plane)    = - sin(mode_coord(2*i+1) * toroidal_angle )
     HZ_coord_p(2*i+1,i_plane)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*toroidal_angle)
     HZ_coord_pp(2*i+1,i_plane)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*toroidal_angle)
-  enddo
-elseif(i_tor .ge. 1 ) then
+ enddo
+end if
+if ( i_tor .ge. 1 ) then
    HZ = 1.d0
 endif
 
