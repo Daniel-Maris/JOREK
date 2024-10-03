@@ -476,10 +476,9 @@ do k_tor=1, n_coord_tor
   mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
 enddo
 
+call initialise_basis                              ! define the basis functions at the Gaussian points
 
 call import_restart(node_list,  element_list, 'jorek_restart', rst_format, ierr, .true., aux_node_list=aux_node_list)
-
-call initialise_basis                              ! define the basis functions at the Gaussian points
 
 call init_chi_basis
 
@@ -533,6 +532,8 @@ if (toroidal_angle .ne. 0.d0) then
     HZ_coord_p(2*i+1,i_plane)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*toroidal_angle)
     HZ_coord_pp(2*i+1,i_plane)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*toroidal_angle)
   enddo
+elseif(i_tor .ge. 1 ) then
+   HZ = 1.d0
 endif
 
 do i=1,element_list%n_elements
