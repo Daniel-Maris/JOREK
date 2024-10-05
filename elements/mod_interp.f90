@@ -434,14 +434,14 @@ do kv = 1, n_vertex_max
     R_s = R_s + v * H_s(kf,kv)
     R_t = R_t + v * H_t(kf,kv)
     vp = dot_product(xR(1:n_coord_tor,kf,kv),dHZ_coord(1:n_coord_tor))
-    R_phi = R_phi + v * H(kf,kv)
+    R_phi = R_phi + vp * H(kf,kv)
 
     v = dot_product(xZ(1:n_coord_tor,kf,kv),HZ_coord(1:n_coord_tor))
     Z = Z + v * H(kf,kv)
     Z_s = Z_s + v * H_s(kf,kv)
     Z_t = Z_t + v * H_t(kf,kv)
     vp = dot_product(xZ(1:n_coord_tor,kf,kv),dHZ_coord(1:n_coord_tor))
-    Z_phi = Z_phi + v * H(kf,kv)
+    Z_phi = Z_phi + vp * H(kf,kv)
   enddo
 enddo
 end subroutine interp_PRZP_1
@@ -542,7 +542,7 @@ do kv = 1, n_vertex_max
     R_s = R_s + v * H_s(kf,kv)
     R_t = R_t + v * H_t(kf,kv)
     vp = dot_product(xR(1:n_coord_tor,kf,kv),dHZ_coord(1:n_coord_tor))
-    R_phi = R_phi + v * H(kf,kv)
+    R_phi = R_phi + vp * H(kf,kv)
 
     R_st = R_st + v * H_st(kf,kv)
     R_ss = R_ss + v * H_ss(kf,kv)
@@ -558,7 +558,7 @@ do kv = 1, n_vertex_max
     Z_s = Z_s + v * H_s(kf,kv)
     Z_t = Z_t + v * H_t(kf,kv)
     vp = dot_product(xZ(1:n_coord_tor,kf,kv),dHZ_coord(1:n_coord_tor))
-    Z_phi = Z_phi + v * H(kf,kv)
+    Z_phi = Z_phi + vp * H(kf,kv)
 
     Z_st = Z_st + v * H_st(kf,kv)
     Z_ss = Z_ss + v * H_ss(kf,kv)
@@ -1327,6 +1327,7 @@ end subroutine interp_RZP_2
 !!   2: plasma current
 !!   3: pressure
 !!   4: radial coordinate (in GVEC, this is the square root of the normalised toroidal flux)
+!!   5: scalar potential for vacuum magnetic field
 pure subroutine interp_gvec(node_list, element_list, i_elm, i_var, i_dim, i_harm, s, t, P, P_s, P_t, P_st, P_ss, P_tt)
 type (type_node_list),    intent(in)  :: node_list
 type (type_element_list), intent(in)  :: element_list
