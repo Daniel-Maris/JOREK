@@ -308,7 +308,7 @@ logical :: my_deltas
 call basisfunctions(s,t,H_T)
 H = transpose(H_T)
 call sincosperiod_moivre(phi, HZ, dHZ) ! dHZ unused
-call sincosperiod_moivre(phi, HZ_coord, dHZ_coord) ! dHZ unused
+call sincosperiod_moivre_ncoord(phi, HZ_coord, dHZ_coord) ! dHZ unused
 
 P = 0.d0; R = 0.d0; Z = 0.d0
 
