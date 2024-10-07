@@ -25,7 +25,7 @@ module mod_jorek2IMAS
   ! Transform to COCOS convention 8 --> 11
   real*8 :: fact_psi =  2.d0 * PI
   real*8 :: fact_Ip  = -1.d0
-  real*8 :: fact_phi_dir = 1.d0  ! -1 to go from 8-->11 or 8-->17
+  real*8 :: fact_phi_dir = -1.d0  ! -1 to go from 8-->11 or 8-->17
 
     
   ! *******************************************************************************************************
@@ -124,7 +124,7 @@ module mod_jorek2IMAS
       ! --- Put the grid in GGD
       allocate( mhd_ids%grid_ggd(n_grid) )
       grid => mhd_ids%grid_ggd(grid_ind)
-      call grid2ggd( grid, node_list, element_list )
+      call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
     endif
 
     ! --- Normalization factors for IMAS
@@ -850,7 +850,7 @@ module mod_jorek2IMAS
       ! --- Put the grid in GGD
       allocate( radiation_ids%grid_ggd(n_grid) )
       grid => radiation_ids%grid_ggd(grid_ind)
-      call grid2ggd( grid, node_list, element_list )
+      call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
     endif
  
     ! --- Normalization factors for IMAS
@@ -1935,7 +1935,7 @@ module mod_jorek2IMAS
 
   
   !< Fills JOREK grid into GGD
-  subroutine grid2ggd( grid, node_list, element_list )
+  subroutine grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
   
     implicit none
   
@@ -1943,12 +1943,18 @@ module mod_jorek2IMAS
     type(ids_generic_grid_aos3_root),     pointer   :: grid
     type (type_node_list),    intent(in)            :: node_list
     type (type_element_list), intent(in)            :: element_list
+    type (type_bnd_node_list),    intent(in)        :: bnd_node_list
+    type (type_bnd_element_list), intent(in)        :: bnd_elm_list
   
   
     ! --- Local parameters
     type(ids_generic_grid_dynamic_space), pointer   ::  space_RZ
     type(ids_generic_grid_dynamic_space), pointer   ::  space_fourier
-    type(ids_generic_grid_dynamic_space_dimension), pointer :: ids_cells
+    type(ids_generic_grid_dynamic_space_dimension),     pointer :: ids_cells
+    type(ids_generic_grid_dynamic_grid_subset_element), pointer :: sub_elm
+    type(type_bnd_element)                             :: bnd_elm
+
+
     
     integer:: idx, shot_number, run_number, num_nodes, num_cells   
     integer :: gs_index, i, j
@@ -2009,7 +2015,7 @@ module mod_jorek2IMAS
     enddo
   
     ! Writing grid_subsets
-    allocate(grid%grid_subset(1))  
+    allocate(grid%grid_subset(2))  
   
     ! Subset for nodes in the combined space
     gs_index = 1
@@ -2022,7 +2028,30 @@ module mod_jorek2IMAS
                                                          of the combined RZ x Fourier space (number of nodes &
                                                          is N_poloidal_nodes x N_fourier). "
     grid%grid_subset(gs_index)%dimension                 = 1    ! 1 is the convention for 0D nodes
+
+
+    
+    gs_index = 2  ! for boundary 
   
+    allocate( grid%grid_subset(gs_index)%identifier%name(1)         )
+    allocate( grid%grid_subset(gs_index)%identifier%description(1)  )
+    grid%grid_subset(gs_index)%identifier%name(1)        = "bnd elements"
+    grid%grid_subset(gs_index)%identifier%index          = 44 
+    grid%grid_subset(gs_index)%identifier%description(1) = "All elements belonging to the boundary &
+                                                            and index to the nodes belonging to it."
+    grid%grid_subset(gs_index)%dimension                 = 2    ! 2 is the convention for edge
+    allocate(grid%grid_subset(gs_index)%element(bnd_elm_list%n_bnd_elements))
+    do i =1, bnd_elm_list%n_bnd_elements
+       bnd_elm =  bnd_elm_list%bnd_element(i)
+       sub_elm => grid%grid_subset(gs_index)%element(i)
+       allocate(sub_elm%object(2))
+       do j = 1,2
+          sub_elm%object(j)%dimension = 1   ! 0D nodes
+          sub_elm%object(j)%space     = 1   ! from poloidal space
+          sub_elm%object(j)%index = bnd_elm%vertex(j)
+       end do
+    end do
+
     ! Fill toroidal space 
     space_fourier  => grid%space(2)
     allocate(    space_fourier%coordinates_type(1)    )
