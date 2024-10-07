@@ -25,6 +25,7 @@ module mod_jorek2IMAS
   ! Transform to COCOS convention 8 --> 11
   real*8 :: fact_psi =  2.d0 * PI
   real*8 :: fact_Ip  = -1.d0
+  real*8 :: fact_phi_dir = 1.d0  ! -1 to go from 8-->11 or 8-->17
 
     
   ! *******************************************************************************************************
@@ -698,11 +699,11 @@ module mod_jorek2IMAS
         allocate( pf_passive%loop(i_coil)%element(coil_set%coil(i_coil)%nparts_coil) )
         do k=1, coil_set%coil(i_coil)%nparts_coil
           pf_passive%loop(i_coil)%element(k)%turns_with_sign           = coil_set%coil(i_coil)%n_thick_turns(k)
-          pf_passive%loop(i_coil)%element(k)%geometry.geometry_type    = 2 ! Rectangle type
-          pf_passive%loop(i_coil)%element(k)%geometry.rectangle.r      = coil_set%coil(i_coil)%R(k)
-          pf_passive%loop(i_coil)%element(k)%geometry.rectangle.z      = coil_set%coil(i_coil)%Z(k)
-          pf_passive%loop(i_coil)%element(k)%geometry.rectangle.width  = coil_set%coil(i_coil)%dR(k)
-          pf_passive%loop(i_coil)%element(k)%geometry.rectangle.height = coil_set%coil(i_coil)%dZ(k)
+          pf_passive%loop(i_coil)%element(k)%geometry%geometry_type    = 2 ! Rectangle type
+          pf_passive%loop(i_coil)%element(k)%geometry%rectangle%r      = coil_set%coil(i_coil)%R(k)
+          pf_passive%loop(i_coil)%element(k)%geometry%rectangle%z      = coil_set%coil(i_coil)%Z(k)
+          pf_passive%loop(i_coil)%element(k)%geometry%rectangle%width  = coil_set%coil(i_coil)%dR(k)
+          pf_passive%loop(i_coil)%element(k)%geometry%rectangle%height = coil_set%coil(i_coil)%dZ(k)
         enddo
       endif
 
@@ -791,11 +792,11 @@ module mod_jorek2IMAS
         allocate( pf_active%coil(i_coil)%element(coil_set%coil(i_coil)%nparts_coil) )
         do k=1, coil_set%coil(i_coil)%nparts_coil
           pf_active%coil(i_coil)%element(k)%turns_with_sign           = coil_set%coil(i_coil)%n_thick_turns(k)
-          pf_active%coil(i_coil)%element(k)%geometry.geometry_type    = 2 ! Rectangle type
-          pf_active%coil(i_coil)%element(k)%geometry.rectangle.r      = coil_set%coil(i_coil)%R(k)
-          pf_active%coil(i_coil)%element(k)%geometry.rectangle.z      = coil_set%coil(i_coil)%Z(k)
-          pf_active%coil(i_coil)%element(k)%geometry.rectangle.width  = coil_set%coil(i_coil)%dR(k)
-          pf_active%coil(i_coil)%element(k)%geometry.rectangle.height = coil_set%coil(i_coil)%dZ(k)
+          pf_active%coil(i_coil)%element(k)%geometry%geometry_type    = 2 ! Rectangle type
+          pf_active%coil(i_coil)%element(k)%geometry%rectangle%r      = coil_set%coil(i_coil)%R(k)
+          pf_active%coil(i_coil)%element(k)%geometry%rectangle%z      = coil_set%coil(i_coil)%Z(k)
+          pf_active%coil(i_coil)%element(k)%geometry%rectangle%width  = coil_set%coil(i_coil)%dR(k)
+          pf_active%coil(i_coil)%element(k)%geometry%rectangle%height = coil_set%coil(i_coil)%dZ(k)
         enddo
       endif
 
@@ -1865,10 +1866,15 @@ module mod_jorek2IMAS
     do inode=1, num_nodes    
       do itor=1, n_tor
         
-        inode_glob = inode + (itor-1)*num_nodes 
-  
-        ggd_scalar%coefficients(inode_glob,:) = node_list%node(inode)%values(itor,:,var_index)
-        ggd_scalar%values(inode_glob)         = node_list%node(inode)%values(itor,1,var_index)
+         inode_glob = inode + (itor-1)*num_nodes
+         
+        if ( (itor .eq. 1) .or. mod(itor, 2) .eq. 0 ) then ! reverse sign of sine modes to transform COCOS convention
+           ggd_scalar%coefficients(inode_glob,:) =   node_list%node(inode)%values(itor,:,var_index)
+           ggd_scalar%values(inode_glob)         =   node_list%node(inode)%values(itor,1,var_index)
+        else
+           ggd_scalar%coefficients(inode_glob,:) = fact_phi_dir *  node_list%node(inode)%values(itor,:,var_index)
+           ggd_scalar%values(inode_glob)         = fact_phi_dir *  node_list%node(inode)%values(itor,1,var_index)
+        end if
 
       enddo
     enddo

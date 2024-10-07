@@ -307,7 +307,7 @@ module mod_vacuum_fields
     !$omp           dem1,dem2,dem3,am1,am2,am3,ata1,ata2,ata3,at,vx,vy,vz,siny,jphi,        &
     !$omp           omp_nthreads,omp_tid, green)
     
-#ifdef OPENMP
+#ifdef _OPENMP
     omp_nthreads = omp_get_num_threads()
     omp_tid      = omp_get_thread_num()
 #else
