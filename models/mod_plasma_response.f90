@@ -237,7 +237,8 @@ module mod_plasma_response
     real*8     :: d_vec(3), J_vec(3), cross(3), dB(3), dA(3)
     real*8     :: wgauss_copy(n_gauss)
     integer    :: n_points
-
+    real*8     :: HZ_local(n_tor,n_phi_int)
+    
     real*8, allocatable :: bx_tmp(:), by_tmp(:), bz_tmp(:)
     real*8, allocatable :: Ax_tmp(:), Ay_tmp(:), Az_tmp(:)
     real*8, allocatable :: Ax(:), Ay(:), Az(:)
@@ -250,6 +251,14 @@ module mod_plasma_response
     ife_min   =      my_id     * ife_delta + 1
     ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 
+    do mp=1, n_phi_int
+       phi = 2.d0*PI*float(mp-1)/float(n_phi_int) / float(n_period)
+       HZ_local(1,mp) = 1
+       do in = 1, (n_tor-1)/2
+          HZ_local(2*in, mp)   = cos(mode(2*in)  *phi)
+          HZ_local(2*in+1, mp) = sin(mode(2*in)  *phi)
+       end do
+    end do
    
     n_points = size(x,1)
     allocate(bx_tmp(n_points), by_tmp(n_points), bz_tmp(n_points))
@@ -265,13 +274,13 @@ module mod_plasma_response
 
     ! --- OpenMP parallelization of element loop
     !$omp parallel default(none)                                                           &
-    !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ, ife_min, ife_max, n_phi_int,    &
+    !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ_local, ife_min, ife_max, n_phi_int,    &
     !$omp          delta_phi, n_points, x, y, z, bx_tmp, by_tmp, bz_tmp, Ax_tmp, Ay_tmp, Az_tmp, wgauss_copy)      &
     !$omp   private(ife,iv,inode,element,nodes,i,j, in, mp, ms, mt,                        &
     !$omp           x_g, y_g, x_s, y_s, x_t, y_t, xjac, eq_g, zj0, R, xp, yp, zp, dd, phi, &
     !$omp           d_vec, J_vec, cross, dB, dA, wst, omp_nthreads,omp_tid)
     
-#ifdef OPENMP
+#ifdef _OPENMP
     omp_nthreads = omp_get_num_threads()
     omp_tid      = omp_get_thread_num()
 #else
@@ -324,7 +333,7 @@ module mod_plasma_response
             do ms=1, n_gauss
               do mt=1, n_gauss
                 do in=1,n_tor
-                  eq_g(mp,ms,mt) = eq_g(mp,ms,mt) + nodes(i)%values(in,j,3) * element%size(i,j) * H(i,j,ms,mt)  * HZ(in,mp)
+                  eq_g(mp,ms,mt) = eq_g(mp,ms,mt) + nodes(i)%values(in,j,3) * element%size(i,j) * H(i,j,ms,mt)  * HZ_local(in,mp)
                 enddo !---ntor
       	      enddo !---gauss
             enddo !---gauss
