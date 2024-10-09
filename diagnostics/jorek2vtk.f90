@@ -104,7 +104,7 @@ real*8                :: angle, source_volume, local_density, local_temperature,
 logical               :: include_radiation
 real*8                :: Arad_bg, Brad_bg, Crad_bg, frad_bg
 real*8                :: Te_eV, ne_SI, Lrad_imp, r_imp_bg
-real*8                :: Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksiion, LradDcont_T
+real*8                :: Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksi_ion_norm, LradDcont_T
 real*8                :: LradDrays_T, coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss
 real*8                :: r0_real8, rn0_real8, lnA
 real*8                :: T0_corr, r0_corr, rn0_corr, ne_JOREK, T_or_Te, T_or_Te_corr, T_or_Te_0 
@@ -1284,7 +1284,7 @@ enddo  ! n_elements
       coef_ion_1 = (MU_ZERO*central_mass*MASS_PROTON)**(0.5d0)*0.2917d-13*(central_density*1.d20)**(1.5d0)
       S_ion_puiss = 3.9d-1
 
-      ksiion = ksi_ion * central_density * 1.d20
+      ksi_ion_norm = ksi_ion * central_density * 1.d20
       rn0_real8 = scalars(i,var_rhon)
 
       if ( with_TiTe ) then
@@ -1298,7 +1298,7 @@ enddo  ! n_elements
       call coulomb_log_ei(T_or_Te, T_or_Te_corr, rho, corr_neg_dens1(rho), 0.0, 0.0, 0.0, lnA)
       call resistivity(eta, T_or_Te, T_or_Te_corr, T_max_eta, T_or_Te_0, 1.d0, lnA, eta_Sp)           
 
-      scalars(i,ineu(1)) = ksiion * scalars(i,var_rho) * scalars(i,var_rhon) * Sion_T
+      scalars(i,ineu(1)) = ksi_ion_norm * scalars(i,var_rho) * scalars(i,var_rhon) * Sion_T
       scalars(i,ineu(2)) = scalars(i,var_rho) * scalars(i,var_rhon) * LradDrays_T
       scalars(i,ineu(3)) = LradDcont_T * scalars(i,var_rho)**2.d0
 #ifdef fullmhd
@@ -1678,7 +1678,7 @@ if (SI_units) then
       coef_ion_1 = (MU_ZERO*central_mass*MASS_PROTON)**(0.5d0)*(central_density*1.d20)**(1.5d0)
       coef_rad_1 = (gamma-1.d0)*MU_ZERO**1.5d0*(central_mass*MASS_PROTON)**0.5d0*(central_density*1.d20)**2.5d0
 
-      ksiion = ksi_ion * central_density * 1.d20
+      ksi_ion_norm = ksi_ion * central_density * 1.d20
       rn0_real8 = scalars(i,8)/central_density
 
       if ( with_TiTe ) then
@@ -1691,7 +1691,7 @@ if (SI_units) then
 
       eta_Sp = 1.65d-9*17*(1.d-3*Te_corr_eV)**(-1.5d0)
   
-      scalars(i,ineu(1)) = ksiion* (1.5d0)/(MU_zero*central_density*1.d20)      &
+      scalars(i,ineu(1)) = ksi_ion_norm* (1.5d0)/(MU_zero*central_density*1.d20)      &
                                           * scalars(i,var_rho) * 1.d20 * scalars(i,var_rhon) * 1.d20 * Sion_T / coef_ion_1
 
       scalars(i,ineu(2)) = scalars(i,var_rho)* 1.d20 * scalars(i,var_rhon) * 1.d20 * LradDrays_T/ coef_rad_1

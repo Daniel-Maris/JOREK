@@ -164,7 +164,7 @@ real*8  ::  local_Nion, local_Nrec, local_pn, local_Prec, local_Prb  !Also neede
 real*8  :: local_aux_mom_par_int ,local_aux_mom_par_ext, local_aux_mom_par_tot  ! coupled parallel momentum
 real*8  :: aux_mom_par_int ,aux_mom_par_ext, aux_mom_par_tot  ! coupled parallel momentum
 !> For model500 + use_ncs
-real*8     :: ksiion                                          ! Ionization energy shared with WITH_NEUTRALS
+real*8     :: ksi_ion_norm                                          ! Ionization energy shared with WITH_NEUTRALS
 !   -Ionization
 real*8     :: Sion_T_ncs, dSion_dT_ncs
 !   -Recombination
@@ -235,7 +235,7 @@ real*8  :: alpha_imp, dalpha_imp_dT, beta_imp, dbeta_imp_dT
 ! Atomic physics coefficients:
 !   -Ionization
 real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
-!real*8     :: ksiion                                          ! Ionization energy
+!real*8     :: ksi_ion_norm                                          ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
 !   -Radiation from injected gas/impurities
@@ -458,7 +458,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           thm_wk, mag_wk, eta_T, vpar_disp, fric_disp, p0_p, T0_corr, r0_corr, u0_p,     &
 !$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp, AZ0_Zp, A30, &
 !$omp           A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,&
-!$omp           Srec_T_ncs, dSrec_dT_ncs,ksi_ion,ksiion, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs, dSion_dT_ncs,&
+!$omp           Srec_T_ncs, dSrec_dT_ncs,ksi_ion,ksi_ion_norm, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs, dSion_dT_ncs,&
 !$omp           aux_nodes, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_T0, aux_Vpar0, &
 !$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,&
 !$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,              &
@@ -819,7 +819,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 ! --- USE NCS, PARTICLE NEUTRAL AND IMPURITY COUPLE SCHEME
 ! ------------------------------------------
         if(use_ncs) then 
-          ksiion = central_density * 1.d20 * ksi_ion
+          ksi_ion_norm = central_density * 1.d20 * ksi_ion
           call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T_ncs, dSion_dT_ncs, Srec_T_ncs, dSrec_dT_ncs, LradDcont_T_ncs, dLradDcont_dT_ncs)
         
           !> coupled densities
@@ -836,7 +836,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           !>Lost to recombination (no Brehmstralung)
           local_Prec = local_Prec + r0_corr*r0_corr*(T0_corr*Srec_T_ncs)*BigR *xjac* delta_phi *wst
           ! Power recombination and bremstrhalung combined
-          local_Prb = local_Prb + r0_corr*r0_corr*(LradDcont_T_ncs-ksiion*Srec_T_ncs)*BigR *xjac* delta_phi *wst
+          local_Prb = local_Prb + r0_corr*r0_corr*(LradDcont_T_ncs-ksi_ion_norm*Srec_T_ncs)*BigR *xjac* delta_phi *wst
           !> aux_vpar = dot_product(SI momentum source,B). so we  divide by |B| to obtain the integral of the SI momentum
           local_aux_mom_par_tot=local_aux_mom_par_tot+ aux_vpar0 /sqrt(BB2) * xjac * BigR * wst * delta_phi !< * sqrt(BB2)
 
@@ -859,7 +859,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
         ! Get coefficient:  Prad,SI = coef_prad_si * Prad,jorek
         coef_prad_si = 1./((GAMMA-1)*MU_ZERO*(MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**0.5) 
       
-        ksiion = central_density * 1.d20 * ksi_ion   ! Normalisation of the ionization energy cost for Deuterium
+        ksi_ion_norm = central_density * 1.d20 * ksi_ion   ! Normalisation of the ionization energy cost for Deuterium
       
         ! --- Radiation from background impurity
         ne_SI = r0_corr * 1.d20 * central_density !electron density (SI)
@@ -892,7 +892,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           local_radiation         = local_radiation + ( (r0_corr * rn0_corr  * LradDrays_T            &
                                      + r0_corr ** 2 * LradDcont_T) * coef_prad_si                     & 
                                      + ne_SI * frad_bg) * bigR * xjac * wst * delta_phi 
-          local_P_ion             = local_P_ion + ksiion * r0_corr * rn0_corr * Sion_T * coef_prad_si &
+          local_P_ion             = local_P_ion + ksi_ion_norm * r0_corr * rn0_corr * Sion_T * coef_prad_si &
                                    * bigR * xjac * wst * delta_phi
         else
           if ( trim(imp_type(1)) == 'Ar') then ! Hard-coded fitting exists for argon
@@ -908,7 +908,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
             local_radiation         = local_radiation + (r0_corr * rn0_corr  * LradDrays_T &
                                        + r0_corr ** 2 * LradDcont_T + r0_corr * frad_bg) * coef_prad_si & 
                                        * bigR * xjac * wst * delta_phi 
-            local_P_ion             = local_P_ion + ksiion * r0_corr * rn0_corr * Sion_T * coef_prad_si &
+            local_P_ion             = local_P_ion + ksi_ion_norm * r0_corr * rn0_corr * Sion_T * coef_prad_si &
                                        * bigR * xjac * wst * delta_phi
           else
             write(*,*) "WARNING: hard-coded fitting doesn't exist for  ", trim(imp_type(1)), ", use open adas instead!"

@@ -123,7 +123,7 @@ real*8     :: w00_xx, w00_yy
 !   -Ionization
 real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
 !real*8     :: coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss ! Ionization rate parameters
-!real*8     :: ksiion                                          ! Ionization energy
+!real*8     :: ksi_ion_norm                                          ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
 real*8      :: rec_particles_this_element !< amount of recombination in this element
