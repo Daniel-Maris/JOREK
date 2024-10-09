@@ -81,29 +81,29 @@ call check_and_fix_timesteps(timesteps, events)
 ! 9. Run first events
 call with(sim, events, at=0.d0)
 
-! Set dpsi_dt to be zero as treating JOREK as an equilibrium field
+! 10. Set dpsi_dt to be zero as treating JOREK as an equilibrium field
 call sim%fields%set_flag_dpsidt(.true.)
 
-! 10. Loop until we the simulation requests a stop
+! 11. Loop until we the simulation requests a stop
 write(*,*) "Start tracing"
 do while (.not. sim%stop_now)
-  ! 10.1 Find out which events are next and when they will run
+  ! 11.1 Find out which events are next and when they will run
   target_time = next_event_at(sim, events)
-  ! 10.2 Loop over all particle groups
+  ! 11.2 Loop over all particle groups
   do i=1,1
     n_steps = nint((target_time - sim%time)/timesteps(i))
     write(*,*) "Target time, n_steps", target_time, n_steps
-    ! 10.3 Loop first over particles, and then over how many steps we can take
+    ! 11.3 Loop first over particles, and then over how many steps we can take
     !$omp parallel do default(private) shared(sim, n_steps, timesteps, i, p) &
     !$omp reduction(+:n_lost)
     do j=1,size(sim%groups(i)%particles)
       write(filename, '(A12,I1,A4)') 'particle_xyz', i, +'.dat'
-      ! 10.4 copy the particle j in the i-th groups to the dummy structure particle
+      ! 11.4 copy the particle j in the i-th groups to the dummy structure particle
       !< get particle base attributes from sim%groups(i)%particles(j)
       open(21,file=filename)
       do k=1,n_steps
         t = sim%time + k*timesteps(i)
-        ! 10.5 integrating the particle trajectory via boris scheme
+        ! 11.5 integrating the particle with corresponding time evolution scheme
         select type (p => sim%groups(1)%particles)
         type is (particle_kinetic_leapfrog)
 
@@ -116,13 +116,12 @@ do while (.not. sim%stop_now)
           call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, rz_old(1), rz_old(2), st_old(1), st_old(2), i_elm_old, p(j)%x(1), p(j)%x(2), p(j)%st(1), p(j)%st(2), p(j)%i_elm, ifail, p(j)%x(3))
         
           call interp_gvec(sim%fields%node_list, sim%fields%element_list, p(j)%i_elm, 4, 1, 1, p(j)%st(1), p(j)%st(2), s_norm, dummy, dummy, dummy, dummy, dummy)
-          if (mod(k, 100) .eq. 0) write(21, "(15e16.8)") p(j)%x, p(j)%v, B, E, p(j)%st(1), p(j)%st(2), s_norm
+          if (mod(k, 1) .eq. 0) write(21, "(15e16.8)") p(j)%x, p(j)%v, B, E, p(j)%st(1), p(j)%st(2), s_norm
         type is (particle_fieldline)
           call field_line_runge_kutta_fixed_dt_push_jorek(sim%fields, p(j), sim%time, t)
           call interp_gvec(sim%fields%node_list, sim%fields%element_list, p(j)%i_elm, 4, 1, 1, p(j)%st(1), p(j)%st(2), s_norm, dummy, dummy, dummy, dummy, dummy)
           if (mod(k, 1) .eq. 0) write(21, "(6e16.8)") p(j)%x, p(j)%st(1), p(j)%st(2), s_norm
         end select      
-
         
         if (sim%groups(i)%particles(j)%i_elm .le. 0) n_lost = n_lost + 1
       end do ! steps
@@ -132,7 +131,7 @@ do while (.not. sim%stop_now)
     write(*,*) "number/% of lost particles: ", n_lost, n_lost/n_particles*100.0
   end do ! groups
 
-  ! 10.7 Update the current time and run events
+  ! 11.6 Update the current time and run events
   sim%time = target_time
   call with(sim, events, at=sim%time)
 end do

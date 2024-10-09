@@ -187,7 +187,7 @@ pure subroutine do_interp_PRZ_2(this,time,i_elm,i_v,n_v,s,t,phi, &
 end subroutine do_interp_PRZ_2
 
 
-!> Interpolate a variable at a specific position (with phi), with first derivatives only
+!> Interpolate a variable at a specific position (with phi), with first derivatives only, including phi derivatives
 pure subroutine do_interp_PRZP_1(this, time, i_elm, i_v, n_v, s, t, phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi)
   use mod_interp
   use constants, only: mu_zero, mass_proton
