@@ -66,9 +66,14 @@ type is (particle_fieldline)
   B = 0.0
 end select
 sim%groups(1)%mass = 4.0
+write(*,*) "Print kinetic energy at start of simulation time"
+select type (p => sim%groups(1)%particles(1))
+  type is (particle_kinetic_leapfrog) 
+    write(*,*) norm2(p%v)
+end select
 
 ! 7. Set an event to stop the simulation.
-events  = [event(stop_action(), start=100.0d0)]
+events  = [event(stop_action(), start=1.0d0)]
 
 ! 8. Check whether all events conform to the requested timestep
 call check_and_fix_timesteps(timesteps, events)
@@ -133,8 +138,7 @@ do while (.not. sim%stop_now)
 end do
 
 ! 11. Print some info of the particle
-write(*,*) "Print info"
-write(*,*) norm2(sim%groups(1)%particles(1)%x)
+write(*,*) "Print kinetic energy at end of simulation time"
 select type (p => sim%groups(1)%particles(1))
   type is (particle_kinetic_leapfrog) 
     write(*,*) norm2(p%v)
