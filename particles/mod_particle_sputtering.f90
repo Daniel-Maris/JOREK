@@ -249,8 +249,6 @@ subroutine load_eckstein_data(this, sim)
   if (.not. allocated(this%yield) .and. .not. allocated(this%energy)) then
     allocate(this%yield(size(sim%groups,1)+size(this%background_species_Z,1))) 
     allocate(this%energy(size(sim%groups,1)+size(this%background_species_Z,1)))
-    ! TODO: add reflection probability
-	!       reflected energy
   
     !< reads eckstein sputter coefficients of all groups (such as tungsten)
     n_g = size(sim%groups,1)
@@ -470,25 +468,21 @@ subroutine do_particle_sputter(this, sim, ev)
     !$omp do schedule(dynamic, 10)
     do j = 1,size(sim%groups(i)%particles,1)
       ! Skip if this particle is not lost in a specific location (i_elm .eq. 0 means lost 'somewhere')
-	  ! if (sim%groups(i)%particles(j)%i_elm .lt. 0) write(*,*) "PARTICLE PART element at ", sim%groups(i)%particles(j)%i_elm
-	  
-	  ! if (sim%groups(i)%particles(j)%i_elm .ne. 0) write(11,*) "PARTICLE PART, particle at element", sim%groups(i)%particles(j)%i_elm
       if (sim%groups(i)%particles(j)%i_elm .ge. 0) cycle !< .not. .lt.!< if this is not a lost particle go to next particle
         
       ! Find out if this particle is lost in any of the edge domains
       do i_patch = 1,size(this%fluid_sputter_yield%patch,1)
         ! if i_elm in the i_elm list of this edge domain exit the loop
-        ! if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) exit
         ! Note that this has issues at sharp corners, where particles may be
         ! lost in a different patch but at the same element number!
 		if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) then
 			this_patch = i_patch
 			sputtered_this_step_local = sputtered_this_step_local + 1
 			bnd_kinetic_flux_local = bnd_kinetic_flux_local + sim%groups(i)%particles(j)%weight
+      exit !<Making sure diagnostics cannot count this particle double.
 		endif
       end do
 	  i_patch = this_patch
-	  ! write(*,*) "i_patch", i_patch, "size fluid_sputter_yield%patch", size(this%fluid_sputter_yield%patch,1)
       if (i_patch .gt. size(this%fluid_sputter_yield%patch,1)) cycle ! particle not lost in the right area, skip it
       
       !> Check if the particle passes through the surface in a patch that acts as a pump

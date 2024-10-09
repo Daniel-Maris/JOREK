@@ -213,7 +213,7 @@ do ms=1, n_gauss
     Vpar0 = eq_g(mp,7,ms)
 
     T0_corr = T0 !
-	T0_corr_sqrt = max(T0,1.d-6)! force above 0 for calculating sound speed
+	  T0_corr_sqrt = max(T0,1.d-6)! force above 0 for calculating sound speed
     r0_corr = r0  !
 
 	bnd_outflux_sign = 1.d0 

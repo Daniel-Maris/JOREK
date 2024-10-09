@@ -53,7 +53,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 F0,gamma_sheath,gamma_stangeby, density_reflection, &
                 mach_one_bnd_integral, Vpar_smoothing,              &
                 deuterium_adas, old_deuterium_atomic,               &
-                Vpar_smoothing_coef,                &
+                Vpar_smoothing_coef,                                &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef,                             &
                 T_0,   T_1,   T_coef,                               &
@@ -75,7 +75,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 xcase, SDN_threshold, D_perp_file, ZK_perp_file,    &
                 rho_file, T_file, ffprime_file, rot_file,           &
                 normalized_velocity_profile,                        &
-                freeboundary_equil, freeboundary,  freeb_change_indices, &
+                freeboundary_equil,freeboundary,freeb_change_indices, &
                 resistive_wall,                                     &
                 wall_resistivity, wall_resistivity_fact,            &
                 bc_natural_open,                                    &

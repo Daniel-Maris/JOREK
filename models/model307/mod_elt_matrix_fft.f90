@@ -1220,7 +1220,6 @@ do i=1,n_vertex_max
                      - v * tauIC/(r0_corr*BB2**2) * BB2_psi * F0**2/BigR**2 * (ps0_x*p0_y - ps0_y*p0_x) * xjac * theta * tstep &
                      + v * tauIC/(r0_corr*BB2**2) * BB2_psi * F0**3/BigR**3 * p0_p           * xjac * theta * tstep
 
-			      !amat(1,1) = amat(1,1) *1.d12	
                   amat(1,2) = -  v * (ps0_s * u_t - ps0_t * u_s)                             * theta * tstep
 
                   amat_n(1,2) = + F0 / BigR * v * u_p * xjac                                 * theta * tstep
@@ -1290,7 +1289,6 @@ do i=1,n_vertex_max
                             + TG_num2 * 0.25d0 * r0_hat * BigR**3 * (w0_x * u0_y - w0_y * u0_x)     &
                                       * ( v_x * u_y - v_y * u_x)   * xjac * theta * tstep * tstep
                     
-				   !amat(2,2) = amat(2,2) *1.d12 
                   if ( NEO ) then
                     amat(2,2) = amat(2,2) &
                               - amu_neo_prof(ms,mt)*BB2/((Btheta2+epsil)**2) * (ps0_x*v_x + ps0_y*v_y) * r0 *(ps0_x*u_x + ps0_y*u_y) &
@@ -1369,7 +1367,6 @@ do i=1,n_vertex_max
                   !###################################################################################################
 
                   amat(3,3) = v * zj / BigR * xjac
-                  !amat(3,3) = amat(3,3) *1.d12					  
                   amat(3,1) = (v_x * psi_x + v_y * psi_y ) / BigR * xjac         
 
                   !###################################################################################################
@@ -1377,7 +1374,6 @@ do i=1,n_vertex_max
                   !###################################################################################################
 
                   amat(4,4) =  v * w * BigR * xjac
-				  !amat(4,4) = amat(4,4) *1.d12				  
                   amat(4,2) = (v_x * u_x + v_y * u_y) * BigR * xjac              
 
                   !###################################################################################################

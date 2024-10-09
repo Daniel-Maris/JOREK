@@ -353,8 +353,10 @@ pure subroutine calc_gyro_average_E(fields, time, particles, n_phases, E_average
 
 end subroutine calc_gyro_average_E
 
-
-subroutine calc_vvector(fields, time, i_elm, st, phi, vvector) ! geen psi u vpar
+!> Calculates the plasma velocity vector
+!the sum of vpar v_ExB
+! May be To do: add diamagnetic drift component.
+subroutine calc_vvector(fields, time, i_elm, st, phi, vvector) 
 use phys_module, only: F0, mode, central_mass, central_density
 use constants, only: mu_zero, mass_proton
 use mod_coordinate_transforms, only: transform_derivatives_st_to_RZ

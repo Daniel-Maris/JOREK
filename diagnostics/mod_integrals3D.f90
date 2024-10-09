@@ -608,7 +608,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
   enddo
   
   ! > loop over aux nodes seperately because they are optional
-!  if (present(aux_nodes_list))  then
+  if (present(aux_node_list)) then
     do i=1,n_vertex_max
     do j=1,n_order+1
 
@@ -625,7 +625,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
               enddo
             enddo
 
-	  enddo
+	        enddo
         enddo
       enddo
 

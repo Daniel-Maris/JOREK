@@ -61,6 +61,7 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
+!> To do: add generalization to choose group number.
 function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,fueling_rate_start,poly_R,poly_Z,boxpuff) result(new)
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
@@ -114,7 +115,7 @@ function new_particle_puffing(n_puff, fueling_rate, valve_r, R, Z, phi, rng, see
 
 end function new_particle_puffing
 
-  ! Actually puff gass
+!> Actually puff gass
 subroutine do_particle_puffing(this,sim, ev)
 	use mpi_mod
     ! !$ use omp_lib
@@ -122,7 +123,7 @@ subroutine do_particle_puffing(this,sim, ev)
 	
   class(particle_puffing) , intent(inout) :: this
   type(particle_sim), intent(inout)       :: sim
-  type(event), intent(inout), optional    :: ev !<STIJN> is this nececary?
+  type(event), intent(inout), optional    :: ev 
 
   integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, n_puff_local,i_rng
   logical, allocatable, dimension(:) :: is_free
@@ -155,29 +156,7 @@ subroutine do_particle_puffing(this,sim, ev)
   
   n_puff_local = this%n_puff / sim%n_cpu !n_puff local is the amount of superparticles that will be puffed per MPI process.
  
-  ! allocate(is_free(size(sim%groups(1)%particles,1))) 
-
-  ! might be replaced with omp workshare, or just the array expression.
-  ! there is an issue with derived type arrays in gfortran though, and this works
-  ! !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &
-  ! !$omp private(j)
-  ! do j=1,size(sim%groups(1)%particles,1)
-    ! is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0 
-  ! end do
-  ! !$omp end parallel do
-  ! !$omp barrier
-  ! n_free = count(is_free)
-  ! allocate(i_free(n_free))
-  ! k = 1
-  ! do j=1,size(is_free,1)
-    ! if (is_free(j)) then
-      ! i_free(k) = j
-      ! k = k+1
-      ! if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
-    ! end if
-  ! end do
-
-  !============== Finding free particles !< make into a function?
+!============== Finding free particles !< make into a function?
 allocate(is_free(size(sim%groups(1)%particles,1))) 
 !$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
 !$omp private(j) schedule(dynamic, 100)
@@ -200,7 +179,7 @@ end do
   
   
   n_group = 1   ! Puffing Hydrogen (or actually the element at groups(1)) only
-  ! Assuming the incoming gas at T=300K and a diatomic gas
+  ! Assuming the incoming gas at T=300C and a diatomic gas
   c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(n_group)%mass*ATOMIC_MASS_UNIT))
 	if (.not. this%boxpuff) then
 		call find_RZ(sim%fields%node_list, sim%fields%element_list, this%R, this%Z, R, Z, &
@@ -220,13 +199,10 @@ end do
   !vector_normal = -1.d0 * vector_normal
 !------------- Decide how many superparticles to initiate		 
 !Adjust amount of superparticles + fueling rate if we use time dependent puffing 
-! same way as in model500
-  ! write(*,*) "puff_t_dependent", this%puff_t_dependent
   if (this%puff_t_dependent) then
      to_puff        = n_puff_local !int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
 	 fueling_rate_t = time_dependent_puff(this%fueling_rate ,sim%time, this%t_puff_start,this%t_puff_slope, this%fueling_rate_start)
-	 !write(*,*) "n_puff", this%n_puff, "to_puff", to_puff, "fueling_rate_t", fueling_rate_t
-	 !write(*,*) "to_puff_real" , maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /))
+	 
 	 if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is fueling_rate_t:",fueling_rate_t, "atoms/s"
 	 
 	 if (to_puff .ge. n_free) then
@@ -281,8 +257,6 @@ end do
 		
         call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, R, Z, s, t, i_elm, &
         R_new, Z_new, s_new, t_new, i_elm_new, ifail)
-        !call find_RZ(sim%fields%node_list, sim%fields%element_list, R_new, Z_new, R, Z, &
-        !       i_elm_new, s_new, t_new, ifail)
         if (ifail .ge. 0) exit
       end do
       R     = R_new
@@ -330,13 +304,6 @@ real*8,intent(in)   :: max_puff, min_puff
 real*8              :: to_puff
 real*8,intent(in)    :: t_puff_start,t_puff_slope
 real*8,intent(in)    :: time
-
-! real*8               :: t_norm
-
-! n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-! rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
-! t_norm    = sqrt((MU_ZERO * CENTRAL_MASS * ATOMIC_MASS_UNIT * CENTRAL_DENSITY * 1.d20    ))                           ! t_SI   = t_norm * t_jorek
-
 
 if (time-(t_puff_start+t_puff_slope) .ge. 0.d0) then
 	to_puff = max_puff
