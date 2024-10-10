@@ -739,19 +739,19 @@ module phys_module
   real*8, allocatable :: num_Fprofile_y3(:) !< Third derivatives of Fprofile profile (\f$ d^2F/d\Psi_N^2 \f$)
 
   !> @name Analytical input profile for the background Phi profile
-  real*8  :: phi_0             !< Central normalized density (usually 1)
-  real*8  :: phi_1             !< SOL normalized density
-  real*8  :: phi_coef(10)      !< Density profile coefficients
+  real*8  :: phi_0             !< Central background potential; (usually 1)
+  real*8  :: phi_1             !< Edge background potential
+  real*8  :: phi_coef(10)      !< potential profile coefficients
 
   !> @name Numerical input profile for the background potential profile
-  character(len=512)  :: phi_file           !< ASCII file the neutral density profile is read from.
-  logical             :: num_phi            !< is set true if rho_file /= 'none'
+  character(len=512)  :: phi_file           !< ASCII file the potential profile is read from.
+  logical             :: num_phi            !< is set true if potential_file /= 'none'
   integer             :: num_phi_len        !< Number of points in profile
   real*8, allocatable :: num_phi_x(:)       !< Radial positions of profile points (PsiN values)
-  real*8, allocatable :: num_phi_y0(:)      !< Values of neutral density profile
-  real*8, allocatable :: num_phi_y1(:)      !< First derivatives of neutral density profile (\f$ d\rhon/d\Psi_N \f$)
-  real*8, allocatable :: num_phi_y2(:)      !< Second derivatives of neutral density profile (\f$ d^2\rhon/d\Psi_N^2 \f$)
-  real*8, allocatable :: num_phi_y3(:)      !< Third derivatives of neutral density profile (\f$ d^3\rhon/d\Psi_N^3 \f$)
+  real*8, allocatable :: num_phi_y0(:)      !< Values of potential profile
+  real*8, allocatable :: num_phi_y1(:)      !< First derivatives of potential profile (\f$ d\Phi/d\rcoord_N \f$)
+  real*8, allocatable :: num_phi_y2(:)      !< Second derivatives of potential profile (\f$ d^2\Phi/d\rcoord_N^2 \f$)
+  real*8, allocatable :: num_phi_y3(:)      !< Third derivatives of potential profile (\f$ d^3\Phi/d\rcoord_N^3 \f$)
 
   real*8  :: nu_phi_source                  !< Friction coefficient of the n=0 background potential profile source term (>~ visco)
 
