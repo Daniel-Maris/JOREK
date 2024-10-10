@@ -41,6 +41,8 @@ jorek2vtk*
 jorek2_fieldlines_vtk
 jorek2vtk_3d
 jorek2_diagno*
+jorek2_IDS
+jorek2_fields_xyz
 jorek_to_helena
 import_eqdsk
 jorek2_main
@@ -66,6 +68,9 @@ coil_field.dat
 RMP_psi*.txt
 RMP_start_time.dat
 shard_size.dat
+aux_automatic.h
+rhs_automatic.h
+amat_automatic.h
 non_regression_tests_*
 /test_*
 new_*
@@ -77,3 +82,7 @@ d_ne*
 eqdsk2jorek*
 mpiversion.mk
 jorek2_get_new_extension_patch_connections
+fluid_loads_on_3D_wall
+jorek2_IDS
+jorek2_fields_xyz
+jorek2_wall_forces

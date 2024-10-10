@@ -91,10 +91,10 @@ ifeq ($(COMPILER_FAMILY), intel)
   ifeq ($(DEBUG), 1)
     # Debug flags for ifort, see http://www.nas.nasa.gov/hecc/support/kb/recommended-intel-compiler-debugging-options_92.html
     FLAGS += -O0 -g -traceback
-    FLAGS += -ftrapuv
     FLAGS += -debug all -debug-parameters
     FLAGS += -fstack-security-check
-    FLAGS += -fpe0
+    FFLAGS += -ftrapuv
+    FFLAGS += -fpe0
     FFLAGS += -check all,noarg_temp_created
     FFLAGS += -check bounds
     FFLAGS += -check uninit
@@ -170,6 +170,19 @@ ifeq (model750, $(MODEL))
   DEFINES  := $(DEFINES) -Dfullmhd
 endif
 
+CGDEP= generate_code                         # Pre-compute analytic expressions from mod_equations for performance
+USE_DOMM ?= 1
+ifeq ($(USE_DOMM), 1)
+  DEFINES := $(DEFINES) -DUSE_DOMM              # Use Dommaschk potentials, without FE correction of n.B on boundary 
+endif
+ifeq (model180, $(MODEL))
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL -DSTELLARATOR_MODEL
+  FFLAGS  := $(FFLAGS) -heap-arrays
+endif
+ifeq (model183, $(MODEL))
+  DEFINES := $(DEFINES) -DSEMIANALYTICAL -DSTELLARATOR_MODEL
+  FFLAGS  := $(FFLAGS) -heap-arrays
+endif
 ifeq (.true., $(shell ./util/config.sh -p with_vpar))
   DEFINES  := $(DEFINES) -DWITH_Vpar
 endif
@@ -262,6 +275,14 @@ endif
 
 ifeq (1, $(USE_BLOCK))
   DEFINES := $(DEFINES) -DUSE_BLOCK
+endif
+
+ifeq (1, $(USE_NO_TREE))
+  DEFINES := $(DEFINES) -DUSE_NO_TREE
+endif
+
+ifeq (1, $(USE_QUADTREE))
+  DEFINES := $(DEFINES) -DUSE_QUADTREE
 endif
 
 ifeq (1, $(USE_DIRECT_CONSTRUCTION))
