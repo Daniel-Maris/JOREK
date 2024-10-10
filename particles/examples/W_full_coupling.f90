@@ -88,7 +88,7 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-!real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
+!real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, puffing_rate_start
 !real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3
 !integer :: n_puff
 !logical :: puff_t_dependent

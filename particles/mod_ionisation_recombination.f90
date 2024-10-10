@@ -52,7 +52,7 @@ use mod_openadas
     ! ! number of simulation particles/s to puff across all processes
     ! integer :: n_puff = -1 
     ! ! Average fueling rate: 9.7d22; max fueling rate 18d22
-    ! real*8  :: fueling_rate = -1.d0
+    ! real*8  :: puffing_rate = -1.d0
     ! real*8  :: R = -1.d0, Z = -1.d0, phi = -1.d0
     ! real*8  :: valve_r = -1.d0  !< radius of gas valve
     ! real*8  :: last_time = 0.d0 !< When did we puff last 

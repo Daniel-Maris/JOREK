@@ -71,7 +71,7 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, fueling_rate_start
+real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, puffing_rate_start
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4)
 integer :: n_puff
 logical :: puff_t_dependent,boxpuff
@@ -189,7 +189,7 @@ endif
 ! setting up particle puffing Top puff
 ! puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
 ! puff_rate = 40.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-! fueling_rate_start = 10.d21 !10 40 worked, 20 before
+! puffing_rate_start = 10.d21 !10 40 worked, 20 before
 ! r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
 ! R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
 ! Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
@@ -205,7 +205,7 @@ endif
 !Bot puff
 puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
 puff_rate = 40.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-fueling_rate_start = 10.d21 !10 40 worked, 20 before
+puffing_rate_start = 10.d21 !10 40 worked, 20 before
 r_valve     = 0.05d0 !0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
 R_valve_loc = 4.3d0 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
 Z_valve     = -3.8d0 !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
@@ -228,13 +228,13 @@ if (use_puffing) then
   if (puff_t_dependent) then
 	t_puff_start = 5000*t_norm !25000*t_norm !34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
 	t_puff_slope = 8.d-3 !4.d-3 !< linearly ramps up the puffing during this time
-	!fueling_rate_start = 5.d21 !40 worked, 20 before
+	!puffing_rate_start = 5.d21 !40 worked, 20 before
 	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
 	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
-    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,fueling_rate_start=fueling_rate_start/2.d0)
+    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,puffing_rate_start=puffing_rate_start/2.d0)
+	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,puffing_rate_start=puffing_rate_start/2.d0)
 	gas_puff3 = particle_puffing(n_puff, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-				fueling_rate_start=40.d21,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff) !20.d21
+				puffing_rate_start=40.d21,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff) !20.d21
   else
 
 	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
