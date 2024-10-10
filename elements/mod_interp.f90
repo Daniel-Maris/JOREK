@@ -11,9 +11,9 @@ public :: interp_delta !< interp a specific harmonic in finite elements, of the 
 public :: interp_0 !< interp variable only, no derivatives at a specific position in domain
 public :: interp_0_delta !< interp variable only, no derivatives at a specific position in domain, of the deltas
 public :: interp_RZ !< Interpolate space only
-public :: interp_RZP !< interpolate RZ for a given (s,t,phi) for a 3D configuration 
+public :: interp_RZP !< interpolate RZ at a given (s,t,phi) for a non-axisymmetric configuration 
 public :: interp_PRZ !< interp variable + pos at values or deltas
-public :: interp_PRZP !< interp variable + pos at values or deltas including R, Z phi derivatives
+public :: interp_PRZP !< interp variable + pos at values or deltas at a given (s,t,phi) for a non-axisymmetric configuration
 public :: interp_gvec !< interpolate equilibrium parameters imported from GVEC
 public :: sincosperiod_moivre, mode_moivre !< public for regtesting, used by interp_PRZ
 public :: interp_PRZ_combined !< same as interp, but for any variable, including R and Z
@@ -286,8 +286,7 @@ enddo
 end subroutine interp_PRZ_2
 
 
-!> This subroutine interpolates some variables at a specific position within one element at a given position (s,t)
-!> including R, Z phi derivatives
+!> This subroutine interpolates some variables at a specific position within one element at a given position (s,t,phi)
 pure subroutine interp_PRZP_0(node_list, element_list, i_elm, i_v, n_v, s, t, phi, P, R, Z, deltas)
 type (type_node_list),    intent(in)  :: node_list
 type (type_element_list), intent(in)  :: element_list
@@ -358,8 +357,8 @@ do kv = 1, n_vertex_max
 enddo
 end subroutine interp_PRZP_0
 
-!> This subroutine interpolates some variables at a specific position within one element at a given position (s,t)
-!> including R, Z phi derivatives
+!> This subroutine interpolates some variables at a specific position within one element at a given position (s,t,phi)
+!> including up to first order R, Z phi derivatives
 pure subroutine interp_PRZP_1(node_list, element_list, i_elm, i_v, n_v, s, t, phi, P, P_s, P_t, P_phi,  & 
                              R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi, deltas)
 type (type_node_list),    intent(in)  :: node_list
@@ -449,8 +448,8 @@ enddo
 end subroutine interp_PRZP_1
 
 
-!> This subroutine interpolates some variables at a specific position within one element at a given position (s,t)
-!> including R, Z phi derivatives
+!> This subroutine interpolates some variables at a specific position within one element at a given position (s,t,phi)
+!> including up to second order R, Z phi derivatives
 pure subroutine interp_PRZP_2(node_list, element_list, i_elm, i_v, n_v, s, t, phi, &
                               P, P_s, P_t, P_phi, P_st, P_ss, P_tt, P_sphi, P_tphi, P_phiphi, & 
                               R, R_s, R_t, R_phi, R_st, R_ss, R_tt, R_sphi, R_tphi, R_phiphi, &
