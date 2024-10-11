@@ -658,8 +658,8 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
       enddo
 
     enddo
-  enddo
-  ! endif
+    enddo
+  endif ! present(aux_node_list)
   
   
   ! --- Determine smallest and largest values of the variables in the whole domain (on Gauss points and toroidal integration surfaces)
