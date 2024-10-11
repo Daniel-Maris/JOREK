@@ -1349,6 +1349,7 @@ call basisfunctions(s,t,G, G_s, G_t, G_st, G_ss, G_tt)
 
 P = 0.d0; P_s = 0.d0; P_t = 0.d0; P_st = 0.d0; P_ss = 0.d0; P_tt = 0.d0
 
+#if STELLARATOR_MODEL
 do kv = 1,n_vertex_max  ! 4 vertices
   iv = element_list%element(i_elm)%vertex(kv)  ! the node number
   do kf = 1, n_degrees       ! 4 basis functions
@@ -1383,7 +1384,7 @@ do kv = 1,n_vertex_max  ! 4 vertices
       P_st = P_st + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
       P_ss = P_ss + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
       P_tt = P_tt + node_list%node(iv)%pressure(kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-#endif
+#endif /*JOREK_MODEL == 180*/
     else if (i_var == 5) then    
 #ifndef USE_DOMM    
       ! The equilibrium is a scalar, axisymmetric profile, so i_dim and i_harm have no influence on the results
@@ -1393,10 +1394,11 @@ do kv = 1,n_vertex_max  ! 4 vertices
       P_st = P_st + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_st(kv,kf)
       P_ss = P_ss + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_ss(kv,kf)
       P_tt = P_tt + node_list%node(iv)%chi_correction(i_harm,kf) * element_list%element(i_elm)%size(kv,kf) * G_tt(kv,kf)
-#endif
+#endif /*USE_DOMM*/
     endif
   end do
 end do
+#endif /*STELLARATOR_MODEL*/
 
 end subroutine interp_gvec
 
