@@ -97,7 +97,7 @@ do while (.not. sim%stop_now)
     !$omp parallel do default(private) shared(sim, n_steps, timesteps, i, p) &
     !$omp reduction(+:n_lost)
     do j=1,size(sim%groups(i)%particles)
-      write(filename, '(A12,I1,A4)') 'particle_xyz', i, +'.dat'
+      write(filename, '(A12,I1,A4)') 'particle_xyz', i, '.dat'
       ! 11.4 copy the particle j in the i-th groups to the dummy structure particle
       !< get particle base attributes from sim%groups(i)%particles(j)
       open(21,file=filename)
