@@ -36,7 +36,7 @@ use mod_edge_domain
 use mod_edge_elements
 
 !tungsten
-! use mod_collisions !<------------------------------------------------------- NEEDS GUIDOS NEW BRANCH
+
 use mod_coronal
 ! use mod_radiation, only : proj_PLT, proj_Lz
 use mod_sampling

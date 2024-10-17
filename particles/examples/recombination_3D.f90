@@ -1,6 +1,12 @@
-!> Testing the coupling of the projections of particles to JOREK
+!> Neutral particle example using the 3D recombination routine.
+!> Particle puffing is toroidally located at phi=PI/2
+!> TO adjust this example to your scenario of choice change the following:
+!> To use particle puffing: use_puffing       = .true. 
+!> Chanche Puff_rate
+!> r_valve (valve radius), R_valve_loc, Z_valve (R,Z, coordinates of simple valve)
+!> No plasma to particle recycling. This example will also work on a polar grid.
 
-program recobmination_loop
+program recobmination_3D
 
 !use mod_integrate_recombination
 use particle_tracer
@@ -202,20 +208,17 @@ if (use_puffing) then
 	t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
 	t_puff_slope = 1.d-1 !1.d-1 !< linearly ramps up the puffing during this time
 	
-	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
-	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
-    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
+
+    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, phi=PI/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
+	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, phi=PI/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope)
   else
 
-	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
+
 	gas_puff = particle_puffing(n_puff, puff_rate, r_valve, R_valve_loc, Z_valve, phi=PI/2.d0) ! was 1
-	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
-	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
+
   end if
   gas_puff_event = event(gas_puff)
-  !gas_puff2_event = event(gas_puff2)
-	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
+
 	
 	if (sim%my_id .eq.0) then
 	write(*,*) "Gas puffing rate [#/s] : ", puff_rate
@@ -224,14 +227,7 @@ if (use_puffing) then
 else 
 	n_puff = 0.d0
 	gas_puff = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
-	!gas_puff2 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
 endif
-
-! write(*,*) 'main : t_start = ',t_start
-
-! n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-! rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
-! t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
 
 tstep_si  = tstep * t_norm
 n_steps   = floor(tstep_si / timesteps)
@@ -253,10 +249,6 @@ jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 filter = filter_perp, filter_hyper = filter_hyper, filter_parallel=filter_par, fractional_digits = 9, &
                                 do_zonal = .false., calc_integrals=.false., to_vtk=.TRUE., to_h5 = .false., basename='projections', nsub=2)
 
-! jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
-                     ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
-                     ! fractional_digits = 9,  to_vtk=.TRUE., to_h5 = .FALSE., basename='projections')
 aux_node_list => jorek_feedback%node_list
 
 !> define feedback size as function of the coupling scheme
@@ -271,12 +263,6 @@ else
 endif
 jorek_feedback%rhs = 0.d0
 
-!Setting up projections 
-!project_density = new_projection(sim%fields%node_list, sim%fields%element_list,   &
-!                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
-!                      f=[proj_f(proj_one, group = 1)], fractional_digits = 9,     &
-!                      calc_integrals=.true., to_vtk=.true., to_h5=.false., basename='density', nsub=5)
-
 project_density = new_projection(sim%fields%node_list, sim%fields%element_list, &
                      filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
                      filter_n0 = 5.d-6, filter_hyper_n0 = 2.d-11, filter_parallel_n0 = filter_par_n0, &
@@ -285,18 +271,6 @@ project_density = new_projection(sim%fields%node_list, sim%fields%element_list, 
 
 call with(sim, project_density)
 
-
-! if (use_line_radiation) then
-	! project_PLT = new_projection(sim%fields%node_list, sim%fields%element_list, &
-                     ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
-                     ! f=[proj_f(proj_PLT, group = 1)], &
-                     ! fractional_digits = 9,calc_integrals=.true.,  to_vtk=.TRUE., to_h5=.FALSE., basename='linerad', nsub=5)
-! endif	 !use_line_radiation				 
-!project_current = new_projection(sim%fields%node_list, sim%fields%element_list,   &
-!                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
-!                      f=[proj_f(proj_jPhi, group = 1)], fractional_digits = 9,    &
-!                      calc_integrals=.true., to_vtk=.false., to_h5=.false., basename='current', nsub=5)
 
 ! For proper timestepping, the projections need to be defined before the jorek timestepper
 jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
@@ -408,21 +382,17 @@ do while (.not. sim%stop_now)
 		 ! if (use_line_radiation) call with(sim, project_PLT)
 	endif !< write projection or diagnostics
 	
-	!if (part_i_save .ge. part_n_save) then
-	!	call with(sim, partwriter)
-	!	part_i_save = 0
-	!endif
-	!part_i_save = part_i_save + 1
-	
+
+	if (use_sputtering) then !< Sputtering must be first
+	  ! call sputtering
+	   call with(sim, D_sputter_event) !event(D_sputter_source))
+	endif   !use_sputtering
+
 	if (use_recombination) then
 	  !call recombination
 	  call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
     endif !use_recombination
 	
-	if (use_sputtering) then
-	  ! call sputtering
-	   call with(sim, D_sputter_event) !event(D_sputter_source))
-	endif   !use_sputtering
 	  
 	if (use_puffing) then
       call with(sim, gas_puff_event) 
@@ -485,9 +455,6 @@ do while (.not. sim%stop_now)
                                         mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
                                         pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot
 										
-	!write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
-    !                                    mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
-    !                                    pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
 
 	write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', n_particles, '| in use :', &
 				real(all_superparticles)/n_particles*100.d0,'%'
@@ -793,14 +760,6 @@ if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionis
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to line radiation: ", sim%time, p_plt_lost_all
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
 
-! if (sim%my_id .eq. 0) write(*,*) " Lost energy [J] at t due to line radiation: ", sim%time, p_plt_lost_all
-!$ w1 = omp_get_wtime()
-!$ mmm = mpi_minmeanmax(w1-w0)
-!$ if (sim%my_id .eq. 0) write(*,"(f10.7,A,3f9.4,A)") sim%time, " Particle stepping complete in ", mmm, "s"
-
-
-!  write(*,*) 'CAREFUL: averaging over n_steps : ',n_steps
-!  jorek_feedback%rhs = jorek_feedback%rhs / real(n_steps,8)
 if (sim%my_id .eq. 0) write(*,*) 'done loop_particle_kinetic_local'
 
 end subroutine
@@ -847,9 +806,6 @@ real*8, dimension(:,:), allocatable  :: volume_check
 call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check)
 
 
-!calculate total recombination per mpi proces
-! total_volume = sum( volume_check(:) )
-! total_rec = sum( rec_rate_local(:) )
 total_volume = sum(sum( volume_check, DIM = 1 ), DIM=1)
 total_rec = sum(sum( rec_rate_local, DIM = 1 ), DIM=1)
 total_rec_nplane = sum( rec_rate_local, DIM = 1 )
@@ -1066,4 +1022,4 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 end function f_toroidal_flux
 
 
-end program recobmination_loop
+end program recobmination_3D

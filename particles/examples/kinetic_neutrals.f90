@@ -1,6 +1,25 @@
-!> Testing the coupling of the projections of particles to JOREK
+!> Standard neutral atomic particle example (in 2D)
+!>  To change to 3D recombination:
+!   in subroutine do1particlerecombination: use mod_integrate_recomb3D, only : integrate_recombination
+!> Particle puffing is axisymmetric by default.
+!> TO adjust this example to your scenario of choice change the following:
+!> Chanche Puff_rate
+!> For simple valve: r_valve (valve radius), R_valve_loc, Z_valve (R,Z, coordinates of simple valve)
+!> (time dependent) Quadrangular puffingvalve puff_t_dependent,boxpuff
+!> poly_R(4),poly_Z(4) are the vertices of the quadrangular puffing valve
+!>Select the following to customize the puffing
+!> puffing_rate_start = initial puffing rate [atoms/s]
+!> puff_rate = final puffing rate [atoms/s]
+!> t_puff_start = At what time the puffing rate starts to increase [s]
+!> t_puff_slope = How much time it takes to increase linearly from puffing_rate_start to puff_rate [s]
 
-program recobmination_loop
+!> to use a particle restart file: use restart_particles in the input file.
+
+!> OpenADAS used for atomic physics
+!> Plasma and neutral wall interaction based on SDTRIM coefficients. 
+! (external file y_DD.dat and ye_DD.dat for deuterium to deuterium recycling. based on interaction with a W wall)
+
+program kinetic_neutral_loop
 
 !use mod_integrate_recombination
 use particle_tracer
@@ -44,7 +63,7 @@ use equil_info
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event)                                       :: D_sputter_event,gas_puff_event ,gas_puff2_event!, partwriter
+type(event)                                       :: D_sputter_event,gas_puff_event ,gas_puff2_event, gas_puff3_event!, partwriter
 type(adf11_all)                                   :: adas
 type(pcg32_rng), dimension(:), allocatable        :: rng
 type(count_action)                                :: counter
@@ -54,7 +73,7 @@ type(particle_sputter)                            :: D_sputter_source
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: D_edge
 type(particle_puffing)                            :: gas_puff
-type(particle_puffing)                            :: gas_puff2
+type(particle_puffing)                            :: gas_puff2,gas_puff3
 type(write_particle_diagnostics)                  :: diag
 
 real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
@@ -72,8 +91,9 @@ integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
 real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, puffing_rate_start
+real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
 integer :: n_puff
-logical :: puff_t_dependent
+logical :: puff_t_dependent,boxpuff
 
 
 !use physics
@@ -94,10 +114,6 @@ call sim%initialize(num_groups=1)
 !> make sure tstep from namelist doesn't get overwritten
 tstep_keep        = tstep
 timesteps         = tstep_particles
-
-!> saving part_restart every part_n_save steps
-!part_i_save = 1
-!part_n_save = 500
 
 ! Set up the field reader
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
@@ -120,7 +136,7 @@ else
 
 	! Read Open ADAS data
 	write(*,*) "deuterium_adas (12)",  deuterium_adas
-	adas = read_adf11('12_h')
+	adas = read_adf11(sim%my_id,'12_h')
 
 	!> is this needed for neutrals?
 	if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
@@ -158,21 +174,19 @@ else
 endif ! (restart_particles)
 
 ! setting up particles per MPI node and timestep
-rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in benchmark, for original profile with toroidal flux) 
-! n_particles_local = int(n_particles/sim%n_cpu) 
-! timesteps         = tstep_particles
-! tstep_keep        = tstep
+rho_part    = 1.195d19 !
+
 
 ! selecting physics (should be done in input file)
 use_puffing       = .false. !.false. 
-use_cx            = .true. !.true.
-use_ionisation    = .true. !.false.!.false.
-use_sputtering    = .true. !.false. !false
+use_cx            = .false. !.true.
+use_ionisation    = .false. !.false.!.false.
+use_sputtering    = .false. !.false. !false
 use_recombination = .true.  !
 use_line_radiation= .true.
 
 ! Read Open ADAS data for plasma fluid
- if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
+ if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
  
 n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
@@ -180,42 +194,75 @@ t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_no
  
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_sputtering) then  
-  n_reflect = 0!<   !int(n_particles_local* sim%n_cpu * 1.d-3)
+  n_reflect = int(n_particles_local* sim%n_cpu * 5.d-4) !1.d-3 int(n_particles_local * 2.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
 
-! setting up particle puffing
-puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
-puff_rate = 100.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+! setting up particle puffing Top puff
+! puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
+! puff_rate = 40.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+! puffing_rate_start = 10.d21 !10 40 worked, 20 before
+! r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
+! R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+! Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
 
-R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
+! R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
+! Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
+
+! puff_rate3 = 160.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
+! R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
+! Z_valve3     = 4.15d0! 
+! r_valve3    = 0.10d0!  .12
+
+!Bot puff
+puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
+puff_rate = 70.d21 !70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
+puffing_rate_start = 40.d21 !40.d21 !40 40 worked, 20 before
+r_valve     = 0.05d0 !0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
+R_valve_loc = 4.3d0 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
+Z_valve     = -3.8d0 !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
+poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
+poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
+
+
+R_valve_loc2 = 5.5d0 !5.55d0!                  5.4d0 !5.46d0
 Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
+poly_R2 = (/5.426d0 ,5.559d0 ,5.455d0 ,5.5586d0 /)
+poly_Z2= (/-4.155d0 ,-4.4005d0 ,-4.0803d0 ,-4.330d0 /)
+
+
+puff_rate3 = 0.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
+R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
+Z_valve3     = 4.15d0! 
+r_valve3    = 0.10d0!  .12
+poly_R3 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+poly_Z3= (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+boxpuff = .true.
+
+
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
 if (use_puffing) then  
-  n_puff      = int(1.d-4*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
+  n_puff      = int(5.d-5*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
   if (puff_t_dependent) then
-	t_puff_start = 34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-	t_puff_slope = 1.d-1 !< linearly ramps up the puffing during this time
-	puffing_rate_start = 40.d21 !40 worked, 20 before
-	!gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent, t_puff_start, t_puff_slope)
-	!gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent, t_puff_start, t_puff_slope)
-    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,puffing_rate_start=puffing_rate_start/2.d0)
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope,puffing_rate_start=puffing_rate_start/2.d0)
+	t_puff_start = 5000*t_norm !25000*t_norm !34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
+	t_puff_slope = 4.d-3 !4.d-3 !< linearly ramps up the puffing during this time
+	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+	           puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
+	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+	            puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
+	gas_puff3 = particle_puffing(n_puff/2, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+				puffing_rate_start=0.d21,poly_R=poly_R3,poly_Z=poly_Z3,boxpuff=boxpuff) !20.d21
   else
 
-	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
 	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
-	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
+	gas_puff3 = particle_puffing(n_puff, 20.d21, 0.12d0, 6.05, 4.15)
   end if
   gas_puff_event = event(gas_puff)
   gas_puff2_event = event(gas_puff2)
-	!gas_puff = particle_puffing(n_puff, 5d22, r_valve, R_valve_loc, Z_valve)
+  gas_puff3_event = event(gas_puff3)
 	
 	if (sim%my_id .eq.0) then
 	write(*,*) "Gas puffing rate [#/s] : ", puff_rate
@@ -225,13 +272,8 @@ else
 	n_puff = 0.d0
 	gas_puff = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
 	gas_puff2 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
+	gas_puff3 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
 endif
-
-! write(*,*) 'main : t_start = ',t_start
-
-! n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-! rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
-! t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
 
 tstep_si  = tstep * t_norm
 n_steps   = floor(tstep_si / timesteps)
@@ -253,10 +295,7 @@ jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 filter = filter_perp, filter_hyper = filter_hyper, filter_parallel=filter_par, fractional_digits = 9, &
                                 do_zonal = .false., calc_integrals=.false., to_vtk=.TRUE., to_h5 = .false., basename='projections', nsub=2)
 
-! jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
-                     ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
-                     ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
-                     ! fractional_digits = 9,  to_vtk=.TRUE., to_h5 = .FALSE., basename='projections')
+ 
 aux_node_list => jorek_feedback%node_list
 
 !> define feedback size as function of the coupling scheme
@@ -271,12 +310,6 @@ else
 endif
 jorek_feedback%rhs = 0.d0
 
-!Setting up projections 
-!project_density = new_projection(sim%fields%node_list, sim%fields%element_list,   &
-!                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
-!                      f=[proj_f(proj_one, group = 1)], fractional_digits = 9,     &
-!                      calc_integrals=.true., to_vtk=.true., to_h5=.false., basename='density', nsub=5)
-
 project_density = new_projection(sim%fields%node_list, sim%fields%element_list, &
                      filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
                      filter_n0 = 5.d-6, filter_hyper_n0 = 2.d-11, filter_parallel_n0 = filter_par_n0, &
@@ -284,8 +317,6 @@ project_density = new_projection(sim%fields%node_list, sim%fields%element_list, 
                      fractional_digits = 9,  to_vtk=.TRUE., to_h5=.FALSE., basename='density', nsub=2)
 
 call with(sim, project_density)
-
-
 
 ! For proper timestepping, the projections need to be defined before the jorek timestepper
 jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
@@ -303,6 +334,16 @@ if (sim%my_id .eq. 0) write(*,*) 'tstart_jorek : ',tstart_jorek
 diag_time = 1.1*n_steps*timesteps
 events = [ new_event_ptr(jorek_feedback,   start = tstart_jorek),            &
            new_event_ptr(jorek_stepper,    start = tstart_jorek),            & 
+!		   event(D_sputter_source      ,start = tstart_jorek+tstep_si/2.d0, step=tstep_si),&
+!		   event(gas_puff, step = 5.d-6),                                &
+!		   event(gas_puff2, step = 5.d-6),                                & !
+!          new_event_ptr(D_sputter_source, start = tstart_jorek, step=diag_time), & !20.d-7 1 sputter per jorek timestep step=1.d-6), &
+!          event(count_action(),           start = tstart_jorek, step=1d-5), &
+!          event(write_particle_diagnostics(filename='diag.h5'), step=diag_time), &
+!         event(write_action(), step=diag_time),                        &
+!           new_event_ptr(project_density, step=0.11d-6),                  &
+!		   new_event_ptr(project_density, step=2.5d-6),                  &
+!          event(diag, step=diag_time)									 &
            event(stop_action(), start=1d12)                              &
         ]
 
@@ -313,9 +354,9 @@ events = [ new_event_ptr(jorek_feedback,   start = tstart_jorek),            &
 !< without interupting the simulation
 
 
-
+! if(.not. restart_particles) then
 jorek_stepper%extra_event => events(1) !< is used as first event before enetering particle loop (skipped if particles_restart)
-
+! endif !restart_particles
 !================================================================================================
 !                                      MAIN PARTICLE LOOP
 !================================================================================================
@@ -337,7 +378,8 @@ call with(sim, events, at=sim%time)
 ! do recombination to initialise particles. Maintains conservation with first jorek timestep
 if (.not. restart_particles) then 
 	if (sim%my_id .eq. 0) write(*,*) "Do 1 particle recombination"
-	call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
+	particle_step_time = 0.d0 !< results in first step Nans for recombination diagnostics
+	call do_1particle_recombination(element_list,node_list,jorek_stepper,rng,particle_step_time) 
 
 	call with(sim, project_density) !< directly project the first recombination at t=0
 endif !.not. restart_particles
@@ -387,30 +429,33 @@ do while (.not. sim%stop_now)
 		 ! if (use_line_radiation) call with(sim, project_PLT)
 	endif !< write projection or diagnostics
 	
-	!if (part_i_save .ge. part_n_save) then
-	!	call with(sim, partwriter)
-	!	part_i_save = 0
-	!endif
-	!part_i_save = part_i_save + 1
-	
-	if (use_recombination) then
-	  !call recombination
-	  call do_1particle_recombination(element_list,node_list,jorek_stepper,rng) 
-    endif !use_recombination
-	
-	if (use_sputtering) then
+	if ( (abs((tstart_jorek +nint((projection_time - tstart_jorek)/(tstep_si*500))*tstep_si*500) -projection_time) .le. 1.d-13)) then !< == true every tstep * 100 steps
+		call write_simulation_hdf5(sim, 'interim_part_restart.h5') !trim(this%get_filename(sim%time)))
+		
+
+	endif !< write interim particle restart file every 500 tsteps
+
+  !Use sputtering before recombination and puffing. Otherwise free particles can be overwritten.
+  if (use_sputtering) then
 	  ! call sputtering
 	   call with(sim, D_sputter_event) !event(D_sputter_source))
 	endif   !use_sputtering
+	
+	if (use_recombination) then
+	  !call recombination
+	  call do_1particle_recombination(element_list,node_list,jorek_stepper,rng,particle_step_time) 
+    endif !use_recombination
+	
+
 	  
 	if (use_puffing) then
       call with(sim, gas_puff_event) 
 	  call with(sim, gas_puff2_event)
+	  call with(sim, gas_puff3_event)
     endif ! use_puffing	
   endif !run_stepper
   
 
-!>  separate subroutine?
 !=======================================================================
 !                     Run diagnostics for conservation check
 !======================================================================== 
@@ -464,9 +509,6 @@ do while (.not. sim%stop_now)
                                         mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
                                         pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot
 										
-	!write(33,'(A,126e16.8)') ' TOTAL P% info : ',sim%time,density_tot+all_particles/1.d20, density_tot, all_particles/1.d20, &
-    !                                    mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
-    !                                    pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot 
 
 	write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', n_particles, '| in use :', &
 				real(all_superparticles)/n_particles*100.d0,'%'
@@ -607,13 +649,13 @@ type is (particle_kinetic_leapfrog)
 	  !vvector is fluid flow velocity [v_R, v_Z, v_phi] m/s
 	  !TODO: add upper limits if necessary
 	  limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
-
+	  if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
 	  
 	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
 	  line_rad_energy = 0.d0
 	  if (use_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
 			call sim%groups(1)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
-			
+			! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
 			line_rad_energy = n_e * particle_tmp%weight * PLT * timesteps
 	  endif ! use_line_radiation
 	  
@@ -668,14 +710,15 @@ type is (particle_kinetic_leapfrog)
 			!============== NEW CX PARTICLE
 			  !Box-Mueller sample velocities with st.dev=1
 			  ran_norm = boxmueller_transform(cx_ran(2:5))
-			  !>v_temp = sqrt(kT/m) * ran_norm
 			  v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(1)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
+
 			  !>add bulk fluid flow
 			  v_temp = v_temp + vvector 
 
               CX_source = particle_tmp%weight
               CX_energy   = 0.5d0 * sim%groups(1)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
 			
+
           endif ! cx_ran
 	  endif ! use_cx
 	  
@@ -712,13 +755,13 @@ type is (particle_kinetic_leapfrog)
 			v   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_source     * t_norm / rho_norm
 			v_E = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
 			v_v = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * velocity_par_source * t_norm / m_norm
-			extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight !1.d0 !<density proj
+			extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(n_steps,8) !<average density over jorek timesteps!real(floor(k/n_steps))!1.d0 !<density proj
 
 			do i_tor=1,n_tor
 			  feedback_rhs(m,l,i_elm_old,i_tor,1) = feedback_rhs(m,l,i_elm_old,i_tor,1) + HZ(i_tor) * v
 			  feedback_rhs(m,l,i_elm_old,i_tor,2) = feedback_rhs(m,l,i_elm_old,i_tor,2) + HZ(i_tor) * v_E
 			  feedback_rhs(m,l,i_elm_old,i_tor,3) = feedback_rhs(m,l,i_elm_old,i_tor,3) + HZ(i_tor) * v_v
-			  feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj
+			  feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj !< buiten de steps loop
 			enddo
 
 		  enddo
@@ -763,12 +806,15 @@ call MPI_REDUCE(n_super_ionized, n_super_ionized_all, 1, MPI_INTEGER, MPI_SUM, 0
 
 if (sim%my_id .eq. 0) write(*,'(A46,E14.6,I6)') "Lost superparticles at t due to ionisation: ", sim%time, n_super_ionized_all
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') " Lost particles at t due to ionisation: ", sim%time, n_lost_ion_all
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') " Ionization rate at time t [#/s]: ", sim%time, n_lost_ion_all / (timesteps * n_steps)
 p_lost_ion_all = p_lost_ion_all / (timesteps * n_steps)
 p_plt_lost_all = p_plt_lost_all / (timesteps * n_steps)
 p_cx_lost_all = p_cx_lost_all / (timesteps * n_steps)
-if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionisation: ", sim%time, p_lost_ion_all
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Energy exchange to plasma [W] at t due to ionisation: ", sim%time, p_lost_ion_all ! energy gain
 if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to line radiation: ", sim%time, p_plt_lost_all
-if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Energy exchange to plasma [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
+if (sim%my_id .eq. 0) write(*,'(A17,5E14.6)') 'TOTAL Exchange , delta t: ' ,sim%time,p_lost_ion_all, -p_plt_lost_all, p_cx_lost_all, timesteps * n_steps
+if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Total energy exchange to plasma [W]: ", sim%time, p_lost_ion_all -p_plt_lost_all+ p_cx_lost_all
 
 ! if (sim%my_id .eq. 0) write(*,*) " Lost energy [J] at t due to line radiation: ", sim%time, p_plt_lost_all
 !$ w1 = omp_get_wtime()
@@ -776,8 +822,6 @@ if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX ra
 !$ if (sim%my_id .eq. 0) write(*,"(f10.7,A,3f9.4,A)") sim%time, " Particle stepping complete in ", mmm, "s"
 
 
-!  write(*,*) 'CAREFUL: averaging over n_steps : ',n_steps
-!  jorek_feedback%rhs = jorek_feedback%rhs / real(n_steps,8)
 if (sim%my_id .eq. 0) write(*,*) 'done loop_particle_kinetic_local'
 
 end subroutine
@@ -785,47 +829,71 @@ end subroutine
 !================================================================================
 !                                 RECOMBINATION
 !================================================================================
-subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng)
-use mod_jorek_timestepping 
+subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,particle_step_time)
+use mod_jorek_timestepping !< gives us access to sim?
+! use mod_ionisation_recombination, only : rec_rate_local, rec_rate_global, rec_mom_local,rec_energy_local, rec_v_R, rec_v_Z, rec_v_phi
 use particle_tracer
+!use mod_particle_diagnostics
 use mpi
 use mod_atomic_elements
 use mod_particle_io
 use mod_integrate_recomb, only : integrate_recombination
+!mod_integrate_recomb.f90
 implicit none
 
+!class(particle_sim), target, intent(inout)                :: sim
+!type(pcg32_rng), dimension(:), allocatable      :: rng
 type(pcg32_rng), dimension(:), intent(inout)    :: rng
 type(jorek_timestep_action),target           :: jorek_stepper !target
 TYPE (type_node_list),         intent(in)     :: node_list
 TYPE (type_element_list),      intent(in)     :: element_list
+real*8, intent(in)                            :: particle_step_time ! in seconds
 	
 !internal variables
 type (type_element)               :: element
 logical, allocatable, dimension(:) :: is_free
 integer, allocatable, dimension(:) :: i_free
-integer             :: particles_per_element
+integer             :: Nrec_part, particles_per_element
 real*8              :: total_rec,total_rec_all ,total_volume,total_volume_all
+real*8              :: total_Erec_neutral,total_Erec_neutral_all, total_Erec_rad,total_Erec_rad_all
 integer             :: n_free,i, k,ielm,ife, i_rng!, element_loc
 real*8              :: s, t,R, Z, st_ran(2)
 
+!debug rec
+real*8                              :: sanity_rec_local,total_sanity_rec
 !rec variables
 real*8, dimension(:), allocatable  :: rec_rate_local , rec_v_R, rec_v_Z, rec_v_phi 
-real*8, dimension(:), allocatable  :: volume_check  
+real*8, dimension(:), allocatable  :: volume_check, energy_neutrals, energy_radiation  
 
 !Call mod_integrate_recombination
-call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check)
+call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
 
-
+sanity_rec_local = 0.d0
 !calculate total recombination per mpi proces
 total_volume = sum( volume_check(:) )
+total_Erec_neutral = sum( energy_neutrals(:) )
+total_Erec_rad = sum( energy_radiation(:) )
 total_rec = sum( rec_rate_local(:) )
 ! total recombination
 call MPI_REDUCE(total_rec, total_rec_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 call MPI_REDUCE(total_volume, total_volume_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(total_Erec_neutral, total_Erec_neutral_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+call MPI_REDUCE(total_Erec_rad, total_Erec_rad_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 if (sim%my_id .eq. 0) then
-    write(*,'(A30,E14.6)') 'total recombination weight : ' , total_rec_all* central_density* 1.d20 
+    write(*,'(A30,2E16.8)') 'total recombination weight : ' , sim%time,total_rec_all* central_density* 1.d20 
+	write(*,'(A30,2E16.8)') 'Recombination rate  [#/s] : ', sim%time, total_rec_all* central_density* 1.d20 /particle_step_time
+	write(*,*) 'total energy to recombined neutrals [J] : ' , total_Erec_neutral_all *1.5d0 / MU_ZERO
+	write(*,*) 'total power to recombined neutrals [MW]: ' , total_Erec_neutral_all *1.5d0 / MU_ZERO/particle_step_time /1.d6
+	write(*,*) 'total energy lost to Prb [J]: ' , total_Erec_rad_all *1.5d0 / MU_ZERO
+	write(*,*) 'total power lost to Prb [MW]: ' , total_Erec_rad_all *1.5d0 / MU_ZERO/particle_step_time /1.d6
 	write(*,*) 'total volume : ' , total_volume_all
+	write(*,'(A15,6E14.6)') 'TOTAL RECOMB: ',sim%time, total_rec_all* central_density* 1.d20 , total_Erec_neutral_all *1.5d0 / MU_ZERO, total_Erec_neutral_all *1.5d0 / MU_ZERO/particle_step_time /1.d6, &
+	                           total_Erec_rad_all *1.5d0 / MU_ZERO, total_Erec_rad_all *1.5d0 / MU_ZERO/particle_step_time /1.d6
 endif
+!Nrec_part amount of particles needed for this amount of recombination
+Nrec_part = int( max(n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average weight per particle (not necesarily the actual weight, as that depends on Srec)
+!< limited to 1% of the total initialized particles
+
 
 !============== Finding free particles !< make into a function?
 !> # is_free > n_elements * particles_per_element 
@@ -852,9 +920,6 @@ end do
 ! loop over all elements
 k = 0 !< first free particle
 particles_per_element = 1	
-write(*,*) "Doing 1 particle recombination over total n_elemnts", element_list%n_elements
-write(*,*) "Doing 1 particle recombination over n_local_elms", jorek_stepper%n_local_elms
-!write(*,*) "Size rec_rate_local", SHAPE(rec_rate_local)
 select type (particles => sim%groups(1)%particles)
 type is (particle_kinetic_leapfrog)
 !omp
@@ -864,7 +929,8 @@ type is (particle_kinetic_leapfrog)
 !$omp i_free,rng,rec_rate_local, &
 !$omp CENTRAL_DENSITY, CENTRAL_MASS,sqrt_mu0_over_rho0,particles_per_element ) &
 !$omp private(ife,ielm,k,i,element,s,t,R, Z , &
-!$omp st_ran, i_rng )
+!$omp st_ran, i_rng ) &
+!$omp reduction(+:sanity_rec_local)
 do ife = 1, size(rec_rate_local) ! loop over all local elements
 
 	if (isnan(rec_v_R(ife)) .or. isnan(rec_v_Z(ife)) .or. isnan(rec_v_phi(ife))) CYCLE !NaN check
@@ -884,16 +950,14 @@ do ife = 1, size(rec_rate_local) ! loop over all local elements
 	! initialise particle in the element with Position, Weight, Energy, Momentum			
 	do i = 1, particles_per_element
 	    k = k *i !< update free particle index ! at begin of loop as k is initialized at k =0
-		particles(i_free(k))%weight = rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 !< rec_rate = in jorek units?
+		particles(i_free(k))%weight = rec_rate_local(ife) / real(particles_per_element,8)* central_density* 1.d20 !< rec_rate = in jorek units?
 		particles(i_free(k))%i_elm  = ielm  !x, i_elm, st
 		particles(i_free(k))%q      = 0
 		
-        !write(31,*) "ielm,",ielm, "k,",k,"i_free(k)",i_free(k) , "particles(i_free(k))%weight,",particles(i_free(k))%weight
+		sanity_rec_local = sanity_rec_local + particles(i_free(k))%weight
 		
-		!call rng(1)%next(st_ran) !< i_rng should be thread dependent
 		call rng(i_rng)%next(st_ran)
-		! sample random st combination
-		!particles(i_free(k))%st(1:2) = st_ran(2)! [s, t] !< dummi for later
+		!< sample random st combination
 		particles(i_free(k))%st(1) = 0.5d0
 		particles(i_free(k))%st(2) = 0.5d0
 		
@@ -904,7 +968,6 @@ do ife = 1, size(rec_rate_local) ! loop over all local elements
 		call interp_RZ(node_list,element_list,ielm,s,t,R,Z)
 		particles(i_free(k))%x(1:2)  = [R, Z]!  = [R, Z, phi] no phi for axisymmetrix particles
 		
-		!> distribute directly fluid velocity?
 		particles(i_free(k))%v(1)  = rec_v_R(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
 		particles(i_free(k))%v(2)  = rec_v_Z(ife)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
 		particles(i_free(k))%v(3)  = rec_v_phi(ife) / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
@@ -916,12 +979,13 @@ enddo   !ife
 end select
 !end omp
 
+call MPI_REDUCE(sanity_rec_local, total_sanity_rec, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+if (sim%my_id .eq. 0) then
+  write(*,*) 'SANITY recombination weight : ' , total_sanity_rec 
+  write(*,*) 'SANITY Recombination rate  [#/s] : ' , total_sanity_rec /particle_step_time
+endif		
 
-		
-!!!!!--------------------------------------------------------------------------
-! end subroutine !do_1particle_recombination
 end subroutine !do_1particle_recombination
-
 
 function initialise_sputtering(node_list, element_list, n_reflect) result(D_sputter_source)
 
@@ -932,18 +996,23 @@ function initialise_sputtering(node_list, element_list, n_reflect) result(D_sput
   type(type_element_list)             :: element_list
   type(particle_sputter)              :: D_sputter_source
   integer                             :: n_reflect
+  !real*8, allocatable, dimension(:)   :: wall_albedo
   type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 
   ! number of particles to sputter per species (should be renormalized to yield)
 
-  call find_edge_domains(node_list,element_list, edge_domains)
-
-  call D_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)
+  call find_edge_domains(node_list,element_list, edge_domains)!, discont_corner=.true.)
+  if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
+  
+  call D_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
 
   ! target group, number of particles per mpi task, densities, Zs, basename
   D_sputter_source = particle_sputter(D_edge, 1, n_reflect, basename='D_reflect')
   D_sputter_source%use_Yn_func = .false.
   D_sputter_source%n_save = nout !10 ! or nout
+  D_sputter_source%albedo_for_neutrals = 1.d0
+  D_sputter_source%sputtered_particle_weight_threshold = 1.d0
+  
   !
 
 end function
@@ -1009,4 +1078,4 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 end function f_toroidal_flux
 
 
-end program recobmination_loop
+end program kinetic_neutral_loop

@@ -65,7 +65,7 @@ type (type_element)      :: element, elm_k
 type (type_node)         :: nodes(n_vertex_max), node_k
 type (type_bnd_element)  :: bndelem
 type (type_surface_list) :: surface_list
-type (type_node) :: aux_nodes(n_vertex_max) !< may be not optional
+type (type_node) :: aux_nodes(n_vertex_max) 
 
 real*8  :: psi_axis, psi_bnd
 real*8  :: x_g(n_plane,n_gauss,n_gauss),        x_s(n_plane,n_gauss,n_gauss),        x_t(n_plane,n_gauss,n_gauss),        x_p(n_plane,n_gauss,n_gauss),         x_ss(n_plane,n_gauss,n_gauss),        x_tt(n_plane,n_gauss,n_gauss),        x_st(n_plane,n_gauss,n_gauss)
@@ -531,14 +531,13 @@ omp_tid      = 0
 !$omp                fric_disp_tot, R2curr_tmp, Zcurr_tmp, C_intern_3d, C_ext_3d, vprp_disp_tot)
 
 do ife = ife_min, ife_max
-
   element = element_list%element(ife)
 
   do iv = 1, n_vertex_max
     inode     = element%vertex(iv)
     nodes(iv) = node_list%node(inode)
 	
-	 aux_nodes(iv) = aux_node_list%node(inode)
+    if (present(aux_node_list)) aux_nodes(iv) = aux_node_list%node(inode)
   enddo
 
 eq_aux_g = 0.d0; eq_aux_s = 0.d0; eq_aux_t = 0.d0; eq_aux_p = 0.d0;  
@@ -599,7 +598,6 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 
   eq_g(:,:,:,:) = 0.d0; eq_s(:,:,:,:) = 0.d0; eq_t(:,:,:,:) = 0.d0; eq_p(:,:,:,:) = 0.d0; eq_ss(:,:,:,:) = 0.d0; eq_tt(:,:,:,:) = 0.d0; eq_st(:,:,:,:) = 0.d0; 
   eq_sp(:,:,:,:) = 0.d0; eq_tp(:,:,:,:) = 0.d0; eq_spp(:,:,:,:) = 0.d0; eq_tpp(:,:,:,:) = 0.d0; eq_s_3d(:,:,:,:) = 0.d0; eq_t_3d(:,:,:,:) = 0.d0;
-
   do i=1,n_vertex_max
     do j=1,n_degrees
 
