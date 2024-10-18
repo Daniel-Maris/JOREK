@@ -178,10 +178,10 @@ rho_part    = 1.195d19 !
 
 
 ! selecting physics (should be done in input file)
-use_puffing       = .false. !.false. 
-use_cx            = .false. !.true.
-use_ionisation    = .false. !.false.!.false.
-use_sputtering    = .false. !.false. !false
+use_puffing       = .true. !.false. 
+use_cx            = .true. !.true.
+use_ionisation    = .true. !.false.!.false.
+use_sputtering    = .true. !.false. !false
 use_recombination = .true.  !
 use_line_radiation= .true.
 

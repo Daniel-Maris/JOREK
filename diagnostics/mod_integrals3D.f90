@@ -43,7 +43,7 @@ module mod_integrals3D
 
 
 
-subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units, aux_node_list, exclude_n0)
+subroutine int3d_new(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, expr_list, res, units, exclude_n0, aux_node_list)
 
 !$ use omp_lib
  
@@ -246,7 +246,6 @@ real*8  :: alpha_imp, dalpha_imp_dT, beta_imp, dbeta_imp_dT
 ! Atomic physics coefficients:
 !   -Ionization
 real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
-!real*8     :: ksi_ion_norm                                          ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
 !   -Radiation from injected gas/impurities
@@ -417,91 +416,91 @@ ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 Tie_min_neg = 0.5*T_min_neg
 #endif
 
-!$omp parallel default(none)                                                                   &
+!$omp parallel default(none)                                                                                  &
 !$omp   shared(element_list,node_list, aux_node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &
-!$omp          H_ss, H_tt, H_st, HZ_pp, HZ_coord, HZ_coord_p,                                 &
-!$omp          R_xpoint, Z_xpoint, my_id, use_pellet, delta_phi, R_axis, Z_axis, psi_axis, psi_bnd, &
-!$omp          D_tot, D_int, D_Ext, P_tot, P_int, P_ext, Vol, surface_area, C_intern, C_ext, VP_ext, VP_int, &
-!$omp          VK_ext, VK_int, VK_tot, VM_ext, VM_int, VM_tot, J2_tot, J2_ext, J2_int,         &
-!$omp          H_int, H_ext, S_int, S_ext,psi_xpoint,  F0, VP_tot,eta, T_0, Te_0, T_min,       &
-!$omp          ne_SI_min, Te_eV_min, rn0_min, P_e_tot, P_i_tot, P_e_int, P_i_int, P_e_ext, P_i_ext, &
-!$omp          C_intern_3d,C_ext_3d,pellet_amplitude,pellet_R,pellet_Z,pellet_psi,pellet_phi,  &
-!$omp          T_min_neg, Tie_min_neg, H_impl_int,H_impl_ext,implicit_heat_source,GAMMA,       &
-!$omp          pellet_radius, pellet_delta_psi, pellet_sig, pellet_length, pellet_ellipse, pellet_theta,  &
-!$omp          central_density, pellet_particles,pellet_density, pellet_volume,                &
-!$omp          local_pellet_particles, local_plasma_particles, local_pellet_volume,            &
-!$omp          heli_tot,  keep_current_prof, psi_off, visco_par, visco_par_heating, thm_wk_tot,&
-!$omp          visco, visco_T_dependent, visco_old_setup, SAW_tot,                             &
-!$omp          mag_wk_tot, vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,         &
-!$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp,                                 &
-!$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                        &
-!$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, &
-!$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot,&
+!$omp          H_ss, H_tt, H_st, HZ_pp, HZ_coord, HZ_coord_p,                                                 &
+!$omp          R_xpoint, Z_xpoint, my_id, use_pellet, delta_phi, R_axis, Z_axis, psi_axis, psi_bnd,           &
+!$omp          D_tot, D_int, D_Ext, P_tot, P_int, P_ext, Vol, surface_area, C_intern, C_ext, VP_ext, VP_int,  &
+!$omp          VK_ext, VK_int, VK_tot, VM_ext, VM_int, VM_tot, J2_tot, J2_ext, J2_int,                        &
+!$omp          H_int, H_ext, S_int, S_ext,psi_xpoint,  F0, VP_tot,eta, T_0, Te_0, T_min,                      &
+!$omp          ne_SI_min, Te_eV_min, rn0_min, P_e_tot, P_i_tot, P_e_int, P_i_int, P_e_ext, P_i_ext,           &
+!$omp          C_intern_3d,C_ext_3d,pellet_amplitude,pellet_R,pellet_Z,pellet_psi,pellet_phi,                 &
+!$omp          T_min_neg, Tie_min_neg, H_impl_int,H_impl_ext,implicit_heat_source,GAMMA,                      &
+!$omp          pellet_radius, pellet_delta_psi, pellet_sig, pellet_length, pellet_ellipse, pellet_theta,      &
+!$omp          central_density, pellet_particles,pellet_density, pellet_volume,                               &
+!$omp          local_pellet_particles, local_plasma_particles, local_pellet_volume,                           &
+!$omp          heli_tot,  keep_current_prof, psi_off, visco_par, visco_par_heating, thm_wk_tot,               &
+!$omp          visco, visco_T_dependent, visco_old_setup, SAW_tot, mag_wk_tot,                                &
+!$omp          vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,       &
+!$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
+!$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
+!$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb,                              &
+!$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot,                             &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
-!$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,    &
-!$omp          using_spi, n_spi_tot, n_inj, n_spi,                                             &
-!$omp          pellets, ns_radius_ratio, ns_radius_min,                                        &
-!$omp          local_n_particles_inj, local_n_particles, ns_amplitude, ns_R, ns_Z,             &
-!$omp          ns_phi, ns_radius, ns_deltaphi, ns_delta_minor_rad, ns_tor_norm, spi_tor_rot, local_E_ion,  &
-!$omp          t_now, A_Dmv, K_Dmv, V_Dmv, P_Dmv, t_ns, L_tube, JET_MGI,ASDEX_MGI, local_P_ion,&
-!$omp          local_radiation, local_radiation_phi, imp_cor, imp_adas, imp_type, local_P_ei,  &
-!$omp          n_adas, nimp_bg, local_radiation_bg,                                            &
+!$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
+!$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
+!$omp          pellets, ns_radius_ratio, ns_radius_min,                                                       &
+!$omp          local_n_particles_inj, local_n_particles, ns_amplitude, ns_R, ns_Z,                            &
+!$omp          ns_phi, ns_radius, ns_deltaphi, ns_delta_minor_rad, ns_tor_norm, spi_tor_rot, local_E_ion,     &
+!$omp          t_now, A_Dmv, K_Dmv, V_Dmv, P_Dmv, t_ns, L_tube, JET_MGI,ASDEX_MGI, local_P_ion,               &
+!$omp          local_radiation, local_radiation_phi, imp_cor, imp_adas, imp_type, local_P_ei,                 &
+!$omp          n_adas, nimp_bg, local_radiation_bg,                                                           &
 #endif
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
-!$omp          ksi_ion, use_imp_adas,                                                   &
+!$omp          use_imp_adas,                                                                                  &
 #endif
 #if (defined WITH_Impurities)
-!$omp          index_main_imp,                                                                 &
+!$omp          index_main_imp,                                                                                &
 #endif
-!$omp          T_1, T_max_eta, T_max_eta_ohm, eta_T_dependent,                                 &
-!$omp          wgauss_copy, varmin, varmax)                                                    &
-!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt,                              &
-!$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p, &
-!$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,         &
-!$omp           eq_spp, eq_tpp, psi_axisym,s_norm, stel_current_source,eq_s_3d, eq_t_3d,       &
-!$omp           wst, BigR, r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy,dudp,  &
-!$omp           dpsidx_3d, dpsidy_3d, saw_ene_dens, BB2_zero,                                  &
-!$omp           w0, dwdx, dwdy, u0_xpp, u0_ypp, visco_T, visco_fact_old, visco_fact_new,       &
-!$omp           dpdx, dpdy, phi, Ti0, psi_as_coord, vprp_disp,                                 &
-!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, BB2, chi, Bv2,  &
-!$omp           heat_source, heat_source_i, heat_source_e, particle_source, current_source, rotation_source, &
-!$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,    &
-!$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,    &
-!$omp           hel1, vpar_x, vpar_y, ps0_s, ps0_t, u0_s, u0_t, p0_s, p0_t, vpar_s, vpar_t,    &
-!$omp           u0_x, u0_y, Te0_corr, Ti0_corr, T_or_Te, T_or_Te_corr, T_or_Te_0,              &
-!$omp           thm_wk, mag_wk, eta_T, vpar_disp, fric_disp, p0_p, T0_corr, r0_corr, u0_p,     &
-!$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp, AZ0_Zp, A30, &
-!$omp           A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,&
-!$omp           Srec_T_ncs, dSrec_dT_ncs,ksi_ion,ksi_ion_norm, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs, dSion_dT_ncs,&
-!$omp           aux_nodes, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_T0, aux_Vpar0, &
-!$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,&
-!$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,              &
+!$omp          T_1, T_max_eta, T_max_eta_ohm, eta_T_dependent,                                                & 
+!$omp          wgauss_copy, varmin, varmax)                                                                   &
+!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt,                                             &
+!$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p,         &
+!$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,                        &
+!$omp           eq_spp, eq_tpp, psi_axisym,s_norm, stel_current_source,eq_s_3d, eq_t_3d, wst, BigR,           &
+!$omp           r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy,dudp,   &
+!$omp           dpsidx_3d, dpsidy_3d, saw_ene_dens, BB2_zero,                                                 &
+!$omp           w0, dwdx, dwdy, u0_xpp, u0_ypp, visco_T, visco_fact_old, visco_fact_new,                      &
+!$omp           dpdx, dpdy, phi, Ti0, psi_as_coord, vprp_disp,                                                &
+!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, BB2, chi, Bv2,                           &
+!$omp           heat_source, heat_source_i, heat_source_e, particle_source, current_source, rotation_source,  &
+!$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,                   &
+!$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,                   & 
+!$omp           hel1, vpar_x, vpar_y, ps0_s, ps0_t, u0_s, u0_t, p0_s, p0_t, vpar_s, vpar_t,                   &
+!$omp           u0_x, u0_y, Te0_corr, Ti0_corr, T_or_Te, T_or_Te_corr, T_or_Te_0,                             &
+!$omp           thm_wk, mag_wk, eta_T, vpar_disp, fric_disp, p0_p, T0_corr, r0_corr, u0_p,                    &
+!$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp,   &
+!$omp           AZ0_Zp, A30, A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,  &
+!$omp           Srec_T_ncs, dSrec_dT_ncs, ksi_ion_norm, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs,       &
+!$omp           dSion_dT_ncs, aux_nodes, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_T0, aux_Vpar0, &
+!$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
+!$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
-!$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                     &
-!$omp           spi_R_tmp, spi_Z_tmp, spi_phi_tmp, ns_radius_tmp,                              &
-!$omp           spi_psi_tmp, spi_grad_psi_tmp, spi_i, i_inj,                                   &
-!$omp           n_spi_tmp, source_tmp, ns_shape, ns_shape_drift,                               &
+!$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                                    &
+!$omp           spi_R_tmp, spi_Z_tmp, spi_phi_tmp, ns_radius_tmp,                                             &
+!$omp           spi_psi_tmp, spi_grad_psi_tmp, spi_i, i_inj,                                                  &
+!$omp           n_spi_tmp, source_tmp, ns_shape, ns_shape_drift,                                              &
 #endif
 #ifdef WITH_Impurities
-!$omp           source_bg, source_imp, source_bg_drift, source_imp_drift,                      &
-!$omp           source_bg_arr, source_imp_arr, source_bg_drift_arr, source_imp_drift_arr,      &
-!$omp           m_i_over_m_imp, m_imp, Z_imp, dZ_imp_dT,                                       &
-!$omp           ne_JOREK, P_imp, Lrad, E_ion, E_ion_bg, ion_i,                                 &
-!$omp           ion_k, Z_eff_imp, eta_coef, Ti_corr_eV,                                        &
+!$omp           source_bg, source_imp, source_bg_drift, source_imp_drift,                                     &
+!$omp           source_bg_arr, source_imp_arr, source_bg_drift_arr, source_imp_drift_arr,                     &
+!$omp           m_i_over_m_imp, m_imp, Z_imp, dZ_imp_dT,                                                      &
+!$omp           ne_JOREK, P_imp, Lrad, E_ion, E_ion_bg, ion_i,                                                &
+!$omp           ion_k, Z_eff_imp, eta_coef, Ti_corr_eV,                                                       &
 #endif
 #if (defined WITH_Impurities) && (defined WITH_TiTe)
-!$omp           alpha_i, nu_e_imp, nu_e_bg, lambda_e_imp, lambda_e_bg, dTi_e, dTe_i,           &
-!$omp           dalpha_e_dT,                                                                   &
+!$omp           alpha_i, nu_e_imp, nu_e_bg, lambda_e_imp, lambda_e_bg, dTi_e, dTe_i,                          &
+!$omp           dalpha_e_dT,                                                                                  &
 #endif
 #if (defined WITH_Impurities) && (!defined WITH_TiTe) 
-!$omp           alpha_imp, beta_imp, dalpha_imp_dT,                                            &
+!$omp           alpha_imp, beta_imp, dalpha_imp_dT,                                                           &
 #endif
 #if (defined WITH_Neutrals)
-!$omp           Sion_T, dSion_dT, Srec_T, dSrec_dT, source_neutral,                    &
-!$omp           source_neutral_drift, source_neutral_arr, source_neutral_drift_arr,            &
-!$omp           LradDrays_T, LradDcont_T, dLradDrays_dT, dLradDcont_dT,                        &
-!$omp           Arad_bg, Brad_bg, Crad_bg,                                                     &
-!$omp           coef_prad_si,                                                                  &
+!$omp           Sion_T, dSion_dT, Srec_T, dSrec_dT, source_neutral,                                           &
+!$omp           source_neutral_drift, source_neutral_arr, source_neutral_drift_arr,                           &
+!$omp           LradDrays_T, LradDcont_T, dLradDrays_dT, dLradDcont_dT,                                       &
+!$omp           Arad_bg, Brad_bg, Crad_bg,                                                                    &
+!$omp           coef_prad_si,                                                                                 &
 #endif
 !$omp           omp_nthreads,omp_tid)
 
