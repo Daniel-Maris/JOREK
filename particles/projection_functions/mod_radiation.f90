@@ -75,10 +75,10 @@ function proj_Lz_equil(sim, group, particle) result(P_rad)
 
   P_rad = coronal_Prad(sim%groups(group)%ad, log_n_e, log_T_e, fractions)
 end function proj_Lz_equil
-end module mod_radiation
+
 
 !> for neutrals we cannot use proj_Lz because PRB is not a moment of the neutral particles
-function proj_PLT(sim, group, particle) result(proj_PLT)
+function proj_PLT(sim, group, particle) 
   type(particle_sim), intent(in) :: sim
   integer, intent(in) :: group
   class(particle_base), intent(in) :: particle
@@ -93,7 +93,10 @@ function proj_PLT(sim, group, particle) result(proj_PLT)
 
   q = particle_get_q(particle)
   ! From here on out we have a q
-  call sim%groups(group)%ad%PLT%interp_linear(q, log_n_e, log_T_e, PLT)
+  PLT = sim%groups(group)%ad%PLT%interp_linear(q, log_n_e, log_T_e)
   proj_PLT      = (PLT) * n_e
 
 end function proj_PLT
+
+
+end module mod_radiation
