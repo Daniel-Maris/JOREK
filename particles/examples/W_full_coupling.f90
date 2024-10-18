@@ -139,7 +139,7 @@ else
 
 	! Read Open ADAS data
 	write(*,*) "tungsten_adas (50)" !,  deuterium_adas
-	adas = read_adf11('50_W')
+	adas = read_adf11(sim%my_id,'50_W')
 	cor = coronal(adas)
 
 	!> is this needed for neutrals?
