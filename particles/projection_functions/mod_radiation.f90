@@ -82,7 +82,7 @@ function proj_PLT(sim, group, particle) result(proj_PLT)
   type(particle_sim), intent(in) :: sim
   integer, intent(in) :: group
   class(particle_base), intent(in) :: particle
-  real*8 :: proj_Lz, PLT
+  real*8 :: proj_PLT, PLT
   real*8 :: n_e, T_e, log_T_e, log_n_e
   integer :: q
 
