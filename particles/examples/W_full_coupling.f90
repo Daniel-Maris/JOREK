@@ -413,10 +413,13 @@ do while (.not. sim%stop_now)
 
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
-  
+  #ifdef __GFORTRAN__
+    !$omp parallel do default(shared) &
+  #else
     !$omp parallel do default(none) &
-    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
     !$omp shared(sim, particles) &
+  #endif
+    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
     !$omp private(j, E, B, psi, U, B_norm)
     do j=1,size(particles,1)
 
