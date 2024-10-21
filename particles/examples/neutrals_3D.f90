@@ -597,12 +597,12 @@ type is (particle_kinetic_leapfrog)
  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
  !$omp parallel do default(none) &
-#endif
- !$omp schedule(dynamic,10) &
  !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,        &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_cx, use_ionisation,use_line_radiation,                                                     &
+ !$omp use_cx, use_ionisation,use_line_radiation,                                  &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
+#endif
+ !$omp schedule(dynamic,10) &
  !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,    &
  !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy,       &  
