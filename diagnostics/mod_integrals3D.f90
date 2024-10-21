@@ -1463,7 +1463,6 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           area1    = area1    +  xjac * wst * delta_phi         
           Vol   = Vol   +             xjac * BigR * wst * delta_phi
           H_int = H_int + heat_source     * xjac * BigR * wst * delta_phi
-		  H_impl_int = H_impl_int + (gamma-1.d0)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
           S_int = S_int + particle_source * xjac * BigR * wst * delta_phi
           VP_int = VP_int + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
           local_mom_par_int = local_mom_par_int + r0 * vpar0 * sqrt(BB2) * xjac * BigR * wst * delta_phi
@@ -1519,7 +1518,6 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           C_ext = C_ext - zj0 / BigR * xjac *        wst * delta_phi  ! 2D integral
           C_ext_3d = C_ext_3d - zj0 * xjac * wst * delta_phi
           H_ext = H_ext + heat_source     * xjac * BigR * wst * delta_phi
-		  H_impl_ext = H_impl_ext + (gamma-1.d0)* (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * xjac*BigR* wst * delta_phi
           S_ext = S_ext + particle_source * xjac * BigR * wst * delta_phi
           VP_ext = VP_ext + r0 * vpar0**2 * BB2 * xjac * BigR * wst * delta_phi
           local_mom_par_ext = local_mom_par_ext + r0 * vpar0 * sqrt(BB2) * xjac * BigR * wst * delta_phi
