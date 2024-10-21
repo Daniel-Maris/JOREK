@@ -458,10 +458,13 @@ do while (.not. sim%stop_now)
 
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
-  
+#ifdef __GFORTRAN__
+    !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
+#else
     !$omp parallel do default(none) &
-    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
     !$omp shared(sim, particles) &
+#endif
+    !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
     !$omp private(j, E, B, psi, U, B_norm)
     do j=1,size(particles,1)
 
@@ -916,11 +919,15 @@ subroutine do_1particle_recombination_3D(element_list,node_list,jorek_stepper,rn
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
   !omp
+#ifdef __GFORTRAN__
+  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
+#else
   !$omp parallel do default(shared) &
-  !$omp schedule(dynamic,10)      &
   !$omp shared(sim, particles,jorek_stepper, element_list, node_list, rec_v_R,rec_v_Z,rec_v_phi, &
   !$omp i_free,rng,rec_rate_local,delta_phi, &
   !$omp CENTRAL_DENSITY, CENTRAL_MASS,sqrt_mu0_over_rho0,particles_per_element) &
+#endif
+  !$omp schedule(dynamic,10)      &
   !$omp private(ife,ielm,k,i,element,s,t,R, Z ,mp, &
   !$omp st_ran, i_rng,phi_plane )
   do ife = 1, size(rec_rate_local,1) ! loop over all local elements
