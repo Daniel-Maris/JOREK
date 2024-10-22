@@ -17,28 +17,47 @@ module hdf5_io_module
   !---------------------------------------- 
   ! create HDF5 file 
   !----------------------------------------
-  subroutine HDF5_create(filename,file_id,ierr,access_type_in,mpi_comm_in,mpi_info)
+  ! Create an HDF5 file. For enabling Parallel I/O, the mpi_comm_in  and mpi_info
+  ! arguments must be defined and the create_access_plist_in must be set to .true. 
+  ! inputs:
+  !   filename:               (character)(*) name of the file to be created
+  !   create_access_plist_in: (logical)(optional) File access properties list (plist)
+  !                           used to control different methods of performing
+  !                           I/O in HDF5 file. Available data:
+  !                           true: create the H5P_FILE_ACCESS_F property list required
+  !                           for storing the MPI communicator information for parallel I/O
+  !                           default: HDF5 default file access property list H5P_DEFAULT_F
+  !   mpi_comm_in:            (integer)(optional) mpi communicator information
+  !   mpi_info:               (integer)(optional) MPI_INFO object used for storing a set of
+  !                           key,value table used for defining the behaviour of the 
+  !                           MPI communicator (e.g. for performance tuning)
+  ! outputs:
+  !   file_id: (HID_T) identifier of the file
+  !   ierr:    (integer) error code, if success =0
+  subroutine HDF5_create(filename,file_id,ierr,create_access_plist_in,mpi_comm_in,mpi_info)
     implicit none
-    character(LEN=*) , intent(in)  :: filename  ! file name
-    integer(HID_T)   , intent(out) :: file_id   ! file identifier
+    character(LEN=*) , intent(in)  :: filename
+    integer(HID_T)   , intent(out) :: file_id
     integer, optional, intent(out) :: ierr
-    integer, optional, intent(in)  :: access_type_in,mpi_comm_in,mpi_info
+    integer, optional, intent(in)  :: mpi_comm_in,mpi_info
+    logical, optional, intent(in)  :: create_access_plist_in
 
-    integer        :: ierr_HDF5,access_type
+    integer        :: ierr_HDF5
     integer(HID_T) :: plist
+    logical        :: create_access_plist
 
     !*** Initialize fortran interface ***
     call H5open_f(ierr_HDF5)
 
     !*** define tha access properties
-    access_type = -1;
-    if(present(access_type_in)) access_type = access_type_in
-    if(access_type.eq.1) then
+    create_access_plist = .false.;
+    if(present(create_access_plist_in)) create_access_plist = create_access_plist_in
+    if(create_access_plist) then
       call H5Pcreate_f(H5P_FILE_ACCESS_F,plist,ierr_HDF5)
     else
       plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm_in).and.present(mpi_info).and.(access_type.eq.1)) then
+    if(present(mpi_comm_in).and.present(mpi_info).and.create_access_plist) then
       call H5Pset_fapl_mpio_f(plist,mpi_comm_in,mpi_info,ierr_HDF5)
     endif
 
@@ -52,28 +71,47 @@ module hdf5_io_module
   !---------------------------------------- 
   ! open HDF5 file 
   !----------------------------------------
-  subroutine HDF5_open(filename,file_id,ierr,access_type_in,mpi_comm_in,mpi_info)
+  ! Open an HDF5 file. For enabling Parallel I/O, the mpi_comm_in  and mpi_info
+  ! arguments must be defined and the create_access_plist_in must be set to .true. 
+  ! inputs:
+  !   filename:               (character)(*) name of the file to be created
+  !   create_access_plist_in: (logical)(optional) File access properties list (plist)
+  !                           used to control different methods of performing
+  !                           I/O in HDF5 file. Available data:
+  !                           true: create the H5P_FILE_ACCESS_F property list required
+  !                           for storing the MPI communicator information for parallel I/O
+  !                           default: HDF5 default file access property list H5P_DEFAULT_F
+  !   mpi_comm_in:            (integer)(optional) mpi communicator information
+  !   mpi_info:               (integer)(optional) MPI_INFO object used for storing a set of
+  !                           key,value table used for defining the behaviour of the 
+  !                           MPI communicator (e.g. for performance tuning)
+  ! outputs:
+  !   file_id: (HID_T) identifier of the file
+  !   ierr:    (integer) error code, if success =0
+  subroutine HDF5_open(filename,file_id,ierr,create_access_plist_in,mpi_comm_in,mpi_info)
     implicit none
     character(LEN=*) , intent(in)  :: filename  ! file name
     integer(HID_T)   , intent(out) :: file_id   ! file identifier
     integer, optional, intent(out) :: ierr
-    integer, optional, intent(in)  :: access_type_in,mpi_comm_in,mpi_info
+    integer, optional, intent(in)  :: mpi_comm_in,mpi_info
+    logical, optional, intent(in)  :: create_access_plist_in
 
-    integer        :: ierr_HDF5,access_type
+    integer        :: ierr_HDF5
     integer(HID_T) :: plist
+    logical        :: create_access_plist
 
     !*** Initialize fortran interface ***
     call H5open_f(ierr_HDF5)
 
     !*** define tha access properties
-    access_type = -1;
-    if(present(access_type_in)) access_type = access_type_in
-    if(access_type.eq.1) then
+    create_access_plist = .false.;
+    if(present(create_access_plist_in)) create_access_plist = create_access_plist_in
+    if(create_access_plist) then
       call H5Pcreate_f(H5P_FILE_ACCESS_F,plist,ierr_HDF5)
     else
       plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm_in).and.present(mpi_info).and.(access_type.ne.1)) then
+    if(present(mpi_comm_in).and.present(mpi_info).and.create_access_plist) then
       call H5Pset_fapl_mpio_f(plist,mpi_comm_in,mpi_info,ierr_HDF5)
     endif
 
@@ -87,10 +125,15 @@ module hdf5_io_module
   !---------------------------------------- 
   ! close HDF5 file 
   !----------------------------------------
+  ! inputs:
+  !   file_id: (HID_T) identifier of the file
+  !   ierr:    (integer) error code, if success =0
+  ! outputs:
+  !   ierr:    (integer) error code, if success =0
   subroutine HDF5_close(file_id)
     implicit none
-    integer(HID_T), intent(in) :: file_id   ! file identifier
-    integer :: error   ! error flag
+    integer(HID_T), intent(in) :: file_id
+    integer :: error
     call H5Fclose_f(file_id,error)
     call H5close_f(error)
   end subroutine HDF5_close
@@ -98,15 +141,25 @@ module hdf5_io_module
   !---------------------------------------- 
   ! create and set HDF5 parallel IO transfer properties 
   !----------------------------------------
-  subroutine HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert_in)
+  ! Create a HDF5 - MPI transfer property list and set the behaviour of the
+  ! paralle I/O. Presently, available parallel I/O behaviour are:
+  ! COLLECTIVE: all MPI tasks must performed the same operation
+  ! INDEPENDENT: not all MPI tasks must performed the same operation
+  ! actions modifying the structure of a file or of the metadata must be done collectively
+  ! inputs: 
+  !   mpio_collective_in: (logical)(optional) if true (default) MPIO operations are collective
+  ! outputs:
+  !   transfer_property: (HID_T) transfer property list defining the MPIO behaviour
+  subroutine HDF5_set_parallel_io_properties(transfer_property,mpio_collective_in)
     implicit none
     integer(HID_T),intent(out)  :: transfer_property
-    integer,intent(in),optional :: type_dataset_transfert_in
-    integer :: type_dataset_transfert,ierr
-    type_dataset_transfert = 0
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
+    logical,intent(in),optional :: mpio_collective_in
+    integer :: ierr
+    logical :: mpio_collective
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
     call H5Pcreate_f(H5P_DATASET_XFER_F,transfer_property,ierr)
-    if(type_dataset_transfert.eq.1) then
+    if(mpio_collective) then
       call H5Pset_dxpl_mpio_f(transfer_property,H5FD_MPIO_COLLECTIVE_F,ierr) 
     else
       call H5Pset_dxpl_mpio_f(transfer_property,H5FD_MPIO_INDEPENDENT_F,ierr)
@@ -116,6 +169,11 @@ module hdf5_io_module
   !----------------------------------------
   ! check if dataset is in HDF5 file
   !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset to be found
+  ! outputs:
+  !   in_file: (logical) true file contains the dataset
   subroutine HDF5_is_dataset_in_file(file_id,dsetname,in_file)
     use H5LT, only: h5ltfind_dataset_f
     !> inputs:
@@ -129,6 +187,12 @@ module hdf5_io_module
   !---------------------------------------- 
   ! extract dataset rank and shape
   !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset to be found
+  ! outputs:
+  !   rank: (integer) dimensionality of the dataset (number of indexes)
+  !   dims: (HSIZE_T) dimensions (shape) of the dataset
   subroutine HDF5_extract_dataset_rank_shape(file_id,rank,dims,dsetname)
     !> inputs:
     character(len=*),intent(in) ::dsetname
@@ -162,6 +226,25 @@ module hdf5_io_module
   ! parallel IO and data alignment.
   ! See https://support.hdfgroup.org/HDF5/doc1.6/Files.html for more information.
   !----------------------------------------
+  ! inputs:
+  !   filename:               (character)(*) name of the file to be created
+  !   file_access:            (integer)(optional) integer identifying the property
+  !                           specifying how an HDF5 is created and opened, default:
+  !                           H5F_ACC_EXCL_F: exclusive access to the file
+  !                           (fail if file exists, create otherwise)
+  !   create_access_plist_in: (logical)(optional) File access properties list (plist)
+  !                           used to control different methods of performing
+  !                           I/O in HDF5 file. Available data:
+  !                           true: create the H5P_FILE_ACCESS_F property list required
+  !                           for storing the MPI communicator information for parallel I/O
+  !                           default: HDF5 default file access property list H5P_DEFAULT_F
+  !   mpi_comm_in:            (integer)(optional) mpi communicator information
+  !   mpi_info:               (integer)(optional) MPI_INFO object used for storing a set of
+  !                           key,value table used for defining the behaviour of the 
+  !                           MPI communicator (e.g. for performance tuning)
+  ! outputs:
+  !   file_id: (HID_T) identifier of the file
+  !   ierr:    (integer) error code, if success =0
   subroutine HDF5_open_or_create(filename,file_id,ierr,&
   file_access,access_type_in,mpi_comm_in,mpi_info)
     use mpi, only: MPI_Abort
@@ -170,11 +253,11 @@ module hdf5_io_module
     integer(HID_T)   , intent(out) :: file_id   !< file identifier
     integer, optional, intent(out) :: ierr
     integer          , intent(in), optional :: file_access !< type of access for opening/creating an HDF5 file
-    integer          , intent(in), optional :: access_type_in !< Which features to use when opening
+    logical          , intent(in), optional :: create_access_plist_in !< Which features to use when opening
     integer          , intent(in), optional :: mpi_comm_in,mpi_info !< mpi communicator and info
     
-    integer        :: ierr_HDF5,access_type,access_f
-    logical        :: file_exists, is_hdf5
+    integer        :: ierr_HDF5,access_f
+    logical        :: file_exists, is_hdf5, create_access_plist
     integer(HID_T) :: plist
 
     !*** Initialize fortran interface ***
@@ -182,14 +265,14 @@ module hdf5_io_module
     call H5open_f(ierr_HDF5)
 
     !*** define tha access properties
-    access_type = -1;
-    if(present(access_type_in)) access_type = access_type_in
-    if(access_type.eq.1) then
+    create_access_plist = .false.;
+    if(present(create_access_plist_in)) create_access_plist = create_access_plist_in
+    if(create_access_plist) then
       call H5Pcreate_f(H5P_FILE_ACCESS_F,plist,ierr_HDF5)
     else
       plist = H5P_DEFAULT_F
     endif
-    if(present(mpi_comm_in).and.present(mpi_info).and.(access_type.eq.1)) then
+    if(present(mpi_comm_in).and.present(mpi_info).and.create_access_plist) then
       call H5Pset_fapl_mpio_f(plist,mpi_comm_in,mpi_info,ierr_HDF5)
     endif
 
@@ -222,10 +305,20 @@ module hdf5_io_module
   !  HDF5 WRITING
   !*************************************************
   !---------------------------------------- 
-  ! HDF5 saving for a character string
+  ! HDF5 saving for a character string. Parallel HDF5 is enabled
+  ! if the argument varibales: mpi_rank, n_mpi_tasks, mpi_comm_in are
+  ! are defined
   !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   charvar:            (character)(*) character to be written in file
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:           (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
+  !   mpi_comm_in:        (integer)(optional) identifier of the MPI communicator
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
   subroutine HDF5_char_saving(file_id,charvar,dsetname,mpi_rank,&
-  n_mpi_tasks,mpi_comm_in,type_dataset_transfert_in)
+  n_mpi_tasks,mpi_comm_in,mpio_collective_in)
 #ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX,MPI_IN_PLACE
 #else
@@ -235,13 +328,12 @@ module hdf5_io_module
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(LEN=*), intent(in) :: charvar
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer,optional             :: mpi_rank,n_mpi_tasks,mpi_comm_in
-    integer,optional             :: type_dataset_transfert_in
+    integer,optional, intent(in) :: mpi_rank,n_mpi_tasks,mpi_comm_in
+    logical,optional, intent(in) :: mpio_collective_in
 
     integer              :: ierr_HDF5  ! error flag
     integer              :: rank       ! dataset rank
     integer              :: len_char   ! maximum length of strings locally
-    integer              :: type_dataset_transfert ! data transfer property
     integer(HSIZE_T), &
       dimension(1)       :: dim        ! dataset dimensions
     integer(HID_T)       :: dataset    ! dataset identifier
@@ -249,6 +341,7 @@ module hdf5_io_module
     integer(HID_T)       :: dataspace  ! dataspace identifier
     integer(HID_T)       :: type_id    ! datatype identifier
     integer(HID_T)       :: transfer_property ! property for dset transfer
+    logical              :: mpio_collective   ! MPIO collective/individual toggle
 
    !*** Find the maximum string length and create the hdf5 string type
    len_char = len(charvar)
@@ -261,9 +354,9 @@ module hdf5_io_module
     call h5tset_size_f(type_id,int(len_char,kind=HSIZE_T),ierr_HDF5)
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(type_dataset_transfert_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
    !*** Create and initialize dataspaces for datasets ***
     dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
@@ -276,7 +369,7 @@ module hdf5_io_module
 
     !*** Write the character array data to the dataset using ***
     !***  default transfer properties                     ***
-    if (present(mpi_rank).and.present(n_mpi_tasks)) then
+    if (present(mpi_rank).and.present(n_mpi_tasks).and.present(mpi_comm_in)) then
       call H5Screate_simple_f(rank,int([1],kind=HSIZE_T),dataspace,ierr_HDF5)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
       start=[int(mpi_rank,kind=HSIZE_T)],count=[int(1,kind=HSIZE_T)],hdferr=ierr_HDF5)
@@ -294,10 +387,21 @@ module hdf5_io_module
   end subroutine HDF5_char_saving
 
   !---------------------------------------- 
-  ! HDF5 saving for a character 1D array
+  ! HDF5 saving for a 1D array of characters
+  ! For parallel applications the variable: mpi_comm_in and
+  ! start must be defined.
   !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array1D:            (character)(*)(:) array of characters to be written in file
+  !   dim1:               (integer) size of the array
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  !   mpi_comm_in:        (integer)(optional) identifier of the MPI communicator
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
   subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,&
-  start,mpi_comm_in,type_dataset_transfert_in)
+  start,mpi_comm_in,mpio_collective_in)
 #ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX,MPI_IN_PLACE
 #else
@@ -309,12 +413,11 @@ module hdf5_io_module
     integer                       , intent(in) :: dim1
     character(LEN=*)              , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
-    integer,intent(in),optional                :: mpi_comm_in
-    integer,intent(in),optional                :: type_dataset_transfert_in
+    integer                       , intent(in), optional :: mpi_comm_in
+    logical                       , intent(in), optional :: mpio_collective_in
 
     integer              :: ii
     integer              :: max_len_char   ! maximum length of strings locally
-    integer              :: type_dataset_transfert
     integer              :: ierr_HDF5  ! error flag
     integer              :: rank       ! dataset rank
     integer(HSIZE_T), &
@@ -323,7 +426,8 @@ module hdf5_io_module
     integer(HID_T)       :: dataspace         ! dataspace identifier
     integer(HID_T)       :: type_id           ! char datatype identifier
     integer(HID_T)       :: filespace         ! filespace identifier
-    integer(HID_T)       :: transfer_property ! property for parallel writing
+    integer(HID_T)       :: transfer_property ! Transfer property list identifier
+    logical              :: mpio_collective
 
     !*** compute and max reduce the lenght of all strings ***
     !*** for each MPI rank ***
@@ -337,9 +441,9 @@ module hdf5_io_module
     endif
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Set the maximum char length of HDF5 IO **
     call h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
@@ -374,31 +478,39 @@ module hdf5_io_module
   end subroutine HDF5_array1D_saving_char
 
   !---------------------------------------- 
-  ! HDF5 saving for an integer 
+  ! HDF5 saving for an integer. Parallel MPIO enabled 
+  ! if the variable mpi_rank and n_mpi_tasks are enabled 
   !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   intv:               (integer) integer to be written in HDF5 file
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:           (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
   subroutine HDF5_integer_saving(file_id,intv,dsetname,mpi_rank,&
-  n_mpi_tasks,type_dataset_transfert_in)
+  n_mpi_tasks,mpio_collective_in)
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     integer         , intent(in) :: intv
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer,optional,intent(in)  :: mpi_rank,n_mpi_tasks
-    integer,optional,intent(in)  :: type_dataset_transfert_in
+    integer,optional, intent(in) :: mpi_rank,n_mpi_tasks
+    logical,optional, intent(in) :: mpio_collective_in
 
     integer              :: error      ! error flag
     integer              :: rank       ! dataset rank
-    integer              :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)       :: dim        ! dataset dimensions
     integer(HID_T)       :: filespace ! filespace identifier
     integer(HID_T)       :: dataset    ! dataset identifier
     integer(HID_T)       :: dataspace  ! dataspace identifier
-    integer(HID_T)       :: transfer_property ! HDF5 IO properties
+    integer(HID_T)       :: transfer_property ! Transfer property list identifier
+    logical              :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
@@ -427,30 +539,38 @@ module hdf5_io_module
   end subroutine HDF5_integer_saving
 
   !---------------------------------------- 
-  ! HDF5 saving for a real double
+  ! HDF5 saving for a real double. Parallel MPIO enabled 
+  ! if the variable mpi_rank and n_mpi_tasks are enabled 
   !----------------------------------------
-  subroutine HDF5_real_saving(file_id,rd,dsetname,mpi_rank,n_mpi_tasks,type_dataset_transfert_in)
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   rd:                 (real8) double float to be written in HDF5 file
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:           (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  subroutine HDF5_real_saving(file_id,rd,dsetname,mpi_rank,n_mpi_tasks,mpio_collective_in)
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     real*8          , intent(in) :: rd
     character(LEN=*), intent(in) :: dsetname  ! dataset name
-    integer,optional,intent(in)  :: mpi_rank,n_mpi_tasks
-    integer,optional,intent(in)  :: type_dataset_transfert_in
+    integer,optional, intent(in) :: mpi_rank,n_mpi_tasks
+    logical,optional, intent(in) :: mpio_collective_in
 
     integer              :: error      ! error flag
     integer              :: rank       ! dataset rank
-    integer              :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)       :: dim               ! dataset dimensions
     integer(HID_T)       :: filespace
     integer(HID_T)       :: dataset           ! dataset identifier
     integer(HID_T)       :: dataspace         ! dataspace identifier
-    integer(HID_T)       :: transfer_property ! HDF5 IO properties
+    integer(HID_T)       :: transfer_property ! Transfer property list identifier
+    logical              :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
@@ -480,21 +600,32 @@ module hdf5_io_module
   end subroutine HDF5_real_saving
 
   !---------------------------------------- 
-  ! HDF5 saving for a 1D array of integer
+  ! HDF5 saving for a 1D array of integer. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
-  subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array1D:            (integer)(:) array of integers to be written in file
+  !   dim1:               (integer) size of the array
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     integer, dimension(:), intent(in) :: array1D
     integer              , intent(in) :: dim1
     character(LEN=*)     , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
-    integer, intent(in), optional     :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional       :: type_dataset_transfert_in !< hdf5 dataset transfer properties
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: mpio_collective_in !< hdf5 dataset transfer properties
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)      :: dim               ! dataset dimensions
     integer(HID_T)      :: dataset           ! dataset identifier
@@ -502,11 +633,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace         ! dataspace identifier
     integer(HID_T)      :: property          ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -545,21 +677,33 @@ module hdf5_io_module
   end subroutine HDF5_array1D_saving_int
 
   !---------------------------------------- 
-  ! HDF5 saving for a 2D array of integer
+  ! HDF5 saving for a 2D array of integer. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
-  subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,compress_level,type_dataset_transfert_in)
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array2D:            (integer)(:,:) array of integers to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dim2:               (integer) size of the second array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(2)(optional) starting indexes of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)           , intent(in) :: file_id   ! file identifier
     integer, dimension(:,:)  , intent(in) :: array2D
     integer                  , intent(in) :: dim1, dim2
     character(LEN=*)         , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)         , intent(in), optional :: start(2) !< Begin position of data
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer                  , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                  , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(2)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -567,11 +711,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
     
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -611,21 +756,34 @@ module hdf5_io_module
   end subroutine HDF5_array2D_saving_int
 
   !---------------------------------------- 
-  ! gzip HDF5 saving for a 3D array integer
+  ! gzip HDF5 saving for a 3D array integer. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array3D:            (integer)(:,:,:) array of integers to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dim2:               (integer) size of the second array dimension
+  !   dim3:               (integer) size of the third array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(3)(optional) starting indexes of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
   subroutine HDF5_array3D_saving_int(file_id,array3D, &
-    dim1,dim2,dim3,dsetname,start,compress_level,type_dataset_transfert_in)
-    integer(HID_T)          , intent(in) :: file_id   ! file identifier
+    dim1,dim2,dim3,dsetname,start,compress_level,mpio_collective_in)
+    integer(HID_T)           , intent(in) :: file_id   ! file identifier
     integer, dimension(:,:,:), intent(in) :: array3D
-    integer                 , intent(in) :: dim1, dim2, dim3
-    character(LEN=*)        , intent(in) :: dsetname  ! dataset name
+    integer                  , intent(in) :: dim1, dim2, dim3
+    character(LEN=*)         , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to write
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(3)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -633,12 +791,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -678,21 +836,32 @@ module hdf5_io_module
   end subroutine HDF5_array3D_saving_int
 
   !---------------------------------------- 
-  ! gzip HDF5 saving for a 1D array of real*4
+  ! gzip HDF5 saving for a 1D array of real*4. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
-  subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array1D:            (real4)(:) array of single precision floats to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     real(4), dimension(:), intent(in) :: array1D
     integer              , intent(in) :: dim1
     character(LEN=*)     , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)     , intent(in), optional :: start(1) !< Begin position of data
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer              , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical              , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -700,11 +869,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -743,21 +913,32 @@ module hdf5_io_module
   end subroutine HDF5_array1D_saving_r4
 
   !-------------------------------------------- 
-  ! gzip HDF5 saving for a 1D array of real*8
-  !--------------------------------------------
-  subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,type_dataset_transfert_in)
+  ! gzip HDF5 saving for a 1D array of real*8. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
+  !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array1D:            (real8)(:) array of double precision floats to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)      , intent(in) :: file_id   ! file identifier
     real*8, dimension(:), intent(in) :: array1D
     integer             , intent(in) :: dim1
     character(LEN=*)    , intent(in) :: dsetname  ! dataset name
-    integer(HSIZE_T)     , intent(in), optional :: start(1) !< Begin position of data
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer(HSIZE_T)    , intent(in), optional :: start(1) !< Begin position of data
+    integer             , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical             , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(1)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -765,11 +946,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -808,21 +990,33 @@ module hdf5_io_module
   end subroutine HDF5_array1D_saving
 
   !---------------------------------------- 
-  ! gzip HDF5 saving for a 2D array
+  ! gzip HDF5 saving for a 2D array. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
-  subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,type_dataset_transfert_in)
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array2D:            (real8)(:,:) array of double precision floats to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dim2:               (integer) size of the second array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(2)(optional) starting indexes of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)        , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:), intent(in) :: array2D
     integer               , intent(in) :: dim1, dim2
     character(LEN=*)      , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Offset of array to write
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer              :: error      ! error flag
     integer              :: rank       ! dataset rank
-    integer              :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(2)       :: dim        ! dataset dimensions
     integer(HID_T)       :: dataset    ! dataset identifier
@@ -830,11 +1024,12 @@ module hdf5_io_module
     integer(HID_T)       :: filespace  ! dataspace identifier
     integer(HID_T)       :: property   ! Property list identifier 
     integer(HID_T)       :: transfer_property ! Transfer property list identifier
+    logical              :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -874,22 +1069,35 @@ module hdf5_io_module
   end subroutine HDF5_array2D_saving
 
   !---------------------------------------- 
-  ! gzip HDF5 saving for a 3D array
+  ! gzip HDF5 saving for a 3D array. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array3D:            (real8)(:,:,:) array of double precision floats to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dim2:               (integer) size of the second array dimension
+  !   dim3:               (integer) size of the third array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(3)(optional) starting indexes of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
   subroutine HDF5_array3D_saving(file_id,array3D, &
-    dim1,dim2,dim3,dsetname,start,compress_level,type_dataset_transfert_in)
+    dim1,dim2,dim3,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)          , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:), intent(in) :: array3D
     integer                 , intent(in) :: dim1, dim2, dim3
     character(LEN=*)        , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to write
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(3)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -897,11 +1105,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -942,22 +1151,36 @@ module hdf5_io_module
   end subroutine HDF5_array3D_saving
 
   !---------------------------------------- 
-  ! gzip HDF5 saving for a 4D array
+  ! gzip HDF5 saving for a 4D array. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array4D:            (real8)(:,:,:,:) array of double precision floats to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dim2:               (integer) size of the second array dimension
+  !   dim3:               (integer) size of the third array dimension
+  !   dim4:               (integer) size of the fourth array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(4)(optional) starting indexes of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
   subroutine HDF5_array4D_saving(file_id,array4d,dim1,dim2,dim3,dim4,&
-  dsetname,start,compress_level,type_dataset_transfert_in)
+  dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:,:), intent(in) :: array4d
     integer                   , intent(in) :: dim1, dim2, dim3, dim4
     character(LEN=*)          , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(4), intent(in), optional :: start !< Offset of array to write
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(4)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -965,11 +1188,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
     
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1011,10 +1235,26 @@ module hdf5_io_module
   end subroutine HDF5_array4D_saving
 
   !---------------------------------------- 
-  ! gzip HDF5 saving for a 5D array
+  ! gzip HDF5 saving for a 5D array. Parallel applications
+  ! require the definition of the data chunk starting indexes
+  ! in the global dataset table. Data compression is applied 
+  ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array5D:            (real8)(:,:,:,:,:) array of double precision floats to be written in file
+  !   dim1:               (integer) size of the first array dimension
+  !   dim2:               (integer) size of the second array dimension
+  !   dim3:               (integer) size of the third array dimension
+  !   dim4:               (integer) size of the fourth array dimension
+  !   dim5:               (integer) size of the fifth array dimension
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (integer)(5)(optional) starting indexes of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
   subroutine HDF5_array5D_saving(file_id,array5d,dim1,dim2,dim3,dim4,dim5,&
-  dsetname,start,compress_level,type_dataset_transfert_in)
+  dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)              , intent(in) :: file_id  ! file identifier
     real*8, dimension(:,:,:,:,:), intent(in) :: array5d
@@ -1022,12 +1262,11 @@ module hdf5_io_module
     integer                     , intent(in) :: dim3, dim4, dim5
     character(LEN=*)            , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(5), intent(in), optional :: start !< Offset of array to write
-    integer, intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer,intent(in),optional   :: type_dataset_transfert_in !< HDF5 dataset MPI transfer property
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    integer                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
-    integer             :: type_dataset_transfert
     integer(HSIZE_T), &
       dimension(5)      :: dim        ! dataset dimensions
     integer(HID_T)      :: dataset    ! dataset identifier
@@ -1035,11 +1274,12 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
+    logical             :: mpio_collective
 
     !*** Check property for parallel IO
-    type_dataset_transfert = -1
-    if(present(type_dataset_transfert_in)) type_dataset_transfert = type_dataset_transfert_in
-    call HDF5_set_parallel_io_properties(transfer_property,type_dataset_transfert)
+    mpio_collective = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
+    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1085,16 +1325,23 @@ module hdf5_io_module
   !  HDF5 READING
   !************************************************
   !---------------------------------------- 
-  ! HDF5 reading for a character
+  ! HDF5 reading for a character. Parallel compatible
+  ! reading is enabled defining the argumets mpi_rank
+  ! and n_mpi_tasks. 
   !----------------------------------------
-  subroutine HDF5_char_reading(file_id,charvar,dsetname,mpi_rank,&
-  n_mpi_tasks,legacy_in)
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   dsetname:           (character)(*) name of the dataset from which data are read
+  !   mpi_rank:           (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
+  ! outputs:
+  !   charvar:            (character)(*) character to be read from file
+  subroutine HDF5_char_reading(file_id,charvar,dsetname,mpi_rank,n_mpi_tasks)
     implicit none
     integer(HID_T)  , intent(in)  :: file_id   ! file identifier
     character(LEN=*), intent(out) :: charvar
     character(LEN=*), intent(in)  :: dsetname  ! dataset name
     integer,intent(in),optional   :: mpi_rank,n_mpi_tasks
-    logical,intent(in),optional   :: legacy_in    
     integer                       :: error     ! error flag
     integer                       :: rank      ! dataset rank
     integer(HID_T)                :: dataset   ! dataset identifier
@@ -1104,10 +1351,6 @@ module hdf5_io_module
     integer(HSIZE_T),dimension(1) :: dim       ! dimensions
     integer(HSIZE_T),dimension(1) :: dims,maxdims ! sized of the datsets
     logical                       :: exists    ! true if dataset exists
-    logical                       :: legacy    ! if true, do not use hyperslab
-                                               ! for backward compatibility
-    !*** preset parameetrs ***
-    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -1129,7 +1372,7 @@ module hdf5_io_module
     !*** read the string data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(&
     (rank.eq.1).and.(dims(1).gt.1)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
@@ -1147,16 +1390,24 @@ module hdf5_io_module
   end subroutine HDF5_char_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for a allocatable character
+  ! HDF5 reading for a allocatable character. Parallel compatible
+  ! reading is enabled defining the argumets mpi_rank
+  ! and n_mpi_tasks. 
   !----------------------------------------
-  subroutine HDF5_allocatable_char_reading(file_id,charvar,dsetname,mpi_rank,&
-  n_mpi_tasks,legacy_in)
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   dsetname:           (character)(*) name of the dataset from which data are read
+  !   mpi_rank:           (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
+  ! outputs:
+  !   charvar:            (character)(:)(allocatable) character to be read from file
+  !----------------------------------------
+  subroutine HDF5_allocatable_char_reading(file_id,charvar,dsetname,mpi_rank,n_mpi_tasks)
     implicit none
     integer(HID_T)  , intent(in)                        :: file_id  ! file identifier
     character(LEN=:), allocatable, intent(out)          :: charvar
-    character(LEN=*),              intent(in)           :: dsetname ! dataset name
-    integer,                       intent(in), optional :: mpi_rank,n_mpi_tasks
-    logical,                       intent(in), optional :: legacy_in
+    character(LEN=*)             , intent(in)           :: dsetname ! dataset name
+    integer                      , intent(in), optional :: mpi_rank,n_mpi_tasks
     
     integer                       :: error        ! error flag
     integer                       :: rank         ! rank of the array
@@ -1168,10 +1419,6 @@ module hdf5_io_module
     integer(HSIZE_T),dimension(1) :: dim          ! dimensions
     integer(HSIZE_T),dimension(1) :: dims,maxdims ! dimensions of the array
     logical                       :: exists       ! true if dataset exists
-    logical                       :: legacy       ! if true, do not use hyperslab
-                                                  ! for backward compatibility
-    !*** preset parameters ***
-    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -1197,7 +1444,7 @@ module hdf5_io_module
     !*** read the string data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(&
     (rank.eq.1).and.(dims(1).gt.int(1,kind=HSIZE_T))) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
@@ -1217,13 +1464,12 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 reading for a character array 1D
   !----------------------------------------
-  subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start,legacy_in)
+  subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start)
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(len=*)       , intent(out), dimension(:) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
-    logical,                        intent(in), optional :: legacy_in
     integer             :: len_char
     integer             :: error     ! error flag
     integer             :: rank      ! dataset rank
@@ -1234,10 +1480,6 @@ module hdf5_io_module
     integer(HID_T)      :: type_id   ! string datatype identifier
     integer(HID_T)      :: filespace ! filespace identifier
     logical             :: exists    ! true if dataset exists
-    logical             :: legacy    ! check if legacy reading as to be used
-                                     ! for backward compatibility
-    !*** check for leagcy reading ***
-    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -1255,7 +1497,7 @@ module hdf5_io_module
     !*** read the character data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = size(array1D,1)
-    if (present(start).and.(.not.legacy)) then
+    if (present(start)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
