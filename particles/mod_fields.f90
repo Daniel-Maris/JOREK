@@ -150,7 +150,12 @@ pure subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
   B=[(A3_Z-AZ_p)*R_inv, (AR_p-A3_R)*R_inv, AZ_R-AR_Z + Fprof*R_inv]
   E=[-AR_t, -AZ_t, -R_inv*A3_t]
 #else
+#if STELLARATOR_MODEL
   call fields%interp_PRZP_1(time, i_elm, i_var, 2, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi)
+#else
+  R_phi = 0.0; Z_phi = 0.0
+  call fields%interp_PRZ(time, i_elm, i_var, 2, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
+#endif
   ! Calculate the derivatives to R and Z
 
   R_inv = 1.d0/R
