@@ -34,6 +34,7 @@ module hdf5_io_module
   ! outputs:
   !   file_id: (HID_T) identifier of the file
   !   ierr:    (integer) error code, if success =0
+  !----------------------------------------
   subroutine HDF5_create(filename,file_id,ierr,create_access_plist_in,mpi_comm_in,mpi_info)
     implicit none
     character(LEN=*) , intent(in)  :: filename
@@ -88,6 +89,7 @@ module hdf5_io_module
   ! outputs:
   !   file_id: (HID_T) identifier of the file
   !   ierr:    (integer) error code, if success =0
+  !----------------------------------------
   subroutine HDF5_open(filename,file_id,ierr,create_access_plist_in,mpi_comm_in,mpi_info)
     implicit none
     character(LEN=*) , intent(in)  :: filename  ! file name
@@ -130,6 +132,7 @@ module hdf5_io_module
   !   ierr:    (integer) error code, if success =0
   ! outputs:
   !   ierr:    (integer) error code, if success =0
+  !----------------------------------------
   subroutine HDF5_close(file_id)
     implicit none
     integer(HID_T), intent(in) :: file_id
@@ -150,6 +153,7 @@ module hdf5_io_module
   !   mpio_collective_in: (logical)(optional) if true (default) MPIO operations are collective
   ! outputs:
   !   transfer_property: (HID_T) transfer property list defining the MPIO behaviour
+  !----------------------------------------
   subroutine HDF5_set_parallel_io_properties(transfer_property,mpio_collective_in)
     implicit none
     integer(HID_T),intent(out)  :: transfer_property
@@ -174,6 +178,7 @@ module hdf5_io_module
   !   dsetname: (character)(*) name of the dataset to be found
   ! outputs:
   !   in_file: (logical) true file contains the dataset
+  !----------------------------------------
   subroutine HDF5_is_dataset_in_file(file_id,dsetname,in_file)
     use H5LT, only: h5ltfind_dataset_f
     !> inputs:
@@ -193,6 +198,7 @@ module hdf5_io_module
   ! outputs:
   !   rank: (integer) dimensionality of the dataset (number of indexes)
   !   dims: (HSIZE_T) dimensions (shape) of the dataset
+  !----------------------------------------
   subroutine HDF5_extract_dataset_rank_shape(file_id,rank,dims,dsetname)
     !> inputs:
     character(len=*),intent(in) ::dsetname
@@ -245,6 +251,7 @@ module hdf5_io_module
   ! outputs:
   !   file_id: (HID_T) identifier of the file
   !   ierr:    (integer) error code, if success =0
+  !----------------------------------------
   subroutine HDF5_open_or_create(filename,file_id,ierr,&
   file_access,access_type_in,mpi_comm_in,mpi_info)
     use mpi, only: MPI_Abort
@@ -317,6 +324,7 @@ module hdf5_io_module
   !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
   !   mpi_comm_in:        (integer)(optional) identifier of the MPI communicator
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_char_saving(file_id,charvar,dsetname,mpi_rank,&
   n_mpi_tasks,mpi_comm_in,mpio_collective_in)
 #ifdef __GFORTRAN__
@@ -400,6 +408,7 @@ module hdf5_io_module
   !                       in the global dataset
   !   mpi_comm_in:        (integer)(optional) identifier of the MPI communicator
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,&
   start,mpi_comm_in,mpio_collective_in)
 #ifdef __GFORTRAN__
@@ -488,6 +497,7 @@ module hdf5_io_module
   !   mpi_rank:           (integer)(optional) identifier of the MPI task
   !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_integer_saving(file_id,intv,dsetname,mpi_rank,&
   n_mpi_tasks,mpio_collective_in)
     implicit none
@@ -549,6 +559,7 @@ module hdf5_io_module
   !   mpi_rank:           (integer)(optional) identifier of the MPI task
   !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_real_saving(file_id,rd,dsetname,mpi_rank,n_mpi_tasks,mpio_collective_in)
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
@@ -610,10 +621,11 @@ module hdf5_io_module
   !   array1D:            (integer)(:) array of integers to be written in file
   !   dim1:               (integer) size of the array
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(1)(optional) starting index of the input data chunk 
+  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
@@ -688,10 +700,11 @@ module hdf5_io_module
   !   dim1:               (integer) size of the first array dimension
   !   dim2:               (integer) size of the second array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(2)(optional) starting indexes of the input data chunk 
+  !   start:              (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)           , intent(in) :: file_id   ! file identifier
@@ -768,10 +781,11 @@ module hdf5_io_module
   !   dim2:               (integer) size of the second array dimension
   !   dim3:               (integer) size of the third array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(3)(optional) starting indexes of the input data chunk 
+  !   start:              (HSIZE_T)(3)(optional) starting indexes of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array3D_saving_int(file_id,array3D, &
     dim1,dim2,dim3,dsetname,start,compress_level,mpio_collective_in)
     integer(HID_T)           , intent(in) :: file_id   ! file identifier
@@ -846,10 +860,11 @@ module hdf5_io_module
   !   array1D:            (real4)(:) array of single precision floats to be written in file
   !   dim1:               (integer) size of the first array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(1)(optional) starting index of the input data chunk 
+  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
@@ -923,10 +938,11 @@ module hdf5_io_module
   !   array1D:            (real8)(:) array of double precision floats to be written in file
   !   dim1:               (integer) size of the first array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(1)(optional) starting index of the input data chunk 
+  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)      , intent(in) :: file_id   ! file identifier
@@ -1001,10 +1017,11 @@ module hdf5_io_module
   !   dim1:               (integer) size of the first array dimension
   !   dim2:               (integer) size of the second array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(2)(optional) starting indexes of the input data chunk 
+  !   start:              (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,mpio_collective_in)
     implicit none
     integer(HID_T)        , intent(in) :: file_id   ! file identifier
@@ -1081,10 +1098,11 @@ module hdf5_io_module
   !   dim2:               (integer) size of the second array dimension
   !   dim3:               (integer) size of the third array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(3)(optional) starting indexes of the input data chunk 
+  !   start:              (HSIZE_T)(3)(optional) starting indexes of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array3D_saving(file_id,array3D, &
     dim1,dim2,dim3,dsetname,start,compress_level,mpio_collective_in)
     implicit none
@@ -1164,10 +1182,11 @@ module hdf5_io_module
   !   dim3:               (integer) size of the third array dimension
   !   dim4:               (integer) size of the fourth array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(4)(optional) starting indexes of the input data chunk 
+  !   start:              (HSIZE_T)(4)(optional) starting indexes of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array4D_saving(file_id,array4d,dim1,dim2,dim3,dim4,&
   dsetname,start,compress_level,mpio_collective_in)
     implicit none
@@ -1249,10 +1268,11 @@ module hdf5_io_module
   !   dim4:               (integer) size of the fourth array dimension
   !   dim5:               (integer) size of the fifth array dimension
   !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(5)(optional) starting indexes of the input data chunk 
+  !   start:              (HSIZE_T)(5)(optional) starting indexes of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !----------------------------------------
   subroutine HDF5_array5D_saving(file_id,array5d,dim1,dim2,dim3,dim4,dim5,&
   dsetname,start,compress_level,mpio_collective_in)
     implicit none
@@ -1330,12 +1350,13 @@ module hdf5_io_module
   ! and n_mpi_tasks. 
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   dsetname:           (character)(*) name of the dataset from which data are read
-  !   mpi_rank:           (integer)(optional) identifier of the MPI task
-  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
+  !   file_id:     (HID_T) file identifier
+  !   dsetname:    (character)(*) name of the dataset from which data are read
+  !   mpi_rank:    (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks: (integer)(optional) number of MPI tasks
   ! outputs:
-  !   charvar:            (character)(*) character to be read from file
+  !   charvar:     (character)(*) character to be read from file
+  !----------------------------------------
   subroutine HDF5_char_reading(file_id,charvar,dsetname,mpi_rank,n_mpi_tasks)
     implicit none
     integer(HID_T)  , intent(in)  :: file_id   ! file identifier
@@ -1395,12 +1416,12 @@ module hdf5_io_module
   ! and n_mpi_tasks. 
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   dsetname:           (character)(*) name of the dataset from which data are read
-  !   mpi_rank:           (integer)(optional) identifier of the MPI task
-  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
+  !   file_id:     (HID_T) file identifier
+  !   dsetname:    (character)(*) name of the dataset from which data are read
+  !   mpi_rank:    (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks: (integer)(optional) number of MPI tasks
   ! outputs:
-  !   charvar:            (character)(:)(allocatable) character to be read from file
+  !   charvar:     (character)(:)(allocatable) character to be read from file
   !----------------------------------------
   subroutine HDF5_allocatable_char_reading(file_id,charvar,dsetname,mpi_rank,n_mpi_tasks)
     implicit none
@@ -1462,12 +1483,23 @@ module hdf5_io_module
   end subroutine HDF5_allocatable_char_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for a character array 1D
+  ! HDF5 reading for a character array 1D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(1)(optional) starting index of 
+  !             the input data chunk in the global dataset
+  ! outputs:
+  !   array1D:  (character)(*)(:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array1D_reading_char(file_id,array1D,dsetname,start)
     implicit none
-    integer(HID_T)  , intent(in) :: file_id   ! file identifier
-    character(len=*)       , intent(out), dimension(:) :: array1D
+    integer(HID_T),   intent(in) :: file_id   ! file identifier
+    character(len=*), dimension(:), intent(out) :: array1D
     character(LEN=*), intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Offset of array to read
     integer             :: len_char
@@ -1515,16 +1547,25 @@ module hdf5_io_module
   end subroutine HDF5_array1D_reading_char
 
   !---------------------------------------- 
-  ! HDF5 reading for an integer 
+  ! HDF5 reading for an integer. Parallel compatible
+  ! reading is enabled defining the argumets mpi_rank
+  ! and n_mpi_tasks. 
   !----------------------------------------
+  ! inputs:
+  !   file_id:     (HID_T) file identifier
+  !   dsetname:    (character)(*) name of the dataset from which data are read
+  !   mpi_rank:    (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks: (integer)(optional) number of MPI tasks
+  ! outputs:
+  !   intv:        (integer) character to be read from file
+  !---------------------------------------- 
   subroutine HDF5_integer_reading(file_id,intv,dsetname,mpi_rank,&
-  n_mpi_tasks,legacy_in)
+  n_mpi_tasks)
     implicit none
     integer(HID_T)  , intent(in)          :: file_id  ! file identifier
     integer         , intent(out)         :: intv
     character(LEN=*), intent(in)          :: dsetname ! dataset name
     integer,          intent(in),optional :: mpi_rank,n_mpi_tasks 
-    logical,          intent(in),optional :: legacy_in
     integer             :: error     ! error flag
     integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
@@ -1536,10 +1577,7 @@ module hdf5_io_module
     integer(HID_T)      :: data_type
     integer(HID_T)      :: filespace ! filespace identifier
     logical             :: exists    ! true if dataset exists
-    logical             :: legacy    ! check if legacy reading as to be used
-                                     ! for backward compatibility
-    !*** check for leagcy reading ***
-    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
+
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -1559,7 +1597,7 @@ module hdf5_io_module
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.(&
     (rank.eq.1).and.(dims(1).gt.1)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
@@ -1578,7 +1616,18 @@ module hdf5_io_module
   end subroutine HDF5_integer_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an integer array 1D
+  ! HDF5 reading for an integer array 1D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !             in the global dataset
+  ! outputs:
+  !   array1D:  (integer)(:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array1D_reading_int(file_id,array1D,dsetname,start)
     implicit none
@@ -1628,7 +1677,20 @@ module hdf5_io_module
   end subroutine HDF5_array1D_reading_int
 
   !---------------------------------------- 
-  ! HDF5 reading for an integer allocatable array 1D
+  ! HDF5 reading for an integer allocatable array 1D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   reqdims_in:         (HSIZE_T)(1) size of the data chunck to be loaded
+  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  ! outputs:
+  !   array1D:            (integer)(:)(allocatable) array of characters to be read from file
   !---------------------------------------- 
   subroutine HDF5_allocatable_array1D_reading_int(file_id,array1D,dsetname,reqdims_in,start)
     !> inputs:
@@ -1690,7 +1752,18 @@ module hdf5_io_module
 
 
   !---------------------------------------- 
-  ! HDF5 reading for an integer array 2D 
+  ! HDF5 reading for an integer array 2D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(2)(optional) starting indexes of 
+  !             the input data chunk in the global dataset
+  ! outputs:
+  !   array2D:  (integer)(:,:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array2D_reading_int(file_id,array2D,dsetname,start)
     implicit none
@@ -1740,8 +1813,21 @@ module hdf5_io_module
   end subroutine HDF5_array2D_reading_int
 
   !---------------------------------------- 
-  ! HDF5 reading for an allocatable integer array 2D
-  !---------------------------------------- 
+  ! HDF5 reading for an allocatable integer array 2D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  !   reqdims_in: (HSIZE_T)(2) size of the data chunck to be loaded
+  !   start:      (HSIZE_T)(2)(optional) starting indexes of 
+  !               the input data chunk in the global dataset
+  ! outputs:
+  !   array2D:            (integer)(:,:)(allocatable) array of characters to be read from file
+  !----------------------------------------  
   subroutine HDF5_allocatable_array2D_reading_int(file_id,array2D,dsetname,reqdims_in,start)
     !> inputs:
     integer(HID_T),intent(in)                         :: file_id    ! file identifier
@@ -1807,7 +1893,18 @@ module hdf5_io_module
   end subroutine HDF5_allocatable_array2D_reading_int
 
   !---------------------------------------- 
-  ! HDF5 reading for an integer array 3D
+  ! HDF5 reading for an integer array 3D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (HSIZE_T)(3)(optional) starting indexes of 
+  !                       the input data chunk in the global dataset
+  ! outputs:
+  !   array1D:            (integer)(:,:,:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array3D_reading_int(file_id,array3D,dsetname,&
        in1, in2, in3,start)
@@ -1862,10 +1959,19 @@ module hdf5_io_module
   end subroutine HDF5_array3D_reading_int
 
   !---------------------------------------- 
-  ! HDF5 reading for a real double
+  ! HDF5 reading for a real double. Parallel compatible
+  ! reading is enabled defining the argumets mpi_rank
+  ! and n_mpi_tasks. 
   !----------------------------------------
-  subroutine HDF5_real_reading(file_id,rd,dsetname,mpi_rank,&
-  n_mpi_tasks,legacy_in)
+  ! inputs:
+  !   file_id:     (HID_T) file identifier
+  !   dsetname:    (character)(*) name of the dataset from which data are read
+  !   mpi_rank:    (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks: (integer)(optional) number of MPI tasks
+  ! outputs:
+  !   rd:          (real8) character to be read from file
+  !---------------------------------------- 
+  subroutine HDF5_real_reading(file_id,rd,dsetname,mpi_rank,n_mpi_tasks)
     implicit none
     integer(HID_T)  , intent(in)          :: file_id  ! file identifier
     real*8          , intent(out)         :: rd
@@ -1924,7 +2030,18 @@ module hdf5_io_module
   end subroutine HDF5_real_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an array 1D
+  ! HDF5 reading for an array 1D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  ! outputs:
+  !   array1D:            (real8)(:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array1D_reading(file_id,array1D,dsetname,start)
     implicit none
@@ -1974,7 +2091,18 @@ module hdf5_io_module
   end subroutine HDF5_array1D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an array 1D (real*4)
+  ! HDF5 reading for an array 1D (real*4). Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !             in the global dataset
+  ! outputs:
+  !   array1D:  (real4)(:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array1D_reading_r4(file_id,array1D,dsetname,start)
     implicit none
@@ -2023,7 +2151,20 @@ module hdf5_io_module
   end subroutine HDF5_array1D_reading_r4
 
   !---------------------------------------- 
-  ! HDF5 reading for an allocatable array 1D (real*4)
+  ! HDF5 reading for an allocatable array 1D (real*4). Parallel application 
+  ! requires the setting of the starting indexes "start" of the data chunk 
+  ! within the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  !   reqdims_in: (HSIZE_T)(1) size of the data chunck to be loaded
+  !   start:      (HSIZE_T)(1)(optional) starting index of 
+  !               the input data chunk in the global dataset
+  ! outputs:
+  !   array1D:    (real4)(:)(allocatable) array of characters to be read from file
   !---------------------------------------- 
   subroutine HDF5_allocatable_array1D_reading_r4(file_id,array1D,dsetname,reqdims_in,start)
     !> inputs:
@@ -2084,8 +2225,21 @@ module hdf5_io_module
   end subroutine HDF5_allocatable_array1D_reading_r4
 
   !---------------------------------------- 
-  ! HDF5 reading for an allocatable array 1D
-  !---------------------------------------- 
+  ! HDF5 reading for an allocatable array 1D. Parallel application 
+  ! requires the setting of the starting indexes "start" of the data chunk 
+  ! within the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  !   reqdims_in: (HSIZE_T)(1) size of the data chunck to be loaded
+  !   start:      (HSIZE_T)(1)(optional) starting index of 
+  !               the input data chunk in the global dataset
+  ! outputs:
+  !   array1D:    (real8)(:)(allocatable) array of characters to be read from file
+  !----------------------------------------  
   subroutine HDF5_allocatable_array1D_reading(file_id,array1D,dsetname,reqdims_in,start)
     !> inputs:
     integer(HID_T),intent(in)                         :: file_id    ! file identifier
@@ -2145,7 +2299,18 @@ module hdf5_io_module
   end subroutine HDF5_allocatable_array1D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an array 2D
+  ! HDF5 reading for an array 2D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
+  !             in the global dataset
+  ! outputs:
+  !   array2D:  (real8)(:,:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array2D_reading(file_id,array2D,dsetname,start)
     implicit none
@@ -2195,7 +2360,20 @@ module hdf5_io_module
   end subroutine HDF5_array2D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an allocatable array 2D
+  ! HDF5 reading for an allocatable array 2D. Parallel application 
+  ! requires the setting of the starting indexes "start" of the data chunk 
+  ! within the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  !   reqdims_in: (HSIZE_T)(2) size of the data chunck to be loaded
+  !   start:      (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
+  !               in the global dataset
+  ! outputs:
+  !   array2D:    (real4)(:,:)(allocatable) array of characters to be read from file
   !---------------------------------------- 
   subroutine HDF5_allocatable_array2D_reading(file_id,array2D,dsetname,reqdims_in,start)
     !> inputs:
@@ -2262,7 +2440,18 @@ module hdf5_io_module
   end subroutine HDF5_allocatable_array2D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an array 3D
+  ! HDF5 reading for an array 3D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(3)(optional) starting indexes of the input 
+  !             data chunk in the global dataset
+  ! outputs:
+  !   array3D:  (real8)(:,:,:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array3D_reading(file_id,array3D,dsetname,&
        in1, in2, in3,start)
@@ -2317,7 +2506,20 @@ module hdf5_io_module
   end subroutine HDF5_array3D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an allocatable array 3D
+  ! HDF5 reading for an allocatable array 3D. Parallel application 
+  ! requires the setting of the starting indexes "start" of the data chunk 
+  ! within the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  !   reqdims_in: (HSIZE_T)(3) size of the data chunck to be loaded
+  !   start:      (HSIZE_T)(3)(optional) starting indexes of the 
+  !               input data chunk in the global dataset
+  ! outputs:
+  !   array3D:    (real8)(:,:,:)(allocatable) array of characters to be read from file
   !---------------------------------------- 
   subroutine HDF5_allocatable_array3D_reading(file_id,array3D,dsetname,reqdims_in,start)
     !> inputs:
@@ -2384,7 +2586,18 @@ module hdf5_io_module
   end subroutine HDF5_allocatable_array3D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an array 4D
+  ! HDF5 reading for an array 4D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(4)(optional) starting indexes of the input 
+  !             data chunk in the global dataset
+  ! outputs:
+  !   array4D:  (real8)(:,:,:,:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array4D_reading(file_id,array4D,dsetname,ierr,start)
     implicit none
@@ -2436,7 +2649,20 @@ module hdf5_io_module
   end subroutine HDF5_array4D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an allocatable array 4D
+  ! HDF5 reading for an allocatable array 4D. Parallel application 
+  ! requires the setting of the starting indexes "start" of the data chunk 
+  ! within the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  !   reqdims_in: (HSIZE_T)(4) size of the data chunck to be loaded
+  !   start:      (HSIZE_T)(4)(optional) starting indexes of the 
+  !               input data chunk in the global dataset
+  ! outputs:
+  !   array4D:    (real8)(:,:,:,:)(allocatable) array of characters to be read from file
   !---------------------------------------- 
   subroutine HDF5_allocatable_array4D_reading(file_id,array4D,dsetname,reqdims_in,start)
     !> inputs:
@@ -2503,7 +2729,18 @@ module hdf5_io_module
   end subroutine HDF5_allocatable_array4D_reading
 
   !---------------------------------------- 
-  ! HDF5 reading for an array 5D
+  ! HDF5 reading for an array 5D. Parallel application requires
+  ! the setting of the starting indexes "start" of the data chunk within 
+  ! the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:  (HID_T) file identifier
+  !   dsetname: (character)(*) name of the dataset in which the data are written
+  !   start:    (HSIZE_T)(5)(optional) starting indexes of 
+  !             the input data chunk in the global dataset
+  ! outputs:
+  !   array5D:  (real8)(:,:,:,:,:) array of characters to be read from file
   !----------------------------------------
   subroutine HDF5_array5D_reading(file_id,array5D,dsetname,start)
     implicit none
@@ -2555,6 +2792,16 @@ module hdf5_io_module
   !---------------------------------------- 
   ! HDF5 get dataset rank and dimensions
   !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  ! outputs:
+  !   rank:    (integer) number of dimensions of the dataset
+  !   dims:    (HSIZE_T)(rank)(allocatable) actual size of each dimensions
+  !            of the dataset
+  !   maxdims: (HSIZE_T)(rank)(allocatable) maximum size of each dimensions
+  !            of the dataset
+  !----------------------------------------
   subroutine HDF5_get_dataset_rank_dims(file_id,dsetname,rank,dims,maxdims)
     !> inputs:
     integer(HID_T),intent(in)   :: file_id
@@ -2582,8 +2829,21 @@ module hdf5_io_module
   end subroutine HDF5_get_dataset_rank_dims
 
   !---------------------------------------- 
-  ! HDF5 reading for an allocatable array 5D
-  !---------------------------------------- 
+  ! HDF5 reading for an allocatable array 5D. Parallel application 
+  ! requires the setting of the starting indexes "start" of the data chunk 
+  ! within the global HDF5 dataset corresponding to the data to be loaded by 
+  ! each specific MPI task and the size of the MPI task array in which the
+  ! data chuck is stored.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:    (HID_T) file identifier
+  !   dsetname:   (character)(*) name of the dataset in which the data are written
+  !   reqdims_in: (HSIZE_T)(5) size of the data chunck to be loaded
+  !   start:      (HSIZE_T)(5)(optional) starting indexes of the 
+  !               input data chunk in the global dataset
+  ! outputs:
+  !   array5D:    (real8)(:,:,:,:,:)(allocatable) array of characters to be read from file
+  !----------------------------------------  
   subroutine HDF5_allocatable_array5D_reading(file_id,array5D,dsetname,reqdims_in,start)
     !> inputs:
     integer(HID_T),intent(in)                         :: file_id    ! file identifier
@@ -2648,6 +2908,19 @@ module hdf5_io_module
     call H5Dclose_f(dataset_id,error)
   end subroutine HDF5_allocatable_array5D_reading
 
+  !----------------------------------------
+  ! Get HDF5 property list. Create setand returns a HDF5 property list
+  !----------------------------------------
+  ! inputs:
+  !   rank:
+  !   chunksize: (HSIZE_T)(rank) size of the data chunk for
+  !              each dimension of the dataset
+  !   gzip:      (logical) if true, set a data compression level
+  !              different the default one of 6
+  !   level:     (integer)(optional) data compression level
+  ! outputs:
+  !   property:  (HID_T) indentifier of the HDF5 property list
+  !----------------------------------------
   function get_HDF5_plist(rank, chunksize, gzip, level) result(property)
     implicit none
     integer, intent(in) :: rank
