@@ -253,7 +253,7 @@ module hdf5_io_module
   !   ierr:    (integer) error code, if success =0
   !----------------------------------------
   subroutine HDF5_open_or_create(filename,file_id,ierr,&
-  file_access,access_type_in,mpi_comm_in,mpi_info)
+  file_access,create_access_plist_in,mpi_comm_in,mpi_info)
     use mpi, only: MPI_Abort
     implicit none
     character(LEN=*) , intent(in)  :: filename  !< file name
@@ -363,7 +363,7 @@ module hdf5_io_module
 
     !*** Check property for parallel IO
     mpio_collective = .true.
-    if(present(type_dataset_transfert_in)) mpio_collective = mpio_collective_in
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
     call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
    !*** Create and initialize dataspaces for datasets ***
@@ -1283,7 +1283,7 @@ module hdf5_io_module
     character(LEN=*)            , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(5), intent(in), optional :: start !< Offset of array to write
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    integer                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
+    logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
     integer             :: rank       ! dataset rank
@@ -1394,7 +1394,7 @@ module hdf5_io_module
     !***   using default transfer properties  ***
     dim(1) = int(1,kind=HSIZE_T)
     if(present(mpi_rank).and.present(n_mpi_tasks).and.(&
-    (rank.eq.1).and.(dims(1).gt.1)) then
+    (rank.eq.1).and.(dims(1).gt.1))) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
       call H5Sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, &
@@ -1465,7 +1465,7 @@ module hdf5_io_module
     !*** read the string data to the dataset ***
     !***   using default transfer properties  ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(&
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.&
     (rank.eq.1).and.(dims(1).gt.int(1,kind=HSIZE_T))) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
@@ -1597,7 +1597,7 @@ module hdf5_io_module
     !*** read the integer data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(&
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.&
     (rank.eq.1).and.(dims(1).gt.1)) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)
@@ -1977,7 +1977,6 @@ module hdf5_io_module
     real*8          , intent(out)         :: rd
     character(LEN=*), intent(in)          :: dsetname ! dataset name
     integer,          intent(in),optional :: mpi_rank,n_mpi_tasks     
-    logical,          intent(in),optional :: legacy_in
     integer             :: error     ! error flag
     integer             :: rank      ! dataset rank
     integer(HSIZE_T), &
@@ -1988,10 +1987,7 @@ module hdf5_io_module
     integer(HID_T)      :: data_type
     integer(HID_T)      :: filespace
     logical             :: exists    ! true if dataset exists
-    logical             :: legacy    ! check if legacy reading as to be used
-                                     ! for backward compatibility
-    !*** check for leagcy reading ***
-    legacy = .false.; if(present(legacy_in)) legacy = legacy_in;
+
     !*** check if dataset exists otherwise return ***
     call H5Lexists_f(file_id,trim(dsetname),exists,error)
     if(.not.exists) then
@@ -2011,7 +2007,7 @@ module hdf5_io_module
     !*** read the double data to the dataset ***
     !***  using default transfer properties   ***
     dim(1) = int(1,kind=HSIZE_T)
-    if(present(mpi_rank).and.present(n_mpi_tasks).and.(.not.legacy).and.&
+    if(present(mpi_rank).and.present(n_mpi_tasks).and.&
     (rank.eq.1).and.(dims(1).gt.int(1,kind=HSIZE_T))) then
       call H5Dget_space_f(dataset,filespace,error)
       call H5Screate_simple_f(1,dim,dataspace,error)

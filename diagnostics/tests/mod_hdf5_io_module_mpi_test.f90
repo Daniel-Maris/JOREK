@@ -12,8 +12,6 @@ public :: run_fruit_hdf5_io_module_mpi
 integer,parameter          :: master_rank=0
 integer,parameter          :: mpi_comm=MPI_COMM_WORLD
 integer,parameter          :: mpi_info=MPI_INFO_NULL
-integer,parameter          :: access_hdf5_parallel=1
-integer,parameter          :: type_dataset_transfert_mpi=1
 integer,parameter          :: ndims_tot=5
 integer,parameter          :: n_sol_char=26
 integer,parameter          :: len_char=5
@@ -27,6 +25,8 @@ character(len=1),dimension(n_sol_char),parameter :: letters=(/'a','b','c','d',&
 'v','w','x','y','z'/)
 real*4,parameter  :: tol_r4=1.d-16
 real*8,parameter  :: tol_r8=1.d-7
+logical,parameter :: access_hdf5_parallel=.true.
+logical,parameter :: mpio_collective=.true.
 character(len=14) :: filename_base="test_hdf5_file"
 character(len=3)  :: extension=".h5"
 character(len=1)  :: rank_format
@@ -128,7 +128,7 @@ subroutine test_create_hdf5_file()
   trim(filename)//" not created!")
   call remove_file(filename,file_exists_in=file_exists)
   filename = ''; filename = trim(filename_base)//trim(extension)
-  call HDF5_create(filename,file_id,access_type_in=access_hdf5_parallel,&
+  call HDF5_create(filename,file_id,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_close(file_id)
   file_exists=.false.; inquire(file=trim(filename),exist=file_exists);
@@ -149,9 +149,9 @@ subroutine test_open_hdf5_file()
   call assert_equals(ifail_loc,0,"Error test open HDF5 file posix: file "//&
   trim(filename)//" not opened!"); call remove_file(filename);
   filename = ''; filename = trim(filename_base)//trim(extension); ifail_loc=0;
-  call HDF5_create(filename,file_id,access_type_in=access_hdf5_parallel,&
+  call HDF5_create(filename,file_id,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc); call HDF5_close(file_id); 
-  call HDF5_create(filename,file_id,ierr=ifail_loc,access_type_in=access_hdf5_parallel,&
+  call HDF5_create(filename,file_id,ierr=ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc); call HDF5_close(file_id);
   call assert_equals(ifail_loc,0,"Error test open HDF5 file access FILE_ACCESS: file "//&
   trim(filename)//" not opened!"); call remove_file(filename);
@@ -176,13 +176,13 @@ subroutine test_create_open_hdf5_file()
   trim(filename)//" not opened!"); call remove_file(trim(filename)); 
   filename=''; filename = trim(filename_base)//trim(extension); ifail_loc=0;
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_close(file_id); file_exists=.false.; 
   inquire(file=filename,exist=file_exists);
   call assert_true(file_exists,"Error test create-open HDF5 file access FILE_ACCESS: file "//&
   trim(filename)//" not created!");
   ifail_loc=0; call HDF5_open_or_create(filename,file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_close(file_id);
   call assert_equals(ifail_loc,0,"Error test create-open HDF5 file access FILE_ACCESS: file "//&
   trim(filename)//" not opened!"); call remove_file(filename);
@@ -209,20 +209,18 @@ subroutine test_HDF5_saving_char()
   "Error test HDF5 I/O 0D character posix: test and result values mismatch!")
   filename = trim(filename_base)//trim(extension);
   test_value = ''; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
-  call HDF5_char_saving(file_id,result_value,&
-  datasetname,mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc,&
-  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_char_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
+  n_mpi_tasks=n_tasks_loc,mpi_comm_in=mpi_comm_loc,mpio_collective_in=mpio_collective)
   call HDF5_char_reading(file_id,test_value,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_value,result_value,&
   "Error test HDF5 I/O 0D character MPI collective: test and result values mismatch!")
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
-  call HDF5_char_saving(file_id,result_value,&
-  datasetname,mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc,&
-  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_char_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
+  n_mpi_tasks=n_tasks_loc,mpi_comm_in=mpi_comm_loc,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_char_reading(file_id,test_value_alloc,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
@@ -252,10 +250,9 @@ subroutine test_HDF5_array1D_saving_char()
   "Error test HDF5 I/O 1D character posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_char];
   test_array = ''; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_char(file_id,result_array,n_tasks_loc*n_char,&
-  datasetname,start=offset,mpi_comm_in=mpi_comm_loc,&
-  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpi_comm_in=mpi_comm_loc,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_char(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_char,&
@@ -281,9 +278,9 @@ subroutine test_HDF5_integer_saving()
   "Error test HDF5 I/O 0D integer posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension);
   test_value = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_integer_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
-  n_mpi_tasks=n_tasks_loc,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_mpi_tasks=n_tasks_loc,mpio_collective_in=mpio_collective)
   call HDF5_integer_reading(file_id,test_value,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
@@ -314,9 +311,9 @@ subroutine test_HDF5_array1D_saving_int()
   "Error test HDF5 I/O 1D integer posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -332,9 +329,9 @@ subroutine test_HDF5_array1D_saving_int()
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   reqdim = [int(n_elements(1),kind=HSIZE_T)]; test_array_allocatable = 0;
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading_int(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -365,9 +362,9 @@ subroutine test_HDF5_array2D_saving_int()
   "Error test HDF5 I/O 2D integer posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[0,rank_loc*n_elements(2)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array2D_reading_int(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),n_elements(2),&
@@ -383,18 +380,18 @@ subroutine test_HDF5_array2D_saving_int()
   filename = trim(filename_base)//trim(extension); offset=[0,rank_loc*n_elements(2)];
   reqdim = [int(n_elements(1),kind=HSIZE_T),int(n_elements(2),kind=HSIZE_T)]; 
   test_array_allocatable = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading_int(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,test_array_allocatable,&
   "Error test HDF5 I/O 2D integer allocatable reqdims MPI collective: mismatch!")
   offset=[0,rank_loc*n_elements(2)]; reqdim = [n1_HSIZE_T,int(n_elements(2),kind=HSIZE_T)]; 
   test_array_allocatable = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading_int(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,test_array_allocatable,&
@@ -424,10 +421,9 @@ subroutine test_HDF5_array3D_saving_int()
   result_array,"Error test HDF5 I/O 3D integer posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[0,0,rank_loc*n_elements(3)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving_int(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,&
-  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array3D_reading_int(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
@@ -457,9 +453,9 @@ subroutine test_HDF5_array1D_saving_r4()
   "Error test HDF5 I/O 1D float posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_r4(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_r4(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -475,9 +471,9 @@ subroutine test_HDF5_array1D_saving_r4()
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   reqdim = [int(n_elements(1),kind=HSIZE_T)]; test_array_allocatable = 0.;
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_r4(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading_r4(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -504,9 +500,9 @@ subroutine test_HDF5_real_saving()
   "Error test HDF5 I/O 0D double posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension);
   test_value = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_real_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
-  n_mpi_tasks=n_tasks_loc,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_mpi_tasks=n_tasks_loc,mpio_collective_in=mpio_collective)
   call HDF5_real_reading(file_id,test_value,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
@@ -537,9 +533,9 @@ subroutine test_HDF5_array1D_saving_r8()
   "Error test HDF5 I/O 1D double posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -555,9 +551,9 @@ subroutine test_HDF5_array1D_saving_r8()
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   reqdim = [int(n_elements(1),kind=HSIZE_T)]; test_array_allocatable = 0d0;
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -588,9 +584,9 @@ subroutine test_HDF5_array2D_saving_r8()
   "Error test HDF5 I/O 2D double posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[0,rank_loc*n_elements(2)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array2D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),n_elements(2),&
@@ -606,18 +602,18 @@ subroutine test_HDF5_array2D_saving_r8()
   filename = trim(filename_base)//trim(extension); offset=[0,rank_loc*n_elements(2)];
   reqdim = [int(n_elements(1),kind=HSIZE_T),int(n_elements(2),kind=HSIZE_T)]; 
   test_array_allocatable = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,&
   test_array_allocatable,tol_r8,"Error test HDF5 I/O 2D double allocatable reqdims MPI collective: mismatch!")
   offset=[0,rank_loc*n_elements(2)]; reqdim = [n1_HSIZE_T,int(n_elements(2),kind=HSIZE_T)]; 
   test_array_allocatable = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,&
@@ -649,10 +645,9 @@ subroutine test_HDF5_array3D_saving_r8()
   result_array,tol_r8,"Error test HDF5 I/O 3D double posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[0,0,rank_loc*n_elements(3)];
   test_array = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,&
-  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array3D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
@@ -669,9 +664,9 @@ subroutine test_HDF5_array3D_saving_r8()
   reqdim = [int(n_elements(1),kind=HSIZE_T),int(n_elements(2),kind=HSIZE_T),&
   int(n_elements(3),kind=HSIZE_T)]; test_array_allocatable = 0d0; 
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array3D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),result_array,&
@@ -679,9 +674,9 @@ subroutine test_HDF5_array3D_saving_r8()
   offset = [0,0,rank_loc*n_elements(3)]; reqdim = [n1_HSIZE_T,n1_HSIZE_T,int(n_elements(3),kind=HSIZE_T)]; 
   test_array_allocatable = 0d0; 
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array3D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),result_array,&
@@ -715,10 +710,9 @@ subroutine test_HDF5_array4D_saving_r8()
   result_array,tol_r8,"Error test HDF5 I/O 4D double posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[0,0,0,rank_loc*n_elements(4)];
   test_array = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array4D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_elements(3),n_tasks_loc*n_elements(4),datasetname,start=offset,&
-  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_elements(3),n_tasks_loc*n_elements(4),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array4D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),n_elements(4),test_array,&
@@ -735,9 +729,9 @@ subroutine test_HDF5_array4D_saving_r8()
   reqdim = [int(n_elements(1),kind=HSIZE_T),int(n_elements(2),kind=HSIZE_T),&
   int(n_elements(3),kind=HSIZE_T),int(n_elements(4),kind=HSIZE_T)]; test_array_allocatable = 0d0; 
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array4D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),&
-  n_tasks_loc*n_elements(4),datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(4),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array4D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),result_array,&
@@ -745,9 +739,9 @@ subroutine test_HDF5_array4D_saving_r8()
   offset=[0,0,0,rank_loc*n_elements(4)]; reqdim = [n1_HSIZE_T,n1_HSIZE_T,n1_HSIZE_T,&
   int(n_elements(4),kind=HSIZE_T)]; test_array_allocatable = 0d0; 
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array4D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),&
-  n_tasks_loc*n_elements(4),datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(4),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array4D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),result_array,&
@@ -782,10 +776,10 @@ subroutine test_HDF5_array5D_saving_r8()
   "Error test HDF5 I/O 5D double posix: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[0,0,0,0,rank_loc*n_elements(5)];
   test_array = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),&
   n_elements(3),n_elements(4),n_tasks_loc*n_elements(5),datasetname,start=offset,&
-  type_dataset_transfert_in=type_dataset_transfert_mpi)
+  mpio_collective_in=mpio_collective)
   call HDF5_array5D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),&
@@ -803,9 +797,9 @@ subroutine test_HDF5_array5D_saving_r8()
   reqdim = [int(n_elements(1),kind=HSIZE_T),int(n_elements(2),kind=HSIZE_T),int(n_elements(3),kind=HSIZE_T),&
   int(n_elements(4),kind=HSIZE_T),int(n_elements(5),kind=HSIZE_T)]; test_array_allocatable = 0d0; 
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
-  n_tasks_loc*n_elements(5),datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(5),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),n_elements(5),&
@@ -814,9 +808,9 @@ subroutine test_HDF5_array5D_saving_r8()
   offset=[0,0,0,0,rank_loc*n_elements(5)]; reqdim = [n1_HSIZE_T,n1_HSIZE_T,n1_HSIZE_T,&
   n1_HSIZE_T,int(n_elements(5),kind=HSIZE_T)]; test_array_allocatable = 0d0; 
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
-  access_type_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
-  n_tasks_loc*n_elements(5),datasetname,start=offset,type_dataset_transfert_in=type_dataset_transfert_mpi)
+  n_tasks_loc*n_elements(5),datasetname,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),n_elements(5),&
