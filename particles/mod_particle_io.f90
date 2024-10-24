@@ -625,13 +625,11 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   !> input variables
   type(particle_sim),intent(in) :: sim
   character(len=*),  intent(in) :: filename 
-  integer, intent(in), optional :: file_access_in,use_hdf5_access_properties
-  integer, intent(in), optional :: mpi_comm_in,mpi_info_in
-  integer, intent(in), optional :: collective_mpio_in
+  integer, intent(in), optional :: file_access_in,mpi_comm_in,mpi_info_in
+  logical, intent(in), optional :: use_hdf5_access_properties,collective_mpio_in
   !> variables
   integer                       :: file_access_loc
-  integer                       :: mpi_comm_loc,mpi_info_loc
-  integer                       :: collective_mpio_loc
+  integer                       :: mpi_comm_loc,mpi_info_loc 
   integer                       :: ii,ierr,h5err,n_groups,n_particles
   integer                       :: n_particles_per_group
   integer(HID_T)                :: file_id,group_id
@@ -648,7 +646,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   real*8,   dimension(:,:),  allocatable :: x_m_arr,Astar_m_arr,Astar_k_arr
   real*8,   dimension(:,:),  allocatable :: dBn_k_arr,Bnorm_k_arr,E_k_arr
   real*8,   dimension(:,:,:),allocatable :: dAstar_k_arr
-  logical                                :: create_access_plist
+  logical                                :: create_access_plist,collective_mpio_loc
   character(len=group_name_len)          :: group_name
   character(len=:),          allocatable :: particle_type_str
 
@@ -675,8 +673,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   call H5Gcreate_f(file_id,"/groups",group_id,h5err) !< create particle groups
   call H5Gclose_f(group_id,h5err)
   !> write the time in HDF5 file, we assume that each MPI task reached the same physical time
-  if(sim%my_id .eq. master_rank) call HDF5_real_saving(file_id,sim%time,"/time",\
-  sim%my_id,sim%n_cpu,collective_mpio_loc)
+  if(sim%my_id .eq. master_rank) call HDF5_real_saving(file_id,sim%time,"/time")
   !> check if loops are allocated and loop on them
   if(allocated(sim%groups)) then
     !> it is assumed that all processors has the same number of groups but
@@ -712,82 +709,82 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       !> write data in HDF5 file
       if(allocated(i_elm_arr)) call HDF5_array1D_saving_int(file_id,i_elm_arr,&
       n_particles_per_group,trim(group_name)//"i_elm",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(i_life_arr)) call HDF5_array1D_saving_int(file_id,i_life_arr,&
       n_particles_per_group,trim(group_name)//"i_life",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(q_arr)) call HDF5_array1D_saving_int(file_id,q_arr,&
       n_particles_per_group,trim(group_name)//"q",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(t_birth_arr)) call HDF5_array1D_saving_r4(file_id,t_birth_arr,&
       n_particles_per_group,trim(group_name)//"t_birth",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(weight_arr)) call HDF5_array1D_saving(file_id,weight_arr,&
       n_particles_per_group,trim(group_name)//"weight",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(v_1d_arr)) call HDF5_array1D_saving(file_id,v_1d_arr,&
       n_particles_per_group,trim(group_name)//"v",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)     
+      mpio_collective_in=collective_mpio_loc)     
       if(allocated(E_arr)) call HDF5_array1D_saving(file_id,E_arr,&
       n_particles_per_group,trim(group_name)//"E",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(mu_arr)) call HDF5_array1D_saving(file_id,mu_arr,&
       n_particles_per_group,trim(group_name)//"mu",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(vpar_arr)) call HDF5_array1D_saving(file_id,vpar_arr,&
       n_particles_per_group,trim(group_name)//"Vpar",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(B_norm_arr)) call HDF5_array1D_saving(file_id,B_norm_arr,&
       n_particles_per_group,trim(group_name)//"B_norm",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(vpar_m_arr)) call HDF5_array1D_saving(file_id,vpar_m_arr,&
       n_particles_per_group,trim(group_name)//"Vpar_m",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(st_arr)) call HDF5_array2D_saving(file_id,st_arr,size(st_arr,1),&
       n_particles_per_group,trim(group_name)//"st",start=[i0_HSIZE_T,&
-      n_particles_offset],collective_mpio_in=collective_mpio_loc)
+      n_particles_offset],mpio_collective_in=collective_mpio_loc)
       if(allocated(x_arr)) call HDF5_array2D_saving(file_id,x_arr,size(x_arr,1),&
       n_particles_per_group,trim(group_name)//"x",start=[i0_HSIZE_T,&
-      n_particles_offset],collective_mpio_in=collective_mpio_loc)
+      n_particles_offset],mpio_collective_in=collective_mpio_loc)
       if(allocated(B_hat_prev_arr)) call HDF5_array2D_saving(&
       file_id,B_hat_prev_arr,size(B_hat_prev_arr,1),n_particles_per_group,&
       trim(group_name)//"B_hat_prev",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(v_2d_arr)) call HDF5_array2D_saving(&
       file_id,v_2d_arr,size(v_2d_arr,1),n_particles_per_group,&
       trim(group_name)//"v",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(x_m_arr)) call HDF5_array2D_saving(&
       file_id,x_m_arr,size(x_m_arr,1),n_particles_per_group,&
       trim(group_name)//"x_m",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(Astar_m_arr)) call HDF5_array2D_saving(&
       file_id,Astar_m_arr,size(Astar_m_arr,1),n_particles_per_group,&
       trim(group_name)//"Astar_m",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(Astar_k_arr)) call HDF5_array2D_saving(&
       file_id,Astar_k_arr,size(Astar_k_arr,1),n_particles_per_group,&
       trim(group_name)//"Astar_k",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(Bn_k_arr)) call HDF5_array1D_saving(file_id,Bn_k_arr,&
       n_particles_per_group,trim(group_name)//"Bn_k",start=[n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(dBn_k_arr)) call HDF5_array2D_saving(file_id,&
       dBn_k_arr,size(dBn_k_arr,1),n_particles_per_group,&
       trim(group_name)//"dBn_k",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(Bnorm_k_arr)) call HDF5_array2D_saving(file_id,&
       Bnorm_k_arr,size(Bnorm_k_arr,1),n_particles_per_group,&
       trim(group_name)//"Bnorm_k",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(E_k_arr)) call HDF5_array2D_saving(&
       file_id,E_k_arr,size(E_k_arr,1),n_particles_per_group,&
       trim(group_name)//"E_k",start=[i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       if(allocated(dAstar_k_arr)) call HDF5_array3D_saving(file_id,&
       dAstar_k_arr,size(dAstar_k_arr,1),size(dAstar_k_arr,2),n_particles_per_group,&
       trim(group_name)//"dAstar_k",start=[i0_HSIZE_T,i0_HSIZE_T,n_particles_offset],&
-      collective_mpio_in=collective_mpio_loc)
+      mpio_collective_in=collective_mpio_loc)
       !> Write particle group attributes in HDF5 file, we assume that the attributes
       !> of the same group index for all tasks are equals. Therefore, we write the
       !> group attributes of only the master task
@@ -1335,7 +1332,7 @@ mpi_comm_in,mpi_info_in,test_in)
   real*8,           dimension(:,:,:),allocatable :: dAstar_k_arr
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
-  logical                                        :: create_access_plist
+  logical                                        :: create_access_plist,test
   !> initialisation
   allocate(n_particles_per_proc(sim%n_cpu))
   !> set optional parameters
@@ -1362,7 +1359,7 @@ mpi_comm_in,mpi_info_in,test_in)
     !> all tasks is defined by the same unique value stored in the hdf5 file
     ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
     call HDF5_allocatable_char_reading(file_id,particle_type_str,trim(group_name)//"type")
-    call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z",)
+    call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")
     call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
     call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
     if((len_trim(sim%groups(ii)%ad%suffix).gt.0).and.(.not.test)) then
@@ -1505,8 +1502,8 @@ end function get_simulation_hdf5_time_original
 !>   n_cpu:               (integer) number of MPI task (for MPIO)
 !> outputs:
 !>   time:     (real8) restart simulation time
-function get_simulation_hdf5_time(filename,create_access_plist,mpi_comm,&
-mpi_info,my_id,n_cpu) result(time)
+function get_simulation_hdf5_time(filename,use_hdf5_access_properties,&
+mpi_comm,mpi_info,my_id,n_cpu) result(time)
   use mpi
   use hdf5,           only: HID_T
   use hdf5_io_module, only: HDF5_open,HDF5_close,HDF5_real_reading
@@ -1514,14 +1511,15 @@ mpi_info,my_id,n_cpu) result(time)
   character(len=*),intent(in) :: filename
   integer,intent(in),optional :: mpi_comm,mpi_info
   integer,intent(in),optional :: my_id,n_cpu
-  logical,intent(in),optional :: create_access_plist
+  logical,intent(in),optional :: use_hdf5_access_properties
   real*8                      :: time
   integer                     :: h5err
   integer(HID_T)              :: file_id
-  if(present(create_access_plist).and.present(mpi_comm).and.&
-  present(mpi_info).and.present(my_id).present(n_cpu)) then
-    call HDF5_open(trim(filename),file_id,h5err,create_access_plist_in=create_access_plist,&
-    mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  if(present(use_hdf5_access_properties).and.present(mpi_comm).and.&
+  present(mpi_info).and.present(my_id).and.present(n_cpu)) then
+    call HDF5_open(trim(filename),file_id,h5err,&
+    create_access_plist_in=.not.use_hdf5_access_properties,&
+    mpi_comm_in=mpi_comm,mpi_info=mpi_info)
     call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,n_mpi_tasks=n_cpu)
   else
     call HDF5_open(trim(filename),file_id,h5err)
