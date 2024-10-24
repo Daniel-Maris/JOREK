@@ -707,6 +707,10 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr,&
       particle_type_str)
       !> write data in HDF5 file
+      !> TODO for allowing parallel applications on implementation having
+      !> having only serial HDF5 installed create a wrapped for each of 
+      !> this function in which one can choose to use the parallel implementation
+      !> of HDF5 or the previously implemented MPI gather + serial HDF5 writing
       if(allocated(i_elm_arr)) call HDF5_array1D_saving_int(file_id,i_elm_arr,&
       n_particles_per_group,trim(group_name)//"i_elm",start=[n_particles_offset],&
       mpio_collective_in=collective_mpio_loc)
