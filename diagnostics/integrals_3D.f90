@@ -138,7 +138,7 @@ ife_min   =      my_id     * ife_delta + 1
 ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 
 !> Initialise the minimum of all variables
-varmin = 1.e50; varmax = -1.e50; varminout = 1.e50; varmaxout = -1.e50;
+varmin(:) = 1.d50; varmax(:) = -1.d50; varminout(:) = 1.d50; varmaxout(:) = -1.d50;
 
 !$omp parallel default(none) , &                                                                  
 !$omp   shared(element_list,node_list, H, H_s, H_t, HZ, HZ_p, ife_min, ife_max, xpoint, xcase, &

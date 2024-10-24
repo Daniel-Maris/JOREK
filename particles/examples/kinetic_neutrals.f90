@@ -107,6 +107,7 @@ real*8    :: particles_remaining, momentum_remaining, energy_remaining, all_part
 integer   :: superparticles_remaining,all_superparticles,closest_iteration!, part_i_save,part_n_save
 !integer   :: particles_per_element
 
+real*8, dimension(n_var) :: varminout, varmaxout
 
 ! Start up MPI, jorek
 call sim%initialize(num_groups=1)
@@ -460,7 +461,7 @@ do while (.not. sim%stop_now)
 !                     Run diagnostics for conservation check
 !======================================================================== 
   call Integrals_3D(sim%my_id, sim%fields%node_list, sim%fields%element_list, density_tot, density_in, density_out, &
-                    pressure, pressure_in, pressure_out, kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in, mom_par_out)
+                    pressure, pressure_in, pressure_out, kin_par_tot, kin_par_in, kin_par_out, mom_par_tot, mom_par_in, mom_par_out,varminout,varmaxout)
 
   particles_remaining = 0.d0
   momentum_remaining  = 0.d0
