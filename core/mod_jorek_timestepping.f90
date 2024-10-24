@@ -74,7 +74,7 @@ contains
 function new_jorek_timestep_action(auxiliary_node_list) result(new)
   type(jorek_timestep_action) :: new
   type(type_node_list), intent(in), target,  optional :: auxiliary_node_list
-!  if (present(auxiliary_node_list)) new%auxiliary_node_list => auxiliary_node_list
+  if (present(auxiliary_node_list)) new%auxiliary_node_list => auxiliary_node_list
   new%istep = 1
   new%name = "JOREK timestep"
   new%log = .true.
