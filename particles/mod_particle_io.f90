@@ -585,28 +585,25 @@ end if
 
 end subroutine write_simulation_hdf5_original
 
-
-!> Export all particles using HDF5 IO
-!> Parallel support to writing operations is provided
-!> by MPI collective calls. The write_simulation_hdf5_collective_mpi
-!> is the legacy write_simulation_hdf5 procedure
-
 !> Export all particles using HDF5 IO
 !> Parallel support to writing operations is provided
 !> by MPI enabled HDF5 procedures.
 !> inputs:
-!>   sim:                       (particle_sim) particle simulation object
-!>   filename:                  (character)(N) name of the output file
-!>   file_access_in:            (integer)(optional) define the file access type:
-!>                              default: H5F_ACC_TRUNC_F
-!>   access_type_in:            (integer)(optional) HDF5 file access property
-!>                              default: H5P_FILE_ACCESS_F
-!>   type_dataset_transfert_in: (integer)(optional) method for HDF5 parallel IO
-!>                              default: 1 (parallel collective IO)
-!>   mpi_comm_in:               (integer)(optional) MPI communicator identifier
-!>   mpi_info_in:               (integer)(optional) MPI info structre for parallel IO
+!>   sim:                        (particle_sim) particle simulation object
+!>   filename:                   (character)(N) name of the output file
+!>   file_access_in:             (integer)(optional) define how the HDF5 should behave:
+!>                               when opening or creating a new file.
+!>                               default: H5F_ACC_TRUNC_F (truncate fille if already exists
+!>                               create otherwise)
+!>   use_hdf5_access_properties: (logical)(optional) HDF5 file access property
+!>                               if must be set to .false. for parallel I/O
+!>                               default: .true. 
+!>   collective_mpio_in:         (logical)(optional) define whether MPIO collective calls are
+!>                               performed default: true
+!>   mpi_comm_in:                (integer)(optional) MPI communicator identifier
+!>   mpi_info_in:                (integer)(optional) MPI info structre for parallel IO
 subroutine write_simulation_hdf5(sim,filename,file_access_in,&
-access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
+use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   use mpi
   use hdf5,               only: HSIZE_T,HID_T,H5F_ACC_TRUNC_F
   use hdf5,               only: H5Gcreate_f,H5Gclose_f
@@ -623,17 +620,18 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
   use mod_particle_sim,   only: particle_sim
   implicit none
   !> parameters
+  integer,parameter             :: master_rank=0
   integer(HSIZE_T),parameter    :: i0_HSIZE_T=int(0,kind=HSIZE_T)
   !> input variables
   type(particle_sim),intent(in) :: sim
   character(len=*),  intent(in) :: filename 
-  integer, intent(in), optional :: file_access_in,access_type_in
+  integer, intent(in), optional :: file_access_in,use_hdf5_access_properties
   integer, intent(in), optional :: mpi_comm_in,mpi_info_in
-  integer, intent(in), optional :: type_dataset_transfert_in
+  integer, intent(in), optional :: collective_mpio_in
   !> variables
-  integer                       :: file_access_loc,access_type_loc
+  integer                       :: file_access_loc
   integer                       :: mpi_comm_loc,mpi_info_loc
-  integer                       :: type_dataset_transfert_loc
+  integer                       :: collective_mpio_loc
   integer                       :: ii,ierr,h5err,n_groups,n_particles
   integer                       :: n_particles_per_group
   integer(HID_T)                :: file_id,group_id
@@ -650,23 +648,24 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
   real*8,   dimension(:,:),  allocatable :: x_m_arr,Astar_m_arr,Astar_k_arr
   real*8,   dimension(:,:),  allocatable :: dBn_k_arr,Bnorm_k_arr,E_k_arr
   real*8,   dimension(:,:,:),allocatable :: dAstar_k_arr
+  logical                                :: create_access_plist
   character(len=group_name_len)          :: group_name
   character(len=:),          allocatable :: particle_type_str
 
   !> preparation
   file_access_loc = H5F_ACC_TRUNC_F !< truncate the file by default
   if(present(file_access_in)) file_access_loc = file_access_in;
-  access_type_loc = 1 !< parallel access by default
-  if(present(access_type_in)) access_type_loc = access_type_in
+  create_access_plist = .false. !< serial access by default
+  if(present(use_hdf5_access_properties)) create_access_plist = .not.use_hdf5_access_properties
   mpi_comm_loc = MPI_COMM_WORLD
   if(present(mpi_comm_in)) mpi_comm_loc = mpi_comm_in
   mpi_info_loc = MPI_INFO_NULL
   if(present(mpi_info_in)) mpi_info_loc = mpi_info_in
-  type_dataset_transfert_loc = 1 !< enable parallel dataset transfert by default
-  if(present(type_dataset_transfert_in)) type_dataset_transfert_loc = type_dataset_transfert_in
+  collective_mpio_loc = .true. !< enable collective MPIO applications by default
+  if(present(collective_mpio_in)) collective_mpio_loc = collective_mpio_in
   !> create the hdf5 file and the groups fields
   call HDF5_open_or_create(filename,file_id,h5err,&
-  file_access=file_access_loc,access_type_in=access_type_loc,& 
+  file_access=file_access_loc,create_access_plist_in=create_access_plist,& 
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   if(h5err.gt.0) then
     if(sim%my_id.eq.master_task) write(*,*) "Failed to create or open the ",&
@@ -674,9 +673,10 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
     call MPI_Abort(mpi_comm_loc,-1,ierr)
   endif
   call H5Gcreate_f(file_id,"/groups",group_id,h5err) !< create particle groups
-  call H5Gclose_f(group_id,h5err) 
-  call HDF5_real_saving(file_id,sim%time,"/time",sim%my_id,sim%n_cpu,&
-  type_dataset_transfert_loc) !< write the time in HDF5 file
+  call H5Gclose_f(group_id,h5err)
+  !> write the time in HDF5 file, we assume that each MPI task reached the same physical time
+  if(sim%my_id .eq. master_rank) call HDF5_real_saving(file_id,sim%time,"/time",\
+  sim%my_id,sim%n_cpu,collective_mpio_loc)
   !> check if loops are allocated and loop on them
   if(allocated(sim%groups)) then
     !> it is assumed that all processors has the same number of groups but
@@ -712,91 +712,92 @@ access_type_in,type_dataset_transfert_in,mpi_comm_in,mpi_info_in)
       !> write data in HDF5 file
       if(allocated(i_elm_arr)) call HDF5_array1D_saving_int(file_id,i_elm_arr,&
       n_particles_per_group,trim(group_name)//"i_elm",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(i_life_arr)) call HDF5_array1D_saving_int(file_id,i_life_arr,&
       n_particles_per_group,trim(group_name)//"i_life",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(q_arr)) call HDF5_array1D_saving_int(file_id,q_arr,&
       n_particles_per_group,trim(group_name)//"q",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(t_birth_arr)) call HDF5_array1D_saving_r4(file_id,t_birth_arr,&
       n_particles_per_group,trim(group_name)//"t_birth",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(weight_arr)) call HDF5_array1D_saving(file_id,weight_arr,&
       n_particles_per_group,trim(group_name)//"weight",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(v_1d_arr)) call HDF5_array1D_saving(file_id,v_1d_arr,&
       n_particles_per_group,trim(group_name)//"v",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)     
+      collective_mpio_in=collective_mpio_loc)     
       if(allocated(E_arr)) call HDF5_array1D_saving(file_id,E_arr,&
       n_particles_per_group,trim(group_name)//"E",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(mu_arr)) call HDF5_array1D_saving(file_id,mu_arr,&
       n_particles_per_group,trim(group_name)//"mu",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(vpar_arr)) call HDF5_array1D_saving(file_id,vpar_arr,&
       n_particles_per_group,trim(group_name)//"Vpar",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(B_norm_arr)) call HDF5_array1D_saving(file_id,B_norm_arr,&
       n_particles_per_group,trim(group_name)//"B_norm",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(vpar_m_arr)) call HDF5_array1D_saving(file_id,vpar_m_arr,&
       n_particles_per_group,trim(group_name)//"Vpar_m",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(st_arr)) call HDF5_array2D_saving(file_id,st_arr,size(st_arr,1),&
       n_particles_per_group,trim(group_name)//"st",start=[i0_HSIZE_T,&
-      n_particles_offset],type_dataset_transfert_in=type_dataset_transfert_loc)
+      n_particles_offset],collective_mpio_in=collective_mpio_loc)
       if(allocated(x_arr)) call HDF5_array2D_saving(file_id,x_arr,size(x_arr,1),&
       n_particles_per_group,trim(group_name)//"x",start=[i0_HSIZE_T,&
-      n_particles_offset],type_dataset_transfert_in=type_dataset_transfert_loc)
+      n_particles_offset],collective_mpio_in=collective_mpio_loc)
       if(allocated(B_hat_prev_arr)) call HDF5_array2D_saving(&
       file_id,B_hat_prev_arr,size(B_hat_prev_arr,1),n_particles_per_group,&
       trim(group_name)//"B_hat_prev",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(v_2d_arr)) call HDF5_array2D_saving(&
       file_id,v_2d_arr,size(v_2d_arr,1),n_particles_per_group,&
       trim(group_name)//"v",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(x_m_arr)) call HDF5_array2D_saving(&
       file_id,x_m_arr,size(x_m_arr,1),n_particles_per_group,&
       trim(group_name)//"x_m",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(Astar_m_arr)) call HDF5_array2D_saving(&
       file_id,Astar_m_arr,size(Astar_m_arr,1),n_particles_per_group,&
       trim(group_name)//"Astar_m",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(Astar_k_arr)) call HDF5_array2D_saving(&
       file_id,Astar_k_arr,size(Astar_k_arr,1),n_particles_per_group,&
       trim(group_name)//"Astar_k",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(Bn_k_arr)) call HDF5_array1D_saving(file_id,Bn_k_arr,&
       n_particles_per_group,trim(group_name)//"Bn_k",start=[n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(dBn_k_arr)) call HDF5_array2D_saving(file_id,&
       dBn_k_arr,size(dBn_k_arr,1),n_particles_per_group,&
       trim(group_name)//"dBn_k",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(Bnorm_k_arr)) call HDF5_array2D_saving(file_id,&
       Bnorm_k_arr,size(Bnorm_k_arr,1),n_particles_per_group,&
       trim(group_name)//"Bnorm_k",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(E_k_arr)) call HDF5_array2D_saving(&
       file_id,E_k_arr,size(E_k_arr,1),n_particles_per_group,&
       trim(group_name)//"E_k",start=[i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
       if(allocated(dAstar_k_arr)) call HDF5_array3D_saving(file_id,&
       dAstar_k_arr,size(dAstar_k_arr,1),size(dAstar_k_arr,2),n_particles_per_group,&
       trim(group_name)//"dAstar_k",start=[i0_HSIZE_T,i0_HSIZE_T,n_particles_offset],&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
-      if(allocated(particle_type_str)) call HDF5_char_saving(file_id,particle_type_str,&
-      trim(group_name)//"type",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,&
-      type_dataset_transfert_in=type_dataset_transfert_loc)
-      call HDF5_char_saving(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix",&
-      mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,type_dataset_transfert_in=type_dataset_transfert_loc)
-      call HDF5_integer_saving(file_id,sim%groups(ii)%Z,trim(group_name)//"Z",&
-      mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,type_dataset_transfert_in=type_dataset_transfert_loc)
-      call HDF5_real_saving(file_id,sim%groups(ii)%mass,trim(group_name)//"mass",&
-      mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,type_dataset_transfert_in=type_dataset_transfert_loc)
+      collective_mpio_in=collective_mpio_loc)
+      !> Write particle group attributes in HDF5 file, we assume that the attributes
+      !> of the same group index for all tasks are equals. Therefore, we write the
+      !> group attributes of only the master task
+      if(sim%my_id .eq. master_rank) then
+        if(allocated(particle_type_str)) call HDF5_char_saving(file_id,&
+        particle_type_str,trim(group_name)//"type")
+        call HDF5_char_saving(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
+        call HDF5_integer_saving(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")
+        call HDF5_real_saving(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
+      endif
       !> deallocate structures
       call deallocate_particle_arrays(n_particles,i_elm_arr,i_life_arr,q_arr,&
       t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,B_norm_arr,vpar_m_arr,&
@@ -1268,15 +1269,15 @@ end subroutine read_simulation_hdf5_original
 !> inputs:
 !>   filename:       (character)(N) name of the output file
 !>   sim:            (particle_sim) particle simulation object
-!>   access_type_in: (integer)(optional) HDF5 file access property
-!>                   default: H5P_FILE_ACCESS_F
+!>   use_hdf5_access_properties: (logical)(optional) HDF5 file access property
+!>                   if must be set to .false. for parallel I/O
+!>                   default: .true. 
 !>   mpi_comm_in:    (integer)(optional) MPI communicator identifier
 !>   mpi_info_in:    (integer)(optional) MPI info structre for parallel IO
-!>   legacy_in:      (logical)(optional) true for old particle restart
 !> outputs:
 !>   sim: (particle_sim) particle simulation object
-subroutine read_simulation_hdf5(sim,filename,access_type_in,&
-mpi_comm_in,mpi_info_in,legacy_in,test_in)
+subroutine read_simulation_hdf5(sim,filename,use_hdf5_access_properties,&
+mpi_comm_in,mpi_info_in,test_in)
   use mpi
   use hdf5,               only: HSIZE_T,HID_T
   use hdf5,               only: H5Gopen_f,H5Gget_info_f
@@ -1309,14 +1310,13 @@ mpi_comm_in,mpi_info_in,legacy_in,test_in)
   integer(HSIZE_T),parameter  :: n1_HSIZE_T=int(-1,kind=HSIZE_T)
   !> inputs:
   character(len=*),intent(in) :: filename
-  integer,intent(in),optional :: access_type_in
+  logical,intent(in),optional :: use_hdf5_access_properties
   integer,intent(in),optional :: mpi_comm_in,mpi_info_in
-  logical,intent(in),optional :: legacy_in,test_in
+  logical,intent(in),optional :: test_in
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
   integer                                        :: ii,ierr,h5err,errorcode,n_groups
-  integer                                        :: access_type_loc
   integer                                        :: mpi_comm_loc,mpi_info_loc
   integer                                        :: storage_type,max_corder,rank
   integer(HID_T)                                 :: file_id,group_id
@@ -1335,20 +1335,19 @@ mpi_comm_in,mpi_info_in,legacy_in,test_in)
   real*8,           dimension(:,:,:),allocatable :: dAstar_k_arr
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
-  logical                                        :: legacy_loc,test
+  logical                                        :: create_access_plist
   !> initialisation
   allocate(n_particles_per_proc(sim%n_cpu))
   !> set optional parameters
-  access_type_loc = 1
-  if(present(access_type_in)) access_type_loc = access_type_in
+  create_access_plist = .false.
+  if(present(use_hdf5_access_properties)) create_access_plist = .not.use_hdf5_access_properties
   mpi_comm_loc = MPI_COMM_WORLD
   if(present(mpi_comm_in)) mpi_comm_loc = mpi_comm_in
   mpi_info_loc = MPI_INFO_NULL
   if(present(mpi_info_in)) mpi_info_loc = mpi_info_in
-  legacy_loc = .false.; if(present(legacy_in)) legacy_loc = legacy_in;
   test = .false.; if(present(test_in)) test = test_in;
   !> open HDF5 file 
-  call HDF5_open(filename,file_id,ierr,access_type_in=access_type_loc,&
+  call HDF5_open(filename,file_id,ierr,create_access_plist_in=create_access_plist,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   !> read the simulation time
   call HDF5_real_reading(file_id,sim%time,"/time",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
@@ -1359,17 +1358,13 @@ mpi_comm_in,mpi_info_in,legacy_in,test_in)
   !> allocate simulation groups
   if(allocated(sim%groups)) deallocate(sim%groups); allocate(sim%groups(n_groups));
   do ii=1,n_groups
-    !> read and load group datasets
+    !> read and load group datasets. We assume that the ith-particle group of 
+    !> all tasks is defined by the same unique value stored in the hdf5 file
     ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
-    call HDF5_allocatable_char_reading(file_id,particle_type_str,&
-    trim(group_name)//"type",mpi_rank=sim%my_id,&
-    n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
-    call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z",&
-    mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
-    call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass",&
-    mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
-    call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//&
-    "adas_suffix",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu,legacy_in=legacy_loc)
+    call HDF5_allocatable_char_reading(file_id,particle_type_str,trim(group_name)//"type")
+    call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z",)
+    call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
+    call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
     if((len_trim(sim%groups(ii)%ad%suffix).gt.0).and.(.not.test)) then
       sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
       sim%groups(ii)%cor = coronal(sim%groups(ii)%ad) 
@@ -1382,7 +1377,7 @@ mpi_comm_in,mpi_info_in,legacy_in,test_in)
     (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
     offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
     n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
-    !> allocate particle list and initialise to 0 (for legacy)
+    !> allocate particle list and initialise to 0
     select case (trim(particle_type_str))
     case ("particle_kinetic")
       allocate(particle_kinetic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
@@ -1500,38 +1495,38 @@ end function get_simulation_hdf5_time_original
 !> code works for jorek and particle restart files, and returns values in
 !> different units for both
 !> inputs:
-!>   filename: (character) name of the HDF5 file
+!>   filename:            (character) name of the HDF5 file
+!>   create_access_plist: (logical) create HDF parameter list (for MPIO)
+!>                        default: false (H5P_DEFAULT_F), if true create
+!>                        H5P_FILE_ACCESS_F
+!>   mpi_comm:            (integer) MPI communicator identifier (for MPIO)
+!>   mpi_info:            (integer) MPI parameter object (for MPIO)
+!>   my_id:               (integer) MPI task identifier (for MPIO)
+!>   n_cpu:               (integer) number of MPI task (for MPIO)
 !> outputs:
 !>   time:     (real8) restart simulation time
-function get_simulation_hdf5_time(filename,access_type_in,mpi_comm_in,&
-mpi_info_in,my_id_in,n_cpu_in,legacy_in) result(time)
+function get_simulation_hdf5_time(filename,create_access_plist,mpi_comm,&
+mpi_info,my_id,n_cpu) result(time)
   use mpi
-  use hdf5, only: HID_T
+  use hdf5,           only: HID_T
   use hdf5_io_module, only: HDF5_open,HDF5_close,HDF5_real_reading
   implicit none
   character(len=*),intent(in) :: filename
-  integer,intent(in),optional :: access_type_in,mpi_comm_in,mpi_info_in 
-  integer,intent(in),optional :: my_id_in,n_cpu_in
-  logical,intent(in),optional :: legacy_in
+  integer,intent(in),optional :: mpi_comm,mpi_info
+  integer,intent(in),optional :: my_id,n_cpu
+  logical,intent(in),optional :: create_access_plist
   real*8                      :: time
-  integer                     :: h5err,access_type_loc,mpi_comm_loc
-  integer                     :: mpi_info_loc,my_id,n_cpu
+  integer                     :: h5err
   integer(HID_T)              :: file_id
-  logical                     :: legacy_loc
-  !> set optional parameters
-  access_type_loc = 1
-  if(present(access_type_in)) access_type_loc = access_type_in
-  mpi_comm_loc = MPI_COMM_WORLD
-  if(present(mpi_comm_in)) mpi_comm_loc = mpi_comm_in
-  mpi_info_loc = MPI_INFO_NULL
-  if(present(mpi_info_in)) mpi_comm_loc = mpi_comm_in
-  legacy_loc = .false.; if(present(legacy_in)) legacy_loc = legacy_in;
-  my_id = master_task;  if(present(my_id_in)) my_id = my_id_in;
-  n_cpu = n_cpu_1;      if(present(n_cpu_in)) n_cpu = n_cpu_in;
-  call HDF5_open(trim(filename),file_id,h5err,access_type_in=access_type_loc,&
-  mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
-  call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,&
-  n_mpi_tasks=n_cpu,legacy_in=legacy_loc)
+  if(present(create_access_plist).and.present(mpi_comm).and.&
+  present(mpi_info).and.present(my_id).present(n_cpu)) then
+    call HDF5_open(trim(filename),file_id,h5err,create_access_plist_in=create_access_plist,&
+    mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+    call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,n_mpi_tasks=n_cpu)
+  else
+    call HDF5_open(trim(filename),file_id,h5err)
+    call HDF5_real_reading(file_id,time,"/time")
+  endif
   call HDF5_close(file_id)
 end function get_simulation_hdf5_time
 
