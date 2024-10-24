@@ -673,7 +673,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   call H5Gcreate_f(file_id,"/groups",group_id,h5err) !< create particle groups
   call H5Gclose_f(group_id,h5err)
   !> write the time in HDF5 file, we assume that each MPI task reached the same physical time
-  if(sim%my_id .eq. master_rank) call HDF5_real_saving(file_id,sim%time,"/time")
+  call HDF5_real_saving(file_id,sim%time,"/time") !< TODO find a way that only master write the data standard if condition deadlocks
   !> check if loops are allocated and loop on them
   if(allocated(sim%groups)) then
     !> it is assumed that all processors has the same number of groups but
@@ -788,13 +788,12 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       !> Write particle group attributes in HDF5 file, we assume that the attributes
       !> of the same group index for all tasks are equals. Therefore, we write the
       !> group attributes of only the master task
-      if(sim%my_id .eq. master_rank) then
-        if(allocated(particle_type_str)) call HDF5_char_saving(file_id,&
-        particle_type_str,trim(group_name)//"type")
-        call HDF5_char_saving(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
-        call HDF5_integer_saving(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")
-        call HDF5_real_saving(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
-      endif
+      !> TODO find a way that only master write the data standard if condition deadlocks
+      if(allocated(particle_type_str)) call HDF5_char_saving(file_id,&
+      particle_type_str,trim(group_name)//"type")
+      call HDF5_char_saving(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
+      call HDF5_integer_saving(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")
+      call HDF5_real_saving(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
       !> deallocate structures
       call deallocate_particle_arrays(n_particles,i_elm_arr,i_life_arr,q_arr,&
       t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,B_norm_arr,vpar_m_arr,&
