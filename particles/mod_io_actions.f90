@@ -1,5 +1,6 @@
 !> Particle input-output event module
 module mod_io_actions
+use hdf5, only: H5F_ACC_TRUNC_F
 use mod_particle_io
 use mod_event
 use mod_particle_sim
@@ -14,9 +15,9 @@ type, extends(action), abstract :: io_action
   integer, public            :: decimal_digits = 3    !< Number of decimals before the point in timestamp
   integer, public            :: fractional_digits = 8 !< Number of decimals after the point
   character(len=5), public   :: extension = '.h5'     !< I/O file type extension
-  integer, public            :: access_type = 1       !< type of access to the hdf5 file 1: mpi collective
   integer, public            :: mpi_comm_io           !< mpi communicator
   integer, public            :: mpi_info_io           !< mpi information 
+  logical, public            :: use_hdf5_access_properties = .false. !< if true a new hdf5 property list is created (required for MPIO), H5P_DEFAULT_F otherwise
   logical, public            :: original = .false.    !< if true, use original I/O procedures (needed only for legacy)
   contains
     procedure :: get_filename
@@ -24,7 +25,6 @@ end type io_action
 
 type, extends(io_action) :: read_action
   real*8  :: time             !< used with the formats from io_action if filename is unset
-  logical :: legacy = .false. !< if true read old io files
   logical :: test   = .false. !< if true avoid to read adas for unit testing
 contains
   procedure :: do => do_read_action
@@ -34,8 +34,8 @@ interface read_action
 end interface read_action
 
 type, extends(io_action) :: write_action
-  integer :: file_access
-  integer :: type_dataset_transfert = 1 !< mpi collective dataset transfert
+  integer         :: file_access = H5F_ACC_TRUNC_F !< define the file access behaviour of HDF5, default: truncate file if exists, create otherwise
+  logical, public :: mpio_collective = .true. !< if true MPIO calls are collective (individual otherwise)
 contains
   procedure :: do => do_write_action
 end type write_action
@@ -67,7 +67,7 @@ end function get_filename
 !> Constructor for read_action.
 !> Be sure to use keyword arguments when initializing, to avoid confusion
 function new_read_action(filename, basename, decimal_digits, fractional_digits, extension, &
-access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in, test_in)
+use_hdf5_access_propertie_sin, mpi_comm_in, mpi_info_in,original_in, test_in)
   use mpi
   implicit none
   type(read_action) :: new_read_action
@@ -76,8 +76,9 @@ access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in, test_in)
   integer, intent(in), optional          :: decimal_digits
   integer, intent(in), optional          :: fractional_digits
   character(len=*), intent(in), optional :: extension
-  integer,          intent(in), optional :: access_type_in,mpi_comm_in,mpi_info_in
+  integer,          intent(in), optional :: mpi_comm_in,mpi_info_in
   logical,          intent(in), optional :: legacy_in,original_in,test_in
+  logical,          intent(in), optional :: use_hdf5_access_properties
   new_read_action%mpi_comm_io = MPI_COMM_WORLD
   new_read_action%mpi_info_io = MPI_INFO_NULL
   if (present(filename)) new_read_action%filename = filename
@@ -85,10 +86,9 @@ access_type_in, mpi_comm_in, mpi_info_in, legacy_in,original_in, test_in)
   if (present(decimal_digits)) new_read_action%decimal_digits = decimal_digits
   if (present(fractional_digits)) new_read_action%fractional_digits = fractional_digits
   if (present(extension)) new_read_action%extension = extension
-  if (present(access_type_in)) new_read_action%access_type = access_type_in
+  if (present(mpi_collective_in)) new_read_action%use_hdf5_access_properties = use_hdf5_access_properties_in
   if (present(mpi_comm_in)) new_read_action%mpi_comm_io = mpi_comm_in
   if (present(mpi_info_in)) new_read_action%mpi_info_io = mpi_info_in
-  if (present(legacy_in)) new_read_action%legacy = legacy_in
   if (present(original_in)) new_read_action%original = original_in
   if (present(test_in)) new_read_action%test = test_in
   new_read_action%name = "ReadAction"
@@ -106,8 +106,8 @@ subroutine do_read_action(this, sim, ev)
       test_in=this%test)
     else
       call read_simulation_hdf5(sim, trim(this%get_filename(this%time)), &
-      access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
-      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy, test_in=this%test)
+      use_hdf5_access_properties_in=this%use_hdf5_access_properties, 
+      mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
     end if
   else
     if (this%original) then
@@ -115,8 +115,8 @@ subroutine do_read_action(this, sim, ev)
       test_in=this%test)
     else
       call read_simulation_hdf5(sim, trim(this%filename), &
-      access_type_in=this%access_type, mpi_comm_in=this%mpi_comm_io, &
-      mpi_info_in=this%mpi_info_io, legacy_in=this%legacy, test_in=this%test)
+      use_hdf5_access_properties_in=this%use_hdf5_access_properties, &
+      mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
     end if
   end if
 end subroutine do_read_action
@@ -125,7 +125,7 @@ end subroutine do_read_action
 !> Constructor for write_action
 !> Be sure to use keyword arguments when initializing, to avoid confusion
 function new_write_action(filename, basename, decimal_digits, fractional_digits, extension, &
-file_access_in, access_type_in, mpi_comm_in, mpi_info_in, type_dataset_transfert_in,original_in)
+file_access_in, use_hdf5_access_properties_in, mpi_comm_in, mpi_info_in, mpi_collective_in,original_in)
   use mpi
   use hdf5, only: H5F_ACC_TRUNC_F
   implicit none
@@ -136,7 +136,7 @@ file_access_in, access_type_in, mpi_comm_in, mpi_info_in, type_dataset_transfert
   integer, intent(in), optional          :: fractional_digits
   character(len=*), intent(in), optional :: extension
   integer,          intent(in), optional :: file_access_in,mpi_comm_in,mpi_info_in
-  integer,          intent(in), optional :: access_type_in,type_dataset_transfert_in
+  logical,          intent(in), optional :: mpi_collective_in,use_hdf5_access_properties
   logical,          intent(in), optional :: original_in
   new_write_action%name = "WriteAction"
   new_write_action%log = .true.
@@ -149,10 +149,11 @@ file_access_in, access_type_in, mpi_comm_in, mpi_info_in, type_dataset_transfert
   if (present(fractional_digits)) new_write_action%fractional_digits = fractional_digits
   if (present(extension)) new_write_action%extension = extension
   if (present(file_access_in)) new_write_action%file_access = file_access_in
-  if (present(access_type_in)) new_write_action%access_type = access_type_in
+  if (present(use_hdf5_access_properties_in)) new_write_action%use_hdf5_access_properties = &
+  use_hdf5_access_properties_in
   if (present(mpi_comm_in)) new_write_action%mpi_comm_io = mpi_comm_in
   if (present(mpi_info_in)) new_write_action%mpi_info_io = mpi_info_in
-  if (present(type_dataset_transfert_in)) new_write_action%type_dataset_transfert = type_dataset_transfert_in
+  if (present(mpio_collective_in)) new_write_action%mpio_collective = mpi_collective_in
   if (present(original_in)) new_write_action%original = original_in
 end function new_write_action
 
@@ -166,8 +167,9 @@ subroutine do_write_action(this, sim, ev)
       call write_simulation_hdf5_original(sim, trim(this%get_filename(sim%time))) 
     else
       call write_simulation_hdf5(sim, trim(this%get_filename(sim%time)), &
-      file_access_in=this%file_access, access_type_in=this%access_type, &
-      type_dataset_transfert_in=this%type_dataset_transfert, &
+      file_access_in=this%file_access,&
+      use_hdf5_access_properties_in=this%use_hdf5_access_properties, &
+      mpio_collective_in=this%mpio_collective, &
       mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
     end if
   else
@@ -175,8 +177,9 @@ subroutine do_write_action(this, sim, ev)
       call write_simulation_hdf5_original(sim, trim(this%filename)) 
     else
       call write_simulation_hdf5(sim, trim(this%filename), &
-      file_access_in=this%file_access, access_type_in=this%access_type, &
-      type_dataset_transfert_in=this%type_dataset_transfert, &
+      file_access_in=this%file_access, &
+      use_hdf5_access_properties_in=this%use_hdf5_access_properties, &
+      mpio_collective_in=this%mpi_collective_in, &
       mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
     end if
   end if
