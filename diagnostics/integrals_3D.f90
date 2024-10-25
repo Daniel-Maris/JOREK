@@ -530,7 +530,9 @@ if (my_id .eq. 0) then
   endif
 
   write(*,'(A,3e14.6,A)') ' Time : ',xt,xt*t_norm,t_norm, ' [s]'
-  write(*,'(A,4e14.6)')   ' Integrals_3D, PELLET : ',pellet_volume, total_pellet_volume, total_pellet_particles, total_plasma_particles
+  if(use_pellet) then
+    write(*,'(A,4e14.6)')   ' Integrals_3D, PELLET : ',pellet_volume, total_pellet_volume, total_pellet_particles, total_plasma_particles
+  end if
   write(*,'(A,2e14.6,A)') ' Volume   : ',xt,volume,' [m^3]'
   write(*,'(A,4e14.6,A)') ' density  (total/in/out) : ',xt,density_tot,  density_in,  density_out,' [10^20/m^3]'
   write(*,'(A,4e14.6,A)') ' pressure (total/in/out) : ',xt,pressure/1.d6, pressure_in/1.d6, pressure_out/1.d6,' [MJ]'
