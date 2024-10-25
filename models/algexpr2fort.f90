@@ -1,3 +1,10 @@
+!> Program used to generate code for models that make use of automatic code generation in 
+!! mod_elt_matrix routines. 
+!!
+!! The equations determining the local RHS, and AMAT contributions are constructed and 
+!! written to header files that are added to mod_elt_matrix(_fft).f90, making use of an 
+!! AUX header to simplify some of the larger terms with are repeatedly used in the main 
+!! matrix elements. 
 program algexpr2fort
 #ifdef SEMIANALYTICAL
   use phys_module
@@ -30,10 +37,10 @@ program algexpr2fort
   write(model_num,'(I3.3)') jorek_model
   
   ! Write out RHS for included variables
-  open(10, file="models/model"//model_num//"/rhs_unreadable.h", action="write", status="replace")
+  open(10, file="models/model"//model_num//"/rhs_automatic.h", action="write", status="replace")
   do i_var=1,n_var
     if ((associated(rhs_semianalytic(i_var)%operand1)) .and. (associated(rhs_semianalytic(i_var)%operand2))) then
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
       full = "rhs_ij("// index_names(i_var) // ") = " // gencode(rhs_semianalytic(i_var), varname)
 #else
       full = "rhs_ij("// index_names(i_var) // ",:) = " // gencode(rhs_semianalytic(i_var), varname)
@@ -44,11 +51,11 @@ program algexpr2fort
   close(10)
   
   ! Write out AMAT for included variables
-  open(20, file="models/model"//model_num//"/amat_unreadable.h", action="write", status="replace")
+  open(20, file="models/model"//model_num//"/amat_automatic.h", action="write", status="replace")
   do i_var = 1, n_var
     do j_var = 1, n_var
       if ((associated(amat_semianalytic(i_var, j_var)%operand1)) .and. (associated(amat_semianalytic(i_var, j_var)%operand2))) then
-#if (JOREK_MODEL == 83)
+#if JOREK_MODEL == 180
         full = "amat_ij("// index_names(i_var) // "," // index_names(j_var) // ") = " // gencode(amat_semianalytic(i_var, j_var), varname)
 #else 
         full = "amat_ij("// index_names(i_var) // "," // index_names(j_var) // ",:) = " // gencode(amat_semianalytic(i_var, j_var), varname)
@@ -60,7 +67,7 @@ program algexpr2fort
   close(20)
   
   if (n_aux .ne. 0) then
-    open(30, file="models/model"//model_num//"/aux_unreadable.h", action="write", status="replace")
+    open(30, file="models/model"//model_num//"/aux_automatic.h", action="write", status="replace")
     do i_aux=1,n_aux
       full = varname_aux(i_aux) // "=" // gencode(aux(i_aux), varname)
       call write_long_string(30,full)

@@ -41,8 +41,13 @@ program JOREK2
   use mod_global_matrix_structure
   use mod_import_restart
   use mod_export_restart
-  use mod_import_gvec
+#ifdef USE_NO_TREE
+  use mod_no_tree
+#elif USE_QUADTREE
+  use mod_quadtree
+#else
   use mod_element_rtree, only: populate_element_rtree
+#endif
   use mod_interp
   use basis_at_gaussian, only: initialise_basis
   use mod_expression, only: exprs_all_int, init_expr
@@ -54,9 +59,7 @@ program JOREK2
   use mod_initial_grid
   use mod_flux_grid
 
-  use mod_boundary_conditions
   use mod_chi
-  use mod_poiss
 #ifdef SEMIANALYTICAL
   use mod_equations
 #endif
@@ -281,48 +284,6 @@ mpi_required = 0
   call tr_print_memsize("InitStep")
 
   !***********************************************************************
-  !*                     load GVEC data                                  *
-  !***********************************************************************
-  if ((gvec_grid_import) .and. (my_id == 0)) then
-    element_list%n_elements      = 0
-    bnd_elm_list%n_bnd_elements  = 0
-    node_list%n_nodes            = 0
-    
-    write(*,*)  "Reading GVEC Import..."
-    call import_gvec(node_list, element_list, 'gvec2jorek.dat', ierr)
-    if (ierr /= 0) then
-      write(*, *) 'Error in import gvec routine'
-      stop
-    end if
-    write(*,*)  "Finished GVEC Import..."
-    call plot_grid(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'axisym')
-    call plot_grid_3d(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'initial')
-    call plot_povray_3d(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.)
-    write(*,*)  "Finished GVEC plotting"
-
-    ! Initialise boundary and initial conditions for T and rho
-    call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, .false.) 
-    
-    call populate_element_rtree(node_list, element_list)
-    call update_equil_state(my_id, node_list, element_list, bnd_elm_list, xpoint, xcase)
-    call print_equil_state(.true.)
-    call save_special_points('special_equilibrium_points.dat', .false., ierr)
-    
-    call initial_conditions(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, xpoint,xcase)
-    
-#if (JOREK_MODEL == 83)
-#ifdef USE_DOMM
-    call solve_Psi_boundary_eqn(node_list, bnd_elm_list)
-    call setup_boundary_condition(node_list, bnd_node_list)
-#else
-    call poisson(my_id,4,node_list,element_list,bnd_node_list,bnd_elm_list,1,1,1, &
-                 0.0,1.0,xpoint,xcase,(/ -99.0, 99.0 /),freeboundary_equil,refinement,1)   !----------- for GS use -1
-#endif
-#endif
-    if (my_id .eq. 0) call determine_boundary_flux(node_list, element_list)
-  end if ! gvec_grid_import
-
-  !***********************************************************************
   !*                  read restart file                                  *
   !***********************************************************************
   
@@ -393,12 +354,22 @@ mpi_required = 0
     call broadcast_phys(my_id)  
     if(freeboundary) call broadcast_vacuum(my_id, resistive_wall)
   end if
+
+#ifdef USE_NO_TREE
+  call no_tree_init(node_list,element_list)
+#elif USE_QUADTREE
+  call quadtree_init(node_list, element_list)
+#else
   call populate_element_rtree(node_list, element_list)
-  
+#endif
+
   !***********************************************************************
   !*                  define grid / equilibrium                          *
   !***********************************************************************
-  if_not_restart: if ((.not. restart) .and. (.not. gvec_grid_import)) then
+#if JOREK_MODEL == 180
+  call initialise_equilibrium(my_id,node_list,element_list,bnd_node_list, bnd_elm_list)
+#else
+  if_not_restart: if (.not. restart) then
     call tr_resetfile()
 
     if_not_regrid_from_rz: if(.not. regrid_from_rz) then
@@ -469,6 +440,11 @@ mpi_required = 0
       ! --- Compute the plasma equilibrium
       call equilibrium(my_id, node_list, element_list, bnd_node_list, bnd_elm_list, xpoint,xcase, .false.)
 
+    else
+      if (my_id == 0 .and. export_polar_boundary) then
+        call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, .false.)
+        call export_boundary(node_list, bnd_elm_list, bnd_node_list)
+      endif
     end if ! if (n_flux > 1) then
  
     if (my_id == 0) then
@@ -486,8 +462,8 @@ mpi_required = 0
       write(*,'(A,12e16.8)') ' initial energies : ', W_mag, W_kin
 
     end if ! (my_id == 0)
-    
   end if if_not_restart
+#endif
   
   ! --- Print some grid information
   if ( my_id == 0 ) call log_grid_info(.false., node_list, element_list)
@@ -537,7 +513,13 @@ mpi_required = 0
   call broadcast_nodes(my_id, node_list)                      ! nodes
 
   ! Let every mpi proc calculate this
+#ifdef USE_NO_TREE
+  call no_tree_init(node_list, element_list)
+#elif USE_QUADTREE
+  call quadtree_init(node_list, element_list)
+#else
   call populate_element_rtree(node_list, element_list)
+#endif
 
   call broadcast_phys(my_id)                                  ! physics parameters
 
@@ -656,7 +638,7 @@ mpi_required = 0
 
   call tr_print_memsize("BeforeTimeStepping")
   call r3_info_print (-2, -2, 'INITIALIZATION')    ! timing
-  
+
   if (.not. associated(aux_node_list)) allocate(aux_node_list) ! information of particle moments is stored in aux_list
 
   index_now = index_start  ! index_now: Index of current timestep
@@ -667,6 +649,7 @@ mpi_required = 0
 
   jstep_loop: do jstep = 1, 10 ! Go through the different values of the tstep_n and nstep_n arrays
   istep_loop: do istep = 1, nstep_n(jstep)
+
     call clck_time_barrier(t_itstart)
     t0 = t_itstart
 
@@ -702,8 +685,8 @@ mpi_required = 0
     minRad = 0.0
     
     if (bootstrap) then
-      call bootstrap_find_minRad(mhd_sim%node_list, mhd_sim%element_list, ES%R_axis, ES%Z_axis, ES%psi_axis, ES%psi_bnd)
-      call bootstrap_get_q_and_ft_splines(mhd_sim%node_list, mhd_sim%element_list, ES%psi_axis, ES%psi_xpoint, ES%R_xpoint, ES%Z_xpoint)
+      call bootstrap_find_minRad(my_id,mhd_sim%node_list, mhd_sim%element_list, ES%R_axis, ES%Z_axis, ES%psi_axis, ES%psi_bnd)
+      call bootstrap_get_q_and_ft_splines(my_id,mhd_sim%node_list, mhd_sim%element_list, ES%psi_axis, ES%psi_xpoint, ES%R_xpoint, ES%Z_xpoint)
     endif
     
     call tr_debug_write("JMAIN:Find_axis_R",ES%R_axis)
@@ -879,7 +862,7 @@ mpi_required = 0
        write(*,*)
     endif   !--- my_id=0
 
-#ifndef USE_DOMM
+#if (!defined STELLARATOR_MODEL) || (!defined USE_DOMM)
     call int3d_new(my_id, mhd_sim%node_list, mhd_sim%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
 #endif
 

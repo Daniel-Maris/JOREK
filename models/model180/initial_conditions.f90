@@ -19,6 +19,7 @@ integer    :: my_id, i, i2, j, in, mm, i_elm_axis, i_elm_xpoint(2), ifail, i_elm
 real*8     :: amplitude, psi, psi_axis
 real*8     :: zn, dn_dpsi, dn_dpsi2, dn_dz, dn_dz2, dn_dpsi_dz, dn_dpsi3, dn_dpsi2_dz, dn_dpsi_dz2
 real*8     :: zT, dT_dpsi, dT_dpsi2, dT_dz, dT_dz2, dT_dpsi_dz, dT_dpsi3, dT_dpsi2_dz, dT_dpsi_dz2
+real*8     :: Phi, dPhi_dpsi,dPhi_dz,dPhi_dpsi2,dPhi_dz2,dPhi_dpsi_dz,dPhi_dpsi3,dPhi_dpsi_dz2, dPhi_dpsi2_dz 
 real*8     :: R_axis, Z_axis, s_axis, t_axis, R, Z, BigR
 real*8     :: R_out, Z_out, s_out, t_out, R_lim, Z_lim, s_lim, t_lim, psi_lim
 real*8     :: psi_n, psi_bnd
@@ -29,7 +30,7 @@ real*8     :: Z_xpoint(2) =  (/ 0.0, 0.0 /)
 
 if (my_id .eq. 0) then
   write(*,*) '***************************************'
-  write(*,*) '*      initial conditions  (083)      *'
+  write(*,*) '*      initial conditions  (180)      *'
   write(*,*) '***************************************'
 endif
 
@@ -52,13 +53,13 @@ if (my_id .eq. 0) then
     
     ! Initialise temperature based on density and pressure
     if (with_TiTe) then
-      node_list%node(i)%values(1,1,var_Ti) = t_rat*mu_zero*node_list%node(i)%pressure(1) / zn
-      node_list%node(i)%values(1,2,var_Ti) = mu_zero * (t_rat*node_list%node(i)%pressure(2) - t_rat*node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
+      node_list%node(i)%values(1,1,var_Ti) = TiTe_ratio*mu_zero*node_list%node(i)%pressure(1) / zn
+      node_list%node(i)%values(1,2,var_Ti) = mu_zero * (TiTe_ratio*node_list%node(i)%pressure(2) - TiTe_ratio*node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
       node_list%node(i)%values(1,3,var_Ti) = 0.d0
       node_list%node(i)%values(1,4,var_Ti) = 0.d0
 
-      node_list%node(i)%values(1,1,var_Te) = (1.d0-t_rat)*mu_zero*node_list%node(i)%pressure(1) / zn
-      node_list%node(i)%values(1,2,var_Te) = mu_zero * ((1.d0-t_rat)*node_list%node(i)%pressure(2) - (1.d0-t_rat)*node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
+      node_list%node(i)%values(1,1,var_Te) = (1.d0-TiTe_ratio)*mu_zero*node_list%node(i)%pressure(1) / zn
+      node_list%node(i)%values(1,2,var_Te) = mu_zero * ((1.d0-TiTe_ratio)*node_list%node(i)%pressure(2) - (1.d0-TiTe_ratio)*node_list%node(i)%pressure(1) / zn * node_list%node(i)%values(1,2,5)) / zn   ! dT/ds = (dp/ds - dn/ds*T) / n  ... scale factor is already taken into account
       node_list%node(i)%values(1,3,var_Te) = 0.d0
       node_list%node(i)%values(1,4,var_Te) = 0.d0
     else
@@ -67,6 +68,13 @@ if (my_id .eq. 0) then
       node_list%node(i)%values(1,3,var_T) = 0.d0
       node_list%node(i)%values(1,4,var_T) = 0.d0
     end if
+
+    call potential_source(xpoint2, xcase2, Z, Z_xpoint, s_norm, 0.0, 1.0, Phi, dPhi_dpsi,dPhi_dz,dPhi_dpsi2,dPhi_dz2,dPhi_dpsi_dz,dPhi_dpsi3,dPhi_dpsi_dz2, dPhi_dpsi2_dz)
+    ! values(i_tor, i_dof, i_variable)
+    node_list%node(i)%values(1,1,2) = Phi
+    node_list%node(i)%values(1,2,2) = dPhi_dpsi * s_factor * 1.0 / 3.0
+    node_list%node(i)%values(1,3,2) = 0.d0
+    node_list%node(i)%values(1,4,2) = 0.d0 
   enddo
 
 endif

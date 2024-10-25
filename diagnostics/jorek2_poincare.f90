@@ -134,10 +134,10 @@ if ( ierr == 0 ) then ! stpts file exists, use it.
     curr = nr
     
   end do
-  
+#if STELLARATOR_MODEL
   read(21,*) s
   if (trim(adjustl(s)) .eq. "override_phi") P_start = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
-  
+#endif
   close(21)
 
 else ! if no stpts file exists, use the following hard-coded default startpoints
@@ -489,7 +489,7 @@ i_var_psi = 1
 call interp_RZP(node_list,element_list,i_elm,s_in,t_in,p_in,R,R_s,R_t,R_p,dummy,dummy,dummy,dummy,dummy,dummy, &
                                                             Z,Z_s,Z_t,Z_p,dummy,dummy,dummy,dummy,dummy,dummy)
 
-chi  = get_chi(R,Z,p_in,node_list,element_list,i_elm,s_in,t_in)
+chi  = get_chi(R,Z,p_in,node_list,element_list,i_elm,s_in,t_in,max_ord=1)
 Zjac = (R_s * Z_t - R_t * Z_s)
 
 call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)

@@ -41,12 +41,12 @@ subroutine preset_parameters
   eta_ohmic     = 0.d0
   T_max_eta_ohm = 1.d99
   
-  t_rat         = 0.5d0
+  TiTe_ratio    = 0.5d0
 
   visco = 1.d-5
   T_max_visco   = 1.d99
   visco_par = 1.d-5
-  visco_par_par = 0.0
+  visco_par_par = 0.d0  
   visco_heating     = 0.d0
   visco_par_heating = 0.d0
   visco_old_setup   = .false.
@@ -124,6 +124,8 @@ subroutine preset_parameters
   
   n_ext        = 0
 
+  export_polar_boundary = .false.
+
   psi_axis_init = -0.1d0
   XR_r(:)       = 999.d0
   SIG_r(:)      = 999.d0
@@ -133,6 +135,8 @@ subroutine preset_parameters
   SIG_z(:)      = 999.d0
   bgf_r         = 0.7
   bgf_z         = 0.7
+  bgf_rpolar    = 0.6
+  bgf_tht       = 0.6
 
   SIG_closed  = 0.1d0
   SIG_open    = 0.1d0
@@ -206,6 +210,7 @@ subroutine preset_parameters
   force_horizontal_Xline = .false.
   Z_xpoint_limit(1) = -0.4d0
   Z_xpoint_limit(2) =  0.4d0
+  xpoint_search_tries = 500
 
   xr1  = 9999.d0
   sig1 = 9999.d0
@@ -233,7 +238,7 @@ subroutine preset_parameters
 
   D_prof_neg         = 1.d-5
   D_prof_neg_thresh  = 0.d0 ! default is zero for keeping the old behavior
-  D_prof_imp_neg_thresh  = 0.d0 ! default is zero for keeping the old behavior
+  D_prof_imp_neg_thresh  = -1.d3 ! disabled by default to avoid convergence issues
   D_prof_tot_neg_thresh  = 0.d0 ! default is zero for keeping the old behavior
 
   D_imp_extra_R = 0.d0
@@ -353,7 +358,7 @@ subroutine preset_parameters
   ! ------------------------------------------
   ! --- Default boundary conditions ----------
   ! ------------------------------------------
-
+  loop_voltage = 0.d0
   ! --- Dirichlet
   bcs(:)%dirichlet%psi     = .true.
   bcs(:)%dirichlet%u       = .true.
@@ -509,7 +514,9 @@ subroutine preset_parameters
   rho_1 =  1.d0   
   FF_0  =  1.d0
   FF_1  =  0.d0
-  
+  phi_0 =  0.d0
+  phi_1 =  0.d0
+
   zj_coef     = 0.d0;  zj_coef(1)  = -1.d0
   T_coef      = 0.d0;  T_coef(1)   = -1.d0
   Te_coef     = 0.d0;  Te_coef(1)  = -1.d0
@@ -517,6 +524,9 @@ subroutine preset_parameters
   rho_coef    = 0.d0;  rho_coef(1) =  0.d0
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
   dcoef       = 0.d0
+
+  phi_coef    = 0.d0;  phi_coef(1) =  0.d0; phi_coef(4) = 1.d0
+  nu_phi_source = 0.d0
 
   rhon_0 =  0.d0
   rhon_1 =  0.d0
@@ -562,6 +572,7 @@ subroutine preset_parameters
   T_file             = 'none'
   Te_file            = 'none'
   Ti_file            = 'none'
+  phi_file           = 'none'
   Fprofile_file      = 'none'
   ffprime_file       = 'none'
   d_perp_file        = 'none'
@@ -585,6 +596,7 @@ subroutine preset_parameters
   linear_run         = .false.
   
   export_for_nemec   = .false.
+  export_aux_node_list = .true.
   
   ! Use iterative solver by default if n_tor>1.
   if ( n_tor == 1) then

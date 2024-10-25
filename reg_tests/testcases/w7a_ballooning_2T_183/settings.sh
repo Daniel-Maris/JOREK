@@ -1,6 +1,6 @@
 # --- General settings
 jorekmodel="183"
-jorek_equilibrium_model="083"
+jorek_equilibrium_model="180"
 description="Ballooning mode, classical stellarator, model$jorekmodel, n_tor=5."
 mpitasks=9
 binaries="jorek_model${jorekmodel}_1"

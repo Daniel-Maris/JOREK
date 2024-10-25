@@ -64,7 +64,6 @@ module mod_equations
 
   integer, parameter :: n_aux = 4
 
-  type(const), private :: t_rat
   type(const), private :: F0
 
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p
@@ -74,11 +73,10 @@ module mod_equations
   contains
 
   subroutine init_equations()
-    use phys_module, only: It_rat => t_rat, IF0 => F0
+    use phys_module, only: IF0 => F0
 
     implicit none
 
-    t_rat  = const(value = It_rat,      token = "t_rat")
     F0     = const(value =    IF0,      token = "F0")
  
     !###################################################################################################

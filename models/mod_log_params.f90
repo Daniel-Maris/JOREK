@@ -195,7 +195,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,  112) ' n_order        =  ', n_order           
   write(*,  112) ' n_tor          =  ', n_tor             
   write(*,  112) ' n_coord_tor    =  ', n_coord_tor
+#ifdef USE_DOMM
   write(*,  112) ' l_pol_domm     =  ', l_pol_domm
+#endif
   write(*,  112) ' n_period       =  ', n_period          
   write(*,  112) ' n_coord_period =  ', n_coord_period
   write(*,  112) ' n_plane        =  ', n_plane           
@@ -263,6 +265,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,REAL_FMT) 'sig_z                 ', sig_z(:)
     write(*,REAL_FMT) 'bgf_r                 ', bgf_r
     write(*,REAL_FMT) 'bgf_z                 ', bgf_z
+    write(*,REAL_FMT) 'bgf_rpolar            ', bgf_rpolar
+    write(*,REAL_FMT) 'bgf_tht               ', bgf_tht
   end if
 
   write(*,INTG_FMT) 'n_tht                 ', n_tht
@@ -270,6 +274,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,INTG_FMT) 'n_flux                ', n_flux
   write(*,LOGI_FMT) 'xpoint                ', xpoint
   write(*,REAL_FMT) 'Z_xpoint_limit        ', Z_xpoint_limit(:)
+  write(*,INTG_FMT) 'xpoint_search_tries   ', xpoint_search_tries
 
   write(*,INTG_FMT) 'm_pol_bc              ', m_pol_bc
   write(*,INTG_FMT) 'i_plane_rtree         ', i_plane_rtree
@@ -363,6 +368,16 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'zjz_1                 ', zjz_1
   write(*,REAL_FMT) 'zj_coef               ', zj_coef
 
+  if (.not. num_Phi) then
+    write(*,REAL_FMT) 'phi_0                 ', phi_0
+    write(*,REAL_FMT) 'phi_1                 ', phi_1
+    write(*,REAL_FMT) 'phi_coef              ', phi_coef(1:5)
+  else
+    write(*,CHAR_FMT) 'Phi_file                ', trim(Phi_file)
+    write(*,REAL_FMT) 'Phi_0                   ', Phi_0
+    write(*,REAL_FMT) 'Phi_1                   ', Phi_1
+  end if
+
   if ( .not. num_ffprime ) then
     write(*,REAL_FMT) 'FF_0                  ', FF_0
     write(*,REAL_FMT) 'FF_1                  ', FF_1
@@ -410,7 +425,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
 
   if (with_TiTe) then ! (with_TiTe), i.e. single temperature ***************************************
-    write(*,REAL_FMT) 't_rat                  ', t_rat
+#if JOREK_MODEL == 180
+    write(*,REAL_FMT)   'TiTe_ratio             ', TiTe_ratio
+#endif
     if ( .not. num_Te ) then
       write(*,REAL_FMT) 'Te_0                   ', Te_0
       write(*,REAL_FMT) 'Te_1                   ', Te_1
@@ -969,7 +986,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
      write(*,REAL_FMT) 'spi_Vel_diff        ',  spi_Vel_diff
    end if
 #endif
-
+  write(*,REAL_FMT) 'loop_voltage        ',loop_voltage
   write(*,LOGI_FMT) 'restart_particles   ',restart_particles
   write(*,REAL_FMT) 'n_particles         ',n_particles
   write(*,INTG_FMT) 'nstep_particles     ',nstep_particles

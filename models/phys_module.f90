@@ -25,10 +25,10 @@ module phys_module
   real*8  :: eta_rst              !< eta value from restart file
   logical :: visco_T_dependent    !< Viscosity dependent on temperature? Otherwise constant.
   logical :: visco_old_setup      !< If true, the old perp. viscosity treatment is used for compatibility (old visco depends on R^2)
-  real*8  :: visco_par            !< Cross field viscosity acting on parallel flow (normalized)
-  real*8  :: visco_par_par        !< Parallel viscosity acting on parallel flow (normalized)
+  real*8  :: visco_par            !< Cross B-field viscosity acting on parallel flow (normalized)
+  real*8  :: visco_par_par        !< B-field Parallel viscosity acting on parallel flow (normalized)
   real*8  :: visco_par_heating    !< Parallel viscosity used in the parallel viscous heating term (normalized)
-  real*8  :: t_rat                !< ratio to set ion and electron temperature from T: Ti=t_rat*T; Te=(1.0-t_rat)*T
+  real*8  :: TiTe_ratio           !< ratio to set ion and electron temperature from T (in model 180): Ti=TiTe_ratio*T; Te=(1.0-TiTe_ratio)*T
   real*8  :: F0                   !< Determines fixed toroidal magnetic field: \f$ B_\phi = F_0/R \f$
   real*8  :: central_density      !< particle density at the magnetic axis (in units of \f$10^{20} m^{-3}\f$)
   real*8  :: central_mass         !< average ion mass in atomic mass units (constant in time and space)
@@ -53,6 +53,7 @@ module phys_module
   real*8  :: density_reflection   !< density reflection coeefficient on open fieldlines
   real*8  :: neutral_reflection   !< reflection coefficient of ions into neutrals (model500)
   real*8  :: imp_reflection       !< impurity reflection coefficient on open fieldlines
+  real*8  :: loop_voltage         !< Apply a loop voltage at the boundary of the computational domain (in V; works only for fixed boundary)
   logical :: old_deuterium_atomic !< use old fit to calculate atomic coefficients for D (ionization, recombination, radiation), otherwise a better fit is used
   logical :: deuterium_adas       !< use OPEN ADAS to calculate ionization, recombination and radiation coeffients for deuterium   
   logical :: deuterium_adas_1e20  !< use OPEN ADAS with fixed density=1e20 to calculate ionization, recombination and radiation coeffients for deuterium
@@ -76,6 +77,7 @@ module phys_module
   logical :: import_equil         !< (presently unused)
   logical :: xpoint               !< X-point plasma or not? see also xcase
   real*8  :: Z_xpoint_limit(2)    !< Search the lower X-point in the region Z < Z_xpoint_limit(1) and the upper X-point in the region Z > Z_xpoint_limit(2) 
+  integer :: xpoint_search_tries  !< The number of candidate elements to check for being the element containing the upper or lower X-point.
   logical :: bootstrap            !< Evolve the Bootstrap current consistently with time?
   real*8  :: minRad               !< Approximation of minor radius for bootstrap current calculation
   logical :: refinement           !< Use mesh refinement? (not presently available)
@@ -94,6 +96,7 @@ module phys_module
   logical :: no_mach1_bc          !< Never apply Mach-1 BCs
   logical :: Mach1_openBC         !< Full-MHD: Apply Mach-1 BCs inside mod_boundary_matrix_open.f90 (or mod_boundary_conditions.f90)
   logical :: Mach1_fix_B          !< Full-MHD: Use the initial magnetic field for Mach1 BCs on targets, ie. without AR and AZ variations
+  logical :: export_polar_boundary !< Option to export boundary.txt even in the case of a polar boundary.
 
   ! --- RESISTIVITY SWITCHES FOR AR AND AZ EQUATIONS
   ! --- 1.
@@ -120,6 +123,7 @@ module phys_module
   logical :: keep_n0_const        !< Perform a linear run where the equilibrium quantities (i_tor=1) do not change with time?
   logical :: linear_run           !< Same as keep_n0_const, to be replaced soon by true linear run where modes are independent
   logical :: export_for_nemec     !< Export equilibrium information for the NEMEC code?
+  logical :: export_aux_node_list !< Include the aux_node_list for particle projections in the restart files
   logical :: use_murge            !< (Deprecated, Cannot be used any more)
   logical :: use_murge_element    !< (Deprecated, Cannot be used any more)
   logical :: use_BLR_compression  !< Use Block-Low-Rank (BLR) compression in MUMPS / PaStiX 6 solvers
@@ -213,7 +217,7 @@ module phys_module
    
   ! Stellarator parameters
   logical :: extended_boundary    ! choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
-  logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC TO-DO: remove this routine by making the GVEC import part of the restart file routine
+  logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC
 
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   real*8  :: surface_cross_tol                                                  !< Tolerance when looking for crossing of polar lines and surfaces, needs to be > 1.0
@@ -558,7 +562,8 @@ module phys_module
   real*8  :: SIG_tht(2)        	    !< Width of grid accumulation (two positions) (for polar grid)
   real*8  :: XR_z(2)           	    !< Z-position of square grid accumulation (two positions) (for square grid)
   real*8  :: SIG_z(2)          	    !< Z-Width of grid accumulation (two positions) (for square grid)
-  real*8  :: bgf_r, bgf_z           !< Background for meshac distribution or R and Z accumulation (only for square grid!)
+  real*8  :: bgf_r, bgf_z           !< Background for meshac distribution for R-Z accumulation
+  real*8  :: bgf_rpolar, bgf_tht    !< Background for meshac distribution for R-theta accumulation
   
   !> @name Flux surface grid
   !! Parameters defining a flux-aligned grid without X-point in the poloidal plane.
@@ -734,15 +739,32 @@ module phys_module
   real*8, allocatable :: num_Fprofile_y2(:) !< Second derivatives of Fprofile profile (\f$ d^2F/d\Psi_N^2 \f$)
   real*8, allocatable :: num_Fprofile_y3(:) !< Third derivatives of Fprofile profile (\f$ d^2F/d\Psi_N^2 \f$)
 
+  !> @name Analytical input profile for the background Phi profile
+  real*8  :: phi_0             !< Central background potential; (usually 1)
+  real*8  :: phi_1             !< Edge background potential
+  real*8  :: phi_coef(10)      !< potential profile coefficients
+
+  !> @name Numerical input profile for the background potential profile
+  character(len=512)  :: phi_file           !< ASCII file the potential profile is read from.
+  logical             :: num_phi            !< is set true if potential_file /= 'none'
+  integer             :: num_phi_len        !< Number of points in profile
+  real*8, allocatable :: num_phi_x(:)       !< Radial positions of profile points (PsiN values)
+  real*8, allocatable :: num_phi_y0(:)      !< Values of potential profile
+  real*8, allocatable :: num_phi_y1(:)      !< First derivatives of potential profile (\f$ d\Phi/d\rcoord_N \f$)
+  real*8, allocatable :: num_phi_y2(:)      !< Second derivatives of potential profile (\f$ d^2\Phi/d\rcoord_N^2 \f$)
+  real*8, allocatable :: num_phi_y3(:)      !< Third derivatives of potential profile (\f$ d^3\Phi/d\rcoord_N^3 \f$)
+
+  real*8  :: nu_phi_source                  !< Friction coefficient of the n=0 background potential profile source term (>~ visco)
+
   !> @name Numerical input profile for Fprofile
-  integer, parameter  :: n_Fprofile_internal_max = 300                !< INTERNAL Max Size of F-profile
-  integer             :: n_Fprofile_internal                          !< INTERNAL Size of F-profile
-  real*8              :: Fprofile_internal   (n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration
-  real*8              :: Fprofile_internal_d1(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (first derivative)
-  real*8              :: Fprofile_internal_d2(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (second derivative)
-  real*8              :: Fprofile_internal_d3(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (third derivative)
-  real*8              :: Fprofile_psi_max                             !< INTERNAL max psi_norm of F-profile
-  real*8              :: Fprofile_tolerance                           !< INTERNAL tolerance (in %) for accuracy of F-profile compared to input FFprime
+  integer, parameter  :: n_Fprofile_internal_max = 300                 !< INTERNAL Max Size of F-profile
+  integer             :: n_Fprofile_internal                           !< INTERNAL Size of F-profile
+  real*8              :: Fprofile_internal   (n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration
+  real*8              :: Fprofile_internal_d1(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (first derivative)
+  real*8              :: Fprofile_internal_d2(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (second derivative)
+  real*8              :: Fprofile_internal_d3(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (third derivative)
+  real*8              :: Fprofile_psi_max                              !< INTERNAL max psi_norm of F-profile
+  real*8              :: Fprofile_tolerance                            !< INTERNAL tolerance (in %) for accuracy of F-profile compared to input FFprime
 
   !> @name Analytical input profile for FFprime
   real*8  :: FF_0              !< FF' value in the plasma center
