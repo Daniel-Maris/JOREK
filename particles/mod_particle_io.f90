@@ -1506,23 +1506,23 @@ end function get_simulation_hdf5_time_original
 !> outputs:
 !>   time:     (real8) restart simulation time
 function get_simulation_hdf5_time(filename,use_hdf5_access_properties,&
-mpi_comm,mpi_info,my_id,n_cpu) result(time)
+mpi_comm_loc,mpi_info_loc,my_id,n_cpu) result(time)
   use mpi
   use hdf5,           only: HID_T
   use hdf5_io_module, only: HDF5_open,HDF5_close,HDF5_real_reading
   implicit none
   character(len=*),intent(in) :: filename
-  integer,intent(in),optional :: mpi_comm,mpi_info
+  integer,intent(in),optional :: mpi_comm_loc,mpi_info_loc
   integer,intent(in),optional :: my_id,n_cpu
   logical,intent(in),optional :: use_hdf5_access_properties
   real*8                      :: time
   integer                     :: h5err
   integer(HID_T)              :: file_id
-  if(present(use_hdf5_access_properties).and.present(mpi_comm).and.&
-  present(mpi_info).and.present(my_id).and.present(n_cpu)) then
+  if(present(use_hdf5_access_properties).and.present(mpi_comm_loc).and.&
+  present(mpi_info_loc).and.present(my_id).and.present(n_cpu)) then
     call HDF5_open(trim(filename),file_id,h5err,&
     create_access_plist_in=.not.use_hdf5_access_properties,&
-    mpi_comm_in=mpi_comm,mpi_info=mpi_info)
+    mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
     call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,n_mpi_tasks=n_cpu)
   else
     call HDF5_open(trim(filename),file_id,h5err)

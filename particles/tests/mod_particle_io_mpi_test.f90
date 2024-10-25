@@ -24,7 +24,7 @@ integer,parameter :: n_groups=8
 integer,parameter :: n_particles=5 !< N# of particles per group per task
 real*8,parameter  :: tol_real8=1.d-15
 integer           :: rank_loc,n_tasks_loc,ifail_loc
-integer           :: mpi_comm,mpi_info
+integer           :: mpi_comm_test,mpi_info_test
 logical           :: use_hdf5_access_properties,mpio_collective
 
 !> Interfaces -------------------------------------------
@@ -91,7 +91,7 @@ subroutine setup(rank,n_tasks,ifail)
 
   !> store mpi variables
   rank_loc = rank; n_tasks_loc = n_tasks; ifail_loc = ifail;
-  mpi_comm = MPI_COMM_WORLD; call MPI_Info_create(mpi_info,ifail);
+  mpi_comm_test = MPI_COMM_WORLD; call MPI_Info_create(mpi_info_test,ifail);
   use_hdf5_access_properties=.false.; mpio_collective=.true.;
 
   !> initialize the particle simulation
@@ -101,7 +101,7 @@ subroutine setup(rank,n_tasks,ifail)
   if(rank.eq.0) then
     call gnu_rng_interval(sim_time_interval,sim_particles%time)
   endif
-  call MPI_Bcast(sim_particles%time,1,MPI_REAL8,0,mpi_comm,ifail)
+  call MPI_Bcast(sim_particles%time,1,MPI_REAL8,0,mpi_comm_test,ifail)
 
   !> allocate particle lists for different particle types
   allocate(particle_fieldline::sim_particles%groups(1)%particles(n_particles))
@@ -120,7 +120,7 @@ subroutine setup(rank,n_tasks,ifail)
   !> write filename with new and original methods
   call write_simulation_hdf5(sim_particles,trim(test_filename),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  collective_mpio_in=mpio_collective,mpi_comm_in=mpi_comm,mpi_info_in=mpi_info)
+  collective_mpio_in=mpio_collective,mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test)
   call write_simulation_hdf5_original(sim_particles,trim(test_filename_original))
 end subroutine setup
 
@@ -139,12 +139,12 @@ subroutine teardown(rank,n_tasks,ifail)
   !> inputs-outputs
   integer,intent(inout) :: ifail
 
-  call MPI_Barrier(mpi_comm,ifail)
+  call MPI_Barrier(mpi_comm_test,ifail)
   !> remove test file
   call remove_file(trim(test_filename),rank_in=rank_loc)
   call remove_file(trim(test_filename_original),rank_in=rank_loc)
-  call MPI_Info_free(mpi_info,ifail);
-  rank_loc = -1; n_tasks_loc = -1; mpi_comm = -1; 
+  call MPI_Info_free(mpi_info_test,ifail);
+  rank_loc = -1; n_tasks_loc = -1; mpi_comm_test = -1; 
   use_hdf5_access_properties=.true.; ifail = ifail_loc;
 end subroutine teardown
 
@@ -169,7 +169,7 @@ subroutine test_particle_mpi_io_write_new_read_new
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_in=mpi_comm,mpi_info_in=mpi_info,test_in=test)
+  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test)
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
@@ -224,7 +224,7 @@ subroutine test_particle_mpi_io_write_original_read_new
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename_original),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_in=mpi_comm,mpi_info_in=mpi_info,test_in=test)
+  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test)
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
@@ -269,7 +269,7 @@ subroutine test_get_simulation_hdf5_time_new_write_new()
   !> read time
   time_new = get_simulation_hdf5_time(trim(test_filename),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm=mpi_comm,mpi_info=mpi_info,n_cpu=n_tasks_loc)
+  mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_cpu=n_tasks_loc)
   call assert_equals(sim_particles%time,time_new,tol_real8,&
   "Error get simulation time hdf5 new (write new): time mismatch!")
 end subroutine test_get_simulation_hdf5_time_new_write_new
@@ -284,7 +284,7 @@ subroutine test_get_simulation_hdf5_time_new_write_original()
   !> read time
   time_new = get_simulation_hdf5_time(trim(test_filename_original),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm=mpi_comm,mpi_info=mpi_info,n_cpu=n_tasks_loc)
+  mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_cpu=n_tasks_loc)
   call assert_equals(sim_particles%time,time_new,tol_real8,&
   "Error get simulation time hdf5 new (write original): time mismatch!")
 end subroutine test_get_simulation_hdf5_time_new_write_original
