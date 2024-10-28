@@ -860,7 +860,7 @@ module hdf5_io_module
 
     ! Gather all arrays in one
     do ii=1,dim2_tot
-      call MPI_Gatherv(array2D(:,ii),dim1_all_tasks(mpi_rank),MPI_INTEGER,&
+      call MPI_Gatherv(array2D(:,ii),dim1_all_tasks(mpi_rank+1),MPI_INTEGER,&
       array2D_tot(:,ii),dim1_all_tasks,displs,MPI_INTEGER,&
       master_task,mpi_comm_loc,ierr)
     enddo
