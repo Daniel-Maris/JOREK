@@ -10,6 +10,9 @@ module hdf5_io_module
   use HDF5
   implicit none
 
+  ! Parameters to be used within the module
+  integer,parameter :: master_task=0
+
   !******************************
   contains
   !******************************
@@ -689,6 +692,58 @@ module hdf5_io_module
   end subroutine HDF5_array1D_saving_int
 
   !---------------------------------------- 
+  ! HDF5 saving for a 1D array of integer. Parallelization
+  ! based on the MPI gather of all data by the master task
+  ! the data are written by the master task in HDF5 file.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array1D:            (integer)(:) array of integers of each MPI task
+  !   dim1_all_tasks:     (integer)(n_cpu) size of the array of each task
+  !   dim1_tot:           (integer) total size of all arrays sum(dim1_all_tasks)
+  !   displs:             (integer)(n_cpu) each element specifies the displacement relative to
+  !                       the receive MPI buffer at which to place the incoming data from processes
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:           (integer) identifier of the current MPI task
+  !   n_cpu:              (integer) number of MPI tasks
+  !   mpi_comm_loc:       (integer) MPI communicator identifier
+  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !----------------------------------------
+  subroutine HDF5_array1D_saving_int_gatherv(file_id,array1D,dim1_all_tasks,dim1_tot,&
+    displs,dsetname,mpi_rank,n_cpu,mpi_comm_loc,start,compress_level)
+    use mpi
+    implicit none
+    integer(HID_T)            , intent(in) :: file_id   ! file identifier
+    integer                   , intent(in) :: dim1_tot,mpi_rank,n_cpu,mpi_comm_loc
+    integer, dimension(:)     , intent(in) :: array1D
+    integer, dimension(n_cpu) , intent(in) :: dim1_all_tasks,displs
+    character(LEN=*)          , intent(in) :: dsetname  ! dataset name
+    integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    integer                                 :: ierr
+    integer, dimension(dim1_tot) :: array1D_tot
+
+    ! Gather all arrays in one
+    call MPI_Gatherv(array1D,dim1_all_tasks(mpi_rank+1),MPI_INTEGER,array1D_tot,&
+    dim1_all_tasks,displs,MPI_INTEGER,master_task,mpi_comm_loc,ierr)
+    ! Write the global array to HDF5 file
+    if(mpi_rank.eq.master_task) then
+      if(present(start).and.present(compress_level)) then
+        call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,&
+        dsetname,start=start,compress_level=compress_level)
+      else if(present(start)) then
+        call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,start=start)
+      else if(present(compress_level)) then
+        call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,compress_level=compress_level)
+      else
+        call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname)
+      endif
+    endif
+  end subroutine HDF5_array1D_saving_int_gatherv
+
+  !---------------------------------------- 
   ! HDF5 saving for a 2D array of integer. Parallel applications
   ! require the definition of the data chunk starting indexes
   ! in the global dataset table. Data compression is applied 
@@ -767,6 +822,64 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
     call H5Pclose_f(transfer_property,error)
   end subroutine HDF5_array2D_saving_int
+
+  !---------------------------------------- 
+  ! HDF5 saving for a 2D array of integer. Parallelization
+  ! based on the MPI gather of all data by the master task
+  ! the data are written by the master task in HDF5 file.
+  !----------------------------------------
+  ! inputs:
+  !   file_id:            (HID_T) file identifier
+  !   array2D:            (integer)(:) array of integers of each MPI task
+  !   dim1_all_tasks:     (integer)(n_cpu) size of first dimension of the array of each task
+  !   dim1_tot:           (integer) total size of first dimension of all arrays sum(dim1_all_tasks)
+  !   dim2_tot            (integer) total size of second dimension of all arrays
+  !   displs:             (integer)(n_cpu) each element specifies the displacement relative to
+  !                       the receive MPI buffer at which to place the incoming data from processes
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:           (integer) identifier of the current MPI task
+  !   n_cpu:              (integer) number of MPI tasks
+  !   mpi_comm_loc:       (integer) MPI communicator identifier
+  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                       in the global dataset
+  !   compress_level:     (integer) level of data compression to be used
+  !----------------------------------------
+  subroutine HDF5_array2D_saving_int_gatherv(file_id,array2D,dim1_all_tasks,dim1_tot,&
+    dim2_tot,displs,dsetname,mpi_rank,n_cpu,mpi_comm_loc,start,compress_level)
+    use mpi
+    implicit none
+    integer(HID_T)            , intent(in) :: file_id   ! file identifier
+    integer                   , intent(in) :: dim1_tot,dim2_tot,mpi_rank,n_cpu,mpi_comm_loc
+    integer, dimension(:,:)   , intent(in) :: array2D
+    integer, dimension(n_cpu) , intent(in) :: dim1_all_tasks,displs
+    character(LEN=*)          , intent(in) :: dsetname  ! dataset name
+    integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Begin position of data
+    integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    integer                               :: ii,ierr
+    integer, dimension(dim1_tot,dim2_tot) :: array2D_tot
+
+    ! Gather all arrays in one
+    do ii=1,dim2_tot
+      call MPI_Gatherv(array2D(:,ii),dim1_all_tasks(mpi_rank),MPI_INTEGER,&
+      array2D_tot(:,ii),dim1_all_tasks,displs,MPI_INTEGER,&
+      master_task,mpi_comm_loc,ierr)
+    enddo
+    ! Write the global array to HDF5 file
+    if(mpi_rank.eq.master_task) then
+      if(present(start).and.present(compress_level)) then
+        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
+        dsetname,start=start,compress_level=compress_level)
+      else if(present(start)) then
+        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
+        dsetname,start=start)
+      else if(present(compress_level)) then
+        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
+        dsetname,compress_level=compress_level)
+      else
+        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname)
+      endif
+    endif
+  end subroutine HDF5_array2D_saving_int_gatherv
 
   !---------------------------------------- 
   ! gzip HDF5 saving for a 3D array integer. Parallel applications
