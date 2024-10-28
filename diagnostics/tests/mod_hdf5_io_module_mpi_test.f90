@@ -466,6 +466,8 @@ subroutine test_HDF5_array1D_saving_r4()
   use mod_assert_equals_tools, only: assert_equals_allocatable_arrays
   implicit none
   character(len=11),parameter      :: datasetname='array1D_r4'
+  integer                          :: ii
+  integer,dimension(n_tasks_loc)   :: elements_all,displs 
   real*4,dimension(n_elements(1))  :: test_array,result_array
   real*4,dimension(:),allocatable  :: test_array_allocatable
   integer(HID_T)                   :: file_id
@@ -481,6 +483,19 @@ subroutine test_HDF5_array1D_saving_r4()
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
   "Error test HDF5 I/O 1D float posix: test and result array mismatch!")
+  filename = trim(filename_base)//trim(extension); elements_all = n_elements(1);
+  displs = 0; do ii=2,n_tasks_loc; displs(ii)=sum(elements_all(1:ii-1)); enddo; 
+  offset = [rank_loc*n_elements(1)]; test_array = 0; 
+  if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc)
+  call HDF5_array1D_saving_r4_gatherv(file_id,result_array,elements_all,&
+  sum(elements_all),displs,datasetname,rank_loc,n_tasks_loc,mpi_comm_loc)
+  if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
+  call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
+  mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_array1D_reading_r4(file_id,test_array,datasetname,start=offset)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals(test_array,result_array,n_elements(1),&
+  "Error test HDF5 I/O 1D float MPI Gatherv: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
