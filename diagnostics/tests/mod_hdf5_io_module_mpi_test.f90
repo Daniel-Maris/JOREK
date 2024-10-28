@@ -703,11 +703,13 @@ subroutine test_HDF5_array3D_saving_r8()
   use mod_assert_equals_tools, only: assert_equals_allocatable_arrays
   implicit none
   character(len=11),parameter                                 :: datasetname='array3D_r8'
+  integer,dimension(n_tasks_loc)                              :: elements_all,displs
   real*8,dimension(n_elements(1),n_elements(2),n_elements(3)) :: test_array,result_array
   real*8,dimension(:,:,:),allocatable                         :: test_array_allocatable
   integer(HID_T)                                              :: file_id
   integer(HSIZE_T),dimension(3)                               :: offset,reqdim
   character(len=100)                                          :: filename 
+  integer                                                     :: ii
   !> initialise posix test
   test_array = 0d0; result_array = array_sol(:,:,:,1,1);
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
@@ -718,6 +720,19 @@ subroutine test_HDF5_array3D_saving_r8()
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
   result_array,tol_r8,"Error test HDF5 I/O 3D double posix: test and result array mismatch!")
+  filename = trim(filename_base)//trim(extension); elements_all = n_elements(1);
+  displs = 0; do ii=2,n_tasks_loc; displs(ii)=sum(elements_all(1:ii-1)); enddo;
+  offset = [rank_loc*n_elements(1),0,0]; test_array = 0; 
+  if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
+  call HDF5_array3D_saving_gatherv(file_id,result_array,elements_all,sum(elements_all),&
+  n_elements(2),n_elements(3),displs,datasetname,rank_loc,n_tasks_loc,mpi_comm_loc)
+  if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
+  call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
+  mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_array3D_reading(file_id,test_array,datasetname,start=offset)
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
+  result_array,tol_r8,"Error test HDF5 I/O 3D double MPI Gatherv: test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[0,0,rank_loc*n_elements(3)];
   test_array = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
