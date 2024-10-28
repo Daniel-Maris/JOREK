@@ -382,7 +382,7 @@ subroutine test_HDF5_array2D_saving_int()
   offset = [rank_loc*n_elements(1),0]; test_array = 0; 
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array2D_saving_int_gatherv(file_id,result_array,elements_all,sum(elements_all),&
-  n_elements(2),displs,datasetname,mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)
+  n_elements(2),displs,datasetname,rank_loc,n_tasks_loc,mpi_comm_loc)
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -649,7 +649,7 @@ subroutine test_HDF5_array2D_saving_r8()
   offset = [rank_loc*n_elements(1),0]; test_array = 0; 
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array2D_saving_gatherv(file_id,result_array,elements_all,sum(elements_all),&
-  n_elements(2),displs,datasetname,mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)
+  n_elements(2),displs,datasetname,rank_loc,n_tasks_loc,mpi_comm_loc)
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
