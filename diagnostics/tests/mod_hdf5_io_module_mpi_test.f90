@@ -151,7 +151,7 @@ subroutine test_open_hdf5_file()
   filename = ''; filename = trim(filename_base)//trim(extension); ifail_loc=0;
   call HDF5_create(filename,file_id,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc); call HDF5_close(file_id); 
-  call HDF5_create(filename,file_id,ierr=ifail_loc,create_access_plist_in=access_hdf5_parallel,&
+  call HDF5_open(filename,file_id,ierr=ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc); call HDF5_close(file_id);
   call assert_equals(ifail_loc,0,"Error test open HDF5 file access FILE_ACCESS: file "//&
   trim(filename)//" not opened!"); call remove_file(filename);
