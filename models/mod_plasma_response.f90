@@ -453,7 +453,7 @@ module mod_plasma_response
     real*8, allocatable :: bx_tmp(:), by_tmp(:), bz_tmp(:)
 
 
-#if (JOREK_MODEL == 83)
+#if (JOREK_MODEL == 180)
     ! --- MPI initialization
     call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr) ! number of MPI procs
     n_cpu = max(n_cpu,1)
@@ -473,67 +473,6 @@ module mod_plasma_response
     i_R = 1; i_Z = 2; i_Phi = 3  
 
     wgauss_copy = wgauss
-
-    ! Integration point check
-
-   ! if (my_id .eq. 0)  then
-   !   open(16072, file="integration_points_mod_plasma_response.dat", action="write")
-   !   write(16072, '(a)') "R coord, Z coord, phi coord"
-   !   do ife = ife_min, ife_max
-   !   
-   !     element = element_list%element(ife)
-   !   
-   !     do iv = 1, n_vertex_max
-   !       inode     = element%vertex(iv)
-   !       nodes(iv) = node_list%node(inode)
-   !     enddo
-   !     
-   !     x_g(:,:,:) = 0.d0; x_s(:,:,:) = 0.d0; x_t(:,:,:) = 0.d0; x_p(:,:,:) = 0.d0
-   !     y_g(:,:,:) = 0.d0; y_s(:,:,:) = 0.d0; y_t(:,:,:) = 0.d0; y_p(:,:,:) = 0.d0
-   !     B_gvec(:,:,:,:) = 0.d0; B_gvec_s(:,:,:,:) = 0.d0; B_gvec_t(:,:,:,:) = 0.d0; B_gvec_p(:,:,:,:) = 0.d0
-   !     s_norm(:,:) = 0.d0
-   !     
-   !     !--- Calculate R,Z and derivatives at gausstian points for integration point check
-   !     
-   !     do i=1,n_vertex_max
-   !       do j=1,n_degrees
-   !   
-   !         do ms=1, n_gauss
-   !           do mt=1, n_gauss
-   !             s_norm(ms, mt) = s_norm(ms, mt) + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
-   !   
-   !             do mp=1,n_plane
-   !   
-   !               do in=1,n_coord_tor          
-   !   
-   !                 x_g(mp,ms,mt)  = x_g(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
-   !                 x_s(mp,ms,mt)  = x_s(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
-   !                 x_t(mp,ms,mt)  = x_t(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
-   !                 x_p(mp,ms,mt)  = x_p(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(in,mp)
-   !                 
-   !                 y_g(mp,ms,mt)  = y_g(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
-   !                 y_s(mp,ms,mt)  = y_s(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
-   !                 y_t(mp,ms,mt)  = y_t(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
-   !                 y_p(mp,ms,mt)  = y_p(mp,ms,mt)  + nodes(i)%x(in,j,2) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord_p(in,mp)
-   !                 
-   !               enddo
-   !             enddo
-   !           enddo
-   !         enddo
-   !       enddo
-   !     enddo
-   !   
-   !     do ms=1, n_gauss
-   !       do mt=1, n_gauss
-   !         do mp=1,n_plane
-   !           phi_points   =  float(mp-1) * delta_phi   
-   !           write(16072,*), x_g(mp,ms,mt), y_g(mp,ms,mt), float(mp-1) * delta_phi
-   !         enddo
-   !       enddo
-   !     enddo
-   !   enddo
-   !   close(16072)
-   ! endif
 
     ! --- OpenMP parallelization of element loop
     !$omp parallel default(none)                                                           &
@@ -620,7 +559,7 @@ module mod_plasma_response
       do ms=1, n_gauss
         do mt=1, n_gauss
           
-          if (s_norm(ms,mt) .gt. 0.826) cycle ! limitation on s_norm
+          if (s_norm(ms,mt) .gt. 0.75) cycle ! limitation on s_norm
 
           wst  = wgauss_copy(ms)*wgauss_copy(mt)
 
@@ -712,7 +651,7 @@ module mod_plasma_response
 
     deallocate(bx_tmp, by_tmp, bz_tmp)   
 #else
-    write(*,*) "This routine can only be used with model 083"
+    write(*,*) "This routine can only be used with model 180"
     stop
 #endif 
   end subroutine plasma_fields_at_xyz_gvec
