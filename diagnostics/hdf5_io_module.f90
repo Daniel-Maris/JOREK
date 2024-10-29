@@ -855,62 +855,92 @@ module hdf5_io_module
   end subroutine HDF5_array2D_saving_int
 
   !---------------------------------------- 
-  ! HDF5 saving for a 2D array of integer. Parallelization
+  ! HDF5 saving for a 1D array of integer. if use_gatherv 
+  ! is true and dim1_all_tasks, displs, mpi_rank, n_cpu,
+  ! and mpi_comm_loc are defined,  parallelization
   ! based on the MPI gather of all data by the master task
   ! the data are written by the master task in HDF5 file.
+  ! Otherwise, native HDF5 implementation is used
   !----------------------------------------
   ! inputs:
   !   file_id:            (HID_T) file identifier
-  !   array2D:            (integer)(:,:) array of integers of each MPI task
-  !   dim1_all_tasks:     (integer)(n_cpu) size of first dimension of the array of each task
-  !   dim1_tot:           (integer) total size of first dimension of all arrays sum(dim1_all_tasks)
+  !   array1D:            (integer)(:) array of integers of each MPI task
+  !   dim1_tot:           (integer) total size of all arrays sum(dim1_all_tasks)
   !   dim2_tot            (integer) total size of second dimension of all arrays
+  !   dsetname:           (character)(*) name of the dataset in which the data are written
+  !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
+  !   dim1_all_tasks:     (integer)(n_cpu) size of the array of each task
   !   displs:             (integer)(n_cpu) each element specifies the displacement relative to
   !                       the receive MPI buffer at which to place the incoming data from processes
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
   !   mpi_rank:           (integer) identifier of the current MPI task
   !   n_cpu:              (integer) number of MPI tasks
   !   mpi_comm_loc:       (integer) MPI communicator identifier
   !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer) level of data compression to be used
+  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
-  subroutine HDF5_array2D_saving_int_gatherv(file_id,array2D,dim1_all_tasks,dim1_tot,&
-    dim2_tot,displs,dsetname,mpi_rank,n_cpu,mpi_comm_loc,start,compress_level)
+  subroutine HDF5_array2D_saving_int_native_or_gatherv(file_id,array2D,dim1_tot,dim2_tot,&
+    dsetname,use_gatherv,dim1_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
+    compress_level,mpio_collective_in)
     use mpi
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
-    integer                   , intent(in) :: dim1_tot,dim2_tot,mpi_rank,n_cpu,mpi_comm_loc
+    integer                   , intent(in) :: dim1_tot,dim2_tot
     integer, dimension(:,:)   , intent(in) :: array2D
-    integer, dimension(n_cpu) , intent(in) :: dim1_all_tasks,displs
     character(LEN=*)          , intent(in) :: dsetname  ! dataset name
+    logical                   , intent(in) :: use_gatherv
+    integer                       , intent(in), optional :: mpi_rank,n_cpu,mpi_comm_loc
+    integer, dimension(:)         , intent(in), optional :: dim1_all_tasks,displs
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: mpio_collective_in
     integer                               :: ii,ierr
     integer, dimension(dim1_tot,dim2_tot) :: array2D_tot
+    logical                               :: use_gatherv_loc, mpio_collective
+
+    ! check preset
+    mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
+    ! check whether gatherv can/should be used default false
+    use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
+    present(mpi_comm_loc).and.present(dim1_all_tasks).and.present(displs)
 
     ! Gather all arrays in one
-    do ii=1,dim2_tot
-      call MPI_Gatherv(array2D(:,ii),dim1_all_tasks(mpi_rank+1),MPI_INTEGER,&
-      array2D_tot(:,ii),dim1_all_tasks,displs,MPI_INTEGER,&
-      master_task,mpi_comm_loc,ierr)
-    enddo
-    ! Write the global array to HDF5 file
-    if(mpi_rank.eq.master_task) then
+    if(use_gatherv_loc) then
+      do ii=1,dim2_tot
+        call MPI_Gatherv(array2D(:,ii),dim1_all_tasks(mpi_rank+1),MPI_INTEGER,&
+        array2D_tot(:,ii),dim1_all_tasks,displs,MPI_INTEGER,&
+        master_task,mpi_comm_loc,ierr)
+      enddo
+      if(mpi_rank.eq.master_task) then
+        if(present(start).and.present(compress_level)) then
+          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,&
+          start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        else if(present(start)) then
+          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,start=start)
+        else if(present(compress_level)) then
+          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
+          dsetname,compress_level=compress_level)
+        else
+          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname)
+        endif
+      endif
+    else
       if(present(start).and.present(compress_level)) then
-        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
-        dsetname,start=start,compress_level=compress_level)
+        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
+        start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
       else if(present(start)) then
-        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
-        dsetname,start=start)
+        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
+        start=start,mpio_collective_in=mpio_collective)
       else if(present(compress_level)) then
-        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
-        dsetname,compress_level=compress_level)
+        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
+        compress_level=compress_level,mpio_collective_in=mpio_collective)
       else
-        call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname)
+        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,&
+        dsetname,mpio_collective_in=mpio_collective)
       endif
     endif
-  end subroutine HDF5_array2D_saving_int_gatherv
+  end subroutine HDF5_array2D_saving_int_native_or_gatherv
 
   !---------------------------------------- 
   ! gzip HDF5 saving for a 3D array integer. Parallel applications
