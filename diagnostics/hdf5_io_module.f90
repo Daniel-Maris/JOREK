@@ -856,7 +856,7 @@ module hdf5_io_module
 
   !---------------------------------------- 
   ! HDF5 saving for a 2D array of integer. if use_gatherv 
-  ! is true and dim1_all_tasks, displs, mpi_rank, n_cpu,
+  ! is true and dim3_all_tasks, displs, mpi_rank, n_cpu,
   ! and mpi_comm_loc are defined,  parallelization
   ! based on the MPI gather of all data by the master task
   ! the data are written by the master task in HDF5 file.
@@ -865,11 +865,11 @@ module hdf5_io_module
   ! inputs:
   !   file_id:            (HID_T) file identifier
   !   array2D:            (integer)(:,:) array of integers of each MPI task
-  !   dim1_tot:           (integer) total size of all arrays sum(dim1_all_tasks)
-  !   dim2_tot            (integer) total size of second dimension of all arrays
+  !   dim1_tot:           (integer) total size of first dimension of all arrays 
+  !   dim2_tot            (integer) total size of second dimension of all arrays sum(dim1_all_tasks)
   !   dsetname:           (character)(*) name of the dataset in which the data are written
   !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
-  !   dim1_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
+  !   dim2_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
   !   displs:             (integer)(n_cpu)(optional) each element specifies the displacement relative to
   !                       the receive MPI buffer at which to place the incoming data from processes
   !   mpi_rank:           (integer)(optional) identifier of the current MPI task
@@ -881,7 +881,7 @@ module hdf5_io_module
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array2D_saving_int_native_or_gatherv(file_id,array2D,dim1_tot,dim2_tot,&
-    dsetname,use_gatherv,dim1_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
+    dsetname,use_gatherv,dim2_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
     compress_level,mpio_collective_in)
     use mpi
     implicit none
@@ -891,7 +891,7 @@ module hdf5_io_module
     character(LEN=*)          , intent(in) :: dsetname  ! dataset name
     logical                   , intent(in) :: use_gatherv
     integer                       , intent(in), optional :: mpi_rank,n_cpu,mpi_comm_loc
-    integer, dimension(:)         , intent(in), optional :: dim1_all_tasks,displs
+    integer, dimension(:)         , intent(in), optional :: dim2_all_tasks,displs
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
     logical                       , intent(in), optional :: mpio_collective_in
@@ -903,13 +903,13 @@ module hdf5_io_module
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
     use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
-    present(mpi_comm_loc).and.present(dim1_all_tasks).and.present(displs)
+    present(mpi_comm_loc).and.present(dim2_all_tasks).and.present(displs)
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
-      do ii=1,dim2_tot
-        call MPI_Gatherv(array2D(:,ii),dim1_all_tasks(mpi_rank+1),MPI_INTEGER,&
-        array2D_tot(:,ii),dim1_all_tasks,displs,MPI_INTEGER,&
+      do ii=1,dim1_tot
+        call MPI_Gatherv(array2D(ii,:),dim2_all_tasks(mpi_rank+1),MPI_INTEGER,&
+        array2D_tot(ii,:),dim2_all_tasks,displs,MPI_INTEGER,&
         master_task,mpi_comm_loc,ierr)
       enddo
       if(mpi_rank.eq.master_task) then
@@ -1427,7 +1427,7 @@ module hdf5_io_module
 
   !---------------------------------------- 
   ! HDF5 saving for a 2D array of real8. if use_gatherv 
-  ! is true and dim1_all_tasks, displs, mpi_rank, n_cpu,
+  ! is true and dim2_all_tasks, displs, mpi_rank, n_cpu,
   ! and mpi_comm_loc are defined,  parallelization
   ! based on the MPI gather of all data by the master task
   ! the data are written by the master task in HDF5 file.
@@ -1436,11 +1436,11 @@ module hdf5_io_module
   ! inputs:
   !   file_id:            (HID_T) file identifier
   !   array2D:            (real8)(:,:) array of integers of each MPI task
-  !   dim1_tot:           (integer) total size of all arrays sum(dim1_all_tasks)
-  !   dim2_tot            (integer) total size of second dimension of all arrays
+  !   dim1_tot:           (integer) total size of first dimension of all arrays 
+  !   dim2_tot            (integer) total size of second dimension of all arrays sum(dim2_all_tasks)
   !   dsetname:           (character)(*) name of the dataset in which the data are written
   !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
-  !   dim1_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
+  !   dim2_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
   !   displs:             (integer)(n_cpu)(optional) each element specifies the displacement relative to
   !                       the receive MPI buffer at which to place the incoming data from processes
   !   mpi_rank:           (integer)(optional) identifier of the current MPI task
@@ -1452,7 +1452,7 @@ module hdf5_io_module
   !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array2D_saving_native_or_gatherv(file_id,array2D,dim1_tot,dim2_tot,&
-    dsetname,use_gatherv,dim1_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
+    dsetname,use_gatherv,dim2_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
     compress_level,mpio_collective_in)
     use mpi
     implicit none
@@ -1462,7 +1462,7 @@ module hdf5_io_module
     character(LEN=*)          , intent(in) :: dsetname  ! dataset name
     logical                   , intent(in) :: use_gatherv
     integer                       , intent(in), optional :: mpi_rank,n_cpu,mpi_comm_loc
-    integer, dimension(:)         , intent(in), optional :: dim1_all_tasks,displs
+    integer, dimension(:)         , intent(in), optional :: dim2_all_tasks,displs
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
     logical                       , intent(in), optional :: mpio_collective_in
@@ -1474,13 +1474,13 @@ module hdf5_io_module
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
     use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
-    present(mpi_comm_loc).and.present(dim1_all_tasks).and.present(displs)
+    present(mpi_comm_loc).and.present(dim2_all_tasks).and.present(displs)
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
-      do ii=1,dim2_tot
-        call MPI_Gatherv(array2D(:,ii),dim1_all_tasks(mpi_rank+1),MPI_REAL8,&
-        array2D_tot(:,ii),dim1_all_tasks,displs,MPI_REAL8,&
+      do ii=1,dim1_tot
+        call MPI_Gatherv(array2D(ii,:),dim2_all_tasks(mpi_rank+1),MPI_REAL8,&
+        array2D_tot(ii,:),dim2_all_tasks,displs,MPI_REAL8,&
         master_task,mpi_comm_loc,ierr)
       enddo
       if(mpi_rank.eq.master_task) then
@@ -1607,9 +1607,9 @@ module hdf5_io_module
   ! inputs:
   !   file_id:            (HID_T) file identifier
   !   array3D:            (real8)(:,:,:) array of integers of each MPI task
-  !   dim1_tot:           (integer) total size of all arrays sum(dim3_all_tasks)
+  !   dim1_tot:           (integer) total size of first dimension all arrays 
   !   dim2_tot            (integer) total size of second dimension of all arrays
-  !   dim3_tot            (integer) total size of third dimension of all arrays
+  !   dim3_tot            (integer) total size of third dimension of all arrays sum(dim3_all_tasks)
   !   dsetname:           (character)(*) name of the dataset in which the data are written
   !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
   !   dim3_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
