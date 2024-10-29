@@ -299,7 +299,7 @@ subroutine test_HDF5_array1D_saving_int()
   integer,dimension(n_tasks_loc)   :: elements_all,displs
   integer,dimension(:),allocatable :: test_array_allocatable
   integer(HID_T)                   :: file_id
-  integer(HSIZE_T),dimension(n_tasks_loc) :: offset,reqdim
+  integer(HSIZE_T),dimension(1)    :: offset,reqdim
   character(len=100)               :: filename 
   !> initialise posix test
   test_array = 0; result_array = int(1d3*array_sol(:,1,1,1,1));
@@ -314,21 +314,31 @@ subroutine test_HDF5_array1D_saving_int()
   filename = trim(filename_base)//trim(extension); elements_all = n_elements(1);
   displs = 0; do ii=2,n_tasks_loc; displs(ii)=sum(elements_all(1:ii-1)); enddo; 
   offset = [rank_loc*n_elements(1)]; test_array = 0; 
-  if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc)
-  call HDF5_array1D_saving_int_gatherv(file_id,result_array,elements_all,&
-  sum(elements_all),displs,datasetname,rank_loc,n_tasks_loc,mpi_comm_loc)
+  if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
+  call HDF5_array1D_saving_int_native_or_gatherv(file_id,result_array,sum(elements_all),&
+  datasetname,.true.,dim1_all_tasks=elements_all,displs=displs,mpi_rank=rank_loc,&
+  n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)  
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
-  "Error test HDF5 I/O 1D integer MPI Gatherv: test and result array mismatch!")
+  "Error test HDF5 I/O 1D integer MPI Native-Gatherv (Gatherv): test and result array mismatch!")
   filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements(1),&
   datasetname,start=offset,mpio_collective_in=mpio_collective)
+  call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset);
+  call HDF5_close(file_id); call remove_file(filename);
+  call assert_equals(test_array,result_array,n_elements(1),&
+  "Error test HDF5 I/O 1D integer MPI collective: test and result array mismatch!")
+  filename = trim(filename_base)//trim(extension); offset=[rank_loc*n_elements(1)];
+  test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
+  create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
+  call HDF5_array1D_saving_int_native_or_gatherv(file_id,result_array,n_tasks_loc*n_elements(1),&
+  datasetname,.false.,start=offset,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
