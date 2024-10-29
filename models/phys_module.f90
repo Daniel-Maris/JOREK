@@ -216,8 +216,10 @@ module phys_module
   integer :: last_target_point		   !< index of the last  target point on the limiter (does NOT need to be > first_target_point)
    
   ! Stellarator parameters
-  logical :: extended_boundary    ! choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
   logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC
+  logical :: extended_boundary    !< Choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
+  real*8  :: j_cutoff_rcoord      !< Radial location from which the current is set to zero as it approaches the boundary
+  real*8  :: j_cutoff_sig         !< Radial width over which the current is ramped down to zero towards the boundary
 
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   real*8  :: surface_cross_tol                                                  !< Tolerance when looking for crossing of polar lines and surfaces, needs to be > 1.0

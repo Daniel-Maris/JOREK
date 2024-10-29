@@ -1,4 +1,4 @@
-!< This program reads jorek_restart files for the stellarator model 083
+!< This program reads jorek_restart files for the stellarator model 180
 !! and calculates the induced magnetic field at arbitrary xyz points. It involves the 
 !! computation of expensive volume integrals in the plasma, so run it
 !! in paralllel with several MPI processes for large cases. 

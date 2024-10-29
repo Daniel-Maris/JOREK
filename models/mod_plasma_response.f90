@@ -478,7 +478,7 @@ module mod_plasma_response
     !$omp parallel default(none)                                                           &
     !$omp   shared(my_id,element_list,node_list, H, H_s, H_t, HZ_coord, HZ_coord_p, ife_min, ife_max,        &
     !$omp          i_R, i_Z, i_phi, delta_phi, n_points, x, y, z, bx_tmp, by_tmp, bz_tmp,  &
-    !$omp          wgauss_copy)      &
+    !$omp          wgauss_copy, j_cutoff_rcoord, j_cutoff_sig)      &
     !$omp   private(ife,iv,inode,element,nodes,i,j, in, mp, ms, mt, k, k_tor,                      &
     !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, B_gvec, B_gvec_s, B_gvec_t, B_gvec_p, s_norm, &
     !$omp           xjac, R, xp, yp, zp, dd, phi, phi_HZ,                              &
@@ -559,8 +559,6 @@ module mod_plasma_response
       do ms=1, n_gauss
         do mt=1, n_gauss
           
-          if (s_norm(ms,mt) .gt. 0.75) cycle ! limitation on s_norm
-
           wst  = wgauss_copy(ms)*wgauss_copy(mt)
 
           do mp=1,n_plane
@@ -573,10 +571,7 @@ module mod_plasma_response
             xp    =  R * Cos(phi)
             yp    = -R * Sin(phi)
                          
-            ! TO-DO: COMPUTE CURRENT FROM GVEC BASIS IN CARTESIAN COORDINATES  
-            ! Hint: (i)    calculate the R, Z and phi derivatives of B_gvec from the JOREK basis
-            !                  - look how it is done for Psi in diagnostics/q_stel.f90 l. 477-479
-
+            ! Compute current from GVEC basis in Cartesian coordinates  
             BR_R = ( y_t(mp,ms,mt)*B_gvec_s(i_R,mp,ms,mt) - y_s(mp,ms,mt)*B_gvec_t(i_R,mp,ms,mt))/xjac
             BR_z = (-x_t(mp,ms,mt)*B_gvec_s(i_R,mp,ms,mt) + x_s(mp,ms,mt)*B_gvec_t(i_R,mp,ms,mt))/xjac
             BR_p = B_gvec_p(i_R,mp,ms,mt) - x_p(mp,ms,mt)*BR_R - y_p(mp,ms,mt)*BR_z
@@ -616,6 +611,7 @@ module mod_plasma_response
             J_z = -1/R*(B_phi + R*Bp_R) + 1/R*BR_p
 
             J_vec =  (/ J_x, J_y, J_z /)
+            J_vec = J_vec * 0.5-0.5*tanh((s_norm(ms,mt)-j_cutoff_rcoord)/j_cutoff_sig)  ! Cut off currents near plasma boundary
 
             ! --- Go over the given points and calculate magnetic field from Biot-Savart
 
@@ -630,7 +626,6 @@ module mod_plasma_response
                               d_vec(1)*J_vec(2) - d_vec(2)*J_vec(1) /)
     
               dB(:)     =  cross(:) / (dd**3.d0) / (4.d0*PI) * wst * xjac * R * delta_phi ! no mu_0, because also no mu_0 in curl(B)
-              !dB(:)     =  wst * xjac * R * delta_phi ! no mu_0, because also no mu_0 in curl(B)
     
               bx_tmp(i) = bx_tmp(i) + dB(1)
               by_tmp(i) = by_tmp(i) + dB(2)
