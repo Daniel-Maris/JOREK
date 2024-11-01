@@ -26,6 +26,7 @@ real*8,parameter  :: tol_real8=1.d-15
 integer           :: rank_loc,n_tasks_loc,ifail_loc
 integer           :: mpi_comm_test,mpi_info_test
 logical           :: use_hdf5_access_properties,mpio_collective
+logical           :: use_native_hdf5_mpio
 
 !> Interfaces -------------------------------------------
 contains
@@ -93,6 +94,7 @@ subroutine setup(rank,n_tasks,ifail)
   rank_loc = rank; n_tasks_loc = n_tasks; ifail_loc = ifail;
   mpi_comm_test = MPI_COMM_WORLD; call MPI_Info_create(mpi_info_test,ifail);
   use_hdf5_access_properties=.false.; mpio_collective=.true.;
+  use_native_hdf5_mpio=.true.
 
   !> initialize the particle simulation
   call sim_particles%initialize(n_groups,.false.,rank,n_tasks,.false.)
@@ -119,7 +121,7 @@ subroutine setup(rank,n_tasks,ifail)
 
   !> write filename with new and original methods
   call write_simulation_hdf5(sim_particles,trim(test_filename),&
-  use_hdf5_access_properties=use_hdf5_access_properties,&
+  use_native_hdf5_mpio_in=use_native_hdf5_mpio,use_hdf5_access_properties=use_hdf5_access_properties,&
   collective_mpio_in=mpio_collective,mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test)
   call write_simulation_hdf5_original(sim_particles,trim(test_filename_original))
 end subroutine setup
