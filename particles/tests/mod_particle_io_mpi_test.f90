@@ -123,7 +123,9 @@ subroutine setup(rank,n_tasks,ifail)
   call write_simulation_hdf5(sim_particles,trim(test_filename),&
   use_native_hdf5_mpio_in=use_native_hdf5_mpio,use_hdf5_access_properties=use_hdf5_access_properties,&
   collective_mpio_in=mpio_collective,mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test)
-  call write_simulation_hdf5_original(sim_particles,trim(test_filename_original))
+  call write_simulation_hdf5(sim_particles,trim(test_filename_original),&
+  use_native_hdf5_mpio_in=.false.,use_hdf5_access_properties=.true.,&
+  mpi_comm_in=mpi_comm_test)
 end subroutine setup
 
 !> tear-down the test simulation features
