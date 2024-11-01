@@ -320,27 +320,30 @@ module hdf5_io_module
   ! are defined
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   charvar:            (character)(*) character to be written in file
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   mpi_rank:           (integer)(optional) identifier of the MPI task
-  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
-  !   mpi_comm_in:        (integer)(optional) identifier of the MPI communicator
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   charvar:              (character)(*) character to be written in file
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:             (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:          (integer)(optional) number of MPI tasks
+  !   mpi_comm_in:          (integer)(optional) identifier of the MPI communicator
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_char_saving(file_id,charvar,dsetname,mpi_rank,&
-  n_mpi_tasks,mpi_comm_in,mpio_collective_in)
+  subroutine HDF5_char_saving(file_id,charvar,dsetname,mpi_rank,n_mpi_tasks,&
+  mpi_comm_in,use_hdf5_parallel_in,mpio_collective_in)
 #ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX,MPI_IN_PLACE
 #else
     use mpi
 #endif
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     character(LEN=*), intent(in) :: charvar
     character(LEN=*), intent(in) :: dsetname  ! dataset name
     integer,optional, intent(in) :: mpi_rank,n_mpi_tasks,mpi_comm_in
-    logical,optional, intent(in) :: mpio_collective_in
+    logical,optional, intent(in) :: use_hdf5_parallel_in,mpio_collective_in
 
     integer              :: ierr_HDF5  ! error flag
     integer              :: rank       ! dataset rank
@@ -352,6 +355,7 @@ module hdf5_io_module
     integer(HID_T)       :: dataspace  ! dataspace identifier
     integer(HID_T)       :: type_id    ! datatype identifier
     integer(HID_T)       :: transfer_property ! property for dset transfer
+    logical              :: use_hdf5_parallel ! use parallel dset transfer
     logical              :: mpio_collective   ! MPIO collective/individual toggle
 
    !*** Find the maximum string length and create the hdf5 string type
@@ -367,7 +371,9 @@ module hdf5_io_module
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
    !*** Create and initialize dataspaces for datasets ***
     dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
@@ -403,22 +409,25 @@ module hdf5_io_module
   ! start must be defined.
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array1D:            (character)(*)(:) array of characters to be written in file
-  !   dim1:               (integer) size of the array
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (integer)(1)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   mpi_comm_in:        (integer)(optional) identifier of the MPI communicator
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array1D:              (character)(*)(:) array of characters to be written in file
+  !   dim1:                 (integer) size of the array
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (integer)(1)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   mpi_comm_in:          (integer)(optional) identifier of the MPI communicator
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,&
-  start,mpi_comm_in,mpio_collective_in)
+  subroutine HDF5_array1D_saving_char(file_id,array1D,dim1,dsetname,start,&
+  mpi_comm_in,use_hdf5_parallel_in,mpio_collective_in)
 #ifdef __GFORTRAN__
     use mpi, only: MPI_Allreduce,MPI_INTEGER,MPI_MAX,MPI_IN_PLACE
 #else
     use mpi
 #endif
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)                , intent(in) :: file_id   ! file identifier
     character(LEN=*), dimension(:), intent(in) :: array1D
@@ -426,6 +435,7 @@ module hdf5_io_module
     character(LEN=*)              , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: mpi_comm_in
+    logical                       , intent(in), optional :: use_hdf5_parallel_in
     logical                       , intent(in), optional :: mpio_collective_in
 
     integer              :: ii
@@ -439,7 +449,7 @@ module hdf5_io_module
     integer(HID_T)       :: type_id           ! char datatype identifier
     integer(HID_T)       :: filespace         ! filespace identifier
     integer(HID_T)       :: transfer_property ! Transfer property list identifier
-    logical              :: mpio_collective
+    logical              :: use_hdf5_parallel,mpio_collective
 
     !*** compute and max reduce the lenght of all strings ***
     !*** for each MPI rank ***
@@ -455,7 +465,9 @@ module hdf5_io_module
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Set the maximum char length of HDF5 IO **
     call h5tcopy_f(H5T_NATIVE_CHARACTER,type_id,ierr_HDF5)
@@ -494,21 +506,24 @@ module hdf5_io_module
   ! if the variable mpi_rank and n_mpi_tasks are enabled 
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   intv:               (integer) integer to be written in HDF5 file
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   mpi_rank:           (integer)(optional) identifier of the MPI task
-  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   intv:                 (integer) integer to be written in HDF5 file
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:             (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:          (integer)(optional) number of MPI tasks
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
   subroutine HDF5_integer_saving(file_id,intv,dsetname,mpi_rank,&
-  n_mpi_tasks,mpio_collective_in)
+  n_mpi_tasks,use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     integer         , intent(in) :: intv
     character(LEN=*), intent(in) :: dsetname  ! dataset name
     integer,optional, intent(in) :: mpi_rank,n_mpi_tasks
-    logical,optional, intent(in) :: mpio_collective_in
+    logical,optional, intent(in) :: use_hdf5_parallel_in,mpio_collective_in
 
     integer              :: error      ! error flag
     integer              :: rank       ! dataset rank
@@ -518,12 +533,14 @@ module hdf5_io_module
     integer(HID_T)       :: dataset    ! dataset identifier
     integer(HID_T)       :: dataspace  ! dataspace identifier
     integer(HID_T)       :: transfer_property ! Transfer property list identifier
-    logical              :: mpio_collective
+    logical              :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
@@ -556,20 +573,24 @@ module hdf5_io_module
   ! if the variable mpi_rank and n_mpi_tasks are enabled 
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   rd:                 (real8) double float to be written in HDF5 file
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   mpi_rank:           (integer)(optional) identifier of the MPI task
-  !   n_mpi_tasks:        (integer)(optional) number of MPI tasks
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   rd:                   (real8) double float to be written in HDF5 file
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   mpi_rank:             (integer)(optional) identifier of the MPI task
+  !   n_mpi_tasks:          (integer)(optional) number of MPI tasks
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_real_saving(file_id,rd,dsetname,mpi_rank,n_mpi_tasks,mpio_collective_in)
+  subroutine HDF5_real_saving(file_id,rd,dsetname,mpi_rank,n_mpi_tasks,&
+  use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)  , intent(in) :: file_id   ! file identifier
     real*8          , intent(in) :: rd
     character(LEN=*), intent(in) :: dsetname  ! dataset name
     integer,optional, intent(in) :: mpi_rank,n_mpi_tasks
-    logical,optional, intent(in) :: mpio_collective_in
+    logical,optional, intent(in) :: use_hdf5_parallel_in,mpio_collective_in
 
     integer              :: error      ! error flag
     integer              :: rank       ! dataset rank
@@ -579,12 +600,14 @@ module hdf5_io_module
     integer(HID_T)       :: dataset           ! dataset identifier
     integer(HID_T)       :: dataspace         ! dataspace identifier
     integer(HID_T)       :: transfer_property ! Transfer property list identifier
-    logical              :: mpio_collective
+    logical              :: mpio_collective,use_hdf5_parallel
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = 1; if(present(n_mpi_tasks).and.present(mpi_rank)) dim(1) = n_mpi_tasks;
@@ -620,16 +643,20 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array1D:            (integer)(:) array of integers to be written in file
-  !   dim1:               (integer) size of the array
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array1D:              (integer)(:) array of integers to be written in file
+  !   dim1:                 (integer) size of the array
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
+  subroutine HDF5_array1D_saving_int(file_id,array1D,dim1,dsetname,start,compress_level,&
+    use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     integer, dimension(:), intent(in) :: array1D
@@ -637,6 +664,7 @@ module hdf5_io_module
     character(LEN=*)     , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: use_hdf5_parallel_in
     logical                       , intent(in), optional :: mpio_collective_in !< hdf5 dataset transfer properties
 
     integer             :: error      ! error flag
@@ -648,12 +676,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace         ! dataspace identifier
     integer(HID_T)      :: property          ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: mpio_collective,use_hdf5_parallel
 
     !*** Check property for parallel IO
-    mpio_collective = .true.
-    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    mpio_collective   = .true.
+    if(present(mpio_collective_in)) mpio_collective = mpio_collective_in 
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -700,25 +730,27 @@ module hdf5_io_module
   ! Otherwise, native HDF5 implementation is used
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array1D:            (integer)(:) array of integers of each MPI task
-  !   dim1_tot:           (integer) total size of all arrays sum(dim1_all_tasks)
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
-  !   dim1_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
-  !   displs:             (integer)(n_cpu)(optional) each element specifies the displacement relative to
-  !                       the receive MPI buffer at which to place the incoming data from processes
-  !   mpi_rank:           (integer)(optional) identifier of the current MPI task
-  !   n_cpu:              (integer)(optional) number of MPI tasks
-  !   mpi_comm_loc:       (integer)(optional) MPI communicator identifier
-  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer)(optional) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
+  !   file_id:              (HID_T) file identifier
+  !   array1D:              (integer)(:) array of integers of each MPI task
+  !   dim1_tot:             (integer) total size of all arrays sum(dim1_all_tasks)
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   use_gatherv:          (logical) if true use gatherv parallelization, HDF5-IO is used is false
+  !   dim1_all_tasks:       (integer)(n_cpu)(optional) size of the array of each task
+  !   displs:               (integer)(n_cpu)(optional) each element specifies the displacement relative to
+  !                         the receive MPI buffer at which to place the incoming data from processes
+  !   mpi_rank:             (integer)(optional) identifier of the current MPI task
+  !   n_cpu:                (integer)(optional) number of MPI tasks
+  !   mpi_comm_loc:         (integer)(optional) MPI communicator identifier
+  !   start:                (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer)(optional) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) use native HDF5 parallel if true and if
+  !                         use_gatherv is false
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array1D_saving_int_native_or_gatherv(file_id,array1D,dim1_tot,dsetname,&
     use_gatherv,dim1_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,compress_level,&
-    mpio_collective_in)
+    use_hdf5_parallel_in,mpio_collective_in)
     use mpi
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
@@ -730,16 +762,19 @@ module hdf5_io_module
     integer, dimension(:)         , intent(in), optional :: dim1_all_tasks,displs
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    logical                       , intent(in), optional :: mpio_collective_in
+    logical                       , intent(in), optional :: use_hdf5_parallel_in,mpio_collective_in
     integer                      :: ierr
     integer, dimension(dim1_tot) :: array1D_tot
-    logical                      :: use_gatherv_loc, mpio_collective
+    logical                      :: use_gatherv_loc,use_hdf5_parallel,mpio_collective
 
     ! check preset
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
-    use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
+    use_gatherv_loc=use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
     present(mpi_comm_loc).and.present(dim1_all_tasks).and.present(displs)
+    use_hdf5_parallel=.false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel=use_hdf5_parallel_in
+    if(use_gatherv_loc) use_hdf5_parallel=.not.use_gatherv_loc
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
@@ -747,29 +782,36 @@ module hdf5_io_module
       dim1_all_tasks,displs,MPI_INTEGER,master_task,mpi_comm_loc,ierr)
       if(mpi_rank.eq.master_task) then
         if(present(start).and.present(compress_level)) then
-          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,&
-          start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,start=start,&
+          compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else if(present(start)) then
-          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,start=start)
+          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,start=start,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         else if(present(compress_level)) then
-          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,compress_level=compress_level)
+          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,compress_level=compress_level,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         else
-          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname)
+          call HDF5_array1D_saving_int(file_id,array1D_tot,dim1_tot,dsetname,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         endif
       endif
     else
       if(present(start).and.present(compress_level)) then
         call HDF5_array1D_saving_int(file_id,array1D,dim1_tot,dsetname,&
-        start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        start=start,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else if(present(start)) then
         call HDF5_array1D_saving_int(file_id,array1D,dim1_tot,dsetname,&
-        start=start,mpio_collective_in=mpio_collective)
+        start=start,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else if(present(compress_level)) then
         call HDF5_array1D_saving_int(file_id,array1D,dim1_tot,dsetname,&
-        compress_level=compress_level,mpio_collective_in=mpio_collective)
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else
         call HDF5_array1D_saving_int(file_id,array1D,dim1_tot,dsetname,&
-        mpio_collective_in=mpio_collective)
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       endif
     endif
   end subroutine HDF5_array1D_saving_int_native_or_gatherv
@@ -781,17 +823,21 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array2D:            (integer)(:,:) array of integers to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dim2:               (integer) size of the second array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array2D:              (integer)(:,:) array of integers to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dim2:                 (integer) size of the second array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,compress_level,mpio_collective_in)
+  subroutine HDF5_array2D_saving_int(file_id,array2D,dim1,dim2,dsetname,start,&
+  compress_level,use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)           , intent(in) :: file_id   ! file identifier
     integer, dimension(:,:)  , intent(in) :: array2D
@@ -799,6 +845,7 @@ module hdf5_io_module
     character(LEN=*)         , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)         , intent(in), optional :: start(2) !< Begin position of data
     integer                  , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                  , intent(in), optional :: use_hdf5_parallel_in !< use parallel hdf5 io
     logical                  , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
@@ -810,12 +857,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
     
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -863,26 +912,28 @@ module hdf5_io_module
   ! Otherwise, native HDF5 implementation is used
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array2D:            (integer)(:,:) array of integers of each MPI task
-  !   dim1_tot:           (integer) total size of first dimension of all arrays 
-  !   dim2_tot            (integer) total size of second dimension of all arrays sum(dim1_all_tasks)
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
-  !   dim2_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
-  !   displs:             (integer)(n_cpu)(optional) each element specifies the displacement relative to
-  !                       the receive MPI buffer at which to place the incoming data from processes
-  !   mpi_rank:           (integer)(optional) identifier of the current MPI task
-  !   n_cpu:              (integer)(optional) number of MPI tasks
-  !   mpi_comm_loc:       (integer)(optional) MPI communicator identifier
-  !   start:              (HSIZE_T)(2)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer)(optional) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
+  !   file_id:              (HID_T) file identifier
+  !   array2D:              (integer)(:,:) array of integers of each MPI task
+  !   dim1_tot:             (integer) total size of first dimension of all arrays 
+  !   dim2_tot              (integer) total size of second dimension of all arrays sum(dim1_all_tasks)
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   use_gatherv:          (logical) if true use gatherv parallelization, HDF5-IO is used is false
+  !   dim2_all_tasks:       (integer)(n_cpu)(optional) size of the array of each task
+  !   displs:               (integer)(n_cpu)(optional) each element specifies the displacement relative to
+  !                         the receive MPI buffer at which to place the incoming data from processes
+  !   mpi_rank:             (integer)(optional) identifier of the current MPI task
+  !   n_cpu:                (integer)(optional) number of MPI tasks
+  !   mpi_comm_loc:         (integer)(optional) MPI communicator identifier
+  !   start:                (HSIZE_T)(2)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer)(optional) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) use native HDF5 parallel if true and if
+  !                         use_gatherv is false
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array2D_saving_int_native_or_gatherv(file_id,array2D,dim1_tot,dim2_tot,&
     dsetname,use_gatherv,dim2_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
-    compress_level,mpio_collective_in)
+    compress_level,use_hdf5_parallel_in,mpio_collective_in)
     use mpi
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
@@ -894,16 +945,19 @@ module hdf5_io_module
     integer, dimension(:)         , intent(in), optional :: dim2_all_tasks,displs
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    logical                       , intent(in), optional :: mpio_collective_in
+    logical                       , intent(in), optional :: use_hdf5_parallel_in,mpio_collective_in
     integer                               :: ii,ierr
     integer, dimension(dim1_tot,dim2_tot) :: array2D_tot
-    logical                               :: use_gatherv_loc, mpio_collective
+    logical                               :: use_gatherv_loc,use_hdf5_parallel,mpio_collective
 
     ! check preset
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
-    use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
+    use_gatherv_loc=use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
     present(mpi_comm_loc).and.present(dim2_all_tasks).and.present(displs)
+    use_hdf5_parallel=.false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel=use_hdf5_parallel_in
+    if(use_gatherv_loc) use_hdf5_parallel=.not.use_gatherv_loc
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
@@ -915,29 +969,34 @@ module hdf5_io_module
       if(mpi_rank.eq.master_task) then
         if(present(start).and.present(compress_level)) then
           call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,&
-          start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+          start=start,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else if(present(start)) then
-          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,start=start)
+          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,&
+          start=start,use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         else if(present(compress_level)) then
           call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,&
-          dsetname,compress_level=compress_level)
+          dsetname,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else
-          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname)
+          call HDF5_array2D_saving_int(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         endif
       endif
     else
       if(present(start).and.present(compress_level)) then
-        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
-        start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,start=start,&
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       else if(present(start)) then
-        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
-        start=start,mpio_collective_in=mpio_collective)
+        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,start=start,&
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       else if(present(compress_level)) then
         call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
-        compress_level=compress_level,mpio_collective_in=mpio_collective)
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else
-        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,&
-        dsetname,mpio_collective_in=mpio_collective)
+        call HDF5_array2D_saving_int(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       endif
     endif
   end subroutine HDF5_array2D_saving_int_native_or_gatherv
@@ -949,25 +1008,30 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array3D:            (integer)(:,:,:) array of integers to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dim2:               (integer) size of the second array dimension
-  !   dim3:               (integer) size of the third array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(3)(optional) starting indexes of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array3D:              (integer)(:,:,:) array of integers to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dim2:                 (integer) size of the second array dimension
+  !   dim3:                 (integer) size of the third array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(3)(optional) starting indexes of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array3D_saving_int(file_id,array3D, &
-    dim1,dim2,dim3,dsetname,start,compress_level,mpio_collective_in)
+  subroutine HDF5_array3D_saving_int(file_id,array3D,dim1,dim2,dim3,dsetname,start,&
+  compress_level,use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
+    implicit none
     integer(HID_T)           , intent(in) :: file_id   ! file identifier
     integer, dimension(:,:,:), intent(in) :: array3D
     integer                  , intent(in) :: dim1, dim2, dim3
     character(LEN=*)         , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to write
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: use_hdf5_parallel_in !< parallel hdf5 io 
     logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
@@ -979,12 +1043,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1030,16 +1096,20 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array1D:            (real4)(:) array of single precision floats to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array1D:              (real4)(:) array of single precision floats to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
+  subroutine HDF5_array1D_saving_r4(file_id,array1D,dim1,dsetname,start,compress_level,&
+   use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)       , intent(in) :: file_id   ! file identifier
     real(4), dimension(:), intent(in) :: array1D
@@ -1047,6 +1117,7 @@ module hdf5_io_module
     character(LEN=*)     , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)     , intent(in), optional :: start(1) !< Begin position of data
     integer              , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical              , intent(in), optional :: use_hdf5_parallel_in !< use parallel hdf5 io 
     logical              , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
@@ -1058,12 +1129,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1110,25 +1183,27 @@ module hdf5_io_module
   ! Otherwise, native HDF5 implementation is used
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array1D:            (real4)(:) array of floats of each MPI task
-  !   dim1_tot:           (integer) total size of all arrays sum(dim1_all_tasks)
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
-  !   dim1_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
-  !   displs:             (integer)(n_cpu)(optional) each element specifies the displacement relative to
-  !                       the receive MPI buffer at which to place the incoming data from processes
-  !   mpi_rank:           (integer)(optional) identifier of the current MPI task
-  !   n_cpu:              (integer)(optional) number of MPI tasks
-  !   mpi_comm_loc:       (integer)(optional) MPI communicator identifier
-  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer)(optional) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
+  !   file_id:              (HID_T) file identifier
+  !   array1D:              (real4)(:) array of floats of each MPI task
+  !   dim1_tot:             (integer) total size of all arrays sum(dim1_all_tasks)
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   use_gatherv:          (logical) if true use gatherv parallelization, HDF5-IO is used is false
+  !   dim1_all_tasks:       (integer)(n_cpu)(optional) size of the array of each task
+  !   displs:               (integer)(n_cpu)(optional) each element specifies the displacement relative to
+  !                         the receive MPI buffer at which to place the incoming data from processes
+  !   mpi_rank:             (integer)(optional) identifier of the current MPI task
+  !   n_cpu:                (integer)(optional) number of MPI tasks
+  !   mpi_comm_loc:         (integer)(optional) MPI communicator identifier
+  !   start:                (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer)(optional) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) use native HDF5 parallel if true and if
+  !                         use_gatherv is false
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array1D_saving_r4_native_or_gatherv(file_id,array1D,dim1_tot,dsetname,&
     use_gatherv,dim1_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,compress_level,&
-    mpio_collective_in)
+    use_hdf5_parallel_in,mpio_collective_in)
     use mpi
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
@@ -1140,16 +1215,19 @@ module hdf5_io_module
     integer, dimension(:)         , intent(in), optional :: dim1_all_tasks,displs
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    logical                       , intent(in), optional :: mpio_collective_in
+    logical                       , intent(in), optional :: use_hdf5_parallel_in,mpio_collective_in
     integer                      :: ierr
     real*4,  dimension(dim1_tot) :: array1D_tot
-    logical                      :: use_gatherv_loc, mpio_collective
+    logical                      :: use_gatherv_loc,use_hdf5_parallel,mpio_collective
 
     ! check preset
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
-    use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
+    use_gatherv_loc=use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
     present(mpi_comm_loc).and.present(dim1_all_tasks).and.present(displs)
+    use_hdf5_parallel=.false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel=use_hdf5_parallel_in
+    if(use_gatherv_loc) use_hdf5_parallel=.not.use_gatherv_loc
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
@@ -1158,28 +1236,35 @@ module hdf5_io_module
       if(mpi_rank.eq.master_task) then
         if(present(start).and.present(compress_level)) then
           call HDF5_array1D_saving_r4(file_id,array1D_tot,dim1_tot,dsetname,&
-          start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+          start=start,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else if(present(start)) then
-          call HDF5_array1D_saving_r4(file_id,array1D_tot,dim1_tot,dsetname,start=start)
+          call HDF5_array1D_saving_r4(file_id,array1D_tot,dim1_tot,dsetname,start=start,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         else if(present(compress_level)) then
-          call HDF5_array1D_saving_r4(file_id,array1D_tot,dim1_tot,dsetname,compress_level=compress_level)
+          call HDF5_array1D_saving_r4(file_id,array1D_tot,dim1_tot,dsetname,&
+          compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else
-          call HDF5_array1D_saving_r4(file_id,array1D_tot,dim1_tot,dsetname)
+          call HDF5_array1D_saving_r4(file_id,array1D_tot,dim1_tot,dsetname,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         endif
       endif
     else
       if(present(start).and.present(compress_level)) then
-        call HDF5_array1D_saving_r4(file_id,array1D,dim1_tot,dsetname,&
-        start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        call HDF5_array1D_saving_r4(file_id,array1D,dim1_tot,dsetname,start=start,&
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else if(present(start)) then
-        call HDF5_array1D_saving_r4(file_id,array1D,dim1_tot,dsetname,&
-        start=start,mpio_collective_in=mpio_collective)
+        call HDF5_array1D_saving_r4(file_id,array1D,dim1_tot,dsetname,start=start,&
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       else if(present(compress_level)) then
         call HDF5_array1D_saving_r4(file_id,array1D,dim1_tot,dsetname,&
-        compress_level=compress_level,mpio_collective_in=mpio_collective)
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else
         call HDF5_array1D_saving_r4(file_id,array1D,dim1_tot,dsetname,&
-        mpio_collective_in=mpio_collective)
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       endif
     endif
   end subroutine HDF5_array1D_saving_r4_native_or_gatherv
@@ -1191,16 +1276,20 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array1D:            (real8)(:) array of double precision floats to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array1D:              (real8)(:) array of double precision floats to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,mpio_collective_in)
+  subroutine HDF5_array1D_saving(file_id,array1D,dim1,dsetname,start,compress_level,&
+  use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)      , intent(in) :: file_id   ! file identifier
     real*8, dimension(:), intent(in) :: array1D
@@ -1208,6 +1297,7 @@ module hdf5_io_module
     character(LEN=*)    , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T)    , intent(in), optional :: start(1) !< Begin position of data
     integer             , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical             , intent(in), optional :: use_hdf5_parallel_in !< use parallel hdf5 io
     logical             , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
@@ -1219,12 +1309,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1271,25 +1363,27 @@ module hdf5_io_module
   ! Otherwise, native HDF5 implementation is used
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array1D:            (real8)(:) array of floats of each MPI task
-  !   dim1_tot:           (integer) total size of all arrays sum(dim1_all_tasks)
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
-  !   dim1_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
-  !   displs:             (integer)(n_cpu)(optional) each element specifies the displacement relative to
-  !                       the receive MPI buffer at which to place the incoming data from processes
-  !   mpi_rank:           (integer)(optional) identifier of the current MPI task
-  !   n_cpu:              (integer)(optional) number of MPI tasks
-  !   mpi_comm_loc:       (integer)(optional) MPI communicator identifier
-  !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer)(optional) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
+  !   file_id:              (HID_T) file identifier
+  !   array1D:              (real8)(:) array of floats of each MPI task
+  !   dim1_tot:             (integer) total size of all arrays sum(dim1_all_tasks)
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   use_gatherv:          (logical) if true use gatherv parallelization, HDF5-IO is used is false
+  !   dim1_all_tasks:       (integer)(n_cpu)(optional) size of the array of each task
+  !   displs:               (integer)(n_cpu)(optional) each element specifies the displacement relative to
+  !                         the receive MPI buffer at which to place the incoming data from processes
+  !   mpi_rank:             (integer)(optional) identifier of the current MPI task
+  !   n_cpu:                (integer)(optional) number of MPI tasks
+  !   mpi_comm_loc:         (integer)(optional) MPI communicator identifier
+  !   start:                (HSIZE_T)(1)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer)(optional) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) use native HDF5 parallel if true and if
+  !                         use_gatherv is false
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array1D_saving_native_or_gatherv(file_id,array1D,dim1_tot,dsetname,&
     use_gatherv,dim1_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,compress_level,&
-    mpio_collective_in)
+    use_hdf5_parallel_in,mpio_collective_in)
     use mpi
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
@@ -1301,16 +1395,19 @@ module hdf5_io_module
     integer, dimension(:)         , intent(in), optional :: dim1_all_tasks,displs
     integer(HSIZE_T), dimension(1), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    logical                       , intent(in), optional :: mpio_collective_in
+    logical                       , intent(in), optional :: use_hdf5_parallel_in,mpio_collective_in
     integer                      :: ierr
     real*8,  dimension(dim1_tot) :: array1D_tot
-    logical                      :: use_gatherv_loc, mpio_collective
+    logical                      :: use_gatherv_loc,use_hdf5_parallel,mpio_collective
 
     ! check preset
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
-    use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
+    use_gatherv_loc=use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
     present(mpi_comm_loc).and.present(dim1_all_tasks).and.present(displs)
+    use_hdf5_parallel=.false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel=use_hdf5_parallel_in
+    if(use_gatherv_loc) use_hdf5_parallel=.not.use_gatherv_loc
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
@@ -1318,29 +1415,36 @@ module hdf5_io_module
       dim1_all_tasks,displs,MPI_REAL8,master_task,mpi_comm_loc,ierr)
       if(mpi_rank.eq.master_task) then
         if(present(start).and.present(compress_level)) then
-          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname,&
-          start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname,start=start,&
+          compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else if(present(start)) then
-          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname,start=start)
+          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname,start=start,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         else if(present(compress_level)) then
-          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname,compress_level=compress_level)
+          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname,&
+          compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else
-          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname)
+          call HDF5_array1D_saving(file_id,array1D_tot,dim1_tot,dsetname,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         endif
       endif
     else
       if(present(start).and.present(compress_level)) then
-        call HDF5_array1D_saving(file_id,array1D,dim1_tot,dsetname,&
-        start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        call HDF5_array1D_saving(file_id,array1D,dim1_tot,dsetname,start=start,&
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else if(present(start)) then
         call HDF5_array1D_saving(file_id,array1D,dim1_tot,dsetname,&
         start=start,mpio_collective_in=mpio_collective)
       else if(present(compress_level)) then
         call HDF5_array1D_saving(file_id,array1D,dim1_tot,dsetname,&
-        compress_level=compress_level,mpio_collective_in=mpio_collective)
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else
         call HDF5_array1D_saving(file_id,array1D,dim1_tot,dsetname,&
-        mpio_collective_in=mpio_collective)
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       endif
     endif
   end subroutine HDF5_array1D_saving_native_or_gatherv
@@ -1352,17 +1456,21 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array2D:            (real8)(:,:) array of double precision floats to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dim2:               (integer) size of the second array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array2D:              (real8)(:,:) array of double precision floats to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dim2:                 (integer) size of the second array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(2)(optional) starting indexes of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,mpio_collective_in)
+  subroutine HDF5_array2D_saving(file_id,array2D,dim1,dim2,dsetname,start,compress_level,&
+  use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)        , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:), intent(in) :: array2D
@@ -1370,6 +1478,7 @@ module hdf5_io_module
     character(LEN=*)      , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Offset of array to write
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: use_hdf5_parallel_in !< use parallel hdf5
     logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer              :: error      ! error flag
@@ -1381,12 +1490,14 @@ module hdf5_io_module
     integer(HID_T)       :: filespace  ! dataspace identifier
     integer(HID_T)       :: property   ! Property list identifier 
     integer(HID_T)       :: transfer_property ! Transfer property list identifier
-    logical              :: mpio_collective
+    logical              :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1434,26 +1545,28 @@ module hdf5_io_module
   ! Otherwise, native HDF5 implementation is used
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array2D:            (real8)(:,:) array of integers of each MPI task
-  !   dim1_tot:           (integer) total size of first dimension of all arrays 
-  !   dim2_tot            (integer) total size of second dimension of all arrays sum(dim2_all_tasks)
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   use_gatherv:        (logical) if true use gatherv parallelization, HDF5-IO is used is false
-  !   dim2_all_tasks:     (integer)(n_cpu)(optional) size of the array of each task
-  !   displs:             (integer)(n_cpu)(optional) each element specifies the displacement relative to
-  !                       the receive MPI buffer at which to place the incoming data from processes
-  !   mpi_rank:           (integer)(optional) identifier of the current MPI task
-  !   n_cpu:              (integer)(optional) number of MPI tasks
-  !   mpi_comm_loc:       (integer)(optional) MPI communicator identifier
-  !   start:              (HSIZE_T)(2)(optional) starting index of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer)(optional) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
+  !   file_id:              (HID_T) file identifier
+  !   array2D:              (real8)(:,:) array of integers of each MPI task
+  !   dim1_tot:             (integer) total size of first dimension of all arrays 
+  !   dim2_tot              (integer) total size of second dimension of all arrays sum(dim2_all_tasks)
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   use_gatherv:          (logical) if true use gatherv parallelization, HDF5-IO is used is false
+  !   dim2_all_tasks:       (integer)(n_cpu)(optional) size of the array of each task
+  !   displs:               (integer)(n_cpu)(optional) each element specifies the displacement relative to
+  !                         the receive MPI buffer at which to place the incoming data from processes
+  !   mpi_rank:             (integer)(optional) identifier of the current MPI task
+  !   n_cpu:                (integer)(optional) number of MPI tasks
+  !   mpi_comm_loc:         (integer)(optional) MPI communicator identifier
+  !   start:                (HSIZE_T)(2)(optional) starting index of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer)(optional) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) use native HDF5 parallel if true and if
+  !                         use_gatherv is false
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array2D_saving_native_or_gatherv(file_id,array2D,dim1_tot,dim2_tot,&
     dsetname,use_gatherv,dim2_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
-    compress_level,mpio_collective_in)
+    compress_level,use_hdf5_parallel_in,mpio_collective_in)
     use mpi
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
@@ -1465,16 +1578,19 @@ module hdf5_io_module
     integer, dimension(:)         , intent(in), optional :: dim2_all_tasks,displs
     integer(HSIZE_T), dimension(2), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    logical                       , intent(in), optional :: mpio_collective_in
+    logical                       , intent(in), optional :: use_hdf5_parallel_in,mpio_collective_in
     integer                              :: ii,ierr
     real*8, dimension(dim1_tot,dim2_tot) :: array2D_tot
-    logical                              :: use_gatherv_loc, mpio_collective
+    logical                              :: use_gatherv_loc,use_hdf5_parallel,mpio_collective
 
     ! check preset
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
-    use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
+    use_gatherv_loc=use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
     present(mpi_comm_loc).and.present(dim2_all_tasks).and.present(displs)
+    use_hdf5_parallel=.false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel=use_hdf5_parallel_in
+    if(use_gatherv_loc) use_hdf5_parallel=.not.use_gatherv_loc
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
@@ -1486,29 +1602,35 @@ module hdf5_io_module
       if(mpi_rank.eq.master_task) then
         if(present(start).and.present(compress_level)) then
           call HDF5_array2D_saving(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,&
-          start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+          start=start,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else if(present(start)) then
-          call HDF5_array2D_saving(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,start=start)
+          call HDF5_array2D_saving(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,&
+          start=start,mpio_collective_in=mpio_collective,use_hdf5_parallel_in=use_hdf5_parallel)
         else if(present(compress_level)) then
           call HDF5_array2D_saving(file_id,array2D_tot,dim1_tot,dim2_tot,&
-          dsetname,compress_level=compress_level)
+          dsetname,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else
-          call HDF5_array2D_saving(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname)
+          call HDF5_array2D_saving(file_id,array2D_tot,dim1_tot,dim2_tot,dsetname,&
+          use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
         endif
       endif
     else
       if(present(start).and.present(compress_level)) then
         call HDF5_array2D_saving(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
-        start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        start=start,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else if(present(start)) then
-        call HDF5_array2D_saving(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
-        start=start,mpio_collective_in=mpio_collective)
+        call HDF5_array2D_saving(file_id,array2D,dim1_tot,dim2_tot,dsetname,start=start,&
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       else if(present(compress_level)) then
         call HDF5_array2D_saving(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
-        compress_level=compress_level,mpio_collective_in=mpio_collective)
+        compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else
-        call HDF5_array2D_saving(file_id,array2D,dim1_tot,dim2_tot,&
-        dsetname,mpio_collective_in=mpio_collective)
+        call HDF5_array2D_saving(file_id,array2D,dim1_tot,dim2_tot,dsetname,&
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       endif
     endif
   end subroutine HDF5_array2D_saving_native_or_gatherv
@@ -1520,19 +1642,22 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array3D:            (real8)(:,:,:) array of double precision floats to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dim2:               (integer) size of the second array dimension
-  !   dim3:               (integer) size of the third array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(3)(optional) starting indexes of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array3D:              (real8)(:,:,:) array of double precision floats to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dim2:                 (integer) size of the second array dimension
+  !   dim3:                 (integer) size of the third array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(3)(optional) starting indexes of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
-  subroutine HDF5_array3D_saving(file_id,array3D, &
-    dim1,dim2,dim3,dsetname,start,compress_level,mpio_collective_in)
+  subroutine HDF5_array3D_saving(file_id,array3D,dim1,dim2,dim3,dsetname,start,&
+  compress_level,use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)          , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:), intent(in) :: array3D
@@ -1540,6 +1665,7 @@ module hdf5_io_module
     character(LEN=*)        , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Offset of array to write
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: use_hdf5_parallel_in !< use parallel hdf5
     logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
@@ -1551,12 +1677,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1621,11 +1749,13 @@ module hdf5_io_module
   !   start:              (HSIZE_T)(1)(optional) starting index of the input data chunk 
   !                       in the global dataset
   !   compress_level:     (integer)(optional) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true (default)
+  !   use_hdf5_parallel_in: (logical)(optional) use native HDF5 parallel if true and if
+  !                         use_gatherv is false
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true (default)
   !----------------------------------------
   subroutine HDF5_array3D_saving_native_or_gatherv(file_id,array3D,dim1_tot,dim2_tot,&
     dim3_tot,dsetname,use_gatherv,dim3_all_tasks,displs,mpi_rank,n_cpu,mpi_comm_loc,start,&
-    compress_level,mpio_collective_in)
+    compress_level,use_hdf5_parallel_in,mpio_collective_in)
     use mpi
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
@@ -1637,16 +1767,19 @@ module hdf5_io_module
     integer, dimension(:)         , intent(in), optional :: dim3_all_tasks,displs
     integer(HSIZE_T), dimension(3), intent(in), optional :: start !< Begin position of data
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
-    logical                       , intent(in), optional :: mpio_collective_in
+    logical                       , intent(in), optional :: use_hdf5_parallel_in,mpio_collective_in
     integer                                       :: ii,jj,ierr
     real*8, dimension(dim1_tot,dim2_tot,dim3_tot) :: array3D_tot
-    logical                                       :: use_gatherv_loc, mpio_collective
+    logical                                       :: use_gatherv_loc,use_hdf5_parallel,mpio_collective
 
     ! check preset
     mpio_collective=.true.; if(present(mpio_collective_in)) mpio_collective=mpio_collective_in;
     ! check whether gatherv can/should be used default false
-    use_gatherv_loc = use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
+    use_gatherv_loc=use_gatherv.and.present(mpi_rank).and.present(n_cpu).and.&
     present(mpi_comm_loc).and.present(dim3_all_tasks).and.present(displs)
+    use_hdf5_parallel=.false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel=use_hdf5_parallel_in
+    if(use_gatherv_loc) use_hdf5_parallel=.not.use_gatherv_loc
 
     ! Gather all arrays in one
     if(use_gatherv_loc) then
@@ -1660,30 +1793,36 @@ module hdf5_io_module
       if(mpi_rank.eq.master_task) then
         if(present(start).and.present(compress_level)) then
           call HDF5_array3D_saving(file_id,array3D_tot,dim1_tot,dim2_tot,dim3_tot,dsetname,&
-          start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+          start=start,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel)
         else if(present(start)) then
           call HDF5_array3D_saving(file_id,array3D_tot,dim1_tot,dim2_tot,dim3_tot,&
-          dsetname,start=start)
+          dsetname,start=start,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else if(present(compress_level)) then
-          call HDF5_array3D_saving(file_id,array3D_tot,dim1_tot,dim2_tot,&
-          dim3_tot,dsetname,compress_level=compress_level)
+          call HDF5_array3D_saving(file_id,array3D_tot,dim1_tot,dim2_tot,dim3_tot,&
+          dsetname,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         else
-          call HDF5_array3D_saving(file_id,array3D_tot,dim1_tot,dim2_tot,dim3_tot,dsetname)
+          call HDF5_array3D_saving(file_id,array3D_tot,dim1_tot,dim2_tot,&
+          dim3_tot,dsetname,use_hdf5_parallel_in=use_hdf5_parallel,&
+          mpio_collective_in=mpio_collective)
         endif
       endif
     else
       if(present(start).and.present(compress_level)) then
         call HDF5_array3D_saving(file_id,array3D,dim1_tot,dim2_tot,dim3_tot,dsetname,&
-        start=start,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        start=start,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else if(present(start)) then
         call HDF5_array3D_saving(file_id,array3D,dim1_tot,dim2_tot,dim3_tot,dsetname,&
-        start=start,mpio_collective_in=mpio_collective)
+        start=start,use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       else if(present(compress_level)) then
         call HDF5_array3D_saving(file_id,array3D,dim1_tot,dim2_tot,dim3_tot,&
-        dsetname,compress_level=compress_level,mpio_collective_in=mpio_collective)
+        dsetname,compress_level=compress_level,use_hdf5_parallel_in=use_hdf5_parallel,&
+        mpio_collective_in=mpio_collective)
       else
-        call HDF5_array3D_saving(file_id,array3D,dim1_tot,dim2_tot,dim3_tot,&
-        dsetname,mpio_collective_in=mpio_collective)
+        call HDF5_array3D_saving(file_id,array3D,dim1_tot,dim2_tot,dim3_tot,dsetname,&
+        use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=mpio_collective)
       endif
     endif
   end subroutine HDF5_array3D_saving_native_or_gatherv
@@ -1695,20 +1834,23 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array4D:            (real8)(:,:,:,:) array of double precision floats to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dim2:               (integer) size of the second array dimension
-  !   dim3:               (integer) size of the third array dimension
-  !   dim4:               (integer) size of the fourth array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(4)(optional) starting indexes of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array4D:              (real8)(:,:,:,:) array of double precision floats to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dim2:                 (integer) size of the second array dimension
+  !   dim3:                 (integer) size of the third array dimension
+  !   dim4:                 (integer) size of the fourth array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(4)(optional) starting indexes of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
   subroutine HDF5_array4D_saving(file_id,array4d,dim1,dim2,dim3,dim4,&
-  dsetname,start,compress_level,mpio_collective_in)
+  dsetname,start,compress_level,use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)            , intent(in) :: file_id   ! file identifier
     real*8, dimension(:,:,:,:), intent(in) :: array4d
@@ -1716,6 +1858,7 @@ module hdf5_io_module
     character(LEN=*)          , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(4), intent(in), optional :: start !< Offset of array to write
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: use_hdf5_parallel_in !< parallel hdf5 io
     logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
@@ -1727,12 +1870,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
     
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1
@@ -1780,21 +1925,24 @@ module hdf5_io_module
   ! if data chunking is not used ("start" is not defined)
   !----------------------------------------
   ! inputs:
-  !   file_id:            (HID_T) file identifier
-  !   array5D:            (real8)(:,:,:,:,:) array of double precision floats to be written in file
-  !   dim1:               (integer) size of the first array dimension
-  !   dim2:               (integer) size of the second array dimension
-  !   dim3:               (integer) size of the third array dimension
-  !   dim4:               (integer) size of the fourth array dimension
-  !   dim5:               (integer) size of the fifth array dimension
-  !   dsetname:           (character)(*) name of the dataset in which the data are written
-  !   start:              (HSIZE_T)(5)(optional) starting indexes of the input data chunk 
-  !                       in the global dataset
-  !   compress_level:     (integer) level of data compression to be used
-  !   mpio_collective_in: (logical)(optional) toggle MPIO collective actions if true
+  !   file_id:              (HID_T) file identifier
+  !   array5D:              (real8)(:,:,:,:,:) array of double precision floats to be written in file
+  !   dim1:                 (integer) size of the first array dimension
+  !   dim2:                 (integer) size of the second array dimension
+  !   dim3:                 (integer) size of the third array dimension
+  !   dim4:                 (integer) size of the fourth array dimension
+  !   dim5:                 (integer) size of the fifth array dimension
+  !   dsetname:             (character)(*) name of the dataset in which the data are written
+  !   start:                (HSIZE_T)(5)(optional) starting indexes of the input data chunk 
+  !                         in the global dataset
+  !   compress_level:       (integer) level of data compression to be used
+  !   use_hdf5_parallel_in: (logical)(optional) if true, dataset transfer property is
+  !                         set to parallel MPIO, H5P_DEFAULT is used otherwise
+  !   mpio_collective_in:   (logical)(optional) toggle MPIO collective actions if true
   !----------------------------------------
   subroutine HDF5_array5D_saving(file_id,array5d,dim1,dim2,dim3,dim4,dim5,&
-  dsetname,start,compress_level,mpio_collective_in)
+  dsetname,start,compress_level,use_hdf5_parallel_in,mpio_collective_in)
+    use hdf5, only: H5P_DEFAULT_F
     implicit none
     integer(HID_T)              , intent(in) :: file_id  ! file identifier
     real*8, dimension(:,:,:,:,:), intent(in) :: array5d
@@ -1803,6 +1951,7 @@ module hdf5_io_module
     character(LEN=*)            , intent(in) :: dsetname  ! dataset name
     integer(HSIZE_T), dimension(5), intent(in), optional :: start !< Offset of array to write
     integer                       , intent(in), optional :: compress_level !< if set and start is not provided compress with this level
+    logical                       , intent(in), optional :: use_hdf5_parallel_in !< use parallel hdf5 io
     logical                       , intent(in), optional :: mpio_collective_in !< HDF5 dataset MPI transfer property
 
     integer             :: error      ! error flag
@@ -1814,12 +1963,14 @@ module hdf5_io_module
     integer(HID_T)      :: filespace  ! dataspace identifier
     integer(HID_T)      :: property   ! Property list identifier 
     integer(HID_T)      :: transfer_property ! Transfer property list identifier
-    logical             :: mpio_collective
+    logical             :: use_hdf5_parallel,mpio_collective
 
     !*** Check property for parallel IO
     mpio_collective = .true.
     if(present(mpio_collective_in)) mpio_collective = mpio_collective_in
-    call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
+    transfer_property = H5P_DEFAULT_F; use_hdf5_parallel = .false.
+    if(present(use_hdf5_parallel_in)) use_hdf5_parallel = use_hdf5_parallel_in
+    if(use_hdf5_parallel) call HDF5_set_parallel_io_properties(transfer_property,mpio_collective)
 
     !*** Create and initialize dataspaces for datasets ***
     dim(1) = dim1

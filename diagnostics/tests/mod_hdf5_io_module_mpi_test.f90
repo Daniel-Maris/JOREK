@@ -27,6 +27,7 @@ real*4,parameter  :: tol_r4=1.d-16
 real*8,parameter  :: tol_r8=1.d-7
 logical,parameter :: access_hdf5_parallel=.true.
 logical,parameter :: mpio_collective=.true.
+logical,parameter :: use_hdf5_mpio=.true.
 character(len=14) :: filename_base="test_hdf5_file"
 character(len=3)  :: extension=".h5"
 character(len=1)  :: rank_format
@@ -211,7 +212,8 @@ subroutine test_HDF5_saving_char()
   test_value = ''; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_char_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
-  n_mpi_tasks=n_tasks_loc,mpi_comm_in=mpi_comm_loc,mpio_collective_in=mpio_collective)
+  n_mpi_tasks=n_tasks_loc,mpi_comm_in=mpi_comm_loc,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_char_reading(file_id,test_value,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
@@ -220,7 +222,8 @@ subroutine test_HDF5_saving_char()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_char_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
-  n_mpi_tasks=n_tasks_loc,mpi_comm_in=mpi_comm_loc,mpio_collective_in=mpio_collective)
+  n_mpi_tasks=n_tasks_loc,mpi_comm_in=mpi_comm_loc,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_allocatable_char_reading(file_id,test_value_alloc,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
@@ -252,7 +255,8 @@ subroutine test_HDF5_array1D_saving_char()
   test_array = ''; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_char(file_id,result_array,n_tasks_loc*n_char,&
-  datasetname,start=offset,mpi_comm_in=mpi_comm_loc,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,mpi_comm_in=mpi_comm_loc,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_char(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_char,&
@@ -280,7 +284,7 @@ subroutine test_HDF5_integer_saving()
   test_value = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_integer_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
-  n_mpi_tasks=n_tasks_loc,mpio_collective_in=mpio_collective)
+  n_mpi_tasks=n_tasks_loc,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_integer_reading(file_id,test_value,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
@@ -317,7 +321,8 @@ subroutine test_HDF5_array1D_saving_int()
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array1D_saving_int_native_or_gatherv(file_id,result_array,sum(elements_all),&
   datasetname,.true.,dim1_all_tasks=elements_all,displs=displs,mpi_rank=rank_loc,&
-  n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)  
+  n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)  
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -329,7 +334,7 @@ subroutine test_HDF5_array1D_saving_int()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -338,7 +343,7 @@ subroutine test_HDF5_array1D_saving_int()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_int_native_or_gatherv(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,.false.,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,.false.,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_int(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -346,7 +351,8 @@ subroutine test_HDF5_array1D_saving_int()
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
-  call HDF5_array1D_saving_int(file_id,result_array,n_elements(1),datasetname)
+  call HDF5_array1D_saving_int(file_id,result_array,n_elements(1),datasetname,&
+  use_hdf5_parallel_in=use_hdf5_mpio)
   call HDF5_allocatable_array1D_reading_int(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -356,7 +362,7 @@ subroutine test_HDF5_array1D_saving_int()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_int(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading_int(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -393,7 +399,8 @@ subroutine test_HDF5_array2D_saving_int()
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array2D_saving_int_native_or_gatherv(file_id,result_array,n_elements(1),&
   sum(elements_all),datasetname,.true.,dim2_all_tasks=elements_all,displs=displs,&
-  mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)
+  mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -405,7 +412,7 @@ subroutine test_HDF5_array2D_saving_int()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array2D_reading_int(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),n_elements(2),&
@@ -413,7 +420,8 @@ subroutine test_HDF5_array2D_saving_int()
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
-  call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_elements(2),datasetname)
+  call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_elements(2),datasetname,&
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading_int(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,test_array_allocatable,&
@@ -422,7 +430,8 @@ subroutine test_HDF5_array2D_saving_int()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_int_native_or_gatherv(file_id,result_array,n_elements(1),&
-  n_tasks_loc*n_elements(2),datasetname,.false.,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(2),datasetname,.false.,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_array2D_reading_int(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),n_elements(2),&
@@ -432,7 +441,7 @@ subroutine test_HDF5_array2D_saving_int()
   test_array_allocatable = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading_int(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,test_array_allocatable,&
@@ -441,7 +450,7 @@ subroutine test_HDF5_array2D_saving_int()
   test_array_allocatable = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_int(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading_int(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,test_array_allocatable,&
@@ -473,7 +482,8 @@ subroutine test_HDF5_array3D_saving_int()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving_int(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_array3D_reading_int(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
@@ -509,7 +519,8 @@ subroutine test_HDF5_array1D_saving_r4()
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array1D_saving_r4_native_or_gatherv(file_id,result_array,sum(elements_all),&
   datasetname,.true.,dim1_all_tasks=elements_all,displs=displs,mpi_rank=rank_loc,&
-  n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)  
+  n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)  
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -521,7 +532,7 @@ subroutine test_HDF5_array1D_saving_r4()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_r4(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_r4(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -530,7 +541,7 @@ subroutine test_HDF5_array1D_saving_r4()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_r4_native_or_gatherv(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,.false.,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,.false.,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading_r4(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -538,7 +549,8 @@ subroutine test_HDF5_array1D_saving_r4()
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
-  call HDF5_array1D_saving_r4(file_id,result_array,n_elements(1),datasetname)
+  call HDF5_array1D_saving_r4(file_id,result_array,n_elements(1),datasetname,&
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading_r4(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -548,7 +560,7 @@ subroutine test_HDF5_array1D_saving_r4()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_r4(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading_r4(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -577,7 +589,7 @@ subroutine test_HDF5_real_saving()
   test_value = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_real_saving(file_id,result_value,datasetname,mpi_rank=rank_loc,&
-  n_mpi_tasks=n_tasks_loc,mpio_collective_in=mpio_collective)
+  n_mpi_tasks=n_tasks_loc,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_real_reading(file_id,test_value,datasetname,&
   mpi_rank=rank_loc,n_mpi_tasks=n_tasks_loc)
   call HDF5_close(file_id); call remove_file(filename);
@@ -614,7 +626,8 @@ subroutine test_HDF5_array1D_saving_r8()
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array1D_saving_native_or_gatherv(file_id,result_array,sum(elements_all),&
   datasetname,.true.,dim1_all_tasks=elements_all,displs=displs,mpi_rank=rank_loc,&
-  n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)  
+  n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)  
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -626,7 +639,7 @@ subroutine test_HDF5_array1D_saving_r8()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving_native_or_gatherv(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,.false.,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,.false.,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -635,7 +648,7 @@ subroutine test_HDF5_array1D_saving_r8()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array1D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),&
@@ -643,7 +656,8 @@ subroutine test_HDF5_array1D_saving_r8()
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
-  call HDF5_array1D_saving(file_id,result_array,n_elements(1),datasetname)
+  call HDF5_array1D_saving(file_id,result_array,n_elements(1),datasetname,&
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -653,7 +667,7 @@ subroutine test_HDF5_array1D_saving_r8()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array1D_saving(file_id,result_array,n_tasks_loc*n_elements(1),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array1D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),result_array,test_array_allocatable,&
@@ -690,7 +704,8 @@ subroutine test_HDF5_array2D_saving_r8()
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array2D_saving_native_or_gatherv(file_id,result_array,n_elements(1),&
   sum(elements_all),datasetname,.true.,dim2_all_tasks=elements_all,displs=displs,&
-  mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)
+  mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc,&
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -702,7 +717,7 @@ subroutine test_HDF5_array2D_saving_r8()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array2D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),n_elements(2),&
@@ -710,7 +725,8 @@ subroutine test_HDF5_array2D_saving_r8()
   write(filename,'(A,A,I'//trim(rank_format)//',A)') &
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
-  call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_elements(2),datasetname)
+  call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_elements(2),datasetname,&
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,&
@@ -719,7 +735,8 @@ subroutine test_HDF5_array2D_saving_r8()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving_native_or_gatherv(file_id,result_array,n_elements(1),&
-  n_tasks_loc*n_elements(2),datasetname,.false.,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(2),datasetname,.false.,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_array2D_reading(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals(test_array,result_array,n_elements(1),n_elements(2),&
@@ -729,7 +746,7 @@ subroutine test_HDF5_array2D_saving_r8()
   test_array_allocatable = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,&
@@ -738,7 +755,7 @@ subroutine test_HDF5_array2D_saving_r8()
   test_array_allocatable = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array2D_saving(file_id,result_array,n_elements(1),n_tasks_loc*n_elements(2),&
-  datasetname,start=offset,mpio_collective_in=mpio_collective)
+  datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array2D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),result_array,&
@@ -776,7 +793,8 @@ subroutine test_HDF5_array3D_saving_r8()
   if(rank_loc.eq.master_rank) call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc) 
   call HDF5_array3D_saving_native_or_gatherv(file_id,result_array,n_elements(1),n_elements(2),&
   sum(elements_all),datasetname,.true.,dim3_all_tasks=elements_all,&
-  displs=displs,mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc)
+  displs=displs,mpi_rank=rank_loc,n_cpu=n_tasks_loc,mpi_comm_loc=mpi_comm_loc,&
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   if(rank_loc.eq.master_rank) call HDF5_close(file_id); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   call HDF5_open(filename,file_id,ifail_loc,create_access_plist_in=access_hdf5_parallel,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
@@ -788,7 +806,8 @@ subroutine test_HDF5_array3D_saving_r8()
   test_array = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_array3D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
@@ -797,7 +816,8 @@ subroutine test_HDF5_array3D_saving_r8()
   test_array = 0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving_native_or_gatherv(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,.false.,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(3),datasetname,.false.,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_array3D_reading(file_id,test_array,datasetname,start=offset);
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),test_array,&
@@ -806,7 +826,8 @@ subroutine test_HDF5_array3D_saving_r8()
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
   call HDF5_array3D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_elements(3),datasetname); call HDF5_allocatable_array3D_reading(file_id,test_array_allocatable,&
+  n_elements(3),datasetname,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective); 
+  call HDF5_allocatable_array3D_reading(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),result_array,&
   test_array_allocatable,tol_r8,"Error test HDF5 I/O 3D double allocatable MPI collective: mismatch!")
@@ -816,7 +837,8 @@ subroutine test_HDF5_array3D_saving_r8()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array3D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),result_array,&
@@ -826,7 +848,8 @@ subroutine test_HDF5_array3D_saving_r8()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array3D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_tasks_loc*n_elements(3),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(3),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array3D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),result_array,&
@@ -862,7 +885,8 @@ subroutine test_HDF5_array4D_saving_r8()
   test_array = 0d0; call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array4D_saving(file_id,result_array,n_elements(1),n_elements(2),&
-  n_elements(3),n_tasks_loc*n_elements(4),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_elements(3),n_tasks_loc*n_elements(4),datasetname,start=offset,&
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array4D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),n_elements(4),test_array,&
@@ -871,7 +895,8 @@ subroutine test_HDF5_array4D_saving_r8()
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
   call HDF5_array4D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),&
-  n_elements(4),datasetname); call HDF5_allocatable_array4D_reading(file_id,test_array_allocatable,&
+  n_elements(4),datasetname,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective); 
+  call HDF5_allocatable_array4D_reading(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
   result_array,test_array_allocatable,tol_r8,"Error test HDF5 I/O 4D double allocatable MPI collective: mismatch!")
@@ -881,7 +906,8 @@ subroutine test_HDF5_array4D_saving_r8()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array4D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),&
-  n_tasks_loc*n_elements(4),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(4),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array4D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),result_array,&
@@ -891,7 +917,8 @@ subroutine test_HDF5_array4D_saving_r8()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array4D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),&
-  n_tasks_loc*n_elements(4),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(4),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array4D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),result_array,&
@@ -929,7 +956,7 @@ subroutine test_HDF5_array5D_saving_r8()
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),&
   n_elements(3),n_elements(4),n_tasks_loc*n_elements(5),datasetname,start=offset,&
-  mpio_collective_in=mpio_collective)
+  use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective)
   call HDF5_array5D_reading(file_id,test_array,datasetname,start=offset)
   call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_extended(n_elements(1),n_elements(2),n_elements(3),&
@@ -939,7 +966,8 @@ subroutine test_HDF5_array5D_saving_r8()
   trim(filename_base),'_rank',rank_loc,trim(extension)
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc);
   call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
-  n_elements(5),datasetname); call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
+  n_elements(5),datasetname,use_hdf5_parallel_in=use_hdf5_mpio,mpio_collective_in=mpio_collective); 
+  call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
   datasetname); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),n_elements(5),&
   result_array,test_array_allocatable,tol_r8,"Error test HDF5 I/O 5D double allocatable MPI collective: mismatch!")
@@ -949,7 +977,8 @@ subroutine test_HDF5_array5D_saving_r8()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
-  n_tasks_loc*n_elements(5),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(5),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),n_elements(5),&
@@ -960,7 +989,8 @@ subroutine test_HDF5_array5D_saving_r8()
   call HDF5_open_or_create(trim(filename),file_id,ierr=ifail_loc,&
   create_access_plist_in=access_hdf5_parallel,mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   call HDF5_array5D_saving(file_id,result_array,n_elements(1),n_elements(2),n_elements(3),n_elements(4),&
-  n_tasks_loc*n_elements(5),datasetname,start=offset,mpio_collective_in=mpio_collective)
+  n_tasks_loc*n_elements(5),datasetname,start=offset,use_hdf5_parallel_in=use_hdf5_mpio,&
+  mpio_collective_in=mpio_collective)
   call HDF5_allocatable_array5D_reading(file_id,test_array_allocatable,&
   datasetname,start=offset,reqdims_in=reqdim); call HDF5_close(file_id); call remove_file(filename);
   call assert_equals_allocatable_arrays(n_elements(1),n_elements(2),n_elements(3),n_elements(4),n_elements(5),&
