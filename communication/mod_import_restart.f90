@@ -126,6 +126,11 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
 
+  ! allocate node list
+  do i=1, node_list%n_nodes
+    allocate(node_list%node(i)%values(n_tor, n_degrees, n_var))
+  end do
+
   error = 0
 
   write(*,*) 'Importing restart file "', trim(filename), '".'
@@ -175,8 +180,8 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   read(21) node_list%n_nodes,element_list%n_elements
   read(21) node_list%n_dof
 
+
   do i=1,node_list%n_nodes
-     
     read(21) node_list%node(i)%x
     read(21) values_tmp
     read(21) deltas_tmp
@@ -769,6 +774,9 @@ endif
       endif
 
       allocate(node_list_perturbation, element_list_perturbation)
+      do i=1, node_list%n_nodes
+        allocate(node_list_perturbation%node(i)%values(n_tor, n_degrees, n_var))
+      end do
       
       read(21) node_list_perturbation%n_nodes,element_list_perturbation%n_elements
       read(21) node_list_perturbation%n_dof
@@ -1000,10 +1008,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
-  
-  !
+
 #endif
   error = 0
+
+  
 #ifdef USE_HDF5
 
   ! ->  Reading HDF5 file
@@ -1111,7 +1120,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   endif
     
   !write(*,'(2(A,i5))') ' Importing ',n_tor_tmp,' harmonics with n_period=', n_period_tmp 
-
   call HDF5_integer_reading(file_id,node_list%n_nodes,"n_nodes")
   call HDF5_integer_reading(file_id,element_list%n_elements,"n_elements")
   call HDF5_integer_reading(file_id,node_list%n_dof,"n_dof")
@@ -1124,6 +1132,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
        allocate(aux_node_list,source=node_list)
     endif
   endif
+
+  ! allocate node list
+  do i=1,node_list%n_nodes
+    allocate(node_list%node(i)%values(n_tor, n_degrees, n_var))
+  end do
 
   ! -> Allocate temporary arrays 
   call tr_allocate(t_x,     1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_degrees_tmp,1,n_dim,         "node_list%x",     CAT_UNKNOWN)
@@ -1214,6 +1227,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_array1D_reading     (file_id,t_ref_mu,      'ref_mu')
   call HDF5_array1D_reading_char(file_id,t_constrained, 'constrained')
 
+
   ! --- Detect new modes that need to be initialized to noise level
   if (allocated(new_mode))   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
   allocate(new_mode(n_tor))
@@ -1237,7 +1251,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     do j=1,n_degrees_tmp
       node_list%node(i)%x(:,j,:)  = t_x(i,:,j,:) 
     enddo
-
     node_list%node(i)%values = 0.d0 
     node_list%node(i)%deltas = 0.d0 
 
@@ -1246,6 +1259,9 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         do j=1,n_degrees_tmp 
           if (mode_tmp(m) .eq. mode(k)) then
             if ((m .eq. 1) .and. (k.eq.1)) then
+
+                
+
               node_list%node(i)%values(k,j,1:n_var_tmp)   = t_values(i,m,j,1:n_var_tmp)
               node_list%node(i)%deltas(k,j,1:n_var_tmp)   = t_deltas(i,m,j,1:n_var_tmp)
             else
@@ -1377,6 +1393,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     current_prof_initialized = .false.
   end if
   
+
   if (index_start .ge. 1) then
 
     if (allocated(xtime)) call tr_deallocate(xtime,"xtime",CAT_UNKNOWN)
@@ -2222,6 +2239,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call populate_element_rtree(node_list, element_list)
 
   equil_initialized = .true.
+  write(*,*) ' restart complete '
+
+
+  
 
   return
 end subroutine import_hdf5_restart

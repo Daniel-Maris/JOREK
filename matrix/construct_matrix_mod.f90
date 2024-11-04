@@ -57,6 +57,7 @@ contains
     my_id = rank
 #endif
 
+    write(*,*) "e_matrix 1"
     ! --- Call element_matrix
     if ( ( (i_tor_min .eq. 1) .and. (i_tor_max .eq. n_tor) .and. (n_tor .ge. n_tor_fft_thresh) )   &
       .or. (unified_element_matrix) ) then
@@ -78,6 +79,7 @@ contains
         R_xpoint, Z_xpoint, thread_struct(omp_tid)%ELM, thread_struct(omp_tid)%RHS, omp_tid,       &
         i_tor_min, i_tor_max, aux_nodes)
     endif
+    write(*,*) "e_matrix 2"
     
     ! --- Apply sheath boundary conditions at the targets
     if (bc_natural_open) then
@@ -95,14 +97,21 @@ contains
         
         bnd1 = node_list%node(inode1)%boundary
         bnd2 = node_list%node(inode2)%boundary
+        write(*,*) "e_matrix 3"
         
         ! --- carry on only if on boundary
         if ( (bnd1 .eq. 0) .or. (bnd2 .eq. 0)) cycle
         
         nodes(1) = node_list%node(inode1)
+        nodes(1)%values = node_list%node(inode1)%values
         nodes(2) = node_list%node(inode2)
+        nodes(2)%values = node_list%node(inode2)%values
         nodes(3) = node_list%node(inode3)
+        nodes(3)%values = node_list%node(inode3)%values
         nodes(4) = node_list%node(inode4)
+        nodes(4)%values = node_list%node(inode4)%values
+        write(*,*) "e_matrix 4"
+
         vertex    = (/ iv, iv2 /)
         
         if ( (grid_to_wall) .and. (n_wall_blocks .gt. 0) ) then
@@ -156,6 +165,7 @@ contains
             cycle
           endif
         endif
+        write(*,*) "e_matrix 5"
           
 
         ! --- Build matrix elements for boundary
@@ -179,6 +189,7 @@ contains
         thread_struct(omp_tid)%ELM(i,i) = 1.d15
       enddo
     endif
+    write(*,*) "e_matrix 6"
     
     ! --- Compare the two element_matrix routines (error thresholds might need to be adapted!)
 #ifdef COMPARE_ELEMENT_MATRIX
@@ -231,6 +242,7 @@ contains
     	endif
     	
       enddo
+    write(*,*) "e_matrix 7"
       
       ! --- Compare matrix entries
       write(*,*)
@@ -342,7 +354,6 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   integer                           :: comm, ierr, counts
   
 
-
   ! --- Timing call
   call r3_info_begin (r3_info_index_0, 'construct_matrix')
   
@@ -444,13 +455,14 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   !$omp          a_mat, rhs_local, rhs_vec,                                                               &
   !$omp          R_xpoint,my_id,bc_natural_open,bc_natural_flux,refinement,thread_struct,n_tor_fft_thresh,     &
   !$omp          difference_found,rhs_problem,elm_problem, treat_axis) &
-  !$omp   private(ife,ielm,iv,inode,element,nodes, aux_nodes, i,inode1,i_order,index_node1, n_tor_local,   &
+  !$omp   private(ife,ielm,iv,inode,element, i,inode1,i_order,index_node1, n_tor_local,   &
   !$omp           index_large_i,j,index_ij,k,knode,k_order,index_node2,index_large_k,ijA_position,         &
   !$omp           l,index_kl,ilarge2,iv2,vertex,direction,inode2,omp_nthreads,omp_tid,                     &
-  !$omp           i_father,element_father, nodes_father, inode_father, node_out, ivertex, iorder,          &
+  !$omp           i_father,element_father, inode_father, node_out, ivertex, iorder,          &
   !$omp           ivar, itor, jvertex, jorder, jvar, jtor, random_element, n_var_reduced, v1, v2, im,      &
   !$omp           index_ij_model400_e, index_kl_model400_e,  tmp_rhs, tmp_elm, tmp_elm_v2_8,    &
-  !$omp           i_v, i_harm                                                                              )
+  !$omp           i_v, i_harm                                                                              ) &
+  !$omp  firstprivate(nodes, aux_nodes, nodes_father)
 
 ! --- omp id
 #ifdef _OPENMP
@@ -460,7 +472,13 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   omp_nthreads = 1
   omp_tid      = 1
 #endif
- 
+
+  do iv=1, n_vertex_max
+    if (.not. allocated(nodes_father(iv)%values)) allocate(nodes_father(iv)%values(n_tor, n_degrees, n_var))
+    if (.not. allocated(nodes(iv)%values)) allocate(nodes(iv)%values(n_tor, n_degrees, n_var))
+    if (.not. allocated(aux_nodes(iv)%values)) allocate(aux_nodes(iv)%values(n_tor, n_degrees, n_var))
+  enddo
+
   n_tor_local = a_mat%i_tor_max - a_mat%i_tor_min + 1
   if(treat_axis) then
      do i = 1, n_var
@@ -490,15 +508,18 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
       do iv = 1, n_vertex_max
         inode_father=element_father%vertex(iv)
         nodes_father(iv) = node_list%node(inode_father)
+        nodes_father(iv)%values = node_list%node(inode_father)%values
       enddo
      endif
 
     else
        
       do iv = 1, n_vertex_max
-       inode   = element%vertex(iv)
-       nodes(iv) = node_list%node(inode)
-       aux_nodes(iv) = aux_node_list%node(inode)
+        inode   = element%vertex(iv)
+        nodes(iv) = node_list%node(inode)
+        nodes(iv)%values = node_list%node(inode)%values
+        aux_nodes(iv) = aux_node_list%node(inode)
+        aux_nodes(iv)%values = aux_node_list%node(inode)%values
       enddo
 
     endif
@@ -710,7 +731,7 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
 
   end do
 
-  !$omp end do
+    !$omp end do
 
   !$omp end parallel
  
@@ -782,7 +803,6 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   call tr_deallocate(RHS_local,"RHS_local",CAT_DMATRIX)
   
   call check_if_distributed(a_mat)
-  
      
   ! --- Memory tracking
   call tr_locvnorms("cm_BCRhs",rhs_vec%val,a_mat%ng)
