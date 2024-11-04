@@ -49,14 +49,10 @@ subroutine run_fruit_particle_io_mpi(rank,n_tasks,ifail)
   if(rank.eq.0) write(*,'(/A)') "  ... setting-up: particle io mpi tests"
   call setup(rank,n_tasks,ifail)
   if(rank.eq.0) write(*,'(/A)') "  ... running: particle io mpi tests"
-  call run_test_case(test_particle_mpi_io_write_new_read_new,'test_particle_mpi_io_write_new_read_new')
-  call run_test_case(test_particle_mpi_io_write_new_read_original,'test_particle_mpi_io_write_new_read_original')
-  call run_test_case(test_particle_mpi_io_write_gatherv_read_new,'test_particle_mpi_io_write_gatherv_read_new')
-  call run_test_case(test_particle_mpi_io_write_gatherv_read_original,'test_particle_mpi_io_write_gatherv_read_original')
-  call run_test_case(test_get_simulation_hdf5_time_new_write_new,'test_get_simulation_hdf5_time_new_write_new')
-  call run_test_case(test_get_simulation_hdf5_time_new_write_gatherv,'test_get_simulation_hdf5_time_new_write_gatherv')
-  call run_test_case(test_get_simulation_hdf5_time_original_write_new,'test_get_simulation_hdf5_time_original_write_new')
-  call run_test_case(test_get_simulation_hdf5_time_original_write_gatherv,'test_get_simulation_hdf5_time_original_write_gatherv')
+  call run_test_case(test_particle_mpi_io_write_native_read,'test_particle_mpi_io_write_native_read')
+  call run_test_case(test_particle_mpi_io_write_gatherv_read,'test_particle_mpi_io_write_gatherv_read')
+  call run_test_case(test_get_simulation_hdf5_time_write_native,'test_get_simulation_hdf5_time_write_native')
+  call run_test_case(test_get_simulation_hdf5_time_write_gatherv,'test_get_simulation_hdf5_time_write_gatherv')
   if(rank.eq.0) write(*,'(/A)') "  ... tearing-down: particle io mpi tests"
   call teardown(rank,n_tasks,ifail)
 end subroutine run_fruit_particle_io_mpi
@@ -118,7 +114,7 @@ subroutine setup(rank,n_tasks,ifail)
   call fill_groups(n_groups,sim_particles%groups,rank,ifail)
   call fill_particles(n_groups,sim_particles%groups,fill_type,rank)
 
-  !> write filename with new and gatherv methods
+  !> write filename with native and gatherv methods
   call write_simulation_hdf5(sim_particles,trim(test_filename),&
   use_native_hdf5_mpio_in=use_native_hdf5_mpio,use_hdf5_access_properties=use_hdf5_access_properties,&
   collective_mpio_in=mpio_collective,mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test)
@@ -152,8 +148,8 @@ subroutine teardown(rank,n_tasks,ifail)
 end subroutine teardown
 
 !> Tests ------------------------------------------------
-!> procedure for testing the particle io new writier/reader
-subroutine test_particle_mpi_io_write_new_read_new
+!> procedure for testing the particle io native writier/reader
+subroutine test_particle_mpi_io_write_native_read
   use mod_particle_assert_equal,      only: assert_equal_particle_group
   use mod_particle_sim,               only: particle_sim
   use mod_particle_io,                only: read_simulation_hdf5
@@ -176,39 +172,14 @@ subroutine test_particle_mpi_io_write_new_read_new
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
-  "Error writing (new)/reading (new) particle simulation: time mismatch!")
+  "Error writing (native)/reading  particle simulation: time mismatch!")
 
   !> check groups
   call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
-end subroutine test_particle_mpi_io_write_new_read_new
+end subroutine test_particle_mpi_io_write_native_read
 
-!> procedure for testing the particle io new writier/original reader
-subroutine test_particle_mpi_io_write_new_read_original
-  use mod_particle_assert_equal,      only: assert_equal_particle_group
-  use mod_particle_sim,               only: particle_sim
-  use mod_particle_io,                only: read_simulation_hdf5_original
-  implicit none
-  !> variables
-  type(particle_sim) :: sim_particles_new
-  integer :: ii
-  real*8 :: comp_real8_1,comp_real8_2
-
-  !> initialize the new particle simulation
-  call sim_particles_new%initialize(n_groups,.false.,rank_loc,n_tasks_loc,.false.)
-
-  !> read default simulation from file and store in new sim
-  call read_simulation_hdf5_original(sim_particles_new,trim(test_filename),test_in=test)
-
-  !> check simulation 
-  call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
-  "Error writing (new)/reading (original) particle simulation: time mismatch!")
-
-  !> check groups
-  call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
-end subroutine test_particle_mpi_io_write_new_read_original
-
-!> procedure for testing the particle io original writier/ new reader
-subroutine test_particle_mpi_io_write_gatherv_read_new
+!> procedure for testing the particle io gatherv writier/ reader
+subroutine test_particle_mpi_io_write_gatherv_read
   use mod_particle_assert_equal,      only: assert_equal_particle_group
   use mod_particle_sim,               only: particle_sim
   use mod_particle_io,                only: read_simulation_hdf5
@@ -231,39 +202,14 @@ subroutine test_particle_mpi_io_write_gatherv_read_new
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
-  "Error writing (gatherv)/reading (new) particle simulation: time mismatch!")
+  "Error writing (gatherv)/reading particle simulation: time mismatch!")
 
   !> check groups
   call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
-end subroutine test_particle_mpi_io_write_gatherv_read_new
+end subroutine test_particle_mpi_io_write_gatherv_read
 
-!> procedure for testing the particle io gatherv writier/new reader
-subroutine test_particle_mpi_io_write_gatherv_read_original
-  use mod_particle_assert_equal,      only: assert_equal_particle_group
-  use mod_particle_sim,               only: particle_sim
-  use mod_particle_io,                only: read_simulation_hdf5_original
-  implicit none
-  !> variables
-  type(particle_sim) :: sim_particles_new
-  integer :: ii
-  real*8 :: comp_real8_1,comp_real8_2
-
-  !> initialize the new particle simulation
-  call sim_particles_new%initialize(n_groups,.false.,rank_loc,n_tasks_loc,.false.)
-
-  !> read default simulation from file and store in new sim
-  call read_simulation_hdf5_original(sim_particles_new,trim(test_filename_gatherv),test_in=.true.)
-
-  !> check simulation 
-  call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
-  "Error writing (gatherv)/reading (original) particle simulation: time mismatch!")
-
-  !> check groups
-  call assert_equal_particle_group(n_groups,sim_particles_new%groups,sim_particles%groups)
-end subroutine test_particle_mpi_io_write_gatherv_read_original
-
-!> subroutine for testing the reading of simulation time new with writer new
-subroutine test_get_simulation_hdf5_time_new_write_new()
+!> subroutine for testing the reading of simulation time with writer native
+subroutine test_get_simulation_hdf5_time_write_native()
   use mod_particle_io, only: get_simulation_hdf5_time
   implicit none
   real*8 :: time_new
@@ -274,11 +220,11 @@ subroutine test_get_simulation_hdf5_time_new_write_new()
   use_hdf5_access_properties=use_hdf5_access_properties,&
   mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_cpu=n_tasks_loc)
   call assert_equals(sim_particles%time,time_new,tol_real8,&
-  "Error get simulation time hdf5 new (write new): time mismatch!")
-end subroutine test_get_simulation_hdf5_time_new_write_new
+  "Error get simulation time hdf5 (write hdf5 native): time mismatch!")
+end subroutine test_get_simulation_hdf5_time_write_native
 
 !> subroutine for testing the reading of simulation time new with writer gatherv
-subroutine test_get_simulation_hdf5_time_new_write_gatherv()
+subroutine test_get_simulation_hdf5_time_write_gatherv()
   use mod_particle_io, only: get_simulation_hdf5_time
   implicit none
   real*8 :: time_new
@@ -289,28 +235,8 @@ subroutine test_get_simulation_hdf5_time_new_write_gatherv()
   use_hdf5_access_properties=use_hdf5_access_properties,&
   mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_cpu=n_tasks_loc)
   call assert_equals(sim_particles%time,time_new,tol_real8,&
-  "Error get simulation time hdf5 new (write gatherv): time mismatch!")
-end subroutine test_get_simulation_hdf5_time_new_write_gatherv
-
-!> subroutine for testing the reading of simulation time original with writer new
-subroutine test_get_simulation_hdf5_time_original_write_new()
-  use mod_particle_io, only: get_simulation_hdf5_time_original
-  implicit none
-  real*8 :: time_new
-  time_new = get_simulation_hdf5_time_original(trim(test_filename))
-  call assert_equals(sim_particles%time,time_new,tol_real8,&
-  "Error get simulation time hdf5 original (write new): time mismatch!")
-end subroutine test_get_simulation_hdf5_time_original_write_new
-
-!> subroutine for testing the reading of simulation time original with writer gatherv
-subroutine test_get_simulation_hdf5_time_original_write_gatherv()
-  use mod_particle_io, only: get_simulation_hdf5_time_original
-  implicit none
-  real*8 :: time_new
-  time_new = get_simulation_hdf5_time_original(trim(test_filename_gatherv))
-  call assert_equals(sim_particles%time,time_new,tol_real8,&
-  "Error get simulation time hdf5 original (write gatherv): time mismatch!")
-end subroutine test_get_simulation_hdf5_time_original_write_gatherv
+  "Error get simulation time (write gatherv): time mismatch!")
+end subroutine test_get_simulation_hdf5_time_write_gatherv
 
 !>-------------------------------------------------------
 end module mod_particle_io_mpi_test
