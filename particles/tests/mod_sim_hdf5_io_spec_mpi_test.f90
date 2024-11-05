@@ -126,8 +126,8 @@ subroutine test_write_gatherv_read_sim_time
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; writer%use_native_hdf5_mpio = .false.;
   writer%decimal_digits = 2; writer%fractional_digits = 0;
-  writer%file_access = file_access; call writer%run(sim_to_write);
-  call MPI_Barrier(mpi_comm_loc,ifail_loc)
+  writer%file_access = file_access; writer%mpi_info_io = mpi_info_loc;
+  call writer%run(sim_to_write); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
@@ -205,7 +205,8 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; call reader%run(sim_to_read);
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  call reader%run(sim_to_read);
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
   n_particles_expect," (gatherv write / native read)")
