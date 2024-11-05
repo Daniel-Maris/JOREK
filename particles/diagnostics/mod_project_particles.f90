@@ -22,6 +22,7 @@ module mod_project_particles
 use mod_io_actions
 use data_structure
 use mod_particle_sim
+use mod_particle_settings
 use mod_particle_types
 use mod_fields
 use mod_vtk
@@ -669,11 +670,6 @@ subroutine project_only(this, sim)
     n_rhs_f = size(this%rhs_f,5)
   end if
 
-  if (n_rhs .gt. n_var .and. this%my_id_n .eq. 0) then
-    write(*,*) 'WARNING: too many rhs-es supplied, skipping after ', n_var
-    n_rhs = n_var
-    ! n_rhs_f should already be 0 in this case, as done by sample_rhs
-  end if
 
   n_tor_local = this%n_tor_local
   i_tor_local = this%i_tor_local
@@ -838,7 +834,7 @@ subroutine project_only(this, sim)
   ! Write the solution to the node_list
   if (this%my_id .eq. 0) then
 
-    do i_var=1,min(n_rhs+n_rhs_f,n_var)
+    do i_var=1,min(n_rhs+n_rhs_f, n_aux_var)
   
       found_nan = .false.
       
@@ -926,9 +922,9 @@ subroutine sample_rhs(this, sim)
   if (.not. allocated(this%f)) allocate(this%f(0))
 
   if (allocated(this%rhs)) then
-    n_sample = min(size(this%f),n_var-min(size(this%rhs,5),n_var))  ! because we have only n_var storage for now
+    n_sample = min(size(this%f),n_aux_var-min(size(this%rhs,5),n_aux_var))  ! because we have only n_var storage for now
   else
-    n_sample = min(size(this%f),n_var)  ! because we have only n_var storage for now
+    n_sample = min(size(this%f),n_aux_var)  ! because we have only n_var storage for now
   end if
 
   if (n_sample .lt. size(this%f) .and. sim%my_id .eq. 0) then
@@ -1048,7 +1044,7 @@ subroutine save_to_vtk(this, sim)
     if (allocated(this%rhs)) n_proj = n_proj + size(this%rhs,5)
 
     call write_particle_distribution_to_vtk(this%node_list, this%element_list, &
-      trim(filename), this%vtk_grid%nsub, min(n_proj,n_var), this%vtk_grid%xyz, this%vtk_grid%ien)
+      trim(filename), this%vtk_grid%nsub, min(n_proj,n_aux_var), this%vtk_grid%xyz, this%vtk_grid%ien)
       
     write(*,*) "Written projection to ", trim(filename)
   end if
@@ -1098,7 +1094,7 @@ subroutine save_to_h5(this, sim)
     n_proj = size(this%f)
     if (allocated(this%rhs)) n_proj = n_proj + size(this%rhs,5)
     call write_particle_distribution_to_h5(this%node_list, this%element_list, &
-      trim(filename), min(n_proj,n_var), sim%time)
+      trim(filename), min(n_proj,n_aux_var), sim%time)
 
     write(*,*) "Written projection to ", trim(filename)
   end if
