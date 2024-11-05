@@ -43,7 +43,7 @@ bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*
 bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_var+2)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #endif
 
-allocate(anode%values(n_tor, n_degrees, n_var))
+call init_node(anode, n_var)
 
 allocate(buffer(bufsize))
 call tr_register_mem(bufsize,"bcastn_buffer")
@@ -132,6 +132,7 @@ if (my_id .ne. 0) then
 endif
 
 call tr_unregister_mem(bufsize,"bcastn_buffer")
+call dealloc_node(anode)
 deallocate(buffer)
 
 return

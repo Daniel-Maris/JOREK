@@ -216,6 +216,105 @@ module data_structure
   
 contains
 
+  !> wrapper function for correctly initializing a node object
+  subroutine init_node(node, n_values)
+    implicit none
+    type(type_node), intent(inout)    :: node       !< the node to be initialized
+    integer, intent(in)               :: n_values   !< number of values to be stored in node
+    
+    allocate(node%values(n_tor, n_degrees, n_values))
+
+  end subroutine init_node
+
+  !> wrapper function for correct initializing a node_list object
+  subroutine init_node_list(node_list, n_nodes, n_dof, n_values)
+    implicit none
+    type(type_node_list), intent(inout)  :: node_list
+    integer, intent(in)                  :: n_nodes
+    integer, intent(in)                  :: n_dof
+    integer, intent(in)                  :: n_values
+    integer                              :: i
+
+    node_list%n_nodes = n_nodes
+    node_list%n_dof = n_dof
+
+    do i=1, n_nodes
+      call init_node(node_list%node(i), n_values)
+    enddo
+
+  end subroutine init_node_list
+
+  !> wrapper function for correctly deallocating a node object
+  subroutine dealloc_node(node)
+    implicit none
+    type(type_node), intent(inout)    :: node       !< the node to have its values array deallocated
+
+    deallocate(node%values)
+
+  end subroutine dealloc_node
+
+  !> wrapper function for correct deallocating a node_list object
+  subroutine dealloc_node_list(node_list)
+    implicit none
+    type(type_node_list), intent(inout)  :: node_list
+    integer                              :: i
+
+    do i=1, node_list%n_nodes
+      call dealloc_node(node_list%node(i))
+    enddo
+
+  end subroutine dealloc_node_list
+
+  !> copies the information contained in a node but not the values and deltas
+  subroutine copy_node_without_values(node_to_copy, node_copied_to)
+    implicit none
+    type(type_node), intent(in)      :: node_to_copy
+    type(type_node), intent(inout)   :: node_copied_to
+
+    node_copied_to%x = node_to_copy%x
+#if STELLARATOR_MODEL
+    node_copied_to%r_tor_eq = node_to_copy%r_tor_eq
+#if JOREK_MODEL == 180
+    node_copied_to%pressure = node_to_copy%pressure
+    node_copied_to%j_field = node_to_copy%j_field
+    node_copied_to%b_field = node_copied_to%b_field
+#endif
+#ifndef USE_DOMM
+    node_copied_to%chi_correction = node_to_copy%chi_correction
+#endif 
+    node_copied_to%j_field = node_to_copy%j_field
+#elif fullmhd
+    node_copied_to%psi_eq = node_to_copy%psi_eq
+    node_copied_to%Fprof_eq = node_to_copy%Fprof_eq
+#elif altcs
+    node_copied_to%psi_eq = node_to_copy%psi_eq
+#endif
+    node_copied_to%index = node_to_copy%index
+    node_copied_to%boundary = node_to_copy%boundary
+    node_copied_to%boundary_index = node_to_copy%boundary_index
+    node_copied_to%axis_node = node_to_copy%axis_node
+    node_copied_to%axis_dof = node_to_copy%axis_dof
+    node_copied_to%parents = node_to_copy%parents
+    node_copied_to%parent_elem = node_to_copy%parent_elem
+    node_copied_to%ref_lambda = node_to_copy%ref_lambda
+    node_copied_to%ref_mu = node_to_copy%ref_mu
+    node_copied_to%constrained = node_to_copy%constrained
+  end subroutine copy_node_without_values
+
+  !> creates a deep copy of a node
+  subroutine make_deep_copy_node(node_to_copy, node_copied_to)
+    implicit none
+    type(type_node), intent(in)      :: node_to_copy
+    type(type_node), intent(inout)   :: node_copied_to
+
+    if (allocated(node_copied_to%values)) deallocate(node_copied_to%values)
+    allocate(node_copied_to%values(n_tor, n_degrees, size(node_to_copy%values, 3)))
+
+    node_copied_to = node_to_copy
+    node_copied_to%values = node_to_copy%values
+
+  end subroutine make_deep_copy_node
+
   subroutine init_threads()
 #ifdef _OPENMP
     use omp_lib

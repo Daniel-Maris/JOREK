@@ -464,7 +464,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp   firstprivate(nodes)
 
 do i = 1, n_vertex_max
-  if (.not. allocated(nodes(i)%values)) allocate(nodes(i)%values(n_tor, n_degrees, n_var))
+  if (.not. allocated(nodes(i)%values)) call init_node(nodes(i), n_var)
 enddo
 
 

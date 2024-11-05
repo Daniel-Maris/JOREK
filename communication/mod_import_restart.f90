@@ -126,10 +126,6 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
 
-  ! allocate node list
-  do i=1, node_list%n_nodes
-    allocate(node_list%node(i)%values(n_tor, n_degrees, n_var))
-  end do
 
   error = 0
 
@@ -177,11 +173,12 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   write(*,'(A,i5,A)') ' Importing ',n_tor_tmp,' harmonics'
 
-  read(21) node_list%n_nodes,element_list%n_elements
+  read(21) element_list%n_elements
   read(21) node_list%n_dof
 
-
   do i=1,node_list%n_nodes
+  ! allocate node list
+    allocate(node_list%node(i)%values(n_tor, n_degrees, n_var))
     read(21) node_list%node(i)%x
     read(21) values_tmp
     read(21) deltas_tmp
@@ -928,7 +925,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   ! --- Local variables
   integer              :: i, j, m, k, n_tor_tmp, n_coord_tor_tmp, jorek_model_tmp, n_var_tmp, n_order_tmp, n_period_tmp, rst_hdf5_version_tmp
-  integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp
+  integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp, n_nodes_tmp, n_dof_tmp
   integer              :: n_pieces_max_tmp, n_degrees_tmp, nref_max_tmp, n_ref_list_tmp, n_new_modes
   real*8               :: growth_mag, growth_kin, amplitude
   integer, allocatable :: mode_tmp(:), new_mode(:)
@@ -1120,9 +1117,12 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   endif
     
   !write(*,'(2(A,i5))') ' Importing ',n_tor_tmp,' harmonics with n_period=', n_period_tmp 
-  call HDF5_integer_reading(file_id,node_list%n_nodes,"n_nodes")
+  call HDF5_integer_reading(file_id,n_nodes_tmp,"n_nodes")
+  call HDF5_integer_reading(file_id,n_dof_tmp,"n_dof")
   call HDF5_integer_reading(file_id,element_list%n_elements,"n_elements")
-  call HDF5_integer_reading(file_id,node_list%n_dof,"n_dof")
+
+  ! initialise and allocate node_list
+  call init_node_list(node_list, n_nodes_tmp, n_dof_tmp, n_var)
 
   aux_values_read = .false.
   if(present(aux_node_list)) then
@@ -1132,11 +1132,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
        allocate(aux_node_list,source=node_list)
     endif
   endif
-
-  ! allocate node list
-  do i=1,node_list%n_nodes
-    allocate(node_list%node(i)%values(n_tor, n_degrees, n_var))
-  end do
 
   ! -> Allocate temporary arrays 
   call tr_allocate(t_x,     1,node_list%n_nodes,1,n_coord_tor_tmp,1,n_degrees_tmp,1,n_dim,         "node_list%x",     CAT_UNKNOWN)
