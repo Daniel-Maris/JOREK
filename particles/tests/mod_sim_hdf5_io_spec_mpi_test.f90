@@ -25,17 +25,18 @@ subroutine run_fruit_sim_hdf5_io_spec_mpi(rank,n_tasks,ifail)
   call setup(rank,n_tasks,ifail)
   if(rank.eq.master_rank) write(*,'(/A)') "  ... running: "
   call run_test_case(test_get_filename,'test_get_filename')
-  call run_test_case(test_write_read_sim_time,'test_write_read_sim_time')
-  call run_test_case(test_write_original_read_sim_time,'test_write_original_read_sim_time')
-  call run_test_case(test_write_sim_one_particle_kinetic_leapfrog,'test_write_sim_one_particle_kinetic_leapfrog')
-  call run_test_case(test_write_original_sim_one_particle_kinetic_leapfrog,&
-  'test_write_original_sim_one_particle_kinetic_leapfrog')
-  call run_test_case(test_write_sim_one_group_boris,'test_write_sim_one_group_boris')
-  call run_test_case(test_write_original_sim_one_group_boris,'test_write_original_sim_one_group_boris')
-  call run_test_case(test_write_sim_all_particles,'test_write_sim_all_particles')
-  call run_test_case(test_write_original_sim_all_particles,'test_write_original_sim_all_particles')
-  call run_test_case(test_write_sim_two_groups_boris,'test_write_sim_two_groups_boris')
-  call run_test_case(test_write_original_sim_two_groups_boris,'test_write_original_sim_two_groups_boris')
+  call run_test_case(test_write_native_read_sim_time,'test_write_native_read_sim_time')
+  call run_test_case(test_write_gatherv_read_sim_time,'test_write_gatherv_read_sim_time')
+  call run_test_case(test_write_native_sim_one_particle_kinetic_leapfrog,&
+  'test_write_native_sim_one_particle_kinetic_leapfrog')
+  call run_test_case(test_write_gatherv_sim_one_particle_kinetic_leapfrog,&
+  'test_write_gatherv_sim_one_particle_kinetic_leapfrog')
+  call run_test_case(test_write_native_sim_one_group_boris,'test_write_native_sim_one_group_boris')
+  call run_test_case(test_write_gatherv_sim_one_group_boris,'test_write_gatherv_sim_one_group_boris')
+  call run_test_case(test_write_native_sim_all_particles,'test_write_native_sim_all_particles')
+  call run_test_case(test_write_gatherv_sim_all_particles,'test_write_gatherv_sim_all_particles')
+  call run_test_case(test_write_native_sim_two_groups_boris,'test_write_native_sim_two_groups_boris')
+  call run_test_case(test_write_gatherv_sim_two_groups_boris,'test_write_gatherv_sim_two_groups_boris')
   if(rank.eq.master_rank) write(*,'(/A)') "  ... tearing-down: "
   call teardown(rank,n_tasks,ifail)
 end subroutine run_fruit_sim_hdf5_io_spec_mpi
@@ -83,295 +84,260 @@ subroutine test_get_filename
   call assert_equals('part*.123.h5', trim(writer%get_filename(13.123d0)), 'test manual format overflow')
   writer%basename = 'testing'; writer%extension = '.rst'
   call assert_equals('testing2.123.rst', trim(writer%get_filename(2.123d0)), 'test manual format with extension and basename')
+  deallocate(writer)
 end subroutine test_get_filename
 
-subroutine test_write_read_sim_time
+subroutine test_write_native_read_sim_time
   use mpi
   implicit none
-  real*8,parameter           :: filename_time=21.19d0
-  character(len=9),parameter :: expected_filename='part21.h5'
-  type(particle_sim)         :: sim_to_write, sim_to_read, sim_to_read_original
+  real*8,parameter                 :: filename_time=21.19d0
+  character(len=9),parameter       :: expected_filename='part21.h5'
+  type(particle_sim)               :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
-  class(read_action), allocatable  :: reader,reader_original
+  class(read_action), allocatable  :: reader
   logical :: file_exists
-  allocate(writer, reader, reader_original)
+  allocate(writer, reader)
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc;
   writer%decimal_digits = 2; writer%fractional_digits = 0
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
-  writer%file_access = file_access; writer%original = .false.;
+  writer%file_access = file_access; writer%use_native_hdf5_mpio = .true.;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%filename = expected_filename; reader%original = .false.;
+  reader%filename = expected_filename; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that the right time was read
-  call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file")
-  ! Test that the original (legacy) reader works as well
-   reader_original%filename = expected_filename; reader_original%original = .true.;
-  call reader_original%run(sim_to_read_original)
-  call assert_equals(sim_to_write%time, sim_to_read_original%time, "time should be read from the file (read original)")
+  call assert_equals(sim_to_write%time, sim_to_read%time, "(native) time should be read from the file")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_read_sim_time
+  deallocate(writer, reader)
+end subroutine test_write_native_read_sim_time
 
-subroutine test_write_original_read_sim_time
+subroutine test_write_gatherv_read_sim_time
   use mpi
   implicit none
-  real*8,parameter           :: filename_time=21.19d0
-  character(len=9),parameter :: expected_filename='part21.h5'
-  type(particle_sim)         :: sim_to_write, sim_to_read, sim_to_read_original
-  class(write_action), allocatable :: writer_original
-  class(read_action), allocatable  :: reader,reader_original
+  real*8,parameter                 :: filename_time=21.19d0
+  character(len=9),parameter       :: expected_filename='part21.h5'
+  type(particle_sim)               :: sim_to_write, sim_to_read
+  class(write_action), allocatable :: writer
+  class(read_action), allocatable  :: reader
   logical :: file_exists
-  allocate(writer_original, reader, reader_original)
+  allocate(writer, reader)
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; writer_original%original = .true.;
-  writer_original%decimal_digits = 2; writer_original%fractional_digits = 0;
-  call writer_original%run(sim_to_write)
+  sim_to_write%n_cpu = n_tasks_loc; writer%use_native_hdf5_mpio = .false.;
+  writer%decimal_digits = 2; writer%fractional_digits = 0;
+  writer%file_access = file_access; call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%filename = expected_filename; reader%original = .false.;
+  reader%filename = expected_filename; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-  reader%original = .false.;
   call reader%run(sim_to_read)
   ! Test that the right time was read
-  call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file (write original)")
-  ! Test that the original (legacy) reader works as well
-   reader_original%filename = expected_filename; reader_original%original = .true.;
-  call reader_original%run(sim_to_read_original)
-  call assert_equals(sim_to_write%time, sim_to_read_original%time, &
-  "time should be read from the file (write/read original)")
+  call assert_equals(sim_to_write%time, sim_to_read%time, "time should be read from the file (write gatherv)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_original_read_sim_time
+  deallocate(writer, reader)
+end subroutine test_write_gatherv_read_sim_time
 
-subroutine test_write_sim_one_particle_kinetic_leapfrog
+subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   use mpi
   implicit none
   integer,parameter                :: n_groups_expect=1
   integer,dimension(1),parameter   :: n_particles_expect=(/1/)
   real*8,parameter                 :: filename_time=20d0
   character(len=19),parameter      :: expected_filename='part020.00000000.h5'
-  type(particle_sim)               :: sim_to_write, sim_to_read, sim_to_read_original
+  type(particle_sim)               :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
-  class(read_action), allocatable  :: reader, reader_original
+  class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer, reader, reader_original); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
   sim_to_write%groups(1)%mass = 1d3
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
-  writer%file_access = file_access; writer%original = .false.;
+  writer%file_access = file_access; writer%use_native_hdf5_mpio = .true.;
   call writer%run(sim_to_write)
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%original = .false.
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,n_particles_expect,&
-  " (write mpi/read mpi)")
-  ! Test compatibility with old reader
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write%time; reader_original%original = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read_original now
-  call groups_same(sim_to_write,sim_to_read_original,n_groups_expect,n_particles_expect,&
-  " (write mpi/read original)")
+  " (native write /native read)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_sim_one_particle_kinetic_leapfrog
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_native_sim_one_particle_kinetic_leapfrog
 
-subroutine test_write_original_sim_one_particle_kinetic_leapfrog
+subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   use mpi
   implicit none
   integer,parameter                :: n_groups_expect=1
   integer,dimension(1),parameter   :: n_particles_expect=(/1/)
   real*8,parameter                 :: filename_time=30d0
   character(len=19),parameter      :: expected_filename='part030.00000000.h5'
-  type(particle_sim)               :: sim_to_write_original, sim_to_read
-  type(particle_sim)               :: sim_to_read_original
-  class(write_action), allocatable :: writer_original
-  class(read_action), allocatable  :: reader, reader_original
+  type(particle_sim)               :: sim_to_write
+  type(particle_sim)               :: sim_to_read
+  class(write_action), allocatable :: writer
+  class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer_original, reader, reader_original); 
-  allocate(sim_to_write_original%groups(n_groups_expect));
-  call allocate_particles(sim_to_write_original%groups(1)%particles, n_particles_expect(1))
-  sim_to_write_original%time = filename_time; sim_to_write_original%my_id = rank_loc;
-  sim_to_write_original%n_cpu = n_tasks_loc; sim_to_write_original%groups(1)%Z = 10;
-  sim_to_write_original%groups(1)%mass = 1d3
-  writer_original%file_access = file_access; writer_original%original = .true.;
-  call writer_original%run(sim_to_write_original)
-  call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
+  allocate(writer, reader); 
+  allocate(sim_to_write%groups(n_groups_expect));
+  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
+  sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
+  sim_to_write%groups(1)%mass = 1d3; writer%file_access = file_access;&
+  writer%use_native_hdf5_mpio = .false.; writer%mpi_comm_io = mpi_comm_loc;
+  call writer%run(sim_to_write); call MPI_Barrier(MPI_COMM_WORLD,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write_original%time; reader%original = .false.
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-  call reader%run(sim_to_read)
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
+  reader%mpi_comm_io = mpi_comm_loc; call reader%run(sim_to_read);
   ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write_original,sim_to_read,n_groups_expect,n_particles_expect,&
-  " (write original/read mpi)")
-  ! Test compatibility with old reader
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write_original%time; reader_original%original = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read_original now
-  call groups_same(sim_to_write_original,sim_to_read_original,n_groups_expect,&
-  n_particles_expect," (write original/read original)")
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
+  n_particles_expect," (gatherv write / native read)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_original_sim_one_particle_kinetic_leapfrog
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
 
-subroutine test_write_sim_one_group_boris
+subroutine test_write_native_sim_one_group_boris
   use mpi
   implicit none
   integer,parameter                :: n_groups_expect=1
   integer,dimension(1),parameter   :: n_particles_expect=(/2/)
   real*8,parameter                 :: filename_time=21d0
   character(len=19),parameter      :: expected_filename='part021.00000000.h5'
-  type(particle_sim)               :: sim_to_write, sim_to_read, sim_to_read_original
+  type(particle_sim)               :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
-  class(read_action), allocatable  :: reader, reader_original
+  class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer, reader, reader_original); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
   sim_to_write%time = filename_time; sim_to_write%groups(1)%Z = 2;
-  sim_to_write%groups(1)%mass = 2.0
-  writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
-  writer%file_access = file_access; writer%original = .false.;
-  call writer%run(sim_to_write)
+  sim_to_write%groups(1)%mass = 2.0; writer%mpi_comm_io = mpi_comm_loc; 
+  writer%mpi_info_io = mpi_info_loc; writer%file_access = file_access; 
+  writer%use_native_hdf5_mpio = .true.; call writer%run(sim_to_write);
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%original = .false.;
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
-  n_particles_expect,"(new writer/new reader)")
-  ! Test compatibility with older readers
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write%time; reader_original%original = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read_original now
-  call groups_same(sim_to_write,sim_to_read_original,n_groups_expect,&
-  n_particles_expect,"(new writer/original reader)")
+  n_particles_expect,"(native writer/native reader)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_sim_one_group_boris
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_native_sim_one_group_boris
 
-subroutine test_write_original_sim_one_group_boris
+subroutine test_write_gatherv_sim_one_group_boris
   use mpi
   implicit none
   integer,parameter                :: n_groups_expect=1
   integer,dimension(1),parameter   :: n_particles_expect=(/2/)
   real*8,parameter                 :: filename_time=31d0
   character(len=19),parameter      :: expected_filename='part031.00000000.h5'
-  type(particle_sim)               :: sim_to_write_original, sim_to_read
-  type(particle_sim)               :: sim_to_read_original
-  class(write_action), allocatable :: writer_original
-  class(read_action), allocatable  :: reader, reader_original
+  type(particle_sim)               :: sim_to_write
+  type(particle_sim)               :: sim_to_read
+  class(write_action), allocatable :: writer
+  class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  allocate(writer_original, reader, reader_original); 
-  allocate(sim_to_write_original%groups(n_groups_expect));
-  call allocate_particles(sim_to_write_original%groups(1)%particles, n_particles_expect(1))
-  sim_to_write_original%my_id = rank_loc; sim_to_write_original%n_cpu = n_tasks_loc;
-  sim_to_write_original%time = filename_time; sim_to_write_original%groups(1)%Z = 2;
-  sim_to_write_original%groups(1)%mass = 2.0
-  writer_original%file_access = file_access; writer_original%original = .true.;
-  call writer_original%run(sim_to_write_original)
-  call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
+  sim_to_write%time = filename_time; writer%mpi_comm_io = mpi_comm_loc;
+  sim_to_write%groups(1)%Z = 2; sim_to_write%groups(1)%mass = 2.0;
+  writer%file_access = file_access; writer%use_native_hdf5_mpio = .false.;
+  call writer%run(sim_to_write); call MPI_Barrier(MPI_COMM_WORLD,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write_original%time; reader%original = .false.;
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write_original,sim_to_read,n_groups_expect,&
-  n_particles_expect,"(original writer/new reader)")
-  ! Test compatibility with older readers
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write_original%time; reader_original%original = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read_original now
-  call groups_same(sim_to_write_original,sim_to_read_original,n_groups_expect,&
-  n_particles_expect,"(original writer/original reader)")
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
+  n_particles_expect,"(gatherv writer / native reader)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_original_sim_one_group_boris
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_gatherv_sim_one_group_boris
 
-subroutine test_write_sim_two_groups_boris
+subroutine test_write_native_sim_two_groups_boris
   use mpi
   implicit none
   integer,parameter                :: n_groups_expect=2
   integer,dimension(2),parameter   :: n_particles_expect=(/2,2/)
   real*8,parameter                 :: filename_time=22d0;
   character(len=19),parameter      :: expected_filename='part022.00000000.h5'
-  type(particle_sim)               :: sim_to_write, sim_to_read, sim_to_read_original
+  type(particle_sim)               :: sim_to_write, sim_to_read
   class(write_action), allocatable :: writer
-  class(read_action), allocatable  :: reader,reader_original
+  class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
-  allocate(writer, reader, reader_original); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect
     call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
   sim_to_write%groups(1)%mass = 53.0; sim_to_write%groups(2)%Z = 765;
-  sim_to_write%groups(2)%mass = 13.0; 
-  writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
-  writer%file_access = file_access; writer%original = .false.;
-  call writer%run(sim_to_write)
+  sim_to_write%groups(2)%mass = 13.0; writer%mpi_comm_io = mpi_comm_loc; 
+  writer%mpi_info_io = mpi_info_loc; writer%file_access = file_access; 
+  writer%use_native_hdf5_mpio = .true.; call writer%run(sim_to_write);
   call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%original = .false.;
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-  reader%test = .true.;
-  call reader%run(sim_to_read)
+  reader%test = .true.; call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
-  n_particles_expect,"(new writer/new reader)")
-  ! Test backward compatibility original reader with new writer
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write%time; reader_original%original = .true.;
-  reader_original%test = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write,sim_to_read_original,n_groups_expect,&
-  n_particles_expect,"(new writer/original reader)")
+  n_particles_expect,"(native writer/native reader)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_sim_two_groups_boris
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_native_sim_two_groups_boris
 
 !> test the writing and reading of all particle types
-subroutine test_write_sim_all_particles
+subroutine test_write_native_sim_all_particles
   use mpi
   use mod_particle_common_test_tools, only: allocate_one_particle_list_type
   use mod_particle_common_test_tools, only: fill_groups,fill_particles
@@ -381,43 +347,38 @@ subroutine test_write_sim_all_particles
   integer,parameter               :: n_particles_expect=10
   real*8,parameter                :: filename_time=27d0;
   character(len=19),parameter     :: expected_filename='part027.00000000.h5'
-  type(particle_sim)              :: sim_to_write, sim_to_read, sim_to_read_original
+  type(particle_sim)              :: sim_to_write, sim_to_read
   class(write_action),allocatable :: writer
-  class(read_action),allocatable  :: reader,reader_original
+  class(read_action),allocatable  :: reader
   logical :: file_exists
-  allocate(writer, reader, reader_original); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; 
   call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,sim_to_write%groups,ifail_loc)
   call fill_groups(n_groups_expect,sim_to_write%groups,rank_loc,ifail_loc)
   call fill_particles(n_groups_expect,sim_to_write%groups,rank_in=rank_loc)
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
-  writer%file_access = file_access; writer%original = .false.;
-  call writer%run(sim_to_write)
-  call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
+  writer%file_access = file_access; writer%use_native_hdf5_mpio = .true.;
+  call writer%run(sim_to_write); call MPI_Barrier(MPI_COMM_WORLD,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%original = .false.;
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   reader%test = .true.;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call assert_equal_particle_group(n_groups_expect,sim_to_write%groups,sim_to_read%groups)
-  ! Test backward compatibility original reader with new writer
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write%time; reader_original%original = .true.;
-  reader_original%test = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read_original now
-  call assert_equal_particle_group(n_groups_expect,sim_to_write%groups,sim_to_read_original%groups)
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_sim_all_particles
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_native_sim_all_particles
 
-!> test the writing original and reading of all particle types
-subroutine test_write_original_sim_all_particles
+!> test the writing gatherv and reading of all particle types
+subroutine test_write_gatherv_sim_all_particles
   use mpi
   use mod_particle_common_test_tools, only: allocate_one_particle_list_type
   use mod_particle_common_test_tools, only: fill_groups,fill_particles
@@ -427,86 +388,75 @@ subroutine test_write_original_sim_all_particles
   integer,parameter               :: n_particles_expect=10
   real*8,parameter                :: filename_time=37d0;
   character(len=19),parameter     :: expected_filename='part037.00000000.h5'
-  type(particle_sim)              :: sim_to_write_original, sim_to_read, sim_to_read_original
-  class(write_action),allocatable :: writer_original
-  class(read_action),allocatable  :: reader,reader_original
+  type(particle_sim)              :: sim_to_write, sim_to_read
+  class(write_action),allocatable :: writer
+  class(read_action),allocatable  :: reader
   logical :: file_exists
-  allocate(writer_original, reader, reader_original); allocate(sim_to_write_original%groups(n_groups_expect));
-  sim_to_write_original%time = filename_time; sim_to_write_original%my_id = rank_loc;
-  sim_to_write_original%n_cpu = n_tasks_loc; 
-  call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,sim_to_write_original%groups,ifail_loc)
-  call fill_groups(n_groups_expect,sim_to_write_original%groups,rank_loc,ifail_loc)
-  call fill_particles(n_groups_expect,sim_to_write_original%groups,rank_in=rank_loc)
-  writer_original%mpi_comm_io = mpi_comm_loc; writer_original%mpi_info_io = mpi_info_loc;
-  writer_original%file_access = file_access; writer_original%original = .true.;
-  call writer_original%run(sim_to_write_original)
-  call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
+  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
+  sim_to_write%n_cpu = n_tasks_loc; 
+  call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,&
+  sim_to_write%groups,ifail_loc); call fill_groups(n_groups_expect,&
+  sim_to_write%groups,rank_loc,ifail_loc); call fill_particles(n_groups_expect,&
+  sim_to_write%groups,rank_in=rank_loc); writer%mpi_comm_io = mpi_comm_loc;
+  writer%file_access = file_access; writer%use_native_hdf5_mpio = .false.; 
+  call writer%run(sim_to_write); call MPI_Barrier(MPI_COMM_WORLD,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write_original%time; reader%original = .false.;
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   reader%test = .true.;
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  call assert_equal_particle_group(n_groups_expect,sim_to_write_original%groups,sim_to_read%groups)
-  ! Test backward compatibility original reader with new writer
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write_original%time; reader_original%original = .true.;
-  reader_original%test = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read_original now
-  call assert_equal_particle_group(n_groups_expect,sim_to_write_original%groups,sim_to_read_original%groups)
+  call assert_equal_particle_group(n_groups_expect,sim_to_write%groups,sim_to_read%groups)
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_original_sim_all_particles
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_gatherv_sim_all_particles
 
-subroutine test_write_original_sim_two_groups_boris
+subroutine test_write_gatherv_sim_two_groups_boris
   use mpi
   implicit none
   integer,parameter                :: n_groups_expect=2
   integer,dimension(2),parameter   :: n_particles_expect=(/2,2/)
   real*8,parameter                 :: filename_time=22d0;
   character(len=19),parameter      :: expected_filename='part022.00000000.h5'
-  type(particle_sim)               :: sim_to_write_original, sim_to_read
-  type(particle_sim)               :: sim_to_read_original
-  class(write_action), allocatable :: writer_original
-  class(read_action), allocatable  :: reader,reader_original
+  type(particle_sim)               :: sim_to_write, sim_to_read
+  class(write_action), allocatable :: writer
+  class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
-  allocate(writer_original, reader, reader_original); 
-  allocate(sim_to_write_original%groups(n_groups_expect));
+  allocate(writer, reader); 
+  allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect
-    call allocate_particles(sim_to_write_original%groups(i)%particles,n_particles_expect(i))
+    call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
-  sim_to_write_original%time = filename_time; sim_to_write_original%my_id = rank_loc;
-  sim_to_write_original%n_cpu = n_tasks_loc; sim_to_write_original%groups(1)%Z = 324;
-  sim_to_write_original%groups(1)%mass = 53.0; sim_to_write_original%groups(2)%Z = 765;
-  sim_to_write_original%groups(2)%mass = 13.0; 
-  writer_original%file_access = file_access; writer_original%original = .true.;
-  call writer_original%run(sim_to_write_original)
-  call MPI_Barrier(MPI_COMM_WORLD,ifail_loc)
+  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
+  sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
+  sim_to_write%groups(1)%mass = 53.0; sim_to_write%groups(2)%Z = 765;
+  sim_to_write%groups(2)%mass = 13.0; writer%file_access = file_access; 
+  writer%mpi_comm_io = mpi_comm_loc; writer%use_native_hdf5_mpio = .false.; 
+  call writer%run(sim_to_write); call MPI_Barrier(MPI_COMM_WORLD,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
-  reader%time = sim_to_write_original%time; reader%original = .false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc; 
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write_original,sim_to_read,n_groups_expect,&
-  n_particles_expect,"(original writer/new reader)")
-  ! Test backward compatibility original reader with new writer
-  sim_to_read_original%my_id = rank_loc; sim_to_read_original%n_cpu = n_tasks_loc;
-  reader_original%time = sim_to_write_original%time; reader_original%original = .true.;
-  call reader_original%run(sim_to_read_original)
-  ! Test that we have the right stuff in sim_to_read now
-  call groups_same(sim_to_write_original,sim_to_read_original,n_groups_expect,&
-  n_particles_expect,"(original writer/original reader)")
+  call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
+  n_particles_expect,"(gatherv writer/native reader)")
   ! Delete the file
   call remove_file(rank_loc,expected_filename,ifail_loc)
-end subroutine test_write_original_sim_two_groups_boris
+  deallocate(writer, reader)
+  if(allocated(sim_to_write%groups)) deallocate(sim_to_write%groups)
+  if(allocated(sim_to_read%groups))  deallocate(sim_to_read%groups)
+end subroutine test_write_gatherv_sim_two_groups_boris
 
 !> Tools ------------------------------------------
 !> Helper function for removing files

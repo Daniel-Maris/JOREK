@@ -73,8 +73,8 @@ extension,use_hdf5_access_properties_in, mpi_comm_in, mpi_info_in,test_in)
   type(read_action) :: new_read_action
   character(len=*), intent(in), optional :: filename
   character(len=*), intent(in), optional :: basename
-  integer, intent(in), optional          :: decimal_digits
-  integer, intent(in), optional          :: fractional_digits
+  integer,          intent(in), optional :: decimal_digits
+  integer,          intent(in), optional :: fractional_digits
   character(len=*), intent(in), optional :: extension
   integer,          intent(in), optional :: mpi_comm_in,mpi_info_in
   logical,          intent(in), optional :: test_in,use_hdf5_access_properties_in
@@ -98,17 +98,11 @@ subroutine do_read_action(this, sim, ev)
   class(read_action), intent(inout) :: this
   type(particle_sim), intent(inout) :: sim
   type(event), intent(inout), optional :: ev
-  if (len_trim(this%filename) .eq. 0) then
-    call read_simulation_hdf5(sim, trim(this%get_filename(this%time)), &
-    use_hdf5_access_properties=this%use_hdf5_access_properties,& 
-    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
-  else
-    call read_simulation_hdf5(sim, trim(this%filename), &
-    use_hdf5_access_properties=this%use_hdf5_access_properties, &
-    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
-  end if
+  if (len_trim(this%filename) .eq. 0) this%filename = trim(this%get_filename(this%time))
+  call read_simulation_hdf5(sim, trim(this%filename), &
+  use_hdf5_access_properties=this%use_hdf5_access_properties, &
+  mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
 end subroutine do_read_action
-
 
 !> Constructor for write_action
 !> Be sure to use keyword arguments when initializing, to avoid confusion
@@ -120,8 +114,8 @@ mpio_collective_in)
   type(write_action) :: new_write_action
   character(len=*), intent(in), optional :: filename
   character(len=*), intent(in), optional :: basename
-  integer, intent(in), optional          :: decimal_digits
-  integer, intent(in), optional          :: fractional_digits
+  integer,          intent(in), optional :: decimal_digits
+  integer,          intent(in), optional :: fractional_digits
   character(len=*), intent(in), optional :: extension
   integer,          intent(in), optional :: file_access_in,use_native_hdf5_mpio_in,mpi_comm_in
   logical,          intent(in), optional :: mpi_info_in,mpio_collective_in
@@ -137,7 +131,7 @@ mpio_collective_in)
   if (present(fractional_digits)) new_write_action%fractional_digits = fractional_digits
   if (present(extension)) new_write_action%extension = extension
   if (present(file_access_in)) new_write_action%file_access = file_access_in
-  if (present(use_native_hdf5_mpio_in)) new_write%use_native_hdf5_mpio = use_native_hdf5_mpio_in 
+  if (present(use_native_hdf5_mpio_in)) new_write_action%use_native_hdf5_mpio = use_native_hdf5_mpio_in 
   if (present(use_hdf5_access_properties_in)) new_write_action%use_hdf5_access_properties = &
   use_hdf5_access_properties_in
   if (present(mpi_comm_in)) new_write_action%mpi_comm_io = mpi_comm_in
@@ -150,20 +144,11 @@ subroutine do_write_action(this, sim, ev)
   class(write_action), intent(inout) :: this
   type(particle_sim), intent(inout)  :: sim
   type(event), intent(inout), optional :: ev
-  if (len_trim(this%filename) .eq. 0) then
-    call write_simulation_hdf5(sim, trim(this%get_filename(sim%time)), &
-    file_access_in=this%file_access,&
-    use_native_hdf5_mpio_in=this%use_native_hdf5_mpio,&
-    use_hdf5_access_properties=this%use_hdf5_access_properties, &
-    collective_mpio_in=this%mpio_collective, &
-    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
-  else
-    call write_simulation_hdf5(sim, trim(this%filename), &
-    file_access_in=this%file_access, &
-    use_native_hdf5_mpio_in=this%use_native_hdf5_mpio,&
-    use_hdf5_access_properties=this%use_hdf5_access_properties, &
-    collective_mpio_in=this%mpio_collective, &
-    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
-  end if
+  if (len_trim(this%filename) .eq. 0) this%filename = trim(this%get_filename(sim%time))
+  call write_simulation_hdf5(sim, trim(this%filename), file_access_in=this%file_access, &
+  use_native_hdf5_mpio_in=this%use_native_hdf5_mpio,&
+  use_hdf5_access_properties=this%use_hdf5_access_properties, &
+  collective_mpio_in=this%mpio_collective, &
+  mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
 end subroutine do_write_action
 end module mod_io_actions

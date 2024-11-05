@@ -83,7 +83,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   character(len=:),          allocatable :: particle_type_str
 
   !> preparation
-  use_hdf5_parallel = .false.                !< do not use parallel HDF5 by default
+  h5err = 0; use_hdf5_parallel = .false.     !< do not use parallel HDF5 by default
   use_gatherv_mpio  = .not.use_hdf5_parallel !< use MPI gatherv for collecting all data for writing
   if(present(use_native_hdf5_mpio_in)) then 
     use_hdf5_parallel = use_native_hdf5_mpio_in
@@ -93,6 +93,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   if(present(file_access_in)) file_access_loc = file_access_in;
   create_access_plist = .false. !< serial access by default
   if(present(use_hdf5_access_properties)) create_access_plist = .not.use_hdf5_access_properties
+  if(use_hdf5_parallel) create_access_plist = .true.
   mpi_comm_loc = MPI_COMM_WORLD
   if(present(mpi_comm_in)) mpi_comm_loc = mpi_comm_in
   mpi_info_loc = MPI_INFO_NULL
@@ -108,8 +109,8 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   ierr=h5err,file_access=file_access_loc,create_access_plist_in=create_access_plist,& 
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   if(h5err.gt.0) then
-    if(sim%my_id.eq.master_task) write(*,*) "Failed to create or open the ",&
-    filename," file: ",h5err,", ABORT!"
+    write(*,*) "Failed to create or open the ",filename," file: ",h5err,&
+    " MPI task: ",sim%my_id,", ABORT!"
     call MPI_Abort(mpi_comm_loc,-1,ierr)
   endif
   if((use_gatherv_mpio.and.(sim%my_id.eq.master_rank)).or.use_hdf5_parallel) then
