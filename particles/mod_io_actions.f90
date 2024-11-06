@@ -117,8 +117,8 @@ mpio_collective_in)
   integer,          intent(in), optional :: decimal_digits
   integer,          intent(in), optional :: fractional_digits
   character(len=*), intent(in), optional :: extension
-  integer,          intent(in), optional :: file_access_in,use_native_hdf5_mpio_in,mpi_comm_in
-  logical,          intent(in), optional :: mpi_info_in,mpio_collective_in
+  integer,          intent(in), optional :: file_access_in,mpi_comm_in,mpi_info_in
+  logical,          intent(in), optional :: use_native_hdf5_mpio_in,mpio_collective_in
   logical,          intent(in), optional :: use_hdf5_access_properties_in
   new_write_action%name = "WriteAction"
   new_write_action%log = .true.
