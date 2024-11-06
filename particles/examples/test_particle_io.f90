@@ -57,7 +57,7 @@ program test_particle_io
   use_native_hdf5_mpio       = .true.
   file_access_write          = H5F_ACC_TRUNC_F
   mpio_collective            = .true.
-  remove_file                = .false.
+  remove_file                = .true.
   !> Initialise --------------------------------------------------
   call sim_write%initialize(n_groups,.true.,do_jorek_init_in=.false.)
   write_particle = write_action(filename,file_access_in=file_access_write,&
@@ -65,6 +65,7 @@ program test_particle_io
   use_hdf5_access_properties_in=use_hdf5_access_properties,&
   mpi_comm_in=mpi_comm_io,mpi_info_in=mpi_info_io,mpio_collective_in=mpio_collective)
   if(do_write) then
+    event_write = [event(write_particle)]
     call allocate_one_particle_list_type(n_groups,n_particles,p_types,sim_write%groups,ifail)
     call fill_particles(n_groups,sim_write%groups,fill_particle_in=fill_particle_type,&
     rank_in=sim_write%my_id)
@@ -78,7 +79,7 @@ program test_particle_io
   read_particle  = read_action(filename=filename,mpi_comm_in=mpi_comm_io,&
   mpi_info_in=mpi_info_io,use_hdf5_access_properties_in=use_hdf5_access_properties)
   if(do_read) then
-    event_write = [event(write_particle)]; event_read = [event(read_particle)];
+    event_read = [event(read_particle)];
     call sim_read%initialize(n_groups,.true.,my_id=sim_write%my_id,&
     n_cpu=sim_write%n_cpu,do_jorek_init_in=.false.)
   endif
