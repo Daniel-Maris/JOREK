@@ -19,6 +19,7 @@ program test_particle_io
   use mod_particle_assert_equal,      only: assert_equal_particle
   implicit none
   !> Variable declaration ----------------------------------------
+  integer,parameter                :: master_task=0
   type(particle_sim)               :: sim_write,sim_read
   type(event),dimension(1),target  :: event_write,event_read
   type(read_action)                :: read_particle
@@ -33,6 +34,7 @@ program test_particle_io
   logical                          :: use_hdf5_access_properties
   logical                          :: use_native_hdf5_mpio
   logical                          :: mpio_collective
+  logical                          :: remove_file,file_exist
   character(len=24)                :: filename
   !> Define test parameters --------------------------------------
   filename           = "particle_restart_test.h5"
@@ -52,6 +54,7 @@ program test_particle_io
   use_native_hdf5_mpio       = .true.
   file_access_write          = H5F_ACC_TRUNC_F
   mpio_collective            = .true.
+  remove_file                = .true.
   !> Initialise --------------------------------------------------
   call sim_write%initialize(n_groups,.true.,do_jorek_init_in=.false.)
   write_particle = write_action(filename,file_access_in=file_access_write,&
@@ -101,6 +104,10 @@ program test_particle_io
   enddo
   !> Clean-up ---------------------------------------------------- 
   deallocate(p_types); deallocate(n_particles);
+  if((sim_write%my_id.eq.master_task).and.remove_file) then
+    inquire(file=filename,exist=file_exist)
+    if(file_exist) call system("rm -rf "//trim(filename))
+  endif
   call sim_write%finalize
 end program test_particle_io
 
