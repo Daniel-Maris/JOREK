@@ -560,7 +560,7 @@ real*8    :: kinetic_energy, ion_energy,line_rad_energy
 real*8    :: n_lost_ion, n_lost_ion_all, p_plt_lost,p_plt_lost_all,p_cx_lost,p_cx_lost_all,p_lost_ion,p_lost_ion_all
 integer   :: n_super_ionized, n_super_ionized_all
 real*8    :: particle_source, velocity_par_source, energy_source
-real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,extra_proj
+real*8    :: v_temp(3), K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,extra_proj
 real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
 !$ real*8 :: w0, w1, mmm(3)
 
@@ -609,19 +609,19 @@ type is (particle_kinetic_leapfrog)
  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
  !$omp parallel do default(none) &
- !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,        &
- !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_cx, use_ionisation,use_line_radiation,                                  &
- !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
+ !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,                      &
+ !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                         &
+ !$omp use_cx, use_ionisation,use_line_radiation,                                                &
+ !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                                            &
 #endif
- !$omp schedule(dynamic,10) &
- !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,    &
- !$omp i_elm_old, i_elm, n_e, T_e,                                                 &
- !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy,       &  
- !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,    &
- !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj,                        &
- !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
- !$omp E_th, v_th,sum_ran,vvector,ran_norm)                                                                 &
+ !$omp schedule(dynamic,10)                                                                      &
+ !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,                  &
+ !$omp i_elm_old, i_elm, n_e, T_e,                                                               &
+ !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, &  
+ !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,           &
+ !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj,                           &
+ !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, cx_ran,                &
+ !$omp E_th, v_th,sum_ran,vvector,ran_norm)                                                      &
  !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized)
  
  ! shared jorek_feedback
@@ -709,7 +709,6 @@ type is (particle_kinetic_leapfrog)
           call rng(i_rng)%next(cx_ran)
            if (cx_ran(1) .le. CX_prob) then
             ! sample boltzman, randomize velocity
-            T_eV = T_e * K_BOLTZ / EL_CHG !< T_eV = electron T in [eV]
 
 			!============== NEW CX PARTICLE
 			  !Box-Mueller sample velocities with st.dev=1
