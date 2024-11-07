@@ -1422,7 +1422,9 @@ do ife = ife_min, ife_max
       enddo
     enddo
   enddo
-
+  do i = 1, n_vertex_max
+    call dealloc_node(nodes(i))
+  enddo
 enddo
 !$omp end do
 !$omp end parallel

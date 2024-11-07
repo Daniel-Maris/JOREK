@@ -315,6 +315,20 @@ contains
 
   end subroutine make_deep_copy_node
 
+
+  subroutine make_deep_copy_node_list(node_list_to_copy, node_list_copied_to)
+    implicit none
+    type(type_node_list), intent(in)      :: node_list_to_copy
+    type(type_node_list), intent(inout)   :: node_list_copied_to
+    integer                               :: i
+
+    do i=1, node_list_to_copy%n_nodes
+      call make_deep_copy_node(node_list_to_copy%node(i), node_list_copied_to%node(i))
+    enddo
+
+  end subroutine make_deep_copy_node_list
+
+
   subroutine init_threads()
 #ifdef _OPENMP
     use omp_lib
