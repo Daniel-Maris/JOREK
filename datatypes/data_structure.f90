@@ -7,44 +7,42 @@ module data_structure
   use gauss
   use ISO_C_BINDING, ONLY : C_INT, C_DOUBLE
   use mod_sparse_matrix, only: type_SP_MATRIX
-
-  
   implicit none
 
   type type_node                                  !< type definition of a node (i.e. a vertex)
-    real*8     :: x(n_coord_tor,n_degrees,n_dim)        !< x,y,z coordinates of points and additional nodal geometry
-    real*8, dimension(:,:,:), allocatable  :: values   !< Variable values and derivatives
-    real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
+  real*8     :: x(n_coord_tor,n_degrees,n_dim)        !< x,y,z coordinates of points and additional nodal geometry
+  real*8, dimension(:,:,:), allocatable  :: values   !< Variable values and derivatives
+  real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
 #if STELLARATOR_MODEL
-    real*8     :: r_tor_eq(n_degrees)                     !< radial coordinate from GVEC (square root of normalised toroidal flux)
+  real*8     :: r_tor_eq(n_degrees)                     !< radial coordinate from GVEC (square root of normalised toroidal flux)
 #if JOREK_MODEL == 180
-    real*8     :: pressure(n_degrees)                     !< scalar pressure from GVEC
-    real*8     :: j_field(n_coord_tor,n_degrees,n_dim+1)  !< current density R, Z, phi components from GVEC
-    real*8     :: b_field(n_coord_tor,n_degrees,n_dim+1)  !< magnetic field  R, Z, phi components from GVEC
+  real*8     :: pressure(n_degrees)                     !< scalar pressure from GVEC
+  real*8     :: j_field(n_coord_tor,n_degrees,n_dim+1)  !< current density R, Z, phi components from GVEC
+  real*8     :: b_field(n_coord_tor,n_degrees,n_dim+1)  !< magnetic field  R, Z, phi components from GVEC
 #endif
 #ifndef USE_DOMM
-    real*8     :: chi_correction(n_coord_tor,n_degrees)   !< correction to the vacuum magnetic field
+  real*8     :: chi_correction(n_coord_tor,n_degrees)   !< correction to the vacuum magnetic field
 #endif 
-    real*8     :: j_source(n_tor,n_degrees)               !< Current source in a stellarator
+  real*8     :: j_source(n_tor,n_degrees)               !< Current source in a stellarator
 #elif fullmhd
-    real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes
-    real*8     :: Fprof_eq(n_degrees)             !< equilibrium profile R*B_phi at the nodes
+  real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes
+  real*8     :: Fprof_eq(n_degrees)             !< equilibrium profile R*B_phi at the nodes
 #elif altcs
-    real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes
+  real*8     :: psi_eq(n_degrees)               !< equilibrium flux at the nodes
 #endif
-    integer    :: index(n_degrees)                !< index in the main matrix
-    integer    :: boundary                        !< = 1, 2 or 3 for boundary nodes.
-                                                  !< For wall-aligned grids, check routine update_boundary_types_final
-                                                  !< in grids/grid_utils/update_boundary_types.f90
-    integer    :: boundary_index                  !< index of the boundary node 
-    logical    :: axis_node                       !< Flag nodes that are on the axis (and can/need-to-be be stabilised)
-    integer    :: axis_dof                        !< which dof to enforce to zero
-    integer    :: parents(2)                      !< Parent nodes (used if node is constrained)"refinement"
-    integer    :: parent_elem                     !< which element do parent nodes belong to ? "refinement"
-    real*8     :: ref_lambda, ref_mu              !< Local coordinates of node inside the parent element. "refinement"
-    logical    :: constrained                     !< Constrained node or not..."refinement"
-    
-  end type type_node
+  integer    :: index(n_degrees)                !< index in the main matrix
+  integer    :: boundary                        !< = 1, 2 or 3 for boundary nodes.
+                                                !< For wall-aligned grids, check routine update_boundary_types_final
+                                                !< in grids/grid_utils/update_boundary_types.f90
+  integer    :: boundary_index                  !< index of the boundary node 
+  logical    :: axis_node                       !< Flag nodes that are on the axis (and can/need-to-be be stabilised)
+  integer    :: axis_dof                        !< which dof to enforce to zero
+  integer    :: parents(2)                      !< Parent nodes (used if node is constrained)"refinement"
+  integer    :: parent_elem                     !< which element do parent nodes belong to ? "refinement"
+  real*8     :: ref_lambda, ref_mu              !< Local coordinates of node inside the parent element. "refinement"
+  logical    :: constrained                     !< Constrained node or not..."refinement"
+  
+end type type_node
 
   type type_node_list                             !< type definition of a list of nodes
     integer            :: n_nodes                 !< the number of nodes in the list

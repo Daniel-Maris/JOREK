@@ -57,7 +57,6 @@ contains
     my_id = rank
 #endif
 
-    write(*,*) "e_matrix 1"
     ! --- Call element_matrix
     if ( ( (i_tor_min .eq. 1) .and. (i_tor_max .eq. n_tor) .and. (n_tor .ge. n_tor_fft_thresh) )   &
       .or. (unified_element_matrix) ) then
@@ -79,7 +78,6 @@ contains
         R_xpoint, Z_xpoint, thread_struct(omp_tid)%ELM, thread_struct(omp_tid)%RHS, omp_tid,       &
         i_tor_min, i_tor_max, aux_nodes)
     endif
-    write(*,*) "e_matrix 2"
     
     ! --- Apply sheath boundary conditions at the targets
     if (bc_natural_open) then
@@ -97,7 +95,6 @@ contains
         
         bnd1 = node_list%node(inode1)%boundary
         bnd2 = node_list%node(inode2)%boundary
-        write(*,*) "e_matrix 3"
         
         ! --- carry on only if on boundary
         if ( (bnd1 .eq. 0) .or. (bnd2 .eq. 0)) cycle
@@ -110,7 +107,6 @@ contains
         nodes(3)%values = node_list%node(inode3)%values
         nodes(4) = node_list%node(inode4)
         nodes(4)%values = node_list%node(inode4)%values
-        write(*,*) "e_matrix 4"
 
         vertex    = (/ iv, iv2 /)
         
@@ -165,7 +161,6 @@ contains
             cycle
           endif
         endif
-        write(*,*) "e_matrix 5"
           
 
         ! --- Build matrix elements for boundary
@@ -189,7 +184,6 @@ contains
         thread_struct(omp_tid)%ELM(i,i) = 1.d15
       enddo
     endif
-    write(*,*) "e_matrix 6"
     
     ! --- Compare the two element_matrix routines (error thresholds might need to be adapted!)
 #ifdef COMPARE_ELEMENT_MATRIX
@@ -242,7 +236,6 @@ contains
     	endif
     	
       enddo
-    write(*,*) "e_matrix 7"
       
       ! --- Compare matrix entries
       write(*,*)
