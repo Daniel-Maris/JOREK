@@ -170,8 +170,8 @@ module mod_jorek2IMAS
   
       ! --- Toroidal current density * R
       if (variable_names(i) == 'zj') then      
-        allocate( mhd_ids%ggd(i_slice)%j_tor_r(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%j_tor_r(grid_sub_ind)
+        allocate( mhd_ids%ggd(i_slice)%r_j_phi(n_grid_sub))
+        ggd_scalar => mhd_ids%ggd(i_slice)%r_j_phi(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_zj, grid_ind, grid_sub_ind, fact_zj )
       endif
   
@@ -314,7 +314,10 @@ module mod_jorek2IMAS
       grid%space(1)%geometry_type%index = 0  ! Standard (not Fourier)
       allocate(grid%space(1)%coordinates_type(3))
 
-      grid%space(1)%coordinates_type(:) = (/ 1, 2, 3 /)  ! Identifiers for x, y, z type coordinates
+      ! --- Identifiers for (x,y,z) type coordinates (1,2,3)
+      grid%space(1)%coordinates_type(1)%index = 1
+      grid%space(1)%coordinates_type(2)%index = 2
+      grid%space(1)%coordinates_type(3)%index = 3
 
       allocate(grid%space(1)%objects_per_dimension(3))
 
@@ -374,7 +377,7 @@ module mod_jorek2IMAS
     allocate( wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(n_grid_sub) )
     allocate( wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%r(n_wall_triangles) ) ! --- one value per triangle
     allocate( wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%z(n_wall_triangles) ) ! --- one value per triangle
-    allocate( wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%toroidal(n_wall_triangles) ) ! --- one value per triangle
+    allocate( wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%phi(n_wall_triangles) ) ! --- one value per triangle
 
     wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%grid_index        = 1
     wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%grid_subset_index = 1
@@ -409,7 +412,7 @@ module mod_jorek2IMAS
 
       wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%r(i)        =  ( j_lin(1)*co - j_lin(2)*si ) / wall_thickness
       wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%z(i)        =    j_lin(3)                    / wall_thickness
-      wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%toroidal(i) =  (-j_lin(1)*si - j_lin(2)*co ) / wall_thickness * fact_Ip   
+      wall_ids%description_ggd(i_vv)%ggd(i_slice)%j_total(1)%phi(i)      =  (-j_lin(1)*si - j_lin(2)*co ) / wall_thickness * fact_Ip   
     enddo
 
     if (first_step) then
@@ -470,7 +473,11 @@ module mod_jorek2IMAS
       grid%space(1)%geometry_type%index = 0  ! Standard (not Fourier)
       allocate(grid%space(1)%coordinates_type(3))
 
-      grid%space(1)%coordinates_type(:) = (/ 1, 2, 3 /)  ! Identifiers for x, y, z type coordinates
+      ! --- Identifiers for (x,y,z) type coordinates (1,2,3)
+      grid%space(1)%coordinates_type(1)%index = 1
+      grid%space(1)%coordinates_type(2)%index = 2
+      grid%space(1)%coordinates_type(3)%index = 3
+
 
       allocate(grid%space(1)%objects_per_dimension(3))
 
@@ -582,12 +589,12 @@ module mod_jorek2IMAS
 
       ! --- J_phi
       if (expr_list%expr(i_exp)%name=='Jtor') then
-        allocate( wall_ids%description_ggd(i_fw)%ggd(i_slice)%j_total(1)%toroidal(n_wall_nodes) ) ! --- one value per node
+        allocate( wall_ids%description_ggd(i_fw)%ggd(i_slice)%j_total(1)%phi(n_wall_nodes) ) ! --- one value per node
 
         do i_phi=1, n_phi
           do i_pol=1, n_pol 
             i = i_pol + (i_phi-1)*n_pol  !< Global index of refence node
-            wall_ids%description_ggd(i_fw)%ggd(i_slice)%j_total(1)%toroidal(i) = result(i_phi,i_pol,i_exp) * fact_Ip
+            wall_ids%description_ggd(i_fw)%ggd(i_slice)%j_total(1)%phi(i) = result(i_phi,i_pol,i_exp) * fact_Ip
           enddo
         enddo
       endif
@@ -877,13 +884,13 @@ module mod_jorek2IMAS
   
     allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1))
     allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%emissivity(n_grid_sub))
-    allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%label(1) )  
+    allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%name(1) )  
     allocate( radiation_ids%process(1)%identifier%name(1) )
 
     radiation_ids%process(1)%identifier%name  = "Line radiation"
     radiation_ids%process(1)%identifier%index = 10
 
-    radiation_ids%process(1)%ggd(i_slice)%ion(1)%label = imp_type(index_main_imp) 
+    radiation_ids%process(1)%ggd(i_slice)%ion(1)%name = imp_type(index_main_imp) 
   
     ggd_scalar => radiation_ids%process(1)%ggd(i_slice)%ion(1)%emissivity(grid_sub_ind)
     call fill_Bezier_coefficients( ggd_scalar, aux_node_list, var_rad, grid_ind, grid_sub_ind, fact_rad )
@@ -1192,7 +1199,7 @@ module mod_jorek2IMAS
     type(ids_equilibrium),  intent(inout)  :: equilibrium_ids
    
     ! --- Local parameters 
-    integer    :: i, j, k, m, var_rad, i_var, i_tor, index, index_node, my_id, ierr
+    integer    :: i, j, k, m, var_rad, i_var, i_tor, index, index_node, my_id, ierr, ixp1, ixp2
     real*8     :: rho0, fact_rad, R_min, Z_min, R_max, Z_max, R_node, Z_node
     real*8, allocatable :: result(:,:), q_prof(:), rho_tor(:), R_sep(:), Z_sep(:)
     real*8, allocatable :: result2D(:,:,:), R_vec(:), Z_vec(:)
@@ -1314,7 +1321,7 @@ module mod_jorek2IMAS
 
       ! --- Normalized beta
       if (exprs_all_int%expr(i_exp)%name=='beta_n') then
-        equilibrium_ids%time_slice(i_slice)%global_quantities%beta_normal = abs(res0D(i_exp))
+        equilibrium_ids%time_slice(i_slice)%global_quantities%beta_tor_norm = abs(res0D(i_exp))
       endif
 
       ! --- Total current
@@ -1366,30 +1373,49 @@ module mod_jorek2IMAS
 
     ! --- Shaping parameters, T. Luce, PPCF 55 (2013) 095009, equations (1-6)
     if (ES%limiter_plasma) then
-      equilibrium_ids%time_slice(i_slice)%boundary_separatrix%type = 0
+      equilibrium_ids%time_slice(i_slice)%boundary%type = 0
     else
-      equilibrium_ids%time_slice(i_slice)%boundary_separatrix%type = 1
+      equilibrium_ids%time_slice(i_slice)%boundary%type = 1
     endif
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%psi                    = ES%Psi_bnd * fact_psi
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%minor_radius           = ES%LCFS_a
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%elongation             = ES%LCFS_kappa
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%triangularity_upper    = ES%LCFS_deltaU
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%triangularity_lower    = ES%LCFS_deltaL
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%geometric_axis%r       = ES%LCFS_Rgeo
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%geometric_axis%z       = ES%LCFS_Zgeo
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%active_limiter_point%r = ES%R_lim
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%active_limiter_point%z = ES%Z_lim
+    equilibrium_ids%time_slice(i_slice)%boundary%psi                    = ES%Psi_bnd * fact_psi
+    equilibrium_ids%time_slice(i_slice)%boundary%minor_radius           = ES%LCFS_a
+    equilibrium_ids%time_slice(i_slice)%boundary%elongation             = ES%LCFS_kappa
+    equilibrium_ids%time_slice(i_slice)%boundary%triangularity_upper    = ES%LCFS_deltaU
+    equilibrium_ids%time_slice(i_slice)%boundary%triangularity_lower    = ES%LCFS_deltaL
+    equilibrium_ids%time_slice(i_slice)%boundary%geometric_axis%r       = ES%LCFS_Rgeo
+    equilibrium_ids%time_slice(i_slice)%boundary%geometric_axis%z       = ES%LCFS_Zgeo
+    !equilibrium_ids%time_slice(i_slice)%boundary%active_limiter_point%r = ES%R_lim ! no longer available in v4...
+    !equilibrium_ids%time_slice(i_slice)%boundary%active_limiter_point%z = ES%Z_lim
 
-    allocate(equilibrium_ids%time_slice(i_slice)%boundary_separatrix%x_point(2))
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%x_point(:)%r = ES%R_xpoint(:)
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%x_point(:)%z = ES%Z_xpoint(:)
+    ! -- Save two special points (axis and X-points)
+    allocate(equilibrium_ids%time_slice(i_slice)%contour_tree%node(3))
+    !--- Save axis
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%critical_type = 0 ! minimum
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%r   = ES%R_axis
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%z   = ES%Z_axis
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%psi = ES%psi_axis
+
+    !--- Save X-points
+    ixp1 = 1;  ixp2 = 2;
+    if (ES%active_xpoint == 2) then
+      ixp1 = 2;  ixp2 = 1;
+    endif
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(2)%critical_type = 1 ! saddle
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(2)%r   = ES%R_xpoint(ixp1)
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(2)%z   = ES%Z_xpoint(ixp1)
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(2)%psi = ES%Psi_xpoint(ixp1)
+
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(3)%critical_type = 1 ! saddle
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(3)%r   = ES%R_xpoint(ixp2)
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(3)%z   = ES%Z_xpoint(ixp2)
+    equilibrium_ids%time_slice(i_slice)%contour_tree%node(3)%psi = ES%Psi_xpoint(ixp2)
 
     ! --- Export separatrix
     call separatrix(command_tmp, ierr, R_sep, Z_sep)
-    allocate(equilibrium_ids%time_slice(i_slice)%boundary_separatrix%outline%r(size(R_sep)))
-    allocate(equilibrium_ids%time_slice(i_slice)%boundary_separatrix%outline%z(size(R_sep)))
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%outline%r(:) = R_sep(:)
-    equilibrium_ids%time_slice(i_slice)%boundary_separatrix%outline%z(:) = Z_sep(:)
+    allocate(equilibrium_ids%time_slice(i_slice)%boundary%outline%r(size(R_sep)))
+    allocate(equilibrium_ids%time_slice(i_slice)%boundary%outline%z(size(R_sep)))
+    equilibrium_ids%time_slice(i_slice)%boundary%outline%r(:) = R_sep(:)
+    equilibrium_ids%time_slice(i_slice)%boundary%outline%z(:) = Z_sep(:)
 
     ! --- Export 2D quantities on a rectangular grid
     call clean_up()
@@ -1458,8 +1484,8 @@ module mod_jorek2IMAS
 
       ! --- Jtor
       if (expr_list%expr(i_exp)%name=='Jtor') then
-        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%j_tor(n_grid, n_grid) )
-        equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%j_tor(:,:) = result2D(:,:,i_exp) * fact_Ip
+        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%j_phi(n_grid, n_grid) )
+        equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%j_phi(:,:) = result2D(:,:,i_exp) * fact_Ip
       endif
 
       ! --- B_R
@@ -1476,8 +1502,8 @@ module mod_jorek2IMAS
 
       ! --- B_tor
       if (expr_list%expr(i_exp)%name=='Btor') then
-        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_tor(n_grid, n_grid) )
-        equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_tor(:,:) = result2D(:,:,i_exp) * fact_Ip
+        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_phi(n_grid, n_grid) )
+        equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_phi(:,:) = result2D(:,:,i_exp) * fact_Ip
       endif
 
     enddo
@@ -1552,8 +1578,8 @@ module mod_jorek2IMAS
 
       ! --- li(3)
       if (exprs_all_int%expr(i_exp)%name=='li3') then
-        allocate(summary_ids%global_quantities%li%value(n_slice))
-        summary_ids%global_quantities%li%value(i_slice) = res0D(i_exp)
+        allocate(summary_ids%global_quantities%li_3%value(n_slice))
+        summary_ids%global_quantities%li_3%value(i_slice) = res0D(i_exp)
       endif
 
       ! --- Volume
@@ -1681,8 +1707,8 @@ module mod_jorek2IMAS
 
       ! --- Toroidal halos
       if (exprs_all_int%expr(i_exp)%name=='Ip_out') then
-        allocate(disruption_ids%global_quantities%current_halo_tor(n_slice))
-        disruption_ids%global_quantities%current_halo_tor(i_slice) = res0D(i_exp) * fact_Ip
+        allocate(disruption_ids%global_quantities%current_halo_phi(n_slice))
+        disruption_ids%global_quantities%current_halo_phi(i_slice) = res0D(i_exp) * fact_Ip
       endif
 
       ! --- Total ohmic power
@@ -1981,7 +2007,8 @@ module mod_jorek2IMAS
     allocate(  grid%space(1)%coordinates_type(2)       )
   
     ! Set coordinates type to [R, Z]
-    grid%space(1)%coordinates_type = (/ 4, 3 /)
+    grid%space(1)%coordinates_type(1)%index = 4
+    grid%space(1)%coordinates_type(2)%index = 3
   
     allocate(grid%identifier%description(1))
     allocate(grid%identifier%name(1))
@@ -2056,7 +2083,7 @@ module mod_jorek2IMAS
     space_fourier  => grid%space(2)
     allocate(    space_fourier%coordinates_type(1)    )
     allocate(    space_fourier%identifier%description(1)  )
-    space_fourier%coordinates_type(1) = 5          ! The coordinate type is 5, phi angle
+    space_fourier%coordinates_type(1)%index = 5          ! The coordinate type is 5, phi angle
     space_fourier%geometry_type%index = n_period   ! Fourier periodicity
     space_fourier%identifier%description(1) = "Toroidal Fourier space"             
   
@@ -2121,7 +2148,8 @@ module mod_jorek2IMAS
     allocate(  grid%space(1)%coordinates_type(2)       )
   
     ! Set coordinates type to [R, Z]
-    grid%space(1)%coordinates_type = (/ 4, 3 /)
+    grid%space(1)%coordinates_type(1)%index = 4
+    grid%space(1)%coordinates_type(2)%index = 3
   
     allocate(grid%identifier%description(1))
     allocate(grid%identifier%name(1))
@@ -2173,7 +2201,7 @@ module mod_jorek2IMAS
     space_fourier  => grid%space(2)
     allocate(    space_fourier%coordinates_type(1)    )
     allocate(    space_fourier%identifier%description(1)  )
-    space_fourier%coordinates_type(1) = 5          ! The coordinate type is 5, phi angle
+    space_fourier%coordinates_type(1)%index = 5          ! The coordinate type is 5, phi angle
     space_fourier%geometry_type%index = n_period   ! Fourier periodicity
     space_fourier%identifier%description(1) = "Toroidal Fourier space"             
   
