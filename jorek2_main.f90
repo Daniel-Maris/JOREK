@@ -371,9 +371,13 @@ mpi_required = 0
   call initialise_equilibrium(my_id,node_list,element_list,bnd_node_list, bnd_elm_list)
 #else
   if_not_restart: if (.not. restart) then
+
     call tr_resetfile()
 
     if_not_regrid_from_rz: if(.not. regrid_from_rz) then
+      
+      ! --- allocate values of nodes
+      call init_node_list(node_list, n_nodes_max, node_list%n_dof, n_var)
 
       call initial_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id, n_cpu)
 
@@ -449,9 +453,6 @@ mpi_required = 0
     end if ! if (n_flux > 1) then
       
     if (my_id == 0) then
-
-      ! --- allocate values of nodes
-      call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_var)
           
       ! --- Update the status of the equilibrium
       call update_equil_state(my_id,node_list, element_list, bnd_elm_list, xpoint, xcase)

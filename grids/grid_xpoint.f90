@@ -744,9 +744,11 @@ allocate(newnode_list)
 call tr_register_mem(sizeof(newnode_list),"newnode_list",CAT_GRID)
 allocate(newelement_list)
 call tr_register_mem(sizeof(newelement_list),"newelement_list",CAT_GRID)
+
 newnode_list%n_nodes = 0
 newnode_list%n_dof   = 0
 do i = 1, n_nodes_max
+  call init_node(newnode_list%node(i), n_var)
   newnode_list%node(i)%x           = 0.d0
   newnode_list%node(i)%values      = 0.d0
   newnode_list%node(i)%deltas      = 0.d0
@@ -1537,6 +1539,7 @@ do i=1, element_list%n_elements
 enddo
 
 call tr_unregister_mem(sizeof(newnode_list),"newnode_list",CAT_GRID)
+call dealloc_node_list(newnode_list) ! deallocates all the node values in newnode_list
 deallocate(newnode_list)
 call tr_unregister_mem(sizeof(newelement_list),"newelement_list",CAT_GRID)
 deallocate(newelement_list)
