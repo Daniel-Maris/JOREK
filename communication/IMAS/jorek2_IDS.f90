@@ -3,8 +3,7 @@ program jorek2_IDS
 
 #ifdef USE_IMAS
   use ids_schemas 
-  use ids_routines, only: imas_open_env, &
-     imas_create_env, imas_close, ids_get, ids_put, ids_put_slice
+  use ids_routines
 
   use mod_jorek2IMAS 
   use constants
@@ -21,8 +20,8 @@ program jorek2_IDS
   
   implicit none
   
-  character(len=200):: user, database, passive_coil_geo_file, active_coil_geo_file
-  character(len=64) :: file_name, name_proj
+  character(len=200):: user, database, passive_coil_geo_file, active_coil_geo_file, URI
+  character(len=64) :: file_name, name_proj, dd_version_maj, backend, str_shot, str_run
   integer :: shot_number, run_number, i_begin, i_end, i_step, i_jump_steps
   integer :: ierr, idx, stat_mhd, stat_core, stat_rad, stat_eq, n_grid, stat, stat_wall
   integer :: stat_pass, stat_act, stat_sum, stat_dis, stat_vac
@@ -60,7 +59,7 @@ program jorek2_IDS
                          export_summary, overwrite_entry, i_jump_steps,              &
                          simulation_description, export_field_extension,               &
                          Rmin_vac_grid, Rmax_vac_grid, Zmin_vac_grid, Zmax_vac_grid, &
-                         nR_vac_grid, nZ_vac_grid 
+                         nR_vac_grid, nZ_vac_grid, backend 
 
   ! --- Necessary initialization ------------------
   ! --- MPI initialization (for wall current reconstruction)
@@ -122,6 +121,7 @@ program jorek2_IDS
   ! ------------------ end initialization ------------------------
   
   ! --- Preset parameters for this program
+  backend     = 'hdf5'                    !< Name of the backend to store the data (mdsplus,hdf5...)
   database    = 'test'                    !< Name of the database to export the results
   shot_number = 111112;   run_number=1;   
   i_begin     = 0                         !< Starting restart file index
@@ -163,17 +163,26 @@ program jorek2_IDS
     close(42)
   end if
 
+  ! --- Compute URI (IMAS data path/identifier)
+  write(str_run,  '(I0)') run_number
+  write(str_shot, '(I0)') shot_number
+  write(dd_version_maj, '(I0)') al_dd_major_version
+
+  URI = "imas:" // trim(backend) // "?user="     // trim(user)     // ";pulse="    // TRIM(str_shot)      // &
+        ";run=" // TRIM(str_run) // ";database=" // trim(database) // ";version=" //  TRIM(dd_version_maj)
+
+  write(*,*) ' Exporting to URI = '//trim(URI)
   new_entry = .true.
   if (overwrite_entry) then
-    call imas_create_env('ids',shot_number,run_number, 0,0,idx,user,database,'3')
+    call imas_open(URI, FORCE_CREATE_PULSE, idx, stat)
   else
-    ! --- Try to open shot and number if it exists
-    call imas_open_env( 'ids', shot_number,run_number,idx,user,database,'3',stat)! 3 is the database version  
+    ! --- Try to open shot number if it exists
+    call imas_open(URI, OPEN_PULSE, idx, stat)
     new_entry = .false.
 
     if (stat /= 0) then  ! --- Create a new shot if it doesn't exist
       write(*,*) '  Shot/run number did not exist, creating new one...'
-      call imas_create_env('ids',shot_number,run_number, 0,0,idx,user,database,'3') 
+      call imas_open(URI, FORCE_CREATE_PULSE, idx, stat)
       new_entry = .true.
     endif
   endif
