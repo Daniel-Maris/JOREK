@@ -3,8 +3,7 @@ module mod_jorek2IMAS
 
 #ifdef USE_IMAS
   use ids_schemas !, only: ids_equilibrium
-  use ids_routines, only: imas_open_env, &
-     imas_create_env, imas_close, ids_get
+  use ids_routines
 
   use mod_parameters 
   use mod_new_diag
@@ -125,6 +124,11 @@ module mod_jorek2IMAS
       allocate( mhd_ids%grid_ggd(n_grid) )
       grid => mhd_ids%grid_ggd(grid_ind)
       call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
+    else 
+      if ( associated(mhd_ids%grid_ggd) ) then
+        call ids_deallocate_struct(mhd_ids%grid_ggd(grid_ind), .false.)
+        deallocate(mhd_ids%grid_ggd)
+      endif
     endif
 
     ! --- Normalization factors for IMAS
@@ -379,7 +383,11 @@ module mod_jorek2IMAS
       allocate(wall_ids%description_ggd(i_vv)%component(1)%type(1)%identifier%description(1))
       wall_ids%description_ggd(i_vv)%component(1)%type(1)%identifier%description = "A single layer of the &
                                                                     vacuum vessel discretized with linear thin triangles"
-
+    else
+      if ( associated(wall_ids%description_ggd(i_vv)%grid_ggd)) then
+        call ids_deallocate_struct(wall_ids%description_ggd(i_vv)%grid_ggd(grid_ind), .false.)
+        deallocate(wall_ids%description_ggd(i_vv)%grid_ggd)
+      end if
     endif
 
     ! --- Set times
@@ -565,7 +573,11 @@ module mod_jorek2IMAS
       allocate(wall_ids%description_ggd(i_fw)%component(1)%type(1)%identifier%description(1))
       wall_ids%description_ggd(i_fw)%component(1)%type(1)%identifier%description = "A single layer representing the first wall &
                                                                     + divertor surfaces discretized with linear thin triangles"
-
+    else   
+      if ( associated(wall_ids%description_ggd(i_fw)%grid_ggd)) then
+        call ids_deallocate_struct(wall_ids%description_ggd(i_fw)%grid_ggd(grid_ind), .false.)
+        deallocate(wall_ids%description_ggd(i_fw)%grid_ggd)    
+      end if                                                     
     endif
 
     allocate( wall_ids%description_ggd(i_fw)%ggd(n_slice) )
@@ -883,6 +895,11 @@ module mod_jorek2IMAS
       allocate( radiation_ids%grid_ggd(n_grid) )
       grid => radiation_ids%grid_ggd(grid_ind)
       call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
+    else
+      if ( associated(radiation_ids%grid_ggd)) then
+        call ids_deallocate_struct(radiation_ids%grid_ggd(grid_ind), .false.)     
+        deallocate(radiation_ids%grid_ggd)
+      endif
     endif
  
     ! --- Normalization factors for IMAS
@@ -1849,6 +1866,11 @@ module mod_jorek2IMAS
       allocate( mhd_ids%grid_ggd(n_grid) )
       grid => mhd_ids%grid_ggd(grid_ind)
       call rect_grid2ggd( grid, rect_elms_vertices, RZ )
+    else
+      if ( associated(mhd_ids%grid_ggd)) then
+        call ids_deallocate_struct(mhd_ids%grid_ggd(grid_ind), .false.)  
+        deallocate(mhd_ids%grid_ggd)
+      endif
     endif
 
     ! --- Set times
