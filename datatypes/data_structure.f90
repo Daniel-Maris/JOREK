@@ -220,6 +220,7 @@ contains
     type(type_node), intent(inout)    :: node       !< the node to be initialized
     integer, intent(in)               :: n_values   !< number of values to be stored in node
     
+    if (allocated(node%values)) deallocate(node%values)
     allocate(node%values(n_tor, n_degrees, n_values))
 
   end subroutine init_node

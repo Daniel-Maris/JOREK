@@ -17,7 +17,7 @@ contains
     ! --- Modules
     use mod_parameters,           only : n_tor, jorek_model, n_vertex_max, n_degrees, unified_element_matrix
     use phys_module,              only : bc_natural_open, bc_natural_flux, n_tor_fft_thresh, grid_to_wall, n_wall_blocks, keep_n0_const
-    USE data_structure,           only : type_element, type_node, type_node_list, thread_struct
+    USE data_structure,           only : type_element, type_node, type_node_list, thread_struct, make_deep_copy_node, init_node
     use mod_boundary_matrix_open, only : boundary_matrix_open
     use mod_elt_matrix,           only : element_matrix
     use mod_elt_matrix_fft,       only : element_matrix_fft
@@ -99,14 +99,10 @@ contains
         ! --- carry on only if on boundary
         if ( (bnd1 .eq. 0) .or. (bnd2 .eq. 0)) cycle
         
-        nodes(1) = node_list%node(inode1)
-        nodes(1)%values = node_list%node(inode1)%values
-        nodes(2) = node_list%node(inode2)
-        nodes(2)%values = node_list%node(inode2)%values
-        nodes(3) = node_list%node(inode3)
-        nodes(3)%values = node_list%node(inode3)%values
-        nodes(4) = node_list%node(inode4)
-        nodes(4)%values = node_list%node(inode4)%values
+        call make_deep_copy_node(node_list%node(inode1), nodes(1))
+        call make_deep_copy_node(node_list%node(inode2), nodes(2))
+        call make_deep_copy_node(node_list%node(inode3), nodes(3))
+        call make_deep_copy_node(node_list%node(inode4), nodes(4))
 
         vertex    = (/ iv, iv2 /)
         
@@ -440,6 +436,8 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   if (mhd_sim%freeboundary .and. (mhd_sim%sr_n_tor /= 0 ) ) then
     call global_matrix_structure_vacuum(mhd_sim%node_list, mhd_sim%bnd_node_list, a_mat, i_tor_min=1, i_tor_max=n_tor)
   endif
+
+
  
   ! --- Declare shared and private variables for omp
   !$omp parallel default(none) &
@@ -466,12 +464,6 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   omp_tid      = 1
 #endif
 
-  do iv=1, n_vertex_max
-    if (.not. allocated(nodes_father(iv)%values)) allocate(nodes_father(iv)%values(n_tor, n_degrees, n_var))
-    if (.not. allocated(nodes(iv)%values)) allocate(nodes(iv)%values(n_tor, n_degrees, n_var))
-    if (.not. allocated(aux_nodes(iv)%values)) allocate(aux_nodes(iv)%values(n_tor, n_degrees, n_var))
-  enddo
-
   n_tor_local = a_mat%i_tor_max - a_mat%i_tor_min + 1
   if(treat_axis) then
      do i = 1, n_var
@@ -482,6 +474,7 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
        i_harm(i) = i
      enddo
   endif
+
   
 ! --- Loop over local elements
   !$omp do schedule(runtime)
@@ -499,9 +492,8 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
       if (i_father .ne. 0) then
       element_father = element_list%element(i_father)
       do iv = 1, n_vertex_max
-        inode_father=element_father%vertex(iv)
-        nodes_father(iv) = node_list%node(inode_father)
-        nodes_father(iv)%values = node_list%node(inode_father)%values
+        inode_father = element_father%vertex(iv)
+        call make_deep_copy_node(node_list%node(inode_father), nodes_father(iv))
       enddo
      endif
 
@@ -509,10 +501,9 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
        
       do iv = 1, n_vertex_max
         inode   = element%vertex(iv)
-        nodes(iv) = node_list%node(inode)
-        nodes(iv)%values = node_list%node(inode)%values
-        aux_nodes(iv) = aux_node_list%node(inode)
-        aux_nodes(iv)%values = aux_node_list%node(inode)%values
+        call make_deep_copy_node(node_list%node(inode), nodes(iv))
+        ! if (.not. allocated(aux_node_list%node(inode)%values)) call init_node(aux_node_list%node(inode), n_var)
+        call make_deep_copy_node(aux_node_list%node(inode), aux_nodes(iv))
       enddo
 
     endif
@@ -724,7 +715,7 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
 
   end do
 
-    !$omp end do
+  !$omp end do
 
   !$omp end parallel
  

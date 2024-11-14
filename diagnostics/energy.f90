@@ -32,7 +32,8 @@ do ife =1,  element_list%n_elements
 
   do iv = 1, n_vertex_max
     inode     = element%vertex(iv)
-    nodes(iv) = node_list%node(inode)
+    call make_deep_copy_node(node_list%node(inode), nodes(iv))
+    ! nodes(iv) = node_list%node(inode)
   enddo
 
   x_g(:,:) = 0.d0;    x_s(:,:) = 0.d0;    x_t(:,:) = 0.d0;

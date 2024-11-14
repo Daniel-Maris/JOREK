@@ -8,6 +8,7 @@ subroutine import_restart(node_list, element_list, filename, format_rst, ierr, n
 
   use tr_module
   use data_structure
+  use mod_particle_settings
   use phys_module
   use pellet_module
   use equil_info
@@ -67,6 +68,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   use tr_module 
   use data_structure
+  use mod_particle_settings
   use phys_module
   use pellet_module
   use vacuum, only: import_restart_vacuum, current_FB_fact
@@ -894,6 +896,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   use tr_module 
   use data_structure
+  use mod_particle_settings
   use phys_module
   use pellet_module
   use vacuum, only: import_HDF5_restart_vacuum, current_FB_fact
@@ -1124,12 +1127,14 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   ! initialise and allocate node_list
   call init_node_list(node_list, n_nodes_tmp, n_dof_tmp, n_var)
 
+
   aux_values_read = .false.
   if(present(aux_node_list)) then
     call h5lexists_f(file_id,'aux_values',flag_exists,err_exists)
     if(flag_exists .and. err_exists == 0) then
-       aux_values_read = .true.
-       allocate(aux_node_list,source=node_list)
+      aux_values_read = .true.
+      call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
+
     endif
   endif
 
@@ -2248,6 +2253,7 @@ end subroutine import_hdf5_restart
 subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
 
 #include "version.h"
+  use mod_particle_settings
   use tr_module
   use data_structure
   use phys_module
@@ -2363,6 +2369,7 @@ subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
 
   call HDF5_integer_reading(file_id,aux_node_list%n_nodes,"n_nodes")
   call HDF5_integer_reading(file_id,aux_node_list%n_dof,"n_dof")
+  call init_node_list(aux_node_list, aux_node_list%n_nodes, aux_node_list%n_dof, n_aux_var)
 
   call tr_allocate(t_x, 1,aux_node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim_tmp, "aux_node_list%x",     CAT_UNKNOWN)
   call tr_allocate(t_values,1,aux_node_list%n_nodes,1, n_tor_tmp,1,n_order+1,1,n_var_tmp, "aux_node_list%values",CAT_UNKNOWN)

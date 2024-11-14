@@ -25,6 +25,7 @@ program JOREK2
 
   use constants
   use data_structure
+  use mod_particle_settings
   use phys_module
   use mod_parameters
   use mod_log_params
@@ -373,11 +374,11 @@ mpi_required = 0
   if_not_restart: if (.not. restart) then
 
     call tr_resetfile()
+    call init_node_list(node_list, n_nodes_max, node_list%n_dof, n_var)
 
     if_not_regrid_from_rz: if(.not. regrid_from_rz) then
       
       ! --- allocate values of nodes
-      call init_node_list(node_list, n_nodes_max, node_list%n_dof, n_var)
 
       call initial_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id, n_cpu)
 
@@ -650,6 +651,7 @@ write(*,*) "n elements:", element_list%n_elements
   call r3_info_print (-2, -2, 'INITIALIZATION')    ! timing
 
   if (.not. associated(aux_node_list)) allocate(aux_node_list) ! information of particle moments is stored in aux_list
+  call init_node_list(aux_node_list, n_nodes_max, aux_node_list%n_dof, n_aux_var)
 
   index_now = index_start  ! index_now: Index of current timestep
 
