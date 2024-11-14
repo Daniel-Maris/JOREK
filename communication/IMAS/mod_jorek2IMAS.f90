@@ -306,10 +306,18 @@ module mod_jorek2IMAS
       
       grid%identifier%index = 0   ! Unspecified
       allocate( grid%identifier%description(1))
-      grid%identifier%description(1) = "Thin wall described with linear triangles"
+      allocate( grid%identifier%name(1))
+      grid%identifier%description = "Thin wall described with linear triangles"
+      grid%identifier%name        = "Thin triangular wall"
 
       allocate(grid%space(1))
-      grid%space(1)%identifier%index = 1  ! Primary space
+
+      ! --- Identifier
+      allocate( grid%space(1)%identifier%description(1))
+      allocate( grid%space(1)%identifier%name(1))
+      grid%space(1)%identifier%index       = 1  ! Primary space
+      grid%space(1)%identifier%description = "This is just a 3D cartesian space"
+      grid%space(1)%identifier%name        = "Primary space"
 
       grid%space(1)%geometry_type%index = 0  ! Standard (not Fourier)
       allocate(grid%space(1)%coordinates_type(3))
@@ -341,6 +349,12 @@ module mod_jorek2IMAS
       ! --- 1 current density value will be assigned per triangle 
       allocate(grid%grid_subset(1))
       grid%grid_subset(1)%identifier%index = 5  ! Identifier index for 2D cells in the dictionary
+      allocate(grid%grid_subset(1)%identifier%name(1))
+      allocate(grid%grid_subset(1)%identifier%description(1))
+      grid%grid_subset(1)%identifier%name = "2D triangles"
+      grid%grid_subset(1)%identifier%description = "2D cells representing the linear thin triangles"
+
+
       grid%grid_subset(1)%dimension        = 3  ! Index 3 means 2 dimensions in the dictionary
 
       ! --- Save wall thickness
@@ -465,10 +479,17 @@ module mod_jorek2IMAS
       
       grid%identifier%index = 0   ! Unspecified
       allocate( grid%identifier%description(1))
-      grid%identifier%description(1) = "Thin wall described with linear triangles"
+      allocate( grid%identifier%name(1))
+      grid%identifier%description = "Thin wall described with linear triangles"
+      grid%identifier%name = "Thin triangular wall"
 
-      allocate(grid%space(1))
-      grid%space(1)%identifier%index = 1  ! Primary space
+      ! --- Space identifier
+      allocate( grid%space(1))
+      allocate( grid%space(1)%identifier%description(1))
+      allocate( grid%space(1)%identifier%name(1))
+      grid%space(1)%identifier%index       = 1  ! Primary space
+      grid%space(1)%identifier%description = "This is just a 3D cartesian space"
+      grid%space(1)%identifier%name        = "Primary space"
 
       grid%space(1)%geometry_type%index = 0  ! Standard (not Fourier)
       allocate(grid%space(1)%coordinates_type(3))
@@ -477,7 +498,6 @@ module mod_jorek2IMAS
       grid%space(1)%coordinates_type(1)%index = 1
       grid%space(1)%coordinates_type(2)%index = 2
       grid%space(1)%coordinates_type(3)%index = 3
-
 
       allocate(grid%space(1)%objects_per_dimension(3))
 
@@ -525,7 +545,12 @@ module mod_jorek2IMAS
       ! --- Create a grid subset where the wall nodes elements of the subset
       ! --- values will be assigned to the nodes
       allocate(grid%grid_subset(1))
+      allocate(grid%grid_subset(1)%identifier%name(1))
+      allocate(grid%grid_subset(1)%identifier%description(1))
       grid%grid_subset(1)%identifier%index = 1  ! Identifier index for 0D nodes in the dictionary
+      grid%grid_subset(1)%identifier%name  = "0D nodes"
+      grid%grid_subset(1)%identifier%description = "Triangle nodes of the grid"
+
       grid%grid_subset(1)%dimension        = 1  ! Index 1 means 0 dimensions in the dictionary (for 0D nodes)
 
       !--- Information about the wall component
@@ -886,9 +911,11 @@ module mod_jorek2IMAS
     allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%emissivity(n_grid_sub))
     allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%name(1) )  
     allocate( radiation_ids%process(1)%identifier%name(1) )
+    allocate( radiation_ids%process(1)%identifier%description(1) )
 
-    radiation_ids%process(1)%identifier%name  = "Line radiation"
-    radiation_ids%process(1)%identifier%index = 10
+    radiation_ids%process(1)%identifier%name         = "Line radiation"
+    radiation_ids%process(1)%identifier%description  = "Total line radiation"
+    radiation_ids%process(1)%identifier%index        = 10
 
     radiation_ids%process(1)%ggd(i_slice)%ion(1)%name = imp_type(index_main_imp) 
   
@@ -2083,9 +2110,12 @@ module mod_jorek2IMAS
     space_fourier  => grid%space(2)
     allocate(    space_fourier%coordinates_type(1)    )
     allocate(    space_fourier%identifier%description(1)  )
+    allocate(    space_fourier%identifier%name(1)  )
     space_fourier%coordinates_type(1)%index = 5          ! The coordinate type is 5, phi angle
-    space_fourier%geometry_type%index = n_period   ! Fourier periodicity
-    space_fourier%identifier%description(1) = "Toroidal Fourier space"             
+    space_fourier%geometry_type%index    = n_period   ! Fourier periodicity
+    space_fourier%identifier%name        = "Toroidal Fourier space"             
+    space_fourier%identifier%description = "Description of the toroidal Fourier harmonics series"  
+    space_fourier%identifier%index       = 3          ! 3= Secondary space extending dimensions           
   
     allocate(  space_fourier%objects_per_dimension(1)               )  ! We have only one dimension of
     allocate(  space_fourier%objects_per_dimension(1)%object(n_tor) )  ! toroidal harmonics
@@ -2153,8 +2183,8 @@ module mod_jorek2IMAS
   
     allocate(grid%identifier%description(1))
     allocate(grid%identifier%name(1))
-    grid%identifier%description(1) = "Mesh coming from the JOREK code: combined 2D space in the poloidal plane &
-                                      with Fourier space for the toroidal angle dependence"
+    grid%identifier%description = "Mesh coming from the JOREK code: combined 2D space in the poloidal plane &
+                                   with Fourier space for the toroidal angle dependence"
     grid%identifier%name  = "JOREK simple rectangular mesh"
     grid%identifier%index = 0   ! Unspecified
   
@@ -2190,20 +2220,23 @@ module mod_jorek2IMAS
   
     allocate( grid%grid_subset(gs_index)%identifier%name(1)         )
     allocate( grid%grid_subset(gs_index)%identifier%description(1)  )
-    grid%grid_subset(gs_index)%identifier%name(1)        = "nodes"
-    grid%grid_subset(gs_index)%identifier%index          = 1 
-    grid%grid_subset(gs_index)%identifier%description(1) = "The elements of the grid subset are the 0D nodes &
-                                                         of the combined RZ x Fourier space (number of nodes &
-                                                         is N_poloidal_nodes x N_fourier). "
-    grid%grid_subset(gs_index)%dimension                 = 1    ! 1 is the convention for 0D nodes
+    grid%grid_subset(gs_index)%identifier%name        = "nodes"
+    grid%grid_subset(gs_index)%identifier%index       = 1 
+    grid%grid_subset(gs_index)%identifier%description = "The elements of the grid subset are the 0D nodes &
+                                                      of the combined RZ x Fourier space (number of nodes &
+                                                      is N_poloidal_nodes x N_fourier). "
+    grid%grid_subset(gs_index)%dimension              = 1    ! 1 is the convention for 0D nodes
   
     ! Fill toroidal space 
     space_fourier  => grid%space(2)
     allocate(    space_fourier%coordinates_type(1)    )
     allocate(    space_fourier%identifier%description(1)  )
+    allocate(    space_fourier%identifier%name(1)  )
     space_fourier%coordinates_type(1)%index = 5          ! The coordinate type is 5, phi angle
-    space_fourier%geometry_type%index = n_period   ! Fourier periodicity
-    space_fourier%identifier%description(1) = "Toroidal Fourier space"             
+    space_fourier%identifier%description    = "Description of the toroidal Fourier harmonics series"        
+    space_fourier%identifier%name           = "Toroidal Fourier space"    
+    space_fourier%identifier%index          = 3          ! 3= Secondary space extending dimensions
+    space_fourier%geometry_type%index       = n_period   ! Fourier periodicity
   
     allocate(  space_fourier%objects_per_dimension(1)               )  ! We have only one dimension of
     allocate(  space_fourier%objects_per_dimension(1)%object(n_tor) )  ! toroidal harmonics
