@@ -22,8 +22,8 @@ module mod_jorek2IMAS
  
   public
  
-  ! Transform to COCOS convention 8 --> 11
-  real*8 :: fact_psi =  2.d0 * PI
+  ! Transform to COCOS convention
+  real*8 :: fact_psi = -2.d0 * PI ! -2pi for COCOS 17 in DD4, 2pi for COCOS 11 in DD3
   real*8 :: fact_Ip  = -1.d0
   real*8 :: fact_phi_dir = -1.d0  ! -1 to go from 8-->11 or 8-->17
 
