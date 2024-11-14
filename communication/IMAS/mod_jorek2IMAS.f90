@@ -1133,7 +1133,7 @@ module mod_jorek2IMAS
     do i_psi=2, n_grid
       rho_tor(i_psi) = sum(q_prof(1:i_psi)) ! Assuming equidistant psi grid!!
     end do
-    core_profiles_ids%profiles_1d(i_slice)%grid%rho_tor_norm(:) = rho_tor(:)/rho_tor(n_grid)
+    core_profiles_ids%profiles_1d(i_slice)%grid%rho_tor_norm(:) = sqrt( rho_tor(:)/rho_tor(n_grid) )
 
   end subroutine fill_core_profiles_IDS
 
@@ -1294,7 +1294,7 @@ module mod_jorek2IMAS
     do i_psi=2, n_grid
       rho_tor(i_psi) = sum(q_prof(1:i_psi)) ! Assuming equidistant psi grid!!
     end do
-    equilibrium_ids%time_slice(i_slice)%profiles_1d%rho_tor_norm(:) = rho_tor(:)/rho_tor(n_grid)
+    equilibrium_ids%time_slice(i_slice)%profiles_1d%rho_tor_norm(:) = sqrt( rho_tor(:)/rho_tor(n_grid) )
 
     ! --- Information about the toroidal field
     equilibrium_ids%vacuum_toroidal_field%r0 = R_geo
