@@ -83,7 +83,7 @@ module mod_jorek2IMAS
   contains
 
 
-  subroutine fill_mhd_IDS(first_step, time_SI, mhd_ids)  
+  subroutine fill_profiles_w_JOREK_var(first_step, time_SI, plasma_profiles_ids)  
 
     use phys_module, only : F0, central_density, sqrt_mu0_rho0, &
                            sqrt_mu0_over_rho0, central_mass
@@ -94,7 +94,7 @@ module mod_jorek2IMAS
     logical,   intent(in) :: first_step   ! is this the first step?
     real*8,    intent(in) :: time_SI
     
-    type(ids_mhd), target,     intent(inout) :: mhd_ids
+    type(ids_plasma_profiles), target,     intent(inout) :: plasma_profiles_ids
 
    
     ! --- Local parameters 
@@ -105,8 +105,9 @@ module mod_jorek2IMAS
     ! **********************************************************************************
     ! ******************************* IMAS **********************************************
     ! **********************************************************************************
-    type(ids_generic_grid_scalar),      pointer :: ggd_scalar
-    type(ids_generic_grid_aos3_root),   pointer :: grid
+    type(ids_generic_grid_scalar),            pointer :: ggd_scalar
+    type(ids_generic_grid_vector_components), pointer :: ggd_vector
+    type(ids_generic_grid_aos3_root),         pointer :: grid
     
     integer:: num_nodes
     
@@ -121,13 +122,13 @@ module mod_jorek2IMAS
   
     if (first_step) then
       ! --- Put the grid in GGD
-      allocate( mhd_ids%grid_ggd(n_grid) )
-      grid => mhd_ids%grid_ggd(grid_ind)
+      allocate( plasma_profiles_ids%grid_ggd(n_grid) )
+      grid => plasma_profiles_ids%grid_ggd(grid_ind)
       call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
     else 
-      if ( associated(mhd_ids%grid_ggd) ) then
-        call ids_deallocate_struct(mhd_ids%grid_ggd(grid_ind), .false.)
-        deallocate(mhd_ids%grid_ggd)
+      if ( associated(plasma_profiles_ids%grid_ggd) ) then
+        call ids_deallocate_struct(plasma_profiles_ids%grid_ggd(grid_ind), .false.)
+        deallocate(plasma_profiles_ids%grid_ggd)
       endif
     endif
 
@@ -147,89 +148,89 @@ module mod_jorek2IMAS
     ! --- Set times
     n_slice = 1  
     i_slice = 1
-    allocate(  mhd_ids%time(n_slice) )
-    allocate(  mhd_ids%ggd(n_slice ) )
+    allocate(  plasma_profiles_ids%time(n_slice) )
+    allocate(  plasma_profiles_ids%ggd(n_slice ) )
 
-    mhd_ids%ids_properties%homogeneous_time = 1
+    plasma_profiles_ids%ids_properties%homogeneous_time = 1
   
-    mhd_ids%time(i_slice)     = time_SI 
-    mhd_ids%ggd(i_slice)%time = time_SI
+    plasma_profiles_ids%time(i_slice)     = time_SI 
+    plasma_profiles_ids%ggd(i_slice)%time = time_SI
 
     ! --- Fill MHD data
     do i=1, n_var 
   
       ! --- Poloidal magnetic flux
       if (variable_names(i) == 'Psi') then      
-        allocate( mhd_ids%ggd(i_slice)%psi(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%psi(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%psi(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%psi(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_psi, grid_ind, grid_sub_ind, fact_psi )
       endif
   
       ! --- Electrostatic potential 
       if (variable_names(i) == 'u') then      
-        allocate( mhd_ids%ggd(i_slice)%phi_potential(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%phi_potential(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%phi_potential(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%phi_potential(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_u, grid_ind, grid_sub_ind, fact_phi )
       endif
   
       ! --- Toroidal current density * R
       if (variable_names(i) == 'zj') then      
-        allocate( mhd_ids%ggd(i_slice)%r_j_phi(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%r_j_phi(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%r_j_total_phi(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%r_j_total_phi(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_zj, grid_ind, grid_sub_ind, fact_zj )
       endif
   
       ! --- Toroidal vorticity / R 
       if (variable_names(i) == 'omega') then      
-        allocate( mhd_ids%ggd(i_slice)%vorticity_over_r(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%vorticity_over_r(grid_sub_ind)
-        call fill_Bezier_coefficients( ggd_scalar, node_list, var_w, grid_ind, grid_sub_ind, fact_w )
+        allocate( plasma_profiles_ids%ggd(i_slice)%vorticity_over_r(n_grid_sub))
+        ggd_vector => plasma_profiles_ids%ggd(i_slice)%vorticity_over_r(grid_sub_ind)
+        call fill_Bezier_vector_coefficients( ggd_vector, node_list, var_w, grid_ind, grid_sub_ind, fact_w, 'phi')
       endif
   
       ! --- Mass density
       if (variable_names(i) == 'rho') then      
-        allocate( mhd_ids%ggd(i_slice)%mass_density(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%mass_density(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%mass_density(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%mass_density(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_rho, grid_ind, grid_sub_ind, fact_rho )
       endif
   
       ! --- Total temperature 
       if (variable_names(i) == 'T') then      
         ! --- Te
-        allocate( mhd_ids%ggd(i_slice)%electrons%temperature(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%electrons%temperature(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%electrons%temperature(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%electrons%temperature(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_T, grid_ind, grid_sub_ind, fact_T*0.5d0 )
   
         ! --- Ti
-        allocate( mhd_ids%ggd(i_slice)%t_i_average(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%t_i_average(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%t_i_average(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%t_i_average(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_T, grid_ind, grid_sub_ind, fact_T*0.5d0 )
       endif
   
       ! --- Ion temperature
       if (variable_names(i) == 'T_i') then      
-        allocate( mhd_ids%ggd(i_slice)%t_i_average(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%t_i_average(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%t_i_average(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%t_i_average(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_Ti, grid_ind, grid_sub_ind, fact_T )
       endif
   
       ! --- Electron temperature
       if (variable_names(i) == 'T_e') then      
-        allocate( mhd_ids%ggd(i_slice)%electrons%temperature(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%electrons%temperature(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%electrons%temperature(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%electrons%temperature(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_Te, grid_ind, grid_sub_ind, fact_T )
       endif
   
       ! --- Parallel velocity
       if (variable_names(i) == 'v_par') then      
-        allocate( mhd_ids%ggd(i_slice)%velocity_parallel_over_b_field(n_grid_sub))
-        ggd_scalar => mhd_ids%ggd(i_slice)%velocity_parallel_over_b_field(grid_sub_ind)
+        allocate( plasma_profiles_ids%ggd(i_slice)%velocity_parallel_over_b_field(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%velocity_parallel_over_b_field(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_vpar, grid_ind, grid_sub_ind, fact_v )
       endif
   
     enddo
 
-  end subroutine fill_mhd_IDS
+  end subroutine fill_profiles_w_JOREK_var
 
 
 
@@ -946,7 +947,7 @@ module mod_jorek2IMAS
 
 
 
-  subroutine fill_core_profiles_IDS(first_step, time_SI, core_profiles_ids, n_grid)  
+  subroutine fill_plasma_profiles_IDS(first_step, time_SI, plasma_profiles_ids, n_grid)  
 
     use phys_module, only : F0, central_density, sqrt_mu0_rho0, &
                            sqrt_mu0_over_rho0, central_mass, imp_type, &
@@ -957,7 +958,7 @@ module mod_jorek2IMAS
     logical,      intent(in) :: first_step   ! is this the first step?
     real*8,       intent(in) :: time_SI
     integer,      intent(in) :: n_grid       ! Number of flux surfaces to compute average
-    type(ids_core_profiles),   intent(inout) :: core_profiles_ids
+    type(ids_plasma_profiles),   intent(inout) :: plasma_profiles_ids
    
     ! --- Local parameters 
     integer    :: i, j, k, m, var_rad, i_var, i_tor, index, index_node, my_id, ierr
@@ -976,15 +977,15 @@ module mod_jorek2IMAS
     ! --- Set times
     n_slice = 1;   i_slice = 1
 
-    allocate( core_profiles_ids%profiles_1d(n_slice) )
-    allocate( core_profiles_ids%time(n_slice) )
+    allocate( plasma_profiles_ids%profiles_1d(n_slice) )
+    allocate( plasma_profiles_ids%time(n_slice) )
 
     ! --- Normalization factors for IMAS
     rho0               = central_density * 1.d20 * central_mass * mass_proton
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
     
-    core_profiles_ids%ids_properties%homogeneous_time = 1    
-    core_profiles_ids%time(i_slice) = time_SI 
+    plasma_profiles_ids%ids_properties%homogeneous_time = 1    
+    plasma_profiles_ids%time(i_slice) = time_SI 
 
     ! --- Call expressions and do a flux average
     step_imported = .true.
@@ -998,7 +999,7 @@ module mod_jorek2IMAS
                         'Jpar', 'E_||', 'Er', 'vpar', 'Vtheta_i', 'Vstar_i', 'rho', 'Psi', &
                         'Z_eff', 'nimp', 'ni_main', 'nn_main'/), 19)
     
-    ! --- If loss of LCFS, abort core_profiles
+    ! --- If loss of LCFS, abort plasma_profiles
     if ( .not. ES%LCFS_is_lost ) then
       call average(command_tmp, first_step==.true., ierr, result, .true.)
       call clean_up()
@@ -1009,15 +1010,15 @@ module mod_jorek2IMAS
       allocate(result(n_grid, expr_list%n_expr))
       allocate(q_prof(n_grid))
       result = -1.d99;   q_prof = -1.d99;
-      write(*,*) '  core_profiles cannot be produced without closed flux surfaces'
+      write(*,*) '  plasma_profiles cannot be produced without closed flux surfaces'
     endif
     ! --- Correct first and last points
     q_prof(1)      = q_prof(2)        + (q_prof(2)-q_prof(3))
     q_prof(n_grid) = q_prof(n_grid-1) + (q_prof(n_grid-1)-q_prof(n_grid-2))
 
     ! --- Some allocations
-    allocate( core_profiles_ids%profiles_1d(i_slice)%ion(1+n_adas) ) ! First index is for main ions
-    allocate( core_profiles_ids%profiles_1d(i_slice)%neutral(1+n_adas) )
+    allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(1+n_adas) ) ! First index is for main ions
+    allocate( plasma_profiles_ids%profiles_1d(i_slice)%neutral(1+n_adas) )
     i_ion_main = 1;  i_ion_imp = 2;
 
     ! --- Fill expressions in IDSs
@@ -1025,119 +1026,119 @@ module mod_jorek2IMAS
 
       ! --- Psi_N
       if (expr_list%expr(i_exp)%name=='Psi_N') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%grid%rho_pol_norm(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%grid%psi_magnetic_axis = ES%Psi_axis * fact_psi
-        core_profiles_ids%profiles_1d(i_slice)%grid%psi_boundary      = ES%Psi_bnd  * fact_psi
-        core_profiles_ids%profiles_1d(i_slice)%grid%rho_pol_norm(:)   = sqrt(result(:,i_exp))
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%grid%rho_pol_norm(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%grid%psi_magnetic_axis = ES%Psi_axis * fact_psi
+        plasma_profiles_ids%profiles_1d(i_slice)%grid%psi_boundary      = ES%Psi_bnd  * fact_psi
+        plasma_profiles_ids%profiles_1d(i_slice)%grid%rho_pol_norm(:)   = sqrt(result(:,i_exp))
       endif
 
       ! --- Psi
       if (expr_list%expr(i_exp)%name=='Psi') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%grid%psi(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%grid%psi(:)   = result(:,i_exp) * fact_psi
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%grid%psi(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%grid%psi(:)   = result(:,i_exp) * fact_psi
       endif
 
       ! --- Ion temperature
       if (expr_list%expr(i_exp)%name=='T_i') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%t_i_average(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%t_i_average(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%t_i_average(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%t_i_average(:) = result(:,i_exp)
       endif
 
       ! --- Electron temperature
       if (expr_list%expr(i_exp)%name=='T_e') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%electrons%temperature(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%electrons%temperature(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%electrons%temperature(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%electrons%temperature(:) = result(:,i_exp)
       endif
 
       ! --- Electron density
       if (expr_list%expr(i_exp)%name=='ne') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%electrons%density(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%electrons%density(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%electrons%density(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%electrons%density(:) = result(:,i_exp)
       endif
 
       ! --- Total pressure
       if (expr_list%expr(i_exp)%name=='pres') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%pressure_thermal(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%pressure_thermal(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%pressure_thermal(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%pressure_thermal(:) = result(:,i_exp)
       endif
 
       ! --- Electrostatic potential
       if (expr_list%expr(i_exp)%name=='Phi') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%phi_potential(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%phi_potential(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%phi_potential(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%phi_potential(:) = result(:,i_exp)
       endif
 
       ! --- Parallel conductivity
       if (expr_list%expr(i_exp)%name=='eta_T') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%conductivity_parallel(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%conductivity_parallel(:) = 1.d0 / result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%conductivity_parallel(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%conductivity_parallel(:) = 1.d0 / result(:,i_exp)
       endif
 
       ! --- Parallel current density
       if (expr_list%expr(i_exp)%name=='Jpar') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%j_total(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%j_total(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%j_total(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%j_total(:) = result(:,i_exp)
       endif
 
       ! --- Parallel electric field
       if (expr_list%expr(i_exp)%name=='E_||') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%e_field%parallel(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%e_field%parallel(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%e_field%parallel(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%e_field%parallel(:) = result(:,i_exp)
       endif
 
       ! --- Radial electric field
       if (expr_list%expr(i_exp)%name=='Er') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%e_field%radial(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%e_field%radial(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%e_field%radial(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%e_field%radial(:) = result(:,i_exp)
       endif
 
       ! --- Parallel velocity
       if (expr_list%expr(i_exp)%name=='vpar') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%parallel(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%parallel(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%parallel(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%parallel(:) = result(:,i_exp)
       endif
 
       ! --- Poloidal velocity
       if (expr_list%expr(i_exp)%name=='Vtheta_i') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%poloidal(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%poloidal(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%poloidal(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%poloidal(:) = result(:,i_exp)
       endif
 
       ! --- Diamagnetic velocity
       if (expr_list%expr(i_exp)%name=='Vstar_i') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%diamagnetic(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%diamagnetic(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%diamagnetic(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%velocity%diamagnetic(:) = result(:,i_exp)
       endif
 
       ! --- Z_eff
       if (expr_list%expr(i_exp)%name=='Z_eff') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%zeff(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%zeff(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%zeff(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%zeff(:) = result(:,i_exp)
       endif
 
       ! --- Ion density
       if (expr_list%expr(i_exp)%name=='ni_main') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%density(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%density(:) = result(:,i_exp) 
-        allocate( core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%element(1) )
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%element(1)%a   = central_mass
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%element(1)%z_n = 1   ! Main ions have Z=1
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%density(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%density(:) = result(:,i_exp) 
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%element(1) )
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%element(1)%a   = central_mass
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_main)%element(1)%z_n = 1   ! Main ions have Z=1
       endif
 
       ! --- Neutral density (of main ions)
       if (expr_list%expr(i_exp)%name=='nn_main') then
-        allocate( core_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%density(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%density(:) = result(:,i_exp) 
-        allocate( core_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%element(1) )
-        core_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%element(1)%a   = central_mass
-        core_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%element(1)%z_n = 1   ! Main ions have Z=1
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%density(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%density(:) = result(:,i_exp) 
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%element(1) )
+        plasma_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%element(1)%a   = central_mass
+        plasma_profiles_ids%profiles_1d(i_slice)%neutral(i_ion_main)%element(1)%z_n = 1   ! Main ions have Z=1
       endif
 
       ! --- Main impurity density
       if (expr_list%expr(i_exp)%name=='nimp') then   ! ion index 2 is for the main impurity species
-        allocate( core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%density(n_grid) )
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%density(:) = result(:,i_exp)
-        allocate( core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1) )
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%density(n_grid) )
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%density(:) = result(:,i_exp)
+        allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1) )
         select case ( trim(imp_type(index_main_imp)) )
         case('D2')
            a_imp  = 2
@@ -1160,26 +1161,26 @@ module mod_jorek2IMAS
             a_imp  = 2
             z_imp  = 1
         end select
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1)%a   = a_imp
-        core_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1)%z_n = z_imp
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1)%a   = a_imp
+        plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1)%z_n = z_imp
       endif
 
     end do
     
     ! --- q-profile
-    allocate( core_profiles_ids%profiles_1d(i_slice)%q(n_grid) )
-    core_profiles_ids%profiles_1d(i_slice)%q(:) = q_prof(:)
+    allocate( plasma_profiles_ids%profiles_1d(i_slice)%q(n_grid) )
+    plasma_profiles_ids%profiles_1d(i_slice)%q(:) = q_prof(:)
 
     ! --- Get rho_norm_tor from psi_N and q_profile
-    allocate( core_profiles_ids%profiles_1d(i_slice)%grid%rho_tor_norm(n_grid) )
+    allocate( plasma_profiles_ids%profiles_1d(i_slice)%grid%rho_tor_norm(n_grid) )
     allocate(rho_tor(n_grid))
     rho_tor(:) = 0.d0
     do i_psi=2, n_grid
       rho_tor(i_psi) = sum(q_prof(1:i_psi)) ! Assuming equidistant psi grid!!
     end do
-    core_profiles_ids%profiles_1d(i_slice)%grid%rho_tor_norm(:) = sqrt( rho_tor(:)/rho_tor(n_grid) )
+    plasma_profiles_ids%profiles_1d(i_slice)%grid%rho_tor_norm(:) = sqrt( rho_tor(:)/rho_tor(n_grid) )
 
-  end subroutine fill_core_profiles_IDS
+  end subroutine fill_plasma_profiles_IDS
 
 
 
@@ -1801,7 +1802,7 @@ module mod_jorek2IMAS
 
   ! --- Fill an IDS with a rectangular grid containing BR and BZ, extending to the vacuum
   ! --- It needs full free-boundary
-  subroutine fill_fields_vacuum_extension(first_step, time_SI, mhd_ids, Rmin, Rmax, Zmin, Zmax, nR, nZ)  
+  subroutine fill_fields_vacuum_extension(first_step, time_SI, plasma_profiles_ids, Rmin, Rmax, Zmin, Zmax, nR, nZ)  
 
     use mod_vacuum_fields, only: mag_field_including_vacuum
 
@@ -1813,11 +1814,12 @@ module mod_jorek2IMAS
     real*8,    intent(in) :: Rmin, Rmax, Zmin, Zmax !< parameters defining rectangular grid
     integer,   intent(in) :: nR, nZ  !< Number of grid points in R and Z
     
-    type(ids_mhd), target,     intent(inout) :: mhd_ids
+    type(ids_plasma_profiles), target,     intent(inout) :: plasma_profiles_ids
     
     ! --- Local parameters
-    type(ids_generic_grid_scalar),      pointer :: ggd_scalar
-    type(ids_generic_grid_aos3_root),   pointer :: grid
+    type(ids_generic_grid_scalar),            pointer :: ggd_scalar
+    type(ids_generic_grid_vector_components), pointer :: ggd_vector
+    type(ids_generic_grid_aos3_root),         pointer :: grid
     
     integer :: n_slice, i_slice, grid_ind, grid_sub_ind, n_grid_sub, n_grid, num_nodes
     integer :: iR, iZ, i_pol, i_element, n_element
@@ -1863,42 +1865,42 @@ module mod_jorek2IMAS
   
     if (first_step) then
       ! --- Put the grid in GGD
-      allocate( mhd_ids%grid_ggd(n_grid) )
-      grid => mhd_ids%grid_ggd(grid_ind)
+      allocate( plasma_profiles_ids%grid_ggd(n_grid) )
+      grid => plasma_profiles_ids%grid_ggd(grid_ind)
       call rect_grid2ggd( grid, rect_elms_vertices, RZ )
     else
-      if ( associated(mhd_ids%grid_ggd)) then
-        call ids_deallocate_struct(mhd_ids%grid_ggd(grid_ind), .false.)  
-        deallocate(mhd_ids%grid_ggd)
+      if ( associated(plasma_profiles_ids%grid_ggd)) then
+        call ids_deallocate_struct(plasma_profiles_ids%grid_ggd(grid_ind), .false.)  
+        deallocate(plasma_profiles_ids%grid_ggd)
       endif
     endif
 
     ! --- Set times
     n_slice = 1  
     i_slice = 1
-    allocate(  mhd_ids%time(n_slice) )
-    allocate(  mhd_ids%ggd(n_slice ) )
+    allocate(  plasma_profiles_ids%time(n_slice) )
+    allocate(  plasma_profiles_ids%ggd(n_slice ) )
 
-    mhd_ids%ids_properties%homogeneous_time = 1
+    plasma_profiles_ids%ids_properties%homogeneous_time = 1
 
-    allocate(mhd_ids%ids_properties%comment(1))
+    allocate(plasma_profiles_ids%ids_properties%comment(1))
   
-    mhd_ids%time(i_slice)     = time_SI 
-    mhd_ids%ggd(i_slice)%time = time_SI
+    plasma_profiles_ids%time(i_slice)     = time_SI 
+    plasma_profiles_ids%ggd(i_slice)%time = time_SI
 
-    mhd_ids%ids_properties%comment = "The magnetic field exported in a rectangular grid for each &
-                                      Fourier harmonic. It can be used for field line tracing or &
-                                      to produce synthetic magnetic diagnostics (for example). "
+    plasma_profiles_ids%ids_properties%comment = "The magnetic field exported in a rectangular grid for each &
+                                                  Fourier harmonic. It can be used for field line tracing or &
+                                                  to produce synthetic magnetic diagnostics (for example). "
+
+    
+    allocate( plasma_profiles_ids%ggd(i_slice)%b_field(n_grid_sub))
+    ggd_vector => plasma_profiles_ids%ggd(i_slice)%b_field(grid_sub_ind)
 
     ! --- Fill BR
-    allocate( mhd_ids%ggd(i_slice)%b_field_r(n_grid_sub))
-    ggd_scalar => mhd_ids%ggd(i_slice)%b_field_r(grid_sub_ind)
-    call fill_node_values_with_harmonics( ggd_scalar, B_tot(:,:,1), grid_ind, grid_sub_ind, 1.d0 )
+    call fill_values_vector_with_harmonics( ggd_vector, B_tot(:,:,1), grid_ind, grid_sub_ind, 1.d0, 'r')
 
     ! --- Fill BZ
-    allocate( mhd_ids%ggd(i_slice)%b_field_z(n_grid_sub))
-    ggd_scalar => mhd_ids%ggd(i_slice)%b_field_z(grid_sub_ind)
-    call fill_node_values_with_harmonics( ggd_scalar, B_tot(:,:,2), grid_ind, grid_sub_ind, 1.d0 )
+    call fill_values_vector_with_harmonics( ggd_vector, B_tot(:,:,2), grid_ind, grid_sub_ind, 1.d0, 'r')
 
   end subroutine fill_fields_vacuum_extension
 
@@ -1906,9 +1908,60 @@ module mod_jorek2IMAS
 
 
 
+  ! --- Fills Bezier coefficients and values in GGD
+  subroutine fill_values_coefficients( values, coefficients, node_list, var_index, res_fact )
+  
+    implicit none
+  
+    ! --- External parameters
+    real*8, pointer,             intent(inout) :: values(:), coefficients(:,:)
+    type (type_node_list), intent(in)  :: node_list
+    integer,               intent(in)  :: var_index
+    real*8,                intent(in)  :: res_fact
+  
+    ! --- Local parameters
+    integer :: num_nodes, inode, inode_glob, itor
+    
+    num_nodes = node_list%n_nodes
+
+    if ( associated(coefficients) ) then
+      deallocate(coefficients )
+      allocate(coefficients(num_nodes*n_tor, n_degrees) ) 
+    else
+      allocate(coefficients(num_nodes*n_tor, n_degrees) )
+    endif
+
+    if ( associated(values) ) then
+      deallocate( values )
+      allocate( values(num_nodes*n_tor) ) 
+    else
+      allocate( values(num_nodes*n_tor) )
+    endif
+  
+    do inode=1, num_nodes    
+      do itor=1, n_tor
+        
+         inode_glob = inode + (itor-1)*num_nodes
+         
+        if ( (itor .eq. 1) .or. mod(itor, 2) .eq. 0 ) then ! reverse sign of sine modes to transform COCOS convention
+           coefficients(inode_glob,:) =   node_list%node(inode)%values(itor,:,var_index) * res_fact
+           values(inode_glob)         =   node_list%node(inode)%values(itor,1,var_index) * res_fact
+        else
+           coefficients(inode_glob,:) = fact_phi_dir *  node_list%node(inode)%values(itor,:,var_index) * res_fact
+           values(inode_glob)         = fact_phi_dir *  node_list%node(inode)%values(itor,1,var_index) * res_fact
+        end if
+
+      enddo
+    enddo
+
+  end subroutine fill_values_coefficients
 
 
-  ! --- Fills Bezier coefficients in GGD
+
+
+
+
+  ! --- Fills Bezier coefficients and values in GGD
   subroutine fill_Bezier_coefficients( ggd_scalar, node_list, var_index, grid_ind, grid_sub_ind, res_fact )
   
     implicit none
@@ -1919,52 +1972,89 @@ module mod_jorek2IMAS
     integer,               intent(in)  :: var_index, grid_ind, grid_sub_ind
     real*8,                intent(in)  :: res_fact
   
+    ggd_scalar%grid_index        = grid_ind
+    ggd_scalar%grid_subset_index = grid_sub_ind
+ 
+    call fill_values_coefficients( ggd_scalar%values, ggd_scalar%coefficients, node_list, var_index, res_fact )
+  
+  end subroutine fill_Bezier_coefficients
+  
+
+
+
+
+  ! --- Fills Bezier coefficients in GGD for vectors
+  subroutine fill_Bezier_vector_coefficients( ggd_vector, node_list, var_index, grid_ind, grid_sub_ind, res_fact, component)
+  
+    implicit none
+  
+    ! --- External parameters
+    type(ids_generic_grid_vector_components),  intent(inout) ::  ggd_vector
+    type (type_node_list), intent(in)  :: node_list
+    integer,               intent(in)  :: var_index, grid_ind, grid_sub_ind
+    real*8,                intent(in)  :: res_fact
+    character(len=*),      intent(in)  :: component
+
+    ggd_vector%grid_index        = grid_ind
+    ggd_vector%grid_subset_index = grid_sub_ind
+
+    select case (trim(component))
+      case('radial')
+        call fill_values_coefficients( ggd_vector%radial,      ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+      case('diamagnetic')
+        call fill_values_coefficients( ggd_vector%diamagnetic, ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+      case('parallel')
+        call fill_values_coefficients( ggd_vector%parallel,    ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+      case('poloidal')
+        call fill_values_coefficients( ggd_vector%poloidal,    ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+      case('r')
+        call fill_values_coefficients( ggd_vector%r,           ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+      case('phi')
+        call fill_values_coefficients( ggd_vector%phi,         ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+      case('z')
+        call fill_values_coefficients( ggd_vector%z,           ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+    end select
+  
+  end subroutine fill_Bezier_vector_coefficients
+  
+
+
+
+
+    ! --- Fills simple values in GGD with harmonics
+  subroutine fill_values_harmonics_simple( values, node_values, res_fact )
+  
+    implicit none
+  
+    ! --- External parameters
+    real*8, pointer,     intent(inout) :: values(:)
+    real*8, dimension(:,:), intent(in) :: node_values  !< values at nodes on the poloidal plane (i_pol, i_harmonic)
+    real*8,                intent(in)  :: res_fact
+  
     ! --- Local parameters
     integer :: num_nodes, inode, inode_glob, itor
     
     num_nodes = node_list%n_nodes
 
-    if ( associated(ggd_scalar%coefficients) ) then
-      deallocate( ggd_scalar%coefficients )
-      allocate( ggd_scalar%coefficients(num_nodes*n_tor, n_degrees) ) 
+    if ( associated(values) ) then
+      deallocate( values )
+      allocate( values(num_nodes*n_tor) ) 
     else
-      allocate( ggd_scalar%coefficients(num_nodes*n_tor, n_degrees) )
-    endif
-
-    if ( associated(ggd_scalar%values) ) then
-      deallocate( ggd_scalar%values )
-      allocate( ggd_scalar%values(num_nodes*n_tor) ) 
-    else
-      allocate( ggd_scalar%values(num_nodes*n_tor) )
+      allocate( values(num_nodes*n_tor) )
     endif
   
     do inode=1, num_nodes    
       do itor=1, n_tor
-        
-         inode_glob = inode + (itor-1)*num_nodes
-         
-        if ( (itor .eq. 1) .or. mod(itor, 2) .eq. 0 ) then ! reverse sign of sine modes to transform COCOS convention
-           ggd_scalar%coefficients(inode_glob,:) =   node_list%node(inode)%values(itor,:,var_index)
-           ggd_scalar%values(inode_glob)         =   node_list%node(inode)%values(itor,1,var_index)
-        else
-           ggd_scalar%coefficients(inode_glob,:) = fact_phi_dir *  node_list%node(inode)%values(itor,:,var_index)
-           ggd_scalar%values(inode_glob)         = fact_phi_dir *  node_list%node(inode)%values(itor,1,var_index)
-        end if
-
+        inode_glob = inode + (itor-1)*num_nodes 
+        values(inode_glob)= node_values(inode,itor) * res_fact
       enddo
     enddo
-  
-    ggd_scalar%grid_index = grid_ind
-    ggd_scalar%grid_subset_index = grid_sub_ind
- 
-   ! --- Re-scale coefficients
-    ggd_scalar%coefficients = ggd_scalar%coefficients * res_fact
-  
-  end subroutine fill_Bezier_coefficients
+
+  end subroutine fill_values_harmonics_simple
   
   
-  
-  
+
+
 
   ! --- Fills values in GGD for each toroidal harmonic
   subroutine fill_node_values_with_harmonics( ggd_scalar, node_values, grid_ind, grid_sub_ind, res_fact )
@@ -1977,34 +2067,54 @@ module mod_jorek2IMAS
     integer,                intent(in)  :: grid_ind, grid_sub_ind
     real*8,                 intent(in)  :: res_fact
   
-    ! --- Local parameters
-    integer :: num_nodes, inode, inode_glob, itor
-    
-    num_nodes = size(node_values(:,1),1)
-
-    if ( associated(ggd_scalar%values) ) then
-      deallocate( ggd_scalar%values )
-      allocate( ggd_scalar%values(num_nodes*n_tor) ) 
-    else
-      allocate( ggd_scalar%values(num_nodes*n_tor) )
-    endif
-  
-    do inode=1, num_nodes    
-      do itor=1, n_tor
-        inode_glob = inode + (itor-1)*num_nodes 
-        ggd_scalar%values(inode_glob)= node_values(inode,itor)
-      enddo
-    enddo
-  
     ggd_scalar%grid_index = grid_ind
     ggd_scalar%grid_subset_index = grid_sub_ind
- 
-   ! --- Re-scale values
-    ggd_scalar%values = ggd_scalar%values * res_fact
+
+    call fill_values_harmonics_simple( ggd_scalar%values, node_values, res_fact )
   
   end subroutine fill_node_values_with_harmonics
   
   
+
+
+
+
+  ! --- Fills simple values in GGD for vectors with harmonics
+  subroutine fill_values_vector_with_harmonics( ggd_vector, node_values, grid_ind, grid_sub_ind, res_fact, component)
+  
+    implicit none
+  
+    ! --- External parameters
+    type(ids_generic_grid_vector_components),  intent(inout) ::  ggd_vector
+    real*8, dimension(:,:), intent(in) :: node_values  !< values at nodes on the poloidal plane (i_pol, i_harmonic)
+    integer,               intent(in)  :: grid_ind, grid_sub_ind
+    real*8,                intent(in)  :: res_fact
+    character(len=*),      intent(in)  :: component
+
+    ggd_vector%grid_index        = grid_ind
+    ggd_vector%grid_subset_index = grid_sub_ind
+
+    select case (trim(component))
+      case('radial')
+        call fill_values_harmonics_simple( ggd_vector%radial,      node_values, res_fact )
+      case('diamagnetic')
+        call fill_values_harmonics_simple( ggd_vector%diamagnetic, node_values, res_fact )
+      case('parallel')
+        call fill_values_harmonics_simple( ggd_vector%parallel,    node_values, res_fact )
+      case('poloidal')
+        call fill_values_harmonics_simple( ggd_vector%poloidal,    node_values, res_fact )
+      case('r')
+        call fill_values_harmonics_simple( ggd_vector%r,           node_values, res_fact )
+      case('phi')
+        call fill_values_harmonics_simple( ggd_vector%phi,         node_values, res_fact )
+      case('z')
+        call fill_values_harmonics_simple( ggd_vector%z,           node_values, res_fact )
+    end select
+  
+  end subroutine fill_values_vector_with_harmonics
+
+
+
 
 
 

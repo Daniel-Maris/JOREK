@@ -26,7 +26,7 @@ program jorek2_IDS
   integer :: ierr, idx, stat_mhd, stat_core, stat_rad, stat_eq, n_grid, stat, stat_wall
   integer :: stat_pass, stat_act, stat_sum, stat_dis, stat_vac
   logical :: first_step, file_exists, rad_only_projections_h5, overwrite_entry
-  logical :: export_MHD, export_radiation, export_core_profiles, export_equilibrium
+  logical :: export_JOREK_variables, export_radiation, export_1d_profiles, export_equilibrium
   logical :: export_wall, export_pf_passive, export_pf_active, export_summary, export_disruption
   logical :: export_field_extension, new_entry
   real*8  :: rho0, fact_time, time_SI, wall_thickness
@@ -41,10 +41,10 @@ program jorek2_IDS
   character(len=MPI_MAX_PROCESSOR_NAME) :: name
   character(len=1000) :: simulation_description
 
-  type(ids_mhd), target   :: mhd_ids, mhd_ids_vac_extension
+  type(ids_plasma_profiles), target   :: plasma_profiles_ids1, plasma_profiles_vac_extension
+  type(ids_plasma_profiles)           :: plasma_profiles_ids
   type(ids_equilibrium)   :: equilibrium_ids
   type(ids_summary)       :: summary_ids
-  type(ids_core_profiles) :: core_profiles_ids
   type(ids_radiation)     :: radiation_ids
   type(ids_wall), target  :: wall_ids
   type(ids_pf_passive)    :: pf_passive
@@ -52,7 +52,7 @@ program jorek2_IDS
   type(ids_disruption)    :: disruption_ids
 
   namelist /imas_params/ shot_number, run_number, user, database, i_begin, i_end,    &
-                         export_mhd, export_radiation, export_core_profiles, n_grid, &
+                         export_JOREK_variables, export_radiation, export_1d_profiles, n_grid, &
                          export_equilibrium, rad_only_projections_h5, export_wall,   &
                          export_pf_passive, export_pf_active, passive_coil_geo_file, &
                          active_coil_geo_file, wall_thickness, export_disruption,    &
@@ -127,10 +127,10 @@ program jorek2_IDS
   i_begin     = 0                         !< Starting restart file index
   i_end       = 99999                     !< Ending restart file index
   i_jump_steps= 1                         !< Jump this many steps to read the next restart file
-  export_MHD           = .true.
+  export_JOREK_variables = .true.
   export_field_extension = .false.        !< Export magnetic field also into the vacuum region? (freeboundary only)
   export_radiation     = .false.
-  export_core_profiles = .false. 
+  export_1d_profiles   = .false. 
   export_equilibrium   = .false.
   export_wall          = .false.
   export_pf_passive    = .false.
@@ -242,12 +242,12 @@ program jorek2_IDS
       if ( .not. wall_curr_initialized ) call init_wall_currents(my_id, resistive_wall)
    endif
 
-    ! --- Fill and export an MHD IDS
-    if (export_mhd)  call fill_mhd_IDS(first_step, time_SI, mhd_ids)  
+    ! --- Fill and export a plasma profiles IDS with the JOREK variables
+    if (export_JOREK_variables)  call fill_profiles_w_JOREK_var(first_step, time_SI, plasma_profiles_ids1)  
 
     if (export_field_extension) then
       if (freeboundary) then
-        call fill_fields_vacuum_extension(first_step, time_SI, mhd_ids_vac_extension, &
+        call fill_fields_vacuum_extension(first_step, time_SI, plasma_profiles_vac_extension, &
                 Rmin_vac_grid, Rmax_vac_grid, Zmin_vac_grid, Zmax_vac_grid, nR_vac_grid, nZ_vac_grid) 
       else
         write(*,*) 'ERROR: You need the freeboundary extension to calculate magnetic fields in the vacuuum'
@@ -256,8 +256,8 @@ program jorek2_IDS
     endif
     
 
-    ! --- Fill and export a core_profiles IDS
-    if (export_core_profiles)  call fill_core_profiles_IDS(first_step, time_SI, core_profiles_ids, n_grid)  
+    ! --- Fill and export a plasma_profiles IDS
+    if (export_1d_profiles)  call fill_plasma_profiles_IDS(first_step, time_SI, plasma_profiles_ids, n_grid)  
 
     ! --- Fill IDSs that share common quantities
     if (export_equilibrium .or. export_summary .or. export_disruption)  then
@@ -289,9 +289,9 @@ program jorek2_IDS
 
     ! --- Put IDSs into database
     if (first_step .and. new_entry) then  
-      if (export_mhd)              call ids_put(idx,'mhd',mhd_ids,stat_mhd)
-      if (export_field_extension)  call ids_put(idx,'mhd/1',mhd_ids_vac_extension,stat_vac)
-      if (export_core_profiles)    call ids_put(idx,'core_profiles',core_profiles_ids,stat_core)
+      if (export_1d_profiles)      call ids_put(idx,'plasma_profiles',plasma_profiles_ids,stat_core)
+      if (export_JOREK_variables)  call ids_put(idx,'plasma_profiles/1',plasma_profiles_ids1,stat_mhd)
+      if (export_field_extension)  call ids_put(idx,'plasma_profiles/2',plasma_profiles_vac_extension,stat_vac)
       if (export_equilibrium)      call ids_put(idx,'equilibrium',equilibrium_ids,stat_eq)
       if (export_radiation)        call ids_put(idx,'radiation',radiation_ids,stat_rad)
       if (export_wall)             call ids_put(idx,'wall',wall_ids,stat_wall)
@@ -300,9 +300,9 @@ program jorek2_IDS
       if (export_summary)          call ids_put(idx,'summary',summary_ids,stat_sum)
       if (export_disruption)       call ids_put(idx,'disruption',disruption_ids,stat_dis)
     else
-      if (export_mhd)              call ids_put_slice(idx,'mhd',mhd_ids,stat_mhd)
-      if (export_field_extension)  call ids_put_slice(idx,'mhd/1',mhd_ids_vac_extension,stat_vac)
-      if (export_core_profiles)    call ids_put_slice(idx,'core_profiles',core_profiles_ids,stat_core)
+      if (export_1d_profiles)      call ids_put_slice(idx,'plasma_profiles',plasma_profiles_ids,stat_core)
+      if (export_JOREK_variables)  call ids_put_slice(idx,'plasma_profiles/1',plasma_profiles_ids1,stat_mhd)
+      if (export_field_extension)  call ids_put_slice(idx,'plasma_profiles/2',plasma_profiles_vac_extension,stat_vac)
       if (export_equilibrium)      call ids_put_slice(idx,'equilibrium',equilibrium_ids,stat_eq)
       if (export_radiation)        call ids_put_slice(idx,'radiation',radiation_ids,stat_rad)
       if (export_wall)             call ids_put_slice(idx,'wall',wall_ids,stat_wall)
@@ -312,9 +312,9 @@ program jorek2_IDS
       if (export_disruption)       call ids_put_slice(idx,'disruption',disruption_ids,stat_dis)
     endif
 
-    if (export_mhd           .and. (stat_mhd==0 ))   write(*,*) '    MHD IDS exported'
+    if (export_JOREK_variables.and. (stat_mhd==0 ))  write(*,*) '    JOREK variables exported to plasma profiles IDS'
     if (export_field_extension.and.(stat_vac==0 ))   write(*,*) '    Vacuum extension exported'
-    if (export_core_profiles .and. (stat_core==0))   write(*,*) '    Core profiles IDS exported'
+    if (export_1d_profiles   .and. (stat_core==0))   write(*,*) '    1D profiles exported to plasma profiles IDS'
     if (export_equilibrium   .and. (stat_eq==0  ))   write(*,*) '    Equlibrium IDS exported'
     if (export_radiation     .and. (stat_rad==0 ))   write(*,*) '    Radiation IDS exported'
     if (export_wall          .and. (stat_wall==0 ))  write(*,*) '    Wall IDS exported'
@@ -323,9 +323,9 @@ program jorek2_IDS
     if (export_summary       .and. (stat_sum==0 ))   write(*,*) '    Summary IDS exported'
     if (export_disruption    .and. (stat_dis==0 ))   write(*,*) '    Disruption IDS exported'
 
-    if (export_mhd           .and. (stat_mhd/=0 ))   write(*,*) '    Problem saving MHD IDS'
+    if (export_JOREK_variables.and. (stat_mhd/=0 ))  write(*,*) '    Problem saving JOREK variables to plasma profiles IDS'
     if (export_field_extension.and.(stat_vac/=0 ))   write(*,*) '    Problem saving vacuum extension'
-    if (export_core_profiles .and. (stat_core/=0))   write(*,*) '    Problem saving Core profiles IDS'
+    if (export_1d_profiles   .and. (stat_core/=0))   write(*,*) '    Problem saving 1D profiles to plasma profiles IDS'
     if (export_equilibrium   .and. (stat_eq/=0  ))   write(*,*) '    Problem saving Equlibrium IDS'
     if (export_radiation     .and. (stat_rad/=0 ))   write(*,*) '    Problem saving Radiation IDS'
     if (export_wall          .and. (stat_wall/=0))   write(*,*) '    Problem saving wall IDS'
