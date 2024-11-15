@@ -99,7 +99,7 @@ module mod_jorek2IMAS
    
     ! --- Local parameters 
     integer    :: i, j, k, m, etype, irst, int, i_var, i_tor, index, index_node, my_id, ierr
-    real*8     :: fact_T, fact_v, fact_zj, rho0, fact_phi, fact_rho, fact_w
+    real*8     :: fact_T, fact_v, fact_zj, rho0, fact_phi, fact_rho, fact_w, fact_nimp
     
     
     ! **********************************************************************************
@@ -111,7 +111,7 @@ module mod_jorek2IMAS
     
     integer:: num_nodes
     
-    integer :: n_slice, i_slice, grid_ind, grid_sub_ind, n_grid_sub, n_grid
+    integer :: n_slice, i_slice, grid_ind, grid_sub_ind, n_grid_sub, n_grid, i_ion, a_elm, z_elm, i_neut
     ! **********************************************************************************
   
     ! --- Number of grids and grid subsets
@@ -142,8 +142,7 @@ module mod_jorek2IMAS
     fact_phi  = -1.d0 /  sqrt_mu0_rho0 * F0 ! COCOS convection: F0 depends on phi direction
     fact_zj   = -1.d0 / mu_zero * fact_Ip   ! Last sign due to COCOS transformation
     fact_rho  =  rho0 
-    fact_T    =  1.d0 / ( EL_CHG * mu_zero * central_density * 1.d20 )   
-  
+    fact_T    =  1.d0 / ( EL_CHG * mu_zero * central_density * 1.d20 )  
   
     ! --- Set times
     n_slice = 1  
@@ -226,6 +225,40 @@ module mod_jorek2IMAS
         allocate( plasma_profiles_ids%ggd(i_slice)%velocity_parallel_over_b_field(n_grid_sub))
         ggd_scalar => plasma_profiles_ids%ggd(i_slice)%velocity_parallel_over_b_field(grid_sub_ind)
         call fill_Bezier_coefficients( ggd_scalar, node_list, var_vpar, grid_ind, grid_sub_ind, fact_v )
+      endif
+
+      ! --- Impurity density
+      if (variable_names(i) == 'rho_imp') then      
+        i_ion = 1
+        allocate(plasma_profiles_ids%ggd(i_slice)%ion(i_ion))
+        allocate(plasma_profiles_ids%ggd(i_slice)%ion(i_ion)%element(1))
+
+        ! --- Element identifier
+        call get_element_atomic_numbers(imp_type(index_main_imp), a_elm, z_elm )
+        plasma_profiles_ids%ggd(i_slice)%ion(i_ion)%element(1)%a   = a_elm
+        plasma_profiles_ids%ggd(i_slice)%ion(i_ion)%element(1)%z_n = z_elm
+
+        fact_nimp =  1.d20 * central_density * central_mass / a_elm
+
+        ! --- Density in GGD
+        allocate(plasma_profiles_ids%ggd(i_slice)%ion(i_ion)%density(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%ion(i_ion)%density(grid_sub_ind)
+        call fill_Bezier_coefficients( ggd_scalar, node_list, var_rhoimp, grid_ind, grid_sub_ind, fact_nimp )
+      endif
+
+      ! --- Main ion neutrals
+      if (variable_names(i) == 'rho_n') then      
+        i_neut = 1
+        allocate(plasma_profiles_ids%ggd(i_slice)%neutral(i_neut))
+        allocate(plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%element(1))
+
+        plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%element(1)%a   = int(central_mass)
+        plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%element(1)%z_n = 1
+
+        ! --- Density in GGD
+        allocate(plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%density(n_grid_sub))
+        ggd_scalar => plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%density(grid_sub_ind)
+        call fill_Bezier_coefficients( ggd_scalar, node_list, var_rhon, grid_ind, grid_sub_ind, central_density*1d20 )
       endif
   
     enddo
@@ -1139,28 +1172,8 @@ module mod_jorek2IMAS
         allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%density(n_grid) )
         plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%density(:) = result(:,i_exp)
         allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1) )
-        select case ( trim(imp_type(index_main_imp)) )
-        case('D2')
-           a_imp  = 2
-           z_imp  = 1
-        case('Ar')
-           a_imp  = 40
-           z_imp  = 18
-        case('Ne')
-           a_imp  = 20
-           z_imp  = 10
-        case('Be')
-            a_imp  = 9
-            z_imp  = 4
-        case('W')
-            a_imp  = 184
-            z_imp  = 74
-        case default
-            write(*,*) '!! Impurity type "', trim(imp_type(index_main_imp)), '" unknown !!'
-            write(*,*) '=> We assume D2.'
-            a_imp  = 2
-            z_imp  = 1
-        end select
+        call get_element_atomic_numbers(imp_type(index_main_imp), a_imp, z_imp )
+
         plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1)%a   = a_imp
         plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1)%z_n = z_imp
       endif
@@ -2472,6 +2485,44 @@ module mod_jorek2IMAS
       
     
   end subroutine read_coil_set_starwall
+
+
+
+
+
+
+  ! --- Get atomic element identifiers for impurities
+  subroutine get_element_atomic_numbers(impurity_name, a_imp, z_imp)
+
+    implicit none
+
+    character(len=*),    intent(in)    :: impurity_name
+    integer,             intent(inout) :: a_imp, z_imp
+
+    select case ( trim(impurity_name) )
+    case('D2')
+      a_imp  = 2
+      z_imp  = 1
+    case('Ar')
+      a_imp  = 40
+      z_imp  = 18
+    case('Ne')
+      a_imp  = 20
+      z_imp  = 10
+    case('Be')
+        a_imp  = 9
+        z_imp  = 4
+    case('W')
+        a_imp  = 184
+        z_imp  = 74
+    case default
+        write(*,*) '!! Impurity type "', trim(imp_type(index_main_imp)), '" unknown !!'
+        write(*,*) '=> We assume D2.'
+        a_imp  = 2
+        z_imp  = 1
+    end select
+
+  end subroutine get_element_atomic_numbers
 
 
 
