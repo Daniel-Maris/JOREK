@@ -255,6 +255,8 @@ if (my_id .eq. 0) then
   !write(*,*) ' n_cpu   : ',n_cpu
 endif
 
+
+
 density_tot  = 0.d0
 pressure = 0.d0
 pressure_i = 0.d0
@@ -463,9 +465,6 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           omp_nthreads,omp_tid)                                                          &
 !$omp   firstprivate(nodes)
 
-do i = 1, n_vertex_max
-  if (.not. allocated(nodes(i)%values)) call init_node(nodes(i), n_var)
-enddo
 
 
 #ifdef OPENMP
@@ -496,7 +495,8 @@ do ife = ife_min, ife_max
 
   do iv = 1, n_vertex_max
     inode     = element%vertex(iv)
-    nodes(iv) = node_list%node(inode)
+    call make_deep_copy_node(node_list%node(inode), nodes(iv))
+    ! nodes(iv) = node_list%node(inode)
   enddo
 
   x_g(:,:,:)    = 0.d0; x_s(:,:,:)    = 0.d0; x_t(:,:,:)    = 0.d0; x_p(:,:,:)    = 0.d0; x_ss(:,:,:)    = 0.d0; x_tt(:,:,:)    = 0.d0; x_st(:,:,:)    = 0.d0;
