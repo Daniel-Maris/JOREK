@@ -1429,8 +1429,9 @@ module mod_jorek2IMAS
     equilibrium_ids%time_slice(i_slice)%boundary%triangularity_lower    = ES%LCFS_deltaL
     equilibrium_ids%time_slice(i_slice)%boundary%geometric_axis%r       = ES%LCFS_Rgeo
     equilibrium_ids%time_slice(i_slice)%boundary%geometric_axis%z       = ES%LCFS_Zgeo
-    !equilibrium_ids%time_slice(i_slice)%boundary%active_limiter_point%r = ES%R_lim ! no longer available in v4...
-    !equilibrium_ids%time_slice(i_slice)%boundary%active_limiter_point%z = ES%Z_lim
+    equilibrium_ids%time_slice(i_slice)%boundary%closest_wall_point%r   = ES%R_lim 
+    equilibrium_ids%time_slice(i_slice)%boundary%closest_wall_point%z   = ES%Z_lim 
+    equilibrium_ids%time_slice(i_slice)%boundary%closest_wall_point%distance = 0.d0
 
     ! -- Save two special points (axis and X-points)
     allocate(equilibrium_ids%time_slice(i_slice)%contour_tree%node(3))
@@ -2034,7 +2035,7 @@ module mod_jorek2IMAS
     ! --- Local parameters
     integer :: num_nodes, inode, inode_glob, itor
     
-    num_nodes = node_list%n_nodes
+    num_nodes = size(node_values(:,1),1)
 
     if ( associated(values) ) then
       deallocate( values )
