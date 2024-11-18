@@ -40,6 +40,7 @@ GCPP ?= cpp
 # Default flags for GCC
 ifeq ($(COMPILER_FAMILY), gnu)
   FLAGS += -cpp -fopenmp
+  FLAGS += -Wl,--no-relax
   FLAGS += -Wall -Wextra
   FLAGS += -Wno-unused-variable
   FFLAGS += -Wintrinsics-std
@@ -69,6 +70,7 @@ ifeq ($(COMPILER_FAMILY), intel)
   COMPILER_MAJOR_VERSION=$(shell $(FC) -V 2>&1 | grep -o "Version [0-9]*" | cut -d' ' -f 2)
   COMPILER_MAJOR_VERSION_ID=$(shell $(FC) -V 2>&1 | grep -o "Version [0-9]*.*" | cut -d'.' -f 2)
   FFLAGS += -align
+  FLAGS += -Wl,--no-relax
   ifeq ($(shell test $(COMPILER_MAJOR_VERSION) -ge 15; echo $$?),0)
     FLAGS += -qopenmp
   else
