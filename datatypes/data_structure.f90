@@ -10,9 +10,11 @@ module data_structure
   implicit none
 
   type type_node                                  !< type definition of a node (i.e. a vertex)
+  
   real*8     :: x(n_coord_tor,n_degrees,n_dim)        !< x,y,z coordinates of points and additional nodal geometry
   real*8, dimension(:,:,:), allocatable  :: values   !< Variable values and derivatives
-  real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
+  real*8, dimension(:,:,:), allocatable  :: deltas   !< Variable values and derivatives
+  ! real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
 #if STELLARATOR_MODEL
   real*8     :: r_tor_eq(n_degrees)                     !< radial coordinate from GVEC (square root of normalised toroidal flux)
 #if JOREK_MODEL == 180
@@ -221,7 +223,10 @@ contains
     integer, intent(in)               :: n_values   !< number of values to be stored in node
     
     if (allocated(node%values)) deallocate(node%values)
+    if (allocated(node%deltas)) deallocate(node%deltas)
+
     allocate(node%values(n_tor, n_degrees, n_values))
+    allocate(node%deltas(n_tor, n_degrees, n_values))
 
   end subroutine init_node
 
@@ -249,6 +254,7 @@ contains
     type(type_node), intent(inout)    :: node       !< the node to have its values array deallocated
 
     deallocate(node%values)
+    deallocate(node%deltas)
 
   end subroutine dealloc_node
 
@@ -281,7 +287,7 @@ contains
 #ifndef USE_DOMM
     node_copied_to%chi_correction = node_to_copy%chi_correction
 #endif 
-    node_copied_to%j_field = node_to_copy%j_field
+    node_copied_to%j_source = node_to_copy%j_source
 #elif fullmhd
     node_copied_to%psi_eq = node_to_copy%psi_eq
     node_copied_to%Fprof_eq = node_to_copy%Fprof_eq
@@ -306,11 +312,11 @@ contains
     type(type_node), intent(in)      :: node_to_copy
     type(type_node), intent(inout)   :: node_copied_to
 
-    if (allocated(node_copied_to%values)) deallocate(node_copied_to%values)
-    allocate(node_copied_to%values(n_tor, n_degrees, size(node_to_copy%values, 3)))
+    call init_node(node_copied_to, size(node_to_copy%values, 3))
 
     node_copied_to = node_to_copy
     node_copied_to%values = node_to_copy%values
+    node_copied_to%deltas = node_to_copy%deltas
 
   end subroutine make_deep_copy_node
 
