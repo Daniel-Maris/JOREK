@@ -44,7 +44,6 @@ bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*
 #endif
 
 call init_node(anode, n_var)
-
 allocate(buffer(bufsize))
 call tr_register_mem(bufsize,"bcastn_buffer")
 
@@ -52,8 +51,8 @@ if (my_id .eq. 0) then
 
   position = 0
   do i=1,node_list%n_nodes
-    anode = node_list%node(i)
-    anode%values = node_list%node(i)%values
+
+    call make_deep_copy_node(node_list%node(i), anode)
 
     call MPI_PACK(anode%x              ,n_coord_tor*n_degrees*n_dim      ,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     call MPI_PACK(anode%values         ,n_tor*n_degrees*n_var,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -124,8 +123,8 @@ if (my_id .ne. 0) then
     call MPI_UNPACK(buffer,bufsize,position,anode%parent_elem    ,1        ,MPI_INTEGER,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,anode%ref_lambda     ,1        ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
     call MPI_UNPACK(buffer,bufsize,position,anode%ref_mu         ,1        ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-    node_list%node(i) = anode
-    node_list%node(i)%values = anode%values
+
+    call make_deep_copy_node(anode, node_list%node(i))
 
   enddo
 
