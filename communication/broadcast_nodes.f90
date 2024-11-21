@@ -50,6 +50,7 @@ call tr_register_mem(bufsize,"bcastn_buffer")
 if (my_id .eq. 0) then
 
   position = 0
+
   do i=1,node_list%n_nodes
 
     call make_deep_copy_node(node_list%node(i), anode)
@@ -91,6 +92,8 @@ endif
 call MPI_BCAST(buffer,bufsize,MPI_PACKED,0,MPI_COMM_WORLD,ierr)
 
 if (my_id .ne. 0) then
+
+    if (.not. allocated(node_list%node)) call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_var)
 
   position = 0
   do i=1,node_list%n_nodes
