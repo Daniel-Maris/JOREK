@@ -13,8 +13,7 @@ module data_structure
   
   real*8     :: x(n_coord_tor,n_degrees,n_dim)        !< x,y,z coordinates of points and additional nodal geometry
   real*8, dimension(:,:,:), allocatable  :: values   !< Variable values and derivatives
-  real*8, dimension(:,:,:), allocatable  :: deltas   !< Variable values and derivatives
-  ! real*8     :: deltas(n_tor,n_degrees,n_var)   !< Change of variable values and derivatives in last timestep
+  real*8, dimension(:,:,:), allocatable  :: deltas   !< Change of variable values and derivatives in last timestep
 #if STELLARATOR_MODEL
   real*8     :: r_tor_eq(n_degrees)                     !< radial coordinate from GVEC (square root of normalised toroidal flux)
 #if JOREK_MODEL == 180
