@@ -518,37 +518,11 @@ if ( i_tor .ge. 1 .and. i_plane .eq. -1) then
       HZ_p(i_tor,1) =  0.d0
       HZ_pp(i+1,1) =   -float(mode(2*i_tor))**2
    end if
-  i_plane=1
-  write(*,*)  'WARNING: You set i_tor but not i_plane'
-  write(*,*)  'WARNING: Thus, a vtk file of the mode structure'
-  write(*,*)  'WARNING: will be produced, ignoring the toroidal position.'
-  write(*,*)  'WARNING: To plot the mode structure at a specific '
-  write(*,*)  'WARNING: plane, set i_plane. (For old behavior: i_plane=1)'
+   i_plane=1
+  write(*,*)  'WARNING: You set i_tor but not i_plane, so a vtk file of the mode structure will be produced, ignoring the toroidal position. For old behavior set i_plane=1)'
 else
   if (i_plane .eq. -1) i_plane=1
   toroidal_angle = (i_plane - 1) * 2 * PI / n_plane / n_period ! 2*PI / 6
-  if (toroidal_angle .ne. 0.d0) then
-     do k_tor=1, n_tor
-       mode(k_tor) = + int(k_tor / 2) * n_period
-     enddo
-     HZ(1,i_plane)   = 1.d0
-     do i=1,(n_tor-1)/2
-       HZ(2*i,i_plane)      = cos(mode(2*i)   * toroidal_angle )
-       HZ(2*i+1,i_plane)    = sin(mode(2*i+1) * toroidal_angle )
-     enddo
-     do k_tor=1, n_coord_tor
-       mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
-     enddo
-     HZ_coord(1,i_plane)   = 1.d0
-     do i=1,(n_coord_tor-1)/2
-       HZ_coord(2*i,i_plane)      = + cos(mode_coord(2*i)   * toroidal_angle )
-       HZ_coord_p(2*i,i_plane)          = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *toroidal_angle)
-       HZ_coord_pp(2*i,i_plane)         = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *toroidal_angle)
-       HZ_coord(2*i+1,i_plane)    = - sin(mode_coord(2*i+1) * toroidal_angle )
-       HZ_coord_p(2*i+1,i_plane)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*toroidal_angle)
-       HZ_coord_pp(2*i+1,i_plane)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*toroidal_angle)
-    enddo
-  end if
 end if
 
 do i=1,element_list%n_elements
