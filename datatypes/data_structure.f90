@@ -45,10 +45,10 @@ module data_structure
   
 end type type_node
 
-  type type_node_list                             !< type definition of a list of nodes
-    integer            :: n_nodes                 !< the number of nodes in the list
-    integer            :: n_dof                   !< the total number of degrees of freedom
-    type (type_node)   :: node(n_nodes_max)       !< an allocatable list of nodes
+  type type_node_list                                                        !< type definition of a list of nodes
+    integer                                       :: n_nodes                 !< the number of nodes in the list
+    integer                                       :: n_dof                   !< the total number of degrees of freedom
+    type (type_node), dimension(:), allocatable   :: node                    !< an allocatable list of nodes
     
   end type type_node_list
 
@@ -240,6 +240,7 @@ contains
 
     node_list%n_nodes = n_nodes
     node_list%n_dof = n_dof
+    allocate(node_list%node(n_nodes))
 
     do i=1, n_nodes
       call init_node(node_list%node(i), n_values)
@@ -252,8 +253,10 @@ contains
     implicit none
     type(type_node), intent(inout)    :: node       !< the node to have its values array deallocated
 
-    deallocate(node%values)
-    deallocate(node%deltas)
+    if (allocated(node%values)) then
+      deallocate(node%values)
+      deallocate(node%deltas)
+    endif
 
   end subroutine dealloc_node
 
@@ -261,11 +264,8 @@ contains
   subroutine dealloc_node_list(node_list)
     implicit none
     type(type_node_list), intent(inout)  :: node_list
-    integer                              :: i
 
-    do i=1, node_list%n_nodes
-      call dealloc_node(node_list%node(i))
-    enddo
+    deallocate(node_list%node)
 
   end subroutine dealloc_node_list
 

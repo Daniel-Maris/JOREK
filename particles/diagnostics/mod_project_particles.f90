@@ -1223,7 +1223,7 @@ if (my_id_n .eq. 0) then
 !$omp shared(element_list, node_list, n_tor_local, i_tor_local,                       &
 !$omp        H, H_s, H_t, H_ss, H_st, H_tt, Hz, Hz_p, mumps_par, wgauss2,             &
 !$omp        filter, filter_hyper, filter_parallel, F0, fix_axis_nodes, my_id_master) &
-!$omp private(ELM, i_elm, element, nodes, i, j, k, l, ms, mt, in, im, mp,           &
+!$omp private(ELM, i_elm, element, i, j, k, l, ms, mt, in, im, mp,           &
 !$omp         x_g, x_s, x_t, x_ss, x_st, x_tt,                                      &
 !$omp         y_g, y_s, y_t, y_ss, y_st, y_tt,                                      &
 !$omp         psi_g, psi_s, psi_t, psi_ss, psi_tt, psi_st,                          &
@@ -1232,6 +1232,7 @@ if (my_id_n .eq. 0) then
 !$omp         wst, xjac, xjac_x, xjac_y, psi_x, psi_y, BB2, Bgrad_p, Bgrad_v_star,  &
 !$omp         index_ij, index_kl, ilarge, in_index, im_index,                       &
 !$omp         inode, index_large_i, knode, index_large_k)                           &
+!$omp firstprivate(nodes)                                                           &
 !$omp schedule(static)
 do i_elm=1,element_list%n_elements
   
@@ -1239,7 +1240,7 @@ do i_elm=1,element_list%n_elements
 
   element = element_list%element(i_elm)
   do m=1,n_vertex_max
-    nodes(m) = node_list%node(element%vertex(m))
+    call make_deep_copy_node(node_list%node(element%vertex(m)), nodes(m))
   enddo
 
   ! Set up gauss points in this element
@@ -1445,6 +1446,9 @@ do i_elm=1,element_list%n_elements
       enddo
     enddo
   enddo
+  do m=1,n_vertex_max
+    call dealloc_node(nodes(m))
+  enddo
 enddo
 !$omp end parallel do
 ilarge = nz_AA
@@ -1648,7 +1652,7 @@ if (my_id_n .eq. 0) then
 !$omp        H, H_s, H_t, H_ss, H_st, H_tt, Hz, Hz_p, mumps_par, wgauss2,             &
 !$omp        filter_n0, filter_hyper_n0, filter_parallel_n0, integral_weights, F0,    &
 !$omp        fix_axis_nodes, my_id_master)                                            &
-!$omp private(ELM, i_elm, element, nodes, i, j, k, l, ms, mt, in, im, mp,           &
+!$omp private(ELM, i_elm, element, i, j, k, l, ms, mt, in, im, mp,           &
 !$omp         x_g, x_s, x_t, x_ss, x_st, x_tt,                                      &
 !$omp         y_g, y_s, y_t, y_ss, y_st, y_tt,                                      &
 !$omp         psi_g, psi_s, psi_t, psi_ss, psi_tt, psi_st,                          &
@@ -1657,6 +1661,7 @@ if (my_id_n .eq. 0) then
 !$omp         wst, xjac, xjac_x, xjac_y, psi_x, psi_y, BB2, Bgrad_p, Bgrad_v_star,  &
 !$omp         index_ij, index_kl, ilarge, in_index, im_index, basisfunction_volume, &
 !$omp         inode, index_large_i, knode, index_large_k, index_rhs)                &
+!$omp firstprivate(nodes)                                                           &
 !$omp reduction(+:area,volume) schedule(static)
 do i_elm=1,element_list%n_elements
   
@@ -1664,7 +1669,7 @@ do i_elm=1,element_list%n_elements
 
   element = element_list%element(i_elm)
   do m=1,n_vertex_max
-    nodes(m) = node_list%node(element%vertex(m))
+    call make_deep_copy_node(node_list%node(element%vertex(m)), nodes(m))
   enddo
 
   ! Set up gauss points in this element
@@ -1889,6 +1894,9 @@ do i_elm=1,element_list%n_elements
         enddo
       enddo
     enddo
+  enddo
+  do m=1,n_vertex_max
+    call dealloc_node(nodes(m))
   enddo
 enddo
 !$omp end parallel do

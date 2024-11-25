@@ -716,7 +716,11 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   end do
 
   !$omp end do
-
+  do iv = 1, n_vertex_max
+    call dealloc_node(nodes_father(iv))
+    call dealloc_node(nodes(iv))
+    call dealloc_node(aux_nodes(iv))
+  enddo
   !$omp end parallel
  
   ! --- Memory tracking
