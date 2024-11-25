@@ -862,6 +862,7 @@ enddo
 
 ! --- Allocate data structures for new nodes and elements and initialize them.
 allocate(newnode_list)
+call init_node_list(newnode_list, n_nodes_max, newnode_list%n_dof, n_var)
 call tr_register_mem(sizeof(newnode_list),"newnode_list")
 allocate(newelement_list)
 call tr_register_mem(sizeof(newelement_list),"newelement_list")
@@ -869,7 +870,6 @@ call tr_register_mem(sizeof(newelement_list),"newelement_list")
 newnode_list%n_nodes = 0
 newnode_list%n_dof   = 0
 do i = 1, n_nodes_max
-  call init_node(newnode_list%node(i), n_var)
   newnode_list%node(i)%x           = 0.d0
   newnode_list%node(i)%values      = 0.d0
   newnode_list%node(i)%deltas      = 0.d0
