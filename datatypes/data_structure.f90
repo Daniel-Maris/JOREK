@@ -253,8 +253,10 @@ contains
     implicit none
     type(type_node), intent(inout)    :: node       !< the node to have its values array deallocated
 
-    deallocate(node%values)
-    deallocate(node%deltas)
+    if (allocated(node%values)) then
+      deallocate(node%values)
+      deallocate(node%deltas)
+    endif
 
   end subroutine dealloc_node
 
