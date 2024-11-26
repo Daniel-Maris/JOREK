@@ -389,6 +389,9 @@ subroutine finalize(my_id)
   call dfftw_destroy_plan(fftw_plan)
 #endif
 
+if (allocated(node_list)) deallocate(node_list)
+if (allocated(aux_node_list)) deallocate(aux_node_list)
+
   call r3_info_summary()                                 ! timing
   call MPI_Finalize(ierr)                                ! clean up MPI
 
