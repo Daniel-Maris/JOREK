@@ -5,6 +5,7 @@ use iso_c_binding ! for fftw03.f03
 use mod_parameters, only: n_plane
 use data_structure, only: type_bnd_element_list, type_bnd_node_list, type_SP_MATRIX, type_RHS !< store these in jorek_timestep_action
 use mod_simulation_data, only: type_MHD_SIM
+use mod_particle_settings
 
 use mod_sparse,        only: solve_sparse_system
 use mod_sparse_data,   only: type_SP_SOLVER
@@ -236,7 +237,10 @@ subroutine setup_solvers(this, sim)
   call this%solver%setup()
   this%setup_done = .true.
 
-  if (.not. associated(aux_node_list)) allocate(aux_node_list) ! information of particle moments is stored in aux_list
+  if (.not. associated(aux_node_list)) then 
+    allocate(aux_node_list) ! information of particle moments is stored in aux_list
+    call init_node_list(aux_node_list, n_nodes_max, aux_node_list%n_dof, n_aux_var)
+  endif
 
 end subroutine setup_solvers
 
