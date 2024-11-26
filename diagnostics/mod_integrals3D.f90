@@ -279,6 +279,8 @@ if (my_id .eq. 0) then
   !write(*,*) ' n_cpu   : ',n_cpu
 endif
 
+
+
 density_tot  = 0.d0
 pressure = 0.d0
 pressure_i = 0.d0
@@ -452,29 +454,27 @@ Tie_min_neg = 0.5*T_min_neg
 #if (defined WITH_Impurities)
 !$omp          index_main_imp,                                                                                &
 #endif
-!$omp          T_1, T_max_eta, T_max_eta_ohm, eta_T_dependent,                                                & 
-!$omp          wgauss_copy, varmin, varmax)                                                                   &
-!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt,                                             &
-!$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p,         &
-!$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,                        &
-!$omp           eq_spp, eq_tpp, psi_axisym,s_norm, stel_current_source,eq_s_3d, eq_t_3d, wst, BigR,           &
-!$omp           r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy,dudp,   &
-!$omp           dpsidx_3d, dpsidy_3d, saw_ene_dens, BB2_zero,                                                 &
-!$omp           w0, dwdx, dwdy, u0_xpp, u0_ypp, visco_T, visco_fact_old, visco_fact_new,                      &
-!$omp           dpdx, dpdy, phi, Ti0, psi_as_coord, vprp_disp,                                                &
-!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, BB2, chi, Bv2,                           &
-!$omp           heat_source, heat_source_i, heat_source_e, particle_source, current_source, rotation_source,  &
-!$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,                   &
-!$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,                   & 
-!$omp           hel1, vpar_x, vpar_y, ps0_s, ps0_t, u0_s, u0_t, p0_s, p0_t, vpar_s, vpar_t,                   &
-!$omp           u0_x, u0_y, Te0_corr, Ti0_corr, T_or_Te, T_or_Te_corr, T_or_Te_0,                             &
-!$omp           thm_wk, mag_wk, eta_T, vpar_disp, fric_disp, p0_p, T0_corr, r0_corr, u0_p,                    &
-!$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp,   &
-!$omp           AZ0_Zp, A30, A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,  &
-!$omp           Srec_T_ncs, dSrec_dT_ncs, ksi_ion_norm, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs,       &
-!$omp           dSion_dT_ncs, aux_nodes, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_T0, aux_Vpar0, &
-!$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
-!$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
+!$omp          T_1, T_max_eta, T_max_eta_ohm, eta_T_dependent,                                 &
+!$omp          wgauss_copy, varmin, varmax)                                                    &
+!$omp   private(ife,iv,inode,element,i,j, k,in, mp, ms, mt,                              &
+!$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p, &
+!$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,         &
+!$omp           eq_spp, eq_tpp, psi_axisym,s_norm, stel_current_source,eq_s_3d, eq_t_3d,       &
+!$omp           wst, BigR, r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dpsidp, dudx, dudy,dudp,  &
+!$omp           dpsidx_3d, dpsidy_3d, saw_ene_dens, BB2_zero,                                  &
+!$omp           w0, dwdx, dwdy, u0_xpp, u0_ypp, visco_T, visco_fact_old, visco_fact_new,       &
+!$omp           dpdx, dpdy, phi, Ti0, psi_as_coord, vprp_disp,                                 &
+!$omp           source_pellet, source_volume, eq_zne, eq_zTe, vpar0, BB2, chi, Bv2,  &
+!$omp           heat_source, heat_source_i, heat_source_e, particle_source, current_source, rotation_source, &
+!$omp           dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dpsi2_dz,    &
+!$omp           dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz,    &
+!$omp           hel1, vpar_x, vpar_y, ps0_s, ps0_t, u0_s, u0_t, p0_s, p0_t, vpar_s, vpar_t,    &
+!$omp           u0_x, u0_y, Te0_corr, Ti0_corr, T_or_Te, T_or_Te_corr, T_or_Te_0,              &
+!$omp           thm_wk, mag_wk, eta_T, vpar_disp, fric_disp, p0_p, T0_corr, r0_corr, u0_p,     &
+!$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp, AZ0_Zp, A30, &
+!$omp           A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,&
+!$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,              &
+
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                                    &
 !$omp           spi_R_tmp, spi_Z_tmp, spi_phi_tmp, ns_radius_tmp,                                             &
@@ -502,7 +502,9 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           Arad_bg, Brad_bg, Crad_bg,                                                                    &
 !$omp           coef_prad_si,                                                                                 &
 #endif
-!$omp           omp_nthreads,omp_tid)
+!$omp           omp_nthreads,omp_tid)                                                          &
+!$omp   firstprivate(nodes)
+
 
 
 #ifdef OPENMP
@@ -534,7 +536,8 @@ do ife = ife_min, ife_max
 
   do iv = 1, n_vertex_max
     inode     = element%vertex(iv)
-    nodes(iv) = node_list%node(inode)
+    call make_deep_copy_node(node_list%node(inode), nodes(iv))
+    ! nodes(iv) = node_list%node(inode)
 	
     if (present(aux_node_list)) aux_nodes(iv) = aux_node_list%node(inode)
   enddo
@@ -1546,7 +1549,9 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
       enddo
     enddo
   enddo
-
+  do i = 1, n_vertex_max
+    call dealloc_node(nodes(i))
+  enddo
 enddo
 !$omp end do
 !$omp end parallel

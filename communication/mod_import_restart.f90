@@ -8,6 +8,7 @@ subroutine import_restart(node_list, element_list, filename, format_rst, ierr, n
 
   use tr_module
   use data_structure
+  use mod_particle_settings
   use phys_module
   use pellet_module
   use equil_info
@@ -67,6 +68,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   use tr_module 
   use data_structure
+  use mod_particle_settings
   use phys_module
   use pellet_module
   use vacuum, only: import_restart_vacuum, current_FB_fact
@@ -126,6 +128,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
 
+
   error = 0
 
   write(*,*) 'Importing restart file "', trim(filename), '".'
@@ -172,11 +175,13 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   write(*,'(A,i5,A)') ' Importing ',n_tor_tmp,' harmonics'
 
-  read(21) node_list%n_nodes,element_list%n_elements
+  read(21) element_list%n_elements
   read(21) node_list%n_dof
 
+  call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_var)
+
   do i=1,node_list%n_nodes
-     
+
     read(21) node_list%node(i)%x
     read(21) values_tmp
     read(21) deltas_tmp
@@ -769,6 +774,9 @@ endif
       endif
 
       allocate(node_list_perturbation, element_list_perturbation)
+      do i=1, node_list%n_nodes
+        allocate(node_list_perturbation%node(i)%values(n_tor, n_degrees, n_var))
+      end do
       
       read(21) node_list_perturbation%n_nodes,element_list_perturbation%n_elements
       read(21) node_list_perturbation%n_dof
@@ -889,6 +897,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   use tr_module 
   use data_structure
+  use mod_particle_settings
   use phys_module
   use pellet_module
   use vacuum, only: import_HDF5_restart_vacuum, current_FB_fact
@@ -920,7 +929,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   ! --- Local variables
   integer              :: i, j, m, k, n_tor_tmp, n_coord_tor_tmp, jorek_model_tmp, n_var_tmp, n_order_tmp, n_period_tmp, rst_hdf5_version_tmp
-  integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp
+  integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp, n_nodes_tmp, n_dof_tmp
   integer              :: n_pieces_max_tmp, n_degrees_tmp, nref_max_tmp, n_ref_list_tmp, n_new_modes
   real*8               :: growth_mag, growth_kin, amplitude
   integer, allocatable :: mode_tmp(:), new_mode(:)
@@ -1000,10 +1009,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
-  
-  !
+
 #endif
   error = 0
+
+  
 #ifdef USE_HDF5
 
   ! ->  Reading HDF5 file
@@ -1111,17 +1121,21 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   endif
     
   !write(*,'(2(A,i5))') ' Importing ',n_tor_tmp,' harmonics with n_period=', n_period_tmp 
-
-  call HDF5_integer_reading(file_id,node_list%n_nodes,"n_nodes")
+  call HDF5_integer_reading(file_id,n_nodes_tmp,"n_nodes")
+  call HDF5_integer_reading(file_id,n_dof_tmp,"n_dof")
   call HDF5_integer_reading(file_id,element_list%n_elements,"n_elements")
-  call HDF5_integer_reading(file_id,node_list%n_dof,"n_dof")
+
+  ! initialise and allocate node_list
+  call init_node_list(node_list, n_nodes_tmp, n_dof_tmp, n_var)
+
 
   aux_values_read = .false.
   if(present(aux_node_list)) then
     call h5lexists_f(file_id,'aux_values',flag_exists,err_exists)
     if(flag_exists .and. err_exists == 0) then
-       aux_values_read = .true.
-       allocate(aux_node_list,source=node_list)
+      aux_values_read = .true.
+      call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
+
     endif
   endif
 
@@ -1214,6 +1228,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_array1D_reading     (file_id,t_ref_mu,      'ref_mu')
   call HDF5_array1D_reading_char(file_id,t_constrained, 'constrained')
 
+
   ! --- Detect new modes that need to be initialized to noise level
   if (allocated(new_mode))   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
   allocate(new_mode(n_tor))
@@ -1237,7 +1252,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     do j=1,n_degrees_tmp
       node_list%node(i)%x(:,j,:)  = t_x(i,:,j,:) 
     enddo
-
     node_list%node(i)%values = 0.d0 
     node_list%node(i)%deltas = 0.d0 
 
@@ -1246,6 +1260,9 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         do j=1,n_degrees_tmp 
           if (mode_tmp(m) .eq. mode(k)) then
             if ((m .eq. 1) .and. (k.eq.1)) then
+
+                
+
               node_list%node(i)%values(k,j,1:n_var_tmp)   = t_values(i,m,j,1:n_var_tmp)
               node_list%node(i)%deltas(k,j,1:n_var_tmp)   = t_deltas(i,m,j,1:n_var_tmp)
             else
@@ -1377,6 +1394,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     current_prof_initialized = .false.
   end if
   
+
   if (index_start .ge. 1) then
 
     if (allocated(xtime)) call tr_deallocate(xtime,"xtime",CAT_UNKNOWN)
@@ -2222,6 +2240,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call populate_element_rtree(node_list, element_list)
 
   equil_initialized = .true.
+  write(*,*) ' restart complete '
+
+
+  
 
   return
 end subroutine import_hdf5_restart
@@ -2232,6 +2254,7 @@ end subroutine import_hdf5_restart
 subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
 
 #include "version.h"
+  use mod_particle_settings
   use tr_module
   use data_structure
   use phys_module
@@ -2347,6 +2370,7 @@ subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
 
   call HDF5_integer_reading(file_id,aux_node_list%n_nodes,"n_nodes")
   call HDF5_integer_reading(file_id,aux_node_list%n_dof,"n_dof")
+  call init_node_list(aux_node_list, aux_node_list%n_nodes, aux_node_list%n_dof, n_aux_var)
 
   call tr_allocate(t_x, 1,aux_node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim_tmp, "aux_node_list%x",     CAT_UNKNOWN)
   call tr_allocate(t_values,1,aux_node_list%n_nodes,1, n_tor_tmp,1,n_order+1,1,n_var_tmp, "aux_node_list%values",CAT_UNKNOWN)

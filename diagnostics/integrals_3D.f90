@@ -159,8 +159,8 @@ varmin(:) = 1.d50; varmax(:) = -1.d50; varminout(:) = 1.d50; varmaxout(:) = -1.d
 !$omp          central_mass, pellets, tor_frequency,                                           &
 !$omp          ns_radius_ratio, ns_radius_min, spi_shard_file,                                 &
 #endif
-!$omp          wgauss_copy,varmin,varmax),                                                     &
-!$omp   private(ife,iv,inode,element,nodes,i,j, k,in, mp, ms, mt, spi_i,i_inj,                 &
+!$omp          wgauss_copy,varmin,varmax)                                                      &
+!$omp   private(ife,iv,inode,element,i,j, k,in, mp, ms, mt, spi_i,i_inj,                 &
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, xjac, eq_g, eq_s, eq_t, eq_p,                    &
 !$omp           wst, BigR, r0, T0, Te0, zj0, ps0, dTdx, dTdy, drhodx, drhody, dpsidx, dpsidy, dudx, dudy,  &
 !$omp           dpdx, dpdy, grad_P, grad_psi, grad_P_psi,gradP_max, gradP_psi_max, phi,        &
@@ -172,7 +172,8 @@ varmin(:) = 1.d50; varmax(:) = -1.d50; varminout(:) = 1.d50; varmaxout(:) = -1.d
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
 !$omp           rn0, source_neutral, source_neutral_drift, source_neutral_arr, source_neutral_drift_arr, &
 #endif
-!$omp           omp_nthreads,omp_tid)
+!$omp           omp_nthreads,omp_tid)                                                          &
+!$omp   firstprivate(nodes)
 
 
 #ifdef _OPENMP
@@ -198,7 +199,8 @@ do ife = ife_min, ife_max
 
   do iv = 1, n_vertex_max
     inode     = element%vertex(iv)
-    nodes(iv) = node_list%node(inode)
+    call make_deep_copy_node(node_list%node(inode), nodes(iv))
+    ! nodes(iv) = node_list%node(inode)
   enddo
 
   x_g(:,:)    = 0.d0; x_s(:,:)    = 0.d0; x_t(:,:)    = 0.d0;
@@ -440,7 +442,9 @@ do ife = ife_min, ife_max
       enddo
     enddo
   enddo
-
+  do i = 1, n_vertex_max
+    call dealloc_node(nodes(i))
+  enddo
 enddo
 !$omp end do
 !$omp end parallel
