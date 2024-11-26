@@ -1170,8 +1170,8 @@ write(*,*) "n elements:", element_list%n_elements
   call dfftw_destroy_plan(fftw_plan)
 #endif
 
-if (allocated(node_list)) deallocate(node_list)
-if (allocated(aux_node_list)) deallocate(aux_node_list)
+if (allocated(node_list%node)) call dealloc_node_list(node_list)
+if (allocated(aux_node_list%node)) call dealloc_node_list(aux_node_list)
 
   call r3_info_summary ()                                ! timing
   call MPI_FINALIZE(IERR)                                ! clean up MPI
