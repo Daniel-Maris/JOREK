@@ -186,10 +186,10 @@ program JOREK2
   call init_expr()
   allocate(res(exprs_all_int%n_expr+1))
   res = 0.d0   
-  
-!***********************************************************************
-!*                  intialisation                                      *
-!***********************************************************************
+    
+  !***********************************************************************
+  !*                  intialisation                                      *
+  !***********************************************************************
 
   ! --- Initialize OpenMP threads before MPI_init
   !call init_threads()
@@ -486,13 +486,13 @@ mpi_required = 0
   end if
 #endif
   
-call MPI_Barrier(MPI_COMM_WORLD,ierr)
+  call MPI_Barrier(MPI_COMM_WORLD,ierr)
   
-! --- Determine boundary information from the grid
-if ( my_id == 0 ) call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, output_bnd_elements)
-call broadcast_boundary(my_id, bnd_elm_list, bnd_node_list)
-  
-! --- Fill the vacuum response matrices for freeboundary computations
+  ! --- Determine boundary information from the grid
+  if ( my_id == 0 ) call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, output_bnd_elements)
+  call broadcast_boundary(my_id, bnd_elm_list, bnd_node_list)
+    
+  ! --- Fill the vacuum response matrices for freeboundary computations
 if ( freeboundary ) then
   call get_vacuum_response(my_id, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,    &
       resistive_wall)
@@ -1170,8 +1170,8 @@ write(*,*) "n elements:", element_list%n_elements
   call dfftw_destroy_plan(fftw_plan)
 #endif
 
-if (allocated(node_list)) deallocate(node_list)
-if (allocated(aux_node_list)) deallocate(aux_node_list)
+if (allocated(node_list%node)) call dealloc_node_list(node_list)
+if (allocated(aux_node_list%node)) call dealloc_node_list(aux_node_list)
 
   call r3_info_summary ()                                ! timing
   call MPI_FINALIZE(IERR)                                ! clean up MPI
