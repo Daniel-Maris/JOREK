@@ -502,7 +502,6 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
       do iv = 1, n_vertex_max
         inode   = element%vertex(iv)
         call make_deep_copy_node(node_list%node(inode), nodes(iv))
-        ! if (.not. allocated(aux_node_list%node(inode)%values)) call init_node(aux_node_list%node(inode), n_var)
         call make_deep_copy_node(aux_node_list%node(inode), aux_nodes(iv))
       enddo
 
