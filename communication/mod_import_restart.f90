@@ -175,7 +175,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   write(*,'(A,i5,A)') ' Importing ',n_tor_tmp,' harmonics'
 
-  read(21) n_node_list%n_nodes,element_list%n_elements
+  read(21) node_list%n_nodes,element_list%n_elements
   read(21) node_list%n_dof
 
   call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_var)
