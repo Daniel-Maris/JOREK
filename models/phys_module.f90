@@ -921,13 +921,13 @@ module phys_module
   logical :: use_ccs          ! use current coupling scheme for fast particles
   logical :: use_pcs          ! use pressure coupling scheme for fast particles
   logical :: use_pcs_full     ! use full tensor pressure coupling scheme for fast particles
-  logical :: use_cx           ! switch on sputtering         (in particle module)
+  logical :: use_kn_cx           ! switch on sputtering         (in particle module)
   logical :: use_marker       ! This flag determines whether to use marker particles to treat impurity (Placeholder)
-  logical :: use_sputtering   ! switch on charge-exchange    (in particle module)
-  logical :: use_ionisation   ! switch on ionisation         (in particle module)
-  logical :: use_recombination ! switch on recombination         (in particle module)
-  logical :: use_puffing       ! switch on particle puffing         (in particle module)
-  logical :: use_line_radiation ! switch on line radiation         (in particle module)
+  logical :: use_kn_sputtering   ! switch on charge-exchange    (in particle module)
+  logical :: use_kn_ionisation   ! switch on ionisation         (in particle module)
+  logical :: use_kn_recombination ! switch on recombination         (in particle module)
+  logical :: use_kn_puffing       ! switch on particle puffing         (in particle module)
+  logical :: use_kn_line_radiation ! switch on line radiation         (in particle module)
   real*8  :: n_particles      ! the number of particles (real on purpose)
   real*8  :: tstep_particles  ! the time step for the particles
   integer :: nstep_particles  ! the number of particle time steps

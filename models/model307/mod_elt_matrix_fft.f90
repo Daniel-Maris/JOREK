@@ -115,7 +115,6 @@ real*8     :: Sion_T, dSion_dT                                ! Ionization rate 
 real*8     :: ksi_ion_norm                                          ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
-! real*8      :: rec_particles_this_element !< amount of recombination in this element
 !   -Radiation from injected gas/impurities	
 !real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature	
 real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T	
@@ -794,7 +793,7 @@ do i=1,n_vertex_max
 
 		  ksi_ion_norm = central_density * 1.d20 * ksi_ion
 		  !> Recombination amount per gauss point per element for kinetic particles
-		  if (use_ncs) then ! .and. use_recombination
+		  if (use_ncs) then ! .and. use_kn_recombination
 			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
 			
 			!LradDcont_T = LradDcont_T - ksi_ion_norm

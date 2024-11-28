@@ -23,7 +23,7 @@ use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_r
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 
 use phys_module, only: xtime, mode
-! use phys_module, only: use_sputtering , use_cx, use_ionisation, use_sputtering
+! use phys_module, only: use_kn_sputtering , use_kn_cx, use_kn_ionisation, use_kn_sputtering
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
@@ -95,7 +95,7 @@ integer   :: seed, i_rng, n_stream
 
 
 !use physics
-logical :: use_ionisation,use_sputtering !use_recombination, use_puffing, use_cx, use_ionisation ,use_line_radiation
+logical :: use_kn_ionisation,use_kn_sputtering !use_kn_recombination, use_kn_puffing, use_kn_cx, use_kn_ionisation ,use_kn_line_radiation
 logical :: use_radiation, use_coll
 logical  :: run_stepper, run_rec !, one_rec_only !< when recombination is used
 
@@ -189,24 +189,24 @@ endif ! (restart_particles)
 
 
 ! selecting physics (should be done in input file)
-! use_puffing       = .true. !.false. 
-! use_cx            = .true. !.true.
-use_ionisation    = .true.
-use_sputtering    = .false. 
-! use_recombination = .true.  !
-! use_line_radiation= .true.
+! use_kn_puffing       = .true. !.false. 
+! use_kn_cx            = .true. !.true.
+use_kn_ionisation    = .true.
+use_kn_sputtering    = .false. 
+! use_kn_recombination = .true.  !
+! use_kn_line_radiation= .true.
 use_radiation     =.true.
 use_coll          = .false.
 
 ! Read Open ADAS data for plasma fluid
- ! if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
+ ! if (deuterium_adas .and. use_kn_recombination) ad_deuterium =  read_adf11('96_h') !< move to core (jorek2_main for particles)
  
 n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
  
 ! Setting up edge_elements and amount of sputtered super particles per event
-if (use_sputtering) then  
+if (use_kn_sputtering) then  
   n_reflect = int(n_particles_local* sim%n_cpu * 1.d-3) !int(n_particles_local * 2.d-3)
   W_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   W_sputter_event = event(W_sputter_source)
@@ -266,13 +266,13 @@ project_density = new_projection(sim%fields%node_list, sim%fields%element_list, 
 call with(sim, project_density)
 
 
-! if (use_line_radiation) then
+! if (use_kn_line_radiation) then
 	! project_PLT = new_projection(sim%fields%node_list, sim%fields%element_list, &
                      ! filter    = filter_perp,    filter_hyper    = filter_hyper,    filter_parallel    = filter_par, &
                      ! filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0 = filter_par_n0, &
                      ! f=[proj_f(proj_PLT, group = 1)], &
                      ! fractional_digits = 9,calc_integrals=.true.,  to_vtk=.TRUE., to_h5=.FALSE., basename='linerad', nsub=5)
-! endif	 !use_line_radiation				 
+! endif	 !use_kn_line_radiation				 
 !project_current = new_projection(sim%fields%node_list, sim%fields%element_list,   &
 !                      filter = 0d-3, filter_hyper = 1d-5, filter_parallel = 0.d0, &
 !                      f=[proj_f(proj_jPhi, group = 1)], fractional_digits = 9,    &
@@ -385,15 +385,15 @@ do while (.not. sim%stop_now)
 	if ( (abs((tstart_jorek +closest_iteration*tstep_si*nout) -projection_time) .le. 1.d-13) .or. sim%stop_now) then !< == true every tstep * nout steps
 		call with(sim, project_density)
 		
-		 ! if (use_line_radiation) call with(sim, project_PLT)
+		 ! if (use_kn_line_radiation) call with(sim, project_PLT)
 	endif !< write projection or diagnostics
 	
 
 
-	if (use_sputtering) then
+	if (use_kn_sputtering) then
 	  ! call sputtering
 	   call with(sim, W_sputter_event) !event(D_sputter_source))
-	endif   !use_sputtering
+	endif   !use_kn_sputtering
 	  
 
   endif !run_stepper
@@ -558,7 +558,7 @@ type is (particle_kinetic_leapfrog)
  !$omp parallel do default(none) &
  !$omp shared(sim, particles,ADAS, n_steps, timesteps, rng, particle_start_time,   &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_ionisation,use_radiation, use_coll,                                     &
+ !$omp use_kn_ionisation,use_radiation, use_coll,                                     &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
 #endif
  !$omp schedule(dynamic,10) &
@@ -605,7 +605,7 @@ type is (particle_kinetic_leapfrog)
 	  
 
 	  
-	  if (use_ionisation .and. .not. limits) then
+	  if (use_kn_ionisation .and. .not. limits) then
           call rng(i_rng)%next(ion_ran)      
 		  particle_tmp%q = int(new_charge(int(q_old,4), adas, log10(n_e), log10(T_e), timesteps, ion_ran(1:2)),1)
 		  
@@ -623,7 +623,7 @@ type is (particle_kinetic_leapfrog)
 			!<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
 			! binding energy must come from ion energy.sh
 		  endif
-	  endif ! use_ionisation
+	  endif ! use_kn_ionisation
 
 	  	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
 	  radiation_energy = 0.d0
@@ -633,7 +633,7 @@ type is (particle_kinetic_leapfrog)
 			! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
 			!define P_brem = PRB - Srec*binding energy
 			radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB)* timesteps
-	  endif ! use_line_radiation
+	  endif ! use_kn_line_radiation
 
 	  if (use_coll) then
 	     ! if (particle_tmp%q .gt. 0) then

@@ -137,10 +137,10 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                use_cx, use_sputtering, use_ionisation,             &
+                use_kn_cx, use_kn_sputtering, use_kn_ionisation,             &
                 use_ncs, use_pcs, use_ccs, use_pcs_full,            &
                 restart_particles,                                  &
-                use_recombination, use_puffing,use_line_radiation,  &
+                use_kn_recombination, use_kn_puffing,use_kn_line_radiation,  &
                 puff_rate, r_valve, R_valve_loc, Z_valve,           &
                 R_valve_loc2, Z_valve2, n_puff,                     &
                 cte_current_FB_fact, Z_xpoint_limit,                &

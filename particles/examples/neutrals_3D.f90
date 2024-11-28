@@ -21,7 +21,7 @@ use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-! use phys_module, only: use_sputtering , use_cx, use_ionisation, use_sputtering
+! use phys_module, only: use_kn_sputtering , use_kn_cx, use_kn_ionisation, use_kn_sputtering
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
@@ -78,7 +78,7 @@ logical :: puff_t_dependent,boxpuff
 
 
 !use physics
-logical :: use_recombination, use_puffing, use_cx, use_ionisation , use_sputtering,use_line_radiation
+logical :: use_kn_recombination, use_kn_puffing, use_kn_cx, use_kn_ionisation , use_kn_sputtering,use_kn_line_radiation
 logical  :: run_stepper, run_rec !, one_rec_only !< when recombination is used
 
 ! diagnostics
@@ -165,22 +165,22 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 ! tstep_keep        = tstep
 
 ! selecting physics (should be done in input file)
-use_puffing       = .true. !.false. 
-use_cx            = .true. !.true.
-use_ionisation    = .true. !.false.!.false.
-use_sputtering    = .true. !.false. !false
-use_recombination = .true.  !
-use_line_radiation= .true.
+use_kn_puffing       = .true. !.false. 
+use_kn_cx            = .true. !.true.
+use_kn_ionisation    = .true. !.false.!.false.
+use_kn_sputtering    = .true. !.false. !false
+use_kn_recombination = .true.  !
+use_kn_line_radiation= .true.
 
 ! Read Open ADAS data for plasma fluid
- if (deuterium_adas .and. use_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
+ if (deuterium_adas .and. use_kn_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
  
 n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
  
 ! Setting up edge_elements and amount of sputtered super particles per event
-if (use_sputtering) then  
+if (use_kn_sputtering) then  
   n_reflect = int(n_particles_local* sim%n_cpu * 5.d-4) !1.d-3 int(n_particles_local * 2.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
@@ -223,7 +223,7 @@ boxpuff = .true.
 
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
-if (use_puffing) then  
+if (use_kn_puffing) then  
   n_puff      = int(5.d-5*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
   if (puff_t_dependent) then
 	t_puff_start = 5000*t_norm !25000*t_norm !34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
@@ -417,7 +417,7 @@ do while (.not. sim%stop_now)
 	if ( (abs((tstart_jorek +closest_iteration*tstep_si*nout) -projection_time) .le. 1.d-13) .or. sim%stop_now) then !< == true every tstep * nout steps
 		call with(sim, project_density)
 		
-		 ! if (use_line_radiation) call with(sim, project_PLT)
+		 ! if (use_kn_line_radiation) call with(sim, project_PLT)
 	endif !< write projection or diagnostics
 	
 	!if (part_i_save .ge. part_n_save) then
@@ -426,21 +426,21 @@ do while (.not. sim%stop_now)
 	!endif
 	!part_i_save = part_i_save + 1
 	
-	if (use_recombination) then
+	if (use_kn_recombination) then
 	  !call recombination
 	  call do_1particle_recombination_3D(element_list,node_list,jorek_stepper,rng) 
-    endif !use_recombination
+    endif !use_kn_recombination
 	
-	if (use_sputtering) then
+	if (use_kn_sputtering) then
 	  ! call sputtering
 	   call with(sim, D_sputter_event) !event(D_sputter_source))
-	endif   !use_sputtering
+	endif   !use_kn_sputtering
 	  
-	if (use_puffing) then
+	if (use_kn_puffing) then
       call with(sim, gas_puff_event) 
 	  call with(sim, gas_puff2_event)
 	  call with(sim, gas_puff3_event)
-    endif ! use_puffing	
+    endif ! use_kn_puffing	
   endif !run_stepper
   
 
@@ -602,7 +602,7 @@ type is (particle_kinetic_leapfrog)
  !$omp parallel do default(none) &
  !$omp shared(sim, particles, n_steps, timesteps, rng, particle_start_time,        &
  !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
- !$omp use_cx, use_ionisation,use_line_radiation,                                  &
+ !$omp use_kn_cx, use_kn_ionisation,use_kn_line_radiation,                                  &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
 #endif
  !$omp schedule(dynamic,10) &
@@ -648,13 +648,13 @@ type is (particle_kinetic_leapfrog)
 	  
 	  !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
 	  line_rad_energy = 0.d0
-	  if (use_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+	  if (use_kn_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
 			call sim%groups(1)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
 			! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
 			line_rad_energy = n_e * particle_tmp%weight * PLT * timesteps
-	  endif ! use_line_radiation
+	  endif ! use_kn_line_radiation
 	  
-	  if (use_ionisation .and. .not. limits) then
+	  if (use_kn_ionisation .and. .not. limits) then
        
           call sim%groups(1)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
           ion_prob = 1.d0 - exp(-ion_rate * n_e * timesteps) ! [0] poisson point process, exponential 
@@ -683,7 +683,7 @@ type is (particle_kinetic_leapfrog)
           ion_energy     = kinetic_energy - binding_energy !<binding energy should be here
 		  !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
 
-	  endif ! use_ionisation
+	  endif ! use_kn_ionisation
 
 	  
 	  ! Charge Exchange
@@ -692,7 +692,7 @@ type is (particle_kinetic_leapfrog)
 	  cx_source = 0.d0
 	  cx_energy = 0.d0
 	  
-	  if (use_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
+	  if (use_kn_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
 	  
           call sim%groups(1)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), CX_rate) ! [m^3/s]
           CX_prob = 1.d0 - exp(-CX_rate * n_e * timesteps)
@@ -717,7 +717,7 @@ type is (particle_kinetic_leapfrog)
               !write(*,*) "neTe",n_e,T_e			
 			  !write(*,*) "CX", vvector
           endif ! cx_ran
-	  endif ! use_cx
+	  endif ! use_kn_cx
 	  
 	  if (isnan(ion_source * ion_energy + cx_source * cx_energy - line_rad_energy)) then
 		write(*,*) "ion_energy", ion_energy
