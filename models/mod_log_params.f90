@@ -996,7 +996,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_kn_cx,             ',use_kn_cx
   write(*,LOGI_FMT) 'use_kn_recombination,  ',use_kn_recombination
   write(*,LOGI_FMT) 'use_kn_puffing,        ',use_kn_puffing
-  write(*,LOGI_FMT) 'use_kn_puffing,        ',use_kn_puffing
   write(*,LOGI_FMT) 'use_kn_line_radiation, ',use_kn_line_radiation
 
   if (use_kn_puffing) then 
