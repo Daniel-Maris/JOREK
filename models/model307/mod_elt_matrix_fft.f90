@@ -31,7 +31,7 @@ implicit none
 
 type (type_element)        :: element
 type (type_node)           :: nodes(n_vertex_max)
-type (type_node), optional :: aux_nodes(n_vertex_max) !< may be not optional
+type (type_node), optional :: aux_nodes(n_vertex_max) 
 
 #define DIM0 n_tor*n_vertex_max*n_degrees*n_var
 
@@ -940,7 +940,6 @@ do i=1,n_vertex_max
             !###################################################################################################
 
             rhs_ij(5)  = v * BigR * (particle_source(ms,mt) + source_pellet + aux_rho0)           * xjac * tstep &
-			           !+ v * (0.5d0* rho_min + 0.5d0*rho_min *exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -min(r0,rho_min))  *BigR* xjac * tstep     &
                        + v * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)                                      * tstep &
                        + v * 2.d0 * BigR * r0 * u0_y                                              * xjac * tstep &
                        - (D_par-D_prof) * BigR / BB2 * Bgrad_rho_star * Bgrad_rho                 * xjac * tstep &
@@ -1421,7 +1420,6 @@ do i=1,n_vertex_max
 
                           - v * 2.d0 * tauIC * (rho_y * T0 + rho*T0_y) * BigR                           * xjac * theta * tstep &
 
-						  !- v * (exp( (min(r0,rho_min)-rho_min)/(0.5d0*rho_min) ) -1.d0)*rho* xjac*  theta* tstep & ! CHECK IF THIS WORKS, NOT TESTED
 				   !-----------------------------Recombination to kinetic particles
 				          + v * rho * 2.d0 * r0_corr * BigR * Srec_T * xjac * theta * tstep &
 					!-------------------------------						  

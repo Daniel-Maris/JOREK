@@ -57,8 +57,6 @@ real*8     :: grad_t(2), B0_R, B0_Z, factor_cs_bnd_integral, c_angle
 logical    :: xpoint2
 integer    :: n_tor_local 
 
-real*8     :: bnd_outflux_sign !< corr_neg
-
 type (type_node)         :: tmp_node
 
 theta = time_evol_theta
@@ -216,9 +214,6 @@ do ms=1, n_gauss
 	  T0_corr_sqrt = max(T0,1.d-6)! force above 0 for calculating sound speed
     r0_corr = r0  !
 
-	bnd_outflux_sign = 1.d0 
-	if ((T0 .lt. 0.d0) .and. (r0 .lt. 0.d0) ) bnd_outflux_sign = 1.0
-	
     cs0      = sqrt(gamma*T0_corr_sqrt)
 
     Btot = sqrt(F0**2 + ps0_x**2 + ps0_y**2) / BigR
@@ -255,9 +250,9 @@ do ms=1, n_gauss
                      - v * r0_corr * BigR**2.d0 * u0_s * normal_sign3 * tstep                    ! reflect v_perp particle flow
 					 
            
-          rhs_ij_6 = - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * vpar0 * ps0_s * normal_sign3 * tstep * bnd_outflux_sign & ! right hand side equation 6
-                     - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * cs0   * BigR  * dl * c_angle * tstep * bnd_outflux_sign &
-                     - v *                        r0_corr * T0_corr * BigR**2.d0    * u0_s  * normal_sign3 * tstep* bnd_outflux_sign  &
+          rhs_ij_6 = - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * vpar0 * ps0_s * normal_sign3 * tstep  & ! right hand side equation 6
+                     - v * (gamma_sheath -1.d0) * r0_corr * T0_corr * cs0   * BigR  * dl * c_angle * tstep  &
+                     - v *                        r0_corr * T0_corr * BigR**2.d0    * u0_s  * normal_sign3 * tstep  &
 					 + v * (0.5d0* T_min + 0.5d0*T_min *exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -min(T0,T_min))  * tstep     
 
           rhs_ij_7 = - v * (vpar0 * Btot * normal_sign - cs0 * factor) * dl * Zbig                ! right hand side equation 7
@@ -315,12 +310,12 @@ do ms=1, n_gauss
                 
                 amat_62 = + v * r0_corr * BigR**2.d0 * u_s * normal_sign3                               * theta * tstep
 
-                amat_65 = + v * (gamma_sheath-1.d0) * rho      * T0_corr * vpar0 * ps0_s * normal_sign3 * theta * tstep*bnd_outflux_sign &
-                          + v * (gamma_sheath-1.d0) * rho      * T0_corr * cs0   * BigR  * dl * c_angle * theta * tstep*bnd_outflux_sign 
+                amat_65 = + v * (gamma_sheath-1.d0) * rho      * T0_corr * vpar0 * ps0_s * normal_sign3 * theta * tstep &
+                          + v * (gamma_sheath-1.d0) * rho      * T0_corr * cs0   * BigR  * dl * c_angle * theta * tstep 
 
-                amat_66 = + v * (gamma_sheath-1.d0) * r0_corr  * T       * vpar0 * ps0_s * normal_sign3 * theta * tstep*bnd_outflux_sign &
-                          + v * (gamma_sheath-1.d0) * r0_corr  * T       * cs0   * BigR  * dl * c_angle * theta * tstep*bnd_outflux_sign &
-                          + v * (gamma_sheath-1.d0) * r0_corr  * T0_corr * cs_T  * BigR  * dl * c_angle * theta * tstep*bnd_outflux_sign &
+                amat_66 = + v * (gamma_sheath-1.d0) * r0_corr  * T       * vpar0 * ps0_s * normal_sign3 * theta * tstep &
+                          + v * (gamma_sheath-1.d0) * r0_corr  * T       * cs0   * BigR  * dl * c_angle * theta * tstep &
+                          + v * (gamma_sheath-1.d0) * r0_corr  * T0_corr * cs_T  * BigR  * dl * c_angle * theta * tstep &
 						  - v * (exp( (min(T0,T_min)-T_min)/(0.5d0*T_min) ) -1.d0)*T   *theta* tstep     
 
                 amat_67 = + v * (gamma_sheath-1.d0) * r0_corr  * T0_corr * vpar  * ps0_s * normal_sign3 * theta * tstep 

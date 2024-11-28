@@ -6,11 +6,10 @@ module mod_particle_puffing
   use mod_io_actions, only: io_action
   use mod_sampling
   use mod_particle_types
-  use constants, only: TWOPI, K_BOLTZ, ATOMIC_MASS_UNIT!, MU_ZERO
-  ! use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
+  use constants, only: TWOPI, K_BOLTZ, ATOMIC_MASS_UNIT
   use mod_rng, only: type_rng, setup_shared_rngs
   use mod_boundary, only: wall_normal_vector
-  use mod_atomic_elements !mod_elements !< Chemical elements
+  use mod_atomic_elements 
   use mod_particle_sim
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
@@ -37,7 +36,7 @@ module mod_particle_puffing
     real*8  :: last_time = 0.d0 !< When did we puff last 
     real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
 	
-	!> Should maybe go into a shape function?
+
 	!box volume puff, define 4 RZ points to determine volume
 	real*8  :: poly_R(4) = -1.d0
 	real*8	:: poly_Z(4) = -1.d0
@@ -196,7 +195,7 @@ end do
 
   vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, &
           i_elm, s, t)
-  !vector_normal = -1.d0 * vector_normal
+
 !------------- Decide how many superparticles to initiate		 
 !Adjust amount of superparticles + fueling rate if we use time dependent puffing 
   if (this%puff_t_dependent) then
@@ -226,6 +225,7 @@ end do
   puff_weight_local      = 0.d0
   select type (pa => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
+! To do: Parallellize loop 
 ! #ifdef __GFORTRAN__
 !  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 ! #else
@@ -272,8 +272,8 @@ end do
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
       pa(i_p)%i_elm   = i_elm
-      pa(i_p)%weight  = real(1.d0/n_puff_local) * delta_t * puffing_rate_t !< TODO: Change if particle%weights = real*8
-      pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   ! <STIJN> Maybe this needs to be isotropic, or 1+cos like?
+      pa(i_p)%weight  = real(1.d0/n_puff_local) * delta_t * puffing_rate_t 
+      pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   
       pa(i_p)%q       = 0_1
       if (sim%groups(1)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
         sim%groups(1)%particles(i_p)%i_elm = 0

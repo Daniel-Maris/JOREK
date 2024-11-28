@@ -478,29 +478,17 @@ subroutine do_particle_sputter(this, sim, ev)
         ! if i_elm in the i_elm list of this edge domain exit the loop
         ! Note that this has issues at sharp corners, where particles may be
         ! lost in a different patch but at the same element number!
-		if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) then
-			this_patch = i_patch
-			sputtered_this_step_local = sputtered_this_step_local + 1
-			bnd_kinetic_flux_local = bnd_kinetic_flux_local + sim%groups(i)%particles(j)%weight
-      exit !<Making sure diagnostics cannot count this particle double.
-		endif
+        if (any(-sim%groups(i)%particles(j)%i_elm .eq. this%fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(:))) then
+          this_patch = i_patch
+          sputtered_this_step_local = sputtered_this_step_local + 1
+          bnd_kinetic_flux_local = bnd_kinetic_flux_local + sim%groups(i)%particles(j)%weight
+          exit !<Making sure diagnostics cannot count this particle double.
+        endif
       end do
-	  i_patch = this_patch
+	    i_patch = this_patch
       if (i_patch .gt. size(this%fluid_sputter_yield%patch,1)) cycle ! particle not lost in the right area, skip it
       
-      !> Check if the particle passes through the surface in a patch that acts as a pump
-      !> if albedo = 0.98, 2% of particles will pass through the surface and are lost.
-	  ! if ( any(this%fluid_sputter_yield%patch(:)%wall_albedo .ne. 1.d0) ) then !< wall_albedo =1.0 by default
-       ! call this%rng(i_rng)%next(u)
-	   ! if (u(1) .gt. this%fluid_sputter_yield%patch(this_patch)%wall_albedo) then
-	     ! !if particle passes through surface, set i_elm to zero
-	     ! sim%groups(i)%particles(j)%i_elm = 0
-		 ! !> TO DO: add counter for amount of pumped particles?
-		 ! cycle !< go to next particle
-	   ! endif
-	  ! endif
-      !
-	   
+   
       !> Place particle back into domain
       sim%groups(i)%particles(j)%i_elm = -sim%groups(i)%particles(j)%i_elm
 
@@ -527,12 +515,11 @@ subroutine do_particle_sputter(this, sim, ev)
         ! Update the particle energy from the potential drop in the sheath
         E = E + simple_potential_drop(q,T_eV)
         
-		!Boundary kinetic heat load (and total particle flux?)
-		bnd_kinetic_load_local = bnd_kinetic_load_local + pa(j)%weight * E *EL_CHG
-		!
-		!
-		!> reflecting atoms of the main plasma species/ D neutrals
-		!> here we try whether neutrals bounce of the wall (fast_reflection) or they are thermally released.
+		  !Boundary kinetic heat load (and total particle flux?)
+		  bnd_kinetic_load_local = bnd_kinetic_load_local + pa(j)%weight * E *EL_CHG
+
+		  !> reflecting atoms of the main plasma species/ D neutrals
+		  !> here we try whether neutrals bounce of the wall (fast_reflection) or they are thermally released.
         if (reflection) then
 			call this%rng(i_rng)%next(u)
 			sputtering_yield = this%yield(i)%interp(E,theta)
@@ -542,7 +529,7 @@ subroutine do_particle_sputter(this, sim, ev)
 			sputtering_yield = 1.d0*this%albedo_for_neutrals !* this%fluid_sputter_yield%patch(this_patch)%wall_albedo !< * this%patch%wall_albedo ! decide per patch the reflection amount (albedo)
 			!< something like: this%fluid_sputter_yield%patch(this_patch)%wall_albedo
 			!< as we already know in which patch we are.
-		else !< normal sputtering
+		  else !< normal sputtering
           
 			!> -------------Sputter yield---------------------------------------------------------------------     
 			! Hard-code theta to 0 to fix issues with sputtering module at strange angles
@@ -724,7 +711,7 @@ subroutine do_particle_sputter(this, sim, ev)
 	write(*,'(A26,I2,A48,2E14.6)') "Superparticles from group", i,"particle-particle heat load going(in/out) [W] = ", all_reflbnd_kinetic_load/delta_t, all_bnd_kinetic_load/delta_t
 endif
 	
-  end do
+end do
 
 
 
@@ -1204,7 +1191,6 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
 
   ! normalize relative densities
   n_relative = n_relative/sum(n_relative, dim =1)
-  !write(*,*) "mod_particle_sputtering: do i_patch" 
   do i_patch = 1, size(fluid_sputter_yield%patch,1) !< different parts of edge domain
 #ifdef __GFORTRAN__
     !$omp parallel do default(shared) &
