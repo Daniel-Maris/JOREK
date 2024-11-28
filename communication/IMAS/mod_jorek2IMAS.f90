@@ -1449,7 +1449,11 @@ module mod_jorek2IMAS
     ! -- Save two special points (axis and X-points)
     allocate(equilibrium_ids%time_slice(i_slice)%contour_tree%node(3))
     !--- Save axis
-    equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%critical_type = 0 ! minimum
+    if (ES%axis_is_psi_minimum) then
+       equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%critical_type = 0 ! minimum
+    else
+       equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%critical_type = 2 ! maximum
+    end if
     equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%r   = ES%R_axis
     equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%z   = ES%Z_axis
     equilibrium_ids%time_slice(i_slice)%contour_tree%node(1)%psi = ES%psi_axis
@@ -1914,7 +1918,7 @@ module mod_jorek2IMAS
     call fill_values_vector_with_harmonics( ggd_vector, B_tot(:,:,1), grid_ind, grid_sub_ind, 1.d0, 'r')
 
     ! --- Fill BZ
-    call fill_values_vector_with_harmonics( ggd_vector, B_tot(:,:,2), grid_ind, grid_sub_ind, 1.d0, 'r')
+    call fill_values_vector_with_harmonics( ggd_vector, B_tot(:,:,2), grid_ind, grid_sub_ind, 1.d0, 'z')
 
   end subroutine fill_fields_vacuum_extension
 
