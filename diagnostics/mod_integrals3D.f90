@@ -506,7 +506,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           coef_prad_si,                                                                                 &
 #endif
 !$omp           omp_nthreads,omp_tid)                                                          &
-!$omp   firstprivate(nodes)
+!$omp   firstprivate(nodes) !< so that these nodes are unallocated at the start of the omp region and can be explicitly allocated/deallocated 
 
 
 

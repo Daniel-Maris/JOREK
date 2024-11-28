@@ -1232,8 +1232,8 @@ if (my_id_n .eq. 0) then
 !$omp         wst, xjac, xjac_x, xjac_y, psi_x, psi_y, BB2, Bgrad_p, Bgrad_v_star,  &
 !$omp         index_ij, index_kl, ilarge, in_index, im_index,                       &
 !$omp         inode, index_large_i, knode, index_large_k)                           &
-!$omp firstprivate(nodes)                                                           &
-!$omp schedule(static)
+!$omp firstprivate(nodes)                                                           & 
+!$omp schedule(static) 
 do i_elm=1,element_list%n_elements
   
   ELM = 0.d0
@@ -1661,7 +1661,7 @@ if (my_id_n .eq. 0) then
 !$omp         wst, xjac, xjac_x, xjac_y, psi_x, psi_y, BB2, Bgrad_p, Bgrad_v_star,  &
 !$omp         index_ij, index_kl, ilarge, in_index, im_index, basisfunction_volume, &
 !$omp         inode, index_large_i, knode, index_large_k, index_rhs)                &
-!$omp firstprivate(nodes)                                                           &
+!$omp firstprivate(nodes)                                                           & 
 !$omp reduction(+:area,volume) schedule(static)
 do i_elm=1,element_list%n_elements
   

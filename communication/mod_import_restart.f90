@@ -175,13 +175,12 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   write(*,'(A,i5,A)') ' Importing ',n_tor_tmp,' harmonics'
 
-  read(21) element_list%n_elements
+  read(21) node_list%n_nodes,element_list%n_elements
   read(21) node_list%n_dof
 
   call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_var)
 
   do i=1,node_list%n_nodes
-
     read(21) node_list%node(i)%x
     read(21) values_tmp
     read(21) deltas_tmp
@@ -774,12 +773,10 @@ endif
       endif
 
       allocate(node_list_perturbation, element_list_perturbation)
-      do i=1, node_list%n_nodes
-        allocate(node_list_perturbation%node(i)%values(n_tor, n_degrees, n_var))
-      end do
-      
+
       read(21) node_list_perturbation%n_nodes,element_list_perturbation%n_elements
       read(21) node_list_perturbation%n_dof
+      call init_node_list(node_list_perturbation, node_list_perturbation%n_nodes, node_list_perturbation%n_dof, n_var)
 
       do i=1,node_list_perturbation%n_nodes
 

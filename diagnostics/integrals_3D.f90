@@ -173,7 +173,7 @@ varmin(:) = 1.d50; varmax(:) = -1.d50; varminout(:) = 1.d50; varmaxout(:) = -1.d
 !$omp           rn0, source_neutral, source_neutral_drift, source_neutral_arr, source_neutral_drift_arr, &
 #endif
 !$omp           omp_nthreads,omp_tid)                                                          &
-!$omp   firstprivate(nodes)
+!$omp   firstprivate(nodes) !< so that these nodes are unallocated at the start of the omp region and can be explicitly allocated/deallocated 
 
 
 #ifdef _OPENMP

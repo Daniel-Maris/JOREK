@@ -30,9 +30,7 @@ character, allocatable   :: buffer(:)
 call MPI_BCAST(element_list%n_elements,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
 call MPI_PACK_SIZE(1,MPI_INTEGER,MPI_COMM_WORLD,INT_EXT,ierr)
-
 call MPI_PACK_SIZE(1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,IDBL_EXT,ierr)
-
 
 bufsize = element_list%n_elements * ((2*n_vertex_max+8+5)*INT_EXT + n_vertex_max*n_degrees*IDBL_EXT)
 
