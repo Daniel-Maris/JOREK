@@ -256,7 +256,7 @@ if (my_id == 0) then
   !$omp        psi_bnd_kl, newton_method_GS, treat_axis, ES, a_mat, rhs_vec, ilarge) &
   !$omp private(element, inode, ife, i_father, element_father, iv, inode_father, ELM, RHS, ELM_axis, ELM_bnd, node_out, i, j, &
   !$omp         i_tor, index_ij, index_large_i, k, l, knode, k_tor, index_kl, index_large_k)                                                       &
-  !$omp firstprivate(nodes, nodes_father)
+  !$omp firstprivate(nodes, nodes_father) !< so that these nodes are unallocated at the start of the omp region and can be explicitly allocated/deallocated 
   
   do iv = 1, n_vertex_max
     call init_node(nodes(iv), n_var)

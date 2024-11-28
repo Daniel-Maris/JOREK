@@ -498,7 +498,7 @@ module mod_chi
     !$omp   private(i_elm, i_elm_loc,i_vertex,i_node,i_tor,element, i, j, ms, mt, mp,                                             &
     !$omp           x_g, x_s, x_t, x_p, x_ss, x_tt, x_st, x_pp, x_sp, x_tp,                                                             &
     !$omp           y_g, y_s, y_t, y_p, y_ss, y_tt, y_st, y_pp, y_sp, y_tp, chi, phi)                                                   &
-    !$omp   firstprivate(nodes)
+    !$omp   firstprivate(nodes) !< so that these nodes are unallocated at the start of the omp region and can be explicitly allocated/deallocated 
 
     
     !$omp do schedule(runtime)
