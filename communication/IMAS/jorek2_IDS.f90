@@ -187,7 +187,14 @@ program jorek2_IDS
     endif
   endif
 
-  if (export_radiation)  allocate( aux_node_list )
+  if (export_radiation)  then
+    if (.not. use_marker) then
+      write(*,*) 'radiation IDS currently only supported with marker model'
+      export_radiation=.false.
+    else
+      allocate( aux_node_list )
+    end if
+  end if
 
   ! --- Time normalization
   rho0       = central_density * 1.d20 * central_mass * mass_proton

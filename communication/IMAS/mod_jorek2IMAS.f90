@@ -1178,8 +1178,24 @@ module mod_jorek2IMAS
         plasma_profiles_ids%profiles_1d(i_slice)%ion(i_ion_imp)%element(1)%z_n = z_imp
       endif
 
-    end do
-    
+   end do
+   
+
+   index = 1 ! 1 is main impurity
+   do i = 1, n_adas
+     index = 1 + index
+     if (i == index_main_imp) cycle
+     if (nimp_bg(i)>1.d-16) then
+       allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(index)%density(n_grid) )
+       plasma_profiles_ids%profiles_1d(i_slice)%ion(index)%density(:) = nimp_bg(i) ! nimp_bg is given as 1/m^3
+       allocate( plasma_profiles_ids%profiles_1d(i_slice)%ion(index)%element(1) )
+       call get_element_atomic_numbers(imp_type(i), a_imp, z_imp )
+       plasma_profiles_ids%profiles_1d(i_slice)%ion(index)%element(1)%a   = a_imp
+       plasma_profiles_ids%profiles_1d(i_slice)%ion(index)%element(1)%z_n = z_imp
+     end if
+   end do
+
+   
     ! --- q-profile
     allocate( plasma_profiles_ids%profiles_1d(i_slice)%q(n_grid) )
     plasma_profiles_ids%profiles_1d(i_slice)%q(:) = q_prof(:)
