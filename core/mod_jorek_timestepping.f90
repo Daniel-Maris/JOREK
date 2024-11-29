@@ -419,7 +419,6 @@ subroutine do_jorek_timestep(this, sim, ev)
     ! This is a change from jorek2_main, where these quantities are calculated using the old xpoint and axis data
     call update_equil_state(sim%my_id,sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase)
     this%es = ES
-
     call energy(W_mag, W_kin)
     
 !    call integrals(sim%fields%node_list, sim%fields%element_list,                                                         &
