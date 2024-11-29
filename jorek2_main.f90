@@ -25,7 +25,6 @@ program JOREK2
 
   use constants
   use data_structure
-  use mod_particle_settings
   use phys_module
   use mod_parameters
   use mod_log_params

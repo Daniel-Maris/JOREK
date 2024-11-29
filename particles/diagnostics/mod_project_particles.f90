@@ -22,7 +22,7 @@ module mod_project_particles
 use mod_io_actions
 use data_structure
 use mod_particle_sim
-use mod_particle_settings
+use phys_module, only: n_aux_var, n_diag_var
 use mod_particle_types
 use mod_fields
 use mod_vtk

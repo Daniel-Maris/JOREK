@@ -8,7 +8,6 @@ subroutine import_restart(node_list, element_list, filename, format_rst, ierr, n
 
   use tr_module
   use data_structure
-  use mod_particle_settings
   use phys_module
   use pellet_module
   use equil_info
@@ -68,7 +67,6 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 
   use tr_module 
   use data_structure
-  use mod_particle_settings
   use phys_module
   use pellet_module
   use vacuum, only: import_restart_vacuum, current_FB_fact
@@ -894,7 +892,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   use tr_module 
   use data_structure
-  use mod_particle_settings
   use phys_module
   use pellet_module
   use vacuum, only: import_HDF5_restart_vacuum, current_FB_fact
@@ -2251,7 +2248,6 @@ end subroutine import_hdf5_restart
 subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
 
 #include "version.h"
-  use mod_particle_settings
   use tr_module
   use data_structure
   use phys_module
