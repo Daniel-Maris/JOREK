@@ -511,7 +511,6 @@ module mod_chi
       do i_vertex = 1, n_vertex_max
         i_node     = element%vertex(i_vertex)
         call make_deep_copy_node(node_list%node(i_node), nodes(i_vertex))
-        ! nodes(i_vertex) = node_list%node(i_node)
       enddo
       
       x_g  = 0.d0; x_s   = 0.d0; x_t   = 0.d0; x_p = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0; x_sp = 0.d0; x_tp = 0.d0; x_pp = 0.d0;

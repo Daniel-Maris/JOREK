@@ -78,7 +78,6 @@ subroutine global_matrix_structure(node_list, element_list, boundary_list, freeb
 
       inode     = element%vertex(iv)
       call make_deep_copy_node(node_list%node(inode), nodes(iv))
-      ! nodes(iv) = node_list%node(inode)
      enddo
 
      

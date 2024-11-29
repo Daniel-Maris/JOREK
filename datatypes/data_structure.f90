@@ -269,42 +269,6 @@ contains
 
   end subroutine dealloc_node_list
 
-  !> copies the information contained in a node but not the values and deltas
-  subroutine copy_node_without_values(node_to_copy, node_copied_to)
-    implicit none
-    type(type_node), intent(in)      :: node_to_copy
-    type(type_node), intent(inout)   :: node_copied_to
-
-    node_copied_to%x = node_to_copy%x
-#if STELLARATOR_MODEL
-    node_copied_to%r_tor_eq = node_to_copy%r_tor_eq
-#if JOREK_MODEL == 180
-    node_copied_to%pressure = node_to_copy%pressure
-    node_copied_to%j_field = node_to_copy%j_field
-    node_copied_to%b_field = node_copied_to%b_field
-#endif
-#ifndef USE_DOMM
-    node_copied_to%chi_correction = node_to_copy%chi_correction
-#endif 
-    node_copied_to%j_source = node_to_copy%j_source
-#elif fullmhd
-    node_copied_to%psi_eq = node_to_copy%psi_eq
-    node_copied_to%Fprof_eq = node_to_copy%Fprof_eq
-#elif altcs
-    node_copied_to%psi_eq = node_to_copy%psi_eq
-#endif
-    node_copied_to%index = node_to_copy%index
-    node_copied_to%boundary = node_to_copy%boundary
-    node_copied_to%boundary_index = node_to_copy%boundary_index
-    node_copied_to%axis_node = node_to_copy%axis_node
-    node_copied_to%axis_dof = node_to_copy%axis_dof
-    node_copied_to%parents = node_to_copy%parents
-    node_copied_to%parent_elem = node_to_copy%parent_elem
-    node_copied_to%ref_lambda = node_to_copy%ref_lambda
-    node_copied_to%ref_mu = node_to_copy%ref_mu
-    node_copied_to%constrained = node_to_copy%constrained
-  end subroutine copy_node_without_values
-
   !> creates a deep copy of a node
   subroutine make_deep_copy_node(node_to_copy, node_copied_to)
     implicit none
