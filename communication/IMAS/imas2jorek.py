@@ -1,4 +1,3 @@
-
 import imas, os, copy 
 import numpy as np
 from imas import imasdef
@@ -144,29 +143,52 @@ parser.add_argument("-r", "--run", type=int, default=7, help="Run number")
 parser.add_argument("-u", "--user", type=str, default=getpass.getuser(),
                     help="Location of ~$USER/public/imasdb")
 parser.add_argument("-d", "--database", type=str, default="test_db", help="Database name under public/imasdb/")
+parser.add_argument("-dd", "--data_dictionary", type=int, default=3, help="data dictionary major version")
 parser.add_argument("-o", "--occurrence", type=int, default=0, help="Occurrence number")
 parser.add_argument("-tk", "--tokamak", type=str, default="ITER", help="Name of the tokamak (to construct R,Z boundary)")
-parser.add_argument("-f", "--backend", type=int, default=imasdef.MDSPLUS_BACKEND,
+parser.add_argument("-f", "--backend", type=int, default=imasdef.HDF5_BACKEND,
                     help="Database format: 12=MDSPLUS, 13=HDF5")
 parser.add_argument("-t", "--time", type=float, default=-1, help="The requested time in seconds")
 args = parser.parse_args()
 
 # cocos factors
-cocos_psi  =  1.0/(2*np.pi)       # Transform to COCOS convention 11 --> 8
+if (args.data_dictionary <=3):
+  cocos_psi  =  1.0/(2*np.pi)       # Transform to COCOS convention 11 --> 8
+else:
+  cocos_psi  =  -1.0/(2*np.pi)      # Transform to COCOS convention 18 --> 8
+
 cocos_curr = -1.0 
 cocos_Bphi = -1.0
+it=0
 
-input = imas.DBEntry(args.backend, args.database, args.pulse, args.run, args.user, data_version = '4')
+input = imas.DBEntry(args.backend, args.database, args.pulse, args.run, args.user, data_version = str(args.data_dictionary))
 input.open()
 
 time = input.partial_get("equilibrium",'time')
 equilibrium   = input.get_slice("equilibrium",args.time, imas.imasdef.CLOSEST_INTERP)
-pf_active     = input.get_slice("pf_active",args.time, imas.imasdef.CLOSEST_INTERP)
-profiles = input.get_slice("plasma_profiles",args.time, imas.imasdef.CLOSEST_INTERP)
-
+pf_active     = input.get_slice("pf_active",  args.time, imas.imasdef.CLOSEST_INTERP)
+# Use plasma_profiles if available
+if args.data_dictionary>3:
+  use_core_prof  = False
+  profiles = input.get_slice("plasma_profiles", args.time, imas.imasdef.CLOSEST_INTERP)
+  try:
+    profiles.validate()
+    if len(profiles.profiles_1d[it].electrons.temperature)==0:
+      print(len(profiles.profiles_1d[it].electrons.temperature))
+      use_core_prof = True
+    else:
+      print('Use plasma_profiles')
+  except:
+    use_core_prof = True
+else:
+  use_core_prof = True
+if (use_core_prof):
+  print('Use core_profiles')
+  profiles = input.get_slice("core_profiles", args.time, imas.imasdef.CLOSEST_INTERP)
+    
 # Find out array index of the requested time
 tc   = time[0]
-it=0
+
 print(' **************** Found time and index *****************')
 print(' Time  = %.5fs with t=%.5f - %.5fs '% (tc, time[0], time[-1]))
 print(" ")
@@ -185,15 +207,22 @@ m_proton = 1.67262192e-27
 e_ch     = 1.6021766e-19
 
 # Read 0D parameters
-a_min        = equilibrium.time_slice[it].boundary.minor_radius
+if args.data_dictionary<4:
+  a_min        = equilibrium.time_slice[it].boundary_separatrix.minor_radius
+else:
+  a_min        = equilibrium.time_slice[it].boundary.minor_radius
+
 eps          = a_min / R_geo
 B_geo        = equilibrium.vacuum_toroidal_field.r0 * equilibrium.vacuum_toroidal_field.b0[0] / R_geo * cocos_Bphi
 xip          = equilibrium.time_slice[it].global_quantities.ip           * cocos_curr
 psi_axis     = equilibrium.time_slice[it].global_quantities.psi_axis     * cocos_psi
 psi_boundary = equilibrium.time_slice[it].global_quantities.psi_boundary * cocos_psi
 beta_p       = equilibrium.time_slice[it].global_quantities.beta_pol                
-beta_tor     = equilibrium.time_slice[it].global_quantities.beta_tor                
-beta_normal  = equilibrium.time_slice[it].global_quantities.beta_tor_norm
+beta_tor     = equilibrium.time_slice[it].global_quantities.beta_tor
+if args.data_dictionary<4:
+  beta_normal  = equilibrium.time_slice[it].global_quantities.beta_normal
+else:
+  beta_normal  = equilibrium.time_slice[it].global_quantities.beta_tor_norm
 li3          = equilibrium.time_slice[it].global_quantities.li_3                    
 volume       = equilibrium.time_slice[it].global_quantities.volume                  
 area         = equilibrium.time_slice[it].global_quantities.area                    
@@ -226,7 +255,6 @@ pressure_1d = equilibrium.time_slice[it].profiles_1d.pressure
 ffprime_1d  = equilibrium.time_slice[it].profiles_1d.f_df_dpsi     *(-1.0)      / cocos_psi
 ions        = profiles.profiles_1d[it].ion
 Te_ids      = profiles.profiles_1d[it].electrons.temperature
-#jtor_ids    = profiles.profiles_1d[it].j_tor
 psi_1d_core = profiles.profiles_1d[it].grid.psi * cocos_psi
 
 # Get ion density profile
@@ -243,6 +271,7 @@ psi_norm    = (psi_1d      - psi_axis) / (psi_boundary - psi_axis)
 psi_norm2   = (psi_1d_core - psi_axis) / (psi_boundary - psi_axis)
 
 psi_1d = psi_1d[psi_norm<=1.]
+psi_norm = psi_norm[psi_norm<=1.]
 # Export 1d profiles to compare with JOREK
 np.savetxt('profiles_ids.txt', np.transpose([psi_norm2, Te_ids, n_tot, qprof]   ) )
 
@@ -327,7 +356,7 @@ namelist.write("  freeboundary       = .f."+"\n")
 namelist.write("  resistive_wall     = .f."+"\n")
 namelist.write("  freeboundary_equil = .f."+"\n")
 namelist.write("\n")
-namelist.write("  psi_axis_init = %18.9e \n"%(psi_axis-np.mean(psi_bnd)))
+namelist.write("  psi_axis_init = %18.9e \n"%(psi_axis))
 namelist.write("  amix          = 0.d0"+"\n")
 namelist.write("  amix_freeb    = 0.d0"+"\n")
 namelist.write("  use_mumps_eq  = .t."+"\n")
