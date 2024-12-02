@@ -14,7 +14,7 @@ def find_nearest(arr, target_value):
     return arr.flat[idx],idx
 
 
-# --- Routine to constructu initial boundary of JOREK's grid
+# --- Routine to construct the initial boundary of JOREK's grid
 def build_JOREK_boundary(tokamak_name):
 
   R_scale = 1
@@ -155,7 +155,7 @@ args = parser.parse_args()
 if (args.data_dictionary <=3):
   cocos_psi  =  1.0/(2*np.pi)       # Transform to COCOS convention 11 --> 8
 else:
-  cocos_psi  =  -1.0/(2*np.pi)      # Transform to COCOS convention 18 --> 8
+  cocos_psi  =  -1.0/(2*np.pi)      # Transform to COCOS convention 17 --> 8
 
 cocos_curr = -1.0 
 cocos_Bphi = -1.0

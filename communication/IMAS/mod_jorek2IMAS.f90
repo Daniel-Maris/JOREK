@@ -2034,19 +2034,19 @@ module mod_jorek2IMAS
 
     select case (trim(component))
       case('radial')
-        call fill_values_coefficients( ggd_vector%radial,      ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+        call fill_values_coefficients( ggd_vector%radial,      ggd_vector%radial_coefficients,      node_list, var_index, res_fact )
       case('diamagnetic')
-        call fill_values_coefficients( ggd_vector%diamagnetic, ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+        call fill_values_coefficients( ggd_vector%diamagnetic, ggd_vector%diamagnetic_coefficients, node_list, var_index, res_fact )
       case('parallel')
-        call fill_values_coefficients( ggd_vector%parallel,    ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+        call fill_values_coefficients( ggd_vector%parallel,    ggd_vector%parallel_coefficients,    node_list, var_index, res_fact )
       case('poloidal')
-        call fill_values_coefficients( ggd_vector%poloidal,    ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+        call fill_values_coefficients( ggd_vector%poloidal,    ggd_vector%poloidal_coefficients,    node_list, var_index, res_fact )
       case('r')
-        call fill_values_coefficients( ggd_vector%r,           ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+        call fill_values_coefficients( ggd_vector%r,           ggd_vector%r_coefficients,           node_list, var_index, res_fact )
       case('phi')
-        call fill_values_coefficients( ggd_vector%phi,         ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+        call fill_values_coefficients( ggd_vector%phi,         ggd_vector%phi_coefficients,         node_list, var_index, res_fact )
       case('z')
-        call fill_values_coefficients( ggd_vector%z,           ggd_vector%phi_coefficients, node_list, var_index, res_fact )
+        call fill_values_coefficients( ggd_vector%z,           ggd_vector%z_coefficients,           node_list, var_index, res_fact )
     end select
   
   end subroutine fill_Bezier_vector_coefficients
