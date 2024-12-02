@@ -225,7 +225,13 @@ end do
   puff_weight_local      = 0.d0
   select type (pa => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
-! To do: Parallellize loop 
+!> To do: Parallellize loop 
+  !> This loop initializes the to be puffed particles and places then in the computational domain.
+  !> It counts the amount of marker particles and weight that was initialized.
+!> This loop can be OMP parallel. there was a small bug in the OMP implementation.
+!> The almost done loop is written below.
+!> reduction of puffed_this_step_local,puff_weight_local for diagnostics
+!>
 ! #ifdef __GFORTRAN__
 !  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 ! #else
