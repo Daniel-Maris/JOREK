@@ -857,4 +857,8 @@ use_sputtering     = .false.
 use_cx             = .true.
 use_marker         = .false.
 
+use_manual_random_seed = .false.
+manual_seed = 4989329901          !< chosen arbitarily
+
+
 end subroutine preset_parameters
