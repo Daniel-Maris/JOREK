@@ -26,7 +26,16 @@ module mod_jorek2IMAS
   real*8 :: fact_Ip  = -1.d0
   real*8 :: fact_phi_dir = -1.d0  ! -1 to go from 8-->11 or 8-->17
 
-    
+  ! Structure for rectangular grid parameters
+  type :: t_rect_grid_params
+    integer :: nR = 70         ! Number of points in the major radius direction
+    integer :: nZ = 120        ! Number of points in the vertical direction
+    real*8  :: R_min =  3.d0   ! Minimum R
+    real*8  :: R_max = 10.d0   ! Maximum R
+    real*8  :: Z_min = -6.d0   ! Minimum Z
+    real*8  :: Z_max =  6.d0   ! Maximum Z
+  end type t_rect_grid_params
+
   ! *******************************************************************************************************
   ! *************** Data structures needed to read geometry of the STARWALL coils *************************
   ! *******************************************************************************************************
@@ -1219,7 +1228,7 @@ module mod_jorek2IMAS
   ! --- This subroutine fills different IDSs, they are filled together here to calculate 0D
   ! --- quantities by calling mod_integrals3D only once and avoid duplications
   subroutine fill_IDSs_w_common_quantities(first_step, time_SI, n_grid, export_equil, export_summary, export_disruption, &
-                                           equilibrium_ids, summary_ids, disruption_ids, simulation_description)
+                                           equilibrium_ids, summary_ids, disruption_ids, simulation_description, rect_grid_params)
 
     implicit none
 
@@ -1232,6 +1241,7 @@ module mod_jorek2IMAS
     type(ids_summary),      intent(inout)  :: summary_ids
     type(ids_disruption),   intent(inout)  :: disruption_ids
     character(len=1000)                    :: simulation_description
+    type(t_rect_grid_params), intent(in)   :: rect_grid_params
 
     ! --- Local parameters
     real*8, allocatable :: res0D(:)
@@ -1245,7 +1255,7 @@ module mod_jorek2IMAS
     call clean_up()
     call zeroD_quantities(command_tmp, first_step==.true., ierr, res0D)
 
-    if (export_equil)       call fill_equilibrium_IDS(first_step, time_SI, n_grid, res0D, equilibrium_ids)  
+    if (export_equil)       call fill_equilibrium_IDS(first_step, time_SI, n_grid, res0D, equilibrium_ids, rect_grid_params)  
     if (export_summary)     call fill_summary_IDS(first_step, time_SI, res0D, summary_ids, simulation_description)  
     if (export_disruption)  call fill_disruption_IDS(first_step, time_SI, res0D, disruption_ids) 
   
@@ -1257,7 +1267,7 @@ module mod_jorek2IMAS
 
 
 
-  subroutine fill_equilibrium_IDS(first_step, time_SI, n_grid, res0D, equilibrium_ids)  
+  subroutine fill_equilibrium_IDS(first_step, time_SI, n_grid, res0D, equilibrium_ids, rect_grid_params)  
 
     use phys_module, only : F0, central_density, sqrt_mu0_rho0, &
                            sqrt_mu0_over_rho0, central_mass, imp_type, &
@@ -1269,11 +1279,12 @@ module mod_jorek2IMAS
     real*8,              intent(in) :: time_SI
     integer,             intent(in) :: n_grid       ! Number of flux surfaces to compute average
     real*8, allocatable, intent(in) :: res0D(:)     ! List of 0D quantities defined in exprs_all_int (mod_expressions.f90)
+    type(t_rect_grid_params), intent(in) :: rect_grid_params ! Parameters that define grid for profiles_2d
     
     type(ids_equilibrium),  intent(inout)  :: equilibrium_ids
    
     ! --- Local parameters 
-    integer    :: i, j, k, m, var_rad, i_var, i_tor, index, index_node, my_id, ierr, ixp1, ixp2
+    integer    :: i, j, k, m, var_rad, i_var, i_tor, index, index_node, my_id, ierr, ixp1, ixp2, nR, nZ
     real*8     :: rho0, fact_rad, R_min, Z_min, R_max, Z_max, R_node, Z_node
     real*8, allocatable :: result(:,:), q_prof(:), rho_tor(:), R_sep(:), Z_sep(:)
     real*8, allocatable :: result2D(:,:,:), R_vec(:), Z_vec(:)
@@ -1499,36 +1510,31 @@ module mod_jorek2IMAS
     ! --- Export 2D quantities on a rectangular grid
     call clean_up()
 
-    ! --- Find out range for the rectangular grid
-    R_min = 1.d99;  R_max = -1.d99
-    Z_min = 1.d99;  Z_max = -1.d99
-    do i=1, node_list%n_nodes
-      R_node = node_list%node(i)%x(1,1,1)
-      Z_node = node_list%node(i)%x(1,1,2)
-      if (R_node < R_min) R_min = R_node
-      if (Z_node < Z_min) Z_min = Z_node
-      if (R_node > R_max) R_max = R_node
-      if (Z_node > Z_max) Z_max = Z_node
-    enddo
+    nR    = rect_grid_params%nR
+    nZ    = rect_grid_params%nZ
+    R_min = rect_grid_params%R_min
+    R_max = rect_grid_params%R_max
+    Z_min = rect_grid_params%Z_min
+    Z_max = rect_grid_params%Z_max
 
     command_tmp%n_args = 7
     write(str, '(F16.12)') R_min
     command_tmp%args(1) = str  ! Rmin
     write(str, '(F16.12)') R_max
     command_tmp%args(2) = str  ! Rmax
-    write(str, '(I0)') n_grid
+    write(str, '(I0)') nR
     command_tmp%args(3) = str  ! nR
     write(str, '(F16.12)') Z_min
     command_tmp%args(4) = str  ! Zmin
     write(str, '(F16.12)') Z_max
     command_tmp%args(5) = str  ! Zmax
-    write(str, '(I0)') n_grid
+    write(str, '(I0)') nZ
     command_tmp%args(6) = str  ! nZ
     command_tmp%args(7) = '0'  ! phi
 
-    allocate(R_vec(n_grid), Z_vec(n_grid))
-    R_vec = [(R_min + float((i-1)) * (R_max-R_min) / float((n_grid - 1)), i = 1, n_grid)]
-    Z_vec = [(Z_min + float((i-1)) * (Z_max-Z_min) / float((n_grid - 1)), i = 1, n_grid)]
+    allocate(R_vec(nR), Z_vec(nZ))
+    R_vec = [(R_min + float((i-1)) * (R_max-R_min) / float((nR - 1)), i = 1, nR)]
+    Z_vec = [(Z_min + float((i-1)) * (Z_max-Z_min) / float((nZ - 1)), i = 1, nZ)]
     
     expr_list = exprs((/'Psi', 'Jtor', 'BR', 'BZ', 'Btor'/), 5)
     call rectangle(command_tmp, first_step, ierr, only_n0=.true., res2D_out=result2D)
@@ -1537,16 +1543,16 @@ module mod_jorek2IMAS
     equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%type%index      = 0
     equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%grid_type%index = 1 ! --- Rectangular
     
-    allocate(equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%grid%dim1(n_grid))
-    allocate(equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%grid%dim2(n_grid))
+    allocate(equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%grid%dim1(nR))
+    allocate(equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%grid%dim2(nZ))
     
     equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%grid%dim1(:) = R_vec(:)
     equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%grid%dim2(:) = Z_vec(:)
     
-    allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%r(n_grid, n_grid) )
-    allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%z(n_grid, n_grid) )
-    do i=1, n_grid
-      do j=1, n_grid
+    allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%r(nR, nZ) )
+    allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%z(nR, nZ) )
+    do i=1, nR
+      do j=1, nZ
         equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%r(i,j) = R_vec(i)  ! --- Som plotting tools use this field as well
         equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%z(i,j) = Z_vec(j)
       enddo
@@ -1557,31 +1563,31 @@ module mod_jorek2IMAS
 
       ! --- psi
       if (expr_list%expr(i_exp)%name=='Psi') then
-        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%psi(n_grid, n_grid) )
+        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%psi(nR, nZ) )
         equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%psi(:,:) = result2D(:,:,i_exp) * fact_psi
       endif
 
       ! --- Jtor
       if (expr_list%expr(i_exp)%name=='Jtor') then
-        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%j_phi(n_grid, n_grid) )
+        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%j_phi(nR, nZ) )
         equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%j_phi(:,:) = result2D(:,:,i_exp) * fact_Ip
       endif
 
       ! --- B_R
       if (expr_list%expr(i_exp)%name=='BR') then
-        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_r(n_grid, n_grid) )
+        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_r(nR, nZ) )
         equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_r(:,:) = result2D(:,:,i_exp)
       endif
 
       ! --- B_Z
       if (expr_list%expr(i_exp)%name=='BZ') then
-        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_z(n_grid, n_grid) )
+        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_z(nR, nZ) )
         equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_z(:,:) = result2D(:,:,i_exp)
       endif
 
       ! --- B_tor
       if (expr_list%expr(i_exp)%name=='Btor') then
-        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_phi(n_grid, n_grid) )
+        allocate( equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_phi(nR, nZ) )
         equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_phi(:,:) = result2D(:,:,i_exp) * fact_Ip
       endif
 
@@ -1836,7 +1842,7 @@ module mod_jorek2IMAS
 
   ! --- Fill an IDS with a rectangular grid containing BR and BZ, extending to the vacuum
   ! --- It needs full free-boundary
-  subroutine fill_fields_vacuum_extension(first_step, time_SI, plasma_profiles_ids, Rmin, Rmax, Zmin, Zmax, nR, nZ)  
+  subroutine fill_fields_vacuum_extension(first_step, time_SI, plasma_profiles_ids, rect_grid_params, equilibrium_ids)  
 
     use mod_vacuum_fields, only: mag_field_including_vacuum
 
@@ -1845,10 +1851,10 @@ module mod_jorek2IMAS
     ! --- External parameters
     logical,   intent(in) :: first_step   !< Is this the first step?
     real*8,    intent(in) :: time_SI      !< Time in SI units
-    real*8,    intent(in) :: Rmin, Rmax, Zmin, Zmax !< parameters defining rectangular grid
-    integer,   intent(in) :: nR, nZ  !< Number of grid points in R and Z
     
     type(ids_plasma_profiles), target,     intent(inout) :: plasma_profiles_ids
+    type(t_rect_grid_params),                 intent(in) :: rect_grid_params
+    type(ids_equilibrium), optional,      intent(inout)  :: equilibrium_ids
     
     ! --- Local parameters
     type(ids_generic_grid_scalar),            pointer :: ggd_scalar
@@ -1856,9 +1862,17 @@ module mod_jorek2IMAS
     type(ids_generic_grid_aos3_root),         pointer :: grid
     
     integer :: n_slice, i_slice, grid_ind, grid_sub_ind, n_grid_sub, n_grid, num_nodes
-    integer :: iR, iZ, i_pol, i_element, n_element
+    integer :: iR, iZ, i_pol, i_element, n_element, nR, nZ
     integer, allocatable :: rect_elms_vertices_tmp(:,:), rect_elms_vertices(:,:)
-    real*8, allocatable  :: B_tot(:,:,:), RZ(:,:)
+    real*8, allocatable  :: B_tot(:,:,:), RZ(:,:), psi_tot(:,:)
+    real*8               :: Rmin, Rmax, Zmin, Zmax
+
+    nR   = rect_grid_params%nR
+    nZ   = rect_grid_params%nZ
+    Rmin = rect_grid_params%R_min
+    Rmax = rect_grid_params%R_max
+    Zmin = rect_grid_params%Z_min
+    Zmax = rect_grid_params%Z_max
 
     ! --- Construct rectangular RZ grid in the poloidal plane
     allocate(RZ(nR*nZ,2))
@@ -1888,7 +1902,7 @@ module mod_jorek2IMAS
     deallocate(rect_elms_vertices_tmp)
     
     ! --- Get magnetic field in the given grid for different harmonics
-    call mag_field_including_vacuum(RZ, B_tot)
+    call mag_field_including_vacuum(RZ, B_tot, psi_tot)
 
     ! --- Fill IDS
     ! --- Number of grids and grid subsets
@@ -1935,6 +1949,18 @@ module mod_jorek2IMAS
 
     ! --- Fill BZ
     call fill_values_vector_with_harmonics( ggd_vector, B_tot(:,:,2), grid_ind, grid_sub_ind, 1.d0, 'z')
+
+    ! --- Fill in n=0 for equilibrium IDS if provided
+    if (present(equilibrium_ids)) then
+      do iR=1, nR
+        do iZ=1, nZ
+          i_pol = iR + (iZ-1)*nR
+          equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%psi(iR,iZ)       =  psi_tot(i_pol,1) * fact_psi
+          equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_r(iR,iZ) =  B_tot(i_pol,1,1)
+          equilibrium_ids%time_slice(i_slice)%profiles_2d(1)%b_field_z(iR,iZ) =  B_tot(i_pol,1,2)
+        enddo
+      enddo
+    endif
 
   end subroutine fill_fields_vacuum_extension
 

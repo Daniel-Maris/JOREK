@@ -36,8 +36,6 @@ program jorek2_IDS
   integer   :: MPI_COMM_N, MPI_GROUP_MASTER, MPI_GROUP_WORLD, MPI_COMM_MASTER, MPI_COMM_TRANS
   integer   :: required,provided,StatInfo, resultlength
   integer*4 :: rank, comm_size 
-  integer   :: nR_vac_grid, nZ_vac_grid
-  real*8    :: Rmin_vac_grid, Rmax_vac_grid, Zmin_vac_grid, Zmax_vac_grid
   character(len=MPI_MAX_PROCESSOR_NAME) :: name
   character(len=1000) :: simulation_description
 
@@ -50,6 +48,7 @@ program jorek2_IDS
   type(ids_pf_passive)    :: pf_passive
   type(ids_pf_active)     :: pf_active
   type(ids_disruption)    :: disruption_ids
+  type(t_rect_grid_params):: rect_grid_params
 
   namelist /imas_params/ shot_number, run_number, user, database, i_begin, i_end,    &
                          export_JOREK_variables, export_radiation, export_1d_profiles, n_grid, &
@@ -57,9 +56,8 @@ program jorek2_IDS
                          export_pf_passive, export_pf_active, passive_coil_geo_file, &
                          active_coil_geo_file, wall_thickness, export_disruption,    &
                          export_summary, overwrite_entry, i_jump_steps,              &
-                         simulation_description, export_field_extension,               &
-                         Rmin_vac_grid, Rmax_vac_grid, Zmin_vac_grid, Zmax_vac_grid, &
-                         nR_vac_grid, nZ_vac_grid, backend 
+                         simulation_description, export_field_extension,             &
+                         rect_grid_params, backend 
 
   ! --- Necessary initialization ------------------
   ! --- MPI initialization (for wall current reconstruction)
@@ -145,13 +143,6 @@ program jorek2_IDS
   passive_coil_geo_file= 'None'
   active_coil_geo_file = 'None'
   simulation_description = 'JOREK simulation'
-
-  Rmin_vac_grid = 3.d0  !< Parameters for rectangular grid for fields in the extended domain (including vacuum region)
-  Rmax_vac_grid = 10.d0
-  Zmin_vac_grid =-6.d0
-  Zmax_vac_grid = 6.d0
-  nR_vac_grid   = 70
-  nZ_vac_grid   = 120
 
   call getenv('USER',user)
   
@@ -252,24 +243,27 @@ program jorek2_IDS
     ! --- Fill and export a plasma profiles IDS with the JOREK variables
     if (export_JOREK_variables)  call fill_profiles_w_JOREK_var(first_step, time_SI, plasma_profiles_ids1)  
 
-    if (export_field_extension) then
-      if (freeboundary) then
-        call fill_fields_vacuum_extension(first_step, time_SI, plasma_profiles_vac_extension, &
-                Rmin_vac_grid, Rmax_vac_grid, Zmin_vac_grid, Zmax_vac_grid, nR_vac_grid, nZ_vac_grid) 
-      else
-        write(*,*) 'ERROR: You need the freeboundary extension to calculate magnetic fields in the vacuuum'
-        stop
-      endif
-    endif
-    
-
     ! --- Fill and export a plasma_profiles IDS
     if (export_1d_profiles)  call fill_plasma_profiles_IDS(first_step, time_SI, plasma_profiles_ids, n_grid)  
 
     ! --- Fill IDSs that share common quantities
     if (export_equilibrium .or. export_summary .or. export_disruption)  then
       call fill_IDSs_w_common_quantities(first_step, time_SI, n_grid, export_equilibrium, export_summary, export_disruption, &
-                                        equilibrium_ids, summary_ids, disruption_ids, simulation_description)
+                                        equilibrium_ids, summary_ids, disruption_ids, simulation_description, rect_grid_params)
+    endif
+
+    ! --- Extend the fields to vacuum is possible
+    if (export_field_extension) then
+      if (freeboundary) then
+        if (export_equilibrium) then
+          call fill_fields_vacuum_extension(first_step, time_SI, plasma_profiles_vac_extension, rect_grid_params, equilibrium_ids) 
+        else
+          call fill_fields_vacuum_extension(first_step, time_SI, plasma_profiles_vac_extension, rect_grid_params) 
+        endif
+      else
+        write(*,*) 'ERROR: You need the freeboundary extension to calculate magnetic fields in the vacuuum'
+        stop
+      endif
     endif
 
     ! --- Fill and export a wall IDS
