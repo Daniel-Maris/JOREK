@@ -24,6 +24,7 @@
 program JOREK2
 
   use constants
+  use mod_random_seed
   use data_structure
   use phys_module
   use mod_parameters
@@ -181,6 +182,8 @@ program JOREK2
   type(type_SP_MATRIX)        :: a_mat
   type(type_RHS)              :: rhs_vec, deltas
   type(type_SP_SOLVER)        :: solver
+
+  integer                     :: seed
  
   call init_expr()
   allocate(res(exprs_all_int%n_expr+1))
@@ -276,6 +279,10 @@ mpi_required = 0
 
   ! --- Write out all parameters defined in parameters and the namelist input file.
   call log_parameters(my_id)
+
+  write(*,*) "use_manual_random_seed: ", use_manual_random_seed
+  seed = random_seed()
+  write(*,*) "jorek main seed:", seed
  
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   

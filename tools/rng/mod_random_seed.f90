@@ -15,6 +15,7 @@ contains
     call read_urandom_int(seed, ierr)
     if (ierr .ne. 0) seed = xor_time_pid()
 
+    !< overriding seed if use_manual_random_seed
     if (use_manual_random_seed) seed = manual_seed
 end function random_seed
 
