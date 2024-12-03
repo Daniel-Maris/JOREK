@@ -4789,6 +4789,20 @@ if ( with_TiTe ) then ! (with_TiTe)
   rhoi_eff = r0_corr
   rhoe_eff = r0_corr
 
+  ! R_Ti = (\boldsymbol{v} \cdot \nabla Ti) + (GAMMA-1.d0) * Ti0 * divU
+  R_Ti = (GAMMA-1.d0) * Ti0 * divU &
+       + Vpar0 * (Ti0_x * ps0_y - Ti0_y * ps0_x) / BigR &
+       - BigR  * (Ti0_x * u0_y  - Ti0_y * u0_x)         &
+       + F0    * Vpar0 * Ti0_p / BigR**2
+
+  ! R_Te = (\boldsymbol{v} \cdot \nabla Te) + (GAMMA-1.d0) * Te0 * divU
+  R_Te = (GAMMA-1.d0) * Te0 * divU &
+       + Vpar0 * (Te0_x * ps0_y - Te0_y * ps0_x) / BigR &
+       - BigR  * (Te0_x * u0_y  - Te0_y * u0_x)         &
+       + F0    * Vpar0 * Te0_p / BigR**2
+
+  d_p = (Ti0+Te0)*R_rho + r0*(R_Ti+R_Te)
+
   if( with_neutrals ) then
     ! Define total pressure as (assuming neutrals are at same temperature as ions)
     Ptot     = Ptot      + rn0 * Ti0
@@ -4844,6 +4858,13 @@ else
 
   Ptot_corr = r0_corr * T0_corr
   rho_eff   = r0_corr
+  
+  R_T  = (GAMMA-1.d0) * T0 * divU &
+       + Vpar0 * (T0_x * ps0_y - T0_y * ps0_x) / BigR &
+       - BigR  * (T0_x * u0_y  - T0_y * u0_x)         &
+       + F0    * Vpar0 * T0_p / BigR**2
+
+  d_p = T0*R_rho + r0*R_T 
 
   if (with_neutrals)then
     Ptot     = Ptot      + 0.5d0 * rn0 * T0
