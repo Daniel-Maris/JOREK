@@ -13,12 +13,14 @@ contains
     integer                     :: seed,ierr
     logical                     :: use_xor_time_pid
     ierr = 1; use_xor_time_pid = .true.;
-    if(present(use_xor_time_pid_in)) use_xor_time_pid = use_xor_time_pid_in;
-    if(.not.use_xor_time_pid) call read_urandom_int(seed, ierr)
-    if (ierr .ne. 0) seed = xor_time_pid()
 
-    !< overriding seed if use_manual_random_seed
-    if (use_manual_random_seed) seed = manual_seed
+    if (use_manual_random_seed) then
+      seed = manual_seed
+    else
+      if(present(use_xor_time_pid_in)) use_xor_time_pid = use_xor_time_pid_in;
+      if(.not.use_xor_time_pid) call read_urandom_int(seed, ierr)
+      if (ierr .ne. 0) seed = xor_time_pid()
+    endif
 end function random_seed
 
   !> Read an int from /dev/urandom

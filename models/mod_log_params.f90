@@ -1004,6 +1004,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_ionisation,     ',use_ionisation    
   write(*,LOGI_FMT) 'use_sputtering,     ',use_sputtering    
   write(*,LOGI_FMT) 'use_cx,             ',use_cx
+
+
 #ifdef USE_CATALYST
   write(*,CHAR_FMT) 'catalyst_scripts,   ',trim(catalyst_scripts)
 #endif
@@ -1017,6 +1019,11 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,*)
 
 end if
+
+write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
+if (use_manual_random_seed) then
+  write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+endif     
 
 end subroutine log_parameters
 

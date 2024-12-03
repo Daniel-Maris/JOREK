@@ -279,10 +279,6 @@ mpi_required = 0
 
   ! --- Write out all parameters defined in parameters and the namelist input file.
   call log_parameters(my_id)
-
-  write(*,*) "use_manual_random_seed: ", use_manual_random_seed
-  seed = random_seed()
-  write(*,*) "jorek main seed:", seed
  
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   
