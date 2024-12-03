@@ -1369,6 +1369,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_real_reading(file_id,visco_rst,'visco')
   call HDF5_real_reading(file_id,visco_par_rst,'visco_par')
   call HDF5_integer_reading(file_id,index_start,'index_now')
+  index_now = index_start
   call HDF5_real_reading(file_id,t_start,'t_now')
   call HDF5_char_reading(file_id,t_current_prof_initialized,'current_prof_initialized')
   if (t_current_prof_initialized .eq. 'T') then

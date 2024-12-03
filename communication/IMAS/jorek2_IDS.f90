@@ -4,6 +4,7 @@ program jorek2_IDS
 #ifdef USE_IMAS
   use ids_schemas 
   use ids_routines
+  use equil_info, only: print_equil_state
 
   use mod_jorek2IMAS 
   use constants
@@ -217,6 +218,7 @@ program jorek2_IDS
     write(*,'(a,i9.9,a)') '#################### STEP ', i_step, ' ####################'
     write(*,*)
     call import_restart(node_list, element_list, file_name, rst_format, ierr)
+    call print_equil_state(.true.)
     call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, output_bnd_elements)
     if (ierr /=0 ) then
        write(*,*) '  Could not read the JOREK restart file'
