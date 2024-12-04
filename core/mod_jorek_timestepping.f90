@@ -5,7 +5,6 @@ use iso_c_binding ! for fftw03.f03
 use mod_parameters, only: n_plane
 use data_structure, only: type_bnd_element_list, type_bnd_node_list, type_SP_MATRIX, type_RHS !< store these in jorek_timestep_action
 use mod_simulation_data, only: type_MHD_SIM
-use mod_particle_settings
 
 use mod_sparse,        only: solve_sparse_system
 use mod_sparse_data,   only: type_SP_SOLVER
