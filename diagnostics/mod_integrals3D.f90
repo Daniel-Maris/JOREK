@@ -505,7 +505,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           coef_prad_si,                                                                                 &
 #endif
 !$omp           omp_nthreads,omp_tid)                                                          &
-!$omp   firstprivate(nodes) !< so that these nodes are unallocated at the start of the omp region and can be explicitly allocated/deallocated 
+!$omp   firstprivate(nodes, aux_nodes) !< so that these nodes are unallocated at the start of the omp region and can be explicitly allocated/deallocated 
 
 
 
@@ -540,7 +540,7 @@ do ife = ife_min, ife_max
     inode     = element%vertex(iv)
     call make_deep_copy_node(node_list%node(inode), nodes(iv))
 	
-    if (present(aux_node_list)) make_deep_copy_node(aux_node_list%node(inode), aux_nodes(iv)) 
+    if (present(aux_node_list)) call make_deep_copy_node(aux_node_list%node(inode), aux_nodes(iv)) 
   enddo
 
 eq_aux_g = 0.d0; eq_aux_s = 0.d0; eq_aux_t = 0.d0; eq_aux_p = 0.d0;  
@@ -1528,8 +1528,9 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
       enddo
     enddo
   enddo
-  do i = 1, n_vertex_max
-    call dealloc_node(nodes(i))
+  do iv = 1, n_vertex_max
+    call dealloc_node(nodes(iv))
+    call dealloc_node(aux_nodes(iv))
   enddo
 enddo
 !$omp end do
@@ -1556,7 +1557,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       k_node      = bndelem%vertex(k_vertex)
       k_dir       = bndelem%direction(k_vertex,k_dof)
       k_size      = bndelem%size(k_vertex,k_dof)
-      node_k      = node_list%node(k_node)
+      call make_deep_copy_node(node_list%node(k_node), node_k)
       
       do mp=1,n_plane
         do in=1,n_coord_tor
@@ -1597,6 +1598,8 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 
     end do
   end do
+
+  call dealloc_node(node_k)
 
 
   !--- Find out correct sign of the normal (it has to point outwards the domain)

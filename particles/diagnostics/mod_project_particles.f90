@@ -495,9 +495,9 @@ function new_projection(node_list, element_list,                                
   endif
 
   allocate(new%node_list,    source=node_list)
-  new%node_list = node_list
+  call make_deep_copy_node_list(node_list, new%node_list)
 
-  do inode = 1, n_nodes_max
+  do inode = 1, new%node_list%n_nodes
     new%node_list%node(inode)%values = 0.d0
     new%node_list%node(inode)%deltas = 0.d0
   end do
