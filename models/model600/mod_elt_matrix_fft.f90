@@ -139,7 +139,7 @@ real*8     :: t_norm
 !   -Ionization
 real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
 real*8     :: coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss ! Ionization rate parameters
-real*8     :: ksiion                                          ! Ionization energy
+real*8     :: ksi_ion_norm                                          ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
 real*8     :: coef_rec_1                                      ! Recombination rate parameters
@@ -1136,7 +1136,7 @@ do i=1,n_vertex_max
           ! ------------
           ! --- Neutrals: source (e.g. from MGI or SPI) and related atomic coefficients
       
-          ksiion = central_density * 1.d20 * ksi_ion  ! Ionization energy 
+          ksi_ion_norm = central_density * 1.d20 * ksi_ion  ! Ionization energy 
  
           if (with_neutrals) then
 
@@ -1630,7 +1630,7 @@ do i=1,n_vertex_max
 
                               + v * (GAMMA-1.d0) * eta_T_ohm * (zj0 / BigR)**2.d0         * BigR * xjac * tstep * factor(var_Te,9 ) &
   
-                              - v * BigR * ksiion  * (r0+alpha_e*rimp0) * rn0 * Sion_T           * xjac * tstep * factor(var_Te,12) &
+                              - v * BigR * ksi_ion_norm  * (r0+alpha_e*rimp0) * rn0 * Sion_T           * xjac * tstep * factor(var_Te,12) &
                               - v * BigR * (r0_corr+alpha_e*rimp0_corr) * rn0_corr * LradDrays_T * xjac * tstep * factor(var_Te,13) &
                               - v * BigR * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * LradDcont_T * xjac * tstep * factor(var_Te,14) &
                               - v * BigR * (r0_corr+alpha_e*rimp0_corr) * frad_bg                * xjac * tstep * factor(var_Te,15) &
@@ -1761,7 +1761,7 @@ do i=1,n_vertex_max
                              -(GAMMA-1.) * v * visco_T_heating *  (u0_x * u0_xpp + u0_y * u0_ypp)        * visco_fact_new * BigR * xjac * tstep * factor(var_T,20) &
                              !============================End perpendicular viscous heating terms=================
 
-                             - v * BigR * ksiion  * (r0+alpha_e*rimp0) * rn0 * Sion_T           * xjac * tstep * factor(var_T,12) &
+                             - v * BigR * ksi_ion_norm  * (r0+alpha_e*rimp0) * rn0 * Sion_T           * xjac * tstep * factor(var_T,12) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * rn0_corr * LradDrays_T * xjac * tstep * factor(var_T,13) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * LradDcont_T * xjac * tstep * factor(var_T,14) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * frad_bg                * xjac * tstep * factor(var_T,15) &
@@ -3345,7 +3345,7 @@ do i=1,n_vertex_max
                               ! Energy exchange term
                               - v * BigR * ddTe_i_drho * rho                                * xjac * theta * tstep &
 
-                              + v * BigR * rho * rn0 * ksiion * Sion_T                             * xjac * theta * tstep &
+                              + v * BigR * rho * rn0 * ksi_ion_norm * Sion_T                             * xjac * theta * tstep &
                               + v * BigR * rho * rn0_corr * LradDrays_T                            * xjac * theta * tstep &
                               + v * BigR * rho * (2d0*r0_corr+(alpha_e-1.)*rimp0_corr)*LradDcont_T * xjac * theta * tstep &
                               + v * BigR * rho * frad_bg                                           * xjac * theta * tstep &  
@@ -3460,8 +3460,8 @@ do i=1,n_vertex_max
   
                               - v * Te * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0 * BigR * xjac * theta * tstep &
 
-                              + v * BigR * (r0+alpha_e*rimp0) * rn0 * ksiion * dSion_dT * Te            * xjac * theta * tstep &
-                              + v * BigR * dalpha_e_dT*rimp0  * rn0 * ksiion * Sion_T   * Te            * xjac * theta * tstep &
+                              + v * BigR * (r0+alpha_e*rimp0) * rn0 * ksi_ion_norm * dSion_dT * Te            * xjac * theta * tstep &
+                              + v * BigR * dalpha_e_dT*rimp0  * rn0 * ksi_ion_norm * Sion_T   * Te            * xjac * theta * tstep &
                               + v * BigR * Te * (r0_corr+alpha_e*rimp0_corr) * rn0_corr * dLradDrays_dT * xjac * theta * tstep &
                               + v * BigR * Te * dalpha_e_dT*rimp0_corr * rn0_corr * LradDrays_T         * xjac * theta * tstep &
                               + v * BigR * Te * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * dLradDcont_dT * xjac * theta * tstep &
@@ -3565,7 +3565,7 @@ do i=1,n_vertex_max
                             + (GAMMA-1.) * v * E_ion_bg * (r0-rimp0) * F0 / BigR * vpar_p              * xjac * theta * tstep
                     end if ! (with_vpar)
                     if (with_neutrals) then
-                      amat(var_Te,var_rhon) = + v * BigR * (r0 + rimp0 * alpha_e) * rhon * ksiion * Sion_T * xjac * theta * tstep &
+                      amat(var_Te,var_rhon) = + v * BigR * (r0 + rimp0 * alpha_e) * rhon * ksi_ion_norm * Sion_T * xjac * theta * tstep &
                                               + v * BigR * rhon * (r0 + rimp0 * alpha_e) * LradDrays_T     * xjac * theta * tstep 
                     endif
                     if (with_impurities) then
@@ -3779,7 +3779,7 @@ do i=1,n_vertex_max
                                           + v * rho * GAMMA * T0 * (vpar0_s * ps0_t - vpar0_t * ps0_s)                * theta * tstep &
                                           + v * rho * GAMMA * T0 * F0 / BigR * vpar0_p                         * xjac * theta * tstep &
   
-                                          + v * BigR * rho * rn0 * ksiion * Sion_T                             * xjac * theta * tstep &
+                                          + v * BigR * rho * rn0 * ksi_ion_norm * Sion_T                             * xjac * theta * tstep &
                                           + v * BigR * rho * rn0_corr * LradDrays_T                            * xjac * theta * tstep &
                                           + v * BigR * rho * (2.d0*r0_corr+(alpha_e-1.)*rimp0_corr)*LradDcont_T* xjac * theta * tstep &
                                           + v * BigR * rho * frad_bg                                           * xjac * theta * tstep &
@@ -3894,8 +3894,8 @@ do i=1,n_vertex_max
                                       
                                       - v * T * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0         * BigR * xjac * theta * tstep &
   
-                                      + v * BigR * (r0+alpha_e*rimp0) * rn0           * ksiion * dSion_dT * T  * xjac * theta * tstep &
-                                      + v * BigR * dalpha_e_dT*rimp0  * rn0           * ksiion * Sion_T   * T  * xjac * theta * tstep &
+                                      + v * BigR * (r0+alpha_e*rimp0) * rn0           * ksi_ion_norm * dSion_dT * T  * xjac * theta * tstep &
+                                      + v * BigR * dalpha_e_dT*rimp0  * rn0           * ksi_ion_norm * Sion_T   * T  * xjac * theta * tstep &
                                       + v * BigR * T * (r0_corr+alpha_e*rimp0_corr) * rn0_corr * dLradDrays_dT * xjac * theta * tstep &
                                       + v * BigR * T * dalpha_e_dT*rimp0_corr       * rn0_corr * LradDrays_T   * xjac * theta * tstep &
                                       + v * BigR * T * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * dLradDcont_dT * xjac * theta * tstep &
@@ -4024,7 +4024,7 @@ do i=1,n_vertex_max
                     end if ! (with_vpar)
                     
                     if (with_neutrals) then
-                      amat(var_T,var_rhon) = + v * BigR * (r0+alpha_e*rimp0) * rhon * ksiion * Sion_T * xjac * theta * tstep &
+                      amat(var_T,var_rhon) = + v * BigR * (r0+alpha_e*rimp0) * rhon * ksi_ion_norm * Sion_T * xjac * theta * tstep &
                                              + v * BigR * rhon * (r0_corr+alpha_e*rimp0_corr) * LradDrays_T * xjac * theta * tstep &
                       !===================== Additional terms from friction terms============
                             - v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * ((r0+alpha_e*rimp0)*rhon*Sion_T)     * xjac * theta * tstep &
@@ -4916,7 +4916,7 @@ if(add_sources_in_sc)then
              + ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * (r0_corr*rn0*Sion_T) &
              + ((GAMMA - 1.)/2.) * vv2 * ((r0_corr*rn0*Sion_T))
       src_pe = src_pe                                        &
-             - ksiion  * r0_corr * rn0_corr * Sion_T         &
+             - ksi_ion_norm  * r0_corr * rn0_corr * Sion_T         &
              - r0_corr * rn0_corr * LradDrays_T              &
              - r0_corr * r0_corr  * LradDcont_T
     endif
@@ -4934,7 +4934,7 @@ if(add_sources_in_sc)then
     if(with_neutrals)then
       src_p = src_p                                                      &
             + ((GAMMA - 1.)/2.) * vv2 * ((r0_corr*rn0*Sion_T))           &
-            - ksiion  * r0_corr * rn0_corr * Sion_T                      &
+            - ksi_ion_norm  * r0_corr * rn0_corr * Sion_T                      &
             - r0_corr * rn0_corr * LradDrays_T                           &
             - r0_corr * r0_corr  * LradDcont_T                           &
             - r0_corr * frad_bg

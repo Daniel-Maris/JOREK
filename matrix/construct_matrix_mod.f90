@@ -22,7 +22,7 @@ contains
     use mod_elt_matrix,           only : element_matrix
     use mod_elt_matrix_fft,       only : element_matrix_fft
     use mpi_mod
-
+	
     ! --- Routine parameters
     type (type_element),              intent(inout)  :: element
     type (type_node),                 intent(inout)  :: nodes(n_vertex_max)
@@ -78,6 +78,7 @@ contains
         R_xpoint, Z_xpoint, thread_struct(omp_tid)%ELM, thread_struct(omp_tid)%RHS, omp_tid,       &
         i_tor_min, i_tor_max, aux_nodes)
     endif
+    
     
     ! --- Apply sheath boundary conditions at the targets
     if (bc_natural_open) then
@@ -342,7 +343,6 @@ subroutine construct_matrix(mhd_sim, local_elms, n_local_elms, a_mat, rhs_vec, h
   integer, allocatable              :: i_harm(:)
   integer                           :: comm, ierr, counts
   
-
   ! --- Timing call
   call r3_info_begin (r3_info_index_0, 'construct_matrix')
   
