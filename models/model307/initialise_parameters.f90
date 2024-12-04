@@ -150,6 +150,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 use_manual_random_seed, manual_seed,                &
                 bgf_rpolar, bgf_tht
 
+
 if (my_id .eq. 0) then
 
   ! --- Preset input parameters to reasonable default values.

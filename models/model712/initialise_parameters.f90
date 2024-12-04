@@ -148,6 +148,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 gamma_Newton, alpha_Newton, vacuum_min,             &
                 strumpack_matching, forceSDN, SDN_threshold,        &
                 xpoint_search_tries, export_aux_node_list,          &
+                use_manual_random_seed, manual_seed,                &
                 bgf_rpolar, bgf_tht
 
 if (my_id .eq. 0) then

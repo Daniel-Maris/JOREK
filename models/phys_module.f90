@@ -973,6 +973,10 @@ module phys_module
   real*8  :: weights_per_family(n_fam_max)            !< Multiplication factor of family's contribution to the full solution
   logical :: autodistribute_ranks                     !< use automatic or manual rank distribution
   integer :: ranks_per_family(n_fam_max)              !< Number of MPI ranks per mode families
+
+  !> @name Manual setting of random seed (for testing)
+  logical :: use_manual_random_seed                   !< whether the random seed should be manually set
+  integer :: manual_seed                              !< the manually set seed value
  
 !> @name Manual setting of random seed (for testing)
   logical :: use_manual_random_seed                   !< whether the random seed should be manually set

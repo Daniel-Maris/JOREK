@@ -89,6 +89,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 weights_per_family, autodistribute_ranks,           &
                 ranks_per_family, cte_current_FB_fact, treat_axis,  &
                 vacuum_min, export_aux_node_list,                   &
+                use_manual_random_seed, manual_seed,                &
                 xpoint_search_tries, bgf_rpolar, bgf_tht
 
 

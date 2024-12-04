@@ -1037,6 +1037,11 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
 end if
 
+write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
+if (use_manual_random_seed) then
+  write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+endif     
+
 end subroutine log_parameters
 
 end module mod_log_params
