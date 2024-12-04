@@ -196,6 +196,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
   else
     tstep_n    = 0.d0
     tstep_n(1) = tstep

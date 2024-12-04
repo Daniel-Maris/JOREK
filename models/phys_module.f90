@@ -934,35 +934,35 @@ module phys_module
 
   !> @name Particles-related input parameters
   logical :: restart_particles
-  logical :: use_ncs          ! use neutral particles
-  logical :: use_ccs          ! use current coupling scheme for fast particles
-  logical :: use_pcs          ! use pressure coupling scheme for fast particles
-  logical :: use_pcs_full     ! use full tensor pressure coupling scheme for fast particles
-  logical :: use_kn_cx           ! switch on sputtering         (in particle module)
-  logical :: use_marker       ! This flag determines whether to use marker particles to treat impurity (Placeholder)
-  logical :: use_kn_sputtering   ! switch on charge-exchange    (in particle module)
-  logical :: use_kn_ionisation   ! switch on ionisation         (in particle module)
-  logical :: use_kn_recombination ! switch on recombination         (in particle module)
-  logical :: use_kn_puffing       ! switch on particle puffing         (in particle module)
-  logical :: use_kn_line_radiation ! switch on line radiation         (in particle module)
-  real*8  :: n_particles      ! the number of particles (real on purpose)
-  real*8  :: tstep_particles  ! the time step for the particles
-  integer :: nstep_particles  ! the number of particle time steps
-  integer :: nsubstep_particles ! the number of particles substeps (without projection)
-  real*8  :: filter_perp      ! particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_hyper     ! particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_par       ! particle projection smoothing parameter, parallel direction
-  real*8  :: filter_perp_n0   ! particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_hyper_n0  ! particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_par_n0    ! particle projection smoothing parameter, parallel direction (n=0)
+  logical :: use_ncs          !< use neutral particles
+  logical :: use_ccs          !< use current coupling scheme for fast particles
+  logical :: use_pcs          !< use pressure coupling scheme for fast particles
+  logical :: use_pcs_full     !< use full tensor pressure coupling scheme for fast particles
+  logical :: use_kn_cx        !< switch on sputtering         (in particle module)
+  logical :: use_marker       !< This flag determines whether to use marker particles to treat impurity (Placeholder)
+  logical :: use_kn_sputtering   !< switch on charge-exchange    (in particle module)
+  logical :: use_kn_ionisation   !< switch on ionisation         (in particle module)
+  logical :: use_kn_recombination !< switch on recombination         (in particle module)
+  logical :: use_kn_puffing       !< switch on particle puffing         (in particle module)
+  logical :: use_kn_line_radiation !< switch on line radiation         (in particle module)
+  real*8  :: n_particles      !< the number of particles (real on purpose)
+  real*8  :: tstep_particles  !< the time step for the particles
+  integer :: nstep_particles  !< the number of particle time steps
+  integer :: nsubstep_particles !< the number of particles substeps (without projection)
+  real*8  :: filter_perp      !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_hyper     !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_par       !< particle projection smoothing parameter, parallel direction
+  real*8  :: filter_perp_n0   !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_hyper_n0  !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_par_n0    !< particle projection smoothing parameter, parallel direction (n=0)
 
-  real*8  :: puff_rate        ! physical atoms/sec puffed (shared over 2 places)
-  real*8  :: r_valve          ! radius of poloidal circular source
-  real*8  :: R_valve_loc      ! R position valve 1
-  real*8  :: Z_valve          ! Z position valve 1
-  real*8  :: R_valve_loc2     ! R position valve 2
-  real*8  :: Z_valve2         ! Z position valve 2
-  integer :: n_puff           ! superparticles used per puffing action per valve
+  real*8  :: puff_rate        !< physical atoms/sec puffed (shared over 2 places)
+  real*8  :: r_valve          !< radius of poloidal circular source
+  real*8  :: R_valve_loc      !< R position valve 1
+  real*8  :: Z_valve          !< Z position valve 1
+  real*8  :: R_valve_loc2     !< R position valve 2
+  real*8  :: Z_valve2         !< Z position valve 2
+  integer :: n_puff           !< superparticles used per puffing action per valve
     
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
@@ -975,10 +975,6 @@ module phys_module
   integer :: ranks_per_family(n_fam_max)              !< Number of MPI ranks per mode families
 
   !> @name Manual setting of random seed (for testing)
-  logical :: use_manual_random_seed                   !< whether the random seed should be manually set
-  integer :: manual_seed                              !< the manually set seed value
- 
-!> @name Manual setting of random seed (for testing)
   logical :: use_manual_random_seed                   !< whether the random seed should be manually set
   integer :: manual_seed                              !< the manually set seed value
 

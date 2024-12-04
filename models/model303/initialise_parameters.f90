@@ -211,6 +211,7 @@ if (my_id .eq. 0) then
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
   else
     tstep_n    = 0.d0
     tstep_n(1) = tstep
