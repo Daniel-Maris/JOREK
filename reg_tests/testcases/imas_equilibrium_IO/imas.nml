@@ -3,8 +3,8 @@
   run_number  = 1
   database    = 'imas_regtest_db'
 !!  user        = 'artolaj'
-  export_core_profiles = .true.
+  export_1d_profiles = .true.
   export_equilibrium = .true.
-  export_MHD  = .false.
+  export_JOREK_variables  = .false.
   n_grid      = 100
 /
