@@ -23,17 +23,20 @@ function initial_run () {
 # --- Carry out the test case
 function restart_run () {
   database="imas_regtest_db"
-  if [ -d ~/public/imasdb/${database}/4/111111/2/ ]; then
+  if [ -d ~/public/imasdb/${database}/4/111111/1/ ]; then
       echo "Directory exists."
-      pwd
   else
+      pwd
       echo "directory does not exist"
   fi
  
   cp jorek_restart.h5 jorek00000.h5
   ./jorek2_IDS < input0                                                              || exit 1
-  python imas2jorek.py -d ${database} -p 111111 -r 2 -dd 4 -tk inxflow               || exit 1
-#  rm -rf ~/public/imasdb/${database}/4/111111/1/
+  python imas2jorek.py -d ${database} -p 111111 -r 1 -dd 4 -tk inxflow               || exit 1
+  if [ -d ~/public/imasdb/${database}/4/111111/1/ ]; then
+      rm -rf ~/public/imasdb/${database}/4/111111/1/
+  fi
+      
 }
 
 # --- Compare the results of the test case to the reference solution
