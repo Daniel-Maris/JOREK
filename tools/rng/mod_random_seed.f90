@@ -7,12 +7,18 @@ module mod_random_seed
 contains
   !> Try some methods to get a nice random seed
   function random_seed() result(seed)
+    use phys_module, only: use_manual_random_seed, manual_seed
     implicit none
     integer :: seed
     integer :: ierr
 
-    call read_urandom_int(seed, ierr)
-    if (ierr .ne. 0) seed = xor_time_pid()
+    if (use_manual_random_seed) then
+      seed = manual_seed
+    else
+      if(present(use_xor_time_pid_in)) use_xor_time_pid = use_xor_time_pid_in;
+      if(.not.use_xor_time_pid) call read_urandom_int(seed, ierr)
+      if (ierr .ne. 0) seed = xor_time_pid()
+    endif
 end function random_seed
 
   !> Read an int from /dev/urandom

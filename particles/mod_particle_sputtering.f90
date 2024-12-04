@@ -592,6 +592,12 @@ subroutine do_particle_sputter(this, sim, ev)
         ! this is related to the edge nodes as
         ! 1 <-> 4 and 2 <-> 3, so 5-i
         do k=1,4
+          if (i_edge_nodes(5-k) .gt. size(this%diagnostics%patch(i_patch)%xyz(1,:))) then
+            write(*,*) "DBG indexing problem in mod_particle_sputtering",k,i_edge_elm,toroidal_offset, i_edge_nodes(5-k), size(this%diagnostics%patch(i_patch)%xyz(1,:))
+            write(*,*) "DBG temporary fix: set i_edge_nodes(5-k) = 1"
+            i_edge_nodes(5-k) = 1
+          end if
+  
           area(k) = (this%diagnostics%patch(i_patch)%xyz(1,i_edge_nodes(5-k)) + pa(j)%x(1)) &
              * norm2(this%diagnostics%patch(i_patch)%xyz(1:2,i_edge_nodes(5-k))-pa(j)%x(1:2), dim=1) * 0.5d0
         end do

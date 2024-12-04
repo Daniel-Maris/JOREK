@@ -4,14 +4,15 @@
 !> Particle puffing is axisymmetric by default.
 !> TO adjust this example to your scenario of choice change the following:
 !> Chanche Puff_rate
-!> For simple valve: r_valve (valve radius), R_valve_loc, Z_valve (R,Z, coordinates of simple valve)
-!> (time dependent) Quadrangular puffingvalve puff_t_dependent,boxpuff
+!> For simple valve: r_valve (valve radius), R_valve_loc, Z_valve (R,Z, coordinates of simple valve) <input parameters>
+!> (time dependent) Quadrangular puffingvalve puff_t_dependent,boxpuff 
 !> poly_R(4),poly_Z(4) are the vertices of the quadrangular puffing valve
 !>Select the following to customize the puffing
 !> puffing_rate_start = initial puffing rate [atoms/s]
-!> puff_rate = final puffing rate [atoms/s]
+!> puff_rate = final puffing rate [atoms/s] <input parameter>
 !> t_puff_start = At what time the puffing rate starts to increase [s]
 !> t_puff_slope = How much time it takes to increase linearly from puffing_rate_start to puff_rate [s]
+!> n_puff = number of super particles puffed per valve per jorek timestep (should be small fraction of total number of super particles) <input parameter>
 
 !> to use a particle restart file: use restart_particles in the input file.
 
@@ -40,7 +41,8 @@ use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-! use phys_module, only: use_kn_sputtering , use_kn_cx, use_kn_ionisation, use_kn_sputtering
+use phys_module, only: use_kn_sputtering, use_kn_cx, use_kn_ionisation, use_kn_line_radiation, use_kn_recombination, use_kn_puffing
+use phys_module, only: puff_rate, r_valve, R_valve_loc, Z_valve, R_valve_loc2, Z_valve2, n_puff
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
@@ -90,14 +92,11 @@ integer   :: i, j, k, l, m, n_steps, i_elm_old,ierr
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
-real*8  :: r_valve, R_valve_loc, Z_valve,  R_valve_loc2, Z_valve2, puff_rate,t_puff_start,t_puff_slope, puffing_rate_start
+real*8  :: t_puff_start,t_puff_slope, puffing_rate_start
 real*8   ::r_valve3, R_valve_loc3, Z_valve3,puff_rate3,poly_R(4),poly_Z(4),poly_R2(4),poly_Z2(4),poly_R3(4),poly_Z3(4)
-integer :: n_puff
 logical :: puff_t_dependent,boxpuff
 
 
-!use physics
-logical :: use_kn_recombination, use_kn_puffing, use_kn_cx, use_kn_ionisation , use_kn_sputtering,use_kn_line_radiation
 logical  :: run_stepper, run_rec !, one_rec_only !< when recombination is used
 
 ! diagnostics
@@ -177,15 +176,6 @@ endif ! (restart_particles)
 ! setting up particles per MPI node and timestep
 rho_part    = 1.195d19 !
 
-
-! selecting physics (should be done in input file)
-use_kn_puffing       = .true. !.false. 
-use_kn_cx            = .true. !.true.
-use_kn_ionisation    = .true. !.false.!.false.
-use_kn_sputtering    = .true. !.false. !false
-use_kn_recombination = .true.  !
-use_kn_line_radiation= .true.
-
 ! Read Open ADAS data for plasma fluid
  if (deuterium_adas .and. use_kn_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
  
@@ -200,68 +190,73 @@ if (use_kn_sputtering) then
   D_sputter_event = event(D_sputter_source)
 endif
 
-! setting up particle puffing Top puff
-! puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
-! puff_rate = 40.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-! puffing_rate_start = 10.d21 !10 40 worked, 20 before
-! r_valve     = 0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
-! R_valve_loc = 4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-! Z_valve     = -3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
-
-! R_valve_loc2 = 5.55d0!                  5.4d0 !5.46d0
-! Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
-
-! puff_rate3 = 160.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
-! R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
-! Z_valve3     = 4.15d0! 
-! r_valve3    = 0.10d0!  .12
-
 !Bot puff
-puff_t_dependent = .true. !.true. !< select if you want time dependent puffing
-puff_rate = 70.d21 !70.d21 !280.d21 !160.d21 !40.d21!100.d21 !8.85d21 !4.d21 !8.d22 !4.d22 !4.d21
-puffing_rate_start = 40.d21 !40.d21 !40 40 worked, 20 before
-r_valve     = 0.05d0 !0.02d0!              0.01d0 !0.04d0 !0.02d0 !0.04d0 !.005d0
-R_valve_loc = 4.3d0 !4.27d0!               4.4d0 !4.42787 !4.42787!2.33!2.6!2.1 !< for JET test !1.98991!2.58888  or 1.98991
-Z_valve     = -3.8d0 !-3.74d0!             -3.8d0 !-3.7 !-3.77948! -1.86 !-1.0!-1.75 !-0.550736!1.86579   or -0.550736
-poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
-poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
-
-
-R_valve_loc2 = 5.5d0 !5.55d0!                  5.4d0 !5.46d0
-Z_valve2     = -4.35d0!                  -4.19d0 !-4.2d0
-poly_R2 = (/5.426d0 ,5.559d0 ,5.455d0 ,5.5586d0 /)
-poly_Z2= (/-4.155d0 ,-4.4005d0 ,-4.0803d0 ,-4.330d0 /)
-
-
-puff_rate3 = 0.d21 !136.d21 ! 109.d21 !72.d21 !160.d21 !160.d21!85.d21
-R_valve_loc3 = 6.05d0!                  5.4d0 !5.46d0
-Z_valve3     = 4.15d0! 
-r_valve3    = 0.10d0!  .12
-poly_R3 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
-poly_Z3= (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+puff_t_dependent = .true.
+puffing_rate_start = puff_rate/1.5d0
 boxpuff = .true.
+puff_rate3 = 0.d0
 
+if (.true.) then
+  !> puff location for simple xpoint case
+  if(sim%my_id .eq. 0) write(*,*) "puff location for xpoint reg_test example"
+  poly_R  = (/3.86d0, 3.9d0, 3.86d0, 3.9d0/)
+  poly_Z  = (/0.1d0,  0.1d0,  0.0d0, 0.0d0/)
+  poly_R2 = (/3.86d0, 3.9d0, 3.86d0, 3.9d0/)
+  poly_Z2 = (/0.1d0,  0.1d0,  0.0d0, 0.0d0/)
+  poly_R3 = (/3.86d0, 3.9d0, 3.86d0, 3.9d0/)
+  poly_Z3 = (/0.1d0,  0.1d0,  0.0d0, 0.0d0/)
+end if
+if (.false.) then
+  !> puff location for circular example
+  if(sim%my_id .eq. 0) write(*,*) "puff location for circular example"
+  poly_R = (/9.3566d0 ,9.474d0 ,9.337d0 ,9.4917d0 /)
+  poly_Z= (/-0.727d0 ,-0.629d0 ,-0.7738d0 ,-0.6587d0 /)
+  poly_R2 = (/9.3566d0 ,9.474d0 ,9.337d0 ,9.4917d0 /)
+  poly_Z2= (/-0.727d0 ,-0.629d0 ,-0.7738d0 ,-0.6587d0 /)
+  poly_R3 = (/9.3566d0 ,9.474d0 ,9.337d0 ,9.4917d0 /)
+  poly_Z3= (/-0.727d0 ,-0.629d0 ,-0.7738d0 ,-0.6587d0 /)
+end if
+if (.false.) then
+  !> puff locations for ITER flux aligned grid
+  if(sim%my_id .eq. 0) write(*,*) "puff location for ITER flux aligned grid"
+  !> pfr, side of dome strips for puff
+  !poly_R = (/4.2566d0,4.474d0,4.27d0,4.4917d0 /)
+  !poly_Z = (/-3.85d0,-3.78d0,-3.876d0,-3.806d0 /)
+  !> top puff
+  poly_R = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+  poly_Z = (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+  !> separatrix puff
+  !poly_R = (/4.2566d0 ,4.474d0 ,4.237d0 ,4.4917d0 /)
+  !poly_Z= (/-3.727d0 ,-3.629d0 ,-3.7738d0 ,-3.6587d0 /)
 
-!R_valve_loc = 4.307! touching leg
-!Z_valve     = -3.7898!
+  !> pfr side of dome strip for puff
+  !poly_R2 = (/5.326d0,5.44d0,5.355d0,5.4586d0 /)
+  !poly_Z2 = (/-4.14d0,-4.32d0,-4.12d0,-4.30d0 /)
+  !> top puff
+  poly_R2 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+  poly_Z2 = (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+  !> separatrix puff
+  !poly_R2 = (/5.426d0 ,5.559d0 ,5.455d0 ,5.5586d0 /)
+  !poly_Z2= (/-4.155d0 ,-4.4005d0 ,-4.0803d0 ,-4.330d0 /)
+
+  !puff 3 (constant in time)
+  poly_R3 = (/5.77d0 ,6.735d0 ,5.72d0 ,6.68d0 /)
+  poly_Z3 = (/4.51d0 ,3.760d0 ,4.46d0 ,3.71d0 /)
+end if
+
 if (use_kn_puffing) then  
-  n_puff      = int(5.d-5*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
-  if (puff_t_dependent) then
-	t_puff_start = 5000*t_norm !25000*t_norm !34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-	t_puff_slope = 4.d-3 !4.d-3 !< linearly ramps up the puffing during this time
-	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
-	           puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-	            puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
-	gas_puff3 = particle_puffing(n_puff/2, puff_rate3   , r_valve3, R_valve_loc3, Z_valve3, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-				puffing_rate_start=0.d21,poly_R=poly_R3,poly_Z=poly_Z3,boxpuff=boxpuff) !20.d21
-  else
+  !n_puff      = int(5.d-5*n_particles_local* sim%n_cpu)
+  t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
+  t_puff_slope = 4.d-3 !4.d-3 !< linearly ramps up the puffing during this time
 
-	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
-	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
-	gas_puff3 = particle_puffing(n_puff, 20.d21, 0.12d0, 6.05, 4.15)
-  end if
-  gas_puff_event = event(gas_puff)
+  gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+      puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
+  gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+      puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
+  gas_puff3 = particle_puffing(n_puff, puff_rate3, r_valve3, R_valve_loc3, Z_valve3, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+      puffing_rate_start=0.d21,poly_R=poly_R3,poly_Z=poly_Z3,boxpuff=boxpuff)
+
+  gas_puff_event  = event(gas_puff)
   gas_puff2_event = event(gas_puff2)
   gas_puff3_event = event(gas_puff3)
 	
@@ -270,10 +265,9 @@ if (use_kn_puffing) then
 	write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
 	endif
 else 
-	n_puff = 0.d0
-	gas_puff = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
-	gas_puff2 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
-	gas_puff3 = particle_puffing(n_puff, 5d20, r_valve, R_valve_loc, Z_valve)
+	gas_puff = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
+	gas_puff2 = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
+	gas_puff3 = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
 endif
 
 tstep_si  = tstep * t_norm
@@ -324,11 +318,11 @@ jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
 
 diag = write_particle_diagnostics(filename='diag.h5', append=.true.)
 
-if (restart_particles) then
-   tstart_jorek = sim%time + tstep_si
-else
+! if (restart_particles) then
+!    tstart_jorek = sim%time + tstep_si
+! else
    tstart_jorek = sim%time
-endif
+! endif
 
 if (sim%my_id .eq. 0) write(*,*) 'tstart_jorek : ',tstart_jorek
 
@@ -390,6 +384,7 @@ do while (.not. sim%stop_now)
   target_time = next_event_at(sim, events) 
   particle_start_time = (sim%time - step_rest_time)
   particle_step_time  = target_time - particle_start_time
+  !n_steps             = nint(particle_step_time/timesteps)
   n_steps             = particle_step_time/timesteps
   step_rest_time      = particle_step_time - real(n_steps,8) * timesteps
 
@@ -420,7 +415,7 @@ do while (.not. sim%stop_now)
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
   !> You can put anything in here that you want to solely depend on the jorek timestep.
-  if (run_stepper)then
+  ! if (run_stepper)then
 
 	!> call projection only every nout jorek steps. useful for longer runs
 	closest_iteration = nint((projection_time - tstart_jorek)/(tstep_si*nout)) !< very similar to run_at function. May be put this in a function?
@@ -437,24 +432,26 @@ do while (.not. sim%stop_now)
 	endif !< write interim particle restart file every 500 tsteps
 
   !Use sputtering before recombination and puffing. Otherwise free particles can be overwritten.
+  write(*,*) "LOG: pre  SP, 2sputt, inact",sim%my_id, count(sim%groups(1)%particles(:)%i_elm .gt. 0), count(sim%groups(1)%particles(:)%i_elm .lt. 0), count(sim%groups(1)%particles(:)%i_elm .eq. 0)
   if (use_kn_sputtering) then
 	  ! call sputtering
 	   call with(sim, D_sputter_event) !event(D_sputter_source))
 	endif   !use_kn_sputtering
-	
+	write(*,*) "LOG: post SP, 2sputt, inact",sim%my_id, count(sim%groups(1)%particles(:)%i_elm .gt. 0), count(sim%groups(1)%particles(:)%i_elm .lt. 0), count(sim%groups(1)%particles(:)%i_elm .eq. 0)
+  
 	if (use_kn_recombination) then
 	  !call recombination
 	  call do_1particle_recombination(element_list,node_list,jorek_stepper,rng,particle_step_time) 
-    endif !use_kn_recombination
+  endif !use_kn_recombination
 	
 
 	  
 	if (use_kn_puffing) then
-      call with(sim, gas_puff_event) 
+    call with(sim, gas_puff_event) 
 	  call with(sim, gas_puff2_event)
 	  call with(sim, gas_puff3_event)
-    endif ! use_kn_puffing	
-  endif !run_stepper
+  endif ! use_kn_puffing	
+  ! endif !run_stepper
   
 
 !=======================================================================
