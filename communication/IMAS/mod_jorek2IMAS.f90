@@ -806,6 +806,113 @@ module mod_jorek2IMAS
 
 
 
+    ! --- Fill an SPI IDS
+  subroutine fill_spi_IDS(first_step, time_SI, spi)  
+
+    use phys_module, only : F0, central_density, sqrt_mu0_rho0, &
+                           sqrt_mu0_over_rho0, central_mass, imp_type, &
+                           gamma, index_main_imp, pellets, spi_vel_Rref, spi_Vel_Zref, &
+                           spi_Vel_RxZref
+
+    implicit none
+
+    ! --- External parameters
+    logical,                 intent(in) :: first_step   ! is this the first step?
+    real*8,                  intent(in) :: time_SI
+    type(ids_spi),        intent(inout) :: spi
+   
+    ! --- Local parameters 
+    integer :: i_inj, i_frag, i_frag_glob, j, k, m, ierr, n_spi_begin
+    integer :: n_slice=1, i_slice=1, a_imp, z_imp
+    real*8  :: pellet_vol_imp, pellet_vol_bg, pellet_vol, rho0 
+   
+    if (.not. using_spi) then
+      write(*,*) 'SPI IDS could not be exported! using_spi must be true'
+      return
+    endif
+
+    spi%ids_properties%homogeneous_time = 1
+
+    ! --- Set times
+    allocate( spi%time(n_slice) )
+    spi%time(i_slice) = time_SI 
+    rho0              = central_density * 1.d20 * central_mass * mass_proton
+    sqrt_mu0_rho0     = sqrt( mu_zero * rho0 )
+
+    ! --- Loop over injectors
+    allocate( spi%injector(n_inj) )
+    do i_inj = 1, n_inj 
+
+      ! --- Pellet properties
+      ! --- Total atoms in the unshattered pellet
+      spi%injector(i_inj)%pellet%core%atoms_n = spi_quantity(i_inj) + spi_quantity_bg(i_inj) 
+
+      ! --- Info about species
+      pellet_vol_imp = spi_quantity(i_inj)    / (pellet_density*1.d20)     ! total volume occupied by impurities in the pellet
+      pellet_vol_bg  = spi_quantity_bg(i_inj) / (pellet_density_bg*1.d20)  ! total volume occupied by backg. species in the pellet
+      pellet_vol     = pellet_vol_imp + pellet_vol_bg
+      
+      allocate( spi%injector(i_inj)%pellet%core%species(2) )  ! 1 impurity and 1 background species
+
+      ! --- Impurity species
+      call get_element_atomic_numbers(imp_type(index_main_imp), a_imp, z_imp )
+
+      spi%injector(i_inj)%pellet%core%species(1)%a       = a_imp
+      spi%injector(i_inj)%pellet%core%species(1)%z_n     = z_imp
+      spi%injector(i_inj)%pellet%core%species(1)%density = spi_quantity(i_inj) / pellet_vol
+
+      ! --- Background species
+      spi%injector(i_inj)%pellet%core%species(2)%a       = int(central_mass)
+      spi%injector(i_inj)%pellet%core%species(2)%z_n     = 1
+      spi%injector(i_inj)%pellet%core%species(2)%density = spi_quantity_bg(i_inj) / pellet_vol
+
+      ! --- Position where the pellets are shattered
+      spi%injector(i_inj)%shattering_position%r   = ns_R(i_inj)
+      spi%injector(i_inj)%shattering_position%z   = ns_Z(i_inj)
+      spi%injector(i_inj)%shattering_position%phi = ns_phi(i_inj) * fact_phi_dir
+
+      ! --- Velocity of centre of mass at shattering location
+      spi%injector(i_inj)%velocity_mass_centre_fragments_r   = spi_vel_Rref(i_inj)
+      spi%injector(i_inj)%velocity_mass_centre_fragments_z   = spi_vel_Zref(i_inj)
+      spi%injector(i_inj)%velocity_mass_centre_fragments_tor = spi_vel_RxZref(i_inj) * fact_phi_dir
+
+      ! --- Time of shattering
+      spi%injector(i_inj)%time_shatter = t_ns(i_inj) * sqrt_mu0_rho0
+
+      ! --- Fragment properties
+      n_spi_begin = 1
+      allocate( spi%injector(i_inj)%fragment( n_spi(i_inj) ) )
+      
+      do i_frag=1, n_spi(i_inj)
+        allocate( spi%injector(i_inj)%fragment(i_frag)%position%r(n_slice)   )
+        allocate( spi%injector(i_inj)%fragment(i_frag)%position%z(n_slice)   )
+        allocate( spi%injector(i_inj)%fragment(i_frag)%position%phi(n_slice) )
+        allocate( spi%injector(i_inj)%fragment(i_frag)%velocity_r(n_slice)   )
+        allocate( spi%injector(i_inj)%fragment(i_frag)%velocity_z(n_slice)   )
+        allocate( spi%injector(i_inj)%fragment(i_frag)%velocity_tor(n_slice) )
+        allocate( spi%injector(i_inj)%fragment(i_frag)%volume(n_slice)       ) 
+        
+        i_frag_glob = i_frag - 1 + n_spi_begin
+
+        spi%injector(i_inj)%fragment(i_frag)%position%r(i_slice)   = pellets(i_frag_glob)%spi_r
+        spi%injector(i_inj)%fragment(i_frag)%position%z(i_slice)   = pellets(i_frag_glob)%spi_z
+        spi%injector(i_inj)%fragment(i_frag)%position%phi(i_slice) = pellets(i_frag_glob)%spi_phi * fact_phi_dir
+
+        spi%injector(i_inj)%fragment(i_frag)%velocity_r(i_slice)   = pellets(i_frag_glob)%spi_vel_r
+        spi%injector(i_inj)%fragment(i_frag)%velocity_z(i_slice)   = pellets(i_frag_glob)%spi_vel_z
+        spi%injector(i_inj)%fragment(i_frag)%velocity_tor(i_slice) = pellets(i_frag_glob)%spi_vel_rxz * fact_phi_dir
+
+        spi%injector(i_inj)%fragment(i_frag)%volume(i_slice) = 4.d0/3.d0*PI*pellets(i_frag_glob)%spi_radius**3.d0 
+      enddo
+
+      n_spi_begin = n_spi_begin + n_spi(i_inj)
+    end do
+
+  end subroutine fill_spi_IDS
+
+
+
+
    ! --- Fill a pf_active IDS from STARWALL data, needs to be adapted to CARIDDI!
   subroutine fill_pf_active_IDS(first_step, time_SI, pf_active, active_coil_geo_file)  
 
