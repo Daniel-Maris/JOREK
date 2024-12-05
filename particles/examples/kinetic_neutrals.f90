@@ -43,6 +43,7 @@ use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_r
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: use_kn_sputtering, use_kn_cx, use_kn_ionisation, use_kn_line_radiation, use_kn_recombination, use_kn_puffing
 use phys_module, only: puff_rate, r_valve, R_valve_loc, Z_valve, R_valve_loc2, Z_valve2, n_puff
+use phys_module, only: use_manual_random_seed, manual_seed
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
@@ -271,9 +272,9 @@ else
 endif
 
 tstep_si  = tstep * t_norm
-n_steps   = floor(tstep_si / timesteps)
-timesteps = tstep_si / n_steps
-n_steps   = tstep_si / timesteps
+n_steps   = ceiling(tstep_si / timesteps) ! ceiling makes sure timesteps is never bigger than tstep_particles
+timesteps = tstep_si / n_steps !< this is never reset
+!n_steps   = tstep_si / timesteps
 
 if (sim%my_id .eq.0) then
   write(*,*) 'main : t_start = ',t_start
@@ -318,11 +319,11 @@ jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
 
 diag = write_particle_diagnostics(filename='diag.h5', append=.true.)
 
-! if (restart_particles) then
-!    tstart_jorek = sim%time + tstep_si
-! else
+if (restart_particles) then
+   tstart_jorek = sim%time + tstep_si
+else
    tstart_jorek = sim%time
-! endif
+endif
 
 if (sim%my_id .eq. 0) write(*,*) 'tstart_jorek : ',tstart_jorek
 
@@ -361,6 +362,7 @@ jorek_stepper%extra_event => events(1) !< is used as first event before eneterin
 seed = random_seed()
 n_stream = 1
 !$ n_stream = omp_get_max_threads()
+write(*,*) "RNG DBG: ", sim%my_id, use_manual_random_seed, manual_seed, n_stream
 allocate(rng(n_stream))
 do i=1,n_stream
   call rng(i)%initialize(1, seed, n_stream, i)
@@ -384,7 +386,6 @@ do while (.not. sim%stop_now)
   target_time = next_event_at(sim, events) 
   particle_start_time = (sim%time - step_rest_time)
   particle_step_time  = target_time - particle_start_time
-  !n_steps             = nint(particle_step_time/timesteps)
   n_steps             = particle_step_time/timesteps
   step_rest_time      = particle_step_time - real(n_steps,8) * timesteps
 
@@ -415,43 +416,43 @@ do while (.not. sim%stop_now)
   !> run particle source routines directly after the jorek_stepper
   !> Density projection added which now run every nout steps
   !> You can put anything in here that you want to solely depend on the jorek timestep.
-  ! if (run_stepper)then
+  if (run_stepper)then
 
-	!> call projection only every nout jorek steps. useful for longer runs
-	closest_iteration = nint((projection_time - tstart_jorek)/(tstep_si*nout)) !< very similar to run_at function. May be put this in a function?
-	if ( (abs((tstart_jorek +closest_iteration*tstep_si*nout) -projection_time) .le. 1.d-13) .or. sim%stop_now) then !< == true every tstep * nout steps
-		call with(sim, project_density)
-		
-		 ! if (use_kn_line_radiation) call with(sim, project_PLT)
-	endif !< write projection or diagnostics
-	
-	if ( (abs((tstart_jorek +nint((projection_time - tstart_jorek)/(tstep_si*500))*tstep_si*500) -projection_time) .le. 1.d-13)) then !< == true every tstep * 100 steps
-		call write_simulation_hdf5(sim, 'interim_part_restart.h5') !trim(this%get_filename(sim%time)))
-		
+    !> call projection only every nout jorek steps. useful for longer runs
+    closest_iteration = nint((projection_time - tstart_jorek)/(tstep_si*nout)) !< very similar to run_at function. May be put this in a function?
+    if ( (abs((tstart_jorek +closest_iteration*tstep_si*nout) -projection_time) .le. 1.d-13) .or. sim%stop_now) then !< == true every tstep * nout steps
+      call with(sim, project_density)
+      
+      ! if (use_kn_line_radiation) call with(sim, project_PLT)
+    endif !< write projection or diagnostics
+    
+    if ( (abs((tstart_jorek +nint((projection_time - tstart_jorek)/(tstep_si*500))*tstep_si*500) -projection_time) .le. 1.d-13)) then !< == true every tstep * 100 steps
+      call write_simulation_hdf5(sim, 'interim_part_restart.h5') !trim(this%get_filename(sim%time)))
+      
 
-	endif !< write interim particle restart file every 500 tsteps
+    endif !< write interim particle restart file every 500 tsteps
 
-  !Use sputtering before recombination and puffing. Otherwise free particles can be overwritten.
-  write(*,*) "LOG: pre  SP, 2sputt, inact",sim%my_id, count(sim%groups(1)%particles(:)%i_elm .gt. 0), count(sim%groups(1)%particles(:)%i_elm .lt. 0), count(sim%groups(1)%particles(:)%i_elm .eq. 0)
-  if (use_kn_sputtering) then
-	  ! call sputtering
-	   call with(sim, D_sputter_event) !event(D_sputter_source))
-	endif   !use_kn_sputtering
-	write(*,*) "LOG: post SP, 2sputt, inact",sim%my_id, count(sim%groups(1)%particles(:)%i_elm .gt. 0), count(sim%groups(1)%particles(:)%i_elm .lt. 0), count(sim%groups(1)%particles(:)%i_elm .eq. 0)
-  
-	if (use_kn_recombination) then
-	  !call recombination
-	  call do_1particle_recombination(element_list,node_list,jorek_stepper,rng,particle_step_time) 
-  endif !use_kn_recombination
-	
+    !Use sputtering before recombination and puffing. Otherwise free particles can be overwritten.
+    write(*,*) "LOG: pre  SP, 2sputt, inact",sim%my_id, count(sim%groups(1)%particles(:)%i_elm .gt. 0), count(sim%groups(1)%particles(:)%i_elm .lt. 0), count(sim%groups(1)%particles(:)%i_elm .eq. 0)
+    if (use_kn_sputtering) then
+      ! call sputtering
+      call with(sim, D_sputter_event) !event(D_sputter_source))
+    endif   !use_kn_sputtering
+    write(*,*) "LOG: post SP, 2sputt, inact",sim%my_id, count(sim%groups(1)%particles(:)%i_elm .gt. 0), count(sim%groups(1)%particles(:)%i_elm .lt. 0), count(sim%groups(1)%particles(:)%i_elm .eq. 0)
+    
+    if (use_kn_recombination) then
+      !call recombination
+      call do_1particle_recombination(element_list,node_list,jorek_stepper,rng,particle_step_time) 
+    endif !use_kn_recombination
+    
 
-	  
-	if (use_kn_puffing) then
-    call with(sim, gas_puff_event) 
-	  call with(sim, gas_puff2_event)
-	  call with(sim, gas_puff3_event)
-  endif ! use_kn_puffing	
-  ! endif !run_stepper
+      
+    if (use_kn_puffing) then
+      call with(sim, gas_puff_event) 
+      call with(sim, gas_puff2_event)
+      call with(sim, gas_puff3_event)
+    endif ! use_kn_puffing	
+  endif !run_stepper
   
 
 !=======================================================================
@@ -602,6 +603,11 @@ call with(sim, counter)
 
 select type (particles => sim%groups(1)%particles)
 type is (particle_kinetic_leapfrog)
+if(use_manual_random_seed) then
+  !$ call omp_set_schedule(omp_sched_static,10)
+else
+  !$ call omp_set_schedule(omp_sched_dynamic,10)
+end if
 #ifdef __GFORTRAN__
  !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
@@ -611,7 +617,7 @@ type is (particle_kinetic_leapfrog)
  !$omp use_kn_cx, use_kn_ionisation,use_kn_line_radiation,                                                &
  !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                                            &
 #endif
- !$omp schedule(dynamic,10)                                                                      &
+ !$omp schedule(runtime)                                                                      &
  !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,                  &
  !$omp i_elm_old, i_elm, n_e, T_e,                                                               &
  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, &  
@@ -899,9 +905,15 @@ Nrec_part = int( max(n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average 
 
 !============== Finding free particles !< make into a function?
 !> # is_free > n_elements * particles_per_element 
+if(use_manual_random_seed) then
+  !$ call omp_set_schedule(omp_sched_static,100)
+else
+  !$ call omp_set_schedule(omp_sched_dynamic,100)
+end if
+
 allocate(is_free(size(sim%groups(1)%particles,1))) 
 !$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
-!$omp private(j) schedule(dynamic, 100)
+!$omp private(j) schedule(runtime)
 do j=1,size(sim%groups(1)%particles,1) !sim%groups(1)%particles
 	is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
 end do
@@ -924,6 +936,11 @@ k = 0 !< first free particle
 particles_per_element = 1	
 select type (particles => sim%groups(1)%particles)
 type is (particle_kinetic_leapfrog)
+if(use_manual_random_seed) then
+  !$ call omp_set_schedule(omp_sched_static,10)
+else
+  !$ call omp_set_schedule(omp_sched_dynamic,10)
+end if
 !omp
 #ifdef __GFORTRAN__
 !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
@@ -933,7 +950,7 @@ type is (particle_kinetic_leapfrog)
 !$omp i_free,rng,rec_rate_local, &
 !$omp CENTRAL_DENSITY, CENTRAL_MASS,sqrt_mu0_over_rho0,particles_per_element ) &
 #endif
-!$omp schedule(dynamic,10)      &
+!$omp schedule(runtime)      &
 !$omp private(ife,ielm,k,i,element,s,t,R, Z , &
 !$omp st_ran, i_rng ) &
 !$omp reduction(+:sanity_rec_local)

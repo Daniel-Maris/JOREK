@@ -1,14 +1,18 @@
 &in1
 
   restart=.f.
-  restart_particles=.f.
   regrid  = .f.
   refinement=.false.
 
-  tstep_n=1000.
-  nstep_n=1
+  restart_particles=.f.
+
+  tstep_n=10.
+  nstep_n=3
 
   nout = 1
+
+  use_manual_random_seed = .true.
+  manual_seed = 498932990
 
   use_ncs = .true.
   use_pcs = .f.
@@ -18,11 +22,14 @@
 
   deuterium_adas    = .true.
 
-  n_particles        = 1e5 
+  n_particles        = 1e4 
   tstep_particles    = 5.d-7
   filter_perp_n0     = 0.d0 
   filter_hyper_n0    = 1.d-10
   filter_par_n0      = 0.d0
+
+  puff_rate = 70.d21
+  n_puff=20
 
   time_evol_scheme= 'Gears'
   use_mumps_eq  = .true.

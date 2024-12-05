@@ -294,6 +294,8 @@ subroutine do_particle_sputter(this, sim, ev)
   use mod_atomic_elements, only: element_symbols
   use mod_parameters, only: n_plane, n_period
   use mod_interp, only: interp_RZ
+  use phys_module, only: use_manual_random_seed
+  
   class(particle_sputter), intent(inout) :: this
   type(particle_sim), intent(inout)      :: sim
   type(event), intent(inout), optional   :: ev
@@ -455,6 +457,12 @@ subroutine do_particle_sputter(this, sim, ev)
 	
   select type (pa => sim%groups(i)%particles)
   type is (particle_kinetic_leapfrog)
+  if(use_manual_random_seed) then
+    !$ call omp_set_schedule(omp_sched_static,10)
+  else
+    !$ call omp_set_schedule(omp_sched_dynamic,10)
+  end if
+  
 #ifdef __GFORTRAN__
     !$omp parallel default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
 #else
@@ -468,7 +476,7 @@ subroutine do_particle_sputter(this, sim, ev)
 	
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
-    !$omp do schedule(dynamic, 10)
+    !$omp do schedule(runtime)
     do j = 1,size(sim%groups(i)%particles,1)
       ! Skip if this particle is not lost in a specific location (i_elm .eq. 0 means lost 'somewhere')
       if (sim%groups(i)%particles(j)%i_elm .ge. 0) cycle !< .not. .lt.!< if this is not a lost particle go to next particle
@@ -741,8 +749,13 @@ end do
 
   ! might be replaced with omp workshare, or just the array expression.
   ! there is an issue with derived type arrays in gfortran though, and this works
+  if(use_manual_random_seed) then
+    !$ call omp_set_schedule(omp_sched_static,100)
+  else
+    !$ call omp_set_schedule(omp_sched_dynamic,100)
+  end if
   !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free, i) &
-  !$omp private(j) schedule(dynamic, 100)
+  !$omp private(j) schedule(runtime)
   do j=1,size(sim%groups(this%target_group)%particles,1)
     is_free(j) = sim%groups(this%target_group)%particles(j)%i_elm .le. 0 
   end do

@@ -321,6 +321,9 @@ if [ "$runit" == "yes" ]; then
   if [ "$initialrun" == "yes" ] && [ "$binaries_initial" != "" ]; then
     cp $binaries_initial $tmpdir                          || exit 1
   fi
+  if [ -n "$extra_restart" ] && [ "$initialrun" == "no" ]; then
+    cp "$extra_restart" $tmpdir                           || exit 1
+  fi
   cd $tmpdir                                              || exit 1
 
   # --- Some preparations
@@ -348,6 +351,9 @@ if [ "$runit" == "yes" ]; then
     cp $restart_file ${testcasedir}/begin.h5              || exit 1
     restart_run                                           || exit 1
     cp $result_file ${testcasedir}/end.h5                 || exit 1
+    if [ -n "$extra_restart" ]; then
+      cp "$extra_restart" ${testcasedir}/                 || exit 1
+    fi
   fi
 
   # --- Remove the temporary directory
