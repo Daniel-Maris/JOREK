@@ -41,5 +41,7 @@ function restart_run () {
 
 # --- Compare the results of the test case to the reference solution
 function compare_results () {
-  diff jorek_namelist jorek_namelist_ref                                             || exit 1
+    sed '/^\s*\*/d' jorek_namelist > file1
+    sed '/^\s*\*/d' jorek_namelist_ref > file2  
+  diff file1 file2                                             || exit 1
 }

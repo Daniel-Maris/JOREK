@@ -866,18 +866,10 @@ module mod_jorek2IMAS
       spi%injector(i_inj)%pellet%core%species(2)%z_n     = 1
       spi%injector(i_inj)%pellet%core%species(2)%density = spi_quantity_bg(i_inj) / pellet_vol
 
-      ! --- Position where the pellets are shattered
-!      spi%injector(i_inj)%shattering_position%r   = ns_R(i_inj)
-!      spi%injector(i_inj)%shattering_position%z   = ns_Z(i_inj)
-!      spi%injector(i_inj)%shattering_position%phi = ns_phi(i_inj) * fact_phi_dir
-
       ! --- Velocity of centre of mass at shattering location
       spi%injector(i_inj)%velocity_mass_centre_fragments_r   = spi_vel_Rref(i_inj)
       spi%injector(i_inj)%velocity_mass_centre_fragments_z   = spi_vel_Zref(i_inj)
       spi%injector(i_inj)%velocity_mass_centre_fragments_tor = spi_vel_RxZref(i_inj) * fact_phi_dir
-
-      ! --- Time of shattering
-!      spi%injector(i_inj)%time_shatter = t_ns(i_inj) * sqrt_mu0_rho0
 
       ! --- Fragment properties
       n_spi_begin = 1
