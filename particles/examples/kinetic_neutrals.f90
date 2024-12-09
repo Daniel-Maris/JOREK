@@ -45,7 +45,7 @@ use data_structure, only: type_bnd_element_list, type_bnd_node_list
 use mod_boundary,   only: boundary_from_grid
 use equil_info
 
-use phys_module, only: tstep,restart_particles, restart, t_start, nout
+use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
@@ -91,10 +91,9 @@ logical :: puff_t_dependent,boxpuff
 call sim%initialize(num_groups=1)
 
 ! Set up the field reader < can this be moved to sim%initialize
-fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1)) !< overwrites tstep, but overwrites correctly, right?
-write(*,*) "tstep pre =", tstep
+fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
 call with(sim, fieldreader)
-write(*,*) "tstep post =", tstep
+tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
 
 ! setting up the particles
 if (restart_particles) then
@@ -105,26 +104,26 @@ if (restart_particles) then
 
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
-	! setting up empty particle array
+  ! setting up empty particle array
   if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_cpu, " cpus "
 
-	!> is this needed for neutrals?
-	if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
-	call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
+  !> is this needed for neutrals?
+  if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
+  call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
 
-	call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
+  call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
-	! Set up particle group characteristics
-	sim%groups(1)%Z    = -2 !< for deuterium 1
-	sim%groups(1)%mass = atomic_weights(-2) !< atomic mass units
-	sim%groups(1)%ad   = read_adf11(sim%my_id,'12_h')
-	
-	! setting up particles per MPI node
-	allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(n_particles/sim%n_cpu) ))
-	
+  ! Set up particle group characteristics
+  sim%groups(1)%Z    = -2 !< for deuterium 1
+  sim%groups(1)%mass = atomic_weights(-2) !< atomic mass units
+  sim%groups(1)%ad   = read_adf11(sim%my_id,'12_h')
+  
+  ! setting up particles per MPI node
+  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(n_particles/sim%n_cpu) ))
+  
   ! setting up empty particle array
   select type (p => sim%groups(1)%particles)
-	type is (particle_kinetic_leapfrog)  
+  type is (particle_kinetic_leapfrog)  
     p(:)%q      = 0 !< for neutrals
     p(:)%weight = 0.0!weight
     p(:)%i_elm  = 0
@@ -180,7 +179,7 @@ poly_Z  = (/0.1d0,  0.1d0,  0.0d0, 0.0d0/)
 poly_R2 = poly_R 
 poly_Z2 = poly_Z
 
-if (use_kn_puffing) then  
+if (use_kn_puffing) then
   t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
   t_puff_slope = 4.d-3 !4.d-3 !< linearly ramps up the puffing during this time
 
@@ -192,13 +191,13 @@ if (use_kn_puffing) then
   gas_puff_event  = event(gas_puff)
   gas_puff2_event = event(gas_puff2)
   
-	if (sim%my_id .eq.0) then
+  if (sim%my_id .eq.0) then
     write(*,*) "Gas puffing rate [#/s] : ", puff_rate
     write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
-	endif
+  endif
 else 
-	gas_puff = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
-	gas_puff2 = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
+  gas_puff = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
+  gas_puff2 = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
 endif
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
@@ -265,7 +264,7 @@ do while (.not. sim%stop_now)
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
   !> feedback of the particles as sources and sinks in the MHD equations 
-  !> Also writes .h5 file and updates tstep
+  !> Also writes .h5 file, updates tstep and sets sim%stop_now = .true. if all fluid steps are done
   call with(sim, jorek_stepper_event) 
   
   ! --- Interactions that happen on the fluid timestep
@@ -282,7 +281,7 @@ do while (.not. sim%stop_now)
   if (use_kn_puffing) then
     call with(sim, gas_puff_event) 
     call with(sim, gas_puff2_event)
-  endif ! use_kn_puffing	
+  endif ! use_kn_puffing  
 
   ! -- Finalising the fluid timestep
   
@@ -396,15 +395,15 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_pa_adj)
   !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
   !$omp parallel do default(none) &
-  !$omp shared(sim, particles, nstep_particles, tstep_pa_adj, rng,                      &
+  !$omp shared(sim, particles, nstep_particles, tstep_pa_adj, rng,                                &
   !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                         &
-  !$omp use_kn_cx, use_kn_ionisation,use_kn_line_radiation,                                                &
+  !$omp use_kn_cx, use_kn_ionisation,use_kn_line_radiation,                                       &
   !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                                            &
 #endif
-  !$omp schedule(runtime)                                                                      &
+  !$omp schedule(runtime)                                                                         &
   !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,                  &
   !$omp i_elm_old, i_elm, n_e, T_e,                                                               &
-  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, &  
+  !$omp PLT,ion_rate, ion_prob, ion_ran, ion_source, ion_energy, kinetic_energy, line_rad_energy, &
   !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,           &
   !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj,                           &
   !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, cx_ran,                &
@@ -521,11 +520,11 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_pa_adj)
       ! feedback from each particle at each timestep
       energy_source       = ion_source * ion_energy + cx_source * cx_energy - line_rad_energy
       particle_source     = ion_source * sim%groups(1)%mass * ATOMIC_MASS_UNIT !< mass source in SI
-      velocity_par_source = ion_source * dot_product(B, particle_tmp%v) * sim%groups(1)%mass * ATOMIC_MASS_UNIT &	
+      velocity_par_source = ion_source * dot_product(B, particle_tmp%v) * sim%groups(1)%mass * ATOMIC_MASS_UNIT &
             + CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(1)%mass * ATOMIC_MASS_UNIT 
           
       particle_tmp%v = v_temp 
-      n_lost_ion = n_lost_ion + ion_source	!< local sum #particles lost due to ionisation
+      n_lost_ion = n_lost_ion + ion_source  !< local sum #particles lost due to ionisation
       p_lost_ion = p_lost_ion + ion_source * ion_energy
       p_plt_lost = p_plt_lost + line_rad_energy
       p_cx_lost  = p_cx_lost + cx_source * cx_energy
@@ -645,7 +644,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
   real*8                              :: sanity_rec_local,total_sanity_rec
   !rec variables
   real*8, dimension(:), allocatable  :: rec_rate_local , rec_v_R, rec_v_Z, rec_v_phi 
-  real*8, dimension(:), allocatable  :: volume_check, energy_neutrals, energy_radiation  
+  real*8, dimension(:), allocatable  :: volume_check, energy_neutrals, energy_radiation
 
   !Call mod_integrate_recombination
   call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
@@ -709,7 +708,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
 
   ! loop over all elements
   k = 0 !< first free particle
-  particles_per_element = 1	
+  particles_per_element = 1  
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
   if(use_manual_random_seed) then
@@ -746,7 +745,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
     ielm    = (sim%my_id+1) + sim%n_cpu*(ife - 1)
     element = element_list%element(ielm)
     
-    ! initialise particle in the element with Position, Weight, Energy, Momentum			
+    ! initialise particle in the element with Position, Weight, Energy, Momentum
     do i = 1, particles_per_element
         k = k *i !< update free particle index ! at begin of loop as k is initialized at k =0
       particles(i_free(k))%weight = rec_rate_local(ife) / real(particles_per_element,8)* central_density* 1.d20 !< rec_rate = in jorek units?
@@ -784,7 +783,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
     if(tstep_pa_adj .gt. 1.d-10) then !filters out NaNs from initialisation
       write(*,*) 'SANITY Recombination rate  [#/s] : ' , total_sanity_rec /tstep_pa_adj
     end if
-  endif		
+  endif    
 
 end subroutine !do_1particle_recombination
 
@@ -925,10 +924,10 @@ subroutine conservation_checks(sim)
     !omp end parallel do
   end select
 
-  call MPI_REDUCE(particles_remaining, all_particles, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(momentum_remaining,  all_momentum,  1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(energy_remaining,    all_energy,    1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+  call MPI_REDUCE(particles_remaining, all_particles,         1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(momentum_remaining,  all_momentum,          1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(energy_remaining,    all_energy,            1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER,          MPI_SUM, 0, MPI_COMM_WORLD, ierr) 
 
   if (sim%my_id .eq. 0) then
     write(*,'(A,3e16.8)') 'REMAINING (START) : ',all_particles, all_momentum, all_energy
@@ -940,11 +939,11 @@ subroutine conservation_checks(sim)
     write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', n_particles, '| in use :', &
     real(all_superparticles)/n_particles*100.d0,'%'
 
-    if ( all_superparticles .gt. 0 )	then
+    if ( all_superparticles .gt. 0 ) then
       write(*,'(A,2E16.8)') 'Average weight of particles',(all_particles)/all_superparticles
-    endif	!real(count(
+    endif !real(count(
 
-  endif !(sim%my_id .eq. 0)  
+  endif !(sim%my_id .eq. 0)
 end subroutine conservation_checks
 
 end program kinetic_neutral_loop
