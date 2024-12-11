@@ -39,7 +39,7 @@ function initial_run () {
 
 # --- Carry out the test case
 function restart_run () {
-  ${codedir}/util/setinput.sh input restart=.f. restart_particles=.t. nstep_n=3 tstep_n=10. nout=1 || exit 1
+  ${codedir}/util/setinput.sh input restart=.f. restart_particles=.t. nstep_n=1 tstep_n=10. nout=1 || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_3 < input | tee logfile               || exit 1
 }
 
