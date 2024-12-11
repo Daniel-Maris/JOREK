@@ -865,6 +865,7 @@ use_kn_line_radiation= .true.
 
 n_puff        = 0
 puff_rate     = 0.d0
+
 !--------------- valves -------------------------
 n_valves = 0
 valves(:)%type = 'none'
@@ -875,6 +876,19 @@ do i=1, n_valves_max
   valves(i)%poly_R = 0.d0
   valves(i)%poly_Z = 0.d0
 enddo
+
+! -------------- particle groups ---------------
+n_part_groups = 0
+particle_configs(:)%Z                 = 1
+particle_configs(:)%mass              = 0.d0
+particle_configs(:)%dt                = 0.d0
+particle_configs(:)%coupling_scheme   = 'non'
+particle_configs(:)%n_particles       = 0.d0
+particle_configs(:)%type              = 'none'
+!-- specific to ncs 
+particle_configs(:)%atom_data_suffix      = 'none'
+
+!-----------------------------------------------
 
 use_manual_random_seed = .false.
 manual_seed = 498932990          !< chosen arbitarily

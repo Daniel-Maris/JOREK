@@ -979,6 +979,33 @@ module phys_module
   
   type (valve), dimension(n_valves_max) :: valves 
 
+  
+  ! ------------------------------------------------
+  ! --- Structures for particle groups
+  ! ------------------------------------------------
+  !> @name Particle group settings
+  integer            :: n_part_groups                !< number of particle groups being used
+  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups             
+
+  !> Contains configuration and settings relating to a particle group
+  type :: particle_group_config
+    integer            :: Z                        !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
+    real*8             :: mass                     !< Mass of all the particles in the group
+    real*8             :: dt                       !< timestep (if fixed for all particles in this group)
+    character(len=3)   :: coupling_scheme          !< three character code for the coupling scheme to use for the group
+    real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
+    character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
+
+    ! character(len=50)  :: pusher                 !< name of the type of pusher to be used
+
+    ! --------------- for neutral particles ------------
+
+    character(len=256)  :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
+
+  end type particle_group_config
+
+  type (particle_group_config), dimension(n_part_groups_max) :: particle_configs 
+
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
   integer :: n_mode_families                          !< number of families

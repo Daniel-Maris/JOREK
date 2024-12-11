@@ -47,6 +47,7 @@ use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
+use phys_module, only: n_part_groups
 use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
@@ -75,7 +76,7 @@ real*8    :: tstep_pa_adj !< tstep_particles adjusted so that an integer amount 
 !$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
-integer   :: i, j, istep
+integer   :: i, j, istep, group_num
 integer   :: seed, i_rng, n_stream
 
 ! Puffing parameters
@@ -102,6 +103,10 @@ if (restart_particles) then
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
 
+  do group_num=1, n_part_groups
+    call configure_particle_group(sim, group_num)
+  enddo
+
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
   ! setting up empty particle array
@@ -114,9 +119,9 @@ else
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
   ! Set up particle group characteristics
-  sim%groups(1)%Z    = -2 !< for deuterium 1
-  sim%groups(1)%mass = atomic_weights(-2) !< atomic mass units
-  sim%groups(1)%ad   = read_adf11(sim%my_id,'12_h')
+  do group_num=1, n_part_groups
+    call configure_particle_group(sim, group_num)
+  enddo
   
   ! setting up particles per MPI node
   allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(n_particles/sim%n_cpu) ))

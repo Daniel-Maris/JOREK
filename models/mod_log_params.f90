@@ -36,7 +36,7 @@ character(len=512), parameter :: CHAR_FMT2 = "(1X,A,I2,A,' = ""',A,'""')"
 
 ! --- Local variables
 integer           :: ivar, itor
-integer           :: i, j, n_rows !> do loop index 
+integer           :: i, j, n_rows, group_num !> do loop index 
 character(len=10) :: mode_num
 logical           :: short2
 
@@ -1024,6 +1024,23 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           write(*,REAL_FMT) 'poly_R              ',valves(i)%poly_R(:)
           write(*,REAL_FMT) 'poly_Z              ',valves(i)%poly_Z(:)
       end select
+    enddo
+  endif
+
+  
+  if (n_part_groups > 0) then
+    write(*,*) ''
+    write(*,*) '==== Particle Groups ===='
+    write(*,INTG_FMT) 'n_part_groups  ',n_part_groups
+
+    do group_num=1, n_part_groups
+      write(*,*) "---- Particle group ", group_num, " ----" 
+      write(*,INTG_FMT) 'Z,                     ',particle_configs(group_num)%Z
+      write(*,REAL_FMT) 'mass                   ',particle_configs(group_num)%mass
+      write(*,REAL_FMT) 'dt                     ',particle_configs(group_num)%dt                    
+      write(*,CHAR_FMT) 'coupling_scheme,       ',particle_configs(group_num)%coupling_scheme
+      write(*,REAL_FMT) 'n_particles,           ',particle_configs(group_num)%n_particles
+      write(*,CHAR_FMT) 'type,                  ',trim(particle_configs(group_num)%type)
     enddo
   endif
 

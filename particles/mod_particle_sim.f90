@@ -7,17 +7,21 @@ use mod_coronal
 use basis_at_gaussian
 implicit none
 private
-public particle_group, particle_sim
+public particle_group, particle_sim, configure_particle_group
 
 !> A group of particles, implemented as an allocatable array.
 !> It must contain particles of the same species (charge number).
 type :: particle_group
-  integer :: Z !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
-  real*8  :: mass !< Mass of all the particles in the group
-  type(ADF11_all) :: ad !< OPEN-ADAS datafiles for this species
-  type(coronal) :: cor !< (coronal) equilibrium pre-calculation
+  integer            :: Z                                          !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
+  real*8             :: mass                                       !< Mass of all the particles in the group
+  type(ADF11_all)    :: ad                                         !< OPEN-ADAS datafiles for this species
+  type(coronal)      :: cor                                        !< (coronal) equilibrium pre-calculation
+  real*8             :: dt                                         !< timestep (if fixed for all particles in this group)
+  character(len=3)   :: coupling_scheme                            !< coupling scheme to use for the group
+  real*8             :: n_particles                                !< number of super/marker particles in group
+  character(len=50)  :: type                                       !< type of particle contained in group (i.e. particle_kinetic_leapfrog)
+
   class(particle_base), dimension(:), allocatable :: particles
-  real*8 :: dt !< timestep (if fixed for all particles in this group)
 end type particle_group
 
 !> Particle simulation type, containing all variables pertaining to a simulation.
@@ -44,6 +48,31 @@ contains
 end type particle_sim
 
 contains
+
+!> Loads the information from a particle_group_config type to a particle_group type
+subroutine configure_particle_group(sim, group_num)
+  use phys_module, only: n_part_groups, particle_configs
+
+  implicit none
+  class(particle_sim), intent(inout)       :: sim
+  integer,             intent(in)          :: group_num
+
+  sim%groups(group_num)%Z = particle_configs(group_num)%Z
+  sim%groups(group_num)%mass = particle_configs(group_num)%mass
+  sim%groups(group_num)%dt = particle_configs(group_num)%dt
+  sim%groups(group_num)%coupling_scheme = particle_configs(group_num)%coupling_scheme
+  sim%groups(group_num)%n_particles = particle_configs(group_num)%n_particles
+  sim%groups(group_num)%type = particle_configs(group_num)%type
+    
+  if (particle_configs(group_num)%atom_data_suffix /= 'none') then
+    sim%groups(group_num)%ad                    =  read_adf11(sim%my_id, particle_configs(group_num)%atom_data_suffix)
+  else
+    write(*,*) "WARNING: No atom_data_suffix set for particle group ", group_num, "."
+  endif
+end subroutine configure_particle_group
+
+
+
 !> Actions to perform when setting up a simulation
 !> inputs:
 !>   sim:             (particle_sim) the particle simulation
@@ -67,7 +96,7 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
   logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in
   integer,intent(in),optional        :: my_id,n_cpu
   logical                            :: do_jorek_init
-  integer                            :: ierr, i_tor,nthreads
+  integer                            :: ierr, i_tor,nthreads, group_num
 
   !> initialise the mpi comm world with threads if required
   if(present(my_id).and.present(n_cpu)) then
