@@ -172,21 +172,14 @@ puff_t_dependent = .true.
 puffing_rate_start = puff_rate/1.5d0
 boxpuff = .true.
 
-!> puff location for simple xpoint case
-if(sim%my_id .eq. 0) write(*,*) "puff location for xpoint reg_test example"
-poly_R  = (/3.86d0, 3.9d0, 3.86d0, 3.9d0/)
-poly_Z  = (/0.1d0,  0.1d0,  0.0d0, 0.0d0/)
-poly_R2 = poly_R 
-poly_Z2 = poly_Z
-
 if (use_kn_puffing) then
   t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
   t_puff_slope = 4.d-3 !4.d-3 !< linearly ramps up the puffing during this time
 
   gas_puff = particle_puffing(n_puff, puff_rate/2.d0, valves(1)%r_valve, valves(1)%R_valve_loc, valves(1)%Z_valve_loc, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
-      puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
+      puffing_rate_start=puffing_rate_start/2.d0,poly_R=valves(1)%poly_R,poly_Z=valves(1)%poly_Z,boxpuff=boxpuff)
   gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, valves(1)%r_valve, valves(1)%R_valve_loc, valves(1)%Z_valve_loc, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-      puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
+      puffing_rate_start=puffing_rate_start/2.d0,poly_R=valves(1)%poly_R,poly_Z=valves(1)%poly_Z,boxpuff=boxpuff)
   
   gas_puff_event  = event(gas_puff)
   gas_puff2_event = event(gas_puff2)
