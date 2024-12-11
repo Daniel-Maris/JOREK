@@ -141,8 +141,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 use_ncs, use_pcs, use_ccs, use_pcs_full,            &
                 restart_particles,                                  &
                 use_kn_recombination, use_kn_puffing,use_kn_line_radiation,  &
-                puff_rate, r_valve, R_valve_loc, Z_valve,           &
-                R_valve_loc2, Z_valve2, n_puff,                     &
+                puff_rate, n_puff, n_valves, valves,                &
                 cte_current_FB_fact, Z_xpoint_limit,                &
                 CARIDDI_mode, use_newton, maxNewton, gamma_Newton,  &
                 alpha_Newton, vacuum_min, strumpack_matching,       &

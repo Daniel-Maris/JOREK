@@ -957,13 +957,28 @@ module phys_module
   real*8  :: filter_par_n0    !< particle projection smoothing parameter, parallel direction (n=0)
 
   real*8  :: puff_rate        !< physical atoms/sec puffed (shared over 2 places)
-  real*8  :: r_valve          !< radius of poloidal circular source
-  real*8  :: R_valve_loc      !< R position valve 1
-  real*8  :: Z_valve          !< Z position valve 1
-  real*8  :: R_valve_loc2     !< R position valve 2
-  real*8  :: Z_valve2         !< Z position valve 2
   integer :: n_puff           !< superparticles used per puffing action per valve
-    
+
+  ! ------------------------------------------------
+  ! --- Structures for particle valves 
+  ! ------------------------------------------------
+  !> @name Particle valve settings
+  integer            :: n_valves                !< number of valves being used
+  integer, parameter :: n_valves_max = 20       !< maximum number of valves   
+
+  type :: valve
+    character(len=4)   :: type          !< four character code for the valve type ('circ', 'poly', or 'none')
+    ! --- specific to 'circ' type (circular valve) 
+    real*8  :: r_valve                  ! radius of poloidal circular source 
+    real*8  :: R_valve_loc              ! R position 
+    real*8  :: Z_valve_loc              ! Z position
+    ! --- specific to 'poly' type (quadrangular valve)
+    real*8  :: poly_R(4)                ! R vertices
+    real*8  :: poly_Z(4)                ! Z vertices
+  end type valve
+  
+  type (valve), dimension(n_valves_max) :: valves 
+
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
   integer :: n_mode_families                          !< number of families

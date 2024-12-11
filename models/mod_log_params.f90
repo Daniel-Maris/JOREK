@@ -1008,14 +1008,28 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_kn_puffing,        ',use_kn_puffing
   write(*,LOGI_FMT) 'use_kn_line_radiation, ',use_kn_line_radiation
 
+  if (n_valves > 0) then
+    write(*,*) ''
+    write(*,*) '====== Valves ======'
+    write(*,INTG_FMT) 'n_valves            ',n_valves
+    do i=1, n_valves
+      write(*,*) "----  Valve: ", i, " ----" 
+      write(*,CHAR_FMT) 'type,               ',valves(i)%type
+      select case (trim(valves(i)%type))
+        case ("circ")
+          write(*,REAL_FMT) 'r_valve,            ',valves(i)%r_valve
+          write(*,REAL_FMT) 'R_valve_loc,        ',valves(i)%R_valve_loc
+          write(*,REAL_FMT) 'Z_valve_loc,        ',valves(i)%Z_valve_loc
+        case ("poly")
+          write(*,REAL_FMT) 'poly_R              ',valves(i)%poly_R(:)
+          write(*,REAL_FMT) 'poly_Z              ',valves(i)%poly_Z(:)
+      end select
+    enddo
+  endif
+
   if (use_kn_puffing) then 
     write(*,INTG_FMT) 'n_puff                ',  n_puff
-    write(*,REAL_FMT) 'puff_rate,            ',puff_rate
-    write(*,REAL_FMT) 'r_valve,              ',r_valve
-    write(*,REAL_FMT) 'R_valve_loc,          ',R_valve_loc
-    write(*,REAL_FMT) 'Z_valve,              ',Z_valve
-    write(*,REAL_FMT) 'R_valve_loc2,         ',R_valve_loc2
-    write(*,REAL_FMT) 'Z_valve2,             ',Z_valve2
+    write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
   endif
 
   write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed

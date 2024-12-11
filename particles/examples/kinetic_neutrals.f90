@@ -51,7 +51,7 @@ use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_p
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: use_kn_sputtering, use_kn_cx, use_kn_ionisation, use_kn_line_radiation, use_kn_recombination, use_kn_puffing
-use phys_module, only: puff_rate, r_valve, R_valve_loc, Z_valve, R_valve_loc2, Z_valve2, n_puff
+use phys_module, only: puff_rate, n_puff, valves
 use phys_module, only: use_manual_random_seed, manual_seed
 
 !$ use omp_lib
@@ -183,9 +183,9 @@ if (use_kn_puffing) then
   t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
   t_puff_slope = 4.d-3 !4.d-3 !< linearly ramps up the puffing during this time
 
-  gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+  gas_puff = particle_puffing(n_puff, puff_rate/2.d0, valves(1)%r_valve, valves(1)%R_valve_loc, valves(1)%Z_valve_loc, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
       puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
-  gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+  gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, valves(1)%r_valve, valves(1)%R_valve_loc, valves(1)%Z_valve_loc, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
       puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
   
   gas_puff_event  = event(gas_puff)
@@ -196,8 +196,8 @@ if (use_kn_puffing) then
     write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
   endif
 else 
-  gas_puff = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
-  gas_puff2 = particle_puffing(0, 5d20, r_valve, R_valve_loc, Z_valve)
+  gas_puff = particle_puffing(0, 5d20, valves(1)%r_valve, valves(1)%R_valve_loc, valves(1)%Z_valve_loc)
+  gas_puff2 = particle_puffing(0, 5d20, valves(1)%r_valve, valves(1)%R_valve_loc, valves(1)%Z_valve_loc)
 endif
 
 ! --- Set up feedback to the plasma (does not currently include recombination)

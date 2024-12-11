@@ -8,6 +8,8 @@ subroutine preset_parameters
   use phys_module
   
   implicit none
+
+  integer :: i ! for iterations
   
   time_evol_scheme = 'Crank-Nicholson'
   
@@ -863,18 +865,18 @@ use_kn_line_radiation= .true.
 
 n_puff        = 0
 puff_rate     = 0.d0
-r_valve       = 0.d0
-R_valve_loc   = 0.d0
-Z_valve       = 0.d0
-R_valve_loc2  = 0.d0
-Z_valve2      = 0.d0
+!--------------- valves -------------------------
+n_valves = 0
+valves(:)%type = 'none'
+valves(:)%r_valve = 0.d0
+valves(:)%R_valve_loc = 0.d0
+valves(:)%Z_valve_loc = 0.d0
+do i=1, n_valves_max
+  valves(i)%poly_R = 0.d0
+  valves(i)%poly_Z = 0.d0
+enddo
 
 use_manual_random_seed = .false.
 manual_seed = 498932990          !< chosen arbitarily
-
-use_manual_random_seed = .false.
-manual_seed = 498932990          !< chosen arbitarily
-              
-
 
 end subroutine preset_parameters
