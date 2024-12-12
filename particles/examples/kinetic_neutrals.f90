@@ -42,7 +42,7 @@ use equil_info
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_part_groups
-use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
+use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: use_kn_sputtering, use_kn_cx, use_kn_ionisation, use_kn_line_radiation, use_kn_recombination, use_kn_puffing
@@ -117,13 +117,11 @@ else
 
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
-  ! Set up particle group characteristics
+  ! Setting up particle characteristics and allocation
   do group_num=1, n_part_groups
     call configure_particle_group(sim, group_num)
+    call allocate_particles(sim, group_num)
   enddo
-  
-  ! setting up particles per MPI node
-  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(sim%groups(1)%n_particles/sim%n_cpu) ))
   
   ! setting up empty particle array
   select type (p => sim%groups(1)%particles)
@@ -167,7 +165,7 @@ t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_no
 
 ! --- Setting up sputtering
 if (use_kn_sputtering) then  
-  n_reflect = ceiling(n_particles * 5.d-4) !< should be a group dependent input parameter with this as default value
+  n_reflect = ceiling(sim%groups(1)%n_particles * 5.d-4) !< should be a group dependent input parameter with this as default value
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
@@ -375,7 +373,7 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_part_adj)
   integer   :: i, j, k, l, m, i_elm_old, i_elm 
   integer   :: seed, i_rng, n_stream, ierr, nthreads
   integer   :: i_tor, index_lm, i_elm_temp
-  integer   :: n_particles, ifail
+  integer   :: ifail
   logical   :: limits
   real*8,allocatable :: feedback_rhs(:,:,:,:,:)
 
@@ -696,7 +694,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
                               total_Erec_rad_all *1.5d0 / MU_ZERO, total_Erec_rad_all *1.5d0 / MU_ZERO/tstep_fluid_si /1.d6
   endif
   !Nrec_part amount of particles needed for this amount of recombination
-  Nrec_part = int( max(n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average weight per particle (not necesarily the actual weight, as that depends on Srec)
+  Nrec_part = int( max(sim%groups(1)%n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average weight per particle (not necesarily the actual weight, as that depends on Srec)
   !< limited to 1% of the total initialized particles
 
 
@@ -956,8 +954,8 @@ subroutine conservation_checks(sim)
                         mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
                         pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot
 
-    write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', n_particles, '| in use :', &
-    real(all_superparticles)/n_particles*100.d0,'%'
+    write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', sim%groups(1)%n_particles, '| in use :', &
+    real(all_superparticles)/sim%groups(1)%n_particles*100.d0,'%'
 
     if ( all_superparticles .gt. 0 ) then
       write(*,'(A,2E16.8)') 'Average weight of particles',(all_particles)/all_superparticles

@@ -421,12 +421,14 @@ if (allocated(sim%groups)) then
       call HDF5_array1D_saving_int(file,i_elm_all,n_total,group_name//"i_elm")
       call HDF5_array1D_saving_int(file,i_life_all,n_total,group_name//"i_life")
       call HDF5_array1D_saving_r4(file,t_birth_all,n_total,group_name//"t_birth")
-
-      call HDF5_char_saving(file,particle_type_name,group_name//"type")
+      
       call HDF5_integer_saving(file,sim%groups(i)%Z,group_name//"Z")
       call HDF5_real_saving(file,sim%groups(i)%mass,group_name//"mass")
-
+      call HDF5_char_saving(file,particle_type_name,group_name//"type")
       call HDF5_char_saving(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
+      call HDF5_char_saving(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
+      ! save dt?
+
     end if
     deallocate(x,x_all,st,st_all,weight,weight_all,t_birth,t_birth_all,i_elm,i_elm_all,i_life,i_life_all)
   end do
@@ -557,6 +559,7 @@ do i=1,n
   call HDF5_integer_reading(file,sim%groups(i)%Z,group_name//"Z")
   call HDF5_real_reading(file,sim%groups(i)%mass,group_name//"mass")
   call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
+  ! call HDF5_char_reading(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
   if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
     sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
     sim%groups(i)%cor = coronal(sim%groups(i)%ad)

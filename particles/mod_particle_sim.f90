@@ -7,7 +7,7 @@ use mod_coronal
 use basis_at_gaussian
 implicit none
 private
-public particle_group, particle_sim, configure_particle_group
+public particle_group, particle_sim, configure_particle_group, allocate_particles
 
 !> A group of particles, implemented as an allocatable array.
 !> It must contain particles of the same species (charge number).
@@ -19,13 +19,9 @@ type :: particle_group
   real*8             :: dt                                         !< timestep (if fixed for all particles in this group)
   character(len=3)   :: coupling_scheme                            !< coupling scheme to use for the group
   real*8             :: n_particles                                !< number of super/marker particles in group
-  character(len=50)  :: type                                       !< type of particle contained in group (i.e. particle_kinetic_leapfrog)
 
   class(particle_base), dimension(:), allocatable :: particles
 
-  ! --- local to each mpi process ---
-  integer            :: n_particles_local
-  
 end type particle_group
 
 !> Particle simulation type, containing all variables pertaining to a simulation.
@@ -66,7 +62,6 @@ subroutine configure_particle_group(sim, group_num)
   sim%groups(group_num)%dt = particle_configs(group_num)%dt
   sim%groups(group_num)%coupling_scheme = particle_configs(group_num)%coupling_scheme
   sim%groups(group_num)%n_particles = particle_configs(group_num)%n_particles
-  sim%groups(group_num)%type = particle_configs(group_num)%type
     
   if (particle_configs(group_num)%atom_data_suffix /= 'none') then
     sim%groups(group_num)%ad                    =  read_adf11(sim%my_id, particle_configs(group_num)%atom_data_suffix)
@@ -75,6 +70,28 @@ subroutine configure_particle_group(sim, group_num)
   endif
 end subroutine configure_particle_group
 
+!> allocates the particles for a group depending on its type and n_particles
+subroutine allocate_particles(sim, group_num)
+  use phys_module, only: particle_configs
+
+  implicit none
+  class(particle_sim), intent(inout)       :: sim
+  integer,             intent(in)          :: group_num
+  integer                                  :: n_particles_local
+
+  n_particles_local = ceiling(sim%groups(group_num)%n_particles / sim%n_cpu)
+
+  select case (trim(particle_configs(group_num)%type))
+    case ("particle_kinetic_leapfrog")
+      allocate(particle_kinetic_leapfrog::sim%groups(group_num)%particles(n_particles_local)) 
+    case ("particle_gc_relativistic")
+      allocate(particle_gc_relativistic ::sim%groups(group_num)%particles(n_particles_local)) 
+    case default
+      write(*,*) "Error: no match found for defined particle type, please ensure the defined type is supported (see mod_particle_types.f90 and mod_particle_sim.f90)"
+      stop 1
+  end select
+  
+end subroutine allocate_particles
 
 
 !> Actions to perform when setting up a simulation

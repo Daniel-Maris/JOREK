@@ -988,7 +988,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 #endif
   write(*,REAL_FMT) 'loop_voltage        ',loop_voltage
   write(*,LOGI_FMT) 'restart_particles   ',restart_particles
-  write(*,REAL_FMT) 'n_particles         ',n_particles
   write(*,INTG_FMT) 'nstep_particles     ',nstep_particles
   write(*,INTG_FMT) 'nsubstep_particles  ',nsubstep_particles
   write(*,REAL_FMT) 'tstep_particles     ',tstep_particles
