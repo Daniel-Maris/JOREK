@@ -17,8 +17,6 @@
   use_ncs = .true.
   use_pcs = .f.
   use_ccs = .f.
-  use_kn_puffing = .t.
-  use_kn_sputtering = .t.
 
   deuterium_adas    = .true.
 
@@ -153,7 +151,15 @@
   particle_configs(1)%coupling_scheme = 'ncs'
   particle_configs(1)%n_particles     = 1e4
   particle_configs(1)%type            = 'particle_kinetic_leapfrog'
+
+  particle_configs(1)%use_kn_puffing        = .t.
+  particle_configs(1)%use_kn_cx             = .t.
+  particle_configs(1)%use_kn_ionisation     = .t.
+  particle_configs(1)%use_kn_sputtering     = .t.
+  particle_configs(1)%use_kn_recombination  = .t.
+  particle_configs(1)%use_kn_line_radiation = .t.
   particle_configs(1)%atom_data_suffix = '12_h'
+
 
  /
  

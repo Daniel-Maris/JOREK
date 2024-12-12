@@ -854,13 +854,7 @@ use_ncs            = .false.
 use_ccs            = .false.
 use_pcs            = .false.
 use_pcs_full       = .false.
-use_kn_ionisation     = .true.
-use_kn_sputtering     = .false.
-use_kn_cx             = .true.
 use_marker         = .false.
-use_kn_recombination = .true.
-use_kn_puffing       = .false.
-use_kn_line_radiation= .true.
 
 n_puff        = 0
 puff_rate     = 0.d0
@@ -886,6 +880,12 @@ particle_configs(:)%n_particles       = 0.d0
 particle_configs(:)%type              = 'none'
 !-- specific to ncs 
 particle_configs(:)%atom_data_suffix      = 'none'
+particle_configs(:)%use_kn_recombination  = .true.
+particle_configs(:)%use_kn_puffing        = .false.
+particle_configs(:)%use_kn_line_radiation = .true.
+particle_configs(:)%use_kn_ionisation     = .true.
+particle_configs(:)%use_kn_sputtering     = .false.
+particle_configs(:)%use_kn_cx             = .true.
 
 !-----------------------------------------------
 

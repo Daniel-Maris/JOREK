@@ -1000,12 +1000,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_ncs,            ',use_ncs     
   write(*,LOGI_FMT) 'use_ccs,            ',use_ccs    
   write(*,LOGI_FMT) 'use_pcs,            ',use_pcs
-  write(*,LOGI_FMT) 'use_kn_ionisation,     ',use_kn_ionisation    
-  write(*,LOGI_FMT) 'use_kn_sputtering,     ',use_kn_sputtering    
-  write(*,LOGI_FMT) 'use_kn_cx,             ',use_kn_cx
-  write(*,LOGI_FMT) 'use_kn_recombination,  ',use_kn_recombination
-  write(*,LOGI_FMT) 'use_kn_puffing,        ',use_kn_puffing
-  write(*,LOGI_FMT) 'use_kn_line_radiation, ',use_kn_line_radiation
+  write(*,INTG_FMT) 'n_puff                ',  n_puff
+  write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
 
   if (n_valves > 0) then
     write(*,*) ''
@@ -1040,13 +1036,21 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       write(*,CHAR_FMT) 'coupling_scheme,       ',particle_configs(group_num)%coupling_scheme
       write(*,REAL_FMT) 'n_particles,           ',particle_configs(group_num)%n_particles
       write(*,CHAR_FMT) 'type,                  ',trim(particle_configs(group_num)%type)
+
+      if (particle_configs(group_num)%coupling_scheme .eq. 'ncs') then     
+        write(*,LOGI_FMT) 'use_kn_ionisation,     ',particle_configs(group_num)%use_kn_ionisation    
+        write(*,LOGI_FMT) 'use_kn_sputtering,     ',particle_configs(group_num)%use_kn_sputtering    
+        write(*,LOGI_FMT) 'use_kn_cx,             ',particle_configs(group_num)%use_kn_cx
+        write(*,LOGI_FMT) 'use_kn_recombination,  ',particle_configs(group_num)%use_kn_recombination
+        write(*,LOGI_FMT) 'use_kn_puffing,        ',particle_configs(group_num)%use_kn_puffing
+        write(*,LOGI_FMT) 'use_kn_line_radiation, ',particle_configs(group_num)%use_kn_line_radiation
+        write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(particle_configs(group_num)%atom_data_suffix)
+      endif
+      
     enddo
   endif
 
-  if (use_kn_puffing) then 
-    write(*,INTG_FMT) 'n_puff                ',  n_puff
-    write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
-  endif
+
 
   write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
   if (use_manual_random_seed) then

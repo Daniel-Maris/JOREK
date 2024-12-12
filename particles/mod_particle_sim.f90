@@ -20,6 +20,14 @@ type :: particle_group
   character(len=3)   :: coupling_scheme                            !< coupling scheme to use for the group
   real*8             :: n_particles                                !< number of super/marker particles in group
 
+  ! ================ for neutral particles =============
+  logical            :: use_kn_cx               !< switch on sputtering for group (only relevant for neutrals)     
+  logical            :: use_kn_sputtering       !< switch on charge-exchange for group
+  logical            :: use_kn_ionisation       !< switch on ionisation for group         
+  logical            :: use_kn_recombination    !< switch on recombination for group         
+  logical            :: use_kn_puffing          !< switch on particle puffing for group         
+  logical            :: use_kn_line_radiation   !< switch on line radiation for group
+
   class(particle_base), dimension(:), allocatable :: particles
 
 end type particle_group
@@ -62,11 +70,20 @@ subroutine configure_particle_group(sim, group_num)
   sim%groups(group_num)%dt = particle_configs(group_num)%dt
   sim%groups(group_num)%coupling_scheme = particle_configs(group_num)%coupling_scheme
   sim%groups(group_num)%n_particles = particle_configs(group_num)%n_particles
+
+  if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then
+    sim%groups(group_num)%use_kn_cx             =  particle_configs(group_num)%use_kn_cx
+    sim%groups(group_num)%use_kn_sputtering     =  particle_configs(group_num)%use_kn_sputtering
+    sim%groups(group_num)%use_kn_ionisation     =  particle_configs(group_num)%use_kn_ionisation          
+    sim%groups(group_num)%use_kn_recombination  =  particle_configs(group_num)%use_kn_recombination         
+    sim%groups(group_num)%use_kn_puffing        =  particle_configs(group_num)%use_kn_puffing         
+    sim%groups(group_num)%use_kn_line_radiation =  particle_configs(group_num)%use_kn_line_radiation 
     
-  if (particle_configs(group_num)%atom_data_suffix /= 'none') then
-    sim%groups(group_num)%ad                    =  read_adf11(sim%my_id, particle_configs(group_num)%atom_data_suffix)
-  else
-    write(*,*) "WARNING: No atom_data_suffix set for particle group ", group_num, "."
+    if (particle_configs(group_num)%atom_data_suffix /= 'none') then
+      sim%groups(group_num)%ad                    =  read_adf11(sim%my_id, particle_configs(group_num)%atom_data_suffix)
+    else
+      write(*,*) "WARNING: No atom_data_suffix set for particle group ", group_num, "."
+    endif
   endif
 end subroutine configure_particle_group
 
