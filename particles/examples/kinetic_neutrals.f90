@@ -214,7 +214,6 @@ jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
 aux_node_list => jorek_feedback%node_list
 
 !> define feedback size dependent on the number of variables required for coupling
-write(*,*) "n_aux_var: ", n_aux_var
 allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, n_aux_var))
 
 jorek_feedback%rhs = 0.d0
@@ -338,6 +337,7 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_part_adj)
   use mod_basisfunctions
   use mod_particle_types, only: copy_particle_kinetic_leapfrog
   use mod_sampling, only: boxmueller_transform,sample_chi_squared_3
+  use coupling_variables
 
   implicit none
 
@@ -412,8 +412,10 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_part_adj)
   !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
   !$omp parallel do default(none) &
-  !$omp shared(sim, particles, nstep_particles, tstep_part_adj, rng,                                &
+  !$omp shared(sim, particles, nstep_particles, tstep_part_adj, rng,                              &
   !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                         &
+  !$omp rho_idx_kn, Vpar_idx_kn, T_idx_kn,                                                        &
+
   !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                                            &
 #endif
   !$omp schedule(runtime)                                                                         &
@@ -559,9 +561,9 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_part_adj)
           extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(nstep_particles,8) !<average density over jorek tstep_part_adj!real(floor(k/nstep_particles))!1.d0 !<density proj
 
           do i_tor=1,n_tor
-            feedback_rhs(m,l,i_elm_old,i_tor,1) = feedback_rhs(m,l,i_elm_old,i_tor,1) + HZ(i_tor) * v
-            feedback_rhs(m,l,i_elm_old,i_tor,2) = feedback_rhs(m,l,i_elm_old,i_tor,2) + HZ(i_tor) * v_E
-            feedback_rhs(m,l,i_elm_old,i_tor,3) = feedback_rhs(m,l,i_elm_old,i_tor,3) + HZ(i_tor) * v_v
+            feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kn) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kn) + HZ(i_tor) * v
+            feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kn) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kn) + HZ(i_tor) * v_v
+            feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kn) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kn) + HZ(i_tor) * v_E
             feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj !< buiten de steps loop
           enddo
         enddo

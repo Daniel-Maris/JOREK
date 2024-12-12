@@ -150,7 +150,7 @@ real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_g, eq_s, eq_t
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_p
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_ss, eq_st, eq_tt
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: delta_g, delta_s, delta_t
-real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p ! make allocatable?
+real*8, dimension(n_plane,n_aux_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p ! make allocatable?
 
 real*8, dimension(n_tor,n_plane) :: HHZ, HHZ_p, HHZ_pp
 
@@ -281,22 +281,27 @@ do i=1,n_vertex_max
               eq_ss(mp,k,ms,mt) = eq_ss(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_ss(i,j,ms,mt)* HZ(in,mp)
               eq_st(mp,k,ms,mt) = eq_st(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_st(i,j,ms,mt)* HZ(in,mp)
               eq_tt(mp,k,ms,mt) = eq_tt(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_tt(i,j,ms,mt)* HZ(in,mp)
-              
-              if ( present(aux_nodes)) then
-                eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
-                eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
-                eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
-                eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
-              endif
 
               delta_g(mp,k,ms,mt) = delta_g(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
               delta_s(mp,k,ms,mt) = delta_s(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
               delta_t(mp,k,ms,mt) = delta_t(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
             enddo
-
           enddo
-
         enddo
+
+        if ( present(aux_nodes)) then
+          do k=1,n_aux_var
+            do in=1,n_tor
+              do mp=1,n_plane
+                  eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
+                  eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
+              enddo
+            enddo
+          enddo
+        endif
+
 
       enddo
     enddo
@@ -452,9 +457,9 @@ do i=1,n_vertex_max
           Vpar0_tt = eq_tt(mp,7,ms,mt)
 
           if (use_ncs) then
-            aux_rho0  = eq_aux_g(mp,1,ms,mt)
-            aux_T0    = eq_aux_g(mp,2,ms,mt)
-            aux_Vpar0 = eq_aux_g(mp,3,ms,mt)
+            aux_rho0  = eq_aux_g(mp,rho_idx_kn,ms,mt)
+            aux_Vpar0 = eq_aux_g(mp,Vpar_idx_kn,ms,mt)
+            aux_T0    = eq_aux_g(mp,T_idx_kn,ms,mt)
           end if
 
           if (use_ccs) then

@@ -76,7 +76,7 @@ real*8  :: eq_g(n_plane,0:n_var,n_gauss,n_gauss), eq_s(n_plane,0:n_var,n_gauss,n
 real*8  :: eq_t(n_plane,0:n_var,n_gauss,n_gauss), eq_p(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_ss(n_plane,0:n_var,n_gauss,n_gauss), eq_tt(n_plane,0:n_var,n_gauss,n_gauss), eq_st(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_sp(n_plane,0:n_var,n_gauss,n_gauss), eq_tp(n_plane,0:n_var,n_gauss,n_gauss)
-real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p 
+real*8, dimension(n_plane,n_aux_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p 
 real*8  :: eq_spp(n_plane,0:n_var,n_gauss,n_gauss), eq_tpp(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_s_3d(n_plane,0:n_var,n_gauss,n_gauss), eq_t_3d(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: wgauss_copy(n_gauss)
@@ -437,7 +437,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
 !$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb,                              &
-!$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot,                             &
+!$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
@@ -621,13 +621,6 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
                 eq_st(mp,k,ms,mt) = eq_st(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_st(i,j,ms,mt)* HZ(in,mp)
                 eq_spp(mp,k,ms,mt) = eq_spp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)*HZ_pp(in,mp)
                 eq_tpp(mp,k,ms,mt) = eq_tpp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)*HZ_pp(in,mp)
-
-                if (present(aux_node_list)) then
-                  eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
-                  eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
-                  eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
-                  eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
-                endif ! present(aux_node_list)
                 
                 if ( in == 1 ) cycle ! Record only the non-axisymmetric components
                 eq_s_3d(mp,k,ms,mt) = eq_s_3d(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)* HZ(in,mp)
@@ -635,6 +628,18 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
              
               enddo !n_tor
             enddo !n_var
+
+            if (present(aux_node_list)) then
+              do k=1,n_aux_var
+                do in=1,n_tor
+                  eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
+                  eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
+                enddo
+              enddo
+            endif ! present(aux_node_list)
+
 	        enddo !mt n_gauss
         enddo !ms n_gauss
       enddo !mp nplane

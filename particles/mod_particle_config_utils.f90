@@ -100,8 +100,6 @@ subroutine determine_coupling_variables()
 
     n_aux_var = final_var_idx
     n_aux_var = n_aux_var + 1 ! temporary as diag projections not yet created
-
-    if (n_aux_var == 0) write(*,*) "WARNING: no coupling variables detected, please check 'coupling_scheme' definition in particle groups"
     ! maybe some write out here to provide info?
 
 end subroutine determine_coupling_variables

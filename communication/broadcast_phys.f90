@@ -3,6 +3,7 @@ subroutine broadcast_phys(my_id)
 
 use tr_module
 use phys_module
+use coupling_variables
 use vacuum
 use mpi_mod
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
@@ -841,6 +842,16 @@ if (my_id .eq. 0) then
     call MPI_PACK(valves(i)%poly_Z(:),  4,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   enddo
 
+  ! particle coupling variables
+  call MPI_PACK(rho_idx_kn,       1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(Vpar_idx_kn,      1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(T_idx_kn,         1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(q_idx_kn,         1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(j_R_idx_kn,       1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(j_Z_idx_kn,       1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(j_Phi_idx_kn,     1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+
+  ! particle group parameters
   call MPI_PACK(n_part_groups,                              1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(particle_configs%Z,                         n_part_groups_max,    MPI_INTEGER,  buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(particle_configs%mass,                      n_part_groups_max,    MPI_REAL8,    buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -1707,6 +1718,16 @@ if (my_id .ne. 0) then
     call MPI_UNPACK(buffer,bufsize,position,valves(i)%poly_Z(:),  4,MPI_REAL8,MPI_COMM_WORLD,ierr)
   enddo
 
+  ! particle coupling variables
+  call MPI_UNPACK(buffer,bufsize,position,rho_idx_kn,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,Vpar_idx_kn,            1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,T_idx_kn,               1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,q_idx_kn,               1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,j_R_idx_kn,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,j_Z_idx_kn,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,j_Phi_idx_kn,           1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+
+  ! particle group parameters
   call MPI_UNPACK(buffer,bufsize,position,n_part_groups,          1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,particle_configs%Z,                         n_part_groups_max,   MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,particle_configs%mass,                      n_part_groups_max,   MPI_REAL8,MPI_COMM_WORLD,ierr)

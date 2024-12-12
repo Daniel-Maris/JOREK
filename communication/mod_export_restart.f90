@@ -404,7 +404,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
        "node_list%deltas",CAT_UNKNOWN)
   if(present(aux_node_list)) then
     if(export_aux_node_list .and. associated(aux_node_list)) then
-      call tr_allocate(t_aux_values,1,node_list%n_nodes,1,n_tor,1,n_degrees,1,n_var, &
+      call tr_allocate(t_aux_values,1,node_list%n_nodes,1,n_tor,1,n_degrees,1,n_aux_var, &
           "aux_node_list%values",CAT_UNKNOWN)
     endif
   endif
