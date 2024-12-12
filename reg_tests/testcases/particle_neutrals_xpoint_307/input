@@ -1,6 +1,6 @@
 &in1
 
-  restart=.f.
+  restart=.f. !for kinetic_neutrals, restart=.f. as otherwise the fluid stepper would reload the already loaded restart file
   regrid  = .f.
   refinement=.false.
 
@@ -37,6 +37,9 @@
   T_min_neg     = 4.d-4
   rho_min_neg   =  1.d-3
 
+  bc_natural_open        = .true.
+  gamma_stangeby = 8.d0
+  gamma_sheath    = 1.44
  
   fbnd(1)   = 2.
   fbnd(2:4) = 0.
