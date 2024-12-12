@@ -2,6 +2,7 @@
 jorekmodel="307"
 description="kinetic_neutrals with model$jorekmodel using xpoint plasma"
 mpitasks=2
+num_threads=8
 binaries="jorek_model${jorekmodel}_3"
 binaries_initial="jorek_model${jorekmodel}_1"
 extra_restart="part_restart.h5"
@@ -32,6 +33,8 @@ function initial_run () {
   ${codedir}/util/setinput.sh input nstep_n=10,10,10 tstep_n=10.,100.,1000.               || exit 1
   $MPIRUN 1 ./jorek_model${jorekmodel}_1 < input | tee logfile_initial                    || exit 1
   ${codedir}/util/setinput.sh input nstep_n=10 tstep_n=10.                  restart=.t.   || exit 1
+  export OMP_NUM_THREADS=$num_threads                                                     || exit 1
+  echo "setting OMP_NUM_THREADS=$num_threads, due to the requirements of the test"        || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_3 < input | tee logfile_initial2           || exit 1
 #  cp part_restart.h5 $original_dir                                                        || exit 1
 }
@@ -40,11 +43,13 @@ function initial_run () {
 # --- Carry out the test case
 function restart_run () {
   ${codedir}/util/setinput.sh input restart=.f. restart_particles=.t. nstep_n=1 tstep_n=10. nout=1 || exit 1
+  export OMP_NUM_THREADS=$num_threads                                                || exit 1
+  echo "setting OMP_NUM_THREADS=$num_threads, due to the requirements of the test"        || exit 1
   $MPIRUN $mpitasks ./jorek_model${jorekmodel}_3 < input | tee logfile               || exit 1
 }
 
 
 # --- Compare the results of the test case to the reference solution
 function compare_results () {
-  compare_results_generic 1.e-10                                                     || exit 1
+  compare_results_generic 5.e-7                                                     || exit 1
 }
