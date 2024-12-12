@@ -124,7 +124,7 @@ else
   enddo
   
   ! setting up particles per MPI node
-  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(n_particles/sim%n_cpu) ))
+  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(sim%groups(1)%n_particles/sim%n_cpu) ))
   
   ! setting up empty particle array
   select type (p => sim%groups(1)%particles)

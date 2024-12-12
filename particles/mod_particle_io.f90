@@ -454,8 +454,8 @@ use mod_coronal
 type(particle_sim) , intent(inout) :: sim
 character*(*)      , intent(in)  :: filename
 
-integer                            :: my_id, n_cpu, ierr, rank, n_particles
-integer, allocatable, dimension(:) :: particles_per_proc
+integer                            :: my_id, n_cpu, ierr, rank
+integer, allocatable, dimension(:) :: particles_per_proc ! particles per mpi proc for each group (group, processor_id)
 
 ! For HDF5 reading
 integer(HID_T)    :: file, file_space, mem_space, dset, plist ! handles
@@ -463,11 +463,11 @@ integer(HID_T)    :: data_type
 integer(HID_T)    :: group_id
 integer(HID_T)    :: time_set_id
 integer(HSIZE_T)  :: i_here
-integer           :: n_here
+integer           :: n_here, n_particles
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
 character(len=particle_type_name_length) :: particle_type_name
-integer           :: i, j, n, hdferr, n_alive
+integer           :: i, j, n, hdferr, n_alive, id
 integer, allocatable :: n_alive_all(:)
 logical           :: exists
 
@@ -482,7 +482,6 @@ real*8, dimension(:), allocatable :: real8_1D
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)      ! id of each MPI proc
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)      ! number of MPI procs
 call h5open_f(hdferr)
-allocate(particles_per_proc(0:n_cpu-1))
 
 ! Create file property list for parallel access
 call h5pcreate_f(H5P_FILE_ACCESS_F, plist, hdferr)
@@ -503,6 +502,9 @@ call h5gclose_f(group_id, hdferr)
 ! Reallocate groups if necessary
 if (allocated(sim%groups)) deallocate(sim%groups)
 allocate(sim%groups(n))
+
+allocate(particles_per_proc(0:n_cpu-1))
+
 do i=1,n
   ! Open the dataset for x
   write(group_name,'(A,i0.3,A)') '/groups/', i, '/'
@@ -514,13 +516,15 @@ do i=1,n
   ! Get the number of particles
   call h5sget_simple_extent_ndims_f(file_space, rank, hdferr)
   call h5sget_simple_extent_dims_f(file_space, tmp, maxdims, hdferr)
-  n_particles = int(tmp(2),4)
+  n_particles = int(tmp(2),4) ! should be per group
+  sim%groups(i)%n_particles = n_particles
   call h5sclose_f(file_space, hdferr)
   call h5dclose_f(dset, hdferr)
 
   ! Divide particles over processors
   particles_per_proc(0)         = n_particles/n_cpu + modulo(n_particles, n_cpu)
   particles_per_proc(1:n_cpu-1) = n_particles/n_cpu
+
   i_here = sum(particles_per_proc(0:my_id-1))
   n_here = particles_per_proc(my_id)
 

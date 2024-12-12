@@ -22,6 +22,10 @@ type :: particle_group
   character(len=50)  :: type                                       !< type of particle contained in group (i.e. particle_kinetic_leapfrog)
 
   class(particle_base), dimension(:), allocatable :: particles
+
+  ! --- local to each mpi process ---
+  integer            :: n_particles_local
+  
 end type particle_group
 
 !> Particle simulation type, containing all variables pertaining to a simulation.
