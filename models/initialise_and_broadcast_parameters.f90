@@ -5,6 +5,7 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   use mod_parameters,  only: n_tor, n_period
   use mod_plasma_functions, only: initialise_reference_parameters
   use phys_module
+  use mod_particle_config_utils
   
   implicit none
   
@@ -13,6 +14,20 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   character(len=*),             intent(in) :: filename
   
   call initialise_parameters(my_id, filename)
+
+  if (my_id .eq. 0) then
+    ! --- check that number of particle groups requested fits 
+    if (n_part_groups > n_part_groups_max) then
+      write(*,*) 'Error: particle groups defined exceeds maximum. Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)'
+    endif
+
+    ! --- Scan over particle groups and determine the coupling scheme parameters
+    call determine_coupling_schemes()
+
+    ! --- Determine the coupling variables used, their index, and n_aux_var
+    call determine_coupling_variables()
+  endif
+
   
   ! --- Broadcast input parameters from MPI thread 0 to the others.
   call broadcast_phys(my_id)

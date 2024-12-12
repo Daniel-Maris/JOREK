@@ -137,7 +137,6 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                use_ncs, use_pcs, use_ccs, use_pcs_full,            &
                 restart_particles, particle_configs, n_part_groups, &
                 puff_rate, n_puff, n_valves, valves,                &
                 cte_current_FB_fact, Z_xpoint_limit,                &

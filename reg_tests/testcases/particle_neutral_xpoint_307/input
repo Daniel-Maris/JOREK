@@ -14,10 +14,6 @@
   use_manual_random_seed = .true.
   manual_seed = 498932990
 
-  use_ncs = .true.
-  use_pcs = .f.
-  use_ccs = .f.
-
   deuterium_adas    = .true.
 
   tstep_particles    = 5.d-7
