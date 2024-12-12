@@ -133,13 +133,13 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 mode_families_modes, n_mode_families,               &
                 weights_per_family, autodistribute_ranks,           &
                 ranks_per_family,                                   &
-                n_particles, tstep_particles, nstep_particles,      &
+                tstep_particles, nstep_particles,      &
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
                 use_kn_cx, use_kn_sputtering, use_kn_ionisation,    &
                 use_ncs, use_pcs, use_ccs, use_pcs_full,            &
-                restart_particles, particle_configs, n_part_groups,  &
+                restart_particles, particle_configs, n_part_groups, &
                 use_kn_recombination, use_kn_puffing,use_kn_line_radiation,  &
                 puff_rate, n_puff, n_valves, valves,                &
                 cte_current_FB_fact, Z_xpoint_limit,                &

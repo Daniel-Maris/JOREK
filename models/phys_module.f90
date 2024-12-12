@@ -945,7 +945,6 @@ module phys_module
   logical :: use_kn_recombination !< switch on recombination         (in particle module)
   logical :: use_kn_puffing       !< switch on particle puffing         (in particle module)
   logical :: use_kn_line_radiation !< switch on line radiation         (in particle module)
-  real*8  :: n_particles      !< the number of particles (real on purpose)
   real*8  :: tstep_particles  !< the time step for the particles
   integer :: nstep_particles  !< the number of particle time steps
   integer :: nsubstep_particles !< the number of particles substeps (without projection)
@@ -995,7 +994,6 @@ module phys_module
     character(len=3)   :: coupling_scheme          !< three character code for the coupling scheme to use for the group
     real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
-
     ! character(len=50)  :: pusher                 !< name of the type of pusher to be used
 
     ! --------------- for neutral particles ------------
