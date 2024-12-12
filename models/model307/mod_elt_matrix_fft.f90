@@ -26,6 +26,7 @@ use corr_neg
 use mod_bootstrap_functions
 use mod_atomic_coeff_deuterium, only: rec_rate_to_kinetic
 use mod_sources
+use coupling_variables
 
 implicit none
 

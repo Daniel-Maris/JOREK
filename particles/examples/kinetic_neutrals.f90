@@ -41,7 +41,7 @@ use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
-use phys_module, only: n_part_groups
+use phys_module, only: n_part_groups, n_aux_var
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
@@ -213,16 +213,10 @@ jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 do_zonal = .false., calc_integrals=.false., to_vtk=.TRUE., to_h5 = .false., basename='projections', nsub=2)
 aux_node_list => jorek_feedback%node_list
 
-! Allocate feedback according to coupling scheme
-if (use_ncs) then
-  allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 4)) !< stacksize should be big enough
-elseif (use_pcs) then
-  stop 'pcs not implemented in this example'
-elseif (use_ccs) then
-  stop 'ccs not implemented in this example'
-else
-  stop 'define use_ncs, use_pcs or use_ccs'
-endif
+!> define feedback size dependent on the number of variables required for coupling
+write(*,*) "n_aux_var: ", n_aux_var
+allocate(jorek_feedback%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, n_aux_var))
+
 jorek_feedback%rhs = 0.d0
 
 ! --- Setting up jorek timestepper
