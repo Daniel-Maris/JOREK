@@ -101,6 +101,7 @@ module mod_particle_sputtering
     integer :: n_sputter = -1 !< number of simulation particles to sputter from fluid-particle sputtering across all processes, across
     !< all fluid species (proportioned by sputtering yield, to get similar weights)
     real*8  :: albedo_for_neutrals = 1.d0
+    real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
     real*8 :: sputtered_particle_weight_threshold = 1d7 !< Minimum weight of a macroparticle to be sputtered from particle-particle sputtering
   contains
     procedure :: do => do_particle_sputter
@@ -339,6 +340,10 @@ subroutine do_particle_sputter(this, sim, ev)
   
   delta_t = (tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20)))
   
+  if (this%last_diag_time .eq. 0.d0) then
+    this%last_diag_time = sim%time - delta_t
+  end if
+
   n_fluid_groups = size(this%background_species_Z,1)
   n_particle_groups = size(sim%groups,1)
 
@@ -1033,12 +1038,12 @@ type is (particle_kinetic_leapfrog)
   this%i = this%i+1
   if (this%i .ge. this%n_save) then
     do i = 1,size(this%diagnostics%patch,1)
-      ! Turn all quantities from fluences into fluxes by dividing by the fluid timestep
+      ! Turn all quantities from fluences into fluxes by dividing by the time since the last diagnostics output
       ! some of these (like T_e and n_e) were actually not fluences, but
       ! multiply those by delta_t anyway so this normalisation works and we get
       ! a decent time average
       this%diagnostics%patch(i)%scalars(:,:) = &
-          this%diagnostics%patch(i)%scalars(:,:) / delta_t
+          this%diagnostics%patch(i)%scalars(:,:) / real(sim%time - this%last_diag_time,4)
 
       nnos = size(this%diagnostics%patch(i)%scalars,1)
       if (sim%my_id .eq. 0) then
@@ -1077,6 +1082,7 @@ type is (particle_kinetic_leapfrog)
     end do
     
     this%i = 0
+    this%last_diag_time = sim%time
   end if
 end subroutine do_particle_sputter
 
