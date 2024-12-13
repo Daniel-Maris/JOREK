@@ -58,14 +58,14 @@ subroutine determine_coupling_variables()
 
     !> construct a list of unique coupling variables required
     if (use_ncs) then 
-    do i=1, size(ncs_vars)
-        call assess_and_accumulate_variable(ncs_vars(i), coupling_var_idx, coupling_vars)
+    do i=1, size(ncs_var_names)
+        call assess_and_accumulate_variable(ncs_var_names(i), coupling_var_idx, coupling_vars)
     enddo
     endif
     
     if (use_ccs) then
-    do i=1, size(ccs_vars)
-        call assess_and_accumulate_variable(ccs_vars(i), coupling_var_idx, coupling_vars)
+    do i=1, size(ccs_var_names)
+        call assess_and_accumulate_variable(ccs_var_names(i), coupling_var_idx, coupling_vars)
     enddo
     endif
 

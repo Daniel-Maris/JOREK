@@ -5,10 +5,33 @@
 module coupling_variables
     implicit none
 
-    integer, parameter :: var_name_len  = 15
     integer, parameter :: n_aux_var_max = 200
 
+    ! ====== variables names and number of coupling schemes ====== !
+
+    integer, parameter :: var_name_len  = 15
+    character(len=var_name_len), dimension(n_aux_var_max) :: coupling_vars
+
+    ! NCS
+    character(len=var_name_len), dimension(3) :: ncs_var_names = [&
+        "rho",      & !> density
+        "Vpar",     & !> parallel velocity
+        "T"         & !> temperature
+    ]
+
+    ! CCS
+    character(len=var_name_len), dimension(4) :: ccs_var_names = [&
+        "q",       & !> charge density
+        "j_R",      & !> R   component of current
+        "j_Z",      & !> Z   component of current
+        "j_Phi"     & !> Phi compoment of current    
+    ]
+
+
+    ! =========== Storage variables for kinetic coupling indices ======== !
+
     !> kn denotes kinetics
+    ! variables indices
     integer :: rho_idx_kn     = 0
     integer :: Vpar_idx_kn    = 0
     integer :: T_idx_kn       = 0
@@ -16,23 +39,5 @@ module coupling_variables
     integer :: j_R_idx_kn     = 0
     integer :: j_Z_idx_kn     = 0
     integer :: j_Phi_idx_kn   = 0
-    character(len=var_name_len), dimension(n_aux_var_max) :: coupling_vars
-
-
-
-
-    character(len=var_name_len), dimension(3) :: ncs_vars = [&
-        "rho",      & !> density
-        "Vpar",     & !> parallel velocity
-        "T"         & !> temperature
-    ]
-
-    character(len=var_name_len), dimension(4) :: ccs_vars = [&
-        "q",       & !> charge density
-        "j_R",      & !> R   component of current
-        "j_Z",      & !> Z   component of current
-        "j_Phi"     & !> Phi compoment of current    
-    ]
-
 
 end module coupling_variables
