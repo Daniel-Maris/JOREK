@@ -38,6 +38,7 @@ use mod_atomic_coeff_deuterium, only: ad_deuterium
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
 use equil_info
+use mod_particle_collision
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
@@ -81,6 +82,8 @@ real*8  :: poly_Z(4)             !< [m] Z coordinates of the quadrangular puffin
 real*8  :: poly_R2(4),poly_Z2(4) !  [m] second puffing valve location
 logical :: puff_t_dependent      !< puff time dependent using a flat - ramp - flat pattern (=.true.) or no time dependence at all (.false.) 
 logical :: boxpuff               !< whether to puff in a simple (=.false., uses r_valve etc) or quadrangular (=.true., uses pol_R, poly_Z) puff valve
+
+logical, parameter :: use_kn_self_collision=.true.
 
 !***********************************************************************
 !*                            intialisation                            *
@@ -287,6 +290,11 @@ do while (.not. sim%stop_now)
     call with(sim, gas_puff_event) 
     call with(sim, gas_puff2_event)
   endif ! use_kn_puffing  
+
+  if (use_kn_self_collision) then
+    call write_to_outputfile(sim%my_id, "Neutral self collision")
+    call neutral_self_collision(sim, rng)
+  end if
 
 
   ! --- Interactions that happen on the particle timesteps
