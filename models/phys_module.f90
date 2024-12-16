@@ -990,6 +990,7 @@ module phys_module
     character(len=3)   :: coupling_scheme          !< three character code for the coupling scheme to use for the group
     real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
+    character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
     ! character(len=50)  :: pusher                 !< name of the type of pusher to be used
 
     ! --------------- for neutral particles ------------
@@ -1005,6 +1006,10 @@ module phys_module
   end type particle_group_config
 
   type (particle_group_config), dimension(n_part_groups_max) :: particle_configs 
+
+  !> @name Particle groups in use (used when changing groups on restart), fill with group ids
+  character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
+
 
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families

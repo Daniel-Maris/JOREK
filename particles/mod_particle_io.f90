@@ -70,8 +70,8 @@ if (my_id .eq. 0) then
   call HDF5_real_saving(file,sim%time,'/time')
 end if
 
-
-if (allocated(sim%groups)) then
+! saving for each group
+if (allocated(sim%groups)) then 
   do i=1,size(sim%groups,1)
     if (.not. allocated(sim%groups(i)%particles)) then
       write(*,*) "WARNING: group ", i, " not allocated, exiting"
@@ -427,11 +427,14 @@ if (allocated(sim%groups)) then
       call HDF5_char_saving(file,particle_type_name,group_name//"type")
       call HDF5_char_saving(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
       call HDF5_char_saving(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
+      call HDF5_real_saving(file,sim%groups(i)%n_particles,group_name//"n_particles")
       ! save dt?
 
     end if
     deallocate(x,x_all,st,st_all,weight,weight_all,t_birth,t_birth_all,i_elm,i_elm_all,i_life,i_life_all)
-  end do
+  end do ! particles groups 
+
+  
 end if
 
 ! Close everything

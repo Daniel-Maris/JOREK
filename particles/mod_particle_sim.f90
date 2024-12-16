@@ -19,7 +19,8 @@ type :: particle_group
   real*8             :: dt                                         !< timestep (if fixed for all particles in this group)
   character(len=3)   :: coupling_scheme                            !< coupling scheme to use for the group
   real*8             :: n_particles                                !< number of super/marker particles in group
-
+  character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
+ 
   ! ================ for neutral particles =============
   logical            :: use_kn_cx               !< switch on sputtering for group (only relevant for neutrals)     
   logical            :: use_kn_sputtering       !< switch on charge-exchange for group
@@ -58,33 +59,47 @@ end type particle_sim
 contains
 
 !> Loads the information from a particle_group_config type to a particle_group type
-subroutine configure_particle_group(sim, group_num)
-  use phys_module, only: n_part_groups, particle_configs
+subroutine configure_particle_group(sim)
+  use phys_module, only: n_part_groups, particle_configs, particle_group_config, part_groups_in_use
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
-  integer,             intent(in)          :: group_num
+  integer                                  :: i,j
+  type(particle_group_config)              :: config
 
-  sim%groups(group_num)%Z = particle_configs(group_num)%Z
-  sim%groups(group_num)%mass = particle_configs(group_num)%mass
-  sim%groups(group_num)%dt = particle_configs(group_num)%dt
-  sim%groups(group_num)%coupling_scheme = particle_configs(group_num)%coupling_scheme
-  sim%groups(group_num)%n_particles = particle_configs(group_num)%n_particles
+  do i=1, n_part_groups
+    do j=1, n_part_groups
+      if (particle_configs(j)%id == part_groups_in_use(i)) then 
+        config = particle_configs(j)
+      else 
+        write(*,*) "Error: No matching particle_config entry found for id: '", part_groups_in_use(i), "' defined in 'part_groups_in_use' ." 
+        stop
+      endif
+    enddo
 
-  if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then
-    sim%groups(group_num)%use_kn_cx             =  particle_configs(group_num)%use_kn_cx
-    sim%groups(group_num)%use_kn_sputtering     =  particle_configs(group_num)%use_kn_sputtering
-    sim%groups(group_num)%use_kn_ionisation     =  particle_configs(group_num)%use_kn_ionisation          
-    sim%groups(group_num)%use_kn_recombination  =  particle_configs(group_num)%use_kn_recombination         
-    sim%groups(group_num)%use_kn_puffing        =  particle_configs(group_num)%use_kn_puffing         
-    sim%groups(group_num)%use_kn_line_radiation =  particle_configs(group_num)%use_kn_line_radiation 
-    
-    if (particle_configs(group_num)%atom_data_suffix /= 'none') then
-      sim%groups(group_num)%ad                    =  read_adf11(sim%my_id, particle_configs(group_num)%atom_data_suffix)
-    else
-      write(*,*) "WARNING: No atom_data_suffix set for particle group ", group_num, "."
+    sim%groups(i)%Z = config%Z
+    sim%groups(i)%mass = config%mass
+    sim%groups(i)%dt = config%dt
+    sim%groups(i)%coupling_scheme = config%coupling_scheme
+    sim%groups(i)%n_particles = config%n_particles
+    sim%groups(i)%id = config%id
+  
+    if (sim%groups(i)%coupling_scheme .eq. 'ncs') then
+      sim%groups(i)%use_kn_cx             =  config%use_kn_cx
+      sim%groups(i)%use_kn_sputtering     =  config%use_kn_sputtering
+      sim%groups(i)%use_kn_ionisation     =  config%use_kn_ionisation          
+      sim%groups(i)%use_kn_recombination  =  config%use_kn_recombination         
+      sim%groups(i)%use_kn_puffing        =  config%use_kn_puffing         
+      sim%groups(i)%use_kn_line_radiation =  config%use_kn_line_radiation 
+      
+      if (config%atom_data_suffix /= 'none') then
+        sim%groups(i)%ad                    =  read_adf11(sim%my_id, config%atom_data_suffix)
+      else
+        write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
+      endif
     endif
-  endif
+  enddo 
+
 end subroutine configure_particle_group
 
 !> allocates the particles for a group depending on its type and n_particles

@@ -4,9 +4,13 @@ module mod_particle_config_utils
 use mod_model_settings, only: n_var
 use phys_module, only: use_ncs, use_ccs, use_pcs, use_pcs_full
 use phys_module, only: n_part_groups, n_part_groups_max, particle_configs
+use phys_module, only: part_groups_in_use
 use phys_module, only: n_aux_var, n_diag_var
 use coupling_variables
 implicit none
+
+integer :: id_counter = 0
+character(len=3), dimension(:), allocatable :: part_group_ids
 
 contains
 
@@ -103,5 +107,46 @@ subroutine determine_coupling_variables()
     ! maybe some write out here to provide info?
 
 end subroutine determine_coupling_variables
+
+subroutine assign_part_group_ids()
+    implicit none
+    integer :: i
+
+    do i=1, n_part_groups
+        if (particle_configs(i)%id(1:1) == 'P') then
+            write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
+                       "as it is reserved for system assigned ids."
+            stop
+        endif
+
+        if (particle_configs(i)%id == 'non') then
+            if (part_groups_in_use(i) /= 'non') then 
+                write(*,*) "Error: part_group_in_use is defined, which requires id to be explicitly " // &
+                           "defined for all members of part_configs."
+                stop
+            endif
+            call generate_part_group_id(particle_configs(i)%id)
+        endif
+    enddo
+
+    if (part_groups_in_use(1) == 'non') then ! part_group_in_use is not assigned
+        do i=1, n_part_groups
+            part_groups_in_use(i) = particle_configs(i)%id
+        enddo
+    endif
+
+end subroutine assign_part_group_ids
+
+subroutine generate_part_group_id(id)
+    implicit none
+    character(len=3), intent(inout) :: id
+    character(len=2)                :: temp
+
+    
+    id_counter = id_counter + 1
+    write(temp, '(I2.2)') id_counter
+    id = 'P' // temp
+    write(*,*) "gen id: ", id
+end subroutine generate_part_group_id
 
 end module mod_particle_config_utils

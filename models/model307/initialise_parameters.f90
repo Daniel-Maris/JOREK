@@ -138,6 +138,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
                 restart_particles, particle_configs, n_part_groups, &
+                part_groups_in_use,                                  &
                 puff_rate, n_puff, n_valves, valves,                &
                 cte_current_FB_fact, Z_xpoint_limit,                &
                 CARIDDI_mode, use_newton, maxNewton, gamma_Newton,  &

@@ -16,16 +16,24 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   call initialise_parameters(my_id, filename)
 
   if (my_id .eq. 0) then
-    ! --- check that number of particle groups requested fits 
-    if (n_part_groups > n_part_groups_max) then
-      write(*,*) 'Error: particle groups defined exceeds maximum. Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)'
+    if (n_part_groups > 0) then
+      write(*,*) n_part_groups, " particle groups slots requested."
+
+      ! --- check that number of particle groups requested fits 
+      if (n_part_groups > n_part_groups_max) then
+        write(*,*) 'Error: number of particle groups defined exceeds maximum. Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)'
+      endif
+
+      ! --- generate unique ids for each of the particle groups
+      call assign_part_group_ids() 
+
+      ! --- Scan over particle groups and determine the coupling scheme parameters
+      call determine_coupling_schemes()
+
+      ! --- Determine the coupling variables used, their index, and n_aux_var
+      call determine_coupling_variables()
+
     endif
-
-    ! --- Scan over particle groups and determine the coupling scheme parameters
-    call determine_coupling_schemes()
-
-    ! --- Determine the coupling variables used, their index, and n_aux_var
-    call determine_coupling_variables()
   endif
 
   

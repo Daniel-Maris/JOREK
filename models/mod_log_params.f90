@@ -1025,12 +1025,17 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
   
   if (n_part_groups > 0) then
-    write(*,*) ''
     write(*,*) '==== Particle Groups ===='
-    write(*,INTG_FMT) 'n_part_groups  ',n_part_groups
-
+    write(*,INTG_FMT) 'n_part_groups     ',n_part_groups
+    write(*, "(1X,A, ' = ')", advance="no") "part_groups_in_use"
+    do i = 1, n_part_groups
+       write(*, "(A, A)", advance="no") "'", trim(part_groups_in_use(i)) // "' "
+    end do
+    write(*,*) ''
+    write(*,*)
     do group_num=1, n_part_groups
-      write(*,*) "---- Particle group ", group_num, " ----" 
+      write(*,*) "---- Particle group slot: ", group_num, " ----" 
+      write(*,CHAR_FMT) 'id,                    ',particle_configs(group_num)%id
       write(*,INTG_FMT) 'Z,                     ',particle_configs(group_num)%Z
       write(*,REAL_FMT) 'mass                   ',particle_configs(group_num)%mass
       write(*,REAL_FMT) 'dt                     ',particle_configs(group_num)%dt                    

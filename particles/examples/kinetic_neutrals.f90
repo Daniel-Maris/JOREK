@@ -104,9 +104,7 @@ if (restart_particles) then
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
 
-  do group_num=1, n_part_groups
-    call configure_particle_group(sim, group_num)
-  enddo
+  call configure_particle_group(sim)
 
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
@@ -120,8 +118,9 @@ else
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
   ! Setting up particle characteristics and allocation
+  call configure_particle_group(sim)
+  
   do group_num=1, n_part_groups
-    call configure_particle_group(sim, group_num)
     call allocate_particles(sim, group_num)
   enddo
   
