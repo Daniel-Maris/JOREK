@@ -245,7 +245,8 @@ mpi_required = 0
   call set_trap_sigterm()
   
   ! --- Preset input parameters to reasonable defaults, then read the input file.
-  call initialise_and_broadcast_parameters(my_id, "__NO_FILENAME__")
+  call initialise_parameters(my_id, "__NO_FILENAME__")
+  call broadcast_parameters(my_id)
   
   ! --- Initialize the vacuum part.
   call vacuum_init(my_id, freeboundary_equil, freeboundary, resistive_wall)

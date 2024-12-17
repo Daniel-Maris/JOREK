@@ -103,28 +103,28 @@ subroutine configure_particle_group(sim)
 end subroutine configure_particle_group
 
 !> allocates the particles for a group depending on its type and n_particles
-subroutine allocate_particles(sim, group_num)
-  use phys_module, only: particle_configs
+subroutine allocate_particles(sim)
+  use phys_module, only: particle_configs, n_part_groups
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
-  integer,             intent(in)          :: group_num
-  integer                                  :: n_particles_local
+  integer                                  :: i, n_particles_local
 
-  n_particles_local = ceiling(sim%groups(group_num)%n_particles / sim%n_cpu)
+  do i=1, n_part_groups
+    n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_cpu)
 
-  select case (trim(particle_configs(group_num)%type))
-    case ("particle_kinetic_leapfrog")
-      allocate(particle_kinetic_leapfrog::sim%groups(group_num)%particles(n_particles_local)) 
-    case ("particle_gc_relativistic")
-      allocate(particle_gc_relativistic ::sim%groups(group_num)%particles(n_particles_local)) 
-    case default
-      write(*,*) "Error: no match found for defined particle type, please ensure the defined type is supported (see mod_particle_types.f90 and mod_particle_sim.f90)"
-      stop 1
-  end select
+    select case (trim(particle_configs(i)%type))
+      case ("particle_kinetic_leapfrog")
+        allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local)) 
+      case ("particle_gc_relativistic")
+        allocate(particle_gc_relativistic ::sim%groups(i)%particles(n_particles_local)) 
+      case default
+        write(*,*) "Error: no match found for defined particle type, please ensure the defined type is supported (see mod_particle_types.f90 and mod_particle_sim.f90)"
+        stop 1
+    end select
+  enddo
   
 end subroutine allocate_particles
-
 
 !> Actions to perform when setting up a simulation
 !> inputs:
@@ -135,7 +135,7 @@ end subroutine allocate_particles
 !>   n_cpu:           (integer)(optional) number of mpi tasks in the commworld
 !> outputs:
 !>   sim: (particle_sim) the particle simulation
-subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
+subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
   use mod_mpi_tools,     only: init_mpi_threads
   use mod_mpi_tools,     only: get_mpi_wtime
   use mod_parameters,    only: n_tor, n_period
@@ -143,9 +143,10 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
   use basis_at_gaussian, only: initialise_basis
   use mod_chi,           only: init_chi_basis
   use data_structure,    only: init_threads, nbthreads
+  use phys_module,       only: n_part_groups, n_part_groups_max
+  use mod_particle_config_utils
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
-  integer, intent(in)                :: num_groups
   logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in
   integer,intent(in),optional        :: my_id,n_cpu
   logical                            :: do_jorek_init
@@ -158,8 +159,6 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
   else
     call init_mpi_threads(sim%my_id,sim%n_cpu,ierr,sim%wtime_start)
   endif
-  !> allocate the simulation particle groups
-  call sim%allocate_groups(num_groups)
 
  !> check if the initialisation of JOREK should be performed or not
   do_jorek_init = .true.
@@ -176,7 +175,33 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
     call det_modes()
 
     ! Initialise parameters
-    call initialise_and_broadcast_parameters(sim%my_id, "__NO_FILENAME__")
+    call initialise_parameters(sim%my_id, "__NO_FILENAME__")
+
+    ! Determine coupling parameters
+    if (sim%my_id .eq. 0) then
+      if (n_part_groups > 0) then
+        write(*,*) n_part_groups, " particle groups slots requested."
+  
+        ! --- check that number of particle groups requested fits 
+        if (n_part_groups > n_part_groups_max) then
+          write(*,*) 'Error: number of particle groups defined exceeds maximum. Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)'
+        endif
+
+        call sim%allocate_groups(n_part_groups)
+  
+        ! --- generate unique ids for each of the particle groups
+        call assign_part_group_ids() 
+  
+        ! --- Scan over particle groups and determine the coupling scheme parameters
+        call determine_coupling_schemes()
+  
+        ! --- Determine the coupling variables used, their index, and n_aux_var
+        call determine_coupling_variables()
+  
+      endif
+    endif
+
+    call broadcast_parameters(sim%my_id)
 
     ! Broadcast physics parameters
     call broadcast_phys(sim%my_id)

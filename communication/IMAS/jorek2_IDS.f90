@@ -102,8 +102,9 @@ program jorek2_IDS
   call preset_parameters()
 
   ! --- Initialize and broadcast input parameters
-  call initialise_and_broadcast_parameters(my_id, "__NO_FILENAME__")
-  
+  call initialise_parameters(my_id, "__NO_FILENAME__")
+  call broadcast_parameters(my_id)
+
   ! --- Initialize the vacuum part.
   call vacuum_init(my_id, freeboundary_equil, freeboundary, resistive_wall)
 

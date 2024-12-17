@@ -90,7 +90,7 @@ logical :: boxpuff               !< whether to puff in a simple (=.false., uses 
 !***********************************************************************
 
 ! Start up MPI, jorek
-call sim%initialize(num_groups=1)
+call sim%initialize()
 
 ! Set up the field reader < can this be moved to sim%initialize
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
@@ -120,9 +120,7 @@ else
   ! Setting up particle characteristics and allocation
   call configure_particle_group(sim)
   
-  do group_num=1, n_part_groups
-    call allocate_particles(sim, group_num)
-  enddo
+  call allocate_particles(sim)
   
   ! setting up empty particle array
   select type (p => sim%groups(1)%particles)

@@ -2196,7 +2196,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   !call add_pellet(node_list,element_list,25.d0,0.06d0,0.03d0,3.78d0,0.14d0)
   
   ! -> Deallocate temporary arrays 
-  deallocate(part_groups_in_use_old)
+  if (allocated(part_groups_in_use_old)) deallocate(part_groups_in_use_old)
 
   call tr_deallocate(mode_tmp,"mode_tmp",CAT_UNKNOWN)
   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
