@@ -24,7 +24,6 @@
 program JOREK2
 
   use constants
-  use mod_random_seed
   use data_structure
   use phys_module
   use mod_parameters
@@ -182,8 +181,6 @@ program JOREK2
   type(type_SP_MATRIX)        :: a_mat
   type(type_RHS)              :: rhs_vec, deltas
   type(type_SP_SOLVER)        :: solver
-
-  integer                     :: seed
  
   call init_expr()
   allocate(res(exprs_all_int%n_expr+1))
