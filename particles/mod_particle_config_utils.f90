@@ -146,7 +146,6 @@ subroutine generate_part_group_id(id)
     id_counter = id_counter + 1
     write(temp, '(I2.2)') id_counter
     id = 'P' // temp
-    write(*,*) "gen id: ", id
 end subroutine generate_part_group_id
 
 end module mod_particle_config_utils
