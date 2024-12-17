@@ -31,32 +31,29 @@ subroutine neutral_self_collision(sim, rng, dt)
 
   real*8,                        intent(in)    :: dt !< timestep over which the collisions must be calculated
 
-  type(particle_kinetic_leapfrog)                             :: pa_temp
   type(particle_kinetic_leapfrog), dimension(:), allocatable  :: pa_bin !< array of particles in this collisional bin
   
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: n_elm
-  integer, dimension(:), allocatable :: last_pa_elm !< contains the index of the last particle in the sorted particle array which is still in element i_elm, such that last_pa_elm(i_elm) - last_pa_elm(i_elm - 1) = #particles in element i_elm size(0:element), with zeroth index entry to be able to calculate #pa in elm for i_elm = 1
-  integer :: i_pa_group, i_phi, is, it, ns, nt, nst, n_pa, i_pair
+  integer :: i_pa_group, i_phi, is, it, ns, nt, nst, n_pa_bin, i_pair
   integer, parameter :: bin_factor = 10 !< factor by which a collisional bin is larger than necessary if all particles were perfectly distributed among the bins
-  integer :: i,j, i_elm, i_elm_prev
+  integer :: i,j, i_elm
   
-  real*8 :: N_pair !< [physical particles] number of collision pairs to be tried in collisional bin
-  real*8 :: P_coll !< [chance] P = 2 w_col/w_tot n \sigma_T v_r dt
-  real*8 :: w2, w1 !< [physical particles] weight of super particle 1
-  real*8 :: w_coll !< [physical particles] weight of the physical particles colliding of super particle = min(w1,w2)
-  real*8 :: w_tot !< physical particles represented by the collisional pair (including part that doesn't collide)
-  real*8 :: v_r !< [m/s] scalar relative velocity of collisional pair
+  real*8 :: P_coll  !< [chance] P = 2 w_col/w_tot n \sigma_T v_r dt
+  real*8 :: w2, w1  !< [physical particles] weight of super particle 1
+  real*8 :: w_coll  !< [physical particles] weight of the physical particles colliding of super particle = min(w1,w2)
+  real*8 :: w_tot   !< physical particles represented by the collisional pair (including part that doesn't collide)
+  real*8 :: v_r     !< [m/s] scalar relative velocity of collisional pair
   real*8 :: sigma_T !< [m^2] total collisional cross section of the collision pair
 
   integer :: pa_in_elm !< number of particles in the element under consideration
-  integer :: av_pa_per_bin !< average number of particles per bin in this element
   integer, parameter :: aim_pa_per_bin = 50 !< wanted amount of super particles in one collisional bin (element is split up to satisfy this)
-  integer, dimension(:),       allocatable :: i_pa_elm !< global particle indices of the particles in this element
-  integer, dimension(:,:,:,:), allocatable :: i_pa_bin !< global particle indices of the particles in this collisional bin (bin particle, s bin,t bin, phi bin)
-  integer, dimension(:,:,:),   allocatable :: n_pa_bin !< number of particles in each collisional bin of this element (s bin, t bin, phi bin)
-  logical, dimension(:),       allocatable :: paired   !< array to keep track of which particle is not paired yet
-  integer, dimension(:),       allocatable :: pa_ind   !< ascending array of size(pa) s.t. pa_ind(i) = i
+  integer, dimension(:),       allocatable :: i_pa_elm     !< global particle indices of the particles in this element
+  integer, dimension(:,:,:,:), allocatable :: i_pa_bin     !< global particle indices of the particles in this collisional bin (bin particle, s bin,t bin, phi bin)
+  integer, dimension(:,:,:),   allocatable :: n_pa_bin_arr !< number of particles in each collisional bin of this element (s bin, t bin, phi bin)
+  logical, dimension(:),       allocatable :: paired       !< array to keep track of which particle is not paired yet
+  integer, dimension(:),       allocatable :: pa_ind_arr   !< ascending array of size(pa) s.t. pa_ind_arr(i) = i, used to retrieve global indices while masking over i_elm
+  integer, dimension(:),       allocatable :: pa_elm_arr   !< precalculated pa(:)%i_elm for faster masking over i_elm 
   real :: R, R_s, R_t, Z, Z_s, Z_t
   real :: lt,ls !< physical size of element in s direction
   real*8 :: RN(3) !< random numbers for chance to collide, impact parameter and scattering plane angle
@@ -71,10 +68,8 @@ subroutine neutral_self_collision(sim, rng, dt)
   real*8 :: alpha  !< scattering plane angle to Z-axis around *v1*
   real*8 :: Theta  !< scattering angle in normal coordinates
   real*8 :: m2, m1 !< mass of particle 1
-  real*8 :: v1i(3) !< initial velocity of particle 1
-  real*8 :: v1f(3) !< final   velocity of particle 1
-  real*8 :: v2i(3) !< initial velocity of particle 2
-  real*8 :: v2f(3) !< final   velocity of particle 2
+  real*8 :: v1f(3) !< final velocity of particle 1
+  real*8 :: v2f(3) !< final velocity of particle 2
   
   !dbg
   real*8 :: t(3)  !< cpu times (begin, end, diff)
@@ -100,12 +95,18 @@ subroutine neutral_self_collision(sim, rng, dt)
       !allocate here so that different groups can have different resolutions in the future, this should probably just be based on n_plane
       n_phi = 4 !n_plane
       
-      ! making index array so that masks can be used to retrieve global indices
-      allocate(pa_ind(size(pa)))
-      do i=1,size(pa)
-        pa_ind(i) = i 
-      end do
+      ! making index array and element array so that masks can be used to retrieve global indices
+      allocate(pa_ind_arr(size(pa)))
+      allocate(pa_elm_arr(size(pa)))
 
+      !$omp parallel do default(none) &
+      !$omp shared(pa,pa_ind_arr,pa_elm_arr)
+      do i=1,size(pa)
+        pa_ind_arr(i) = i 
+        pa_elm_arr(i) = pa(i)%i_elm
+      end do
+      !$omp end parallel do
+      
       t_priv = 0.d0
       t_mask = 0.d0
       t_rest = 0.d0
@@ -122,11 +123,11 @@ subroutine neutral_self_collision(sim, rng, dt)
 #else
       !$omp parallel do default(none)                                                              &
       !$omp shared(sim, rng, dt,                                                                   &
-      !$omp n_elm, pa_ind, n_phi, i_pa_group)                                                      &
+      !$omp n_elm, pa_ind_arr, n_phi, i_pa_group, pa_elm_arr)                                              &
 #endif
       !$omp schedule(runtime)                                                                      &
       !$omp private(i_pa_elm, pa_in_elm, i, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
-      !$omp ls, lt, i_pa_bin, n_pa_bin, n_pa, pa_bin, n_bin, w2_phi, paired, i_pair, i_pa1, i_pa2, &
+      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa_bin, n_bin, w2_phi, paired, i_pair, i_pa1, i_pa2, &
       !$omp RZPhi, d2, RZPhi_try, d2_try, w1, w2, w_coll, w_tot, v_r, m1, m2, sigma_T, P_coll,     &
       !$omp i_rng, RN, Theta, alpha, v1f, v2f, t_priv)                                             &
       !$omp reduction(+:t_mask, t_rest, t_elm)
@@ -135,7 +136,7 @@ subroutine neutral_self_collision(sim, rng, dt)
 
         call cpu_time(t_priv(1))
         
-        i_pa_elm = pack(pa_ind, pa%i_elm == i_elm)
+        i_pa_elm = pack(pa_ind_arr, pa_elm_arr == i_elm) ! this is the slowest step in this script
 
         call cpu_time(t_priv(2))
         t_mask = t_priv(2) - t_priv(1)
@@ -175,34 +176,34 @@ subroutine neutral_self_collision(sim, rng, dt)
         end if
 
         allocate(i_pa_bin(bin_factor*aim_pa_per_bin,ns,nt,n_phi))
-        allocate(n_pa_bin(ns,nt,n_phi))
+        allocate(n_pa_bin_arr(ns,nt,n_phi))
         i_pa_bin = 0
-        n_pa_bin = 0
+        n_pa_bin_arr = 0
 
         !loop to sort particles into their right bin
         do i=1,pa_in_elm
           is = ith_bin(pa(i_pa_elm(i))%st(1),ns)
           it = ith_bin(pa(i_pa_elm(i))%st(2),nt)
-          ! if(is < 1 .or. is > ns .or. it < 1 .or. it > nt) write(*,*) "NNC ERROR",is,it,ns,nt,pa(i_pa_elm(i))%st(1),pa(i_pa_elm(i))%st(2)
+          
           i_phi = ceiling(pa(i_pa_elm(i))%x(3)/ (2.d0 * PI / float(n_period*n_phi)))
           if (i_phi .gt. n_phi) i_phi = mod(i_phi,n_phi)
           if (i_phi .lt. 1)     i_phi = mod(i_phi,n_phi) + n_phi
           
-          n_pa = n_pa_bin(is,it,i_phi) + 1
-          n_pa_bin(is,it,i_phi) = n_pa
-          i_pa_bin(n_pa,is,it,i_phi) = i_pa_elm(i)
+          n_pa_bin = n_pa_bin_arr(is,it,i_phi) + 1
+          n_pa_bin_arr(is,it,i_phi) = n_pa_bin
+          i_pa_bin(n_pa_bin,is,it,i_phi) = i_pa_elm(i)
         end do !i_pa_elm
 
         !loop through each collisional bin
         do i_phi=1,n_phi 
           do it=1,nt
             do is=1,ns 
-              n_pa = n_pa_bin(is,it,i_phi) ! shorthand notation
-              if(n_pa .le. 1) cycle !< can't collide 0 or 1 particles
+              n_pa_bin = n_pa_bin_arr(is,it,i_phi) ! shorthand notation
+              if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
               
               !make a local copy of the particles in this bin
-              allocate(pa_bin(n_pa))
-              do i=1,n_pa
+              allocate(pa_bin(n_pa_bin))
+              do i=1,n_pa_bin
                 call copy_particle_kinetic_leapfrog(pa(i_pa_bin(i,is,it,i_phi)),pa_bin(i)) !copy from MPI pa array to bin arr
               end do
               
@@ -218,12 +219,12 @@ subroutine neutral_self_collision(sim, rng, dt)
                 w2_phi = ((ls+lt)/(2.d0*PI/real(n_period*n_phi)))**2
               end if
 
-              allocate(paired(n_pa))
+              allocate(paired(n_pa_bin))
               paired(:) = .false.
 
-              do i_pair = 1,int(real(n_pa)/2) !< dummy variable for loop, for odd n_pa, there are (n_pa-1)/2 pairs possible
+              do i_pair = 1,int(real(n_pa_bin)/2) !< dummy variable for loop, for odd n_pa_bin, there are (n_pa_bin-1)/2 pairs possible
                 !< Find first unpaired particle
-                do i=1,n_pa
+                do i=1,n_pa_bin
                   if(paired(i)) cycle
                   i_pa1 = i
                   paired(i) = .true.
@@ -234,7 +235,7 @@ subroutine neutral_self_collision(sim, rng, dt)
                 RZPhi=pa_bin(i_pa1)%x
                 d2 = 1.d99
                 i_pa2 = -1
-                do i=1,n_pa !< finds weighted nearest neighbour by looping through all particles in bin
+                do i=1,n_pa_bin !< finds weighted nearest neighbour by looping through all particles in bin
                   if(paired(i)) cycle !< skip particles that have been paired already
                   RZPhi_try = pa_bin(i)%x 
                   !> find lowest squared distance rather than real distance
@@ -285,7 +286,7 @@ subroutine neutral_self_collision(sim, rng, dt)
               end do !loop over i_pair
 
               ! copy back into MPI pa array
-              do i=1,n_pa
+              do i=1,n_pa_bin
                 call copy_particle_kinetic_leapfrog(pa_bin(i), pa(i_pa_bin(i,is,it,i_phi))) 
               end do
 
@@ -296,7 +297,7 @@ subroutine neutral_self_collision(sim, rng, dt)
           end do !it
         end do !i_phi toroidal bins
         
-        if(allocated(n_pa_bin)) deallocate(n_pa_bin)
+        if(allocated(n_pa_bin_arr)) deallocate(n_pa_bin_arr)
         if(allocated(i_pa_bin)) deallocate(i_pa_bin)
         if(allocated(i_pa_elm)) deallocate(i_pa_elm)
         

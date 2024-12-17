@@ -938,15 +938,15 @@ subroutine conservation_checks(sim)
     !$omp private(j, E, B, psi, U, B_norm)
       do j=1,size(particles,1)
 
-      if (particles(j)%i_elm .le. 0) cycle
+        if (particles(j)%i_elm .le. 0) cycle
 
-      call sim%fields%calc_EBpsiU(sim%time , particles(j)%i_elm, particles(j)%st, particles(j)%x(3), E, B, psi, U)
-      B_norm = B/norm2(B)
+        call sim%fields%calc_EBpsiU(sim%time , particles(j)%i_elm, particles(j)%st, particles(j)%x(3), E, B, psi, U)
+        B_norm = B/norm2(B)
 
-      particles_remaining = particles_remaining + particles(j)%weight
-      momentum_remaining  = momentum_remaining  + particles(j)%weight * dot_product(B_norm,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT
-      energy_remaining    = energy_remaining    + particles(j)%weight * dot_product(particles(j)%v,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT /2.d0
-      superparticles_remaining = superparticles_remaining + 1
+        particles_remaining = particles_remaining + particles(j)%weight
+        momentum_remaining  = momentum_remaining  + particles(j)%weight * dot_product(B_norm,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT
+        energy_remaining    = energy_remaining    + particles(j)%weight * dot_product(particles(j)%v,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT /2.d0
+        superparticles_remaining = superparticles_remaining + 1
 
       enddo !j
     !omp end parallel do
