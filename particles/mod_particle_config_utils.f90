@@ -10,7 +10,6 @@ use coupling_variables
 implicit none
 
 integer :: id_counter = 0
-character(len=3), dimension(:), allocatable :: part_group_ids
 
 contains
 

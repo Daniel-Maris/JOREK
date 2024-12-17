@@ -22,12 +22,16 @@ type :: particle_group
   character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
  
   ! ================ for neutral particles =============
-  logical            :: use_kn_cx               !< switch on sputtering for group (only relevant for neutrals)     
-  logical            :: use_kn_sputtering       !< switch on charge-exchange for group
+  logical            :: use_kn_cx               !< switch on charge-exchange for group  
+
+  logical            :: use_kn_sputtering       !< switch on sputtering for group 
+  real*8             :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events
+
   logical            :: use_kn_ionisation       !< switch on ionisation for group         
-  logical            :: use_kn_recombination    !< switch on recombination for group         
-  logical            :: use_kn_puffing          !< switch on particle puffing for group         
+  logical            :: use_kn_recombination    !< switch on recombination for group       
+  logical            :: use_kn_puffing          !< switch on particle puffing for group
   logical            :: use_kn_line_radiation   !< switch on line radiation for group
+
 
   class(particle_base), dimension(:), allocatable :: particles
 
@@ -84,20 +88,22 @@ subroutine configure_particle_group(sim)
     sim%groups(i)%n_particles = config%n_particles
     sim%groups(i)%id = config%id
   
-    if (sim%groups(i)%coupling_scheme .eq. 'ncs') then
-      sim%groups(i)%use_kn_cx             =  config%use_kn_cx
-      sim%groups(i)%use_kn_sputtering     =  config%use_kn_sputtering
-      sim%groups(i)%use_kn_ionisation     =  config%use_kn_ionisation          
-      sim%groups(i)%use_kn_recombination  =  config%use_kn_recombination         
-      sim%groups(i)%use_kn_puffing        =  config%use_kn_puffing         
-      sim%groups(i)%use_kn_line_radiation =  config%use_kn_line_radiation 
-      
-      if (config%atom_data_suffix /= 'none') then
-        sim%groups(i)%ad                    =  read_adf11(sim%my_id, config%atom_data_suffix)
-      else
-        write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
-      endif
+    ! --- ncs options
+    sim%groups(i)%use_kn_cx             =  config%use_kn_cx
+    sim%groups(i)%use_kn_sputtering     =  config%use_kn_sputtering
+    sim%groups(i)%use_kn_ionisation     =  config%use_kn_ionisation          
+    sim%groups(i)%use_kn_recombination  =  config%use_kn_recombination         
+    sim%groups(i)%use_kn_puffing        =  config%use_kn_puffing        
+    sim%groups(i)%n_reflect_ratio       =  config%n_reflect_ratio 
+    sim%groups(i)%use_kn_line_radiation =  config%use_kn_line_radiation 
+    
+    if (config%atom_data_suffix /= 'none') then
+      sim%groups(i)%ad                    =  read_adf11(sim%my_id, config%atom_data_suffix)
+    else
+      if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
     endif
+
+
   enddo 
 
 end subroutine configure_particle_group

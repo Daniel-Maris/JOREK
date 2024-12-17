@@ -12,7 +12,7 @@ module mod_particle_recomb
 
     contains
 
-    subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,tstep_fluid_si)
+    subroutine do_1particle_recombination(element_list,node_list,target_group,jorek_stepper,rng,tstep_fluid_si)
         use mod_jorek_timestepping !< gives us access to sim?
         use mod_integrate_recomb, only : integrate_recombination
         use phys_module, only: use_manual_random_seed, central_density, central_mass, sqrt_mu0_over_rho0
@@ -23,6 +23,7 @@ module mod_particle_recomb
         type(jorek_timestep_action),target            :: jorek_stepper
         TYPE (type_node_list),         intent(in)     :: node_list
         TYPE (type_element_list),      intent(in)     :: element_list
+        integer, intent(in)                           :: target_group
         real*8, intent(in)                            :: tstep_fluid_si
         
         !internal variables
@@ -67,7 +68,7 @@ module mod_particle_recomb
                                     total_Erec_rad_all *1.5d0 / MU_ZERO, total_Erec_rad_all *1.5d0 / MU_ZERO/tstep_fluid_si /1.d6
         endif
         !Nrec_part amount of particles needed for this amount of recombination
-        Nrec_part = int( max(sim%groups(1)%n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average weight per particle (not necesarily the actual weight, as that depends on Srec)
+        Nrec_part = int( max(sim%groups(target_group)%n_particles * 1.d-2 ,total_rec/1.d14 ) )!< assumed average weight per particle (not necesarily the actual weight, as that depends on Srec)
         !< limited to 1% of the total initialized particles
     
     
@@ -79,11 +80,11 @@ module mod_particle_recomb
         !$ call omp_set_schedule(omp_sched_dynamic,100)
         end if
     
-        allocate(is_free(size(sim%groups(1)%particles,1))) 
-        !$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
+        allocate(is_free(size(sim%groups(target_group)%particles,1))) 
+        !$omp parallel do default(none) shared(sim, n_free, i_free, is_free, target_group) &
         !$omp private(j) schedule(runtime)
-        do j=1,size(sim%groups(1)%particles,1) !sim%groups(1)%particles
-        is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
+        do j=1,size(sim%groups(target_group)%particles,1) 
+        is_free(j) = sim%groups(target_group)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
         end do
         !$omp end parallel do
         !$omp barrier
@@ -92,7 +93,7 @@ module mod_particle_recomb
         k = 1
         do j=1,size(is_free,1)
         if (is_free(j)) then
-            i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(1)%particles(j)
+            i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(target_group)%particles(j)
             k = k+1
             !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
         end if
@@ -102,7 +103,7 @@ module mod_particle_recomb
         ! loop over all elements
         k = 0 !< first free particle
         particles_per_element = 1  
-        select type (particles => sim%groups(1)%particles)
+        select type (particles => sim%groups(target_group)%particles)
         type is (particle_kinetic_leapfrog)
         if(use_manual_random_seed) then
         !$ call omp_set_schedule(omp_sched_static,10)
@@ -114,7 +115,7 @@ module mod_particle_recomb
         !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
         !$omp parallel do default(shared) &
-        !$omp shared(sim, particles,jorek_stepper, element_list, node_list, rec_v_R,rec_v_Z,rec_v_phi, &
+        !$omp shared(sim, particles,jorek_stepper, element_list, node_list, target_group, rec_v_R,rec_v_Z,rec_v_phi, &
         !$omp i_free,rng,rec_rate_local, &
         !$omp CENTRAL_DENSITY, CENTRAL_MASS,sqrt_mu0_over_rho0,particles_per_element ) &
 #endif

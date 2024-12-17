@@ -1049,6 +1049,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         write(*,LOGI_FMT) 'use_kn_cx,             ',particle_configs(group_num)%use_kn_cx
         write(*,LOGI_FMT) 'use_kn_recombination,  ',particle_configs(group_num)%use_kn_recombination
         write(*,LOGI_FMT) 'use_kn_puffing,        ',particle_configs(group_num)%use_kn_puffing
+        write(*,REAL_FMT) 'n_reflect_ratio,       ',particle_configs(group_num)%n_reflect_ratio
         write(*,LOGI_FMT) 'use_kn_line_radiation, ',particle_configs(group_num)%use_kn_line_radiation
         write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(particle_configs(group_num)%atom_data_suffix)
       endif

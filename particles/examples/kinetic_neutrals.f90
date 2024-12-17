@@ -46,7 +46,7 @@ use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_part_groups, n_aux_var
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
-use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
+use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: puff_rate, n_puff, valves
 use phys_module, only: use_manual_random_seed, manual_seed
@@ -56,15 +56,16 @@ use phys_module, only: use_manual_random_seed, manual_seed
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event)                                       :: D_sputter_event, gas_puff_event, gas_puff2_event
+type(event), dimension(:), allocatable            :: sputter_events, puff_events ! can also be not allocatable and have size n_part_groups_max
+type(particle_sputter)                            :: sputter_source
+type(event)                                       :: gas_puff_event, gas_puff2_event
 type(event), target                               :: project_jorek_feedback, jorek_stepper_event
 type(pcg32_rng), dimension(:), allocatable        :: rng
 type(count_action)                                :: counter
 type(projection), target                          :: jorek_feedback
 type(jorek_timestep_action), target               :: jorek_stepper
-type(particle_sputter)                            :: D_sputter_source
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
-type(edge_elements)                               :: D_edge
+type(edge_elements)                               :: sputter_edge
 type(particle_puffing)                            :: gas_puff, gas_puff2
 
 real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
@@ -74,6 +75,9 @@ real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amoun
 integer   :: n_reflect
 integer   :: i, j, istep, group_num
 integer   :: seed, i_rng, n_stream
+integer   :: sputter_counter = 0
+integer   :: recomb_counter  = 0
+integer, dimension(:), allocatable :: recomb_groups
 
 ! Puffing parameters
 real*8  :: t_puff_start          !< [s] time to start ramping the puff rate if puff_t_dependent=.true.
@@ -149,14 +153,27 @@ n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) dens
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
 
-! --- Setting up sputtering
-if (sim%groups(1)%use_kn_sputtering) then  
-  n_reflect = ceiling(sim%groups(1)%n_particles * 5.d-4) !< should be a group dependent input parameter with this as default value
-  D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
-  D_sputter_event = event(D_sputter_source)
-endif
+! --- Setting up sputtering and recombination
+allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups)) 
+do group_num=1, n_part_groups
+  if (sim%groups(group_num)%use_kn_sputtering) then
+    sputter_counter = sputter_counter + 1
+    n_reflect = ceiling(sim%groups(1)%n_particles * sim%groups(group_num)%n_reflect_ratio)
+    sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, group_num, n_reflect)
+    sputter_events(sputter_counter) = event(sputter_source)
+  endif
 
-! --- Setting up puffing
+  if (sim%groups(group_num)%use_kn_recombination) then
+
+    ! add group to the list of groups requiring recombination
+    recomb_counter = recomb_counter + 1
+    recomb_groups(recomb_counter) = group_num
+  endif
+enddo 
+
+! --- Setting up recombination
+
+
 
 !> Adapt the following to customize the time dependent puff rate:
 !> puffing_rate_start = initial puffing rate [atoms/s]
@@ -247,15 +264,15 @@ do while (.not. sim%stop_now)
   !> The sputtering modules actually contains 3 different effects: sputtering (plasma to W, which is not used in this example), 
   !> kinetic particle reflection off the wall, and wall recombination of the plasma into kinetic neutrals (i.e. recycling)
   !> Do this call before recombination and puffing. Otherwise to-be-reflected particles can be overwritten.
-  if (sim%groups(1)%use_kn_sputtering) then
+  do i=1, sputter_counter    
     call write_to_outputfile(sim%my_id, "Sputtering")
-    call with(sim, D_sputter_event)
-  endif   !use_kn_sputtering
+    call with(sim, sputter_events(i))
+  enddo
   
-  if (sim%groups(1)%use_kn_recombination) then
+  do i=1, recomb_counter
     call write_to_outputfile(sim%my_id, "Recombination")
-    call do_1particle_recombination(element_list,node_list,jorek_stepper,rng, tstep_fluid_si) 
-  endif !use_kn_recombination
+    call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
+  enddo
     
   if (sim%groups(1)%use_kn_puffing) then
     call write_to_outputfile(sim%my_id, "Puffing")
@@ -308,6 +325,8 @@ call write_to_outputfile(sim%my_id, "End of simulation")
   
 call write_simulation_hdf5(sim, 'part_restart.h5')
 
+deallocate(sputter_events, recomb_groups)
+
 call sim%finalize
 
 !***********************************************************************
@@ -330,15 +349,16 @@ subroutine write_to_outputfile(id,what)
 
 end subroutine
 
-function initialise_sputtering(node_list, element_list, n_reflect) result(D_sputter_source)
+function initialise_sputtering(node_list, element_list, target_group, n_reflect) result(sputter_source)
 
   use mod_edge_domain
   use mod_edge_elements
 
   type(type_node_list), intent(in)    :: node_list
   type(type_element_list)             :: element_list
-  type(particle_sputter)              :: D_sputter_source
-  integer                             :: n_reflect
+  integer, intent(in)                 :: target_group
+  integer, intent(in)                 :: n_reflect
+  type(particle_sputter)              :: sputter_source
   !real*8, allocatable, dimension(:)   :: wall_albedo
   type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 
@@ -347,14 +367,14 @@ function initialise_sputtering(node_list, element_list, n_reflect) result(D_sput
   call find_edge_domains(node_list,element_list, edge_domains)!, discont_corner=.true.)
   if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
   
-  call D_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
+  call sputter_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
 
   ! target group, number of particles per mpi task, densities, Zs, basename
-  D_sputter_source = particle_sputter(D_edge, 1, n_reflect, basename='D_reflect')
-  D_sputter_source%use_Yn_func = .false.
-  D_sputter_source%n_save = nout !10 ! or nout
-  D_sputter_source%albedo_for_neutrals = 1.d0
-  D_sputter_source%sputtered_particle_weight_threshold = 1.d0
+  sputter_source = particle_sputter(sputter_edge, target_group, n_reflect)
+  sputter_source%use_Yn_func = .false.
+  sputter_source%n_save = nout !10 ! or nout
+  sputter_source%albedo_for_neutrals = 1.d0
+  sputter_source%sputtered_particle_weight_threshold = 1.d0
 
 end function
 

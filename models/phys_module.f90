@@ -980,8 +980,8 @@ module phys_module
   ! ------------------------------------------------
   !> @name Particle group settings
   integer            :: n_part_groups                !< number of particle groups being used
-  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups             
-
+  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups     
+  
   !> Contains configuration and settings relating to a particle group
   type :: particle_group_config
     integer            :: Z                        !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
@@ -996,11 +996,12 @@ module phys_module
     ! --------------- for neutral particles ------------
 
     character(len=256)  :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
-    logical             :: use_kn_cx               !< switch on sputtering for group (only relevant for neutrals)     
-    logical             :: use_kn_sputtering       !< switch on charge-exchange for group
+    logical             :: use_kn_cx               !< switch on charge-exchange for group     
+    logical             :: use_kn_sputtering       !< switch on sputtering for group (only relevant for neutrals)
     logical             :: use_kn_ionisation       !< switch on ionisation for group         
     logical             :: use_kn_recombination    !< switch on recombination for group         
-    logical             :: use_kn_puffing          !< switch on particle puffing for group         
+    logical             :: use_kn_puffing          !< switch on particle puffing for group    
+    real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
     logical             :: use_kn_line_radiation   !< switch on line radiation for group
 
   end type particle_group_config

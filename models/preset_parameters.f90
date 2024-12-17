@@ -887,6 +887,7 @@ particle_configs(:)%use_kn_puffing        = .false.
 particle_configs(:)%use_kn_line_radiation = .true.
 particle_configs(:)%use_kn_ionisation     = .true.
 particle_configs(:)%use_kn_sputtering     = .false.
+particle_configs(:)%n_reflect_ratio       = 5.d-4
 particle_configs(:)%use_kn_cx             = .true.
 
 part_groups_in_use(:) = 'non'
