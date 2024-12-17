@@ -67,7 +67,6 @@ type(particle_puffing)                            :: gas_puff, gas_puff2
 
 real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
 real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amount of steps (nstep_particles) fit into a fluid step (tstep)
-!$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
 integer   :: i, j, istep
@@ -293,7 +292,7 @@ do while (.not. sim%stop_now)
 
   if (use_kn_self_collision) then
     call write_to_outputfile(sim%my_id, "Neutral self collision")
-    call neutral_self_collision(sim, rng)
+    call neutral_self_collision(sim, rng, tstep_fluid_si)
   end if
 
 
@@ -606,7 +605,7 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_part_adj)
   end select
 
   if (use_ncs) then
-    write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
+    if(sim%my_id == 0) write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
     jorek_feedback%rhs(:,:,:,:,1:3) = feedback_rhs(:,:,:,:,1:3) / jorek_feedback%rhs_gather_time !* TWOPI
     jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4)
     jorek_feedback%rhs_gather_time = 0.d0

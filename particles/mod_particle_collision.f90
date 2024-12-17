@@ -6,9 +6,12 @@ module mod_particle_collision
   use constants
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_particle_sim
-  use phys_module, only: tstep, n_period !< we need the intrinsic fortran gamma function so have to use only
+  use phys_module, only: tstep, n_period, use_manual_random_seed !< we need the intrinsic fortran gamma function so have to use only
   use mod_interp
+  use mod_event, only: mpi_minmeanmax
   
+  !$ use omp_lib
+
   implicit none
    
   private
@@ -20,18 +23,19 @@ contains
 !> nearest neighbour approach where each element has a number of subcells in the toroidal direction
 !> the number of subcells in the poloidal direction are done by dividing the element up in an s,t grid
 !> which is determined automatically by the amount of particles and the length of the element along s and t 
-subroutine neutral_self_collision(sim, rng)
-  use stdlib_sorting, only: sort_index
+subroutine neutral_self_collision(sim, rng, dt)
+  implicit none
 
-  type(particle_sim), intent(inout)              :: sim
-  type(pcg32_rng), dimension(:), intent(inout)   :: rng
-  
+  type(particle_sim),            intent(inout) :: sim
+  type(pcg32_rng), dimension(:), intent(inout) :: rng
+
+  real*8,                        intent(in)    :: dt !< timestep over which the collisions must be calculated
+
   type(particle_kinetic_leapfrog)                             :: pa_temp
   type(particle_kinetic_leapfrog), dimension(:), allocatable  :: pa_bin !< array of particles in this collisional bin
   
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: n_elm
-!  integer, dimension(:,:,:), allocatable :: i_pa !< index of particle in group list sorted according to bin (particle,toroidal bin,element)
   integer, dimension(:), allocatable :: last_pa_elm !< contains the index of the last particle in the sorted particle array which is still in element i_elm, such that last_pa_elm(i_elm) - last_pa_elm(i_elm - 1) = #particles in element i_elm size(0:element), with zeroth index entry to be able to calculate #pa in elm for i_elm = 1
   integer :: i_pa_group, i_phi, is, it, ns, nt, nst, n_pa, i_pair
   integer, parameter :: bin_factor = 10 !< factor by which a collisional bin is larger than necessary if all particles were perfectly distributed among the bins
@@ -48,9 +52,11 @@ subroutine neutral_self_collision(sim, rng)
   integer :: pa_in_elm !< number of particles in the element under consideration
   integer :: av_pa_per_bin !< average number of particles per bin in this element
   integer, parameter :: aim_pa_per_bin = 50 !< wanted amount of super particles in one collisional bin (element is split up to satisfy this)
-  integer, dimension(:,:,:,:), allocatable :: i_pa_bin !< particle indices in each collisional bin of this element (bin particle, s bin,t bin, phi bin)
+  integer, dimension(:),       allocatable :: i_pa_elm !< global particle indices of the particles in this element
+  integer, dimension(:,:,:,:), allocatable :: i_pa_bin !< global particle indices of the particles in this collisional bin (bin particle, s bin,t bin, phi bin)
   integer, dimension(:,:,:),   allocatable :: n_pa_bin !< number of particles in each collisional bin of this element (s bin, t bin, phi bin)
-  logical, dimension(:),       allocatable :: paired !< array to keep track of which particle is not paired yet
+  logical, dimension(:),       allocatable :: paired   !< array to keep track of which particle is not paired yet
+  integer, dimension(:),       allocatable :: pa_ind   !< ascending array of size(pa) s.t. pa_ind(i) = i
   real :: R, R_s, R_t, Z, Z_s, Z_t
   real :: lt,ls !< physical size of element in s direction
   real*8 :: RN(3) !< random numbers for chance to collide, impact parameter and scattering plane angle
@@ -70,22 +76,20 @@ subroutine neutral_self_collision(sim, rng)
   real*8 :: v2i(3) !< initial velocity of particle 2
   real*8 :: v2f(3) !< final   velocity of particle 2
   
-#ifdef USE_STDLIB
-  integer, dimension(:), allocatable :: sorting_ind !< sorting indices
-  real*8,  dimension(:), allocatable :: sorting_elm_arr !< array with the element numbers 
-#endif
-
   !dbg
-  integer, dimension(:), allocatable :: n_pa_elm !< number of particles in element
-  integer, dimension(:), allocatable :: n_pa_elm_sanity !< number of particles in element
-  real*8 :: local_phi
-  logical,parameter :: debug=.true.
+  real*8 :: t(3)  !< cpu times (begin, end, diff)
+  real*8 :: t_mask, t_rest, t_elm, t_priv(3)
+  !$ real*8 :: w(2), mmm(3)
+
+  ! --- start of code
+
+  !$ w(1) = omp_get_wtime()
+  
+  t = 0.d0
+  call cpu_time(t(1))
 
   n_elm = sim%fields%element_list%n_elements
-  allocate(n_pa_elm(n_elm))
-  allocate(n_pa_elm_sanity(n_elm))
-  allocate(last_pa_elm(0:n_elm)) !< index 0 to have all inactive particles in element 0
-
+  
   i_rng = 1 !default if not using OMP
 
   do i_pa_group = 1,size(sim%groups,1)
@@ -95,65 +99,52 @@ subroutine neutral_self_collision(sim, rng)
       
       !allocate here so that different groups can have different resolutions in the future, this should probably just be based on n_plane
       n_phi = 4 !n_plane
-
-      ! Sort particles by finite element number
-#ifdef USE_STDLIB 
-      !sorts using external library fortran_stdlib function sort_index()
-      sorting_elm_arr = pa(:)%i_elm !< array with elements
-      allocate(sorting_ind(size(pa))) !< index array
-      call sort_index(sorting_elm_arr, sorting_ind)
-      pa = pa(sorting_ind) !< rearranging particle array 
-      deallocate(sorting_ind)
-      deallocate(sorting_elm_arr)
-#else
-      !slow sorting using bubble sort
-      if(sim%my_id .eq. 0) write(*,*) "WARNING: using slow sorting for particle elements in particles/mod_particle_collision.f90, consider using fortran_stdlib with USE_STDLIB = 1" 
-
-      do i = 1, size(pa) - 1
-        do j = 1, size(pa) - i
-          if(pa(j)%i_elm > pa(j+1)%i_elm) then
-            pa_temp = pa(j)
-            pa(j) = pa(j+1)
-            pa(j+1) = pa_temp
-          end if
-        end do !j
-      end do !i
-#endif
-
-      ! filling last_pa_element (see its definition)
-      last_pa_elm=0
-      i_elm_prev = 0
+      
+      ! making index array so that masks can be used to retrieve global indices
+      allocate(pa_ind(size(pa)))
       do i=1,size(pa)
-        i_elm = pa(i)%i_elm
-        if(i_elm .gt. i_elm_prev) then
-          last_pa_elm(i_elm_prev:i_elm-1) = i-1
-          i_elm_prev = i_elm
-        end if
+        pa_ind(i) = i 
       end do
-      last_pa_elm(i_elm:n_elm) = size(pa)
 
-      if(debug) then
-        ! #particles per element
-        n_pa_elm=0
-        do i=1,size(pa)
-          i_elm = pa(i)%i_elm
-          if (i_elm .le. 0) cycle
-          n_pa_elm(i_elm) = n_pa_elm(i_elm) + 1
-        end do
+      t_priv = 0.d0
+      t_mask = 0.d0
+      t_rest = 0.d0
+      t_elm  = 0.d0
 
-        n_pa_elm_sanity = 0
-        do i_elm=1,n_elm
-          n_pa_elm_sanity(i_elm) = last_pa_elm(i_elm) - last_pa_elm(i_elm-1)
-          if(n_pa_elm(i_elm) .ne. n_pa_elm_sanity(i_elm)) write(*,*) "ERROR!",sim%my_id,i_elm,n_pa_elm(i_elm),n_pa_elm_sanity(i_elm)
-        end do
-      end if !debug
-
-      ! For each finite element number
-      ! todo: start omp somewhere here
-      ! !$ i_rng = omp_get_thread_num()+1
+      ! Start loop over each finite element number
+      if(use_manual_random_seed) then
+        !$ call omp_set_schedule(omp_sched_static,1)
+      else
+        !$ call omp_set_schedule(omp_sched_dynamic,1)
+      end if
+#ifdef __GFORTRAN__
+      !$omp parallel do default(shared)                                                            &
+#else
+      !$omp parallel do default(none)                                                              &
+      !$omp shared(sim, rng, dt,                                                                   &
+      !$omp n_elm, pa_ind, n_phi, i_pa_group)                                                      &
+#endif
+      !$omp schedule(runtime)                                                                      &
+      !$omp private(i_pa_elm, pa_in_elm, i, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
+      !$omp ls, lt, i_pa_bin, n_pa_bin, n_pa, pa_bin, n_bin, w2_phi, paired, i_pair, i_pa1, i_pa2, &
+      !$omp RZPhi, d2, RZPhi_try, d2_try, w1, w2, w_coll, w_tot, v_r, m1, m2, sigma_T, P_coll,     &
+      !$omp i_rng, RN, Theta, alpha, v1f, v2f, t_priv)                                             &
+      !$omp reduction(+:t_mask, t_rest, t_elm)
       do i_elm=1,n_elm
+        !$ i_rng = omp_get_thread_num()+1
+
+        call cpu_time(t_priv(1))
+        
+        i_pa_elm = pack(pa_ind, pa%i_elm == i_elm)
+
+        call cpu_time(t_priv(2))
+        t_mask = t_priv(2) - t_priv(1)
+        t_elm  = t_mask ! overwrite later if rest of loop is done
+        t_rest = 0.d0
+
+        pa_in_elm = size(i_pa_elm,1)
+        
         !> skip collisions if there are nearly no particles
-        pa_in_elm = last_pa_elm(i_elm) - last_pa_elm(i_elm-1)
         if(pa_in_elm .lt. 2*n_phi) cycle
         
         !determine how many poloidal bins for this element. floor to make sure the average number of particles does not get much smaller than aim_pa_per_bin
@@ -162,7 +153,6 @@ subroutine neutral_self_collision(sim, rng)
         if(nst .gt. 1) then        
           !determine how to distribute the poloidal bins based on what size the element is along the s and t coordinates
           call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,0.5d0,0.5d0,R,R_s,R_t,Z,Z_s,Z_t)
-          !> ls, lt are also needed at determination of 
           ls = sqrt(R_s**2 + Z_s**2)
           lt = sqrt(R_t**2 + Z_t**2)
           
@@ -171,8 +161,14 @@ subroutine neutral_self_collision(sim, rng)
           nt = nint(nst*lt/ls)
 
           !if the element is very elongated, make sure there's always at least one bin in both directions
-          if(ns .le. 1) nt = nst 
-          if(nt .le. 1) ns = nst
+          if(ns .le. 1) then
+            ns = 1
+            nt = nst
+          end if
+          if(nt .le. 1) then
+            nt = 1
+            ns = nst
+          end if
         else 
           ns = 1
           nt = 1
@@ -184,18 +180,18 @@ subroutine neutral_self_collision(sim, rng)
         n_pa_bin = 0
 
         !loop to sort particles into their right bin
-        do i=last_pa_elm(i_elm-1)+1,last_pa_elm(i_elm)
-          is = ceiling(pa(i)%st(1)*ns)
-          it = ceiling(pa(i)%st(2)*nt)
-
-          i_phi = ceiling(pa(i)%x(3)/ (2.d0 * PI / float(n_period*n_phi)))
+        do i=1,pa_in_elm
+          is = ith_bin(pa(i_pa_elm(i))%st(1),ns)
+          it = ith_bin(pa(i_pa_elm(i))%st(2),nt)
+          ! if(is < 1 .or. is > ns .or. it < 1 .or. it > nt) write(*,*) "NNC ERROR",is,it,ns,nt,pa(i_pa_elm(i))%st(1),pa(i_pa_elm(i))%st(2)
+          i_phi = ceiling(pa(i_pa_elm(i))%x(3)/ (2.d0 * PI / float(n_period*n_phi)))
           if (i_phi .gt. n_phi) i_phi = mod(i_phi,n_phi)
           if (i_phi .lt. 1)     i_phi = mod(i_phi,n_phi) + n_phi
           
           n_pa = n_pa_bin(is,it,i_phi) + 1
           n_pa_bin(is,it,i_phi) = n_pa
-          i_pa_bin(n_pa,is,it,i_phi) = i
-        end do !pa
+          i_pa_bin(n_pa,is,it,i_phi) = i_pa_elm(i)
+        end do !i_pa_elm
 
         !loop through each collisional bin
         do i_phi=1,n_phi 
@@ -206,7 +202,9 @@ subroutine neutral_self_collision(sim, rng)
               
               !make a local copy of the particles in this bin
               allocate(pa_bin(n_pa))
-              pa_bin = pa(i_pa_bin(1:n_pa,is,it,i_phi)) !copy from MPI pa array to bin arr
+              do i=1,n_pa
+                call copy_particle_kinetic_leapfrog(pa(i_pa_bin(i,is,it,i_phi)),pa_bin(i)) !copy from MPI pa array to bin arr
+              end do
               
               call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
               ls = sqrt(R_s**2 + Z_s**2)/real(ns)
@@ -257,10 +255,10 @@ subroutine neutral_self_collision(sim, rng)
                 m1 = sim%groups(i_pa_group)%mass
                 m2 = sim%groups(i_pa_group)%mass
                 sigma_T = calc_sigma_T(v_r, m1, m2)
-
-                P_coll = 2*w_coll/w_tot * n_bin * sigma_T * v_r * tstep
+                
+                P_coll = 2*w_coll/w_tot * n_bin * sigma_T * v_r * dt
                 if(P_coll .gt. 1.d0) &
-                  write(*,*) "ERROR in NNC: P_coll > 1 (P,w1,w2,n,sigma,v_r,dt)",P_coll, w1, w2, n_bin, sigma_T, v_r, tstep
+                  write(*,*) "ERROR in NNC: P_coll > 1 (P,w1,w2,n,sigma,v_r,dt)",P_coll, w1, w2, n_bin, sigma_T, v_r, dt
 
                 !generate random number
                 call rng(i_rng)%next(RN)
@@ -286,7 +284,11 @@ subroutine neutral_self_collision(sim, rng)
 
               end do !loop over i_pair
 
-              pa(i_pa_bin(1:n_pa,is,it,i_phi)) = pa_bin ! copy back into MPI pa array
+              ! copy back into MPI pa array
+              do i=1,n_pa
+                call copy_particle_kinetic_leapfrog(pa_bin(i), pa(i_pa_bin(i,is,it,i_phi))) 
+              end do
+
               deallocate(pa_bin)
               
               deallocate(paired)
@@ -296,15 +298,28 @@ subroutine neutral_self_collision(sim, rng)
         
         if(allocated(n_pa_bin)) deallocate(n_pa_bin)
         if(allocated(i_pa_bin)) deallocate(i_pa_bin)
-      
+        if(allocated(i_pa_elm)) deallocate(i_pa_elm)
+        
+        call cpu_time(t_priv(3))
+        t_rest = t_priv(3) - t_priv(2)
+        t_elm  = t_priv(3) - t_priv(1)
       end do !i_elm
-
+      !$omp end parallel do
+        
     class default
       write(*,*) "neutral-neutral self collisions not implemented for this type, group=", i
       call exit(13)
     end select
 
   end do !i_particle_group
+  call cpu_time(t(2))
+  t(3) = t(2) - t(1) ! cpu time spent by program
+  if(sim%my_id .eq. 0) write(*,"(A,2f10.5)") "NNC cpu times (s): (tot, tot-t_mask)", t(3), t(3)-t_mask
+
+  !$ w(2) = omp_get_wtime()
+  !$ mmm = mpi_minmeanmax(w(2)-w(1))
+  !$ if (sim%my_id .eq. 0) write(*,"(A,3f9.4,A)") "Neutral self collision complete in (min/mean/max) ", mmm, " s"
+
 end subroutine neutral_self_collision
 
 !> calculates the elastic collisional cross section for D + D elastic collisions
@@ -328,6 +343,12 @@ function calc_sigma_T(v_r, m1, m2) result(sigma_T)
   real*8 :: d_ref !< diameter at reference temperature 
   real*8 :: omega !< viscosity index
   real*8 :: m_r   !< reduced mass m=m1*m2/(m1+m2)
+
+  if (abs(v_r) .lt. 1.d-12) then
+    sigma_T = 0.d0
+    ! write(*,*) "NNC sigma_T(v_r=0) is set to 0"
+    return
+  end if
 
   ! setting local variables
   d_ref = 2*1.2d-10*0.8 !1.2Å vdWaals radius for H, but that should be nearly equal to D. For H2 d_ref=2.92d-10 m according to [1] appendix A, and He d_ref=2.33d-10 while r_vdWaals = 1.40d-10m for He. So factor 0.8 is to handwavingly convert from r_vdWaals to d_ref
@@ -447,5 +468,24 @@ pure function cross_product(v1,v2) result(v_perp)
   v_perp(3) = v1(1)*v2(2) - v1(2)*v2(1)
 
 end function cross_product
+
+!> calculates in which bin (out of n bins) a value x=[0,1] should fall
+pure function ith_bin(x_in,n) result(i)
+  implicit none
+  real*8,  intent(in) :: x_in !< value between 0 and 1, of which the corresponding bin should be determined
+  integer, intent(in) :: n !< number of bins
+  integer :: i !< ith element in the bin
+
+  real*8 :: x !< copy of x_in
+  real*8,parameter :: tol=1.d-10 !< numerical tolerance
+  
+  x = x_in
+
+  ! avoid x exactly 0 or 1
+  if (x < tol)        x = tol
+  if (x > 1.d0 - tol) x = 1.d0 - tol
+
+  i = ceiling(x*n)
+end function ith_bin
 
 end module mod_particle_collision
