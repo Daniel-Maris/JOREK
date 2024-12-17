@@ -158,7 +158,7 @@ allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups))
 do group_num=1, n_part_groups
   if (sim%groups(group_num)%use_kn_sputtering) then
     sputter_counter = sputter_counter + 1
-    n_reflect = ceiling(sim%groups(1)%n_particles * sim%groups(group_num)%n_reflect_ratio)
+    n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
     sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, group_num, n_reflect)
     sputter_events(sputter_counter) = event(sputter_source)
   endif
