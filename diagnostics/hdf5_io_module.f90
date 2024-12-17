@@ -4,6 +4,10 @@
 !  array saving and reading in HDF5 format
 !
 ! Adapted from GYSELA routines
+! Documentation concerning the HDF5 file handling
+! routines implemented in the present module is
+! reported in the JOREK wiki at the link below:
+! https://www.jorek.eu/wiki/doku.php?id=hdf5tools
 !---------------------------------------------
 module hdf5_io_module
 #ifdef USE_HDF5  
