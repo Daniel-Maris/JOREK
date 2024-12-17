@@ -108,7 +108,6 @@ if (restart_particles) then
 
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
-  ! setting up empty particle array
   if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_cpu, " cpus "
 
   !> is this needed for neutrals?
@@ -119,19 +118,7 @@ else
 
   ! Setting up particle characteristics and allocation
   call configure_particle_group(sim)
-  
   call allocate_particles(sim)
-  
-  ! setting up empty particle array
-  select type (p => sim%groups(1)%particles)
-  type is (particle_kinetic_leapfrog)  
-    p(:)%q      = 0 !< for neutrals
-    p(:)%weight = 0.0!weight
-    p(:)%i_elm  = 0
-    p(:)%v(1)   = 0.d0 
-    p(:)%v(2)   = 0.d0
-    p(:)%v(3)   = 0.d0
-  end select
 endif ! (restart_particles)
 
 ! Read Open ADAS data for plasma fluid

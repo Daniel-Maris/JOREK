@@ -105,7 +105,6 @@ end subroutine configure_particle_group
 !> allocates the particles for a group depending on its type and n_particles
 subroutine allocate_particles(sim)
   use phys_module, only: particle_configs, n_part_groups
-
   implicit none
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i, n_particles_local
@@ -115,7 +114,17 @@ subroutine allocate_particles(sim)
 
     select case (trim(particle_configs(i)%type))
       case ("particle_kinetic_leapfrog")
-        allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local)) 
+        ! setting up empty particle array
+        allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local))
+        select type (p => sim%groups(i)%particles)
+          type is (particle_kinetic_leapfrog)  
+            p(:)%q      = 0 !< for neutrals
+            p(:)%weight = 0.0!weight
+            p(:)%i_elm  = 0
+            p(:)%v(1)   = 0.d0 
+            p(:)%v(2)   = 0.d0
+            p(:)%v(3)   = 0.d0
+        end select
       case ("particle_gc_relativistic")
         allocate(particle_gc_relativistic ::sim%groups(i)%particles(n_particles_local)) 
       case default
