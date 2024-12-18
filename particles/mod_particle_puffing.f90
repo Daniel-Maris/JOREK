@@ -13,6 +13,7 @@ module mod_particle_puffing
   use mod_particle_sim
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
+  use phys_module, only: valve
 
   implicit none
 
@@ -52,7 +53,8 @@ module mod_particle_puffing
 contains
 
 !> To do: add generalization to choose group number.
-function new_particle_puffing(n_puff, puffing_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start,poly_R,poly_Z,boxpuff) result(new)
+function new_particle_puffing(n_puff, puffing_rate, puff_valve, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start) result(new)
+
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
   
@@ -60,36 +62,30 @@ function new_particle_puffing(n_puff, puffing_rate, valve_r, R, Z, phi, rng, see
 
   integer, intent(in)           :: n_puff
   real*8, intent(in)            :: puffing_rate
-  real*8, intent(in)            :: valve_r
-  real*8, intent(in)            :: R, Z
-  real*8, intent(in), optional  :: phi ! If no phi is given axisymmetric puffing will be excecuted.
+  type(valve), intent(in)       :: puff_valve
   logical, intent(in), optional :: puff_t_dependent
   real*8, intent(in), optional  :: t_puff_start,t_puff_slope
   real*8, intent(in), optional  :: puffing_rate_start 
-  
-  real*8, intent(in), optional  :: poly_R(4)
-  real*8, intent(in), optional  :: poly_Z(4)
-  logical, intent(in), optional :: boxpuff
-  
+    
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
   integer                               :: my_seed
   
   new%n_puff       = n_puff
   new%puffing_rate = puffing_rate
-  new%R            = R
-  new%Z            = Z
-  new%valve_r      = valve_r
-  if (present(phi))  new%phi = phi
-  
+  new%R            = puff_valve%R_valve_loc
+  new%Z            = puff_valve%Z_valve_loc
+  new%valve_r      = puff_valve%r_valve
+  new%phi          = puff_valve%phi
+  new%poly_R       = puff_valve%poly_R
+  new%poly_Z       = puff_valve%poly_Z
+  if (puff_valve%type == "poly") new%boxpuff = .true.
+
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
   if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
   if (present(puffing_rate_start)) new%puffing_rate_start = puffing_rate_start
 
-  if (present(poly_R)) new%poly_R = poly_R
-  if (present(poly_Z)) new%poly_Z = poly_Z
-  if (present(boxpuff)) new%boxpuff = boxpuff
   !> allocate random seed for sampling
   if (present(seed)) then
     my_seed = seed

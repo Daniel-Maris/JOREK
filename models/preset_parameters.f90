@@ -866,6 +866,7 @@ valves(:)%type = 'none'
 valves(:)%r_valve = 0.d0
 valves(:)%R_valve_loc = 0.d0
 valves(:)%Z_valve_loc = 0.d0
+valves(:)%phi = -99.d9
 do i=1, n_valves_max
   valves(i)%poly_R = 0.d0
   valves(i)%poly_Z = 0.d0

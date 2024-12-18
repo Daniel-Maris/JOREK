@@ -963,6 +963,7 @@ module phys_module
 
   type :: valve
     character(len=4)   :: type          !< four character code for the valve type ('circ', 'poly', or 'none')
+    real*8  :: phi
     ! --- specific to 'circ' type (circular valve) 
     real*8  :: r_valve                  ! radius of poloidal circular source 
     real*8  :: R_valve_loc              ! R position 

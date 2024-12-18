@@ -1020,6 +1020,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           write(*,REAL_FMT) 'poly_R              ',valves(i)%poly_R(:)
           write(*,REAL_FMT) 'poly_Z              ',valves(i)%poly_Z(:)
       end select
+      if (valves(i)%phi /= -99.d9) then
+        write(*,REAL_FMT) 'phi                 ',valves(i)%phi
+      endif
     enddo
   endif
 
