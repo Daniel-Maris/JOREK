@@ -205,9 +205,6 @@ if (sim%groups(1)%use_kn_puffing) then
     write(*,*) "Gas puffing rate [#/s] : ", puff_rate
     write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
   endif
-else 
-  gas_puff = particle_puffing(0, 5d20, valves(1))
-  gas_puff2 = particle_puffing(0, 5d20, valves(1))
 endif
 
 ! --- Set up feedback to the plasma (does not currently include recombination)

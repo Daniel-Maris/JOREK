@@ -29,13 +29,7 @@ module mod_particle_puffing
     integer :: n_puff = -1 
     ! Average fueling rate: 9.7d22; max fueling rate 18d22
     real*8  :: puffing_rate = -1.d0
-    real*8  :: R = -1.d0, Z = -1.d0, phi = -1.d0
-    real*8  :: valve_r = -1.d0  !< radius of gas valve
-    
-    !box volume puff, define 4 RZ points to determine volume
-    real*8  :: poly_R(4) = -1.d0
-    real*8  :: poly_Z(4) = -1.d0
-    logical :: boxpuff = .false.
+    type(valve) :: puff_valve      !< determines the location of the puffing
     
     !Time dependent puffing
     logical :: puff_t_dependent = .false.
@@ -73,13 +67,7 @@ function new_particle_puffing(n_puff, puffing_rate, puff_valve, rng, seed, puff_
   
   new%n_puff       = n_puff
   new%puffing_rate = puffing_rate
-  new%R            = puff_valve%R_valve_loc
-  new%Z            = puff_valve%Z_valve_loc
-  new%valve_r      = puff_valve%r_valve
-  new%phi          = puff_valve%phi
-  new%poly_R       = puff_valve%poly_R
-  new%poly_Z       = puff_valve%poly_Z
-  if (puff_valve%type == "poly") new%boxpuff = .true.
+  new%puff_valve   = puff_valve 
 
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
@@ -159,12 +147,12 @@ end do
   n_group = 1   ! Puffing Hydrogen (or actually the element at groups(1)) only
   ! Assuming the incoming gas at T=300C and a diatomic gas
   c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(n_group)%mass*ATOMIC_MASS_UNIT))
-  if (.not. this%boxpuff) then
-    call find_RZ(sim%fields%node_list, sim%fields%element_list, this%R, this%Z, R, Z, &
+  if (this%puff_valve%type == "circ") then
+    call find_RZ(sim%fields%node_list, sim%fields%element_list, this%puff_valve%R_valve_loc, this%puff_valve%Z_valve_loc, R, Z, &
            i_elm, s, t ,ifail)
            
   else
-    call find_RZ(sim%fields%node_list, sim%fields%element_list, sum(this%poly_R(1:2))/2.d0, sum(this%poly_Z(1:2))/2.d0, R, Z, &
+    call find_RZ(sim%fields%node_list, sim%fields%element_list, sum(this%puff_valve%poly_R(1:2))/2.d0, sum(this%puff_valve%poly_Z(1:2))/2.d0, R, Z, &
            i_elm, s, t ,ifail)
   endif
   if (ifail .ne. 0) then
@@ -228,16 +216,16 @@ end do
     
         !      !$ i_rng = omp_get_thread_num()+1
         call this%rng(1)%next(u) !rng(1)
-        if (.not. this%boxpuff) then
-          r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
+        if (this%puff_valve%type == "circ") then
+          r_valve = this%puff_valve%r_valve*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
           theta = TWOPI * u(2)
-          R_new = this%R + r_valve * cos(theta)
-          Z_new = this%Z + r_valve * sin(theta)
+          R_new = this%puff_valve%R_valve_loc + r_valve * cos(theta)
+          Z_new = this%puff_valve%Z_valve_loc + r_valve * sin(theta)
         else
           s = u(1)
           t = u(2)
-          R_new = this%poly_R(1)*(1.d0-s)*(1.d0-t) + this%poly_R(2)*s*(1.d0-t) + this%poly_R(3)*(1.d0-s)*t + this%poly_R(4)*s*t
-          Z_new = this%poly_Z(1)*(1.d0-s)*(1.d0-t) + this%poly_Z(2)*s*(1.d0-t) + this%poly_Z(3)*(1.d0-s)*t + this%poly_Z(4)*s*t
+          R_new = this%puff_valve%poly_R(1)*(1.d0-s)*(1.d0-t) + this%puff_valve%poly_R(2)*s*(1.d0-t) + this%puff_valve%poly_R(3)*(1.d0-s)*t + this%puff_valve%poly_R(4)*s*t
+          Z_new = this%puff_valve%poly_Z(1)*(1.d0-s)*(1.d0-t) + this%puff_valve%poly_Z(2)*s*(1.d0-t) + this%puff_valve%poly_Z(3)*(1.d0-s)*t + this%puff_valve%poly_Z(4)*s*t
         endif
     
         call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, R, Z, s, t, i_elm, &
@@ -249,10 +237,10 @@ end do
       s     = s_new
       t     = t_new
       i_elm = i_elm_new
-      if (this%phi .lt. 0.d0) then
+      if (this%puff_valve%phi .lt. 0.d0) then
         pa(i_p)%x(3) = TWOPI*u(3)
       else 
-        pa(i_p)%x(3) = this%phi 
+        pa(i_p)%x(3) = this%puff_valve%phi 
       end if
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
