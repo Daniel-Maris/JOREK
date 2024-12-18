@@ -153,9 +153,11 @@ n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) dens
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
 
-! --- Setting up sputtering and recombination
+! --- Setting up particle events
 allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups)) 
 do group_num=1, n_part_groups
+
+  ! sputtering
   if (sim%groups(group_num)%use_kn_sputtering) then
     sputter_counter = sputter_counter + 1
     n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
@@ -163,11 +165,31 @@ do group_num=1, n_part_groups
     sputter_events(sputter_counter) = event(sputter_source)
   endif
 
+  ! recombination
   if (sim%groups(group_num)%use_kn_recombination) then
 
     ! add group to the list of groups requiring recombination
     recomb_counter = recomb_counter + 1
     recomb_groups(recomb_counter) = group_num
+  endif
+
+  ! puffing (section still needs much more work)
+  if (sim%groups(group_num)%use_kn_puffing) then
+    t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
+    t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
+  
+    gas_puff = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+        puffing_rate_start=puffing_rate_start/2.d0)
+    gas_puff2 = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+        puffing_rate_start=puffing_rate_start/2.d0)
+    
+    gas_puff_event  = event(gas_puff)
+    gas_puff2_event = event(gas_puff2)
+    
+    if (sim%my_id .eq.0) then
+      write(*,*) "Gas puffing rate [#/s] : ", puff_rate
+      write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
+    endif
   endif
 enddo 
 
@@ -189,23 +211,7 @@ puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
 !> if boxpuff=.true., poly_R(4),poly_Z(4) are the vertices of the quadrangular puffing valve
 boxpuff = .true. !< whether to puff using 
 
-if (sim%groups(1)%use_kn_puffing) then
-  t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-  t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
 
-  gas_puff = particle_puffing(1, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
-      puffing_rate_start=puffing_rate_start/2.d0)
-  gas_puff2 = particle_puffing(1, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-      puffing_rate_start=puffing_rate_start/2.d0)
-  
-  gas_puff_event  = event(gas_puff)
-  gas_puff2_event = event(gas_puff2)
-  
-  if (sim%my_id .eq.0) then
-    write(*,*) "Gas puffing rate [#/s] : ", puff_rate
-    write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
-  endif
-endif
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
@@ -271,11 +277,10 @@ do while (.not. sim%stop_now)
     call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
   enddo
     
-  if (sim%groups(1)%use_kn_puffing) then
-    call write_to_outputfile(sim%my_id, "Puffing")
-    call with(sim, gas_puff_event) 
-    call with(sim, gas_puff2_event)
-  endif ! use_kn_puffing  
+  ! needs more work 
+  call write_to_outputfile(sim%my_id, "Puffing")
+  call with(sim, gas_puff_event) 
+  call with(sim, gas_puff2_event)
 
 
   ! --- Interactions that happen on the particle timesteps
