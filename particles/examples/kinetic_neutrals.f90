@@ -193,9 +193,9 @@ if (sim%groups(1)%use_kn_puffing) then
   t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
   t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
 
-  gas_puff = particle_puffing(n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+  gas_puff = particle_puffing(1, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
       puffing_rate_start=puffing_rate_start/2.d0)
-  gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+  gas_puff2 = particle_puffing(1, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
       puffing_rate_start=puffing_rate_start/2.d0)
   
   gas_puff_event  = event(gas_puff)
