@@ -1,4 +1,5 @@
 !> Particle input-output event module
+!> The documentation of the module can be found at: https://www.jorek.eu/wiki/doku.php?id=jorek-particles_i_o
 module mod_io_actions
 use hdf5, only: H5F_ACC_TRUNC_F
 use mod_particle_io
