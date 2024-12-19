@@ -1,6 +1,6 @@
 !> Particle input-output module, containing hdf5 data_type and writing routines
 !> TODO: add metadata and/or use H5MD format (http://nongnu.org/h5md/h5md.html)
-!> The documentation of the module can be found at: https://www.jorek.eu/wiki/doku.php?id=jorek-particles_i_o
+!> The documentation of the module is at link: https://www.jorek.eu/wiki/doku.php?id=jorek-particles_i_o
 module mod_particle_io
 implicit none
 private
