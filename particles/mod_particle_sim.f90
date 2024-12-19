@@ -87,6 +87,7 @@ subroutine configure_particle_group(sim)
     sim%groups(i)%coupling_scheme = config%coupling_scheme
     sim%groups(i)%n_particles = config%n_particles
     sim%groups(i)%id = config%id
+    write(*,*) "id: ", sim%groups(i)%id 
   
     ! --- ncs options
     sim%groups(i)%use_kn_cx             =  config%use_kn_cx
@@ -201,8 +202,6 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
         if (n_part_groups > n_part_groups_max) then
           write(*,*) 'Error: number of particle groups defined exceeds maximum. Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)'
         endif
-
-        call sim%allocate_groups(n_part_groups)
   
         ! --- generate unique ids for each of the particle groups
         call assign_part_group_ids() 
@@ -220,6 +219,9 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
 
     ! Broadcast physics parameters
     call broadcast_phys(sim%my_id)
+
+    ! Allocating groups
+    call sim%allocate_groups(n_part_groups)
 
     ! Set up normalisation factors
     call sim%set_t_norm()

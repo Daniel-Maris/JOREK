@@ -22,6 +22,8 @@ contains
 !> Note that reading is still performed in parallel as this is not considered
 !> time-critical and simpler to write.
 subroutine write_simulation_hdf5(sim, filename)
+use phys_module
+implicit none
 type(particle_sim)   , intent(in) :: sim
 character*(*)        , intent(in) :: filename
 
@@ -68,7 +70,13 @@ if (my_id .eq. 0) then
 
   ! Write the time
   call HDF5_real_saving(file,sim%time,'/time')
+
+  ! Write n_part_groups and part_groups_in_use
+  call HDF5_integer_saving(file,n_part_groups,'/n_part_groups')
+  call HDF5_array1D_saving_char_len(file, part_groups_in_use, n_part_groups, 3, '/part_groups_in_use')
 end if
+
+
 
 ! saving for each group
 if (allocated(sim%groups)) then 
@@ -428,6 +436,7 @@ if (allocated(sim%groups)) then
       call HDF5_char_saving(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
       call HDF5_char_saving(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
       call HDF5_real_saving(file,sim%groups(i)%n_particles,group_name//"n_particles")
+      call HDF5_char_saving(file,sim%groups(i)%id,group_name//"id")
       ! save dt?
 
     end if
@@ -456,6 +465,8 @@ end subroutine write_simulation_hdf5
 subroutine read_simulation_hdf5(sim, filename)
 use mod_openadas, only: read_adf11
 use mod_coronal
+use phys_module
+implicit none
 type(particle_sim) , intent(inout) :: sim
 character*(*)      , intent(in)  :: filename
 
@@ -468,10 +479,11 @@ integer(HID_T)    :: data_type
 integer(HID_T)    :: group_id
 integer(HID_T)    :: time_set_id
 integer(HSIZE_T)  :: i_here
-integer           :: n_here, n_particles
+integer           :: n_here, n_particles, n_part_groups_old
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
 character(len=particle_type_name_length) :: particle_type_name
+character(len=3), allocatable :: part_groups_in_use_old(:)
 integer           :: i, j, n, hdferr, n_alive, id
 integer, allocatable :: n_alive_all(:)
 logical           :: exists
@@ -503,6 +515,22 @@ call HDF5_real_reading(file,sim%time,'/time')
 call h5gopen_f(file, '/groups/', group_id, hdferr)
 call h5gget_info_f(group_id, storage_type, n, max_corder, hdferr)
 call h5gclose_f(group_id, hdferr)
+
+! Load part_groups_in_use
+call HDF5_integer_reading(file, n_part_groups_old, '/n_part_groups') 
+write(*,*) "n_part_groups_old: ", n_part_groups_old
+
+! check if n_part_groups from restart fits in n_part_group_max
+if (n_part_groups_old > n_part_groups_max) then
+  write(*,*) "Error: n_part_groups being imported from restart exceeds n_part_groups_max"
+  stop
+endif
+
+allocate(part_groups_in_use_old(n_part_groups_old))
+call HDF5_array1D_reading_char_len(file, part_groups_in_use_old, 3, '/part_groups_in_use')
+write(*,*) "part_group_in_use_old: ", part_groups_in_use_old(1)
+
+if (part_groups_in_use(1) == 'non') part_groups_in_use(1:n_part_groups_old) = part_groups_in_use_old 
 
 ! Reallocate groups if necessary
 if (allocated(sim%groups)) deallocate(sim%groups)
@@ -562,6 +590,9 @@ do i=1,n
   call HDF5_integer_reading(file,sim%groups(i)%Z,group_name//"Z")
   call HDF5_real_reading(file,sim%groups(i)%mass,group_name//"mass")
   call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
+  call HDF5_char_reading(file,sim%groups(i)%id,group_name//"id")
+  write(*,*) "group id: ", sim%groups(i)%id
+
   ! call HDF5_char_reading(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
   if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
     sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
@@ -778,6 +809,9 @@ do i=1,n
   deallocate(n_alive_all)
 
 end do
+
+! dealloc temp arrays
+if (allocated(part_groups_in_use_old)) deallocate(part_groups_in_use_old)
 
 ! Close everything else
 call h5fclose_f(file, hdferr)

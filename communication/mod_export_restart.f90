@@ -597,13 +597,10 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
   call HDF5_integer_saving(file_id,n_degrees,'n_degrees'//char(0))
   call HDF5_integer_saving(file_id,nref_max,'nref_max'//char(0))
   call HDF5_integer_saving(file_id,n_ref_list,'n_ref_list'//char(0))
+
   if(present(aux_node_list)) then
      call HDF5_integer_saving(file_id,n_aux_var,'n_aux_var'//char(0))
   endif
-  if(n_part_groups > 0) then
-     call HDF5_integer_saving(file_id,n_part_groups,'n_part_groups'//char(0))
-     call HDF5_array1D_saving_char_len(file_id, part_groups_in_use, n_part_groups, 3, 'part_groups_in_use'//char(0))
-  endif 
 
   ! -> 
   call HDF5_integer_saving(file_id,node_list%n_nodes,'n_nodes'//char(0))

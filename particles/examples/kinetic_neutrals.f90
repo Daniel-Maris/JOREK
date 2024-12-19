@@ -98,16 +98,15 @@ call sim%initialize()
 
 ! Set up the field reader < can this be moved to sim%initialize
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
+
 call with(sim, fieldreader)
 tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
-
 ! setting up the particles
 if (restart_particles) then
   ! reading the particles from a file
   if (sim%my_id == 0) write(*,*) 'INFO: READING PARTICLES RESTART FILE'
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
-
   call configure_particle_group(sim)
 
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
@@ -174,10 +173,13 @@ do group_num=1, n_part_groups
   endif
 
   ! puffing (section still needs much more work)
+  ! variables here need to be moved into puffing config
+  puff_t_dependent = .true.
+  t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
+  t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
+  puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
+
   if (sim%groups(group_num)%use_kn_puffing) then
-    t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-    t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
-  
     gas_puff = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
         puffing_rate_start=puffing_rate_start/2.d0)
     gas_puff2 = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &

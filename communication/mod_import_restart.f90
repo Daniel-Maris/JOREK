@@ -927,7 +927,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   ! --- Local variables
   integer              :: i, j, m, k, n_tor_tmp, n_coord_tor_tmp, jorek_model_tmp, n_var_tmp, n_order_tmp, n_period_tmp, rst_hdf5_version_tmp
   integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp, n_nodes_tmp, n_dof_tmp
-  integer              :: n_pieces_max_tmp, n_degrees_tmp, nref_max_tmp, n_ref_list_tmp, n_new_modes, n_part_groups_old
+  integer              :: n_pieces_max_tmp, n_degrees_tmp, nref_max_tmp, n_ref_list_tmp, n_new_modes
   real*8               :: growth_mag, growth_kin, amplitude
   integer, allocatable :: mode_tmp(:), new_mode(:)
   real*8,  allocatable :: values_tmp(:,:,:), deltas_tmp(:,:,:)
@@ -955,7 +955,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   real(RKIND), allocatable :: t_psi_eq(:,:)
   real(RKIND), allocatable :: t_Fprof_eq(:,:)
 
-  character(len=3), allocatable :: part_groups_in_use_old(:)
   integer,     allocatable :: t_index(:,:)
   integer,     allocatable :: t_boundary(:)
   character,   allocatable :: t_axis_node(:)     
@@ -1138,22 +1137,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
       call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
 
     endif
-  endif
-
-  if (n_part_groups > 0) then
-    ! --- reading in part_groups_in_use 
-    call HDF5_integer_reading(file_id, n_part_groups_old, 'n_part_groups') 
-    write(*,*) "n_part_groups_old: ", n_part_groups_old
-
-    ! check if n_part_groups from restart fits in n_part_group_max
-    if (n_part_groups_old > n_part_groups_max) then
-      write(*,*) "Error: n_part_groups being imported from restart exceeds n_part_groups_max"
-      stop
-    endif
-
-    allocate(part_groups_in_use_old(n_part_groups_old))
-    call HDF5_array1D_reading_char_len(file_id, part_groups_in_use_old, 3, 'part_groups_in_use')
-    part_groups_in_use(1:n_part_groups_old) = part_groups_in_use_old 
   endif
 
   ! -> Allocate temporary arrays 
@@ -2196,7 +2179,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   !call add_pellet(node_list,element_list,25.d0,0.06d0,0.03d0,3.78d0,0.14d0)
   
   ! -> Deallocate temporary arrays 
-  if (allocated(part_groups_in_use_old)) deallocate(part_groups_in_use_old)
 
   call tr_deallocate(mode_tmp,"mode_tmp",CAT_UNKNOWN)
   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
