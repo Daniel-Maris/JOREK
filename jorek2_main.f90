@@ -187,7 +187,7 @@ program JOREK2
   res = 0.d0   
     
   !***********************************************************************
-  !*                  intialisation                                      *
+  !*                  initialisation                                      *
   !***********************************************************************
 
   ! --- Initialize OpenMP threads before MPI_init
@@ -243,6 +243,13 @@ mpi_required = 0
   
   ! --- Preset input parameters to reasonable defaults, then read the input file.
   call initialise_parameters(my_id, "__NO_FILENAME__")
+
+  ! --- override namelist and remove all particles for fluid operation
+  if (n_part_groups /= 0) then
+    write(*,*) "WARNING: Particle groups detected, but you are running the fluid executable. Overwriting n_part_groups to 0."
+    n_part_groups = 0
+  endif
+
   call broadcast_parameters(my_id)
   
   ! --- Initialize the vacuum part.

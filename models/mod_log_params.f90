@@ -1035,7 +1035,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     do i = 1, n_part_groups
        write(*, "(A, A)", advance="no") "'", trim(part_groups_in_use(i)) // "' "
     end do
-    write(*,*) ''
     write(*,*)
     do group_num=1, n_part_groups
       write(*,*) "---- Particle group slot: ", group_num, " ----" 
