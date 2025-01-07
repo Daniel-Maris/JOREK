@@ -99,7 +99,7 @@ call sim%initialize()
 ! Set up the field reader < can this be moved to sim%initialize
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
 
-call with(sim, fieldreader)
+call with(sim, fieldreader) 
 tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
 ! setting up the particles
 if (restart_particles) then
@@ -107,7 +107,6 @@ if (restart_particles) then
   if (sim%my_id == 0) write(*,*) 'INFO: READING PARTICLES RESTART FILE'
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
-  call configure_particle_group(sim)
 
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
@@ -119,10 +118,10 @@ else
 
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
-  ! Setting up particle characteristics and allocation
-  call configure_particle_group(sim)
-  call allocate_particles(sim)
 endif ! (restart_particles)
+
+call allocate_particles(sim) ! should only allocate groups which are not already allocated
+
 
 ! Read Open ADAS data for plasma fluid
 if (deuterium_adas .and. sim%groups(1)%use_kn_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)

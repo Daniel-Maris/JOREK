@@ -87,7 +87,6 @@ subroutine configure_particle_group(sim)
     sim%groups(i)%coupling_scheme = config%coupling_scheme
     sim%groups(i)%n_particles = config%n_particles
     sim%groups(i)%id = config%id
-    write(*,*) "id: ", sim%groups(i)%id 
   
     ! --- ncs options
     sim%groups(i)%use_kn_cx             =  config%use_kn_cx
@@ -103,8 +102,6 @@ subroutine configure_particle_group(sim)
     else
       if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
     endif
-
-
   enddo 
 
 end subroutine configure_particle_group
@@ -117,27 +114,32 @@ subroutine allocate_particles(sim)
   integer                                  :: i, n_particles_local
 
   do i=1, n_part_groups
-    n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_cpu)
+    if (.not. allocated(sim%groups(i)%particles)) then
 
-    select case (trim(particle_configs(i)%type))
-      case ("particle_kinetic_leapfrog")
-        ! setting up empty particle array
-        allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local))
-        select type (p => sim%groups(i)%particles)
-          type is (particle_kinetic_leapfrog)  
-            p(:)%q      = 0 !< for neutrals
-            p(:)%weight = 0.0!weight
-            p(:)%i_elm  = 0
-            p(:)%v(1)   = 0.d0 
-            p(:)%v(2)   = 0.d0
-            p(:)%v(3)   = 0.d0
-        end select
-      case ("particle_gc_relativistic")
-        allocate(particle_gc_relativistic ::sim%groups(i)%particles(n_particles_local)) 
-      case default
-        write(*,*) "Error: no match found for defined particle type, please ensure the defined type is supported (see mod_particle_types.f90 and mod_particle_sim.f90)"
-        stop 1
-    end select
+      n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_cpu)
+
+      select case (trim(particle_configs(i)%type))
+        case ("particle_kinetic_leapfrog")
+          ! setting up empty particle array
+          allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local))
+          select type (p => sim%groups(i)%particles)
+            type is (particle_kinetic_leapfrog)  
+              p(:)%q      = 0 !< for neutrals
+              p(:)%weight = 0.0!weight
+              p(:)%i_elm  = 0
+              p(:)%v(1)   = 0.d0 
+              p(:)%v(2)   = 0.d0
+              p(:)%v(3)   = 0.d0
+          end select
+        case ("particle_gc_relativistic")
+          allocate(particle_gc_relativistic ::sim%groups(i)%particles(n_particles_local)) 
+        case default
+          write(*,*) "Error: no match found for defined particle type, please ensure the defined type is supported (see mod_particle_types.f90 and mod_particle_sim.f90)"
+          stop 1
+      end select
+
+    endif !if allocated
+
   enddo
   
 end subroutine allocate_particles
@@ -232,6 +234,10 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
     ! --- Initialize basis functions for the Dommaschk potentials
     if (domm) call init_chi_basis()
   endif
+
+  ! configure particle groups with their characteristics
+  call configure_particle_group(sim)
+
 end subroutine
 
 !> Actions to perform when stopping the simulation.
