@@ -46,7 +46,7 @@ subroutine preset_parameters
   visco = 1.d-5
   T_max_visco   = 1.d99
   visco_par = 1.d-5
-  visco_par_par = 0.0
+  visco_par_par = 0.d0  
   visco_heating     = 0.d0
   visco_par_heating = 0.d0
   visco_old_setup   = .false.
@@ -265,8 +265,8 @@ subroutine preset_parameters
   ne_SI_min          = 1.d18
   Te_eV_min          = 5.
   rn0_min            = 1.d-8
-  T_min              = 1.0d-20
-  rho_min            = 1.0d-20
+  T_min              = 1.0d-20  !-1.0d20
+  rho_min            = 1.0d-20  !-1.0d20
   T_min_neg          = -1.d12 !< only used if T_min_neg>0 , 2.01d-5*central_density*Tmin_ev (cd = 1, 20 eV)
   T_min_ZKpar        = -1.d12 
   Ti_min_ZKpar       = -1.d12 
@@ -513,7 +513,9 @@ subroutine preset_parameters
   rho_1 =  1.d0   
   FF_0  =  1.d0
   FF_1  =  0.d0
-  
+  phi_0 =  0.d0
+  phi_1 =  0.d0
+
   zj_coef     = 0.d0;  zj_coef(1)  = -1.d0
   T_coef      = 0.d0;  T_coef(1)   = -1.d0
   Te_coef     = 0.d0;  Te_coef(1)  = -1.d0
@@ -521,6 +523,9 @@ subroutine preset_parameters
   rho_coef    = 0.d0;  rho_coef(1) =  0.d0
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
   dcoef       = 0.d0
+
+  phi_coef    = 0.d0;  phi_coef(1) =  0.d0; phi_coef(4) = 1.d0
+  nu_phi_source = 0.d0
 
   rhon_0 =  0.d0
   rhon_1 =  0.d0
@@ -566,6 +571,7 @@ subroutine preset_parameters
   T_file             = 'none'
   Te_file            = 'none'
   Ti_file            = 'none'
+  phi_file           = 'none'
   Fprofile_file      = 'none'
   ffprime_file       = 'none'
   d_perp_file        = 'none'
@@ -747,6 +753,7 @@ subroutine preset_parameters
   D_neutral_p = 1.d-5
   delta_n_convection = 0
   nimp_bg = 0.
+
   n_adas = 1
   adas_dir = ' '
   imp_type = ' '
@@ -846,9 +853,22 @@ use_ncs            = .false.
 use_ccs            = .false.
 use_pcs            = .false.
 use_pcs_full       = .false.
-use_ionisation     = .true.
-use_sputtering     = .false.
-use_cx             = .true.
+use_kn_ionisation     = .true.
+use_kn_sputtering     = .false.
+use_kn_cx             = .true.
 use_marker         = .false.
+use_kn_recombination = .true.
+use_kn_puffing       = .false.
+use_kn_line_radiation= .true.
+
+n_puff        = 0
+puff_rate     = 0.d0
+r_valve       = 0.d0
+R_valve_loc   = 0.d0
+Z_valve       = 0.d0
+R_valve_loc2  = 0.d0
+Z_valve2      = 0.d0
+
+
 
 end subroutine preset_parameters

@@ -21,7 +21,7 @@ integer :: ierr,err,i
 ! --- Namelist with input parameters.
 namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rst_hdf5, rst_hdf5_version, keep_current_prof,      &
-                eta, visco, visco_par,                              &
+                eta, visco, visco_par, visco_par_par,               &
                 restart, rst_format, regrid, bootstrap, write_ps,   &
                 regrid_from_rz,                                     &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
@@ -197,7 +197,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles,                                 &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                use_cx, use_sputtering, use_ionisation,             &
+                use_kn_cx, use_kn_sputtering, use_kn_ionisation,             &
                 use_ncs, use_pcs, use_ccs,                          &
                 min_sheath_angle, bcs,                              &
                 use_sc, add_sources_in_sc, visco_sc_num,            &
