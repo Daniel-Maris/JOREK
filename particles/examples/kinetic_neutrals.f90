@@ -171,8 +171,7 @@ do group_num=1, n_part_groups
     recomb_groups(recomb_counter) = group_num
   endif
 
-  ! puffing (section still needs much more work)
-  ! variables here need to be moved into puffing config
+  ! puffing (temporary, will require a more sophisticated puffing management system, to come in future PR)
   puff_t_dependent = .true.
   t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
   t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
