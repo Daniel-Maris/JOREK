@@ -537,8 +537,6 @@ if (part_groups_in_use(1) == 'non') part_groups_in_use(1:n_part_groups_old) = pa
 ! if (allocated(sim%groups)) deallocate(sim%groups)
 ! allocate(sim%groups(n_part_groups))
 
-allocate(particles_per_proc(0:n_cpu-1))
-
 do k=1, n_part_groups ! loop over groups ids in part_groups_in_use
 
   write(*,*) "to match id: ", part_groups_in_use(k)
