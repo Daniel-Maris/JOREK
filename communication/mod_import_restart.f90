@@ -1128,6 +1128,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   aux_values_read = .false.
   if(present(aux_node_list)) then
+    if (.not. associated(aux_node_list)) allocate(aux_node_list) 
     call h5lexists_f(file_id,'aux_values',flag_exists,err_exists)
     if(flag_exists .and. err_exists == 0) then
       aux_values_read = .true.
