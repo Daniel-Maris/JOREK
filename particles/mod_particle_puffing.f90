@@ -13,6 +13,7 @@ module mod_particle_puffing
   use mod_particle_sim
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
+  use phys_module, only: valve
 
   implicit none
 
@@ -28,19 +29,16 @@ module mod_particle_puffing
     integer :: n_puff = -1 
     ! Average fueling rate: 9.7d22; max fueling rate 18d22
     real*8  :: puffing_rate = -1.d0
-    real*8  :: R = -1.d0, Z = -1.d0, phi = -1.d0
-    real*8  :: valve_r = -1.d0  !< radius of gas valve
+    type(valve) :: puff_valve      !< determines the location of the puffing
     
-    !box volume puff, define 4 RZ points to determine volume
-    real*8  :: poly_R(4) = -1.d0
-    real*8  :: poly_Z(4) = -1.d0
-    logical :: boxpuff = .false.
-    
-    !Time dependent puffing
+    ! Time dependent puffing
     logical :: puff_t_dependent = .false.
     real*8  :: puffing_rate_start = 0.d0
     real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
     real*8  :: t_puff_slope = 0.d0 !<defined in SI
+
+    ! Target particle group
+    integer :: target_group
     
   contains
     procedure :: do => do_particle_puffing
@@ -52,44 +50,44 @@ module mod_particle_puffing
 contains
 
 !> To do: add generalization to choose group number.
-function new_particle_puffing(n_puff, puffing_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start,poly_R,poly_Z,boxpuff) result(new)
+function new_particle_puffing(target_group, n_puff, puffing_rate, puff_valve, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start) result(new)
+
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
   
   type(particle_puffing)    :: new
 
+  integer, intent(in)           :: target_group
   integer, intent(in)           :: n_puff
   real*8, intent(in)            :: puffing_rate
-  real*8, intent(in)            :: valve_r
-  real*8, intent(in)            :: R, Z
-  real*8, intent(in), optional  :: phi ! If no phi is given axisymmetric puffing will be excecuted.
+  type(valve), intent(in)       :: puff_valve
   logical, intent(in), optional :: puff_t_dependent
   real*8, intent(in), optional  :: t_puff_start,t_puff_slope
   real*8, intent(in), optional  :: puffing_rate_start 
-  
-  real*8, intent(in), optional  :: poly_R(4)
-  real*8, intent(in), optional  :: poly_Z(4)
-  logical, intent(in), optional :: boxpuff
-  
+    
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
   integer                               :: my_seed
   
+  new%target_group = target_group
   new%n_puff       = n_puff
   new%puffing_rate = puffing_rate
-  new%R            = R
-  new%Z            = Z
-  new%valve_r      = valve_r
-  if (present(phi))  new%phi = phi
-  
+  new%puff_valve   = puff_valve 
+
+  write(*,*) "target_group: ", new%target_group
+  write(*,*) "n_puff: ", new%n_puff
+  write(*,*) "puff_rate: ", new%puffing_rate
+
+  write(*,*) "valve_r: ", new%puff_valve%r_valve
+  write(*,*) "valve type: ", new%puff_valve%type
+  write(*,*) "valve poly_R: ", new%puff_valve%poly_R
+
+
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
   if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
   if (present(puffing_rate_start)) new%puffing_rate_start = puffing_rate_start
 
-  if (present(poly_R)) new%poly_R = poly_R
-  if (present(poly_Z)) new%poly_Z = poly_Z
-  if (present(boxpuff)) new%boxpuff = boxpuff
   !> allocate random seed for sampling
   if (present(seed)) then
     my_seed = seed
@@ -139,11 +137,11 @@ subroutine do_particle_puffing(this,sim, ev)
   n_puff_local = this%n_puff / sim%n_cpu !n_puff local is the amount of superparticles that will be puffed per MPI process.
  
 !============== Finding free particles !< make into a function?
-allocate(is_free(size(sim%groups(1)%particles,1))) 
-!$omp parallel do default(none) shared(sim, n_free, i_free, is_free) &
+allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
+!$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &
 !$omp private(j) schedule(dynamic, 100)
-do j=1,size(sim%groups(1)%particles,1) !sim%groups(1)%particles
-  is_free(j) = sim%groups(1)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
+do j=1,size(sim%groups(this%target_group)%particles,1) !sim%groups(this%target_group)%particles
+  is_free(j) = sim%groups(this%target_group)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
 end do
 !$omp end parallel do
 !$omp barrier
@@ -152,7 +150,7 @@ allocate(i_free(n_free))
 k = 1
 do j=1,size(is_free,1)
   if (is_free(j)) then
-    i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(1)%particles(j)
+    i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(this%target_group)%particles(j)
     k = k+1
     !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
   end if
@@ -160,15 +158,15 @@ end do
 ! ==================
   
   
-  n_group = 1   ! Puffing Hydrogen (or actually the element at groups(1)) only
+  ! the current set up may only work for puffing Hydrogen
   ! Assuming the incoming gas at T=300C and a diatomic gas
-  c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(n_group)%mass*ATOMIC_MASS_UNIT))
-  if (.not. this%boxpuff) then
-    call find_RZ(sim%fields%node_list, sim%fields%element_list, this%R, this%Z, R, Z, &
+  c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(this%target_group)%mass*ATOMIC_MASS_UNIT))
+  if (this%puff_valve%type == "circ") then
+    call find_RZ(sim%fields%node_list, sim%fields%element_list, this%puff_valve%R_valve_loc, this%puff_valve%Z_valve_loc, R, Z, &
            i_elm, s, t ,ifail)
            
   else
-    call find_RZ(sim%fields%node_list, sim%fields%element_list, sum(this%poly_R(1:2))/2.d0, sum(this%poly_Z(1:2))/2.d0, R, Z, &
+    call find_RZ(sim%fields%node_list, sim%fields%element_list, sum(this%puff_valve%poly_R(1:2))/2.d0, sum(this%puff_valve%poly_Z(1:2))/2.d0, R, Z, &
            i_elm, s, t ,ifail)
   endif
   if (ifail .ne. 0) then
@@ -206,7 +204,7 @@ end do
   
   puffed_this_step_local = 0
   puff_weight_local      = 0.d0
-  select type (pa => sim%groups(1)%particles)
+  select type (pa => sim%groups(this%target_group)%particles)
   type is (particle_kinetic_leapfrog)
   !> To do: Parallellize loop 
   !> This loop initializes the to be puffed particles and places then in the computational domain.
@@ -232,16 +230,16 @@ end do
     
         !      !$ i_rng = omp_get_thread_num()+1
         call this%rng(1)%next(u) !rng(1)
-        if (.not. this%boxpuff) then
-          r_valve = this%valve_r*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
+        if (this%puff_valve%type == "circ") then
+          r_valve = this%puff_valve%r_valve*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
           theta = TWOPI * u(2)
-          R_new = this%R + r_valve * cos(theta)
-          Z_new = this%Z + r_valve * sin(theta)
+          R_new = this%puff_valve%R_valve_loc + r_valve * cos(theta)
+          Z_new = this%puff_valve%Z_valve_loc + r_valve * sin(theta)
         else
           s = u(1)
           t = u(2)
-          R_new = this%poly_R(1)*(1.d0-s)*(1.d0-t) + this%poly_R(2)*s*(1.d0-t) + this%poly_R(3)*(1.d0-s)*t + this%poly_R(4)*s*t
-          Z_new = this%poly_Z(1)*(1.d0-s)*(1.d0-t) + this%poly_Z(2)*s*(1.d0-t) + this%poly_Z(3)*(1.d0-s)*t + this%poly_Z(4)*s*t
+          R_new = this%puff_valve%poly_R(1)*(1.d0-s)*(1.d0-t) + this%puff_valve%poly_R(2)*s*(1.d0-t) + this%puff_valve%poly_R(3)*(1.d0-s)*t + this%puff_valve%poly_R(4)*s*t
+          Z_new = this%puff_valve%poly_Z(1)*(1.d0-s)*(1.d0-t) + this%puff_valve%poly_Z(2)*s*(1.d0-t) + this%puff_valve%poly_Z(3)*(1.d0-s)*t + this%puff_valve%poly_Z(4)*s*t
         endif
     
         call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, R, Z, s, t, i_elm, &
@@ -253,10 +251,10 @@ end do
       s     = s_new
       t     = t_new
       i_elm = i_elm_new
-      if (this%phi .lt. 0.d0) then
+      if (this%puff_valve%phi .lt. 0.d0) then
         pa(i_p)%x(3) = TWOPI*u(3)
       else 
-        pa(i_p)%x(3) = this%phi 
+        pa(i_p)%x(3) = this%puff_valve%phi 
       end if
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
@@ -264,8 +262,8 @@ end do
       pa(i_p)%weight  = real(1.d0/n_puff_local) * tstep_fluid_si * puffing_rate_t 
       pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   
       pa(i_p)%q       = 0_1
-      if (sim%groups(1)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
-        sim%groups(1)%particles(i_p)%i_elm = 0
+      if (sim%groups(this%target_group)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
+        sim%groups(this%target_group)%particles(i_p)%i_elm = 0
         cycle       
       end if
     puffed_this_step_local = puffed_this_step_local+1

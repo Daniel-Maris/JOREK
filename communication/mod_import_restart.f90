@@ -934,6 +934,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   character*50         :: version_control, version_control_tmp, t_treat_axis
   logical              :: kept, modes_changed, import_3xx_4xx
   
+
 #ifdef USE_HDF5
   integer(HID_T)     :: file_id, datatype, dataset
   integer            :: ind, n_spi_check, n_inj_check
@@ -1131,6 +1132,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     call h5lexists_f(file_id,'aux_values',flag_exists,err_exists)
     if(flag_exists .and. err_exists == 0) then
       aux_values_read = .true.
+
+      ! --- initialising aux_node_list
       call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
 
     endif
@@ -2176,6 +2179,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   !call add_pellet(node_list,element_list,25.d0,0.06d0,0.03d0,3.78d0,0.14d0)
   
   ! -> Deallocate temporary arrays 
+
   call tr_deallocate(mode_tmp,"mode_tmp",CAT_UNKNOWN)
   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
   

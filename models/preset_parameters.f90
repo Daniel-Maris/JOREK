@@ -6,6 +6,7 @@
 subroutine preset_parameters
   
   use phys_module
+  use mod_particle_config_utils
   
   implicit none
 
@@ -862,9 +863,10 @@ puff_rate     = 0.d0
 !--------------- valves -------------------------
 n_valves = 0
 valves(:)%type = 'none'
-valves(:)%r_valve = 0.d0
-valves(:)%R_valve_loc = 0.d0
-valves(:)%Z_valve_loc = 0.d0
+valves(:)%r_valve = -1.d0
+valves(:)%R_valve_loc = -1.d0
+valves(:)%Z_valve_loc = -1.d0
+valves(:)%phi = -1.d0
 do i=1, n_valves_max
   valves(i)%poly_R = 0.d0
   valves(i)%poly_Z = 0.d0
@@ -878,6 +880,7 @@ particle_configs(:)%dt                = 0.d0
 particle_configs(:)%coupling_scheme   = 'non'
 particle_configs(:)%n_particles       = 0.d0
 particle_configs(:)%type              = 'none'
+particle_configs(:)%id                = 'non'
 !-- specific to ncs 
 particle_configs(:)%atom_data_suffix      = 'none'
 particle_configs(:)%use_kn_recombination  = .true.
@@ -885,7 +888,10 @@ particle_configs(:)%use_kn_puffing        = .false.
 particle_configs(:)%use_kn_line_radiation = .true.
 particle_configs(:)%use_kn_ionisation     = .true.
 particle_configs(:)%use_kn_sputtering     = .false.
+particle_configs(:)%n_reflect_ratio       = 5.d-4
 particle_configs(:)%use_kn_cx             = .true.
+
+part_groups_in_use(:) = 'non'
 
 !-----------------------------------------------
 

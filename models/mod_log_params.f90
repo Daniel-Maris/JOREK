@@ -10,6 +10,7 @@ subroutine log_parameters(my_id, short)
 
 use phys_module
 use vacuum
+use particle_tracer, only: sim
 use gauss, only: n_gauss
 #ifdef USE_CATALYST
   use mod_catalyst_adaptor, only: catalyst_scripts
@@ -1020,31 +1021,39 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           write(*,REAL_FMT) 'poly_R              ',valves(i)%poly_R(:)
           write(*,REAL_FMT) 'poly_Z              ',valves(i)%poly_Z(:)
       end select
+      if (valves(i)%phi /= -99.d9) then
+        write(*,REAL_FMT) 'phi                 ',valves(i)%phi
+      endif
     enddo
   endif
 
   
   if (n_part_groups > 0) then
-    write(*,*) ''
     write(*,*) '==== Particle Groups ===='
-    write(*,INTG_FMT) 'n_part_groups  ',n_part_groups
-
+    write(*,INTG_FMT) 'n_part_groups     ',n_part_groups
+    write(*, "(1X,A, ' = ')", advance="no") "part_groups_in_use"
+    do i = 1, n_part_groups
+       write(*, "(A, A)", advance="no") "'", trim(part_groups_in_use(i)) // "' "
+    end do
+    write(*,*)
     do group_num=1, n_part_groups
-      write(*,*) "---- Particle group ", group_num, " ----" 
-      write(*,INTG_FMT) 'Z,                     ',particle_configs(group_num)%Z
-      write(*,REAL_FMT) 'mass                   ',particle_configs(group_num)%mass
-      write(*,REAL_FMT) 'dt                     ',particle_configs(group_num)%dt                    
-      write(*,CHAR_FMT) 'coupling_scheme,       ',particle_configs(group_num)%coupling_scheme
-      write(*,REAL_FMT) 'n_particles,           ',particle_configs(group_num)%n_particles
+      write(*,*) "---- Particle group slot: ", group_num, " ----" 
+      write(*,CHAR_FMT) 'id,                    ',sim%groups(group_num)%id
+      write(*,INTG_FMT) 'Z,                     ',sim%groups(group_num)%Z
+      write(*,REAL_FMT) 'mass                   ',sim%groups(group_num)%mass
+      write(*,REAL_FMT) 'dt                     ',sim%groups(group_num)%dt                    
+      write(*,CHAR_FMT) 'coupling_scheme,       ',sim%groups(group_num)%coupling_scheme
+      write(*,REAL_FMT) 'n_particles,           ',sim%groups(group_num)%n_particles
       write(*,CHAR_FMT) 'type,                  ',trim(particle_configs(group_num)%type)
 
-      if (particle_configs(group_num)%coupling_scheme .eq. 'ncs') then     
-        write(*,LOGI_FMT) 'use_kn_ionisation,     ',particle_configs(group_num)%use_kn_ionisation    
-        write(*,LOGI_FMT) 'use_kn_sputtering,     ',particle_configs(group_num)%use_kn_sputtering    
-        write(*,LOGI_FMT) 'use_kn_cx,             ',particle_configs(group_num)%use_kn_cx
-        write(*,LOGI_FMT) 'use_kn_recombination,  ',particle_configs(group_num)%use_kn_recombination
-        write(*,LOGI_FMT) 'use_kn_puffing,        ',particle_configs(group_num)%use_kn_puffing
-        write(*,LOGI_FMT) 'use_kn_line_radiation, ',particle_configs(group_num)%use_kn_line_radiation
+      if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then     
+        write(*,LOGI_FMT) 'use_kn_ionisation,     ',sim%groups(group_num)%use_kn_ionisation    
+        write(*,LOGI_FMT) 'use_kn_sputtering,     ',sim%groups(group_num)%use_kn_sputtering    
+        write(*,LOGI_FMT) 'use_kn_cx,             ',sim%groups(group_num)%use_kn_cx
+        write(*,LOGI_FMT) 'use_kn_recombination,  ',sim%groups(group_num)%use_kn_recombination
+        write(*,LOGI_FMT) 'use_kn_puffing,        ',sim%groups(group_num)%use_kn_puffing
+        write(*,REAL_FMT) 'n_reflect_ratio,       ',sim%groups(group_num)%n_reflect_ratio
+        write(*,LOGI_FMT) 'use_kn_line_radiation, ',sim%groups(group_num)%use_kn_line_radiation
         write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(particle_configs(group_num)%atom_data_suffix)
       endif
       

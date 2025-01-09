@@ -218,6 +218,51 @@ module hdf5_io_module
     call H5Dclose_f(dataset,ierr_HDF5)
   end subroutine HDF5_array1D_saving_char
 
+    !---------------------------------------- 
+  ! HDF5 saving for a character 1D array of len > 1
+  !----------------------------------------
+  subroutine HDF5_array1D_saving_char_len(file_id,array1D,dim1,char_len,dsetname)
+    use HDF5              ! Include HDF5 module
+    implicit none
+
+    ! Arguments
+    integer(HID_T), intent(in)                 :: file_id      ! file identifier
+    character(LEN=*), dimension(:), intent(in) :: array1D      ! Input character array
+    integer, intent(in)                        :: dim1         ! Size of the array
+    integer, intent(in)                        :: char_len     ! Length of the array entries
+    character(LEN=*), intent(in)               :: dsetname     ! Dataset name
+
+    ! Local variables
+    integer :: ierr_HDF5                        ! Error flag
+    integer :: rank                             ! Dataset rank
+    integer(HSIZE_T), dimension(1) :: dims      ! Dataset dimensions
+    integer(HID_T) :: dataset                   ! Dataset identifier
+    integer(HID_T) :: dataspace                 ! Dataspace identifier
+    integer(HID_T) :: string_type               ! Custom string datatype
+
+    ! Initialize dimensions
+    dims(1) = dim1
+    rank = 1
+
+    ! Create the dataspace
+    call H5Screate_simple_f(rank, dims, dataspace, ierr_HDF5)
+
+    ! Create a custom fixed-length string datatype for CHARACTER(LEN=3)
+    call H5Tcopy_f(H5T_NATIVE_CHARACTER, string_type, ierr_HDF5) ! Start with native char type
+    call H5Tset_size_f(string_type, char_len, ierr_HDF5)  ! Set fixed length = LEN(array1D(1))
+
+    ! Create the dataset using the custom string datatype
+    call H5Dcreate_f(file_id, trim(dsetname), string_type, dataspace, dataset, ierr_HDF5)
+
+    ! Write the character array data
+    call H5Dwrite_f(dataset, string_type, array1D, dims, ierr_HDF5)
+
+    ! Close resources
+    call H5Sclose_f(dataspace, ierr_HDF5)
+    call H5Dclose_f(dataset, ierr_HDF5)
+    call H5Tclose_f(string_type, ierr_HDF5)
+  end subroutine HDF5_array1D_saving_char_len
+
 
   !---------------------------------------- 
   ! HDF5 saving for an integer 
@@ -849,6 +894,45 @@ module hdf5_io_module
     !*** Closing ***
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array1D_reading_char
+
+  subroutine HDF5_array1D_reading_char_len(file_id, array1D, char_len, dsetname)
+    use HDF5
+    implicit none
+
+    ! Arguments
+    integer(HID_T), intent(in)                    :: file_id       ! File identifier
+    character(LEN=*), dimension(:), intent(out)   :: array1D       ! Output character array
+    integer, intent(in)                           :: char_len      ! Length of array entries
+    character(LEN=*), intent(in)                  :: dsetname      ! Dataset name
+
+    ! Local variables
+    integer :: ierr_HDF5                          ! Error flag
+    integer(HID_T) :: dataset                     ! Dataset identifier
+    integer(HID_T) :: dataspace                   ! Dataspace identifier
+    integer(HID_T) :: string_type                 ! Custom string datatype
+    integer(HSIZE_T), dimension(1) :: dim        ! Dataset dimensions
+
+    ! Open the dataset
+    call H5Dopen_f(file_id, trim(dsetname), dataset, ierr_HDF5)
+
+    ! Get the dataspace
+    call H5Dget_space_f(dataset, dataspace, ierr_HDF5)
+
+    dim(1) = size(array1D,1)
+
+    ! Define a custom string datatype matching the length of each character
+    call H5Tcopy_f(H5T_NATIVE_CHARACTER, string_type, ierr_HDF5)
+    call H5Tset_size_f(string_type, char_len, ierr_HDF5)
+
+    ! Read the dataset into the Fortran array
+    call H5Dread_f(dataset, string_type, array1D, dim, ierr_HDF5)
+
+    ! Close resources
+    call H5Tclose_f(string_type, ierr_HDF5)
+    call H5Sclose_f(dataspace, ierr_HDF5)
+    call H5Dclose_f(dataset, ierr_HDF5)
+
+end subroutine HDF5_array1D_reading_char_len
 
 
   !---------------------------------------- 

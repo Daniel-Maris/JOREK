@@ -963,6 +963,7 @@ module phys_module
 
   type :: valve
     character(len=4)   :: type          !< four character code for the valve type ('circ', 'poly', or 'none')
+    real*8  :: phi
     ! --- specific to 'circ' type (circular valve) 
     real*8  :: r_valve                  ! radius of poloidal circular source 
     real*8  :: R_valve_loc              ! R position 
@@ -980,8 +981,8 @@ module phys_module
   ! ------------------------------------------------
   !> @name Particle group settings
   integer            :: n_part_groups                !< number of particle groups being used
-  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups             
-
+  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups     
+  
   !> Contains configuration and settings relating to a particle group
   type :: particle_group_config
     integer            :: Z                        !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
@@ -990,21 +991,27 @@ module phys_module
     character(len=3)   :: coupling_scheme          !< three character code for the coupling scheme to use for the group
     real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
+    character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
     ! character(len=50)  :: pusher                 !< name of the type of pusher to be used
 
     ! --------------- for neutral particles ------------
 
     character(len=256)  :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
-    logical             :: use_kn_cx               !< switch on sputtering for group (only relevant for neutrals)     
-    logical             :: use_kn_sputtering       !< switch on charge-exchange for group
+    logical             :: use_kn_cx               !< switch on charge-exchange for group     
+    logical             :: use_kn_sputtering       !< switch on sputtering for group (only relevant for neutrals)
     logical             :: use_kn_ionisation       !< switch on ionisation for group         
     logical             :: use_kn_recombination    !< switch on recombination for group         
-    logical             :: use_kn_puffing          !< switch on particle puffing for group         
+    logical             :: use_kn_puffing          !< switch on particle puffing for group    
+    real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
     logical             :: use_kn_line_radiation   !< switch on line radiation for group
 
   end type particle_group_config
 
   type (particle_group_config), dimension(n_part_groups_max) :: particle_configs 
+
+  !> @name Particle groups in use (used when changing groups on restart), fill with group ids
+  character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
+
 
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
