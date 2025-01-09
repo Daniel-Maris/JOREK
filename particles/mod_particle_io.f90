@@ -469,7 +469,7 @@ integer           :: n_here, n_particles
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
 character(len=particle_type_name_length) :: particle_type_name
-integer           :: i, j, n, hdferr, n_alive, id
+integer           :: i, j, n, hdferr, n_alive
 integer, allocatable :: n_alive_all(:)
 logical           :: exists
 
@@ -484,6 +484,7 @@ real*8, dimension(:), allocatable :: real8_1D
 call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)      ! id of each MPI proc
 call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)      ! number of MPI procs
 call h5open_f(hdferr)
+allocate(particles_per_proc(0:n_cpu-1))
 
 ! Create file property list for parallel access
 call h5pcreate_f(H5P_FILE_ACCESS_F, plist, hdferr)
@@ -504,8 +505,6 @@ call h5gclose_f(group_id, hdferr)
 ! Reallocate groups if necessary
 if (allocated(sim%groups)) deallocate(sim%groups)
 allocate(sim%groups(n))
-
-allocate(particles_per_proc(0:n_cpu-1))
 
 do i=1,n
   ! Open the dataset for x
