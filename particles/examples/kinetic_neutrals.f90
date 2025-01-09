@@ -240,9 +240,11 @@ do while (.not. sim%stop_now)
   if(sim%my_id .eq. 0) write(*,'(A37,I6)') "Starting main loop iteration istep = ",istep
   if(sim%my_id .eq. 0) write(*,'(A100)'  ) "===================================================================================================="
 
-  ! --- Determining the amount of particle steps and how big they are for this fluid step
-  
+  ! --- Determining the time stepping for this fluid step
+  tstep = get_tstep_n(istep) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
   tstep_fluid_si = tstep*t_norm
+  sim%time = sim%time + tstep_fluid_si ! carries the time at the end of the current step
+
   nstep_particles = ceiling(tstep_fluid_si / tstep_particles) ! ceiling makes sure tstep_part_adj is never bigger than tstep_particles
   tstep_part_adj = tstep_fluid_si / nstep_particles ! slightly smaller tstep_particles to fit an exact integer amount in one fluid timestep
   
@@ -303,9 +305,6 @@ do while (.not. sim%stop_now)
 
   ! -- Finalising the fluid timestep
   
-  ! Updating the time
-  sim%time = sim%time + tstep_fluid_si
-
   !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
   if ( mod(istep,500) .eq. 0 ) then
     call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
