@@ -35,7 +35,8 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
 
       ! --- Determine the coupling variables used, their index, and n_aux_var
       call determine_coupling_variables()
-
+    else 
+      write(*,*) "WARNING: Particle groups detected, but you are running the fluid executable. Overwriting n_part_groups to 0."
     endif
   endif
   
