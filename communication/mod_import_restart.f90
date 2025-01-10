@@ -934,7 +934,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   character*50         :: version_control, version_control_tmp, t_treat_axis
   logical              :: kept, modes_changed, import_3xx_4xx
   
-
 #ifdef USE_HDF5
   integer(HID_T)     :: file_id, datatype, dataset
   integer            :: ind, n_spi_check, n_inj_check
@@ -1042,6 +1041,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   call HDF5_integer_reading(file_id,jorek_model_tmp,"jorek_model")
   call HDF5_integer_reading(file_id,n_var_tmp,"n_var")
+  
   import_3xx_4xx = .false.
   if ( (jorek_model >= 400) .and. (jorek_model <= 499) .and. (jorek_model_tmp >= 300) .and. (jorek_model_tmp <= 399) ) then
     import_3xx_4xx = .true. ! Import a JOREK model 3XX restart file into a 4XX binary
@@ -1144,7 +1144,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_allocate(t_values,1,node_list%n_nodes,1,      n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "node_list%values",CAT_UNKNOWN)
   call tr_allocate(t_deltas,1,node_list%n_nodes,1,      n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "node_list%deltas",CAT_UNKNOWN)
   if(aux_values_read) then
-    call tr_allocate(t_aux_values,1,aux_node_list%n_nodes,1,n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "aux_node_list%values",CAT_UNKNOWN)
+    call tr_allocate(t_aux_values,1,aux_node_list%n_nodes,1,n_tor_tmp,1,n_degrees_tmp,1,n_aux_var, "aux_node_list%values",CAT_UNKNOWN)
   endif
    
 #if STELLARATOR_MODEL
@@ -1283,10 +1283,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         do j=1,n_degrees_tmp 
           if (mode_tmp(m) .eq. mode(k)) then
             if ((m .eq. 1) .and. (k.eq.1)) then
-              aux_node_list%node(i)%values(k,j,1:n_var_tmp)   = t_aux_values(i,m,j,1:n_var_tmp)
+              aux_node_list%node(i)%values(k,j,1:n_aux_var)   = t_aux_values(i,m,j,1:n_aux_var)
             else
-              aux_node_list%node(i)%values(k-1,j,1:n_var_tmp) = t_aux_values(i,m-1,j,1:n_var_tmp)
-              aux_node_list%node(i)%values(k,j,1:n_var_tmp)   = t_aux_values(i,m,j,1:n_var_tmp) 
+              aux_node_list%node(i)%values(k-1,j,1:n_aux_var) = t_aux_values(i,m-1,j,1:n_aux_var)
+              aux_node_list%node(i)%values(k,j,1:n_aux_var)   = t_aux_values(i,m,j,1:n_aux_var) 
             end if
           end if
         enddo
@@ -2179,7 +2179,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   !call add_pellet(node_list,element_list,25.d0,0.06d0,0.03d0,3.78d0,0.14d0)
   
   ! -> Deallocate temporary arrays 
-
   call tr_deallocate(mode_tmp,"mode_tmp",CAT_UNKNOWN)
   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
   
