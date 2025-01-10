@@ -144,20 +144,20 @@
 
   ! ----  particle groups
   n_part_groups = 1
-  particle_configs(1)%Z = -2
-  particle_configs(1)%mass = 2.01410178
-  particle_configs(1)%dt = 1.d-4
-  particle_configs(1)%coupling_scheme = 'ncs'
-  particle_configs(1)%n_particles     = 1e4
-  particle_configs(1)%type            = 'particle_kinetic_leapfrog'
+  particle_group_configs(1)%Z = -2
+  particle_group_configs(1)%mass = 2.01410178
+  particle_group_configs(1)%dt = 1.d-4
+  particle_group_configs(1)%coupling_scheme = 'ncs'
+  particle_group_configs(1)%n_particles     = 1e4
+  particle_group_configs(1)%type            = 'particle_kinetic_leapfrog'
 
-  particle_configs(1)%use_kn_puffing        = .t.
-  particle_configs(1)%use_kn_cx             = .t.
-  particle_configs(1)%use_kn_ionisation     = .t.
-  particle_configs(1)%use_kn_sputtering     = .t.
-  particle_configs(1)%use_kn_recombination  = .t.
-  particle_configs(1)%use_kn_line_radiation = .t.
-  particle_configs(1)%atom_data_suffix = '12_h'
+  particle_group_configs(1)%use_kn_puffing        = .t.
+  particle_group_configs(1)%use_kn_cx             = .t.
+  particle_group_configs(1)%use_kn_ionisation     = .t.
+  particle_group_configs(1)%use_kn_sputtering     = .t.
+  particle_group_configs(1)%use_kn_recombination  = .t.
+  particle_group_configs(1)%use_kn_line_radiation = .t.
+  particle_group_configs(1)%atom_data_suffix = '12_h'
 
 
  /

@@ -800,7 +800,7 @@ do i=1,n_vertex_max
 
 		  ksi_ion_norm = central_density * 1.d20 * ksi_ion
 		  !> Recombination amount per gauss point per element for kinetic particles
-		  if (use_ncs) then ! .and. use_kn_recombination
+		  if (use_ncs .and. use_kn_recomb_global) then
 			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
 			
 			!LradDcont_T = LradDcont_T - ksi_ion_norm
@@ -809,6 +809,7 @@ do i=1,n_vertex_max
 			dSrec_dT      = dSrec_dT      / 2.d0	
  !         	dLradDrays_dT = dLradDrays_dT / 2.d0	
 			dLradDcont_dT = dLradDcont_dT / 2.d0
+
 		  else 
 			Sion_T        = 0.d0
 			dSion_dT      = 0.d0
@@ -817,7 +818,6 @@ do i=1,n_vertex_max
 			LradDcont_T   = 0.d0
 			dLradDcont_dT = 0.d0
 		  endif		  
-		  
 
           do im=n_tor_start, n_tor_end
 

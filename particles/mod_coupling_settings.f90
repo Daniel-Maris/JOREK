@@ -6,10 +6,14 @@ use phys_module, only: n_aux_var, n_diag_var
 use coupling_variables
 
 implicit none
-logical :: use_ncs         = .false. !< use neutral kinetic particles
-logical :: use_ccs         = .false. !< use current coupling scheme for fast particles
-logical :: use_pcs         = .false. !< use pressure coupling scheme for fast particles
-logical :: use_pcs_full    = .false. !< use full tensor pressure coupling scheme for fast particles
+
+! the variables below are global variables determined by scanning over particle groups, 
+! and hence shoud NOT be modified manually
+logical :: use_ncs              = .false. !< use neutral kinetic particles
+logical :: use_ccs              = .false. !< use current coupling scheme for fast particles
+logical :: use_pcs              = .false. !< use pressure coupling scheme for fast particles
+logical :: use_pcs_full         = .false. !< use full tensor pressure coupling scheme for fast particles
+logical :: use_kn_recomb_global = .false. !< whether recombination is required 
 contains
 
     
@@ -30,6 +34,11 @@ subroutine determine_coupling_schemes()
         case ('pcf')
         use_pcs_full = .true.
     end select
+
+    if (particle_group_configs(group_num)%use_kn_recombination == .true.) then
+        use_kn_recomb_global = .true.
+    endif 
+    
     enddo 
     ! maybe some write out here to provide info?
 end subroutine determine_coupling_schemes

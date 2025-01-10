@@ -83,11 +83,7 @@ integer, dimension(:), allocatable :: recomb_groups
 real*8  :: t_puff_start          !< [s] time to start ramping the puff rate if puff_t_dependent=.true.
 real*8  :: t_puff_slope          !< [s] time over which the puff rated is ramped to puff_rate (input) from t_puff_start where the puff rate was still puffing_rate_start
 real*8  :: puffing_rate_start    !< [atoms/s] initial puff rate before the ramp if puff_t_dependent=.true.
-real*8  :: poly_R(4)             !< [m] R coordinates of the quadrangular puffing valve if boxpuff=.true.
-real*8  :: poly_Z(4)             !< [m] Z coordinates of the quadrangular puffing valve if boxpuff=.true.
-real*8  :: poly_R2(4),poly_Z2(4) !  [m] second puffing valve location
 logical :: puff_t_dependent      !< puff time dependent using a flat - ramp - flat pattern (=.true.) or no time dependence at all (.false.) 
-logical :: boxpuff               !< whether to puff in a simple (=.false., uses r_valve etc) or quadrangular (=.true., uses pol_R, poly_Z) puff valve
 
 !***********************************************************************
 !*                            intialisation                            *
@@ -120,11 +116,10 @@ else
 
 endif ! (restart_particles)
 
-call allocate_particles(sim) ! should only allocate groups which are not already allocated
-
+call allocate_particles(sim) ! populate the particle arrays in the particle groups
 
 ! Read Open ADAS data for plasma fluid
-if (deuterium_adas .and. sim%groups(1)%use_kn_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
+if (deuterium_adas .and. use_kn_recomb_global) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
 
 ! --- Setting up random numbers for ionisation probability
 seed = random_seed()
@@ -157,7 +152,7 @@ do group_num=1, n_part_groups
 
   ! sputtering
   if (sim%groups(group_num)%use_kn_sputtering) then
-    sputter_counter = sputter_counter + 1
+    sputter_counter = sputter_counter + 1 ! note down group index as requiring sputtering
     n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
     sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, group_num, n_reflect)
     sputter_events(sputter_counter) = event(sputter_source)
@@ -165,9 +160,7 @@ do group_num=1, n_part_groups
 
   ! recombination
   if (sim%groups(group_num)%use_kn_recombination) then
-
-    ! add group to the list of groups requiring recombination
-    recomb_counter = recomb_counter + 1
+    recomb_counter = recomb_counter + 1   ! add group to the list of groups requiring recombination
     recomb_groups(recomb_counter) = group_num
   endif
 
@@ -193,10 +186,6 @@ do group_num=1, n_part_groups
   endif
 enddo 
 
-! --- Setting up recombination
-
-
-
 !> Adapt the following to customize the time dependent puff rate:
 !> puffing_rate_start = initial puffing rate [atoms/s]
 !> puff_rate = final puffing rate [atoms/s] <input parameter>
@@ -205,13 +194,6 @@ enddo
 !> n_puff = number of super particles puffed per valve per jorek timestep (should be small fraction of total number of super particles) <input parameter>
 puff_t_dependent = .true. 
 puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
-
-!> puff location can be determined for a circular valve by setting input parameters: 
-!> r_valve (valve radius), R_valve_loc, Z_valve (R,Z, coordinates of simple valve)
-!> if boxpuff=.true., poly_R(4),poly_Z(4) are the vertices of the quadrangular puffing valve
-boxpuff = .true. !< whether to puff using 
-
-
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
