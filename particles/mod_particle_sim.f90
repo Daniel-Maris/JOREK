@@ -162,7 +162,6 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
   use mod_chi,           only: init_chi_basis
   use data_structure,    only: init_threads, nbthreads
   use phys_module,       only: n_part_groups, n_part_groups_max
-  use mod_particle_config_utils
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
   logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in
@@ -192,32 +191,8 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
     ! Initialise mode numbers
     call det_modes()
 
-    ! Initialise parameters
-    call initialise_parameters(sim%my_id, "__NO_FILENAME__")
-
-    ! Determine coupling parameters
-    if (sim%my_id .eq. 0) then
-      if (n_part_groups > 0) then
-        write(*,*) n_part_groups, " particle groups slots requested."
-  
-        ! --- check that number of particle groups requested fits 
-        if (n_part_groups > n_part_groups_max) then
-          write(*,*) 'Error: number of particle groups defined exceeds maximum. Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)'
-        endif
-  
-        ! --- generate unique ids for each of the particle groups
-        call assign_part_group_ids() 
-  
-        ! --- Scan over particle groups and determine the coupling scheme parameters
-        call determine_coupling_schemes()
-  
-        ! --- Determine the coupling variables used, their index, and n_aux_var
-        call determine_coupling_variables()
-  
-      endif
-    endif
-
-    call broadcast_parameters(sim%my_id)
+    ! Initialise and broadcast parameters 
+    call initialise_and_broadcast_parameters(sim%my_id, "__NO_FILENAME__")
 
     ! Broadcast physics parameters
     call broadcast_phys(sim%my_id)
