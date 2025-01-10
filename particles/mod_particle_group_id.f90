@@ -1,6 +1,6 @@
 
-!> functions related to extracting model settings from particle_config
-module mod_particle_config_utils
+!> functions related to assigning ids for particle groups
+module mod_particle_group_id
 use phys_module, only: part_groups_in_use, n_part_groups, particle_configs
 implicit none
 
@@ -48,4 +48,4 @@ subroutine generate_part_group_id(id)
     id = 'P' // temp
 end subroutine generate_part_group_id
 
-end module mod_particle_config_utils
+end module mod_particle_group_id

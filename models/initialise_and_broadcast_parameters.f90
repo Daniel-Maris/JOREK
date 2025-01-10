@@ -4,7 +4,7 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   use constants, only: mu_zero
   use mod_parameters,  only: n_tor, n_period
   use mod_plasma_functions, only: initialise_reference_parameters
-  use mod_particle_config_utils
+  use mod_particle_group_id
   use mod_coupling_settings
   use phys_module
   

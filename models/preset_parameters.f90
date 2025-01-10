@@ -6,7 +6,7 @@
 subroutine preset_parameters
   
   use phys_module
-  use mod_particle_config_utils
+  use mod_particle_group_id
   
   implicit none
 
