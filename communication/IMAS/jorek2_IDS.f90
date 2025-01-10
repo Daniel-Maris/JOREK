@@ -140,7 +140,7 @@ program jorek2_IDS
   export_spi           = .false.
   rad_only_projections_h5 = .false.    !< use only *.h5 projection files for radiation IDS (single jorek_restart.h5 still needed)
   overwrite_entry      = .false.       !< If true, it overwrites the shot/run even if it already exists in the database.
-                                        !  Otherwise it appends the IDSs to the existing entry
+                                       !  Otherwise it appends the IDSs to the existing entry
   n_grid               = 100           !< Number of points used for 1D and 2D profiles  
   wall_thickness       = 0.06          !< Thickness used for the STARWALL thin wall (default value is for ITER)
   passive_coil_geo_file= 'None'
@@ -198,7 +198,6 @@ program jorek2_IDS
 
   ! --- Loop over
   do i_step = i_begin, i_end, i_jump_steps
-  
     ! --- Cycle when required files don't exist 
     if (rad_only_projections_h5 .and. export_radiation) then
       write(name_proj,'(a,i5.5,a)') 'projections', i_step, '.h5'  ! This formatting should be improved
@@ -223,8 +222,8 @@ program jorek2_IDS
     call print_equil_state(.true.)
     call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, output_bnd_elements)
     if (ierr /=0 ) then
-        write(*,*) '  Could not read the JOREK restart file'
-        stop
+       write(*,*) '  Could not read the JOREK restart file'
+       stop
     endif
     time_SI = t_start * fact_time
 
@@ -239,10 +238,10 @@ program jorek2_IDS
     if (first_step .and. freeboundary .and. &
         (export_wall .or. export_pf_passive .or. export_pf_active .or. export_field_extension)) then
       call get_vacuum_response(my_id, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,    &
-            resistive_wall)
+           resistive_wall)
       call import_external_fields('coil_field.dat', my_id)
       if ( .not. wall_curr_initialized ) call init_wall_currents(my_id, resistive_wall)
-    endif
+   endif
 
     ! --- Fill and export a plasma profiles IDS with the JOREK variables
     if (export_JOREK_variables)  call fill_profiles_w_JOREK_var(first_step, time_SI, plasma_profiles_ids1)  
@@ -351,8 +350,7 @@ program jorek2_IDS
 
   enddo
 
-  call imas_close(idx) 
-  
+  call imas_close(idx)   
 #else
 
   write(*,*) 'Error: jorek2_IDS must be compiled with IMAS (USE_IMAS=1)'
