@@ -53,13 +53,14 @@ program jorek2_IDS
   type(t_rect_grid_params):: rect_grid_params
 
   namelist /imas_params/ shot_number, run_number, user, database, i_begin, i_end,    &
-                          export_JOREK_variables, export_radiation, export_1d_profiles, n_grid, &
-                          export_equilibrium, rad_only_projections_h5, export_wall,   &
-                          export_pf_passive, export_pf_active, passive_coil_geo_file, &
-                          active_coil_geo_file, wall_thickness, export_disruption,    &
-                          export_summary, overwrite_entry, i_jump_steps,              &
-                          simulation_description, export_field_extension,             &
-                          rect_grid_params, backend, export_spi 
+                         export_mhd, export_radiation, export_core_profiles, n_grid, &
+                         export_equilibrium, rad_only_projections_h5, export_wall,   &
+                         export_pf_passive, export_pf_active, passive_coil_geo_file, &
+                         active_coil_geo_file, wall_thickness, export_disruption,    &
+                         export_summary, overwrite_entry, i_jump_steps,              &
+                         simulation_description, export_field_extension,               &
+                         Rmin_vac_grid, Rmax_vac_grid, Zmin_vac_grid, Zmax_vac_grid, &
+                         nR_vac_grid, nZ_vac_grid 
 
   ! --- Necessary initialization ------------------
   ! --- MPI initialization (for wall current reconstruction)
