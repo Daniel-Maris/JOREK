@@ -2,7 +2,8 @@
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: use_ncs, nstep_particles, use_manual_random_seed
+    use phys_module, only: nstep_particles, use_manual_random_seed
+    use mod_coupling_settings
     use mod_project_particles
     use mod_random_seed
     use mod_interp, only: mode_moivre

@@ -9,6 +9,7 @@ contains
 subroutine log_parameters(my_id, short)
 
 use phys_module
+use mod_coupling_settings
 use vacuum
 use particle_tracer, only: sim
 use gauss, only: n_gauss

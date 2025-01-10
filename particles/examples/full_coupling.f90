@@ -13,10 +13,11 @@ use mod_random_seed
 use mod_interp, only: mode_moivre, interp_RZ
 use mod_basisfunctions
 use nodes_elements
-use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles, use_ncs, use_pcs, use_ccs
+use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: tstep
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
+use mod_coupling_settings
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
 use mod_particle_sputtering, only: particle_sputter, sample_fluid_particle_energy
@@ -51,7 +52,6 @@ integer   :: j, seed, i_rng, n_stream
 ! For live updating the rhs of the projection
 real*8  :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
 integer :: i_tor, index_lm, i_elm_temp
-logical :: use_kn_cx, use_kn_ionisation, use_kn_sputtering
 
 ! Start up MPI, jorek
 call sim%initialize(num_groups=1)

@@ -851,10 +851,6 @@ filter_perp_n0     = 0.d0
 filter_hyper_n0    = 1.d-10
 filter_par_n0      = 0.d0
 restart_particles  = .false.
-use_ncs            = .false.
-use_ccs            = .false.
-use_pcs            = .false.
-use_pcs_full       = .false.
 use_marker         = .false.
 
 n_puff        = 0

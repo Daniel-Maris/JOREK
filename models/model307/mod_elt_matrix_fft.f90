@@ -19,6 +19,7 @@ use data_structure
 use gauss
 use basis_at_gaussian
 use phys_module
+use mod_coupling_settings
 use pellet_module
 use diffusivities, only: get_dperp, get_zkperp
 use equil_info, only : get_psi_n

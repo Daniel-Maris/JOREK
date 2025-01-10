@@ -3,6 +3,7 @@ subroutine broadcast_phys(my_id)
 
 use tr_module
 use phys_module
+use mod_coupling_settings
 use coupling_variables
 use vacuum
 use mpi_mod

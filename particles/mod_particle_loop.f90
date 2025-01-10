@@ -1,5 +1,6 @@
 module mod_particle_loop
 use phys_module
+use mod_coupling_settings
 use constants,   only: MU_ZERO, MASS_PROTON
 use mpi
 use particle_tracer

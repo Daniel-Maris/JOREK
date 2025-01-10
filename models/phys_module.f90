@@ -936,10 +936,6 @@ module phys_module
   integer :: n_aux_var           !< number of variables in aux_node_list
   integer :: n_diag_var = n_var  !< number of variables in diag_node_list (= n_var is temporary)
   logical :: restart_particles
-  logical :: use_ncs          !< use neutral particles
-  logical :: use_ccs          !< use current coupling scheme for fast particles
-  logical :: use_pcs          !< use pressure coupling scheme for fast particles
-  logical :: use_pcs_full     !< use full tensor pressure coupling scheme for fast particles
   logical :: use_marker       !< This flag determines whether to use marker particles to treat impurity (Placeholder)
   real*8  :: tstep_particles  !< the time step for the particles
   integer :: nstep_particles  !< the number of particle time steps
