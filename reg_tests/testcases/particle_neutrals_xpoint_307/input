@@ -7,7 +7,7 @@
   restart_particles=.f.
 
   tstep_n=10.
-  nstep_n=3
+  nstep_n=1
 
   nout = 1
 
