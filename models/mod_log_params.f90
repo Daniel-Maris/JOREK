@@ -1045,7 +1045,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       write(*,REAL_FMT) 'dt                     ',sim%groups(group_num)%dt                    
       write(*,CHAR_FMT) 'coupling_scheme,       ',sim%groups(group_num)%coupling_scheme
       write(*,REAL_FMT) 'n_particles,           ',sim%groups(group_num)%n_particles
-      write(*,CHAR_FMT) 'type,                  ',trim(particle_configs(group_num)%type)
+      write(*,CHAR_FMT) 'type,                  ',trim(particle_group_configs(group_num)%type)
 
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then     
         write(*,LOGI_FMT) 'use_kn_ionisation,     ',sim%groups(group_num)%use_kn_ionisation    
@@ -1055,7 +1055,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         write(*,LOGI_FMT) 'use_kn_puffing,        ',sim%groups(group_num)%use_kn_puffing
         write(*,REAL_FMT) 'n_reflect_ratio,       ',sim%groups(group_num)%n_reflect_ratio
         write(*,LOGI_FMT) 'use_kn_line_radiation, ',sim%groups(group_num)%use_kn_line_radiation
-        write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(particle_configs(group_num)%atom_data_suffix)
+        write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(particle_group_configs(group_num)%atom_data_suffix)
       endif
       
     enddo

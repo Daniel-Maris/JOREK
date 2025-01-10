@@ -870,22 +870,22 @@ enddo
 
 ! -------------- particle groups ---------------
 n_part_groups = 0
-particle_configs(:)%Z                 = 1
-particle_configs(:)%mass              = 0.d0
-particle_configs(:)%dt                = 0.d0
-particle_configs(:)%coupling_scheme   = 'non'
-particle_configs(:)%n_particles       = 0.d0
-particle_configs(:)%type              = 'none'
-particle_configs(:)%id                = 'non'
+particle_group_configs(:)%Z                 = 1
+particle_group_configs(:)%mass              = 0.d0
+particle_group_configs(:)%dt                = 0.d0
+particle_group_configs(:)%coupling_scheme   = 'non'
+particle_group_configs(:)%n_particles       = 0.d0
+particle_group_configs(:)%type              = 'none'
+particle_group_configs(:)%id                = 'non'
 !-- specific to ncs 
-particle_configs(:)%atom_data_suffix      = 'none'
-particle_configs(:)%use_kn_recombination  = .true.
-particle_configs(:)%use_kn_puffing        = .false.
-particle_configs(:)%use_kn_line_radiation = .true.
-particle_configs(:)%use_kn_ionisation     = .true.
-particle_configs(:)%use_kn_sputtering     = .false.
-particle_configs(:)%n_reflect_ratio       = 5.d-4
-particle_configs(:)%use_kn_cx             = .true.
+particle_group_configs(:)%atom_data_suffix      = 'none'
+particle_group_configs(:)%use_kn_recombination  = .true.
+particle_group_configs(:)%use_kn_puffing        = .false.
+particle_group_configs(:)%use_kn_line_radiation = .true.
+particle_group_configs(:)%use_kn_ionisation     = .true.
+particle_group_configs(:)%use_kn_sputtering     = .false.
+particle_group_configs(:)%n_reflect_ratio       = 5.d-4
+particle_group_configs(:)%use_kn_cx             = .true.
 
 part_groups_in_use(:) = 'non'
 

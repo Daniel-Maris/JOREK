@@ -1,7 +1,7 @@
 
 !> functions related to assigning ids for particle groups
 module mod_particle_group_id
-use phys_module, only: part_groups_in_use, n_part_groups, particle_configs
+use phys_module, only: part_groups_in_use, n_part_groups, particle_group_configs
 implicit none
 
 integer :: id_counter = 0
@@ -13,25 +13,25 @@ subroutine assign_part_group_ids()
     integer :: i
 
     do i=1, n_part_groups
-        if (particle_configs(i)%id(1:1) == 'P') then
+        if (particle_group_configs(i)%id(1:1) == 'P') then
             write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
                         "as it is reserved for system assigned ids."
             stop
         endif
 
-        if (particle_configs(i)%id == 'non') then
+        if (particle_group_configs(i)%id == 'non') then
             if (part_groups_in_use(i) /= 'non') then 
                 write(*,*) "Error: part_group_in_use is defined, which requires id to be explicitly " // &
                             "defined for all members of part_configs."
                 stop
             endif
-            call generate_part_group_id(particle_configs(i)%id)
+            call generate_part_group_id(particle_group_configs(i)%id)
         endif
     enddo
 
     if (part_groups_in_use(1) == 'non') then ! part_group_in_use is not assigned
         do i=1, n_part_groups
-            part_groups_in_use(i) = particle_configs(i)%id
+            part_groups_in_use(i) = particle_group_configs(i)%id
         enddo
     endif
 

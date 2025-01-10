@@ -62,19 +62,19 @@ end type particle_sim
 
 contains
 
-!> Loads the information from a particle_group_config type to a particle_group type
+!> Loads the information from a type_particle_group_config type to a particle_group type
 subroutine configure_particle_group(sim)
-  use phys_module, only: n_part_groups, particle_configs, particle_group_config, part_groups_in_use
+  use phys_module, only: n_part_groups, particle_group_configs, type_particle_group_config, part_groups_in_use
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i,j
-  type(particle_group_config)              :: config
+  type(type_particle_group_config)              :: config
 
   do i=1, n_part_groups
     do j=1, n_part_groups
-      if (particle_configs(j)%id == part_groups_in_use(i)) then 
-        config = particle_configs(j)
+      if (particle_group_configs(j)%id == part_groups_in_use(i)) then 
+        config = particle_group_configs(j)
       else 
         write(*,*) "Error: No matching particle_config entry found for id: '", part_groups_in_use(i), "' defined in 'part_groups_in_use' ." 
         stop
@@ -108,7 +108,7 @@ end subroutine configure_particle_group
 
 !> allocates the particles for a group depending on its type and n_particles
 subroutine allocate_particles(sim)
-  use phys_module, only: particle_configs, n_part_groups
+  use phys_module, only: particle_group_configs, n_part_groups
   implicit none
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i, n_particles_local
@@ -118,7 +118,7 @@ subroutine allocate_particles(sim)
 
       n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_cpu)
 
-      select case (trim(particle_configs(i)%type))
+      select case (trim(particle_group_configs(i)%type))
         case ("particle_kinetic_leapfrog")
           ! setting up empty particle array
           allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local))
