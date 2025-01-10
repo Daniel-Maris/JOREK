@@ -198,7 +198,7 @@ program jorek2_IDS
 
   ! --- Loop over
   do i_step = i_begin, i_end, i_jump_steps
-
+ 
     ! --- Cycle when required files don't exist 
     if (rad_only_projections_h5 .and. export_radiation) then
       write(name_proj,'(a,i5.5,a)') 'projections', i_step, '.h5'  ! This formatting should be improved
@@ -350,6 +350,9 @@ program jorek2_IDS
     first_step = .false.
 
   enddo
+
+  call imas_close(idx) 
+ 
 #else
 
   write(*,*) 'Error: jorek2_IDS must be compiled with IMAS (USE_IMAS=1)'
