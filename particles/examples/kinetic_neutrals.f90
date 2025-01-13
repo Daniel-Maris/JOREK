@@ -100,7 +100,7 @@ tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this re
 ! setting up the particles
 if (restart_particles) then
   ! reading the particles from a file
-  if (sim%my_id == 0) write(*,*) 'INFO: READING PARTICLES RESTART FILE'
+  if (sim%my_id == 0) write(*,*) 'INFO: READING PARTICLES RESTART FILE =========='
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
 

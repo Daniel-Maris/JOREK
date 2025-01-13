@@ -73,7 +73,6 @@ if (my_id .eq. 0) then
 
   ! Write n_part_groups and part_groups_in_use
   call HDF5_integer_saving(file,n_part_groups,'/n_part_groups')
-  call HDF5_array1D_saving_char_len(file, part_groups_in_use, n_part_groups, 3, '/part_groups_in_use')
 end if
 
 
@@ -479,15 +478,21 @@ integer(HID_T)    :: data_type
 integer(HID_T)    :: group_id
 integer(HID_T)    :: time_set_id
 integer(HSIZE_T)  :: i_here
-integer           :: n_here, n_particles, n_part_groups_old
+integer           :: n_here, n_part_groups_old
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
-character(len=particle_type_name_length) :: particle_type_name
 character(len=3), allocatable :: part_groups_in_use_old(:)
+character(len=3)  :: dropped_groups(n_part_groups_max) 
 character(len=3)  :: group_id_tmp
 integer           :: i, j, k, hdferr, n_alive, id
 integer, allocatable :: n_alive_all(:)
 logical           :: exists
+! temp group attributes
+integer            :: tmp_Z, tmp_n_particles, dropped_groups_counter
+real*8             :: tmp_mass
+character(len=3)   :: tmp_cs
+character(len=8) :: tmp_ad_suffix 
+character(len=particle_type_name_length)  :: tmp_part_type
 
 type(c_ptr) :: p_ptr
 integer*8, dimension(1:2) :: tmp, maxdims
@@ -533,46 +538,99 @@ allocate(part_groups_in_use_old(n_part_groups_old))
 call HDF5_array1D_reading_char_len(file, part_groups_in_use_old, 3, '/part_groups_in_use')
 if (part_groups_in_use(1) == 'non') part_groups_in_use(1:n_part_groups_old) = part_groups_in_use_old 
 
-! ! Reallocate groups if necessary
-! if (allocated(sim%groups)) deallocate(sim%groups)
-! allocate(sim%groups(n_part_groups))
-
-do k=1, n_part_groups ! loop over groups ids in part_groups_in_use
-
-  write(*,*) "to match id: ", part_groups_in_use(k)
-  do i=1, n_part_groups_old ! loop over the saved particle groups
-    write(group_name,'(A,i0.3,A)') '/groups/', i, '/'
+dropped_groups_counter = 0
+do i=1, n_part_groups ! loop over groups in part_groups_in_use
+  if (sim%my_id == 0) write(*,*) "Group ID to match: ", part_groups_in_use(i)
+  
+  do k=1, n_part_groups_old ! loop over the saved particle groups
+    write(group_name,'(A,i0.3,A)') '/groups/', k, '/'
     call HDF5_char_reading(file,group_id_tmp,group_name//"id")
-    write(*,*) "tmp id: ", group_id_tmp
-    if (group_id_tmp == part_groups_in_use(k)) then
-      write(*,*) "Matching restart group found for '", part_groups_in_use(k), "', loading data"
 
-      ! Open the dataset for x
+    if (group_id_tmp == part_groups_in_use(i)) then
+      
+      if (sim%my_id == 0) write(*,*) "Matching restart group found. Loading data."
+
+      ! Open the dataset for x -----------------------------
       call h5dopen_f(file, group_name//"x", dset, hdferr)
     
-      ! Open the file dataspace
+      ! Open the file dataspace ----------------------------
       call h5dget_space_f(dset, file_space, hdferr)
-    
-      ! Get the number of particles
+
+      ! Reading particle group attributes ---------------------
+      call HDF5_integer_reading(file,tmp_Z,group_name//"Z")
+      call HDF5_real_reading(file,tmp_mass,group_name//"mass")
+      call HDF5_char_reading(file,tmp_ad_suffix,group_name//"adas_suffix")
+      call HDF5_char_reading(file,tmp_cs,group_name//"coupling_scheme")
+      call HDF5_char_reading(file,tmp_part_type,group_name//"type")
+      
+      ! n_particles
       call h5sget_simple_extent_ndims_f(file_space, rank, hdferr)
       call h5sget_simple_extent_dims_f(file_space, tmp, maxdims, hdferr)
-      n_particles = int(tmp(2),4) ! should be per group
-      sim%groups(i)%n_particles = n_particles
+      tmp_n_particles = int(tmp(2),4)
+      
+      ! check if read attributes matches with specified attributes 
+
+      if (particle_group_configs(i)%Z /= tmp_Z) then
+        write(*,*) "IMPORT ERROR: Attribute 'Z' mismatch between namelist and imported data for group: ", group_id_tmp
+        stop
+      endif
+
+      if (particle_group_configs(i)%mass /= tmp_mass) then
+        write(*,*) "IMPORT ERROR: Attribute 'mass' mismatch between namelist and imported data for group: ", group_id_tmp
+        stop
+      endif
+
+      if (trim(particle_group_configs(i)%coupling_scheme) /= trim(tmp_cs)) then
+        write(*,*) "IMPORT ERROR: Attribute 'coupling_scheme' mismatch between namelist and imported data for group: ", group_id_tmp
+        stop
+      endif
+
+      if (trim(particle_group_configs(i)%type) /= trim(tmp_part_type)) then
+        write(*,*) "IMPORT ERROR: Attribute 'type' mismatch between namelist and imported data for group: ", group_id_tmp
+        write(*,*) "config type: ", trim(particle_group_configs(i)%type)
+        write(*,*) "load type: ", trim(tmp_part_type)
+        stop
+      endif
+
+      if (particle_group_configs(i)%n_particles /= tmp_n_particles) then ! could allow to be changed in the future?
+        write(*,*) "IMPORT ERROR: Attribute 'n_particles' mismatch between namelist and imported data for group: ", group_id_tmp
+        stop
+      endif
+
+      ! attributes that are allowed to change
+      if (trim(particle_group_configs(i)%atom_data_suffix) /= trim(tmp_ad_suffix)) then
+        write(*,*) "IMPORT WARNING: Attribute 'atom_data_suffix' mismatch between namelist "
+        write(*,*) " and imported data for group: ", group_id_tmp
+        write(*,*) "Namelist: ", trim(particle_group_configs(k)%atom_data_suffix), " | Imported: ", trim(tmp_ad_suffix)
+        write(*,*) "Will proceed with suffix given by namelist."
+      endif
+    
+      ! Set attributes --------------------------------------
+      sim%groups(i)%Z = tmp_Z
+      sim%groups(i)%mass = tmp_mass
+      sim%groups(i)%coupling_scheme = tmp_cs
+
+      ! adas data
+      sim%groups(i)%ad%suffix = tmp_ad_suffix
+
+      if (len_trim(sim%groups(k)%ad%suffix) .gt. 0) then
+        sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
+        sim%groups(i)%cor = coronal(sim%groups(i)%ad)
+      end if
+
+      ! n_particles and load balancing
+      sim%groups(i)%n_particles = tmp_n_particles
       call h5sclose_f(file_space, hdferr)
       call h5dclose_f(dset, hdferr)
-    
-      ! Divide particles over processors
-      particles_per_proc(0)         = n_particles/n_cpu + modulo(n_particles, n_cpu)
-      particles_per_proc(1:n_cpu-1) = n_particles/n_cpu
+      particles_per_proc(0)         = tmp_n_particles/n_cpu + modulo(tmp_n_particles, n_cpu)
+      particles_per_proc(1:n_cpu-1) = tmp_n_particles/n_cpu
     
       i_here = sum(particles_per_proc(0:my_id-1))
       n_here = particles_per_proc(my_id)
-    
-      ! Get the particle type from the attribute
-      call HDF5_char_reading(file,particle_type_name,group_name//"type")
-    
+
+      ! particle type
       ierr = 0
-      select case (trim(particle_type_name))
+      select case (trim(tmp_part_type))
       case ('particle_kinetic')
         allocate(particle_kinetic::sim%groups(i)%particles(n_here), stat=ierr)
       case ('particle_kinetic_leapfrog')
@@ -588,23 +646,14 @@ do k=1, n_part_groups ! loop over groups ids in part_groups_in_use
       case ('particle_gc_relativistic')
         allocate(particle_gc_relativistic::sim%groups(i)%particles(n_here), stat=ierr)
       case default
-        write(*,*) "error: missing type name declaration ", trim(particle_type_name), " for read"
+        write(*,*) "error: missing type name declaration ", trim(tmp_part_type), " for read"
         call exit(1)
       end select
       if (ierr .gt. 0) write(*,"(i3,a,i12,a)") my_id, &
           "unable to allocate particles(", particles_per_proc(my_id), ")"
+  
     
-      call HDF5_integer_reading(file,sim%groups(i)%Z,group_name//"Z")
-      call HDF5_real_reading(file,sim%groups(i)%mass,group_name//"mass")
-      call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
-    
-      ! call HDF5_char_reading(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
-      if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
-        sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
-        sim%groups(i)%cor = coronal(sim%groups(i)%ad)
-      end if
-    
-      ! Read base particle attributes
+      ! Read particle specific properties -----------------
       ! x
       allocate(real8_2D(3,n_here))
       call HDF5_array2D_reading(file, real8_2D, group_name//"x",start=[0_HSIZE_T,i_here])
@@ -814,11 +863,22 @@ do k=1, n_part_groups ! loop over groups ids in part_groups_in_use
       deallocate(n_alive_all)
     
     else 
-      write(*,*) "Group '", group_id_tmp, "' from part_restart.h5 is not listed in part_group_in_use, it will hence be dropped."
+      dropped_groups_counter = dropped_groups_counter + 1
+      dropped_groups(dropped_groups_counter) = group_id_tmp
     endif ! group id match
 
   enddo ! n_part_groups_old
-enddo ! n_part_groups
+enddo ! groups in part_groups_in_use 
+
+if (dropped_groups_counter > 0) then
+  if (sim%my_id == 0) then
+    write(*, "(1X,A, ' = ')", advance="no") "Imported particle groups now dropped: "
+    do i = 1, dropped_groups_counter
+      write(*, "(A, A)", advance="no") "'", trim(dropped_groups(i)) // "' "
+    end do
+    write(*,*)
+  endif
+endif
 
 
 ! dealloc temp arrays
