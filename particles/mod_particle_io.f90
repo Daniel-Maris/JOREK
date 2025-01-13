@@ -434,8 +434,6 @@ if (allocated(sim%groups)) then
       call HDF5_char_saving(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
       call HDF5_char_saving(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
       call HDF5_real_saving(file,sim%groups(i)%n_particles,group_name//"n_particles")
-      call HDF5_char_saving(file,sim%groups(i)%id,group_name//"id")
-      ! save dt?
 
     end if
     deallocate(x,x_all,st,st_all,weight,weight_all,t_birth,t_birth_all,i_elm,i_elm_all,i_life,i_life_all)
@@ -481,8 +479,7 @@ integer           :: n_here, n_particles, n_part_groups_old
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
 character(len=particle_type_name_length) :: particle_type_name
-character(len=3)  :: group_id_tmp
-integer           :: i, j, hdferr, n_alive, id
+integer           :: i, j, hdferr, n_alive
 integer, allocatable :: n_alive_all(:)
 logical           :: exists
 
