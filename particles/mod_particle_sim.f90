@@ -64,43 +64,33 @@ contains
 
 !> Loads the information from a type_particle_group_config type to a particle_group type
 subroutine configure_particle_group(sim)
-  use phys_module, only: n_part_groups, particle_group_configs, type_particle_group_config, part_groups_in_use
+  use phys_module, only: n_part_groups, particle_group_configs, type_particle_group_config
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i,j
-  type(type_particle_group_config)              :: config
 
   do i=1, n_part_groups
-    do j=1, n_part_groups
-      if (particle_group_configs(j)%id == part_groups_in_use(i)) then 
-        config = particle_group_configs(j)
-      else 
-        write(*,*) "Error: No matching particle_config entry found for id: '", part_groups_in_use(i), "' defined in 'part_groups_in_use' ." 
-        stop
-      endif
-    enddo
-
-    sim%groups(i)%Z = config%Z
-    sim%groups(i)%mass = config%mass
-    sim%groups(i)%dt = config%dt
-    sim%groups(i)%coupling_scheme = config%coupling_scheme
-    sim%groups(i)%n_particles = config%n_particles
-    sim%groups(i)%id = config%id
+    sim%groups(i)%Z = particle_group_configs(i)%Z
+    sim%groups(i)%mass = particle_group_configs(i)%mass
+    sim%groups(i)%dt = particle_group_configs(i)%dt
+    sim%groups(i)%coupling_scheme = particle_group_configs(i)%coupling_scheme
+    sim%groups(i)%n_particles = particle_group_configs(i)%n_particles
+    sim%groups(i)%id = particle_group_configs(i)%id
   
     ! --- ncs options
-    sim%groups(i)%use_kn_cx             =  config%use_kn_cx
-    sim%groups(i)%use_kn_sputtering     =  config%use_kn_sputtering
-    sim%groups(i)%use_kn_ionisation     =  config%use_kn_ionisation          
-    sim%groups(i)%use_kn_recombination  =  config%use_kn_recombination         
-    sim%groups(i)%use_kn_puffing        =  config%use_kn_puffing        
-    sim%groups(i)%n_reflect_ratio       =  config%n_reflect_ratio 
-    sim%groups(i)%use_kn_line_radiation =  config%use_kn_line_radiation 
+    sim%groups(i)%use_kn_cx             =  particle_group_configs(i)%use_kn_cx
+    sim%groups(i)%use_kn_sputtering     =  particle_group_configs(i)%use_kn_sputtering
+    sim%groups(i)%use_kn_ionisation     =  particle_group_configs(i)%use_kn_ionisation          
+    sim%groups(i)%use_kn_recombination  =  particle_group_configs(i)%use_kn_recombination         
+    sim%groups(i)%use_kn_puffing        =  particle_group_configs(i)%use_kn_puffing        
+    sim%groups(i)%n_reflect_ratio       =  particle_group_configs(i)%n_reflect_ratio 
+    sim%groups(i)%use_kn_line_radiation =  particle_group_configs(i)%use_kn_line_radiation 
     
-    if (config%atom_data_suffix /= 'none') then
-      sim%groups(i)%ad                    =  read_adf11(sim%my_id, config%atom_data_suffix)
+    if (trim(particle_group_configs(i)%atom_data_suffix) /= 'none') then
+      sim%groups(i)%ad =  read_adf11(sim%my_id, trim(particle_group_configs(i)%atom_data_suffix))
     else
-      if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
+      if (trim(particle_group_configs(i)%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
     endif
   enddo 
 

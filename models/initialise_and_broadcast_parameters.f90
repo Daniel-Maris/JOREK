@@ -4,7 +4,6 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   use constants, only: mu_zero
   use mod_parameters,  only: n_tor, n_period
   use mod_plasma_functions, only: initialise_reference_parameters
-  use mod_particle_group_id
   use mod_coupling_settings
   use phys_module
   
@@ -26,9 +25,6 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
       if (n_part_groups > n_part_groups_max) then
         write(*,*) 'Error: number of particle groups defined exceeds maximum. Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)'
       endif
-
-      ! --- generate unique ids for each of the particle groups
-      call assign_part_group_ids() 
 
       ! --- Scan over particle groups and determine the coupling scheme parameters
       call determine_coupling_schemes()

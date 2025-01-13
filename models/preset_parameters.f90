@@ -6,8 +6,6 @@
 subroutine preset_parameters
   
   use phys_module
-  use mod_particle_group_id
-  
   implicit none
 
   integer :: i ! for iterations
@@ -886,8 +884,6 @@ particle_group_configs(:)%use_kn_ionisation     = .true.
 particle_group_configs(:)%use_kn_sputtering     = .false.
 particle_group_configs(:)%n_reflect_ratio       = 5.d-4
 particle_group_configs(:)%use_kn_cx             = .true.
-
-part_groups_in_use(:) = 'non'
 
 !-----------------------------------------------
 

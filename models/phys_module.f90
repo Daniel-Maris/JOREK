@@ -992,7 +992,7 @@ module phys_module
 
     ! --------------- for neutral particles ------------
 
-    character(len=256)  :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
+    character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
     logical             :: use_kn_cx               !< switch on charge-exchange for group     
     logical             :: use_kn_sputtering       !< switch on sputtering for group (only relevant for neutrals)
     logical             :: use_kn_ionisation       !< switch on ionisation for group         
@@ -1004,10 +1004,6 @@ module phys_module
   end type type_particle_group_config
 
   type (type_particle_group_config), dimension(n_part_groups_max) :: particle_group_configs 
-
-  !> @name Particle groups in use (used when changing groups on restart), fill with group ids
-  character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
-
 
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families

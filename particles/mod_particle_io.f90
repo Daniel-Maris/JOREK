@@ -71,9 +71,7 @@ if (my_id .eq. 0) then
   ! Write the time
   call HDF5_real_saving(file,sim%time,'/time')
 
-  ! Write n_part_groups and part_groups_in_use
   call HDF5_integer_saving(file,n_part_groups,'/n_part_groups')
-  call HDF5_array1D_saving_char_len(file, part_groups_in_use, n_part_groups, 3, '/part_groups_in_use')
 end if
 
 
@@ -483,9 +481,8 @@ integer           :: n_here, n_particles, n_part_groups_old
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
 character(len=particle_type_name_length) :: particle_type_name
-character(len=3), allocatable :: part_groups_in_use_old(:)
 character(len=3)  :: group_id_tmp
-integer           :: i, j, k, hdferr, n_alive, id
+integer           :: i, j, hdferr, n_alive, id
 integer, allocatable :: n_alive_all(:)
 logical           :: exists
 
@@ -522,307 +519,276 @@ if (n_part_groups_old > n_part_groups_max) then
   stop
 endif
 
-if (n_part_groups < n_part_groups_old) then
-  write(*,*) "Error: n_part_groups specified is smaller than the number of groups from part_restart.h5. " // &
-  "If you would like to remove particle groups, please specifiy the group ids to keep using part_group_in_use. "
-else if (n_part_groups > n_part_groups_old) then
-  write(*,*) "Warning: n_part_groups greater than number of groups from part_restart.h5, will be initializing new particle groups."
-endif
+do i=1, n_part_groups_old ! loop over the saved particle groups
+  write(group_name,'(A,i0.3,A)') '/groups/', i, '/'
 
-allocate(part_groups_in_use_old(n_part_groups_old))
-call HDF5_array1D_reading_char_len(file, part_groups_in_use_old, 3, '/part_groups_in_use')
-if (part_groups_in_use(1) == 'non') part_groups_in_use(1:n_part_groups_old) = part_groups_in_use_old 
+    ! Open the dataset for x
+    call h5dopen_f(file, group_name//"x", dset, hdferr)
+  
+    ! Open the file dataspace
+    call h5dget_space_f(dset, file_space, hdferr)
+  
+    ! Get the number of particles
+    call h5sget_simple_extent_ndims_f(file_space, rank, hdferr)
+    call h5sget_simple_extent_dims_f(file_space, tmp, maxdims, hdferr)
+    n_particles = int(tmp(2),4) ! should be per group
+    sim%groups(i)%n_particles = n_particles
+    call h5sclose_f(file_space, hdferr)
+    call h5dclose_f(dset, hdferr)
+  
+    ! Divide particles over processors
+    particles_per_proc(0)         = n_particles/n_cpu + modulo(n_particles, n_cpu)
+    particles_per_proc(1:n_cpu-1) = n_particles/n_cpu
+  
+    i_here = sum(particles_per_proc(0:my_id-1))
+    n_here = particles_per_proc(my_id)
+  
+    ! Get the particle type from the attribute
+    call HDF5_char_reading(file,particle_type_name,group_name//"type")
+  
+    ierr = 0
+    select case (trim(particle_type_name))
+    case ('particle_kinetic')
+      allocate(particle_kinetic::sim%groups(i)%particles(n_here), stat=ierr)
+    case ('particle_kinetic_leapfrog')
+      allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_here), stat=ierr)
+    case ('particle_gc')
+      allocate(particle_gc::sim%groups(i)%particles(n_here), stat=ierr)
+    case ('particle_gc_vpar')
+      allocate(particle_gc_vpar::sim%groups(i)%particles(n_here), stat=ierr)
+    case ('particle_fieldline')
+      allocate(particle_fieldline::sim%groups(i)%particles(n_here), stat=ierr)
+    case ('particle_kinetic_relativistic')
+      allocate(particle_kinetic_relativistic::sim%groups(i)%particles(n_here), stat=ierr)
+    case ('particle_gc_relativistic')
+      allocate(particle_gc_relativistic::sim%groups(i)%particles(n_here), stat=ierr)
+    case default
+      write(*,*) "error: missing type name declaration ", trim(particle_type_name), " for read"
+      call exit(1)
+    end select
+    if (ierr .gt. 0) write(*,"(i3,a,i12,a)") my_id, &
+        "unable to allocate particles(", particles_per_proc(my_id), ")"
+  
+    call HDF5_integer_reading(file,sim%groups(i)%Z,group_name//"Z")
+    call HDF5_real_reading(file,sim%groups(i)%mass,group_name//"mass")
+    call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
+    call HDF5_char_reading(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
 
-! ! Reallocate groups if necessary
-! if (allocated(sim%groups)) deallocate(sim%groups)
-! allocate(sim%groups(n_part_groups))
-
-do k=1, n_part_groups ! loop over groups ids in part_groups_in_use
-
-  write(*,*) "to match id: ", part_groups_in_use(k)
-  do i=1, n_part_groups_old ! loop over the saved particle groups
-    write(group_name,'(A,i0.3,A)') '/groups/', i, '/'
-    call HDF5_char_reading(file,group_id_tmp,group_name//"id")
-    write(*,*) "tmp id: ", group_id_tmp
-    if (group_id_tmp == part_groups_in_use(k)) then
-      write(*,*) "Matching restart group found for '", part_groups_in_use(k), "', loading data"
-
-      ! Open the dataset for x
-      call h5dopen_f(file, group_name//"x", dset, hdferr)
-    
-      ! Open the file dataspace
-      call h5dget_space_f(dset, file_space, hdferr)
-    
-      ! Get the number of particles
-      call h5sget_simple_extent_ndims_f(file_space, rank, hdferr)
-      call h5sget_simple_extent_dims_f(file_space, tmp, maxdims, hdferr)
-      n_particles = int(tmp(2),4) ! should be per group
-      sim%groups(i)%n_particles = n_particles
-      call h5sclose_f(file_space, hdferr)
-      call h5dclose_f(dset, hdferr)
-    
-      ! Divide particles over processors
-      particles_per_proc(0)         = n_particles/n_cpu + modulo(n_particles, n_cpu)
-      particles_per_proc(1:n_cpu-1) = n_particles/n_cpu
-    
-      i_here = sum(particles_per_proc(0:my_id-1))
-      n_here = particles_per_proc(my_id)
-    
-      ! Get the particle type from the attribute
-      call HDF5_char_reading(file,particle_type_name,group_name//"type")
-    
-      ierr = 0
-      select case (trim(particle_type_name))
-      case ('particle_kinetic')
-        allocate(particle_kinetic::sim%groups(i)%particles(n_here), stat=ierr)
-      case ('particle_kinetic_leapfrog')
-        allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_here), stat=ierr)
-      case ('particle_gc')
-        allocate(particle_gc::sim%groups(i)%particles(n_here), stat=ierr)
-      case ('particle_gc_vpar')
-        allocate(particle_gc_vpar::sim%groups(i)%particles(n_here), stat=ierr)
-      case ('particle_fieldline')
-        allocate(particle_fieldline::sim%groups(i)%particles(n_here), stat=ierr)
-      case ('particle_kinetic_relativistic')
-        allocate(particle_kinetic_relativistic::sim%groups(i)%particles(n_here), stat=ierr)
-      case ('particle_gc_relativistic')
-        allocate(particle_gc_relativistic::sim%groups(i)%particles(n_here), stat=ierr)
-      case default
-        write(*,*) "error: missing type name declaration ", trim(particle_type_name), " for read"
-        call exit(1)
-      end select
-      if (ierr .gt. 0) write(*,"(i3,a,i12,a)") my_id, &
-          "unable to allocate particles(", particles_per_proc(my_id), ")"
-    
-      call HDF5_integer_reading(file,sim%groups(i)%Z,group_name//"Z")
-      call HDF5_real_reading(file,sim%groups(i)%mass,group_name//"mass")
-      call HDF5_char_reading(file,sim%groups(i)%ad%suffix,group_name//"adas_suffix")
-    
-      ! call HDF5_char_reading(file,sim%groups(i)%coupling_scheme,group_name//"coupling_scheme")
-      if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
-        sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
-        sim%groups(i)%cor = coronal(sim%groups(i)%ad)
-      end if
-    
-      ! Read base particle attributes
-      ! x
+    if (len_trim(sim%groups(i)%ad%suffix) .gt. 0) then
+      sim%groups(i)%ad = read_adf11(my_id,sim%groups(i)%ad%suffix)
+      sim%groups(i)%cor = coronal(sim%groups(i)%ad)
+    end if
+  
+    ! Read base particle attributes
+    ! x
+    allocate(real8_2D(3,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"x",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      sim%groups(i)%particles(j)%x = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
+  
+    ! st
+    allocate(real8_2D(2,n_here))
+    call HDF5_array2D_reading(file, real8_2D, group_name//"st",start=[0_HSIZE_T,i_here])
+    do j=1,n_here
+      sim%groups(i)%particles(j)%st = real8_2D(:,j)
+    end do
+    deallocate(real8_2D)
+  
+    ! weight
+    allocate(real8_1D(n_here))
+    call HDF5_array1D_reading(file, real8_1D, group_name//"weight",start=[i_here])
+    do j=1,n_here
+      sim%groups(i)%particles(j)%weight = real8_1D(j)
+    end do
+    deallocate(real8_1D)
+    ! i_elm
+    allocate(int4_1D(n_here))
+    call HDF5_array1D_reading_int(file, int4_1D, group_name//"i_elm", start=[i_here])
+    do j=1,n_here
+      sim%groups(i)%particles(j)%i_elm = int4_1D(j)
+    end do
+    deallocate(int4_1D)
+  
+    ! The following two are relatively new, so might not always be present
+    ! i_life
+    call h5lexists_f(file, group_name//"i_life", exists, ierr)
+    if (exists) then
+      allocate(int4_1D(n_here))
+      int4_1D = 0 ! preset to 0 in case not present (i.e. old restart files)
+      ! will still give a nasty error message, but should work,
+      ! though who knows what hdf5 does with our array if reading fails...
+      call HDF5_array1D_reading_int(file, int4_1D, group_name//"i_life", start=[i_here])
+      do j=1,n_here
+        sim%groups(i)%particles(j)%i_life = int4_1D(j)
+      end do
+      deallocate(int4_1D)
+    end if
+  
+    ! t_birth
+    call h5lexists_f(file, group_name//"t_birth", exists, ierr)
+    if (exists) then
+      allocate(real4_1D(n_here))
+      real4_1D = 0.0 ! preset to 0 in case not present (i.e. old restart files)
+      call HDF5_array1D_reading_r4(file, real4_1D, group_name//"t_birth",start=[i_here])
+      do j=1,n_here
+        sim%groups(i)%particles(j)%t_birth = real4_1D(j)
+      end do
+      deallocate(real4_1D)
+    end if
+  
+    select type (p => sim%groups(i)%particles)
+    type is (particle_kinetic)
+      ! v
       allocate(real8_2D(3,n_here))
-      call HDF5_array2D_reading(file, real8_2D, group_name//"x",start=[0_HSIZE_T,i_here])
+      call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
       do j=1,n_here
-        sim%groups(i)%particles(j)%x = real8_2D(:,j)
+        p(j)%v = real8_2D(:,j)
       end do
       deallocate(real8_2D)
-    
-      ! st
-      allocate(real8_2D(2,n_here))
-      call HDF5_array2D_reading(file, real8_2D, group_name//"st",start=[0_HSIZE_T,i_here])
+  
+      ! q
+      allocate(int4_1D(n_here))
+      call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
       do j=1,n_here
-        sim%groups(i)%particles(j)%st = real8_2D(:,j)
+        p(j)%q = int4_1D(j)
+      end do
+      deallocate(int4_1D)
+  
+    type is (particle_kinetic_leapfrog)
+      ! v
+      allocate(real8_2D(3,n_here))
+      call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
+      do j=1,n_here
+        p(j)%v = real8_2D(:,j)
       end do
       deallocate(real8_2D)
-    
-      ! weight
+  
+      ! q
+      allocate(int4_1D(n_here))
+      call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
+      do j=1,n_here
+        p(j)%q = int4_1D(j)
+      end do
+      deallocate(int4_1D)
+  
+    type is (particle_gc)
+      ! E
       allocate(real8_1D(n_here))
-      call HDF5_array1D_reading(file, real8_1D, group_name//"weight",start=[i_here])
+      call HDF5_array1D_reading(file, real8_1D, group_name//"E",start=[i_here])
       do j=1,n_here
-        sim%groups(i)%particles(j)%weight = real8_1D(j)
+        p(j)%E = real8_1D(j)
       end do
       deallocate(real8_1D)
-      ! i_elm
-      allocate(int4_1D(n_here))
-      call HDF5_array1D_reading_int(file, int4_1D, group_name//"i_elm", start=[i_here])
+      ! mu
+      allocate(real8_1D(n_here))
+      call HDF5_array1D_reading(file, real8_1D, group_name//"mu",start=[i_here])
       do j=1,n_here
-        sim%groups(i)%particles(j)%i_elm = int4_1D(j)
+        p(j)%mu = real8_1D(j)
+      end do
+      deallocate(real8_1D)
+      ! q
+      allocate(int4_1D(n_here))
+      call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
+      do j=1,n_here
+        p(j)%q = int4_1D(j)
       end do
       deallocate(int4_1D)
     
-      ! The following two are relatively new, so might not always be present
-      ! i_life
-      call h5lexists_f(file, group_name//"i_life", exists, ierr)
-      if (exists) then
-        allocate(int4_1D(n_here))
-        int4_1D = 0 ! preset to 0 in case not present (i.e. old restart files)
-        ! will still give a nasty error message, but should work,
-        ! though who knows what hdf5 does with our array if reading fails...
-        call HDF5_array1D_reading_int(file, int4_1D, group_name//"i_life", start=[i_here])
-        do j=1,n_here
-          sim%groups(i)%particles(j)%i_life = int4_1D(j)
-        end do
-        deallocate(int4_1D)
+    type is (particle_gc_vpar)
+      ! 
+      allocate(real8_1D(n_here))
+      call HDF5_array1D_reading(file, real8_1D, group_name//"Vpar",start=[i_here])
+      do j=1,n_here
+        p(j)%Vpar = real8_1D(j)
+      end do
+      deallocate(real8_1D)
+      ! mu
+      allocate(real8_1D(n_here))
+      call HDF5_array1D_reading(file, real8_1D, group_name//"mu",start=[i_here])
+      do j=1,n_here
+        p(j)%mu = real8_1D(j)
+      end do
+      deallocate(real8_1D)
+      ! Bnorm
+      allocate(real8_1D(n_here))
+      call HDF5_array1D_reading(file, real8_1D, group_name//"B_norm",start=[i_here])
+      do j=1,n_here
+        p(j)%B_norm = real8_1D(j)
+      end do
+      deallocate(real8_1D)
+      ! q
+      allocate(int4_1D(n_here))
+      call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
+      do j=1,n_here
+        p(j)%q = int4_1D(j)
+      end do
+      deallocate(int4_1D)
+    
+    type is (particle_fieldline)
+      ! v
+      allocate(real8_1D(n_here))
+      call HDF5_array1D_reading(file, real8_1D, group_name//"v",start=[i_here])
+      do j=1,n_here
+        p(j)%v = real8_1D(j)
+      end do
+      deallocate(real8_1D)
+  
+    type is (particle_kinetic_relativistic)
+  
+      ! momenta [AMU*m/s]
+      allocate(real8_2D(3,n_here))
+      call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
+      do j=1,n_here
+        p(j)%p = real8_2D(:,j)
+      end do
+      deallocate(real8_2D)
+  
+      ! electric charge q
+      allocate(int4_1D(n_here))
+      call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
+      do j=1,n_here
+        p(j)%q = int4_1D(j)
+      end do
+      deallocate(int4_1D)    
+  
+    type is (particle_gc_relativistic)
+  
+      ! momenta (parallel momentum and magnetic moment)
+      allocate(real8_2D(2,n_here))
+      call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
+      do j=1,n_here
+        p(j)%p = real8_2D(:,j)
+      end do
+      deallocate(real8_2D)
+  
+      ! electric charge q
+      allocate(int4_1D(n_here))
+      call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
+      do j=1,n_here
+        p(j)%q = int4_1D(j)
+      end do
+      deallocate(int4_1D)    
+  
+    end select
+  
+    ! Check if the balance between processors is okay, by comparing the number of
+    ! alive particles
+    n_alive = count(sim%groups(i)%particles(:)%i_elm .gt. 0)
+    allocate(n_alive_all(sim%n_cpu))
+    call MPI_Gather(n_alive, 1, MPI_INTEGER, n_alive_all, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  
+    ! Check if the imbalance is not too great
+    if (sim%my_id .eq. 0) then
+      if (maxval(n_alive_all) .gt. minval(n_alive_all) * 1.5) then
+        write(*,*) "WARNING: ", (maxval(n_alive_all)*100)/minval(n_alive_all), '% imbalance between CPUs, counts:'
+        write(*,*) n_alive_all
       end if
-    
-      ! t_birth
-      call h5lexists_f(file, group_name//"t_birth", exists, ierr)
-      if (exists) then
-        allocate(real4_1D(n_here))
-        real4_1D = 0.0 ! preset to 0 in case not present (i.e. old restart files)
-        call HDF5_array1D_reading_r4(file, real4_1D, group_name//"t_birth",start=[i_here])
-        do j=1,n_here
-          sim%groups(i)%particles(j)%t_birth = real4_1D(j)
-        end do
-        deallocate(real4_1D)
-      end if
-    
-      select type (p => sim%groups(i)%particles)
-      type is (particle_kinetic)
-        ! v
-        allocate(real8_2D(3,n_here))
-        call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
-        do j=1,n_here
-          p(j)%v = real8_2D(:,j)
-        end do
-        deallocate(real8_2D)
-    
-        ! q
-        allocate(int4_1D(n_here))
-        call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
-        do j=1,n_here
-          p(j)%q = int4_1D(j)
-        end do
-        deallocate(int4_1D)
-    
-      type is (particle_kinetic_leapfrog)
-        ! v
-        allocate(real8_2D(3,n_here))
-        call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
-        do j=1,n_here
-          p(j)%v = real8_2D(:,j)
-        end do
-        deallocate(real8_2D)
-    
-        ! q
-        allocate(int4_1D(n_here))
-        call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
-        do j=1,n_here
-          p(j)%q = int4_1D(j)
-        end do
-        deallocate(int4_1D)
-    
-      type is (particle_gc)
-        ! E
-        allocate(real8_1D(n_here))
-        call HDF5_array1D_reading(file, real8_1D, group_name//"E",start=[i_here])
-        do j=1,n_here
-          p(j)%E = real8_1D(j)
-        end do
-        deallocate(real8_1D)
-        ! mu
-        allocate(real8_1D(n_here))
-        call HDF5_array1D_reading(file, real8_1D, group_name//"mu",start=[i_here])
-        do j=1,n_here
-          p(j)%mu = real8_1D(j)
-        end do
-        deallocate(real8_1D)
-        ! q
-        allocate(int4_1D(n_here))
-        call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
-        do j=1,n_here
-          p(j)%q = int4_1D(j)
-        end do
-        deallocate(int4_1D)
-      
-      type is (particle_gc_vpar)
-        ! 
-        allocate(real8_1D(n_here))
-        call HDF5_array1D_reading(file, real8_1D, group_name//"Vpar",start=[i_here])
-        do j=1,n_here
-          p(j)%Vpar = real8_1D(j)
-        end do
-        deallocate(real8_1D)
-        ! mu
-        allocate(real8_1D(n_here))
-        call HDF5_array1D_reading(file, real8_1D, group_name//"mu",start=[i_here])
-        do j=1,n_here
-          p(j)%mu = real8_1D(j)
-        end do
-        deallocate(real8_1D)
-        ! Bnorm
-        allocate(real8_1D(n_here))
-        call HDF5_array1D_reading(file, real8_1D, group_name//"B_norm",start=[i_here])
-        do j=1,n_here
-          p(j)%B_norm = real8_1D(j)
-        end do
-        deallocate(real8_1D)
-        ! q
-        allocate(int4_1D(n_here))
-        call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
-        do j=1,n_here
-          p(j)%q = int4_1D(j)
-        end do
-        deallocate(int4_1D)
-      
-      type is (particle_fieldline)
-        ! v
-        allocate(real8_1D(n_here))
-        call HDF5_array1D_reading(file, real8_1D, group_name//"v",start=[i_here])
-        do j=1,n_here
-          p(j)%v = real8_1D(j)
-        end do
-        deallocate(real8_1D)
-    
-      type is (particle_kinetic_relativistic)
-    
-        ! momenta [AMU*m/s]
-        allocate(real8_2D(3,n_here))
-        call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
-        do j=1,n_here
-          p(j)%p = real8_2D(:,j)
-        end do
-        deallocate(real8_2D)
-    
-        ! electric charge q
-        allocate(int4_1D(n_here))
-        call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
-        do j=1,n_here
-          p(j)%q = int4_1D(j)
-        end do
-        deallocate(int4_1D)    
-    
-      type is (particle_gc_relativistic)
-    
-        ! momenta (parallel momentum and magnetic moment)
-        allocate(real8_2D(2,n_here))
-        call HDF5_array2D_reading(file, real8_2D, group_name//"v",start=[0_HSIZE_T,i_here])
-        do j=1,n_here
-          p(j)%p = real8_2D(:,j)
-        end do
-        deallocate(real8_2D)
-    
-        ! electric charge q
-        allocate(int4_1D(n_here))
-        call HDF5_array1D_reading_int(file, int4_1D, group_name//"q", start=[i_here])
-        do j=1,n_here
-          p(j)%q = int4_1D(j)
-        end do
-        deallocate(int4_1D)    
-    
-      end select
-    
-      ! Check if the balance between processors is okay, by comparing the number of
-      ! alive particles
-      n_alive = count(sim%groups(i)%particles(:)%i_elm .gt. 0)
-      allocate(n_alive_all(sim%n_cpu))
-      call MPI_Gather(n_alive, 1, MPI_INTEGER, n_alive_all, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-    
-      ! Check if the imbalance is not too great
-      if (sim%my_id .eq. 0) then
-        if (maxval(n_alive_all) .gt. minval(n_alive_all) * 1.5) then
-          write(*,*) "WARNING: ", (maxval(n_alive_all)*100)/minval(n_alive_all), '% imbalance between CPUs, counts:'
-          write(*,*) n_alive_all
-        end if
-      end if
-      deallocate(n_alive_all)
-    
-    else 
-      write(*,*) "Group '", group_id_tmp, "' from part_restart.h5 is not listed in part_group_in_use, it will hence be dropped."
-    endif ! group id match
+    end if
+    deallocate(n_alive_all)
 
-  enddo ! n_part_groups_old
-enddo ! n_part_groups
-
-
-! dealloc temp arrays
-if (allocated(part_groups_in_use_old)) deallocate(part_groups_in_use_old)
+enddo ! n_part_groups_old
 
 ! Close everything else
 call h5fclose_f(file, hdferr)
