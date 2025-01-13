@@ -992,7 +992,7 @@ module phys_module
 
     ! --------------- for neutral particles ------------
 
-    character(len=256)  :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
+    character(len=8)    :: atom_data_suffix          !< suffix of ADAS data, temporary and should be replaced by relative path instead
     logical             :: use_kn_cx               !< switch on charge-exchange for group     
     logical             :: use_kn_sputtering       !< switch on sputtering for group (only relevant for neutrals)
     logical             :: use_kn_ionisation       !< switch on ionisation for group         
