@@ -19,9 +19,9 @@ use nodes_elements
 use phys_module, only: tstep,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_particles
-use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
+use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use mod_coupling_settings
+! use phys_module, only: use_kn_sputtering , use_kn_cx, use_kn_ionisation, use_kn_sputtering
 
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
