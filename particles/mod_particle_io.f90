@@ -475,7 +475,7 @@ integer(HID_T)    :: data_type
 integer(HID_T)    :: group_id
 integer(HID_T)    :: time_set_id
 integer(HSIZE_T)  :: i_here
-integer           :: n_here, n_particles, n_part_groups_old
+integer           :: n_here, n_particles
 integer           :: storage_type, max_corder
 character(len=12) :: group_name
 character(len=particle_type_name_length) :: particle_type_name
@@ -508,15 +508,22 @@ call h5pclose_f(plist, hdferr)
 call HDF5_real_reading(file,sim%time,'/time')
 
 ! get old number of groups
-call HDF5_integer_reading(file, n_part_groups_old, '/n_part_groups') 
+call HDF5_integer_reading(file, n_part_groups, '/n_part_groups') 
 
 ! check if n_part_groups from restart fits in n_part_group_max
-if (n_part_groups_old > n_part_groups_max) then
+if (n_part_groups > n_part_groups_max) then
   write(*,*) "Error: n_part_groups being imported from restart exceeds n_part_groups_max"
   stop
 endif
 
-do i=1, n_part_groups_old ! loop over the saved particle groups
+! Reallocate groups if necessary
+
+if (allocated(sim%groups)) deallocate(sim%groups)
+allocate(sim%groups(n_part_groups))
+
+call configure_particle_group(sim)
+
+do i=1, n_part_groups ! loop over the saved particle groups
   write(group_name,'(A,i0.3,A)') '/groups/', i, '/'
 
     ! Open the dataset for x
@@ -785,7 +792,7 @@ do i=1, n_part_groups_old ! loop over the saved particle groups
     end if
     deallocate(n_alive_all)
 
-enddo ! n_part_groups_old
+enddo ! n_part_groups
 
 ! Close everything else
 call h5fclose_f(file, hdferr)
