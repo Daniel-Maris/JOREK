@@ -1214,8 +1214,8 @@ subroutine project_sputter_vars_on_edge(sim, n_relative, background_species, coe
     !$omp private(i, n_e, T_e, vpar, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, n_species, Gamma_d, &
     !$omp         n_offset, yield, Z) schedule(static)
     do i = 1, size(fluid_sputter_yield%patch(i_patch)%xyz, 2) !< over all nodes
-      call sim%fields%calc_NeTe(sim%time, fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(i), fluid_sputter_yield%patch(i_patch)%st(:,i), &
-        real(fluid_sputter_yield%patch(i_patch)%xyz(3,i), 8), n_e, T_e, vpar=vpar)
+      call sim%fields%calc_NeTevpar(sim%time, fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(i), fluid_sputter_yield%patch(i_patch)%st(:,i), &
+        real(fluid_sputter_yield%patch(i_patch)%xyz(3,i), 8), n_e, T_e, vpar)
       
       call sim%fields%calc_EBpsiU(sim%time, fluid_sputter_yield%patch(i_patch)%i_elm_jorek_edge(i), &
            fluid_sputter_yield%patch(i_patch)%st(:,i), &
