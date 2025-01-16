@@ -100,11 +100,8 @@ module mod_particle_sputtering
     integer :: i = 0, n_save = 10 !100 !< used for diagnostics to see when the deposition diagnostic has to be evaluated, written
     integer :: n_sputter = -1 !< number of simulation particles to sputter from fluid-particle sputtering across all processes, across
     !< all fluid species (proportioned by sputtering yield, to get similar weights)
-	real*8  :: albedo_for_neutrals = 1.d0
-
-    real*8 :: last_time = 0.d0 !< When did we sputter last (used for integrating fluid flux and for calculating particle fluxes)
+    real*8  :: albedo_for_neutrals = 1.d0
     real*8 :: last_diag_time = 0.d0 !< Last time of output of diagnostics
-
     real*8 :: sputtered_particle_weight_threshold = 1d7 !< Minimum weight of a macroparticle to be sputtered from particle-particle sputtering
   contains
     procedure :: do => do_particle_sputter
@@ -294,6 +291,8 @@ subroutine do_particle_sputter(this, sim, ev)
   use mod_atomic_elements, only: element_symbols
   use mod_parameters, only: n_plane, n_period
   use mod_interp, only: interp_RZ
+  use phys_module, only: use_manual_random_seed, tstep, central_mass, central_density
+  
   class(particle_sputter), intent(inout) :: this
   type(particle_sim), intent(inout)      :: sim
   type(event), intent(inout), optional   :: ev
@@ -339,16 +338,11 @@ subroutine do_particle_sputter(this, sim, ev)
   !> for deuterium and neutrals reflection instead of sputtering
   logical :: reflection, fast_reflection
   
-  if (this%last_time .eq. 0.d0) then
-    this%last_time = sim%time
-    this%last_diag_time = sim%time
-    if (abs(sim%time) .le. 1d-10) then
-      this%last_time = 1d-10 ! so we actually do most of the sputtering should we start at 0
-    end if
-    return ! do nothing on the first run typically
+  delta_t = (tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20)))
+  
+  if (this%last_diag_time .eq. 0.d0) then
+    this%last_diag_time = sim%time - delta_t
   end if
-  delta_t = sim%time - this%last_time
-  this%last_time = sim%time
 
   n_fluid_groups = size(this%background_species_Z,1)
   n_particle_groups = size(sim%groups,1)
@@ -455,6 +449,12 @@ subroutine do_particle_sputter(this, sim, ev)
 	
   select type (pa => sim%groups(i)%particles)
   type is (particle_kinetic_leapfrog)
+  if(use_manual_random_seed) then
+    !$ call omp_set_schedule(omp_sched_static,10)
+  else
+    !$ call omp_set_schedule(omp_sched_dynamic,10)
+  end if
+  
 #ifdef __GFORTRAN__
     !$omp parallel default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
 #else
@@ -468,7 +468,7 @@ subroutine do_particle_sputter(this, sim, ev)
 	
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
-    !$omp do schedule(dynamic, 10)
+    !$omp do schedule(runtime)
     do j = 1,size(sim%groups(i)%particles,1)
       ! Skip if this particle is not lost in a specific location (i_elm .eq. 0 means lost 'somewhere')
       if (sim%groups(i)%particles(j)%i_elm .ge. 0) cycle !< .not. .lt.!< if this is not a lost particle go to next particle
@@ -592,6 +592,12 @@ subroutine do_particle_sputter(this, sim, ev)
         ! this is related to the edge nodes as
         ! 1 <-> 4 and 2 <-> 3, so 5-i
         do k=1,4
+          if (i_edge_nodes(5-k) .gt. size(this%diagnostics%patch(i_patch)%xyz(1,:))) then
+            write(*,*) "DBG indexing problem in mod_particle_sputtering",k,i_edge_elm,toroidal_offset, i_edge_nodes(5-k), size(this%diagnostics%patch(i_patch)%xyz(1,:))
+            write(*,*) "DBG temporary fix: set i_edge_nodes(5-k) = 1"
+            i_edge_nodes(5-k) = 1
+          end if
+  
           area(k) = (this%diagnostics%patch(i_patch)%xyz(1,i_edge_nodes(5-k)) + pa(j)%x(1)) &
              * norm2(this%diagnostics%patch(i_patch)%xyz(1:2,i_edge_nodes(5-k))-pa(j)%x(1:2), dim=1) * 0.5d0
         end do
@@ -735,8 +741,13 @@ end do
 
   ! might be replaced with omp workshare, or just the array expression.
   ! there is an issue with derived type arrays in gfortran though, and this works
+  if(use_manual_random_seed) then
+    !$ call omp_set_schedule(omp_sched_static,100)
+  else
+    !$ call omp_set_schedule(omp_sched_dynamic,100)
+  end if
   !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free, i) &
-  !$omp private(j) schedule(dynamic, 100)
+  !$omp private(j) schedule(runtime)
   do j=1,size(sim%groups(this%target_group)%particles,1)
     is_free(j) = sim%groups(this%target_group)%particles(j)%i_elm .le. 0 
   end do
