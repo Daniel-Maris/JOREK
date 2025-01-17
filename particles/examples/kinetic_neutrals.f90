@@ -267,9 +267,10 @@ do while (.not. sim%stop_now)
 
   ! --- Interactions that happen on the particle timesteps
   
-  !> ionisation + CX + pushing the particles + calculating the feedback
   call write_to_outputfile(sim%my_id, "Particle loop")
-
+  
+  !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
+  !> + pushing the particles + calculating the feedback
   do group_num=1, n_part_groups
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  

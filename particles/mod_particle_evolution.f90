@@ -1,4 +1,4 @@
-!> module file that contains the coupling schemes for the kinetic particles
+!> Handles the evolution of the particle groups per time step
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
@@ -19,8 +19,10 @@ module mod_particle_evolution
 contains
 
 
-    !> Evolves the particles with every interaction that only depends on the particles except for wall reflections, 
-    !> i.e. ionisation + CX + pushing the particles + calculating the feedback
+    !> Evolves the particles with every interaction that only depends on the particles except for wall reflections,
+    !> 1. calculates interaction of the group with its environment (e.g. CX, ionisation... for neutrals)
+    !> 2. pushes the particle
+    !> 3. calculates the feedback for coupling with the fluid plasma
     subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
 
     use coupling_variables
@@ -277,8 +279,10 @@ contains
   
     if (use_ncs) then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-      jorek_feedback%rhs(:,:,:,:,1:3) = feedback_rhs(:,:,:,:,1:3) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4)
+      jorek_feedback%rhs(:,:,:,:,rho_idx_kn) = feedback_rhs(:,:,:,:,rho_idx_kn) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,Vpar_idx_kn) = feedback_rhs(:,:,:,:,Vpar_idx_kn) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,T_idx_kn) = feedback_rhs(:,:,:,:,T_idx_kn) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4) ! additional project for density, will be moved to diagnostics in the future
       jorek_feedback%rhs_gather_time = 0.d0
     else
       jorek_feedback%rhs = feedback_rhs 
