@@ -133,12 +133,12 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 mode_families_modes, n_mode_families,               &
                 weights_per_family, autodistribute_ranks,           &
                 ranks_per_family,                                   &
-                tstep_particles, nstep_particles,      &
+                tstep_particles, nstep_particles,                   &
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                restart_particles, particle_group_configs, n_part_groups, &
-                puff_rate, n_puff, n_valves, valves,                &
+                restart_particles, particle_group_configs,          &
+                n_part_groups, puff_rate, n_puff, n_valves, valves, &
                 cte_current_FB_fact, Z_xpoint_limit,                &
                 CARIDDI_mode, use_newton, maxNewton, gamma_Newton,  &
                 alpha_Newton, vacuum_min, strumpack_matching,       &

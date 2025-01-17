@@ -218,7 +218,7 @@ module hdf5_io_module
     call H5Dclose_f(dataset,ierr_HDF5)
   end subroutine HDF5_array1D_saving_char
 
-    !---------------------------------------- 
+  !---------------------------------------- 
   ! HDF5 saving for a character 1D array of len > 1
   !----------------------------------------
   subroutine HDF5_array1D_saving_char_len(file_id,array1D,dim1,char_len,dsetname)

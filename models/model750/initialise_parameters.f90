@@ -57,8 +57,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef, rho_min,                    &
                 T_0,   T_1,   T_coef, T_min,                        &
-				T_min_neg,rho_min_neg,                              &
-				corr_neg_temp_coef, corr_neg_dens_coef,             &
+				        T_min_neg,rho_min_neg,                              &
+				        corr_neg_temp_coef, corr_neg_dens_coef,             &
                 Ti_0,  Ti_1,  Ti_coef,                              &
                 Te_0,  Te_1,  Te_coef,                              &
                 FF_0,  FF_1,  FF_coef,                              &
@@ -144,7 +144,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                cte_current_FB_fact,     &
+                cte_current_FB_fact,                                &
                 eta_ohmic, force_central_node, D_par_imp,           &
                 D_perp_imp, imp_type, adas_dir,                     &
                 spi_shard_file, spi_tor_rot, pellet_density,        &
