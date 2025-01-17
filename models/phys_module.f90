@@ -988,7 +988,6 @@ module phys_module
     real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
-    ! character(len=50)  :: pusher                 !< name of the type of pusher to be used
 
     ! --------------- for neutral particles ------------
 
