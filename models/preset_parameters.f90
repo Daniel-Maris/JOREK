@@ -877,13 +877,13 @@ particle_group_configs(:)%type              = 'none'
 particle_group_configs(:)%id                = 'non'
 !-- specific to ncs 
 particle_group_configs(:)%atom_data_suffix      = 'none'
-particle_group_configs(:)%use_kn_recombination  = .true.
+particle_group_configs(:)%use_kn_recombination  = .false.
 particle_group_configs(:)%use_kn_puffing        = .false.
-particle_group_configs(:)%use_kn_line_radiation = .true.
-particle_group_configs(:)%use_kn_ionisation     = .true.
+particle_group_configs(:)%use_kn_line_radiation = .false.
+particle_group_configs(:)%use_kn_ionisation     = .false.
 particle_group_configs(:)%use_kn_sputtering     = .false.
 particle_group_configs(:)%n_reflect_ratio       = 5.d-4
-particle_group_configs(:)%use_kn_cx             = .true.
+particle_group_configs(:)%use_kn_cx             = .false.
 
 !-----------------------------------------------
 
