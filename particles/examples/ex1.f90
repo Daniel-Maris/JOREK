@@ -17,6 +17,7 @@
 !> in the z-direction of strength 1 Tesla.
 program ex1
 use particle_tracer
+use phys_module, only: n_part_groups, particle_group_configs
 implicit none
 
 ! 1. Set up the simulation variables containing
@@ -28,7 +29,10 @@ real*8  :: target_time
 type(particle_kinetic_leapfrog) :: particle ! define a type particle_kinetic_leapfrog
 
 ! 2. Allocate a group and a particle of type particle_kinetic_leapfrog.
-call sim%initialize(num_groups=1)
+n_part_groups = 1
+particle_group_configs(1)%mass = 4.0
+
+call sim%initialize()
 allocate(particle_kinetic_leapfrog::sim%groups(1)%particles(1))
 
 ! 3. Initialize the particle.
@@ -40,7 +44,6 @@ type is (particle_kinetic_leapfrog)
   p%v = [1.d0,0.d0,0.d0]
   p%q = 2_1
 end select
-sim%groups(1)%mass = 4.0
 
 ! 4. Set an event to stop the simulation.
 events  = [event(stop_action(), start=1.d0)]
