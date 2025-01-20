@@ -74,15 +74,6 @@ function new_particle_puffing(target_group, n_puff, puffing_rate, puff_valve, rn
   new%puffing_rate = puffing_rate
   new%puff_valve   = puff_valve 
 
-  write(*,*) "target_group: ", new%target_group
-  write(*,*) "n_puff: ", new%n_puff
-  write(*,*) "puff_rate: ", new%puffing_rate
-
-  write(*,*) "valve_r: ", new%puff_valve%r_valve
-  write(*,*) "valve type: ", new%puff_valve%type
-  write(*,*) "valve poly_R: ", new%puff_valve%poly_R
-
-
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
   if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
