@@ -7,7 +7,7 @@ use mod_coronal
 use basis_at_gaussian
 implicit none
 private
-public particle_group, particle_sim, configure_particle_group, allocate_particles
+public particle_group, particle_sim, configure_particle_groups, allocate_particles
 
 !> A group of particles, implemented as an allocatable array.
 !> It must contain particles of the same species (charge number).
@@ -63,7 +63,7 @@ end type particle_sim
 contains
 
 !> Loads the information from a type_particle_group_config type to a particle_group type
-subroutine configure_particle_group(sim)
+subroutine configure_particle_groups(sim)
   use phys_module, only: n_part_groups, particle_group_configs, type_particle_group_config
 
   implicit none
@@ -94,7 +94,7 @@ subroutine configure_particle_group(sim)
     endif
   enddo 
 
-end subroutine configure_particle_group
+end subroutine configure_particle_groups
 
 !> allocates the particles for a group depending on its type and n_particles
 subroutine allocate_particles(sim)
@@ -182,7 +182,7 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
     call det_modes()
 
     ! Initialise and broadcast parameters 
-    call initialise_and_broadcast_parameters(sim%my_id, "__NO_FILENAME__")
+    call initialise_and_broadcast_parameters(sim%my_id, "__NO_FILENAME__", .true.)
 
     ! Broadcast physics parameters
     call broadcast_phys(sim%my_id)
@@ -201,7 +201,7 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
   endif
 
   ! configure particle groups with their characteristics
-  call configure_particle_group(sim)
+  call configure_particle_groups(sim)
 
 end subroutine
 

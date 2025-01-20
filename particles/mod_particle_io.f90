@@ -397,7 +397,7 @@ mpi_comm_in,mpi_info_in,test_in)
   use mod_particle_types, only: particle_fieldline
   use mod_particle_types, only: particle_kinetic_relativistic
   use mod_particle_types, only: particle_gc_relativistic
-  use mod_particle_sim,   only: particle_sim
+  use mod_particle_sim,   only: particle_sim, configure_particle_groups
   use mod_coronal,        only: coronal
   use mod_openadas,       only: read_adf11
   implicit none
@@ -449,7 +449,7 @@ mpi_comm_in,mpi_info_in,test_in)
   call HDF5_real_reading(file_id,sim%time,"/time",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
   !> get number of groups
   call H5Gopen_f(file_id,"/groups/",group_id,h5err)   
-  call H5Gget_info_f(group_id,storage_type,n_groups_old,max_corder,h5err)
+  call H5Gget_info_f(group_id,storage_type,n_groups_old,max_corder,h5err) ! n_groups_old as n_groups can change in the future based on user input
   call H5Gclose_f(group_id,h5err)  
   !> check if n_part_groups from restart fits in n_part_group_max
   if (n_groups_old > n_part_groups_max) then
@@ -461,9 +461,9 @@ mpi_comm_in,mpi_info_in,test_in)
   if(allocated(sim%groups)) then
     deallocate(sim%groups) 
     allocate(sim%groups(n_groups_old))
-    call configure_particle_group(sim)
+    call configure_particle_groups(sim)
   endif
-  do ii=1,n_groups
+  do ii=1,n_groups_old
     !> read and load group datasets. We assume that the ith-particle group of 
     !> all tasks is defined by the same unique value stored in the hdf5 file
     ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
@@ -485,7 +485,7 @@ mpi_comm_in,mpi_info_in,test_in)
     offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
     n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
     !> set n_particles for the group
-    sim%groups(ii)%n_particles = n_particles_tot
+    sim%groups(ii)%n_particles = int(n_particles_tot(1))
     !> allocate particle list and initialise to 0
     select case (trim(particle_type_str))
     case ("particle_kinetic")

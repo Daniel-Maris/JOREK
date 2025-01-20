@@ -361,7 +361,7 @@ program jorek2_fast_camera
   ! ********************************************************************** !
   
   ! --- Import and initialise
-  call initialise_and_broadcast_parameters(my_id, "__NO_FILENAME__")
+  call initialise_and_broadcast_parameters(my_id, "__NO_FILENAME__", .false.)
   do k_tor=1, n_tor
     mode(k_tor) = + int(k_tor / 2) * n_period
   enddo
