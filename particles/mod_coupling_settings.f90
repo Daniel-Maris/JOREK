@@ -20,105 +20,105 @@ contains
 
 !> Scans over all the particle groups and determines how the coupling scheme booleans should be initialized
 subroutine determine_coupling_schemes()
-    implicit none
-    integer        :: group_num
+  implicit none
+  integer        :: group_num
 
-    do group_num=1, n_part_groups
+  do group_num=1, n_part_groups
     select case (particle_group_configs(group_num)%coupling_scheme)
-        case ('ncs')
+      case ('ncs')
         use_ncs = .true.
-        case ('ccs')
+      case ('ccs')
         use_ccs = .true.
-        case ('pcs')
+      case ('pcs')
         use_pcs = .true.
-        case ('pcf')
+      case ('pcf')
         use_pcs_full = .true.
     end select
 
     if (particle_group_configs(group_num)%use_kn_recombination == .true.) then
-        use_kn_recomb_global = .true.
+      use_kn_recomb_global = .true.
     endif 
     
-    enddo 
-    ! maybe some write out here to provide info?
+  enddo 
+
+  ! maybe some write out here to provide info?
+
 end subroutine determine_coupling_schemes
 
 !> used for accumulating variables for coupling
 subroutine assess_and_accumulate_variable(assessed_var, coupling_var_idx, coupling_vars)
-    implicit none
-    character(len=var_name_len), intent(in) :: assessed_var
-    integer, intent(inout)                  :: coupling_var_idx
-    character(len=var_name_len), dimension(n_aux_var_max), intent(inout) :: coupling_vars
+  implicit none
+  character(len=var_name_len), intent(in) :: assessed_var
+  integer, intent(inout)                  :: coupling_var_idx
+  character(len=var_name_len), dimension(n_aux_var_max), intent(inout) :: coupling_vars
 
+  if (.not. (any(coupling_vars == assessed_var))) then
+    coupling_var_idx = coupling_var_idx + 1
+    coupling_vars(coupling_var_idx) = assessed_var
 
-    if (.not. (any(coupling_vars == assessed_var))) then
-        coupling_var_idx = coupling_var_idx + 1
-        coupling_vars(coupling_var_idx) = assessed_var
-
-        if (coupling_var_idx > n_aux_var_max) then
-            write(*,*) "ERROR: The number of coupling variables required for kinetic-fluid coupling "
-            write(*,*) "  exceeds the hardcoded n_aux_var_max. Consider increasing n_aux_var_max."
-            stop
-        endif
+    if (coupling_var_idx > n_aux_var_max) then
+      write(*,*) "ERROR: The number of coupling variables required for kinetic-fluid coupling "
+      write(*,*) "  exceeds the hardcoded n_aux_var_max. Consider increasing n_aux_var_max."
+      stop
     endif
-
+  endif
 end subroutine assess_and_accumulate_variable
 
 
 subroutine determine_coupling_variables()
-    implicit none
-    integer :: i
-    integer :: coupling_var_idx, final_var_idx
+  implicit none
+  integer :: i
+  integer :: coupling_var_idx, final_var_idx
 
-    coupling_vars = ""
-    coupling_var_idx = 0
-    final_var_idx    = 0
+  coupling_vars = ""
+  coupling_var_idx = 0
+  final_var_idx    = 0
 
-    !> construct a list of unique coupling variables required
-    if (use_ncs) then 
+  !> construct a list of unique coupling variables required
+  if (use_ncs) then 
     do i=1, size(ncs_var_names)
-        call assess_and_accumulate_variable(ncs_var_names(i), coupling_var_idx, coupling_vars)
+      call assess_and_accumulate_variable(ncs_var_names(i), coupling_var_idx, coupling_vars)
     enddo
-    endif
+  endif
     
-    if (use_ccs) then
+  if (use_ccs) then
     do i=1, size(ccs_var_names)
-        call assess_and_accumulate_variable(ccs_var_names(i), coupling_var_idx, coupling_vars)
+      call assess_and_accumulate_variable(ccs_var_names(i), coupling_var_idx, coupling_vars)
     enddo
-    endif
+  endif
 
-    !use_pcs
+  !use_pcs
 
-    !use_pcs_full
+  !use_pcs_full
     
-    !> assign indices to the coupling variables and determine n_aux_var
-    do i=1, coupling_var_idx
+  !> assign indices to the coupling variables and determine n_aux_var
+  do i=1, coupling_var_idx
     final_var_idx = final_var_idx + 1
 
     select case (trim(coupling_vars(i)))
-        case ("rho")
+      case ("rho")
         rho_idx_kn = final_var_idx
-        case ("Vpar")
+      case ("Vpar")
         Vpar_idx_kn = final_var_idx
-        case ("T")
+      case ("T")
         T_idx_kn = final_var_idx
-        case ("q")
+      case ("q")
         q_idx_kn = final_var_idx
-        case ("j_R")
+      case ("j_R")
         j_R_idx_kn = final_var_idx
-        case ("j_Z")
+      case ("j_Z")
         j_Z_idx_kn = final_var_idx
-        case ("j_Phi")
+      case ("j_Phi")
         j_Phi_idx_kn = final_var_idx
-        case default
+      case default
         write(*,*) "Error: no match found for coupling variable, please check coupling_variables.f90 and recompile"
         stop 1
     end select
-    enddo
+  enddo
 
-    n_aux_var = final_var_idx
-    n_aux_var = n_aux_var + 1 ! temporary as diag projections not yet created
-    ! maybe some write out here to provide info?
+  n_aux_var = final_var_idx
+  n_aux_var = n_aux_var + 1 ! temporary as diag projections not yet created
+  ! maybe some write out here to provide info?
 
 end subroutine determine_coupling_variables
 

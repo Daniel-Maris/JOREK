@@ -19,11 +19,11 @@ module mod_particle_evolution
 contains
 
 
-    !> Evolves the particles with every interaction that only depends on the particles except for wall reflections,
-    !> 1. calculates interaction of the group with its environment (e.g. CX, ionisation... for neutrals)
-    !> 2. pushes the particle
-    !> 3. calculates the feedback for coupling with the fluid plasma
-    subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
+  !> Evolves the particles with every interaction that only depends on the particles except for wall reflections,
+  !> 1. calculates interaction of the group with its environment (e.g. CX, ionisation... for neutrals)
+  !> 2. pushes the particle
+  !> 3. calculates the feedback for coupling with the fluid plasma
+  subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
 
     use coupling_variables
 
