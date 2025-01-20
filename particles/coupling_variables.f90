@@ -21,7 +21,7 @@ module coupling_variables
 
   ! CCS
   character(len=var_name_len), dimension(4) :: ccs_var_names = [&
-    "q",     & !> charge density
+    "q",     & !> charge densitye
     "j_R",    & !> R   component of current
     "j_Z",    & !> Z   component of current
     "j_Phi"   & !> Phi compoment of current  
