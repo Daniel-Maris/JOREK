@@ -246,21 +246,24 @@ do while (.not. sim%stop_now)
   !> The sputtering modules actually contains 3 different effects: sputtering (plasma to W, which is not used in this example), 
   !> kinetic particle reflection off the wall, and wall recombination of the plasma into kinetic neutrals (i.e. recycling)
   !> Do this call before recombination and puffing. Otherwise to-be-reflected particles can be overwritten.
-  do i=1, sputter_counter    
+  if (sputter_counter > 0) then
     call write_to_outputfile(sim%my_id, "Sputtering")
-    call with(sim, sputter_events(i))
-  enddo
-  
-  do i=1, recomb_counter
+    do i=1, sputter_counter    
+      call with(sim, sputter_events(i))
+    enddo
+  endif
+
+  if (recomb_counter > 0) then
     call write_to_outputfile(sim%my_id, "Recombination")
-    call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
-  enddo
+    do i=1, recomb_counter
+      call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
+    enddo
+  endif
     
   ! needs more work 
   call write_to_outputfile(sim%my_id, "Puffing")
   call with(sim, gas_puff_event) 
   call with(sim, gas_puff2_event)
-
 
   ! --- Interactions that happen on the particle timesteps
   
