@@ -54,6 +54,12 @@ subroutine assess_and_accumulate_variable(assessed_var, coupling_var_idx, coupli
     if (.not. (any(coupling_vars == assessed_var))) then
         coupling_var_idx = coupling_var_idx + 1
         coupling_vars(coupling_var_idx) = assessed_var
+
+        if (coupling_var_idx > n_aux_var_max) then
+            write(*,*) "ERROR: The number of coupling variables required for kinetic-fluid coupling "
+            write(*,*) "  exceeds the hardcoded n_aux_var_max. Consider increasing n_aux_var_max."
+            stop
+        endif
     endif
 
 end subroutine assess_and_accumulate_variable
