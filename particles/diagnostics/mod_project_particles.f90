@@ -671,7 +671,7 @@ subroutine project_only(this, sim)
     n_rhs_f = size(this%rhs_f,5)
   end if
 
-  ! resize node_list to ensure all projections fit
+  ! reinitialise the storage node_list to ensure all projections fit
   do i=1, this%node_list%n_nodes
     call init_node(this%node_list%node(i), n_rhs_f+n_rhs)
   enddo

@@ -94,7 +94,6 @@ call sim%initialize()
 
 ! Set up the field reader < can this be moved to sim%initialize
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
-
 call with(sim, fieldreader) 
 tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
 ! setting up the particles
@@ -114,9 +113,9 @@ else
 
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
+  call allocate_particles(sim) ! populate the particle arrays in the particle groups
 endif ! (restart_particles)
 
-call allocate_particles(sim) ! populate the particle arrays in the particle groups
 
 ! Read Open ADAS data for plasma fluid
 if (deuterium_adas .and. use_kn_recomb_global) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
@@ -165,6 +164,11 @@ do group_num=1, n_part_groups
   endif
 
   ! puffing (temporary, will require a more sophisticated puffing management system, to come in future PR)
+
+  !> Adapt the following to customize the time dependent puff rate:
+  !> puffing_rate_start = initial puffing rate [atoms/s]
+  !> t_puff_start = At what time the puffing rate starts to increase [s]
+  !> t_puff_slope = How much time it takes to increase linearly from puffing_rate_start to puff_rate [s]
   puff_t_dependent = .true.
   t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
   t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
@@ -184,16 +188,8 @@ do group_num=1, n_part_groups
       write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
     endif
   endif
+  
 enddo 
-
-!> Adapt the following to customize the time dependent puff rate:
-!> puffing_rate_start = initial puffing rate [atoms/s]
-!> puff_rate = final puffing rate [atoms/s] <input parameter>
-!> t_puff_start = At what time the puffing rate starts to increase [s]
-!> t_puff_slope = How much time it takes to increase linearly from puffing_rate_start to puff_rate [s]
-!> n_puff = number of super particles puffed per valve per jorek timestep (should be small fraction of total number of super particles) <input parameter>
-puff_t_dependent = .true. 
-puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
