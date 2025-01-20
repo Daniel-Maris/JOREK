@@ -250,18 +250,6 @@ contains
 
   end subroutine init_node_list
 
-  subroutine resize_node_list_values(node_list, new_n_values)
-    implicit none
-    type(type_node_list), intent(inout)  :: node_list
-    integer, intent(in)                  :: new_n_values
-    integer                              :: i
-    
-    do i=1, node_list%n_nodes
-      call init_node(node_list%node(i), new_n_values)
-    enddo
-
-  end subroutine resize_node_list_values
-
   !> wrapper function for correctly deallocating a node object
   subroutine dealloc_node(node)
     implicit none
