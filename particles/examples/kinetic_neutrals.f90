@@ -96,6 +96,7 @@ call sim%initialize()
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
 call with(sim, fieldreader) 
 tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
+
 ! setting up the particles
 if (restart_particles) then
   ! reading the particles from a file
@@ -188,7 +189,7 @@ do group_num=1, n_part_groups
       write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
     endif
   endif
-  
+
 enddo 
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
