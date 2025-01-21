@@ -19,6 +19,7 @@ use equil_info, only : get_psi_n, ES
 use mod_F_profile
 use mod_bootstrap_functions
 use mod_sources
+use mod_coupling_settings
 
 implicit none
 
