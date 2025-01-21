@@ -93,8 +93,9 @@ subroutine setup(rank,n_tasks,ifail)
   use_native_hdf5_mpio=.true.
 
   !> initialize the particle simulation
+  ! call preset_parameters()
   n_part_groups = n_groups
-  call sim_particles%initialize(.false.,rank,n_tasks,.false.)
+  call sim_particles%initialize(.false.,rank,n_tasks,.false.,.true.)
 
   !> set and broadcast simulation time
   if(rank.eq.0) then
@@ -166,12 +167,12 @@ subroutine test_particle_mpi_io_write_native_read
 
   !> initialize the new particle simulation
   n_part_groups = n_groups
-  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.)
+  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.,.true.)
 
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test)
+  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test,skip_group_config=.true.)
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
@@ -197,12 +198,12 @@ subroutine test_particle_mpi_io_write_gatherv_read
 
   !> initialize the new particle simulation
   n_part_groups = n_groups
-  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.)
+  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.,.true.)
 
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename_gatherv),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test)
+  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test,skip_group_config=.true.)
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&

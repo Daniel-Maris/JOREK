@@ -104,7 +104,7 @@ subroutine test_write_native_read_sim_time
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
   reader%filename = expected_filename; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc; 
   call reader%run(sim_to_read)
   ! Test that the right time was read
   call assert_equals(sim_to_write%time, sim_to_read%time, "(native) time should be read from the file")

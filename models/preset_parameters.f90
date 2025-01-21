@@ -876,7 +876,7 @@ particle_group_configs(:)%n_particles       = 0.d0
 particle_group_configs(:)%type              = 'none'
 particle_group_configs(:)%id                = 'non'
 !-- specific to ncs 
-particle_group_configs(:)%atom_data_suffix      = 'none'
+particle_group_configs(:)%atom_data_suffix      = ''
 particle_group_configs(:)%use_kin_recombination  = .false.
 particle_group_configs(:)%use_kin_puffing        = .false.
 particle_group_configs(:)%use_kin_line_radiation = .false.

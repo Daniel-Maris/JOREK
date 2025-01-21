@@ -87,7 +87,7 @@ subroutine configure_particle_groups(sim)
     sim%groups(i)%n_reflect_ratio       =  particle_group_configs(i)%n_reflect_ratio 
     sim%groups(i)%use_kin_line_radiation =  particle_group_configs(i)%use_kin_line_radiation 
     
-    if (trim(particle_group_configs(i)%atom_data_suffix) /= 'none') then
+    if (len_trim(particle_group_configs(i)%atom_data_suffix) > 0) then
       sim%groups(i)%ad =  read_adf11(sim%my_id, trim(particle_group_configs(i)%atom_data_suffix))
     else
       if (trim(particle_group_configs(i)%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
@@ -143,7 +143,7 @@ end subroutine allocate_particles
 !>   n_cpu:           (integer)(optional) number of mpi tasks in the commworld
 !> outputs:
 !>   sim: (particle_sim) the particle simulation
-subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
+subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in,skip_group_config)
   use mod_mpi_tools,     only: init_mpi_threads
   use mod_mpi_tools,     only: get_mpi_wtime
   use mod_parameters,    only: n_tor, n_period
@@ -154,7 +154,7 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
   use phys_module,       only: n_part_groups, n_part_groups_max
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
-  logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in
+  logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in,skip_group_config
   integer,intent(in),optional        :: my_id,n_cpu
   logical                            :: do_jorek_init
   integer                            :: ierr, i_tor,nthreads, group_num
@@ -184,12 +184,6 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
     ! Initialise and broadcast parameters 
     call initialise_and_broadcast_parameters(sim%my_id, "__NO_FILENAME__", .true.)
 
-    ! Broadcast physics parameters
-    call broadcast_phys(sim%my_id)
-
-    ! Allocating groups
-    call sim%allocate_groups(n_part_groups)
-
     ! Set up normalisation factors
     call sim%set_t_norm()
 
@@ -200,8 +194,15 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
     if (domm) call init_chi_basis()
   endif
 
+  ! Allocating groups
+  call sim%allocate_groups(n_part_groups)
+
   ! configure particle groups with their characteristics
-  call configure_particle_groups(sim)
+  if (.not. present(skip_group_config)) then 
+    call configure_particle_groups(sim)
+  else
+    if (.not. skip_group_config) call configure_particle_groups(sim)
+  endif
 
 end subroutine
 

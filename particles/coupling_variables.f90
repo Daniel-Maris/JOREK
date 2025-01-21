@@ -13,20 +13,19 @@ module coupling_variables
   character(len=var_name_len), dimension(n_aux_var_max) :: coupling_vars
 
   ! NCS
-  character(len=var_name_len), dimension(3) :: ncs_var_names = [&
+  character(len=var_name_len), dimension(3) :: ncs_var_names = [character(len=var_name_len) :: &
     "rho",    & !> density
     "Vpar",   & !> parallel velocity
     "T"     & !> temperature
   ]
 
   ! CCS
-  character(len=var_name_len), dimension(4) :: ccs_var_names = [&
-    "q",     & !> charge densitye
+  character(len=var_name_len), dimension(4) :: ccs_var_names = [character(len=var_name_len) :: &
+    "q",     & !> charge density
     "j_R",    & !> R   component of current
     "j_Z",    & !> Z   component of current
     "j_Phi"   & !> Phi compoment of current  
   ]
-
 
   ! =========== Storage variables for kinetic coupling indices ======== !
 
