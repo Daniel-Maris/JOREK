@@ -977,8 +977,8 @@ module phys_module
   integer :: ranks_per_family(n_fam_max)              !< Number of MPI ranks per mode families
 
   !> @name Manual setting of random seed (for testing)
-  logical :: use_manual_random_seed                   !< whether the random seed should be manually set
-  integer :: manual_seed                              !< the manually set seed value
+  logical :: use_manual_rng_seed                      !< whether the random seed should be manually set
+  integer :: manual_rng_seed                          !< the manually set seed value
 
   contains
   

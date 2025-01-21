@@ -1,27 +1,27 @@
 !> Module containing routines to generate a random seed based on urandom or
 !> some pid and time xor magic.
-module mod_random_seed
-  use phys_module, only: use_manual_random_seed, manual_seed
+module mod_rng_seed
+  use phys_module, only: use_manual_rng_seed, manual_rng_seed
   implicit none
   private
-  public :: random_seed
+  public :: rng_seed
 contains
   !> Try some methods to get a nice random seed
-  function random_seed(use_xor_time_pid_in) result(seed)
+  function rng_seed(use_xor_time_pid_in) result(seed)
     implicit none
     logical,intent(in),optional :: use_xor_time_pid_in
     integer                     :: seed,ierr
     logical                     :: use_xor_time_pid
     ierr = 1; use_xor_time_pid = .true.;
 
-    if (use_manual_random_seed) then
-      seed = manual_seed
+    if (use_manual_rng_seed) then
+      seed = manual_rng_seed
     else
       if(present(use_xor_time_pid_in)) use_xor_time_pid = use_xor_time_pid_in;
       if(.not.use_xor_time_pid) call read_urandom_int(seed, ierr)
       if (ierr .ne. 0) seed = xor_time_pid()
     endif
-end function random_seed
+end function rng_seed
 
   !> Read an int from /dev/urandom
   subroutine read_urandom_int(seed, ierr)
@@ -86,4 +86,4 @@ end function random_seed
     s = mod(s * 279470273_int64, 4294967291_int64)
     lcg = int(mod(s, int(huge(0), int64)), kind(0))
   end function lcg
-end module mod_random_seed
+end module mod_rng_seed

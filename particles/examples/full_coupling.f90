@@ -9,7 +9,7 @@ use mod_particle_io
 use mod_event
 use mod_project_particles
 use mod_jorek_timestepping
-use mod_random_seed
+use mod_rng_seed
 use mod_interp, only: mode_moivre, interp_RZ
 use mod_basisfunctions
 use nodes_elements
@@ -190,7 +190,7 @@ use mod_atomic_elements
 use mod_particle_io
 use mod_event
 use mod_project_particles
-use mod_random_seed
+use mod_rng_seed
 use mod_interp, only: mode_moivre, interp_RZ
 use mod_jorek_timestepping
 use mod_basisfunctions
@@ -249,7 +249,7 @@ if (sim%my_id .eq. 0) then
 endif
 
 ! Set up random numbers for ionisation probability
-seed = random_seed()
+seed = rng_seed()
 n_stream = 1
 !$ n_stream = omp_get_max_threads()
 allocate(rng(n_stream))

@@ -22,7 +22,7 @@ use mod_expression,  only: exprs_all_int,init_expr,exprs,SI_UNITS
 use mod_integrals3D, only: int3d_new
 use mod_boundary,    only: boundary_from_grid
 use equil_info
-use mod_random_seed
+use mod_rng_seed
 use particle_tracer
 use mod_particle_io, only: write_simulation_hdf5
 implicit none

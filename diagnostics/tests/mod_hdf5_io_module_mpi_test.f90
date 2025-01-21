@@ -71,7 +71,7 @@ end subroutine run_fruit_hdf5_io_module_mpi
 subroutine setup(rank,n_tasks,ifail)
   use mod_gnu_rng,     only: set_seed_sys_time
   use mod_gnu_rng,     only: gnu_rng_interval 
-  use mod_random_seed, only: random_seed
+  use mod_rng_seed, only: rng_seed
   implicit none
   integer,intent(in)          :: rank,n_tasks
   integer,intent(inout)       :: ifail
@@ -84,7 +84,7 @@ subroutine setup(rank,n_tasks,ifail)
   rank_format = '1' 
   if(rank.gt.0) write(rank_format,'(I1)') int(log10(real(rank_loc,kind=8)))+1
   !> initialise double array for testing
-  call rng%initialize(n_elements(1),random_seed(),n_tasks_loc,rank_loc,ifail_loc)
+  call rng%initialize(n_elements(1),rng_seed(),n_tasks_loc,rank_loc,ifail_loc)
   do pp=1,n_elements(5)
     do kk=1,n_elements(4)
       do jj=1,n_elements(3)

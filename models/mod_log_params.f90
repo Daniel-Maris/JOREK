@@ -1009,7 +1009,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_kn_line_radiation, ',use_kn_line_radiation
 
   if (use_kn_puffing) then 
-    write(*,INTG_FMT) 'n_puff                ',  n_puff
+    write(*,INTG_FMT) 'n_puff                ',n_puff
     write(*,REAL_FMT) 'puff_rate,            ',puff_rate
     write(*,REAL_FMT) 'r_valve,              ',r_valve
     write(*,REAL_FMT) 'R_valve_loc,          ',R_valve_loc
@@ -1018,9 +1018,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,REAL_FMT) 'Z_valve2,             ',Z_valve2
   endif
 
-  write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
-  if (use_manual_random_seed) then
-    write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+  write(*,LOGI_FMT) 'use_manual_rng_seed,    ',use_manual_rng_seed
+  if (use_manual_rng_seed) then
+    write(*,INTG_FMT) 'manual_rng_seed,        ',manual_rng_seed
   endif     
 
 #ifdef USE_CATALYST

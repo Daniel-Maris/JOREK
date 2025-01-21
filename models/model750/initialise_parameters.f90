@@ -169,7 +169,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 vacuum_min, strumpack_matching,                     &
                 forceSDN, SDN_threshold, eta_coul_log_dep,          &
                 xpoint_search_tries, export_aux_node_list,          &
-                use_manual_random_seed, manual_seed,                &
+                use_manual_rng_seed, manual_rng_seed,               &
                 bgf_rpolar, bgf_tht
 
 if (my_id .eq. 0) then

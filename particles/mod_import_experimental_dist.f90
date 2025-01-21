@@ -28,7 +28,7 @@ contains
 subroutine import_particles(particles,fields,filename, rng_base,mass, n_phi_planes_in,fraction_phi_planes)
   use mpi
   use mod_sampling
-  use mod_random_seed
+  use mod_rng_seed
   use mod_interp
 !$ use omp_lib
 
@@ -189,7 +189,7 @@ subroutine import_particles(particles,fields,filename, rng_base,mass, n_phi_plan
   ! Particles.
   write(*,"(A,I9,A,I3)") " PARTICLES: initialising ", size(particles)," on process ", my_id
   allocate(rng,source=rng_base)
-  call rng%initialize(8, random_seed(), 1, 1, ifail)
+  call rng%initialize(8, rng_seed(), 1, 1, ifail)
   particles(:)%i_elm = 0
 
   particles_to_do_local  = size(particles)

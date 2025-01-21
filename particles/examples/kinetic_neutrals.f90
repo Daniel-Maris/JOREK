@@ -25,7 +25,7 @@ use mod_particle_io
 use mod_event
 use mod_project_particles
 use mod_jorek_timestepping
-use mod_random_seed
+use mod_rng_seed
 use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
@@ -46,7 +46,7 @@ use phys_module, only: use_ncs, use_pcs, use_ccs, deuterium_adas,sqrt_mu0_over_r
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: use_kn_sputtering, use_kn_cx, use_kn_ionisation, use_kn_line_radiation, use_kn_recombination, use_kn_puffing
 use phys_module, only: puff_rate, r_valve, R_valve_loc, Z_valve, R_valve_loc2, Z_valve2, n_puff
-use phys_module, only: use_manual_random_seed, manual_seed
+use phys_module, only: use_manual_rng_seed, manual_rng_seed
 
 !$ use omp_lib
 
@@ -136,7 +136,7 @@ endif ! (restart_particles)
 if (deuterium_adas .and. use_kn_recombination) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
 
 ! --- Setting up random numbers for ionisation probability
-seed = random_seed()
+seed = rng_seed()
 n_stream = 1
 !$ n_stream = omp_get_max_threads()
 write(*,*) "id, n_cpu, n_stream",sim%my_id, sim%n_cpu, n_stream
@@ -343,7 +343,7 @@ contains
 !> i.e. ionisation + CX + pushing the particles + calculating the feedback
 subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_part_adj)
   use mod_project_particles
-  use mod_random_seed
+  use mod_rng_seed
   use mod_interp, only: mode_moivre
   use mod_basisfunctions
   use mod_particle_types, only: copy_particle_kinetic_leapfrog
@@ -413,7 +413,7 @@ subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, tstep_part_adj)
 
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
-  if(use_manual_random_seed) then
+  if(use_manual_rng_seed) then
     !$ call omp_set_schedule(omp_sched_static,10)
   else
     !$ call omp_set_schedule(omp_sched_dynamic,10)
@@ -703,7 +703,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
 
   !============== Finding free particles !< make into a function?
   !> # is_free > n_elements * particles_per_element 
-  if(use_manual_random_seed) then
+  if(use_manual_rng_seed) then
     !$ call omp_set_schedule(omp_sched_static,100)
   else
     !$ call omp_set_schedule(omp_sched_dynamic,100)
@@ -734,7 +734,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
   particles_per_element = 1  
   select type (particles => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)
-  if(use_manual_random_seed) then
+  if(use_manual_rng_seed) then
     !$ call omp_set_schedule(omp_sched_static,10)
   else
     !$ call omp_set_schedule(omp_sched_dynamic,10)

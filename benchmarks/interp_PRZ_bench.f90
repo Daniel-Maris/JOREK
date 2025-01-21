@@ -6,7 +6,7 @@ program interp_PRZ_bench
 use data_structure
 use mpi
 use mod_pcg32_rng
-use mod_random_seed
+use mod_rng_seed
 use mod_interp
 use mod_parameters, only: n_degrees
 use basis_at_gaussian, only: initialise_basis
@@ -38,7 +38,7 @@ element_list%n_elements = 0
 call grid_bezier_square(n, n, R_geo-amin,R_geo+amin, Z_geo-amin, Z_geo+amin, .true., node_list, element_list)
 
 ! Set random values here
-call rng%initialize(1, random_seed(), 1, 1)
+call rng%initialize(1, rng_seed(), 1, 1)
 
 do i=1,node_list%n_nodes
   do k=1,n_degrees

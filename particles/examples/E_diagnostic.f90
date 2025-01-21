@@ -159,7 +159,7 @@ use mod_particle_sim
 use mod_fields_linear, only: last_file_before_time
 use mod_fields_hermite_birkhoff
 use phys_module, only: xpoint, xcase
-use mod_random_seed, only: random_seed
+use mod_rng_seed, only: rng_seed
 use constants, only: TWOPI
 use mod_event, only: action, event, next_event_at, with
 use domains

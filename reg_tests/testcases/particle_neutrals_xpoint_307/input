@@ -11,8 +11,8 @@
 
   nout = 1
 
-  use_manual_random_seed = .true.
-  manual_seed = 498932990
+  use_manual_rng_seed = .true.
+  manual_rng_seed = 498932990
 
   use_ncs = .true.
   use_pcs = .f.

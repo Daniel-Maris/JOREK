@@ -10,7 +10,7 @@ program test_import_realistic
   use mod_project_particles
   use mod_particle_loop
   use mod_jorek_timestepping
-  use mod_random_seed
+  use mod_rng_seed
   use mod_interp, only: mode_moivre, interp_RZ, interp_0
   use mod_basisfunctions
   use nodes_elements
