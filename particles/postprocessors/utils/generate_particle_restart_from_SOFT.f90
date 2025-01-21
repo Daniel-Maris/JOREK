@@ -5,6 +5,7 @@ program generate_particle_restart_from_SOFT
 use constants,       only: PI,SPEED_OF_LIGHT,ATOMIC_MASS_UNIT,EL_CHG
 use mod_mpi_tools,   only: init_mpi_threads,finalize_mpi_threads
 use mod_particle_io, only: write_simulation_hdf5
+use phys_module
 use particle_tracer
 
 implicit none
@@ -65,7 +66,8 @@ Bfield_error_filename  = 'soft_jorek_magnetic_field_error'
 call init_mpi_threads(my_id,n_cpus,ierr)
 !> read mhd data
 write(*,*) "Reading MHD data ..."
-call sim%initialize(n_groups,.true.,my_id,n_cpus)
+n_part_groups = n_groups
+call sim%initialize(.true.,my_id,n_cpus)
 field_reader = event(read_jorek_fields_interp_linear(basename=trim(fields_filename),i=-1))
 call with(sim,field_reader)
 write(*,*) "Reading MHD data: completed!"

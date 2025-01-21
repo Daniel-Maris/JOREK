@@ -155,7 +155,7 @@ subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   logical :: file_exists
   integer :: i, n_groups, n_particles
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
   sim_to_write%groups(1)%mass = 1d3
@@ -194,7 +194,7 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   integer :: i, n_groups, n_particles
   allocate(writer, reader); 
   allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
   sim_to_write%groups(1)%mass = 1d3; writer%file_access = file_access;&
@@ -230,7 +230,7 @@ subroutine test_write_native_sim_one_group_boris
   logical :: file_exists
   integer :: i, n_groups, n_particles
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
   sim_to_write%time = filename_time; sim_to_write%groups(1)%Z = 2;
   sim_to_write%groups(1)%mass = 2.0; writer%mpi_comm_io = mpi_comm_loc; 
@@ -268,7 +268,7 @@ subroutine test_write_gatherv_sim_one_group_boris
   logical :: file_exists
   integer :: i, n_groups, n_particles
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
   sim_to_write%time = filename_time; writer%mpi_comm_io = mpi_comm_loc;
   sim_to_write%groups(1)%Z = 2; sim_to_write%groups(1)%mass = 2.0;
@@ -305,7 +305,7 @@ subroutine test_write_native_sim_two_groups_boris
   integer :: i, j, n_groups, n_particles
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect
-    call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
+    call allocate_particles_here(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
@@ -428,7 +428,7 @@ subroutine test_write_gatherv_sim_two_groups_boris
   allocate(writer, reader); 
   allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect
-    call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
+    call allocate_particles_here(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
@@ -469,8 +469,8 @@ subroutine remove_file(rank,filename,mpi_comm_in,ifail)
   call MPI_Barrier(mpi_comm_in,ifail)
 end subroutine remove_file
 
-!> Helper function for allocating particles
-subroutine allocate_particles(particles, n)
+!> A specific version of allocate particles for this test
+subroutine allocate_particles_here(particles, n)
   class(particle_base), allocatable, dimension(:), intent(out) :: particles
   integer, intent(in) :: n
   integer :: i
@@ -487,7 +487,7 @@ subroutine allocate_particles(particles, n)
       p(i)%v = real((/2*i,2*i+1,2*i+2/),8)
     end do
   end select
-end subroutine allocate_particles
+end subroutine allocate_particles_here
 
 !> test if groups of a simulations are equals
 subroutine groups_same(sim,sim_target,n_groups_expect,n_particles_expect,message_in)

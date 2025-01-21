@@ -10,6 +10,7 @@ use mod_spectra_deterministic,                       only: spectrum_integrator_2
 use mod_pinhole_lens,                                only: pinhole_lens
 use mod_camera_perspective_static,                   only: camera_perspective_static
 use mod_gyroaverage_synchrotron_light_dist_vertices, only: gyroaverage_synchrotron_light_dist
+use phys_module
 
 implicit none
 
@@ -92,13 +93,16 @@ real_camera_param = [5.23d-1,5.23d-1,5d-1*PI,9.998025d-1,1.5807985,2.09801,-8.86
 !> initialise the MPI communicator
 call init_mpi_threads(my_id,n_cpus,ierr)
 
+!> set the number of particle groups
+n_part_groups = n_groups
+
 !> read particle, time and MHD fields
 write(*,*) "Reading particle and MHD data ..."
 do_jorek_init = .true.;
 allocate(sim_times(n_times)); allocate(sims(n_times));
 field_reader = event(read_jorek_fields_interp_linear(basename=trim(fields_filename),i=-1))
 do ii=1,n_times
-  call sims(ii)%initialize(n_groups,.true.,my_id,n_cpus,do_jorek_init)
+  call sims(ii)%initialize(.true.,my_id,n_cpus,do_jorek_init)
   write(*,*) 'my_id: ',sims(ii)%my_id,'doing particle restart file: ',trim(particle_filenames(ii))
   particle_reader = event(read_action(filename=trim(particle_filenames(ii))//trim(hdf5ext)))
   call with(sims(ii),particle_reader); sim_times(ii) = sims(ii)%time;
@@ -387,7 +391,8 @@ mass,time,active_light_source_intensities,sign_charge,sim_particle_out,sign_p_pa
   if(ifail.ne.0) call MPI_ABORT(MPI_COMM_WORLD,-1,ifail)  
   call rng%next(random_numbers)
   !> initialise particle simulation
-  call sim_particle_out%initialize(1,.true.,my_id,n_cpus,.false.)
+  n_part_groups = 1
+  call sim_particle_out%initialize(.true.,my_id,n_cpus,.false.)
   sim_particle_out%time           = time
   sim_particle_out%fields         = fields
   sim_particle_out%groups(:)%mass = mass

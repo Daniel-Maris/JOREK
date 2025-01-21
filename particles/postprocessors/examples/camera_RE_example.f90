@@ -19,6 +19,7 @@ use mod_pinhole_lens,               only: pinhole_lens
 use mod_filter_unity,               only: filter_unity
 use mod_camera_perspective_static,  only: camera_perspective_static
 use mod_full_synchrotron_light_dist_vertices, only: full_synchrotron_light_dist
+use phys_module
 #ifdef USE_HDF5
 use mod_fast_camera_io,             only: write_pixel_intensity_hdf5
 #endif
@@ -81,11 +82,14 @@ allocate(sim_times(n_times)); allocate(sims(n_times));
 !> Initialise MPI communicator
 call init_mpi_threads(my_id,n_cpus,ierr)
 
+!> set the number of particle groups
+n_part_groups = n_groups
+
 !> read particle, time and MHD fields data
 write(*,*) 'Reading particle data ...'
 field_reader = event(read_jorek_fields_interp_linear(basename=trim(fields_filename),i=-1))
 do ii=1,n_times
-  call sims(ii)%initialize(n_groups,.true.,my_id,n_cpus)
+  call sims(ii)%initialize(.true.,my_id,n_cpus)
   call read_simulation_hdf5(sims(ii),particle_filename)
   sim_times(ii) = get_simulation_hdf5_time(particle_filename)
   call with(sims(ii),field_reader)
