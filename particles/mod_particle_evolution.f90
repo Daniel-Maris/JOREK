@@ -23,6 +23,7 @@ contains
   !> 1. calculates interaction of the group with its environment (e.g. CX, ionisation... for neutrals)
   !> 2. pushes the particle
   !> 3. calculates the feedback for coupling with the fluid plasma
+  !> CURRENTLY ONLY SUPPORTS KINETIC NEUTRALS (Work in progress)
   subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
 
     use coupling_variables
@@ -103,7 +104,7 @@ contains
     !$omp parallel do default(none) &
     !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,                              &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                         &
-    !$omp rho_idx_kn, Vpar_idx_kn, T_idx_kn,                                                        &
+    !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin,                                                        &
   
     !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                                            &
 #endif
@@ -147,13 +148,13 @@ contains
         
         !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
         line_rad_energy = 0.d0
-        if (sim%groups(group_num)%use_kn_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+        if (sim%groups(group_num)%use_kin_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
           call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
           ! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
           line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
-        endif ! use_kn_line_radiation
+        endif ! use_kin_line_radiation
         
-        if (sim%groups(group_num)%use_kn_ionisation .and. .not. limits) then
+        if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
           
           call sim%groups(group_num)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
           ion_prob = 1.d0 - exp(-ion_rate * n_e * tstep_part_adj) ! [0] poisson point process, exponential 
@@ -182,7 +183,7 @@ contains
           ion_energy     = kinetic_energy - binding_energy !<binding energy should be here
           !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
   
-        endif ! use_kn_ionisation
+        endif ! use_kin_ionisation
   
         
         ! Charge Exchange
@@ -191,7 +192,7 @@ contains
         cx_source = 0.d0
         cx_energy = 0.d0
         
-        if (sim%groups(group_num)%use_kn_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
+        if (sim%groups(group_num)%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
     
           call sim%groups(group_num)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), CX_rate) ! [m^3/s]
           CX_prob = 1.d0 - exp(-CX_rate * n_e * tstep_part_adj)
@@ -213,7 +214,7 @@ contains
           
   
             endif ! cx_ran
-        endif ! use_kn_cx
+        endif ! use_kin_cx
         
         if (isnan(ion_source * ion_energy + cx_source * cx_energy - line_rad_energy)) then
           write(*,*) "ion_energy", ion_energy
@@ -250,9 +251,9 @@ contains
             extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(nstep_particles,8) !<average density over jorek tstep_part_adj!real(floor(k/nstep_particles))!1.d0 !<density proj
   
             do i_tor=1,n_tor
-              feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kn) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kn) + HZ(i_tor) * v
-              feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kn) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kn) + HZ(i_tor) * v_v
-              feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kn) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kn) + HZ(i_tor) * v_E
+              feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
+              feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
+              feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) + HZ(i_tor) * v_E
               feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj !< buiten de steps loop
             enddo
           enddo
@@ -279,9 +280,9 @@ contains
   
     if (use_ncs) then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-      jorek_feedback%rhs(:,:,:,:,rho_idx_kn) = feedback_rhs(:,:,:,:,rho_idx_kn) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,Vpar_idx_kn) = feedback_rhs(:,:,:,:,Vpar_idx_kn) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,T_idx_kn) = feedback_rhs(:,:,:,:,T_idx_kn) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) = feedback_rhs(:,:,:,:,Vpar_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,T_idx_kin) = feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
       jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4) ! additional project for density, will be moved to diagnostics in the future
       jorek_feedback%rhs_gather_time = 0.d0
     else

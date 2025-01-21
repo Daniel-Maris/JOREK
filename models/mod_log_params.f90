@@ -1043,13 +1043,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       write(*,CHAR_FMT) 'type,                  ',trim(particle_group_configs(group_num)%type)
 
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then     
-        write(*,LOGI_FMT) 'use_kn_ionisation,     ',sim%groups(group_num)%use_kn_ionisation    
-        write(*,LOGI_FMT) 'use_kn_sputtering,     ',sim%groups(group_num)%use_kn_sputtering    
-        write(*,LOGI_FMT) 'use_kn_cx,             ',sim%groups(group_num)%use_kn_cx
-        write(*,LOGI_FMT) 'use_kn_recombination,  ',sim%groups(group_num)%use_kn_recombination
-        write(*,LOGI_FMT) 'use_kn_puffing,        ',sim%groups(group_num)%use_kn_puffing
+        write(*,LOGI_FMT) 'use_kin_ionisation,     ',sim%groups(group_num)%use_kin_ionisation    
+        write(*,LOGI_FMT) 'use_kin_sputtering,     ',sim%groups(group_num)%use_kin_sputtering    
+        write(*,LOGI_FMT) 'use_kin_cx,             ',sim%groups(group_num)%use_kin_cx
+        write(*,LOGI_FMT) 'use_kin_recombination,  ',sim%groups(group_num)%use_kin_recombination
+        write(*,LOGI_FMT) 'use_kin_puffing,        ',sim%groups(group_num)%use_kin_puffing
         write(*,REAL_FMT) 'n_reflect_ratio,       ',sim%groups(group_num)%n_reflect_ratio
-        write(*,LOGI_FMT) 'use_kn_line_radiation, ',sim%groups(group_num)%use_kn_line_radiation
+        write(*,LOGI_FMT) 'use_kin_line_radiation, ',sim%groups(group_num)%use_kin_line_radiation
         write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(particle_group_configs(group_num)%atom_data_suffix)
       endif
       

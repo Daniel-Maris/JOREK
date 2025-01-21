@@ -22,15 +22,15 @@ type :: particle_group
   character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
  
   ! ================ for neutral particles =============
-  logical            :: use_kn_cx               !< switch on charge-exchange for group  
+  logical            :: use_kin_cx               !< switch on charge-exchange for group  
 
-  logical            :: use_kn_sputtering       !< switch on sputtering for group 
+  logical            :: use_kin_sputtering       !< switch on sputtering for group 
   real*8             :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events
 
-  logical            :: use_kn_ionisation       !< switch on ionisation for group         
-  logical            :: use_kn_recombination    !< switch on recombination for group       
-  logical            :: use_kn_puffing          !< switch on particle puffing for group
-  logical            :: use_kn_line_radiation   !< switch on line radiation for group
+  logical            :: use_kin_ionisation       !< switch on ionisation for group         
+  logical            :: use_kin_recombination    !< switch on recombination for group       
+  logical            :: use_kin_puffing          !< switch on particle puffing for group
+  logical            :: use_kin_line_radiation   !< switch on line radiation for group
 
 
   class(particle_base), dimension(:), allocatable :: particles
@@ -79,13 +79,13 @@ subroutine configure_particle_groups(sim)
     sim%groups(i)%id = particle_group_configs(i)%id
   
     ! --- ncs options
-    sim%groups(i)%use_kn_cx             =  particle_group_configs(i)%use_kn_cx
-    sim%groups(i)%use_kn_sputtering     =  particle_group_configs(i)%use_kn_sputtering
-    sim%groups(i)%use_kn_ionisation     =  particle_group_configs(i)%use_kn_ionisation          
-    sim%groups(i)%use_kn_recombination  =  particle_group_configs(i)%use_kn_recombination         
-    sim%groups(i)%use_kn_puffing        =  particle_group_configs(i)%use_kn_puffing        
+    sim%groups(i)%use_kin_cx             =  particle_group_configs(i)%use_kin_cx
+    sim%groups(i)%use_kin_sputtering     =  particle_group_configs(i)%use_kin_sputtering
+    sim%groups(i)%use_kin_ionisation     =  particle_group_configs(i)%use_kin_ionisation          
+    sim%groups(i)%use_kin_recombination  =  particle_group_configs(i)%use_kin_recombination         
+    sim%groups(i)%use_kin_puffing        =  particle_group_configs(i)%use_kin_puffing        
     sim%groups(i)%n_reflect_ratio       =  particle_group_configs(i)%n_reflect_ratio 
-    sim%groups(i)%use_kn_line_radiation =  particle_group_configs(i)%use_kn_line_radiation 
+    sim%groups(i)%use_kin_line_radiation =  particle_group_configs(i)%use_kin_line_radiation 
     
     if (trim(particle_group_configs(i)%atom_data_suffix) /= 'none') then
       sim%groups(i)%ad =  read_adf11(sim%my_id, trim(particle_group_configs(i)%atom_data_suffix))

@@ -32,12 +32,12 @@ module coupling_variables
 
   !> kn denotes kinetics
   ! variables indices
-  integer :: rho_idx_kn   = 0
-  integer :: Vpar_idx_kn  = 0
-  integer :: T_idx_kn     = 0
-  integer :: q_idx_kn     = 0
-  integer :: j_R_idx_kn   = 0
-  integer :: j_Z_idx_kn   = 0
-  integer :: j_Phi_idx_kn = 0
+  integer :: rho_idx_kin   = 0
+  integer :: Vpar_idx_kin  = 0
+  integer :: T_idx_kin     = 0
+  integer :: q_idx_kin     = 0
+  integer :: j_R_idx_kin   = 0
+  integer :: j_Z_idx_kin   = 0
+  integer :: j_Phi_idx_kin = 0
 
 end module coupling_variables

@@ -13,7 +13,7 @@ logical :: use_ncs              = .false. !< use neutral kinetic particles
 logical :: use_ccs              = .false. !< use current coupling scheme for fast particles
 logical :: use_pcs              = .false. !< use pressure coupling scheme for fast particles
 logical :: use_pcs_full         = .false. !< use full tensor pressure coupling scheme for fast particles
-logical :: use_kn_recomb_global = .false. !< whether recombination is required 
+logical :: use_kin_recomb_global = .false. !< whether recombination is required 
 contains
 
     
@@ -35,8 +35,8 @@ subroutine determine_coupling_schemes()
         use_pcs_full = .true.
     end select
 
-    if (particle_group_configs(group_num)%use_kn_recombination == .true.) then
-      use_kn_recomb_global = .true.
+    if (particle_group_configs(group_num)%use_kin_recombination == .true.) then
+      use_kin_recomb_global = .true.
     endif 
     
   enddo 
@@ -97,19 +97,19 @@ subroutine determine_coupling_variables()
 
     select case (trim(coupling_vars(i)))
       case ("rho")
-        rho_idx_kn = final_var_idx
+        rho_idx_kin = final_var_idx
       case ("Vpar")
-        Vpar_idx_kn = final_var_idx
+        Vpar_idx_kin = final_var_idx
       case ("T")
-        T_idx_kn = final_var_idx
+        T_idx_kin = final_var_idx
       case ("q")
-        q_idx_kn = final_var_idx
+        q_idx_kin = final_var_idx
       case ("j_R")
-        j_R_idx_kn = final_var_idx
+        j_R_idx_kin = final_var_idx
       case ("j_Z")
-        j_Z_idx_kn = final_var_idx
+        j_Z_idx_kin = final_var_idx
       case ("j_Phi")
-        j_Phi_idx_kn = final_var_idx
+        j_Phi_idx_kin = final_var_idx
       case default
         write(*,*) "Error: no match found for coupling variable, please check coupling_variables.f90 and recompile"
         stop 1

@@ -992,13 +992,13 @@ module phys_module
     ! --------------- for neutral particles ------------
 
     character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
-    logical             :: use_kn_cx               !< switch on charge-exchange for group     
-    logical             :: use_kn_sputtering       !< switch on sputtering for group (only relevant for neutrals)
-    logical             :: use_kn_ionisation       !< switch on ionisation for group         
-    logical             :: use_kn_recombination    !< switch on recombination for group         
-    logical             :: use_kn_puffing          !< switch on particle puffing for group    
+    logical             :: use_kin_cx               !< switch on charge-exchange for group     
+    logical             :: use_kin_sputtering       !< switch on sputtering for group (only relevant for neutrals)
+    logical             :: use_kin_ionisation       !< switch on ionisation for group         
+    logical             :: use_kin_recombination    !< switch on recombination for group         
+    logical             :: use_kin_puffing          !< switch on particle puffing for group    
     real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
-    logical             :: use_kn_line_radiation   !< switch on line radiation for group
+    logical             :: use_kin_line_radiation   !< switch on line radiation for group
 
   end type type_particle_group_config
 

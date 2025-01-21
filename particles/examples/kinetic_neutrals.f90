@@ -119,7 +119,7 @@ endif ! (restart_particles)
 
 
 ! Read Open ADAS data for plasma fluid
-if (deuterium_adas .and. use_kn_recomb_global) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
+if (deuterium_adas .and. use_kin_recomb_global) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
 
 ! --- Setting up random numbers for ionisation probability
 seed = random_seed()
@@ -151,7 +151,7 @@ allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups))
 do group_num=1, n_part_groups
 
   ! sputtering
-  if (sim%groups(group_num)%use_kn_sputtering) then
+  if (sim%groups(group_num)%use_kin_sputtering) then
     sputter_counter = sputter_counter + 1 ! note down group index as requiring sputtering
     n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
     sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, group_num, n_reflect)
@@ -159,7 +159,7 @@ do group_num=1, n_part_groups
   endif
 
   ! recombination
-  if (sim%groups(group_num)%use_kn_recombination) then
+  if (sim%groups(group_num)%use_kin_recombination) then
     recomb_counter = recomb_counter + 1   ! add group to the list of groups requiring recombination
     recomb_groups(recomb_counter) = group_num
   endif
@@ -175,7 +175,7 @@ do group_num=1, n_part_groups
   t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
   puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
 
-  if (sim%groups(group_num)%use_kn_puffing) then
+  if (sim%groups(group_num)%use_kin_puffing) then
     gas_puff = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
         puffing_rate_start=puffing_rate_start/2.d0)
     gas_puff2 = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
@@ -271,6 +271,7 @@ do while (.not. sim%stop_now)
   
   !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
   !> + pushing the particles + calculating the feedback
+  !> CURRENTLY ONLY SUPPORTS KINETIC NEUTRALS (Work in progress)
   do group_num=1, n_part_groups
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  

@@ -458,9 +458,9 @@ do i=1,n_vertex_max
           Vpar0_tt = eq_tt(mp,7,ms,mt)
 
           if (use_ncs) then
-            aux_rho0  = eq_aux_g(mp,rho_idx_kn,ms,mt)
-            aux_Vpar0 = eq_aux_g(mp,Vpar_idx_kn,ms,mt)
-            aux_T0    = eq_aux_g(mp,T_idx_kn,ms,mt)
+            aux_rho0  = eq_aux_g(mp,rho_idx_kin,ms,mt)
+            aux_Vpar0 = eq_aux_g(mp,Vpar_idx_kin,ms,mt)
+            aux_T0    = eq_aux_g(mp,T_idx_kin,ms,mt)
           end if
 
           if (use_ccs) then
@@ -800,7 +800,7 @@ do i=1,n_vertex_max
 
 		  ksi_ion_norm = central_density * 1.d20 * ksi_ion
 		  !> Recombination amount per gauss point per element for kinetic particles
-		  if (use_ncs .and. use_kn_recomb_global) then
+		  if (use_ncs .and. use_kin_recomb_global) then
 			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
 			
 			!LradDcont_T = LradDcont_T - ksi_ion_norm
