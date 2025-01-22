@@ -135,7 +135,7 @@ if (restart_particles) then
    !may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
       
 else
-	if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_cpu, " cpus "
+	if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
 
 	! Read Open ADAS data
 	write(*,*) "tungsten_adas (50)" !,  deuterium_adas
@@ -155,7 +155,7 @@ else
 	sim%groups(1)%ad   = adas
 	
 	! setting up particles per MPI node
-	n_particles_local = int(n_particles/sim%n_cpu) 
+	n_particles_local = int(n_particles/sim%n_mpi) 
 	allocate(particle_kinetic_leapfrog::sim%groups(1)%particles(n_particles_local))
 
 	!>initialise particles here if needed
@@ -207,7 +207,7 @@ t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_no
  
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_kn_sputtering) then  
-  n_reflect = int(n_particles_local* sim%n_cpu * 1.d-3) !int(n_particles_local * 2.d-3)
+  n_reflect = int(n_particles_local* sim%n_mpi * 1.d-3) !int(n_particles_local * 2.d-3)
   W_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   W_sputter_event = event(W_sputter_source)
 endif
