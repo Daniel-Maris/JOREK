@@ -22,6 +22,7 @@ use mod_impurity, only: init_imp_adas, radiation_function, radiation_function_li
 use mod_atomic_coeff_deuterium, only : atomic_coeff_deuterium
 use mod_openadas , only : read_adf11
 use mod_atomic_coeff_deuterium, only : ad_deuterium , atomic_coeff_deuterium
+use mod_coupling_settings
 
 implicit none
 
@@ -198,6 +199,9 @@ allocate(bnd_node_list)
 ! --- Initialise input parameters and read the input namelist.
 my_id     = 0
 call initialise_parameters(my_id, "__NO_FILENAME__")
+! --- Scan over particle groups and determine n_aux_var
+call determine_coupling_schemes()
+call determine_coupling_variables() 
 
 ! --- Preset parameters
 nsub                   = 5       ! Number of subdivisions of the cubic finite elements into linear pieces
