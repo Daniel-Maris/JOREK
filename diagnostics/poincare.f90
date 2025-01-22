@@ -95,7 +95,6 @@ fnout      = "poincare.h5" !< Output file
 
 call random_seed()
 call sim%initialize(num_groups=1)
-tstep = tstep_rst
 
 if( mass .eq. 0) then
    allocate(particle_fieldline::sim%groups(1)%particles(nprt))
