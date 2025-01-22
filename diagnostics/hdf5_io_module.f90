@@ -536,7 +536,8 @@ module hdf5_io_module
 
     ! Create a custom fixed-length string datatype for CHARACTER(LEN=3)
     call H5Tcopy_f(H5T_NATIVE_CHARACTER, string_type, ierr_HDF5) ! Start with native char type
-    call H5Tset_size_f(string_type, char_len, ierr_HDF5)  ! Set fixed length = LEN(array1D(1))
+    call H5Tset_size_f(string_type, int(char_len,kind=SIZE_T), ierr_HDF5)  ! Set fixed length = LEN(array1D(1))
+
 
     ! Create the dataset using the custom string datatype
     call H5Dcreate_f(file_id, trim(dsetname), string_type, dataspace, dataset, ierr_HDF5)
@@ -2294,7 +2295,7 @@ module hdf5_io_module
 
     ! Define a custom string datatype matching the length of each character
     call H5Tcopy_f(H5T_NATIVE_CHARACTER, string_type, ierr_HDF5)
-    call H5Tset_size_f(string_type, char_len, ierr_HDF5)
+    call H5Tset_size_f(string_type, int(char_len,kind=SIZE_T), ierr_HDF5)
 
     ! Read the dataset into the Fortran array
     call H5Dread_f(dataset, string_type, array1D, dim, ierr_HDF5)
