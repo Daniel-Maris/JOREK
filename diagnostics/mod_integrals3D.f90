@@ -97,7 +97,7 @@ real*8  :: dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dps
 real*8  :: dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz
 
 integer :: i, j, k, in, ms, mt, mp, iv, inode, ife, n_elements, i_elm_axis, i_elm_xpoint(2), ifail
-integer :: ierr, n_cpu, my_id, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
+integer :: ierr, n_mpi, my_id, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
 integer :: k_vertex, k_dof, k_node, k_dir, k_dir_perp, m_bndelem, dir_perp(2), mv1, m_elm
 integer :: iexpr
 real*8  :: R_c, Z_c, vec_inside(2), grad_t(2)
@@ -265,10 +265,10 @@ real*8     :: frad_bg, Lrad_imp                               ! Retain hard-code
 real*8     :: SAW_tot, saw_energy_tot, saw_ene_dens, BB2_zero
 
 #ifndef NOMPIVERSION
-call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr) ! number of MPI procs
-n_cpu = max(n_cpu,1)
+call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr) ! number of MPI procs
+n_mpi = max(n_mpi,1)
 #else
-n_cpu = 1
+n_mpi = 1
 #endif
 
 if (my_id .eq. 0) then
@@ -276,7 +276,7 @@ if (my_id .eq. 0) then
   write(*,*) '* Integrals  (3D)                     *'
   write(*,*) '***************************************'
   !write(*,*) ' n_plane : ',n_plane
-  !write(*,*) ' n_cpu   : ',n_cpu
+  !write(*,*) ' n_mpi   : ',n_mpi
 endif
 
 
@@ -410,7 +410,7 @@ psi_axis   = ES%psi_axis;        R_axis = ES%R_axis;        Z_axis = ES%Z_axis
 psi_xpoint = ES%psi_xpoint;    R_xpoint = ES%R_xpoint;    Z_xpoint = ES%Z_xpoint 
 psi_bnd    = ES%psi_bnd
 
-ife_delta = ceiling(float(element_list%n_elements) / n_cpu)
+ife_delta = ceiling(float(element_list%n_elements) / n_mpi)
 ife_min   =      my_id     * ife_delta + 1
 ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 

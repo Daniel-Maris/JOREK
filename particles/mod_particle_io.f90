@@ -8,7 +8,7 @@ public write_simulation_hdf5,read_simulation_hdf5,get_simulation_hdf5_time
 
 !> Module wide variables
 integer,parameter :: master_task=0
-integer,parameter :: n_cpu_1=1
+integer,parameter :: n_mpi_1=1
 integer,parameter :: group_name_len=12
 contains
 
@@ -102,7 +102,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   collective_mpio_loc = .true. !< enable collective MPIO applications by default
   if(present(collective_mpio_in)) collective_mpio_loc = collective_mpio_in
   !> allocate the gatherv displacement array if required
-  if(use_gatherv_mpio) allocate(particle_displacement(sim%n_cpu),source=0) 
+  if(use_gatherv_mpio) allocate(particle_displacement(sim%n_mpi),source=0) 
   !> create the hdf5 file and the groups fields
   if(use_gatherv_mpio.and.(sim%my_id.eq.master_rank)) call HDF5_open_or_create(&
   trim(filename),file_id,ierr=h5err,file_access=file_access_loc)
@@ -130,10 +130,10 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
     do ii=1,n_groups
       n_particles_loc(ii) = size(sim%groups(ii)%particles,1)
     enddo
-    allocate(n_particles_glob(sim%n_cpu*n_groups,1)); n_particles_glob=0;
+    allocate(n_particles_glob(sim%n_mpi*n_groups,1)); n_particles_glob=0;
     call MPI_Allgather(n_particles_loc,n_groups,MPI_INTEGER,n_particles_glob(:,1),n_groups,&
     MPI_INTEGER,mpi_comm_loc,ierr)
-    n_particles_glob = transpose(reshape(n_particles_glob,(/n_groups,sim%n_cpu/)))
+    n_particles_glob = transpose(reshape(n_particles_glob,(/n_groups,sim%n_mpi/)))
     !> write particle list data into HDF5 file
     do ii=1,n_groups
       if(.not.allocated(sim%groups(ii)%particles)) then
@@ -144,7 +144,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       n_particles_per_group = sum(n_particles_glob(:,ii))
       if(use_gatherv_mpio) then
         n_particles_offset    = i0_HSIZE_T
-        particle_displacement(2:sim%n_cpu) = [(sum(n_particles_glob(1:jj,ii)),jj=1,sim%n_cpu-1)]
+        particle_displacement(2:sim%n_mpi) = [(sum(n_particles_glob(1:jj,ii)),jj=1,sim%n_mpi-1)]
       else
         n_particles_offset  = int(sum(n_particles_glob(1:sim%my_id,ii)),kind=HSIZE_T)
       endif
@@ -164,91 +164,91 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       if(allocated(i_elm_arr)) call HDF5_array1D_saving_int_native_or_gatherv(&
       file_id,i_elm_arr,n_particles_per_group,trim(trim(group_name)//"i_elm"),&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
       
       if(allocated(i_life_arr)) call HDF5_array1D_saving_int_native_or_gatherv(&
       file_id,i_life_arr,n_particles_per_group,trim(group_name)//"i_life",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
       
       if(allocated(q_arr)) call HDF5_array1D_saving_int_native_or_gatherv(&
       file_id,q_arr,n_particles_per_group,trim(group_name)//"q",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
       
       if(allocated(t_birth_arr)) call HDF5_array1D_saving_r4_native_or_gatherv(&
       file_id,t_birth_arr,n_particles_per_group,trim(group_name)//"t_birth",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
       if(allocated(weight_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,weight_arr,n_particles_per_group,trim(group_name)//"weight",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
       if(allocated(v_1d_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,v_1d_arr,n_particles_per_group,trim(group_name)//"v",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
       if(allocated(E_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,E_arr,n_particles_per_group,trim(group_name)//"E",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
       if(allocated(mu_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,mu_arr,n_particles_per_group,trim(group_name)//"mu",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
       if(allocated(vpar_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,vpar_arr,n_particles_per_group,trim(group_name)//"Vpar",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
       if(allocated(B_norm_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,B_norm_arr,n_particles_per_group,trim(group_name)//"B_norm",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc) 
 
       if(allocated(vpar_m_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,vpar_m_arr,n_particles_per_group,trim(group_name)//"Vpar_m",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc) 
 
       if(allocated(st_arr)) call HDF5_array2D_saving_native_or_gatherv(&
       file_id,st_arr,size(st_arr,1),n_particles_per_group,trim(group_name)//"st",&
       use_gatherv_mpio,dim2_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[i0_HSIZE_T,n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)  
 
       if(allocated(x_arr)) call HDF5_array2D_saving_native_or_gatherv(&
       file_id,x_arr,size(x_arr,1),n_particles_per_group,trim(group_name)//"x",&
       use_gatherv_mpio,dim2_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[i0_HSIZE_T,n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc) 
 
@@ -256,7 +256,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,B_hat_prev_arr,size(B_hat_prev_arr,1),n_particles_per_group,&
       trim(group_name)//"B_hat_prev",use_gatherv_mpio,&
       dim2_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,n_particles_offset],use_hdf5_parallel_in=use_hdf5_parallel,&
       mpio_collective_in=collective_mpio_loc) 
 
@@ -264,7 +264,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,v_2d_arr,size(v_2d_arr,1),n_particles_per_group,&
       trim(group_name)//"v",use_gatherv_mpio,&
       dim2_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,n_particles_offset],use_hdf5_parallel_in=use_hdf5_parallel,&
       mpio_collective_in=collective_mpio_loc) 
 
@@ -272,7 +272,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,x_m_arr,size(x_m_arr,1),n_particles_per_group,&
       trim(group_name)//"x_m",use_gatherv_mpio,&
       dim2_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,n_particles_offset],use_hdf5_parallel_in=use_hdf5_parallel,&
       mpio_collective_in=collective_mpio_loc) 
 
@@ -280,7 +280,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,Astar_m_arr,size(Astar_m_arr,1),n_particles_per_group,&
       trim(group_name)//"Astar_m",use_gatherv_mpio,&
       dim2_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,n_particles_offset],use_hdf5_parallel_in=use_hdf5_parallel,&
       mpio_collective_in=collective_mpio_loc) 
 
@@ -288,14 +288,14 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,Astar_k_arr,size(Astar_k_arr,1),n_particles_per_group,&
       trim(group_name)//"Astar_k",use_gatherv_mpio,&
       dim2_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,n_particles_offset],use_hdf5_parallel_in=use_hdf5_parallel,&
       mpio_collective_in=collective_mpio_loc) 
 
       if(allocated(Bn_k_arr)) call HDF5_array1D_saving_native_or_gatherv(&
       file_id,Bn_k_arr,n_particles_per_group,trim(group_name)//"Bn_k",&
       use_gatherv_mpio,dim1_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
@@ -303,7 +303,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,dBn_k_arr,size(dBn_k_arr,1),n_particles_per_group,&
       trim(group_name)//"dBn_k",use_gatherv_mpio,&
       dim2_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,n_particles_offset],use_hdf5_parallel_in=use_hdf5_parallel,&
       mpio_collective_in=collective_mpio_loc) 
 
@@ -311,14 +311,14 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,Bnorm_k_arr,size(Bnorm_k_arr,1),n_particles_per_group,&
       trim(group_name)//"Bnorm_k",use_gatherv_mpio,&
       dim2_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,n_particles_offset],use_hdf5_parallel_in=use_hdf5_parallel,&
       mpio_collective_in=collective_mpio_loc)
 
       if(allocated(E_k_arr)) call HDF5_array2D_saving_native_or_gatherv(&
       file_id,E_k_arr,size(E_k_arr,1),n_particles_per_group,trim(group_name)//"E_k",&
       use_gatherv_mpio,dim2_all_tasks=n_particles_glob(:,ii),&
-      displs=particle_displacement,mpi_rank=sim%my_id,n_cpu=sim%n_cpu,&
+      displs=particle_displacement,mpi_rank=sim%my_id,n_mpi=sim%n_mpi,&
       mpi_comm_loc=mpi_comm_loc,start=[i0_HSIZE_T,n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
       
@@ -326,7 +326,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
       file_id,dAstar_k_arr,size(dAstar_k_arr,1),size(dAstar_k_arr,2),&
       n_particles_per_group,trim(group_name)//"dAstar_k",use_gatherv_mpio,&
       dim3_all_tasks=n_particles_glob(:,ii),displs=particle_displacement,&
-      mpi_rank=sim%my_id,n_cpu=sim%n_cpu,mpi_comm_loc=mpi_comm_loc,&
+      mpi_rank=sim%my_id,n_mpi=sim%n_mpi,mpi_comm_loc=mpi_comm_loc,&
       start=[i0_HSIZE_T,i0_HSIZE_T,n_particles_offset],&
       use_hdf5_parallel_in=use_hdf5_parallel,mpio_collective_in=collective_mpio_loc)
 
@@ -431,7 +431,7 @@ mpi_comm_in,mpi_info_in,test_in)
   character(len=:),                  allocatable :: particle_type_str
   logical                                        :: create_access_plist,test
   !> initialisation
-  allocate(n_particles_per_proc(sim%n_cpu))
+  allocate(n_particles_per_proc(sim%n_mpi))
   !> set optional parameters
   create_access_plist = .false.
   if(present(use_hdf5_access_properties)) create_access_plist = .not.use_hdf5_access_properties
@@ -444,7 +444,7 @@ mpi_comm_in,mpi_info_in,test_in)
   call HDF5_open(filename,file_id,ierr,create_access_plist_in=create_access_plist,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
   !> read the simulation time
-  call HDF5_real_reading(file_id,sim%time,"/time",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_cpu)
+  call HDF5_real_reading(file_id,sim%time,"/time",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_mpi)
   !> get number of groups
   call H5Gopen_f(file_id,"/groups/",group_id,h5err)   
   call H5Gget_info_f(group_id,storage_type,n_groups,max_corder,h5err)
@@ -466,9 +466,9 @@ mpi_comm_in,mpi_info_in,test_in)
     !> compute the number of particles per processor and allocate particle array
     call HDF5_get_dataset_rank_dims(file_id,trim(group_name)//"i_elm",&
     rank,n_particles_tot,n_particles_max)
-    n_particles_per_proc = int(n_particles_tot(1))/sim%n_cpu
+    n_particles_per_proc = int(n_particles_tot(1))/sim%n_mpi
     n_particles_per_proc(master_task+1) = int(n_particles_tot(1)) - &
-    (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
+    (sim%n_mpi-1)*n_particles_per_proc(master_task+1)
     offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
     n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
     !> allocate particle list and initialise to 0
@@ -578,28 +578,28 @@ end subroutine read_simulation_hdf5
 !>   mpi_comm:            (integer) MPI communicator identifier (for MPIO)
 !>   mpi_info:            (integer) MPI parameter object (for MPIO)
 !>   my_id:               (integer) MPI task identifier (for MPIO)
-!>   n_cpu:               (integer) number of MPI task (for MPIO)
+!>   n_mpi:               (integer) number of MPI task (for MPIO)
 !> outputs:
 !>   time:     (real8) restart simulation time
 function get_simulation_hdf5_time(filename,use_hdf5_access_properties,&
-mpi_comm_loc,mpi_info_loc,my_id,n_cpu) result(time)
+mpi_comm_loc,mpi_info_loc,my_id,n_mpi) result(time)
   use mpi
   use hdf5,           only: HID_T
   use hdf5_io_module, only: HDF5_open,HDF5_close,HDF5_real_reading
   implicit none
   character(len=*),intent(in) :: filename
   integer,intent(in),optional :: mpi_comm_loc,mpi_info_loc
-  integer,intent(in),optional :: my_id,n_cpu
+  integer,intent(in),optional :: my_id,n_mpi
   logical,intent(in),optional :: use_hdf5_access_properties
   real*8                      :: time
   integer                     :: h5err
   integer(HID_T)              :: file_id
   if(present(use_hdf5_access_properties).and.present(mpi_comm_loc).and.&
-  present(mpi_info_loc).and.present(my_id).and.present(n_cpu)) then
+  present(mpi_info_loc).and.present(my_id).and.present(n_mpi)) then
     call HDF5_open(trim(filename),file_id,h5err,&
     create_access_plist_in=.not.use_hdf5_access_properties,&
     mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
-    call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,n_mpi_tasks=n_cpu)
+    call HDF5_real_reading(file_id,time,"/time",mpi_rank=my_id,n_mpi_tasks=n_mpi)
   else
     call HDF5_open(trim(filename),file_id,h5err)
     call HDF5_real_reading(file_id,time,"/time")

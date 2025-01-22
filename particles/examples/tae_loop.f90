@@ -63,7 +63,7 @@ call sim%initialize(num_groups=1)
 
 rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in benchmark, for original profile with toroidal flux) 
 
-n_particles_local = int(n_particles/sim%n_cpu) 
+n_particles_local = int(n_particles/sim%n_mpi) 
 timesteps         = tstep_particles
 tstep_keep       = tstep
 

@@ -117,7 +117,7 @@ if (restart_particles) then
    !may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
       
 else
-	if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_cpu, " cpus "
+	if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
 
 	! Read Open ADAS data
 	write(*,*) "deuterium_adas (12)",  deuterium_adas
@@ -136,7 +136,7 @@ else
 	sim%groups(1)%ad   = adas
 	
 	! setting up particles per MPI node
-	n_particles_local = int(n_particles/sim%n_cpu) 
+	n_particles_local = int(n_particles/sim%n_mpi) 
 	allocate(particle_kinetic_leapfrog::sim%groups(1)%particles(n_particles_local))
 
 	!>initialise particles here if needed
@@ -160,7 +160,7 @@ endif ! (restart_particles)
 
 ! setting up particles per MPI node and timestep
 rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in benchmark, for original profile with toroidal flux) 
-! n_particles_local = int(n_particles/sim%n_cpu) 
+! n_particles_local = int(n_particles/sim%n_mpi) 
 ! timesteps         = tstep_particles
 ! tstep_keep        = tstep
 
@@ -181,7 +181,7 @@ t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_no
  
 ! Setting up edge_elements and amount of sputtered super particles per event
 if (use_kn_sputtering) then  
-  n_reflect = int(n_particles_local* sim%n_cpu * 5.d-4) !1.d-3 int(n_particles_local * 2.d-3)
+  n_reflect = int(n_particles_local* sim%n_mpi * 5.d-4) !1.d-3 int(n_particles_local * 2.d-3)
   D_sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, n_reflect)
   D_sputter_event = event(D_sputter_source)
 endif
@@ -224,7 +224,7 @@ boxpuff = .true.
 !R_valve_loc = 4.307! touching leg
 !Z_valve     = -3.7898!
 if (use_kn_puffing) then  
-  n_puff      = int(5.d-5*n_particles_local* sim%n_cpu) !0.25 0.5d-4 !< now total n_puff
+  n_puff      = int(5.d-5*n_particles_local* sim%n_mpi) !0.25 0.5d-4 !< now total n_puff
   if (puff_t_dependent) then
 	t_puff_start = 5000*t_norm !25000*t_norm !34995*t_norm !5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
 	t_puff_slope = 8.d-3 !4.d-3 !< linearly ramps up the puffing during this time
@@ -237,7 +237,7 @@ if (use_kn_puffing) then
 				puffing_rate_start=40.d21,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff) !20.d21
   else
 
-	! n_puff      = int(0.25d-4*n_particles_local* sim%n_cpu) !0.5d-4
+	! n_puff      = int(0.25d-4*n_particles_local* sim%n_mpi) !0.5d-4
 	gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve) ! was 1
 	!gas_puff2 = particle_puffing(n_puff, 0.5d21, r_valve, 5.41058, -4.20272)!-0.0) !-1.77 ! jet 2.8d0, -1.77
 	gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2)!-0.0) !-1.77 ! jet 2.8d0, -1.77
@@ -861,7 +861,7 @@ subroutine do_1particle_recombination_3D(element_list,node_list,jorek_stepper,rn
   real*8, dimension(:,:), allocatable  :: volume_check  
   
   !Call mod_integrate_recombination
-  call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check)
+  call integrate_recombination(sim%my_id,sim%n_mpi, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check)
   
   
   total_volume = sum(sum( volume_check, DIM = 1 ), DIM=1)
@@ -934,7 +934,7 @@ subroutine do_1particle_recombination_3D(element_list,node_list,jorek_stepper,rn
       !write(*,*) "ife", ife
       ! --- Get element
     !ielm = jorek_stepper%local_elms(ife) !< actual element number
-    ielm    = (sim%my_id+1) + sim%n_cpu*(ife - 1)
+    ielm    = (sim%my_id+1) + sim%n_mpi*(ife - 1)
     element = element_list%element(ielm)
   
     

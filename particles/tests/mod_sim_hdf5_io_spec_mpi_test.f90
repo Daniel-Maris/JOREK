@@ -94,7 +94,7 @@ subroutine test_write_native_read_sim_time
   logical :: file_exists
   allocate(writer, reader)
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc;
+  sim_to_write%n_mpi = n_tasks_loc;
   writer%decimal_digits = 2; writer%fractional_digits = 0
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access; writer%use_native_hdf5_mpio = .true.;
@@ -102,7 +102,7 @@ subroutine test_write_native_read_sim_time
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%filename = expected_filename; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -124,14 +124,14 @@ subroutine test_write_gatherv_read_sim_time
   logical :: file_exists
   allocate(writer, reader)
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; writer%use_native_hdf5_mpio = .false.;
+  sim_to_write%n_mpi = n_tasks_loc; writer%use_native_hdf5_mpio = .false.;
   writer%decimal_digits = 2; writer%fractional_digits = 0;
   writer%file_access = file_access; writer%mpi_info_io = mpi_info_loc;
   call writer%run(sim_to_write); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%filename = expected_filename; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -157,7 +157,7 @@ subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
+  sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
   sim_to_write%groups(1)%mass = 1d3
   writer%mpi_comm_io = mpi_comm_loc; writer%mpi_info_io = mpi_info_loc;
   writer%file_access = file_access; writer%use_native_hdf5_mpio = .true.;
@@ -165,7 +165,7 @@ subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -196,14 +196,14 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
+  sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
   sim_to_write%groups(1)%mass = 1d3; writer%file_access = file_access;&
   writer%use_native_hdf5_mpio = .false.; writer%mpi_comm_io = mpi_comm_loc;
   call writer%run(sim_to_write); call MPI_Barrier(mpi_comm_loc,ifail_loc);
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read);
@@ -231,7 +231,7 @@ subroutine test_write_native_sim_one_group_boris
   integer :: i, n_groups, n_particles
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
-  sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
+  sim_to_write%my_id = rank_loc; sim_to_write%n_mpi = n_tasks_loc;
   sim_to_write%time = filename_time; sim_to_write%groups(1)%Z = 2;
   sim_to_write%groups(1)%mass = 2.0; writer%mpi_comm_io = mpi_comm_loc; 
   writer%mpi_info_io = mpi_info_loc; writer%file_access = file_access; 
@@ -240,7 +240,7 @@ subroutine test_write_native_sim_one_group_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -269,7 +269,7 @@ subroutine test_write_gatherv_sim_one_group_boris
   integer :: i, n_groups, n_particles
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
-  sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
+  sim_to_write%my_id = rank_loc; sim_to_write%n_mpi = n_tasks_loc;
   sim_to_write%time = filename_time; writer%mpi_comm_io = mpi_comm_loc;
   sim_to_write%groups(1)%Z = 2; sim_to_write%groups(1)%mass = 2.0;
   writer%file_access = file_access; writer%use_native_hdf5_mpio = .false.;
@@ -277,7 +277,7 @@ subroutine test_write_gatherv_sim_one_group_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   call reader%run(sim_to_read)
@@ -308,7 +308,7 @@ subroutine test_write_native_sim_two_groups_boris
     call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
+  sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
   sim_to_write%groups(1)%mass = 53.0; sim_to_write%groups(2)%Z = 765;
   sim_to_write%groups(2)%mass = 13.0; writer%mpi_comm_io = mpi_comm_loc; 
   writer%mpi_info_io = mpi_info_loc; writer%file_access = file_access; 
@@ -317,7 +317,7 @@ subroutine test_write_native_sim_two_groups_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   reader%test = .true.; call reader%run(sim_to_read)
@@ -348,7 +348,7 @@ subroutine test_write_native_sim_all_particles
   logical :: file_exists
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; 
+  sim_to_write%n_mpi = n_tasks_loc; 
   call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,sim_to_write%groups,ifail_loc)
   call fill_groups(n_groups_expect,sim_to_write%groups,rank_loc,ifail_loc)
   call fill_particles(n_groups_expect,sim_to_write%groups,rank_in=rank_loc)
@@ -358,7 +358,7 @@ subroutine test_write_native_sim_all_particles
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   reader%test = .true.;
@@ -389,7 +389,7 @@ subroutine test_write_gatherv_sim_all_particles
   logical :: file_exists
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; 
+  sim_to_write%n_mpi = n_tasks_loc; 
   call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,&
   sim_to_write%groups,ifail_loc); call fill_groups(n_groups_expect,&
   sim_to_write%groups,rank_loc,ifail_loc); call fill_particles(n_groups_expect,&
@@ -399,7 +399,7 @@ subroutine test_write_gatherv_sim_all_particles
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
   reader%test = .true.;
@@ -431,7 +431,7 @@ subroutine test_write_gatherv_sim_two_groups_boris
     call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_cpu = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
+  sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
   sim_to_write%groups(1)%mass = 53.0; sim_to_write%groups(2)%Z = 765;
   sim_to_write%groups(2)%mass = 13.0; writer%file_access = file_access; 
   writer%mpi_comm_io = mpi_comm_loc; writer%use_native_hdf5_mpio = .false.; 
@@ -439,7 +439,7 @@ subroutine test_write_gatherv_sim_two_groups_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-  sim_to_read%my_id = rank_loc; sim_to_read%n_cpu = n_tasks_loc;
+  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
   reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc; 
   call reader%run(sim_to_read)

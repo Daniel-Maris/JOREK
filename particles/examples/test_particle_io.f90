@@ -97,7 +97,7 @@ program test_particle_io
     mpi_info_in=mpi_info_io,use_hdf5_access_properties_in=use_hdf5_access_properties)
     event_read = [event(read_particle)];
     call sim_read%initialize(n_groups,.true.,my_id=sim_write%my_id,&
-    n_cpu=sim_write%n_cpu,do_jorek_init_in=.false.)
+    n_mpi=sim_write%n_mpi,do_jorek_init_in=.false.)
   endif
   !> Read - write operations -------------------------------------
   if(do_write) then
@@ -136,9 +136,9 @@ program test_particle_io
       sim_read%groups(ii)%mass,"List mass mismatch!")
       call assert_equal_particle(size(sim_write%groups(ii)%particles),&
       sim_write%groups(ii)%particles,sim_read%groups(ii)%particles)
-      call fruit_summary_mpi(sim_write%n_cpu,sim_write%my_id)
-      call fruit_summary_mpi_xml(sim_write%n_cpu,sim_write%my_id)
-      call fruit_finalize_mpi(sim_write%n_cpu,sim_write%my_id)
+      call fruit_summary_mpi(sim_write%n_mpi,sim_write%my_id)
+      call fruit_summary_mpi_xml(sim_write%n_mpi,sim_write%my_id)
+      call fruit_finalize_mpi(sim_write%n_mpi,sim_write%my_id)
     enddo
   endif
   !> Log data ---------------------------------------------------- 

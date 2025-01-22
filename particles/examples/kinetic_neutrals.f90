@@ -108,7 +108,7 @@ if (restart_particles) then
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
   ! setting up empty particle array
-  if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_cpu, " cpus "
+  if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
 
   !> is this needed for neutrals?
   if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
@@ -122,7 +122,7 @@ else
   sim%groups(1)%ad   = read_adf11(sim%my_id,'12_h')
   
   ! setting up particles per MPI node
-  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(n_particles/sim%n_cpu) ))
+  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(n_particles/sim%n_mpi) ))
   
   ! setting up empty particle array
   select type (p => sim%groups(1)%particles)
@@ -143,7 +143,7 @@ if (deuterium_adas .and. use_kn_recombination) ad_deuterium =  read_adf11(sim%my
 seed = rng_seed()
 n_stream = 1
 !$ n_stream = omp_get_max_threads()
-write(*,*) "id, n_cpu, n_stream",sim%my_id, sim%n_cpu, n_stream
+write(*,*) "id, n_mpi, n_stream",sim%my_id, sim%n_mpi, n_stream
 allocate(rng(n_stream))
 do i=1,n_stream
   call rng(i)%initialize(1, seed, n_stream, i)
@@ -676,7 +676,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
   real*8, dimension(:), allocatable  :: volume_check, energy_neutrals, energy_radiation
 
   !Call mod_integrate_recombination
-  call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
+  call integrate_recombination(sim%my_id,sim%n_mpi, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
 
   sanity_rec_local = 0.d0
   !calculate total recombination per mpi proces
@@ -769,7 +769,7 @@ subroutine do_1particle_recombination(element_list,node_list,jorek_stepper,rng,t
     
       ! --- Get element
     !ielm = jorek_stepper%local_elms(ife) !< actual element number
-    ielm    = (sim%my_id+1) + sim%n_cpu*(ife - 1)
+    ielm    = (sim%my_id+1) + sim%n_mpi*(ife - 1)
     element = element_list%element(ielm)
     
     ! initialise particle in the element with Position, Weight, Energy, Momentum

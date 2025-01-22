@@ -218,7 +218,7 @@ subroutine test_get_simulation_hdf5_time_write_native()
   !> read time
   time_new = get_simulation_hdf5_time(trim(test_filename),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_cpu=n_tasks_loc)
+  mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_mpi=n_tasks_loc)
   call assert_equals(sim_particles%time,time_new,tol_real8,&
   "Error get simulation time hdf5 (write hdf5 native): time mismatch!")
 end subroutine test_get_simulation_hdf5_time_write_native
@@ -233,7 +233,7 @@ subroutine test_get_simulation_hdf5_time_write_gatherv()
   !> read time
   time_new = get_simulation_hdf5_time(trim(test_filename_gatherv),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_cpu=n_tasks_loc)
+  mpi_comm_loc=mpi_comm_test,mpi_info_loc=mpi_info_test,n_mpi=n_tasks_loc)
   call assert_equals(sim_particles%time,time_new,tol_real8,&
   "Error get simulation time (write gatherv): time mismatch!")
 end subroutine test_get_simulation_hdf5_time_write_gatherv

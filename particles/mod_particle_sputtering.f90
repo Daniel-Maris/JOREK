@@ -764,11 +764,11 @@ subroutine do_particle_sputter(this, sim, ev)
   end do
   
   !=======================================================================================================
-  ! share the work over all cpus. the last one takes the extra work
-  if (this%n_sputter .ge. sim%n_cpu) then
-    n_samples = min(this%n_sputter/sim%n_cpu,n_free)
-    if (sim%my_id .eq. sim%n_cpu) then
-      n_samples = min(mod(this%n_sputter,sim%n_cpu) + this%n_sputter/sim%n_cpu, n_free)
+  ! share the work over all mpi's. the last one takes the extra work
+  if (this%n_sputter .ge. sim%n_mpi) then
+    n_samples = min(this%n_sputter/sim%n_mpi,n_free)
+    if (sim%my_id .eq. sim%n_mpi) then
+      n_samples = min(mod(this%n_sputter,sim%n_mpi) + this%n_sputter/sim%n_mpi, n_free)
     end if
   else
     if (sim%my_id .lt. this%n_sputter) then
@@ -778,8 +778,8 @@ subroutine do_particle_sputter(this, sim, ev)
     end if
   end if
  
-  if (n_samples .eq. n_free .and. this%n_sputter/sim%n_cpu .gt. n_free) then
-    write(*,"(i3,A,i3,A,i8,A,i8)") sim%my_id, 'Warning: could not sputter requested ', sim%n_cpu, 'x ', this%n_sputter/sim%n_cpu, ", bounded to ", n_samples
+  if (n_samples .eq. n_free .and. this%n_sputter/sim%n_mpi .gt. n_free) then
+    write(*,"(i3,A,i3,A,i8,A,i8)") sim%my_id, 'Warning: could not sputter requested ', sim%n_mpi, 'x ', this%n_sputter/sim%n_mpi, ", bounded to ", n_samples
   end if
 
   ! Distribute the number of tries by integrated fluid sputtering yield (so the
@@ -852,7 +852,7 @@ subroutine do_particle_sputter(this, sim, ev)
     end if
 
     if (sim%my_id .eq. 0 .and. this%n_sputter .gt. 0) then
-      write(*,"(A,i3,A,i8,A,A,A,A,A,i1,A,i2,A,g12.4,A,g12.4)") "Sputtered ", sim%n_cpu, "x", n_samples_fluid(i), &
+      write(*,"(A,i3,A,i8,A,A,A,A,A,i1,A,i2,A,g12.4,A,g12.4)") "Sputtered ", sim%n_mpi, "x", n_samples_fluid(i), &
         " ", element_symbols(sim%groups(this%target_group)%Z),&
         " from ", element_symbols(Z), " in group ", this%target_group, &
       " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral, "  particles flux #/s : ", integral/delta_t
@@ -885,7 +885,7 @@ type is (particle_kinetic_leapfrog)
   
       !> weight of fluid particle is equally distributed as a fraction of the incoming flux. Such that the sum of all incoming fluid particles ,
       !> is the total amount of incoming particles over the edge domain area * delta_t
-      sim%groups(this%target_group)%particles(i_p)%weight = real(1.d0/(n_samples_fluid(i)*sim%n_cpu) * integral,4)
+      sim%groups(this%target_group)%particles(i_p)%weight = real(1.d0/(n_samples_fluid(i)*sim%n_mpi) * integral,4)
   
       ! Assume the particle is fully ionized! For D, He, Ar this is reasonable
       theta = 0 !< surface roughness leads to an average incoming angle of zero
