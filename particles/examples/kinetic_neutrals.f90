@@ -89,10 +89,15 @@ logical :: boxpuff               !< whether to puff in a simple (=.false., uses 
 ! Start up MPI, jorek
 call sim%initialize(num_groups=1)
 
-! Set up the field reader < can this be moved to sim%initialize
-fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
-call with(sim, fieldreader)
-tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
+! Loading the jorek fields
+if (restart) then
+  fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
+  call with(sim, fieldreader)
+  tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
+else
+  if (sim%my_id == 0) write(*,*) 'ERROR: using this program without restarting from a jorek field is not possible. Please set restart=.t. in the namelist and provide a jorek_restart.h5 file'
+  stop
+end if
 
 ! setting up the particles
 if (restart_particles) then
@@ -331,7 +336,7 @@ call write_to_outputfile(sim%my_id, "End of simulation")
   
 call write_simulation_hdf5(sim, 'part_restart.h5')
 
-call sim%finalize
+call sim%finalize()
 
 !***********************************************************************
 !*                          end of main program                        *
