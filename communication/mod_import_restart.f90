@@ -237,7 +237,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 #else
   read(21) element_list%element(1:element_list%n_elements)
 #endif
-  read(21) tstep,eta_rst,visco_rst,visco_par_rst
+  read(21) tstep_rst,eta_rst,visco_rst,visco_par_rst
   read(21) index_start
   read(21) t_start
   
@@ -1378,7 +1378,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     element_list%element(i)%nref                    = t_nref(i)
   end do
    
-  call HDF5_real_reading(file_id,tstep,'tstep')
+  call HDF5_real_reading(file_id,tstep_rst,'tstep')
   call HDF5_real_reading(file_id,eta_rst,'eta')
   call HDF5_real_reading(file_id,visco_rst,'visco')
   call HDF5_real_reading(file_id,visco_par_rst,'visco_par')

@@ -335,6 +335,7 @@ module phys_module
   real*8  :: tstep_n(10)       		!< Alternative to tstep: Up to ten values may be given
   integer :: nstep             		!< Number of timesteps to perform
   integer :: nstep_n(10)       		!< Alternative to nstep: Up to ten values may be given
+  real*8  :: tstep_rst            !< tstep from restart file
   real*8  :: t_start           		!< Time value at the start of the code run (zero or from restart file)
   real*8  :: t_now             		!< Current time value in the simulation
   integer :: index_start       		!< Time step index at the beginning of the code run (zero or from restart file)

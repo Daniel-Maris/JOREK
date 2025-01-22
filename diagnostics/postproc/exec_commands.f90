@@ -3091,7 +3091,7 @@ module exec_commands
     call update_time_evol_params()
   
     if ( index_start <= 1 ) then
-      tstep_prev = tstep
+      tstep_prev = tstep_rst
     else
       tstep_prev = xtime(index_start) - xtime(index_start-1)
     end if

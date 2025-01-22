@@ -93,7 +93,6 @@ call sim%initialize(num_groups=1)
 if (restart) then
   fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
   call with(sim, fieldreader)
-  tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
 else
   if (sim%my_id == 0) write(*,*) 'ERROR: using this program without restarting from a jorek field is not possible. Please set restart=.t. in the namelist and provide a jorek_restart.h5 file'
   stop
