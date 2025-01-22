@@ -13,7 +13,7 @@ use mod_event
 use mod_project_particles
 !use mod_particle_loop
 use mod_jorek_timestepping
-use mod_random_seed
+use mod_rng_seed
 use mod_basisfunctions
 use nodes_elements
 use phys_module, only: tstep,restart_particles, restart, t_start, nout
@@ -323,7 +323,7 @@ jorek_stepper%extra_event => events(1) !< is used as first event before eneterin
 
 
 ! Set up random numbers for ionisation probability
-seed = random_seed()
+seed = rng_seed()
 n_stream = 1
 !$ n_stream = omp_get_max_threads()
 allocate(rng(n_stream))
@@ -481,7 +481,7 @@ contains
 
 subroutine loop_particle_kinetic_local(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
 use mod_project_particles
-use mod_random_seed
+use mod_rng_seed
 use mod_interp, only: mode_moivre
 use mod_basisfunctions
 use mod_particle_types, only: copy_particle_kinetic_leapfrog
