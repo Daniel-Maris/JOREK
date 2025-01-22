@@ -758,7 +758,7 @@ cat <<EOF > go_$DATANAME.cmd
 #PBS -V
 #PBS -j oe
 #PBS -l walltime=${WALLTIME}
-#PBS -l select=${NNODES}:nmpis=8:ompthreads=${NTHREAD}:mpiprocs=${MPIPROCS}
+#PBS -l select=${NNODES}:ncpus=8:ompthreads=${NTHREAD}:mpiprocs=${MPIPROCS}
 ## ${NNODES} nodes with ${MPIPROCS} process MPI per node and ${NTHREAD} threads per MPI process
 
 # environment
@@ -872,8 +872,8 @@ cat <<EOF > go_$DATANAME.cmd
 #PBS -V
 #PBS -j oe
 #PBS -l walltime=${WALLTIME}
-##PBS -l select=${NNODES}:nmpis=8:ompthreads=${NTHREAD}:mpiprocs=${MPIPROCS}
-#PBS -l select=1:nmpis=8:ompthreads=${NTHREAD}:mpiprocs=1
+##PBS -l select=${NNODES}:ncpus=8:ompthreads=${NTHREAD}:mpiprocs=${MPIPROCS}
+#PBS -l select=1:ncpus=8:ompthreads=${NTHREAD}:mpiprocs=1
 ## ${NNODES} nodes with ${MPIPROCS} process MPI per node and ${NTHREAD} threads per MPI process
 
 # environment

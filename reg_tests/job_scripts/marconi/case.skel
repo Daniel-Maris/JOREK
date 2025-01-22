@@ -2,7 +2,7 @@
 #PBS -N _CASE_
 #PBS -q xfuadebug
 #PBS -A FUA11_AUGJOR
-#PBS -l select=1:nmpis=36:mpiprocs=2
+#PBS -l select=1:ncpus=36:mpiprocs=2
 #PBS -l place=excl
 #PBS -j oe
 #PBS -V
