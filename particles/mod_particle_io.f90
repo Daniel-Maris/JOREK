@@ -372,7 +372,7 @@ end subroutine write_simulation_hdf5
 !> outputs:
 !>   sim: (particle_sim) particle simulation object
 subroutine read_simulation_hdf5(sim,filename,use_hdf5_access_properties,&
-mpi_comm_in,mpi_info_in,test_in,skip_group_config)
+mpi_comm_in,mpi_info_in,test_in)
   use phys_module
   use mpi
   use hdf5,               only: HSIZE_T,HID_T
@@ -409,7 +409,6 @@ mpi_comm_in,mpi_info_in,test_in,skip_group_config)
   logical,intent(in),optional :: use_hdf5_access_properties
   integer,intent(in),optional :: mpi_comm_in,mpi_info_in
   logical,intent(in),optional :: test_in
-  logical,intent(in),optional :: skip_group_config
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
@@ -457,19 +456,15 @@ mpi_comm_in,mpi_info_in,test_in,skip_group_config)
     write(*,*) "Error: n_part_groups being imported from restart exceeds n_part_groups_max"
     stop
   endif
-
-  !> allocate simulation groups
-  if(allocated(sim%groups)) then
-    deallocate(sim%groups) 
-    allocate(sim%groups(n_groups_old))
-
-    ! configure reallocated groups based namelist parameters
-    if (.not. present(skip_group_config)) then 
-      call configure_particle_groups(sim)
-    else
-      if (.not. skip_group_config) call configure_particle_groups(sim)
-    endif
+  !> check if the number of groups requested differs from the number of groups in part_restart.h5
+  !> will be removed after adding feature to support changing num groups
+  if (n_groups_old /= n_part_groups) then
+    write(*,*) "Error: mismatch between n_part_groups requested and that found in part_restart.h5"
+    stop
   endif
+  !> the line below should only be the case in certain unit tests, otherwise the
+  !> allocation of groups and their configuration should be done in sim%initialize()
+  if (.not. (allocated(sim%groups))) call sim%allocate_groups(n_part_groups)
 
   do ii=1,n_groups_old
     !> read and load group datasets. We assume that the ith-particle group of 

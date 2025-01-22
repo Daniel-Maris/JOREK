@@ -4,6 +4,7 @@ use fruit
 use mod_io_actions
 use mod_particle_sim
 use mod_particle_types
+use phys_module
 implicit none
 private
 public :: run_fruit_sim_hdf5_io_spec_mpi
@@ -154,6 +155,7 @@ subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
@@ -192,6 +194,7 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); 
   allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
@@ -229,6 +232,7 @@ subroutine test_write_native_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
@@ -267,6 +271,7 @@ subroutine test_write_gatherv_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_cpu = n_tasks_loc;
@@ -303,6 +308,7 @@ subroutine test_write_native_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect
     call allocate_particles_here(sim_to_write%groups(i)%particles,n_particles_expect(i))
@@ -346,6 +352,7 @@ subroutine test_write_native_sim_all_particles
   class(write_action),allocatable :: writer
   class(read_action),allocatable  :: reader
   logical :: file_exists
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; 
@@ -387,6 +394,7 @@ subroutine test_write_gatherv_sim_all_particles
   class(write_action),allocatable :: writer
   class(read_action),allocatable  :: reader
   logical :: file_exists
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_cpu = n_tasks_loc; 
@@ -425,6 +433,7 @@ subroutine test_write_gatherv_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); 
   allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect

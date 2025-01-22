@@ -26,7 +26,6 @@ end type io_action
 type, extends(io_action) :: read_action
   real*8  :: time             !< used with the formats from io_action if filename is unset
   logical :: test   = .false. !< if true avoid to read adas for unit testing
-  logical :: skip_group_config = .false. !< if true skips reconfiguring group using namelist for unit testing
 contains
   procedure :: do => do_read_action
 end type read_action
@@ -69,7 +68,7 @@ end function get_filename
 !> Constructor for read_action.
 !> Be sure to use keyword arguments when initializing, to avoid confusion
 function new_read_action(filename, basename, decimal_digits, fractional_digits, &
-extension,use_hdf5_access_properties_in, mpi_comm_in, mpi_info_in,test_in,skip_group_config)
+extension,use_hdf5_access_properties_in, mpi_comm_in, mpi_info_in,test_in)
   use mpi
   implicit none
   type(read_action) :: new_read_action
@@ -80,7 +79,6 @@ extension,use_hdf5_access_properties_in, mpi_comm_in, mpi_info_in,test_in,skip_g
   character(len=*), intent(in), optional :: extension
   integer,          intent(in), optional :: mpi_comm_in,mpi_info_in
   logical,          intent(in), optional :: test_in,use_hdf5_access_properties_in
-  logical,          intent(in), optional :: skip_group_config
   new_read_action%mpi_comm_io = MPI_COMM_WORLD
   new_read_action%mpi_info_io = MPI_INFO_NULL
   if (present(filename)) new_read_action%filename = filename
@@ -92,7 +90,6 @@ extension,use_hdf5_access_properties_in, mpi_comm_in, mpi_info_in,test_in,skip_g
   if (present(mpi_comm_in)) new_read_action%mpi_comm_io = mpi_comm_in
   if (present(mpi_info_in)) new_read_action%mpi_info_io = mpi_info_in
   if (present(test_in)) new_read_action%test = test_in
-  if (present(skip_group_config)) new_read_action%skip_group_config = skip_group_config
   new_read_action%name = "ReadAction"
   new_read_action%log = .true.
 end function new_read_action
@@ -105,7 +102,7 @@ subroutine do_read_action(this, sim, ev)
   if (len_trim(this%filename) .eq. 0) this%filename = trim(this%get_filename(this%time))
   call read_simulation_hdf5(sim, trim(this%filename), &
   use_hdf5_access_properties=this%use_hdf5_access_properties, &
-  mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test, skip_group_config=this%skip_group_config)
+  mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
 end subroutine do_read_action
 
 !> Constructor for write_action

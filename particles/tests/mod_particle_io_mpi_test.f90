@@ -172,7 +172,7 @@ subroutine test_particle_mpi_io_write_native_read
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test,skip_group_config=.true.)
+  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test)
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
@@ -203,7 +203,7 @@ subroutine test_particle_mpi_io_write_gatherv_read
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename_gatherv),&
   use_hdf5_access_properties=use_hdf5_access_properties,&
-  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test,skip_group_config=.true.)
+  mpi_comm_in=mpi_comm_test,mpi_info_in=mpi_info_test,test_in=test)
 
   !> check simulation 
   call assert_equals(sim_particles_new%time,sim_particles%time,tol_real8,&
