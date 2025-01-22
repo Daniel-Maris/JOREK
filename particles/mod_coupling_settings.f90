@@ -35,7 +35,7 @@ subroutine determine_coupling_schemes()
         use_pcs_full = .true.
     end select
 
-    if (particle_group_configs(group_num)%use_kin_recombination .eq. .true.) then
+    if (particle_group_configs(group_num)%use_kin_recombination .eqv. .true.) then
       use_kin_recomb_global = .true.
     endif 
     
