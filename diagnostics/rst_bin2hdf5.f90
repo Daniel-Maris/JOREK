@@ -64,13 +64,14 @@ program RST_convert_bin2hdf5
   visco     = visco_rst
   visco_par = visco_par_rst
   eta       = eta_rst
+  tstep     = tstep_rst
 
   call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, .false.)
   
   if ( freeboundary ) then
     call get_vacuum_response(0, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,  &
       resistive_wall)
-    call update_response(my_id, tstep_rst, resistive_wall)
+    call update_response(my_id, tstep, resistive_wall)
     call import_external_fields('coil_field.dat', 0)
     if ( .not. wall_curr_initialized ) call init_wall_currents(0, resistive_wall)
   end if
