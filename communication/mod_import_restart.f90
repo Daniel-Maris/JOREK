@@ -1041,6 +1041,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   call HDF5_integer_reading(file_id,jorek_model_tmp,"jorek_model")
   call HDF5_integer_reading(file_id,n_var_tmp,"n_var")
+  if (n_aux_var == 0) call HDF5_integer_reading(file_id,n_aux_var,"n_aux_var") ! for diagnostic purposes
   
   import_3xx_4xx = .false.
   if ( (jorek_model >= 400) .and. (jorek_model <= 499) .and. (jorek_model_tmp >= 300) .and. (jorek_model_tmp <= 399) ) then
@@ -1128,10 +1129,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
 
   aux_values_read = .false.
-  write(*,*) "present aux node list: ", present(aux_node_list)
-  write(*,*) "associated aux node list: ", associated(aux_node_list)
   if(present(aux_node_list)) then
-    n_aux_var = 7
 
     ! --- initialising aux_node_list
     call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)

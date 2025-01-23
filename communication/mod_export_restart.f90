@@ -285,6 +285,7 @@ subroutine export_binary_restart(node_list,element_list,filename,aux_node_list)
   write(21) n_degrees
   write(21) nref_max
   write(21) n_ref_list
+  write(21) n_aux_var
 
   close(21)
 
@@ -593,6 +594,7 @@ subroutine export_hdf5_restart(node_list,element_list,filename,aux_node_list)
   call HDF5_integer_saving(file_id,n_degrees,'n_degrees'//char(0))
   call HDF5_integer_saving(file_id,nref_max,'nref_max'//char(0))
   call HDF5_integer_saving(file_id,n_ref_list,'n_ref_list'//char(0))
+  call HDF5_integer_saving(file_id,n_aux_var,'n_aux_var'//char(0))
 
   ! -> 
   call HDF5_integer_saving(file_id,node_list%n_nodes,'n_nodes'//char(0))
