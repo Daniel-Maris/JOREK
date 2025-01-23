@@ -1128,15 +1128,20 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
 
   aux_values_read = .false.
+  write(*,*) "present aux node list: ", present(aux_node_list)
+  write(*,*) "associated aux node list: ", associated(aux_node_list)
   if(present(aux_node_list)) then
+    n_aux_var = 7
+
+    ! --- initialising aux_node_list
+    call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
+
+    ! --- checking if aux_values are saved
     call h5lexists_f(file_id,'aux_values',flag_exists,err_exists)
     if(flag_exists .and. err_exists == 0) then
       aux_values_read = .true.
-
-      ! --- initialising aux_node_list
-      call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
-
     endif
+
   endif
 
   ! -> Allocate temporary arrays 
