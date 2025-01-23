@@ -199,9 +199,6 @@ allocate(bnd_node_list)
 ! --- Initialise input parameters and read the input namelist.
 my_id     = 0
 call initialise_parameters(my_id, "__NO_FILENAME__")
-! --- Scan over particle groups and determine n_aux_var
-call determine_coupling_schemes()
-call determine_coupling_variables() 
 
 ! --- Preset parameters
 nsub                   = 5       ! Number of subdivisions of the cubic finite elements into linear pieces
