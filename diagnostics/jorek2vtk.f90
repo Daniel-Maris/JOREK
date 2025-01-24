@@ -22,8 +22,6 @@ use mod_impurity, only: init_imp_adas, radiation_function, radiation_function_li
 use mod_atomic_coeff_deuterium, only : atomic_coeff_deuterium
 use mod_openadas , only : read_adf11
 use mod_atomic_coeff_deuterium, only : ad_deuterium , atomic_coeff_deuterium
-use mod_coupling_settings
-
 implicit none
 
 type (type_node_list)   ,     pointer :: node_list

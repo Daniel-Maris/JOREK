@@ -136,7 +136,6 @@
   n_part_groups = 1
   particle_group_configs(1)%Z = -2
   particle_group_configs(1)%mass = 2.01410178
-  particle_group_configs(1)%dt = 1.d-4
   particle_group_configs(1)%coupling_scheme = 'ncs'
   particle_group_configs(1)%n_particles     = 1e4
   particle_group_configs(1)%type            = 'particle_kinetic_leapfrog'

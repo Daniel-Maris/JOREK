@@ -858,7 +858,6 @@ puff_rate     = 0.d0
 n_part_groups = 0
 particle_group_configs(:)%Z                 = 1
 particle_group_configs(:)%mass              = 0.d0
-particle_group_configs(:)%dt                = 0.d0
 particle_group_configs(:)%coupling_scheme   = 'non'
 particle_group_configs(:)%n_particles       = 0.d0
 particle_group_configs(:)%type              = 'none'

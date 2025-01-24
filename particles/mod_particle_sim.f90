@@ -73,7 +73,6 @@ subroutine configure_particle_groups(sim)
   do i=1, n_part_groups
     sim%groups(i)%Z = particle_group_configs(i)%Z
     sim%groups(i)%mass = particle_group_configs(i)%mass
-    sim%groups(i)%dt = particle_group_configs(i)%dt
     sim%groups(i)%coupling_scheme = particle_group_configs(i)%coupling_scheme
     sim%groups(i)%n_particles = particle_group_configs(i)%n_particles
     sim%groups(i)%id = particle_group_configs(i)%id
