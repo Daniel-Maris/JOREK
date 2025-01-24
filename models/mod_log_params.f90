@@ -1014,7 +1014,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       write(*,CHAR_FMT) 'id,                    ',sim%groups(group_num)%id
       write(*,INTG_FMT) 'Z,                     ',sim%groups(group_num)%Z
       write(*,REAL_FMT) 'mass                   ',sim%groups(group_num)%mass
-      write(*,REAL_FMT) 'dt                     ',sim%groups(group_num)%dt                    
       write(*,CHAR_FMT) 'coupling_scheme,       ',sim%groups(group_num)%coupling_scheme
       write(*,REAL_FMT) 'n_particles,           ',sim%groups(group_num)%n_particles
       write(*,CHAR_FMT) 'type,                  ',trim(particle_group_configs(group_num)%type)
