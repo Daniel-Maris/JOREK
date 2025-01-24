@@ -1005,29 +1005,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_pcs,            ',use_pcs
   write(*,INTG_FMT) 'n_puff                ',  n_puff
   write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
-
-  if (n_valves > 0) then
-    write(*,*) ''
-    write(*,*) '====== Valves ======'
-    write(*,INTG_FMT) 'n_valves            ',n_valves
-    do i=1, n_valves
-      write(*,*) "----  Valve: ", i, " ----" 
-      write(*,CHAR_FMT) 'type,               ',valves(i)%type
-      select case (trim(valves(i)%type))
-        case ("circ")
-          write(*,REAL_FMT) 'r_valve,            ',valves(i)%r_valve
-          write(*,REAL_FMT) 'R_valve_loc,        ',valves(i)%R_valve_loc
-          write(*,REAL_FMT) 'Z_valve_loc,        ',valves(i)%Z_valve_loc
-        case ("poly")
-          write(*,REAL_FMT) 'poly_R              ',valves(i)%poly_R(:)
-          write(*,REAL_FMT) 'poly_Z              ',valves(i)%poly_Z(:)
-      end select
-      if (valves(i)%phi /= -99.d9) then
-        write(*,REAL_FMT) 'phi                 ',valves(i)%phi
-      endif
-    enddo
-  endif
-
   
   if (n_part_groups > 0) then
     write(*,*) '==== Particle Groups ===='

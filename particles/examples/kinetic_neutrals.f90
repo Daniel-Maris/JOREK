@@ -48,7 +48,7 @@ use phys_module, only: n_part_groups, n_aux_var
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: puff_rate, n_puff, valves
+use phys_module, only: puff_rate, n_puff
 use phys_module, only: use_manual_random_seed, manual_seed
 
 !$ use omp_lib
@@ -83,7 +83,12 @@ integer, dimension(:), allocatable :: recomb_groups
 real*8  :: t_puff_start          !< [s] time to start ramping the puff rate if puff_t_dependent=.true.
 real*8  :: t_puff_slope          !< [s] time over which the puff rated is ramped to puff_rate (input) from t_puff_start where the puff rate was still puffing_rate_start
 real*8  :: puffing_rate_start    !< [atoms/s] initial puff rate before the ramp if puff_t_dependent=.true.
+real*8  :: poly_R(4)             !< [m] R coordinates of the quadrangular puffing valve if boxpuff=.true.
+real*8  :: poly_Z(4)             !< [m] Z coordinates of the quadrangular puffing valve if boxpuff=.true.
+real*8  :: poly_R2(4),poly_Z2(4) !  [m] second puffing valve location
 logical :: puff_t_dependent      !< puff time dependent using a flat - ramp - flat pattern (=.true.) or no time dependence at all (.false.) 
+logical :: boxpuff               !< whether to puff in a simple (=.false., uses r_valve etc) or quadrangular (=.true., uses pol_R, poly_Z) puff valve
+real*8  :: r_valve, R_valve_loc, Z_valve, R_valve_loc2, Z_valve2
 
 !***********************************************************************
 !*                            intialisation                            *
@@ -168,19 +173,33 @@ do group_num=1, n_part_groups
 
   !> Adapt the following to customize the time dependent puff rate:
   !> puffing_rate_start = initial puffing rate [atoms/s]
+  !> puff_rate = final puffing rate [atoms/s] <input parameter>
   !> t_puff_start = At what time the puffing rate starts to increase [s]
   !> t_puff_slope = How much time it takes to increase linearly from puffing_rate_start to puff_rate [s]
-  puff_t_dependent = .true.
+  !> n_puff = number of super particles puffed per valve per jorek timestep (should be small fraction of total number of super particles) <input parameter>
+  puff_t_dependent = .true. 
+  puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
   t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
   t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
-  puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
-
+  
+  !> puff location can be determined for a circular valve by setting input parameters: 
+  !> r_valve (valve radius), R_valve_loc, Z_valve (R,Z, coordinates of simple valve)
+  !> if boxpuff=.true., poly_R(4),poly_Z(4) are the vertices of the quadrangular puffing valve
+  boxpuff = .true. !< whether to puff using 
+  
+  !> puff location for simple xpoint case
+  if(sim%my_id .eq. 0) write(*,*) "puff location for xpoint reg_test example"
+  poly_R  = (/3.86d0, 3.9d0, 3.86d0, 3.9d0/)
+  poly_Z  = (/0.1d0,  0.1d0,  0.0d0, 0.0d0/)
+  poly_R2 = poly_R 
+  poly_Z2 = poly_Z
+  
   if (sim%groups(group_num)%use_kin_puffing) then
-    gas_puff = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
-        puffing_rate_start=puffing_rate_start/2.d0)
-    gas_puff2 = particle_puffing(group_num, n_puff, puff_rate/2.d0, valves(1), puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-        puffing_rate_start=puffing_rate_start/2.d0)
-    
+    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+    puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
+    gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+    puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
+
     gas_puff_event  = event(gas_puff)
     gas_puff2_event = event(gas_puff2)
     

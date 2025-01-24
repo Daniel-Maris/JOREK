@@ -854,18 +854,6 @@ use_marker         = .false.
 n_puff        = 0
 puff_rate     = 0.d0
 
-!--------------- valves -------------------------
-n_valves = 0
-valves(:)%type = 'none'
-valves(:)%r_valve = -1.d0
-valves(:)%R_valve_loc = -1.d0
-valves(:)%Z_valve_loc = -1.d0
-valves(:)%phi = -1.d0
-do i=1, n_valves_max
-  valves(i)%poly_R = 0.d0
-  valves(i)%poly_Z = 0.d0
-enddo
-
 ! -------------- particle groups ---------------
 n_part_groups = 0
 particle_group_configs(:)%Z                 = 1
