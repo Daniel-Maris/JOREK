@@ -100,7 +100,7 @@ subroutine do_read_action(this, sim, ev)
   type(particle_sim), intent(inout) :: sim
   type(event), intent(inout), optional :: ev
   if (len_trim(this%filename) .eq. 0) then
-    call read_simulation_hdf5(sim, trim(this%get_filename(this%time)), &
+    call read_simulation_hdf5(sim, trim(this%get_filename(sim%time)), &
     use_hdf5_access_properties=this%use_hdf5_access_properties, &
     mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
   else
