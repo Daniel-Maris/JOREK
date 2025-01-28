@@ -502,8 +502,11 @@ subroutine test_time_loop_gather_sim_two_groups_boris
     call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
     n_particles_expect,"(time loop gatherv writer/native reader)")
     !> remove file
-    !call remove_file(rank_loc,read_events(2)%stored_action(1)%get_filename(\
-    !sim_to_read%time),mpi_comm_loc,ifail_loc)
+    select type (act=>read_events(2)%stored_action)
+    type is (read_action)
+      call remove_file(rank_loc,act%get_filename(\
+      sim_to_read%time),mpi_comm_loc,ifail_loc)
+    end select
     sim_to_read%time = sim_to_read%time + io_step !< update time
   enddo
 end subroutine test_time_loop_gather_sim_two_groups_boris
