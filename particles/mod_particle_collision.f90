@@ -49,7 +49,7 @@ subroutine neutral_self_collision(sim, rng, dt)
   real*8, parameter :: subbin_factor = 2 !< factor by which a collisional bin is allowed to be larger than aim_pa_per_bin before splitting into subbings
   integer :: i,j, i_elm, i_loc, i_global
   
-  real*8 :: P_coll  !< [chance] P = 2 w_g n \sigma_T v_r dt
+  real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = N_test w_g \sigma_T v_r dt / V_c
   real*8 :: w2, w1  !< [physical particles] weight of super particle 1
   real*8 :: w_s     !< [physical particles] weight of smaller super particle in binary collision w_s = min(w1,w2)
   real*8 :: w_g     !< [physical particles] weight of greater super particle in binary collision w_g = max(w1, w2)
@@ -77,8 +77,7 @@ subroutine neutral_self_collision(sim, rng, dt)
   !nearest neighbour
   real*8  :: RZPhi(3), RZPhi_try(3), d2_try, d2, d, w2_phi !< squared weight to scale a distance in phi to a distance in R, Z
   integer :: i_pa1, i_pa2
-  real*8  :: n_bin !< [physical particles/m^3] number density in the bin
-
+  
   !elastic collision parameters
   real*8 :: alpha  !< scattering plane angle to Z-axis around *v1*
   real*8 :: Theta  !< scattering angle in normal coordinates
@@ -89,8 +88,8 @@ subroutine neutral_self_collision(sim, rng, dt)
   !dbg
   real*8 :: t(6)  !< cpu times (begin, end, diff)
   real*8 :: t_mask, t_rest, t_elm, t_priv(25), t_priv_tot(25)
-  integer :: max_n_pa(2)
-  real*8 :: P_max, P_max_global
+  integer :: max_n_pa(2), max_n_pa_gl(2)
+  real*8 :: P_max(2), P_max_global(2)
   integer :: ierr
   !$ real*8 :: w(2), mmm(3)
 
@@ -188,9 +187,9 @@ subroutine neutral_self_collision(sim, rng, dt)
 #endif
       !$omp schedule(runtime)                                                                      &
       !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
-      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, i_subbin, n_pa_subbin, pa_subbin, n_bin, w2_phi, V_c,  &
+      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, i_subbin, n_pa_subbin, pa_subbin, w2_phi, V_c,  &
       !$omp paired, i_pair, i_pa1, i_pa2, RZPhi, d2, RZPhi_try, d2_try, w1, w2, w_s, w_g, v_r, m1, m2,  &
-      !$omp sigma_T, P_coll, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin, aim_pa_per_subbin) &
+      !$omp sigma_T, P_try, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin, aim_pa_per_subbin) &
       !$omp reduction(+:t_mask, t_rest, t_elm, t_priv_tot) reduction(max:max_n_pa, P_max)
       do i_elm=1,n_elm
         t_priv=0
@@ -330,12 +329,11 @@ subroutine neutral_self_collision(sim, rng, dt)
               if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
               if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
               
-              ! detemine quantities relevant to all subbins: n_bin and w2_phi
+              ! detemine quantities relevant to all subbins: V_c and w2_phi
               call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
               ls = sqrt(R_s**2 + Z_s**2)/real(ns)
               lt = sqrt(R_t**2 + Z_t**2)/real(nt)
               V_c = ls*lt*(2.d0*PI/real(n_period*n_phi))
-              !n_bin = sum(pa(i_pa_bin(is,it,i_phi)%pa_ind(:))%weight)/V_c !n = N/V_c, V_c cylindrical approximation temporary until we can read from projections?
               
               !determine weight of phi direction necessary for nearest neighbour calculation based on bin size
               if(n_period .eq. 1 .and. n_phi .eq. 1) then !< axi symmetry
@@ -428,10 +426,12 @@ subroutine neutral_self_collision(sim, rng, dt)
                   call cpu_time(t_priv(15))
                   t_priv_tot(15) = t_priv_tot(15) + t_priv(15)-t_priv(14)
                   
-                  P_coll = w_g * n_pa_bin * sigma_T * v_r * dt / V_c
-                  if (P_coll > P_max) P_max = P_coll
-                  if(P_coll .gt. 1.d0) &
-                    write(*,"(A,7es15.5)") "ERROR in NNC: P_coll > 1 (P,n,sigma,v_r,dt,w1,w2)",P_coll, n_bin, sigma_T, v_r, dt, w1, w2
+                  P_try = w_g * n_pa_bin * sigma_T * v_r * dt / V_c
+
+                  if (P_try > P_max(1)) P_max(1) = P_try
+                  if (P_try/n_pa_bin > P_max(2)) P_max(2) = P_try/n_pa_bin
+                  if (P_try > 1.d0) &
+                    write(*,"(A,8es15.5)") "ERROR in NNC: P_try > 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
 
                   !generate random number
                   call rng(i_rng)%next(RN)
@@ -439,7 +439,7 @@ subroutine neutral_self_collision(sim, rng, dt)
                   call cpu_time(t_priv(16))
                   t_priv_tot(16) = t_priv_tot(16) + t_priv(16)-t_priv(15)
 
-                  if (RN(1) .le. P_coll) then ! do binary collision
+                  if (RN(1) .le. P_try) then ! do binary collision
 
                     Theta = PI - 2*asin(RN(2))
                     alpha = TWOPI*RN(3)
@@ -515,8 +515,9 @@ subroutine neutral_self_collision(sim, rng, dt)
   call cpu_time(t(2))
   t(3) = t(2) - t(1) ! cpu time spent by program
   if(sim%my_id .eq. 0) write(*,"(A,30es15.5)") "NNC cpu times (s): (tot, t_mask, t_rest, t_elm, sort, t_priv_tot)", t(3), t_mask, t_rest, t_elm, t(6), t_priv_tot
-  call MPI_REDUCE(P_max, P_max_global, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  if(sim%my_id .eq. 0) write(*,"(A,2I8,es15.5)") "max (pa in elm/pa in bin/P_coll) =",max_n_pa,P_max_global
+  call MPI_REDUCE(P_max, P_max_global,   2, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(max_n_pa, max_n_pa_gl, 2, MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+  if(sim%my_id .eq. 0) write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P_try/P_real) =",max_n_pa_gl,P_max_global
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
   !$ if (sim%my_id .eq. 0) write(*,"(A,3f9.4,A)") "Neutral self collision complete in (min/mean/max) ", mmm, " s"
@@ -566,6 +567,7 @@ end function calc_sigma_T
 !> Uses CM scattering angle Theta and angle of the scattering plane alpha
 subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   use constants, only: PI
+  use mod_math_operators, only: cross_product
 
   implicit none
   
@@ -588,8 +590,9 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   !sanity
   real*8 :: dp(3), dE, tol
   real*8 :: db(20) !< debug checks, should all be 0
+  logical,parameter :: debug=.false.
   
-  db(:)=0.d0
+  if (debug) db(:)=0.d0
 
   !this calculation follows the logic in Liebermann (2005), Principles of Plasma Discharges and Materials Processing, section 3.2, applied to 3D
 
@@ -622,12 +625,14 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   v1f = v1p(1)*v_r_hat + v1p(2)*cos(alpha)*perp1 + v1p(2)*sin(alpha)*perp2
   v2f = v2p(1)*v_r_hat + v2p(2)*cos(alpha)*perp1 + v2p(2)*sin(alpha)*perp2
 
-  db(1)  = m1*scalar_v1**2 - m1*norm2(v1f)**2 - m2*norm2(v2f)**2
-  db(2) = norm2(v1p)**2 - norm2(v1f)**2
-  db(3) = norm2(v2p)**2 - norm2(v2f)**2
-  db(4) = m1*v1p(1) + m2*v2p(1) - m1*scalar_v1
-  db(5) = m1*v1p(2) + m2*v2p(2)
-  
+  if(debug) then
+    db(1)  = m1*scalar_v1**2 - m1*norm2(v1f)**2 - m2*norm2(v2f)**2
+    db(2) = norm2(v1p)**2 - norm2(v1f)**2
+    db(3) = norm2(v2p)**2 - norm2(v2f)**2
+    db(4) = m1*v1p(1) + m2*v2p(1) - m1*scalar_v1
+    db(5) = m1*v1p(2) + m2*v2p(2)
+  end if
+
   !transform back from rest frame of particle 2 to R,Z,phi frame
   v1f = v1f + v2i
   v2f = v2f + v2i
@@ -636,39 +641,28 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   dp = (m1*(v1f-v1i) + m2*(v2f-v2i))/max(1.d0,norm2(m1*v1i + m2*v2i)) !< relative change in momentum due to collision, should be 0, m is in amu
   dE = (m1*(norm2(v1f)**2-norm2(v1i)**2) + m2*(norm2(v2f)**2-norm2(v2i)**2)) / max(1.d0,m1*norm2(v1i)**2 + m2*norm2(v2i)**2) !< relative change in energy [J/(kg/amu)]
 
-  db(6)  = m1*scalar_v1**2 - m1*scalar_v1p**2 - m2*scalar_v2p**2
-  db(7)  = m1*scalar_v1**2 - m1*norm2(v1p)**2 - m2*norm2(v2p)**2
-  db(8)  = norm2(v_r_hat) - 1.d0
-  db(9)  = norm2(perp1)   - 1.d0
-  db(10) = norm2(perp2)   - 1.d0
-  db(11) = dot_product(v_r_hat,perp1)
-  db(12) = dot_product(v_r_hat,perp2)
-  db(13) = dot_product(perp1,perp2)
-  db(14) = dp(1)
-  db(15) = dp(2)
-  db(16) = dp(3)
-  db(17) = dE
-
   tol = 1.d-10
   if(abs(dp(1)) .gt. tol .or. abs(dp(1)) .gt. tol .or. abs(dp(1)) .gt. tol .or. abs(dE) .gt. tol) then
     write(*,*) "ERROR, momentum or energy not conserved in binary elastic collision (m1,m2,v1i,v2i,Theta,alpha,v1f,v2f,dp,dE)",m1,m2,v1i,v2i,Theta,alpha,v1f,v2f,dp,dE
     write(*,*) "debug: (should all be 0)"
-    write(*,*) db
+    if(debug) then
+      db(6)  = m1*scalar_v1**2 - m1*scalar_v1p**2 - m2*scalar_v2p**2
+      db(7)  = m1*scalar_v1**2 - m1*norm2(v1p)**2 - m2*norm2(v2p)**2
+      db(8)  = norm2(v_r_hat) - 1.d0
+      db(9)  = norm2(perp1)   - 1.d0
+      db(10) = norm2(perp2)   - 1.d0
+      db(11) = dot_product(v_r_hat,perp1)
+      db(12) = dot_product(v_r_hat,perp2)
+      db(13) = dot_product(perp1,perp2)
+      db(14) = dp(1)
+      db(15) = dp(2)
+      db(16) = dp(3)
+      db(17) = dE
+      write(*,*) db
+    end if
   end if
   
 end subroutine binary_elastic_collision
-
-!> orthonormal basis cross product
-pure function cross_product(v1,v2) result(v_perp)
-  implicit none
-  real*8, intent(in) :: v1(3), v2(3)
-  real*8 :: v_perp(3)
-
-  v_perp(1) = v1(2)*v2(3) - v1(3)*v2(2)
-  v_perp(2) = v1(3)*v2(1) - v1(1)*v2(3)
-  v_perp(3) = v1(1)*v2(2) - v1(2)*v2(1)
-
-end function cross_product
 
 !> calculates in which bin (out of n bins) a value x=[0,1] should fall
 pure function ith_bin(x_in,n) result(i)
