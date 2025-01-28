@@ -979,6 +979,9 @@ module phys_module
 
   end type type_particle_group_config
 
+  !> @name Particle groups in use (used when changing groups on restart), fill with group ids
+  character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
+
   type (type_particle_group_config), dimension(n_part_groups_max) :: particle_group_configs 
 
   !> @name Mode families preconditioner parameters
