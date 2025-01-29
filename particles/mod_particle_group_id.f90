@@ -44,7 +44,7 @@ contains
 
       if (particle_group_configs(i)%id == 'non') then
         if (part_groups_in_use(i) /= 'non') then 
-          write(*,*) "Error: part_group_in_use is defined, which requires id to be explicitly " // &
+          write(*,*) "Error: part_groups_in_use is defined, which requires id to be explicitly " // &
                 "defined for all members of part_configs."
           stop
         endif
@@ -52,7 +52,7 @@ contains
       endif
     enddo
 
-    if (part_groups_in_use(1) == 'non') then ! part_group_in_use is not assigned
+    if (part_groups_in_use(1) == 'non') then ! part_groups_in_use is not assigned
       do i=1, n_part_groups
         part_groups_in_use(i) = particle_group_configs(i)%id
       enddo

@@ -489,10 +489,11 @@ mpi_comm_in,mpi_info_in,test_in)
   !> allocation of groups and their configuration should be done in sim%initialize()
   if (.not. (allocated(sim%groups))) call sim%allocate_groups(n_part_groups)
 
+  write(*,*) "=== LOADING PARTICLE GROUPS ==="
   dropped_groups_counter = 0
-  
   do i=1, n_part_groups ! loop over groups in part_groups_in_use
-    if (sim%my_id == 0) write(*,*) "Group ID to match: ", part_groups_in_use(i)
+
+    if (sim%my_id == 0) write(*,*) " --- Group ID to match: ", part_groups_in_use(i) " --- "
 
     do ii=1,n_groups_old ! loop over the saved particle groups
       !> check for id match between id from part_groups_in_use and part_restart.h5
@@ -662,9 +663,17 @@ mpi_comm_in,mpi_info_in,test_in)
         i_life_arr,q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,&
         B_norm_arr,vpar_m_arr,st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,&
         Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)   
+      else
+        write(*,*) "WARNING: No matching group found in restart file for '", part_groups_in_use(i), "'"
+        write(*,*) "A new group will be created and initialized. "
+
+        ! allocation and initialization of new groups?
       endif ! (part_group_id == part_groups_in_use(i))
-    enddo ! n_groups_old
-  enddo ! n_part_groups
+    enddo ! n_groups_old (particle groups in restart)
+  enddo ! n_part_groups (particle groups requested in part_groups_in_use)
+
+  ! inform about the groups that have been dropped
+
 
   !> clean-up
   call HDF5_close(file_id)
