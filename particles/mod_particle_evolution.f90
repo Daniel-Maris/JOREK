@@ -13,7 +13,7 @@ module mod_particle_evolution
     !$ use omp_lib
 
     implicit none
-    real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
+    real*8, parameter  :: H_binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
 
 
 contains
@@ -39,7 +39,7 @@ contains
   
     real*8, intent(in)     :: tstep_part_adj
   
-    real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
+    real*8, parameter  :: H_binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
     real*8    :: n_norm, rho_norm, t_norm, v_norm, E_norm, M_norm
     real*8    :: t, E(3), B(3), psi, U, n_e, T_e, rz_old(2), st_old(2)
     real*8    :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
@@ -180,7 +180,7 @@ contains
   
           kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) *sim%groups(group_num)%mass * ATOMIC_MASS_UNIT /2.d0
   
-          ion_energy     = kinetic_energy - binding_energy !<binding energy should be here
+          ion_energy     = kinetic_energy - H_binding_energy !<binding energy should be here
           !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
   
         endif ! use_kin_ionisation
