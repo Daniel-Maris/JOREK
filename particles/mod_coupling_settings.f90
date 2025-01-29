@@ -9,11 +9,11 @@ implicit none
 
 ! the variables below are global variables determined by scanning over particle groups, 
 ! and hence shoud NOT be modified manually
-logical :: use_ncs              = .false. !< use neutral kinetic particles
-logical :: use_ccs              = .false. !< use current coupling scheme for fast particles
-logical :: use_pcs              = .false. !< use pressure coupling scheme for fast particles
-logical :: use_pcf         = .false. !< use full tensor pressure coupling scheme for fast particles
-logical :: use_kin_recomb_global = .false. !< whether recombination is required 
+logical :: use_ncs               = .false. !< use neutral kinetic particles
+logical :: use_ccs               = .false. !< use current coupling scheme for fast particles
+logical :: use_pcs               = .false. !< use pressure coupling scheme for fast particles
+logical :: use_pcf               = .false. !< use full tensor pressure coupling scheme for fast particles
+logical :: use_kin_recomb_global = .false. !< whether recombination is required (has effect on both fluid and kinetic side)
 contains
 
     
