@@ -47,6 +47,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
   use hdf5_io_module,     only: HDF5_array1D_saving_native_or_gatherv
   use hdf5_io_module,     only: HDF5_array2D_saving_native_or_gatherv
   use hdf5_io_module,     only: HDF5_array3D_saving_native_or_gatherv
+  use hdf5_io_module,     only: HDF5_array1D_saving_char
   use mod_particle_types, only: particle_arrays_from_list
   use mod_particle_types, only: deallocate_particle_arrays
   use mod_particle_sim,   only: particle_sim
@@ -121,6 +122,10 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
     !> write the time in HDF5 file, we assume that each MPI task reached the same physical time
     !> if HDF5-MPIO is used, the routine must be executed by all tasks for avoiding deadlocks
     call HDF5_real_saving(file_id,sim%time,"/time") 
+
+    ! Write n_part_groups and part_groups_in_use
+    call HDF5_integer_saving(file_id,n_part_groups,'/n_part_groups')
+    call HDF5_array1D_saving_char(file_id, part_groups_in_use, n_part_groups, '/part_groups_in_use')
   endif
   !> check if loops are allocated and loop on them
   if(allocated(sim%groups)) then
@@ -341,6 +346,8 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
         call HDF5_char_saving(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
         call HDF5_integer_saving(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")
         call HDF5_real_saving(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
+        call HDF5_char_saving(file_id,sim%groups(ii)%coupling_scheme,trim(group_name)//"coupling_scheme")
+        call HDF5_char_saving(file_id,sim%groups(ii)%id,trim(group_name)//"id")
       endif
       !> deallocate structures
       call deallocate_particle_arrays(n_particles,i_elm_arr,i_life_arr,q_arr,&
@@ -388,6 +395,7 @@ mpi_comm_in,mpi_info_in,test_in)
   use hdf5_io_module,     only: HDF5_allocatable_array1D_reading
   use hdf5_io_module,     only: HDF5_allocatable_array2D_reading
   use hdf5_io_module,     only: HDF5_allocatable_array3D_reading
+  use hdf5_io_module,     only: HDF5_array1D_reading_char
   use mod_particle_types, only: particle_list_from_arrays
   use mod_particle_types, only: initialize_particle_list_to_zero
   use mod_particle_types, only: deallocate_particle_arrays
@@ -412,9 +420,10 @@ mpi_comm_in,mpi_info_in,test_in)
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
-  integer                                        :: ii,ierr,h5err,errorcode,n_groups_old
+  integer                                        :: i,ii,ierr,h5err,errorcode
   integer                                        :: mpi_comm_loc,mpi_info_loc
   integer                                        :: storage_type,max_corder,rank
+  integer                                        :: n_groups_old
   integer(HID_T)                                 :: file_id,group_id
   integer(HSIZE_T)                               :: offset,n_particles_hsizet
   integer,          dimension(:),    allocatable :: n_particles_per_proc
@@ -432,6 +441,16 @@ mpi_comm_in,mpi_info_in,test_in)
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
   logical                                        :: create_access_plist,test
+  character(len=3)                               :: dropped_groups(n_part_groups_max)
+  character(len=3)                               :: part_group_id
+  character(len=3),                  allocatable :: part_groups_in_use_old(:) 
+
+  ! temp group attributes
+  integer            :: tmp_Z, dropped_groups_counter
+  real*8             :: tmp_mass
+  character(len=3)   :: tmp_cs
+  character(len=8)   :: tmp_ad_suffix 
+
   !> initialisation
   allocate(n_particles_per_proc(sim%n_cpu))
   !> set optional parameters
@@ -456,127 +475,197 @@ mpi_comm_in,mpi_info_in,test_in)
     write(*,*) "Error: n_part_groups being imported from restart exceeds n_part_groups_max"
     stop
   endif
-  !> check if the number of groups requested differs from the number of groups in part_restart.h5
-  !> will be removed after adding feature to support changing num groups
-  if (n_groups_old /= n_part_groups) then
-    write(*,*) "Error: mismatch between n_part_groups requested and that found in part_restart.h5"
-    stop
-  endif
+
+  ! checks and warnings about changes to n_part_groups
+
+  !> reading in part_groups_in_use from part_restart.h5
+  allocate(part_groups_in_use_old(n_groups_old))
+  call HDF5_array1D_reading_char(file_id, part_groups_in_use_old, '/part_groups_in_use')
+  !> overwrite part_groups_in_use with part_groups_in_use_old read in from 
+  !> restart if it has not been manually defined
+  if (part_groups_in_use(1) == 'non') part_groups_in_use(1:n_groups_old) = part_groups_in_use_old 
+
   !> the line below should only be the case in certain unit tests, otherwise the
   !> allocation of groups and their configuration should be done in sim%initialize()
   if (.not. (allocated(sim%groups))) call sim%allocate_groups(n_part_groups)
 
-  do ii=1,n_groups_old
-    !> read and load group datasets. We assume that the ith-particle group of 
-    !> all tasks is defined by the same unique value stored in the hdf5 file
-    ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
-    call HDF5_allocatable_char_reading(file_id,particle_type_str,trim(group_name)//"type")
-    call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")
-    call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
-    call HDF5_char_reading(file_id,sim%groups(ii)%coupling_scheme,trim(group_name)//"coupling_scheme")
-    call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
-    if((len_trim(sim%groups(ii)%ad%suffix).gt.0).and.(.not.test)) then
-      sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
-      sim%groups(ii)%cor = coronal(sim%groups(ii)%ad) 
-    endif
-    !> compute the number of particles per processor and allocate particle array
-    call HDF5_get_dataset_rank_dims(file_id,trim(group_name)//"i_elm",&
-    rank,n_particles_tot,n_particles_max)
-    n_particles_per_proc = int(n_particles_tot(1))/sim%n_cpu
-    n_particles_per_proc(master_task+1) = int(n_particles_tot(1)) - &
-    (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
-    offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
-    n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
-    !> set n_particles for the group
-    sim%groups(ii)%n_particles = int(n_particles_tot(1))
-    !> allocate particle list and initialise to 0
-    select case (trim(particle_type_str))
-    case ("particle_kinetic")
-      allocate(particle_kinetic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case ("particle_kinetic_leapfrog")
-      allocate(particle_kinetic_leapfrog::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case ("particle_gc")
-      allocate(particle_gc::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case ("particle_gc_vpar")
-      allocate(particle_gc_vpar::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case ("particle_gc_Qin")
-      allocate(particle_gc_Qin::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case ("particle_fieldline")
-      allocate(particle_fieldline::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case ("particle_kinetic_relativistic")
-      allocate(particle_kinetic_relativistic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case ("particle_gc_relativistic")
-      allocate(particle_gc_relativistic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-    case default
-      write(*,*) "Error: missing type name declaration ",trim(particle_type_str)," for reading: ABORT!"
-      call MPI_Abort(mpi_comm_loc,errorcode,ierr)
-    end select
-    call initialize_particle_list_to_zero(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr)
-    !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array
-    call HDF5_allocatable_array1D_reading_int(file_id,i_elm_arr,trim(group_name)//"i_elm",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading_int(file_id,i_life_arr,trim(group_name)//"i_life",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading_int(file_id,q_arr,trim(group_name)//"q",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    !> Read particle base datasets from HDF5 and fill the particle lists: float 1D array
-    call HDF5_allocatable_array1D_reading_r4(file_id,t_birth_arr,trim(group_name)//"t_birth",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    !> Read particle base datasets from HDF5 and fill the particle lists: double 1D array
-    call HDF5_allocatable_array1D_reading(file_id,weight_arr,trim(group_name)//"weight",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading(file_id,v_1d_arr,trim(group_name)//"v",&
-    reqdims_in=[n_particles_hsizet],start=[offset])   
-    call HDF5_allocatable_array1D_reading(file_id,E_arr,trim(group_name)//"E",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading(file_id,mu_arr,trim(group_name)//"mu",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading(file_id,vpar_arr,trim(group_name)//"Vpar",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading(file_id,B_norm_arr,trim(group_name)//"B_norm",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading(file_id,vpar_m_arr,trim(group_name)//"Vpar_m",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    call HDF5_allocatable_array1D_reading(file_id,Bn_k_arr,trim(group_name)//"Bn_k",&
-    reqdims_in=[n_particles_hsizet],start=[offset])
-    !> Read particle base datasets from HDF5 and fill the particle lists: integer 2D array
-    call HDF5_allocatable_array2D_reading(file_id,st_arr,trim(group_name)//"st",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,x_arr,trim(group_name)//"x",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,B_hat_prev_arr,trim(group_name)//"B_hat_prev",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,x_m_arr,trim(group_name)//"x_m",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,Astar_m_arr,trim(group_name)//"Astar_m",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,Astar_k_arr,trim(group_name)//"Astar_k",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,dBn_k_arr,trim(group_name)//"dBn_k",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,Bnorm_k_arr,trim(group_name)//"Bnorm_k",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,E_k_arr,trim(group_name)//"E_k",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    call HDF5_allocatable_array2D_reading(file_id,v_2d_arr,trim(group_name)//"v",&
-    reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-    !> Read particle base datasets from HDF5 and fill the particle lists: integer 3D array
-    call HDF5_allocatable_array3D_reading(file_id,dAstar_k_arr,trim(group_name)//"dAstar_k",&
-    reqdims_in=[n1_HSIZE_T,n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,i0_HSIZE_T,offset])
-    !> fill particle list from arrays
-    call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
-    i_elm_arr=i_elm_arr,i_life_arr=i_life_arr,t_birth_arr=t_birth_arr,weight_arr=weight_arr,&
-    x_arr=x_arr,st_arr=st_arr,q_arr=q_arr,v_1d_arr=v_1d_arr,E_arr=E_arr,mu_arr=mu_arr,&
-    vpar_arr=vpar_arr,B_norm_arr=B_norm_arr,vpar_m_arr=vpar_m_arr,B_hat_prev_arr=B_hat_prev_arr,&
-    v_2d_arr=v_2d_arr,x_m_arr=x_m_arr,Astar_m_arr=Astar_m_arr,Astar_k_arr=Astar_k_arr,&
-    Bn_k_arr=Bn_k_arr,dBn_k_arr=dBn_k_arr,Bnorm_k_arr=Bnorm_k_arr,&
-    E_k_arr=E_k_arr,dAstar_k_arr=dAstar_k_arr)
-    !> deallocate structures
-    call deallocate_particle_arrays(n_particles_per_proc(sim%my_id+1),i_elm_arr,&
-    i_life_arr,q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,&
-    B_norm_arr,vpar_m_arr,st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,&
-    Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)   
-  enddo
+  dropped_groups_counter = 0
+  
+  do i=1, n_part_groups ! loop over groups in part_groups_in_use
+    if (sim%my_id == 0) write(*,*) "Group ID to match: ", part_groups_in_use(i)
+
+    do ii=1,n_groups_old ! loop over the saved particle groups
+      !> check for id match between id from part_groups_in_use and part_restart.h5
+      ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
+      call HDF5_char_reading(file_id, part_group_id, trim(group_name)//"id")
+
+      if (part_group_id == part_groups_in_use(i)) then
+        if (sim%my_id == 0) write(*,*) "Matching restart group found. Loading data..."
+        !> read and load group datasets. We assume that the ith-particle group of 
+        !> all tasks is defined by the same unique value stored in the hdf5 file
+
+        !> Reading particle group attributes ----------------
+        call HDF5_allocatable_char_reading(file_id,particle_type_str,trim(group_name)//"type")
+        call HDF5_integer_reading(file_id,tmp_Z,trim(group_name)//"Z")
+        call HDF5_real_reading(file_id,tmp_mass,trim(group_name)//"mass")
+        call HDF5_char_reading(file_id,tmp_cs,trim(group_name)//"coupling_scheme")
+        call HDF5_char_reading(file_id,tmp_ad_suffix,trim(group_name)//"adas_suffix")
+        call HDF5_get_dataset_rank_dims(file_id,trim(group_name)//"i_elm",&
+        rank,n_particles_tot,n_particles_max) ! n_particles_tot
+
+        !> Check if read attributes matches with specified attributes -----------
+        if (particle_group_configs(i)%Z /= tmp_Z) then
+          write(*,*) "IMPORT ERROR: Attribute 'Z' mismatch between namelist and imported data for group: ", part_group_id
+          stop
+        endif
+
+        if (particle_group_configs(i)%mass /= tmp_mass) then
+          write(*,*) "IMPORT ERROR: Attribute 'mass' mismatch between namelist and imported data for group: ", part_group_id
+          stop
+        endif
+
+        if (trim(particle_group_configs(i)%coupling_scheme) /= trim(tmp_cs)) then
+          write(*,*) "IMPORT ERROR: Attribute 'coupling_scheme' mismatch between namelist and imported data for group: ", part_group_id
+          stop
+        endif
+
+        if (trim(particle_group_configs(i)%type) /= trim(particle_type_str)) then
+          write(*,*) "IMPORT ERROR: Attribute 'type' mismatch between namelist and imported data for group: ", part_group_id
+          write(*,*) "Namelist type: ", trim(particle_group_configs(i)%type)
+          write(*,*) "Imported type: ", trim(particle_type_str)
+          stop
+        endif
+
+        !> attributes that are allowed to change
+        if (trim(particle_group_configs(i)%atom_data_suffix) /= trim(tmp_ad_suffix)) then
+          write(*,*) "IMPORT WARNING: Attribute 'atom_data_suffix' mismatch between namelist and imported data for group: ", part_group_id
+          write(*,*) " Namelist value: ", trim(particle_group_configs(i)%atom_data_suffix) 
+          write(*,*) " Imported value: ", trim(tmp_ad_suffix)
+          write(*,*) " Will proceed with suffix given by namelist."
+        endif
+
+        if (particle_group_configs(i)%n_particles /= n_particles_tot(1)) then
+          write(*,*) "IMPORT WARNING: Attribute 'n_particles' mismatch between namelist and imported data for group: ", part_group_id
+          write(*,*) " Namelist value: ", particle_group_configs(i)%n_particles 
+          write(*,*) " Imported value: ", n_particles_tot(1)
+          write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
+        endif
+
+        !> will probably need some more checks here when particle_group_configs(i)%n_particles < n_particles_tot(1)
+    
+        !> Setting attributes ------------------------
+        sim%groups(i)%Z = tmp_Z
+        sim%groups(i)%mass = tmp_mass
+        sim%groups(i)%coupling_scheme = tmp_cs
+        sim%groups(i)%n_particles = n_particles_tot(1)
+  
+        ! adas data
+        sim%groups(i)%ad%suffix = tmp_ad_suffix
+        if((len_trim(sim%groups(ii)%ad%suffix).gt.0).and.(.not.test)) then
+          sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
+          sim%groups(ii)%cor = coronal(sim%groups(ii)%ad) 
+        endif
+
+        !> compute the number of particles per processor and allocate particle array ---------
+        n_particles_per_proc = int(n_particles_tot(1))/sim%n_cpu
+        n_particles_per_proc(master_task+1) = int(n_particles_tot(1)) - &
+        (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
+        offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
+        n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
+        !> set n_particles for the group
+        sim%groups(ii)%n_particles = int(n_particles_tot(1))
+
+        !> allocate particle list and initialise to 0 -----------------
+        select case (trim(particle_type_str))
+        case ("particle_kinetic")
+          allocate(particle_kinetic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case ("particle_kinetic_leapfrog")
+          allocate(particle_kinetic_leapfrog::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case ("particle_gc")
+          allocate(particle_gc::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case ("particle_gc_vpar")
+          allocate(particle_gc_vpar::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case ("particle_gc_Qin")
+          allocate(particle_gc_Qin::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case ("particle_fieldline")
+          allocate(particle_fieldline::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case ("particle_kinetic_relativistic")
+          allocate(particle_kinetic_relativistic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case ("particle_gc_relativistic")
+          allocate(particle_gc_relativistic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
+        case default
+          write(*,*) "Error: missing type name declaration ",trim(particle_type_str)," for reading: ABORT!"
+          call MPI_Abort(mpi_comm_loc,errorcode,ierr)
+        end select
+        call initialize_particle_list_to_zero(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr)
+        !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array
+        call HDF5_allocatable_array1D_reading_int(file_id,i_elm_arr,trim(group_name)//"i_elm",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading_int(file_id,i_life_arr,trim(group_name)//"i_life",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading_int(file_id,q_arr,trim(group_name)//"q",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        !> Read particle base datasets from HDF5 and fill the particle lists: float 1D array
+        call HDF5_allocatable_array1D_reading_r4(file_id,t_birth_arr,trim(group_name)//"t_birth",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        !> Read particle base datasets from HDF5 and fill the particle lists: double 1D array
+        call HDF5_allocatable_array1D_reading(file_id,weight_arr,trim(group_name)//"weight",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading(file_id,v_1d_arr,trim(group_name)//"v",&
+        reqdims_in=[n_particles_hsizet],start=[offset])   
+        call HDF5_allocatable_array1D_reading(file_id,E_arr,trim(group_name)//"E",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading(file_id,mu_arr,trim(group_name)//"mu",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading(file_id,vpar_arr,trim(group_name)//"Vpar",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading(file_id,B_norm_arr,trim(group_name)//"B_norm",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading(file_id,vpar_m_arr,trim(group_name)//"Vpar_m",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        call HDF5_allocatable_array1D_reading(file_id,Bn_k_arr,trim(group_name)//"Bn_k",&
+        reqdims_in=[n_particles_hsizet],start=[offset])
+        !> Read particle base datasets from HDF5 and fill the particle lists: integer 2D array
+        call HDF5_allocatable_array2D_reading(file_id,st_arr,trim(group_name)//"st",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,x_arr,trim(group_name)//"x",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,B_hat_prev_arr,trim(group_name)//"B_hat_prev",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,x_m_arr,trim(group_name)//"x_m",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,Astar_m_arr,trim(group_name)//"Astar_m",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,Astar_k_arr,trim(group_name)//"Astar_k",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,dBn_k_arr,trim(group_name)//"dBn_k",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,Bnorm_k_arr,trim(group_name)//"Bnorm_k",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,E_k_arr,trim(group_name)//"E_k",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        call HDF5_allocatable_array2D_reading(file_id,v_2d_arr,trim(group_name)//"v",&
+        reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
+        !> Read particle base datasets from HDF5 and fill the particle lists: integer 3D array
+        call HDF5_allocatable_array3D_reading(file_id,dAstar_k_arr,trim(group_name)//"dAstar_k",&
+        reqdims_in=[n1_HSIZE_T,n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,i0_HSIZE_T,offset])
+        !> fill particle list from arrays
+        call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
+        i_elm_arr=i_elm_arr,i_life_arr=i_life_arr,t_birth_arr=t_birth_arr,weight_arr=weight_arr,&
+        x_arr=x_arr,st_arr=st_arr,q_arr=q_arr,v_1d_arr=v_1d_arr,E_arr=E_arr,mu_arr=mu_arr,&
+        vpar_arr=vpar_arr,B_norm_arr=B_norm_arr,vpar_m_arr=vpar_m_arr,B_hat_prev_arr=B_hat_prev_arr,&
+        v_2d_arr=v_2d_arr,x_m_arr=x_m_arr,Astar_m_arr=Astar_m_arr,Astar_k_arr=Astar_k_arr,&
+        Bn_k_arr=Bn_k_arr,dBn_k_arr=dBn_k_arr,Bnorm_k_arr=Bnorm_k_arr,&
+        E_k_arr=E_k_arr,dAstar_k_arr=dAstar_k_arr)
+        !> deallocate structures
+        call deallocate_particle_arrays(n_particles_per_proc(sim%my_id+1),i_elm_arr,&
+        i_life_arr,q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,&
+        B_norm_arr,vpar_m_arr,st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,&
+        Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)   
+      endif ! (part_group_id == part_groups_in_use(i))
+    enddo ! n_groups_old
+  enddo ! n_part_groups
+
   !> clean-up
   call HDF5_close(file_id)
   if(allocated(n_particles_tot))      deallocate(n_particles_tot)

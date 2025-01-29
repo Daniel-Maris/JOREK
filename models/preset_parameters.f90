@@ -872,6 +872,8 @@ particle_group_configs(:)%use_kin_sputtering     = .false.
 particle_group_configs(:)%n_reflect_ratio       = 5.d-4
 particle_group_configs(:)%use_kin_cx             = .false.
 
+part_groups_in_use(:) = 'non'
+
 !-----------------------------------------------
 
 use_manual_random_seed = .false.
