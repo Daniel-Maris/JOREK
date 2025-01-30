@@ -8,39 +8,36 @@ integer :: id_counter = 0
 
 contains
 
-  !> checks whether the number of defined particle groups in 
-  !> part_groups_in_use matches with the defined n_part_groups
-  subroutine check_n_part_groups_match()
+  !> if part_groups_in_use is manually defined, checks whether the number and order of
+  !> groups specified matches with the particle_group_configs
+  subroutine check_part_groups_in_use_matches_configs()
     implicit none
-    integer :: i, groups_in_use_counter
+    integer :: i
 
     ! count how many groups are defined in part_groups_in_use
-    groups_in_use_counter = 0
-    do i=1, n_part_groups_max
-      if (trim(part_groups_in_use(i)) /= 'non') then
-        groups_in_use_counter = groups_in_use_counter + 1
-      endif
-    enddo
+    if (trim(part_groups_in_use(1)) /= 'non') then
 
-    if (groups_in_use_counter /= 0 .and. groups_in_use_counter /= n_part_groups) then
-      write(*,*) "ERROR: if manually defining particle groups using part_groups_in_use," 
-      write(*,*) " n_part_groups needs to be set to match the number of defined groups."
-      write(*,*) " Currently: no. of defined groups in part_groups_in_use = ", groups_in_use_counter
-      write(*,*) " While n_part_groups = ", n_part_groups
+      do i=1, n_part_groups_max
+        if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
+          write(*,*) "ERROR: if manually defining particle groups using part_groups_in_use, the" 
+          write(*,*) " groups in particle_group_configs() must match in number and id and order"
+        endif
+      enddo
+
     endif
     
-  end subroutine check_n_part_groups_match
+  end subroutine check_part_groups_in_use_matches_configs
 
   subroutine assign_part_group_ids()
     implicit none
     integer :: i
 
     do i=1, n_part_groups
-      if (particle_group_configs(i)%id(1:1) == 'P') then
-        write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
-              "as it is reserved for system assigned ids."
-        stop
-      endif
+      ! if (particle_group_configs(i)%id(1:1) == 'P') then
+      !   write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
+      !         "as it is reserved for system assigned ids."
+      !   stop
+      ! endif
 
       if (particle_group_configs(i)%id == 'non') then
         if (part_groups_in_use(i) /= 'non') then 

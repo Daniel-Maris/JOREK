@@ -71,17 +71,23 @@ subroutine configure_particle_groups(sim)
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i,j
   type(type_particle_group_config)         :: config
+  logical                                  :: matched
 
   do i=1, n_part_groups ! loop over groups defined in part_groups_in_use
+    
+    matched = .false.
     do j=1, n_part_groups ! loop over the groups in particle_group_configs
-      if (particle_group_configs(j)%id == part_groups_in_use(i)) then
+      if (trim(particle_group_configs(j)%id) == trim(part_groups_in_use(i))) then
         config = particle_group_configs(j)
-      else
-        write(*,*) "Error: No matching particle_group_configs entry found for group id: "
-        write(*,*) " '", part_groups_in_use(i),"' defined in namelist variable 'part_groups_in_use'. "
-        stop
+        matched = .true.
       endif
     enddo
+
+    if (.not. matched) then
+      write(*,*) "Error: No matching particle_group_configs entry found for group id: "
+      write(*,*) " '", part_groups_in_use(i),"' defined in namelist variable 'part_groups_in_use'. "
+      stop
+    endif
 
     sim%groups(i)%Z = config%Z
     sim%groups(i)%mass = config%mass

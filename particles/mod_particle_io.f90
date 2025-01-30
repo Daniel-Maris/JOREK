@@ -12,6 +12,52 @@ integer,parameter :: n_cpu_1=1
 integer,parameter :: group_name_len=12
 contains
 
+
+! allocate an empty array of a specified particle type for a specific particle group for each mpi process
+subroutine allocate_particle_array(sim, group_num, particle_type_str, n_particles_per_proc, mpi_comm_loc)
+  use mod_particle_sim, only: particle_sim
+  use mod_particle_types
+  use mpi
+
+  implicit none
+
+  type(particle_sim),            intent(inout) :: sim
+  integer,                       intent(in)    :: group_num
+  character(len=:), allocatable, intent(in)    :: particle_type_str
+  integer,                       intent(in)    :: n_particles_per_proc
+  integer, optional,             intent(in)    :: mpi_comm_loc
+  integer                                      :: errorcode, ierr
+
+  select case (trim(particle_type_str))
+  case ("particle_kinetic")
+    allocate(particle_kinetic::sim%groups(group_num)%particles(n_particles_per_proc))
+  case ("particle_kinetic_leapfrog")
+    allocate(particle_kinetic_leapfrog::sim%groups(group_num)%particles(n_particles_per_proc))
+  case ("particle_gc")
+    allocate(particle_gc::sim%groups(group_num)%particles(n_particles_per_proc))
+  case ("particle_gc_vpar")
+    allocate(particle_gc_vpar::sim%groups(group_num)%particles(n_particles_per_proc))
+  case ("particle_gc_Qin")
+    allocate(particle_gc_Qin::sim%groups(group_num)%particles(n_particles_per_proc))
+  case ("particle_fieldline")
+    allocate(particle_fieldline::sim%groups(group_num)%particles(n_particles_per_proc))
+  case ("particle_kinetic_relativistic")
+    allocate(particle_kinetic_relativistic::sim%groups(group_num)%particles(n_particles_per_proc))
+  case ("particle_gc_relativistic")
+    allocate(particle_gc_relativistic::sim%groups(group_num)%particles(n_particles_per_proc))
+  case default
+    write(*,*) "Error: missing type name declaration ",trim(particle_type_str)," for reading: ABORT!"
+    if (present(mpi_comm_loc)) then
+      call MPI_Abort(mpi_comm_loc,errorcode,ierr)
+    else
+      stop
+    endif
+  end select
+
+end subroutine allocate_particle_array
+
+
+
 !> Export all particles using HDF5 IO
 !> Parallel support to writing operations is provided
 !> by MPI enabled HDF5 procedures.
@@ -584,29 +630,12 @@ mpi_comm_in,mpi_info_in,test_in)
         sim%groups(ii)%n_particles = int(n_particles_tot(1))
 
         !> allocate particle list and initialise to 0 -----------------
-        select case (trim(particle_type_str))
-        case ("particle_kinetic")
-          allocate(particle_kinetic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case ("particle_kinetic_leapfrog")
-          allocate(particle_kinetic_leapfrog::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case ("particle_gc")
-          allocate(particle_gc::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case ("particle_gc_vpar")
-          allocate(particle_gc_vpar::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case ("particle_gc_Qin")
-          allocate(particle_gc_Qin::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case ("particle_fieldline")
-          allocate(particle_fieldline::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case ("particle_kinetic_relativistic")
-          allocate(particle_kinetic_relativistic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case ("particle_gc_relativistic")
-          allocate(particle_gc_relativistic::sim%groups(ii)%particles(n_particles_per_proc(sim%my_id+1)))
-        case default
-          write(*,*) "Error: missing type name declaration ",trim(particle_type_str)," for reading: ABORT!"
-          call MPI_Abort(mpi_comm_loc,errorcode,ierr)
-        end select
+        call allocate_particle_array(sim, ii, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
+
         call initialize_particle_list_to_zero(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr)
-        !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array
+
+
+        !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array -------------
         call HDF5_allocatable_array1D_reading_int(file_id,i_elm_arr,trim(group_name)//"i_elm",&
         reqdims_in=[n_particles_hsizet],start=[offset])
         call HDF5_allocatable_array1D_reading_int(file_id,i_life_arr,trim(group_name)//"i_life",&
@@ -673,13 +702,27 @@ mpi_comm_in,mpi_info_in,test_in)
       else
         write(*,*) "WARNING: No matching group found in restart file for '", part_groups_in_use(i), "'"
         write(*,*) "A new group will be created and initialized. "
+        
+        ! calculate load balancing ------
+        ! turn below into a function
+        n_particles_per_proc = int(particle_group_configs(i)%n_particles)/sim%n_cpu
+        n_particles_per_proc(master_task+1) = int(particle_group_configs(i)%n_particles) - &
+        (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
 
-        ! allocation and initialization of new groups?
+        ! getting particle type --------- 
+        ! should clean up a bit here
+        if(allocated(particle_type_str)) deallocate(particle_type_str)
+        allocate(character(len=len(trim(particle_group_configs(i)%type)))::particle_type_str)
+        particle_type_str = trim(particle_group_configs(i)%type)
+
+        call allocate_particle_array(sim, i, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
+        
       endif ! (part_group_id == part_groups_in_use(i))
     enddo ! n_groups_old (particle groups in restart)
   enddo ! n_part_groups (particle groups requested in part_groups_in_use)
 
   if (sim%my_id == 0) then 
+    write(*,*) ""
     write(*,*) "====== PARTICLE GROUPS LOADED ====== "
     write(*,*) ""
   endif

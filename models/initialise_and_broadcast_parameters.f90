@@ -27,8 +27,8 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
       if (use_particles) then
         write(*,*) n_part_groups, " particle groups slots requested."
         
-        ! --- check that the number of defined groups in part_groups_in_use matches n_part_groups
-        call check_n_part_groups_match()
+        ! --- if part_groups_in_use is manually defined, make sure it matches particle_group_configs
+        call check_part_groups_in_use_matches_configs()
   
         ! --- check that number of particle groups requested fits 
         if (n_part_groups > n_part_groups_max) then
