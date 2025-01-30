@@ -2221,6 +2221,46 @@ module hdf5_io_module
     call H5Dclose_f(dataset,error)
   end subroutine HDF5_array1D_reading_char
 
+  subroutine HDF5_array1D_reading_char_len(file_id, array1D, char_len, dsetname)
+    use HDF5
+    implicit none
+
+    ! Arguments
+    integer(HID_T), intent(in)                    :: file_id       ! File identifier
+    character(LEN=*), dimension(:), intent(out)   :: array1D       ! Output character array
+    integer, intent(in)                           :: char_len      ! Length of array entries
+    character(LEN=*), intent(in)                  :: dsetname      ! Dataset name
+
+    ! Local variables
+    integer :: ierr_HDF5                          ! Error flag
+    integer(HID_T) :: dataset                     ! Dataset identifier
+    integer(HID_T) :: dataspace                   ! Dataspace identifier
+    integer(HID_T) :: string_type                 ! Custom string datatype
+    integer(HSIZE_T), dimension(1) :: dim        ! Dataset dimensions
+
+    ! Open the dataset
+    call H5Dopen_f(file_id, trim(dsetname), dataset, ierr_HDF5)
+
+    ! Get the dataspace
+    call H5Dget_space_f(dataset, dataspace, ierr_HDF5)
+
+    dim(1) = size(array1D,1)
+
+    ! Define a custom string datatype matching the length of each character
+    call H5Tcopy_f(H5T_NATIVE_CHARACTER, string_type, ierr_HDF5)
+    call H5Tset_size_f(string_type, int(char_len,kind=SIZE_T), ierr_HDF5)
+
+    ! Read the dataset into the Fortran array
+    call H5Dread_f(dataset, string_type, array1D, dim, ierr_HDF5)
+
+    ! Close resources
+    call H5Tclose_f(string_type, ierr_HDF5)
+    call H5Sclose_f(dataspace, ierr_HDF5)
+    call H5Dclose_f(dataset, ierr_HDF5)
+
+end subroutine HDF5_array1D_reading_char_len
+
+
   !---------------------------------------- 
   ! HDF5 reading for an integer. Parallel compatible
   ! reading is enabled defining the argumets mpi_rank

@@ -66,7 +66,7 @@ soft_desc     = 'pulse95135_press0_parabolicq_q95_6dot8_res1r5dot88m5_res2r4dot7
 call init_mpi_threads(my_id,n_mpis,ierr)
 !> read MHD fields
 write(*,*) "Reading MHD data ..."
-call sim%initialize(0,.true.,my_id,n_mpis)
+call sim%initialize(.true.,my_id,n_mpis)
 field_reader = event(read_jorek_fields_interp_linear(basename=trim(fields_filename),i=-1))
 call with(sim,field_reader)
 write(*,*) "Reading MHD data: completed!"

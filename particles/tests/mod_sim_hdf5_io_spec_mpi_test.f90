@@ -4,6 +4,7 @@ use fruit
 use mod_io_actions
 use mod_particle_sim
 use mod_particle_types
+use phys_module
 implicit none
 private
 public :: run_fruit_sim_hdf5_io_spec_mpi
@@ -104,7 +105,7 @@ subroutine test_write_native_read_sim_time
   call assert_true(file_exists, 'file with the right name should be created')
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   reader%filename = expected_filename; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
+  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc; 
   call reader%run(sim_to_read)
   ! Test that the right time was read
   call assert_equals(sim_to_write%time, sim_to_read%time, "(native) time should be read from the file")
@@ -154,8 +155,9 @@ subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
   sim_to_write%groups(1)%mass = 1d3
@@ -192,9 +194,10 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); 
   allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
   sim_to_write%groups(1)%mass = 1d3; writer%file_access = file_access;&
@@ -229,8 +232,9 @@ subroutine test_write_native_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_mpi = n_tasks_loc;
   sim_to_write%time = filename_time; sim_to_write%groups(1)%Z = 2;
   sim_to_write%groups(1)%mass = 2.0; writer%mpi_comm_io = mpi_comm_loc; 
@@ -267,8 +271,9 @@ subroutine test_write_gatherv_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
-  call allocate_particles(sim_to_write%groups(1)%particles, n_particles_expect(1))
+  call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_mpi = n_tasks_loc;
   sim_to_write%time = filename_time; writer%mpi_comm_io = mpi_comm_loc;
   sim_to_write%groups(1)%Z = 2; sim_to_write%groups(1)%mass = 2.0;
@@ -303,9 +308,10 @@ subroutine test_write_native_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect
-    call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
+    call allocate_particles_here(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
@@ -346,6 +352,7 @@ subroutine test_write_native_sim_all_particles
   class(write_action),allocatable :: writer
   class(read_action),allocatable  :: reader
   logical :: file_exists
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; 
@@ -387,6 +394,7 @@ subroutine test_write_gatherv_sim_all_particles
   class(write_action),allocatable :: writer
   class(read_action),allocatable  :: reader
   logical :: file_exists
+  n_part_groups = n_groups_expect
   allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; 
@@ -425,10 +433,11 @@ subroutine test_write_gatherv_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
+  n_part_groups = n_groups_expect
   allocate(writer, reader); 
   allocate(sim_to_write%groups(n_groups_expect));
   do i=1,n_groups_expect
-    call allocate_particles(sim_to_write%groups(i)%particles,n_particles_expect(i))
+    call allocate_particles_here(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 324;
@@ -469,8 +478,8 @@ subroutine remove_file(rank,filename,mpi_comm_in,ifail)
   call MPI_Barrier(mpi_comm_in,ifail)
 end subroutine remove_file
 
-!> Helper function for allocating particles
-subroutine allocate_particles(particles, n)
+!> A specific version of allocate particles for this test
+subroutine allocate_particles_here(particles, n)
   class(particle_base), allocatable, dimension(:), intent(out) :: particles
   integer, intent(in) :: n
   integer :: i
@@ -487,7 +496,7 @@ subroutine allocate_particles(particles, n)
       p(i)%v = real((/2*i,2*i+1,2*i+2/),8)
     end do
   end select
-end subroutine allocate_particles
+end subroutine allocate_particles_here
 
 !> test if groups of a simulations are equals
 subroutine groups_same(sim,sim_target,n_groups_expect,n_particles_expect,message_in)

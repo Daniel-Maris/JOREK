@@ -19,6 +19,7 @@ use data_structure
 use gauss
 use basis_at_gaussian
 use phys_module
+use mod_coupling_settings
 use pellet_module
 use diffusivities, only: get_dperp, get_zkperp
 use equil_info, only : get_psi_n
@@ -26,6 +27,7 @@ use corr_neg
 use mod_bootstrap_functions
 use mod_atomic_coeff_deuterium, only: rec_rate_to_kinetic
 use mod_sources
+use coupling_variables
 
 implicit none
 
@@ -149,7 +151,7 @@ real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_g, eq_s, eq_t
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_p
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_ss, eq_st, eq_tt
 real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: delta_g, delta_s, delta_t
-real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p ! make allocatable?
+real*8, dimension(n_plane,n_aux_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p ! make allocatable?
 
 real*8, dimension(n_tor,n_plane) :: HHZ, HHZ_p, HHZ_pp
 
@@ -280,22 +282,27 @@ do i=1,n_vertex_max
               eq_ss(mp,k,ms,mt) = eq_ss(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_ss(i,j,ms,mt)* HZ(in,mp)
               eq_st(mp,k,ms,mt) = eq_st(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_st(i,j,ms,mt)* HZ(in,mp)
               eq_tt(mp,k,ms,mt) = eq_tt(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_tt(i,j,ms,mt)* HZ(in,mp)
-              
-              if ( present(aux_nodes)) then
-                eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
-                eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
-                eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
-                eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
-              endif
 
               delta_g(mp,k,ms,mt) = delta_g(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
               delta_s(mp,k,ms,mt) = delta_s(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
               delta_t(mp,k,ms,mt) = delta_t(mp,k,ms,mt) + nodes(i)%deltas(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
             enddo
-
           enddo
-
         enddo
+
+        if ( present(aux_nodes)) then
+          do k=1,n_aux_var
+            do in=1,n_tor
+              do mp=1,n_plane
+                  eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
+                  eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
+              enddo
+            enddo
+          enddo
+        endif
+
 
       enddo
     enddo
@@ -451,9 +458,9 @@ do i=1,n_vertex_max
           Vpar0_tt = eq_tt(mp,7,ms,mt)
 
           if (use_ncs) then
-            aux_rho0  = eq_aux_g(mp,1,ms,mt)
-            aux_T0    = eq_aux_g(mp,2,ms,mt)
-            aux_Vpar0 = eq_aux_g(mp,3,ms,mt)
+            aux_rho0  = eq_aux_g(mp,rho_idx_kin,ms,mt)
+            aux_Vpar0 = eq_aux_g(mp,Vpar_idx_kin,ms,mt)
+            aux_T0    = eq_aux_g(mp,T_idx_kin,ms,mt)
           end if
 
           if (use_ccs) then
@@ -464,7 +471,7 @@ do i=1,n_vertex_max
           elseif (use_pcs) then
             aux_P0      = eq_aux_g(mp,1,ms,mt)
             aux_jz0_pcs = 0.d0 !eq_aux_g(mp,5,ms,mt)
-          elseif(use_pcs_full) then 
+          elseif(use_pcf) then 
             aux_PIRR    = eq_aux_g(mp,1,ms,mt);
             aux_PIRR_s  = eq_aux_s(mp,1,ms,mt);
             aux_PIRR_t  = eq_aux_t(mp,1,ms,mt);
@@ -793,7 +800,7 @@ do i=1,n_vertex_max
 
 		  ksi_ion_norm = central_density * 1.d20 * ksi_ion
 		  !> Recombination amount per gauss point per element for kinetic particles
-		  if (use_ncs) then ! .and. use_kn_recombination
+		  if (use_ncs .and. use_kin_recomb_global) then
 			call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
 			
 			!LradDcont_T = LradDcont_T - ksi_ion_norm
@@ -802,6 +809,7 @@ do i=1,n_vertex_max
 			dSrec_dT      = dSrec_dT      / 2.d0	
  !         	dLradDrays_dT = dLradDrays_dT / 2.d0	
 			dLradDcont_dT = dLradDcont_dT / 2.d0
+
 		  else 
 			Sion_T        = 0.d0
 			dSion_dT      = 0.d0
@@ -810,7 +818,6 @@ do i=1,n_vertex_max
 			LradDcont_T   = 0.d0
 			dLradDcont_dT = 0.d0
 		  endif		  
-		  
 
           do im=n_tor_start, n_tor_end
 

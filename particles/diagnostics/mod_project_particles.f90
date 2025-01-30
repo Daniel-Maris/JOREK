@@ -22,7 +22,6 @@ module mod_project_particles
 use mod_io_actions
 use data_structure
 use mod_particle_sim
-use phys_module, only: n_aux_var, n_diag_var
 use mod_particle_types
 use mod_fields
 use mod_vtk
@@ -65,6 +64,7 @@ end interface proj_f
 type, extends(io_action) :: projection
   type(type_node_list),    pointer :: node_list !< node lists to save particle projections in
   type(type_element_list), pointer :: element_list
+  integer :: n_proj                     !< number of projected variables
 
   real*8 :: filter                      !< Smoothing factor used for this projection (Laplacian, poloidal plane)
   real*8 :: filter_hyper                !< hyper-smoothing factor used for this projection (double Laplacian, poloidal plane)
@@ -494,8 +494,9 @@ function new_projection(node_list, element_list,                                
     new%i_tor_local = 2*i_tor(new%my_id+1) - 2       ! i_tor_local is the (starting) index in HZ
   endif
 
+  !< size of the node_list will be adjusted to fit rhs_f and rhs at the time of projection
   allocate(new%node_list,    source=node_list)
-  call make_deep_copy_node_list(node_list, new%node_list)
+  call make_deep_copy_node_list(node_list, new%node_list) 
 
   do inode = 1, new%node_list%n_nodes
     new%node_list%node(inode)%values = 0.d0
@@ -562,9 +563,9 @@ function new_projection(node_list, element_list,                                
   else
 
     call prepare_mumps_par(node_list, element_list, new%n_tor_local, new%i_tor_local,            &
-                           new%mpi_comm_world, new%mpi_comm_n, new%mpi_comm_master,              &
-                           new%mumps_par, new%filter, new%filter_hyper, new%filter_parallel,     &
-                           apply_dirichlet_condition_in=new%apply_dirichlet)
+                            new%mpi_comm_world, new%mpi_comm_n, new%mpi_comm_master,              &
+                            new%mumps_par, new%filter, new%filter_hyper, new%filter_parallel,     &
+                            apply_dirichlet_condition_in=new%apply_dirichlet)
 
     new%n_dof = new%mumps_par%n / new%n_tor_local
 
@@ -670,6 +671,10 @@ subroutine project_only(this, sim)
     n_rhs_f = size(this%rhs_f,5)
   end if
 
+  ! reinitialise the storage node_list to ensure all projections fit
+  do i=1, this%node_list%n_nodes
+    call init_node(this%node_list%node(i), n_rhs_f+n_rhs)
+  enddo
 
   n_tor_local = this%n_tor_local
   i_tor_local = this%i_tor_local
@@ -825,7 +830,7 @@ subroutine project_only(this, sim)
     enddo
 
     call mpi_gatherv(this%mumps_par%rhs, this%mumps_par%n * this%mumps_par%nrhs, MPI_DOUBLE_PRECISION, &
-                     y_tmp, recv_counts, recv_disp, MPI_DOUBLE_PRECISION, 0, this%mpi_comm_master,ierr)
+                      y_tmp, recv_counts, recv_disp, MPI_DOUBLE_PRECISION, 0, this%mpi_comm_master,ierr)
 
   endif
 
@@ -834,7 +839,7 @@ subroutine project_only(this, sim)
   ! Write the solution to the node_list
   if (this%my_id .eq. 0) then
 
-    do i_var=1,min(n_rhs+n_rhs_f, n_aux_var)
+    do i_var=1, n_rhs+n_rhs_f
   
       found_nan = .false.
       
@@ -845,10 +850,10 @@ subroutine project_only(this, sim)
           index = this%node_list%node(i)%index(k)
 
           if (this%do_zonal) then
-             this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1)) + y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
-             this%node_list%node(i)%values(1,k,2)     = y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
+              this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1)) + y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
+              this%node_list%node(i)%values(1,k,2)     = y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
           else
-             this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1))
+              this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1))
           endif
 
           offset = 2*this%n_dof * this%mumps_par%nrhs
@@ -921,15 +926,7 @@ subroutine sample_rhs(this, sim)
   
   if (.not. allocated(this%f)) allocate(this%f(0))
 
-  if (allocated(this%rhs)) then
-    n_sample = min(size(this%f),n_aux_var-min(size(this%rhs,5),n_aux_var))  ! because we have only n_var storage for now
-  else
-    n_sample = min(size(this%f),n_aux_var)  ! because we have only n_var storage for now
-  end if
-
-  if (n_sample .lt. size(this%f) .and. sim%my_id .eq. 0) then
-    write(*,*) 'WARNING: ignoring proj_f after ', n_sample, ' due to lack of output space'
-  end if
+  n_sample = size(this%f)
 
   if (.not. allocated(this%rhs_f)) then
     if (.not. associated(this%element_list)) then
@@ -982,11 +979,11 @@ subroutine sample_rhs(this, sim)
             
       do i=1,n_vertex_max
         do j=1,n_degrees
-       
+        
           v = HH(i,j) * this%element_list%element(sim%groups(i_group)%particles(m)%i_elm)%size(i,j)
 
           v = v * this%f(i_f)%f(sim, i_group, sim%groups(i_group)%particles(m)) * sim%groups(i_group)%particles(m)%weight
-       
+        
           do i_tor = 1, n_tor
 
             my_rhs(j,i,sim%groups(i_group)%particles(m)%i_elm,i_tor,1) = &
@@ -1001,7 +998,7 @@ subroutine sample_rhs(this, sim)
     !$omp end parallel do
     this%rhs_f(:,:,:,:,i_f) = my_rhs(:,:,:,:,1)
   enddo
- 
+  
   deallocate(my_rhs)
 
 end subroutine sample_rhs
@@ -1044,7 +1041,7 @@ subroutine save_to_vtk(this, sim)
     if (allocated(this%rhs)) n_proj = n_proj + size(this%rhs,5)
 
     call write_particle_distribution_to_vtk(this%node_list, this%element_list, &
-      trim(filename), this%vtk_grid%nsub, min(n_proj,n_aux_var), this%vtk_grid%xyz, this%vtk_grid%ien)
+      trim(filename), this%vtk_grid%nsub, n_proj, this%vtk_grid%xyz, this%vtk_grid%ien)
       
     write(*,*) "Written projection to ", trim(filename)
   end if
@@ -1094,7 +1091,7 @@ subroutine save_to_h5(this, sim)
     n_proj = size(this%f)
     if (allocated(this%rhs)) n_proj = n_proj + size(this%rhs,5)
     call write_particle_distribution_to_h5(this%node_list, this%element_list, &
-      trim(filename), min(n_proj,n_aux_var), sim%time)
+      trim(filename), n_proj, sim%time)
 
     write(*,*) "Written projection to ", trim(filename)
   end if
@@ -1123,9 +1120,9 @@ end subroutine save_to_h5
 !>
 !> See also [project_particles] and [mod_elt_matrix] for reference of the integration method
 subroutine prepare_mumps_par(node_list, element_list, n_tor_local, i_tor_local,           &
-                             this_mpi_comm_world, this_mpi_comm_n, this_mpi_comm_master,  &
-                             mumps_par, filter, filter_hyper, filter_parallel,            &
-                             skip_factorisation, apply_dirichlet_condition_in)
+                              this_mpi_comm_world, this_mpi_comm_n, this_mpi_comm_master,  &
+                              mumps_par, filter, filter_hyper, filter_parallel,            &
+                              skip_factorisation, apply_dirichlet_condition_in)
 use phys_module, only : F0, TWOPI, mode, fix_axis_nodes
 use data_structure
 use basis_at_gaussian
@@ -1324,14 +1321,14 @@ do i_elm=1,element_list%n_elements
               v_y = (- x_t(ms,mt) * v_s + x_s(ms,mt) * v_t) / xjac
 
               v_xx = (v_ss * y_t(ms,mt)**2 - 2.d0*v_st * y_s(ms,mt)*y_t(ms,mt) + v_tt * y_s(ms,mt)**2  &
-                   + v_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
-                   + v_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
-                   - xjac_x * (v_s * y_t(ms,mt) - v_t * y_s(ms,mt)) / xjac**2
+                    + v_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
+                    + v_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
+                    - xjac_x * (v_s * y_t(ms,mt) - v_t * y_s(ms,mt)) / xjac**2
 
               v_yy = (v_ss * x_t(ms,mt)**2 - 2.d0*v_st * x_s(ms,mt)*x_t(ms,mt) + v_tt * x_s(ms,mt)**2  &
-                   + v_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
-                   + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
-                   - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
+                    + v_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
+                    + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
+                    - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
 
 
               Bgrad_v_star = 0.d0
@@ -1360,27 +1357,27 @@ do i_elm=1,element_list%n_elements
                     p_y = (- x_t(ms,mt) * p_s + x_s(ms,mt) * p_t) / xjac
 
                     p_xx = (p_ss * y_t(ms,mt)**2 - 2.d0*p_st * y_s(ms,mt)*y_t(ms,mt) + p_tt * y_s(ms,mt)**2  &
-                         + p_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
-                         + p_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
-                         - xjac_x * (p_s * y_t(ms,mt) - p_t * y_s(ms,mt)) / xjac**2
+                          + p_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
+                          + p_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
+                          - xjac_x * (p_s * y_t(ms,mt) - p_t * y_s(ms,mt)) / xjac**2
 
                     p_yy = (p_ss * x_t(ms,mt)**2 - 2.d0*p_st * x_s(ms,mt)*x_t(ms,mt) + p_tt * x_s(ms,mt)**2  &
-                         + p_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
-                         + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
-                         - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
+                          + p_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
+                          + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
+                          - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
 
                     Bgrad_p = 0.d0
                     if (filter_parallel .gt. 0.d0) Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
 
                     ELM(index_ij,index_kl) = ELM(index_ij,index_kl) &
                     
-                                           + p * v * xjac * x_g(ms,mt) * wst &
+                                            + p * v * xjac * x_g(ms,mt) * wst &
 
-                                           + filter          * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
+                                            + filter          * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
 
-                                           + filter_hyper    * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst &
+                                            + filter_hyper    * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst &
 
-                                           + filter_parallel * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
+                                            + filter_parallel * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
                   enddo
                 enddo
               enddo
@@ -1416,24 +1413,24 @@ do i_elm=1,element_list%n_elements
 
               index_large_k = 2*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
 
-             ! Explicitly calculate the index
+              ! Explicitly calculate the index
 
               ilarge = in + (l-1) * 2 + (k-1)*2*n_degrees &
                       
-                     + (im-1) * 2    * n_vertex_max*n_degrees       &
-                     
-                     + (j-1)  * 4 * n_vertex_max*n_degrees       &
-                     
-                     + (i-1)  * 4 * n_vertex_max*n_degrees**2    &
-                     
-                     + (i_elm-1)*(4 * (n_vertex_max*n_degrees)**2 )
+                      + (im-1) * 2    * n_vertex_max*n_degrees       &
+                      
+                      + (j-1)  * 4 * n_vertex_max*n_degrees       &
+                      
+                      + (i-1)  * 4 * n_vertex_max*n_degrees**2    &
+                      
+                      + (i_elm-1)*(4 * (n_vertex_max*n_degrees)**2 )
 
 !$omp critical
               mumps_par%irn(ilarge) = index_large_i
               mumps_par%jcn(ilarge) = index_large_k
 
               if( fix_axis_nodes .and.  (node_list%node(inode)%axis_node .and. (j .eq. 3 .or. j .eq. 4)) &
-                 .and. (index_large_i .eq. index_large_k) ) then
+                  .and. (index_large_i .eq. index_large_k) ) then
                   mumps_par%A(ilarge) = 1.d12
               else
                   mumps_par%A(ilarge)   = ELM(index_ij,index_kl) * TWOPI / real(n_plane,8)
@@ -1622,7 +1619,7 @@ if (my_id_n .eq. 0) then
   mumps_par%A   = 0.d0
 
   allocate(integral_weights(n_AA))
- 
+  
   integral_weights = 0.d0
   
 ! Copy wgauss into wgauss2 to get around gfortran not recognizing it as a shared
@@ -1753,14 +1750,14 @@ do i_elm=1,element_list%n_elements
           v_y = (- x_t(ms,mt) * v_s + x_s(ms,mt) * v_t) / xjac
 
           v_xx = (v_ss * y_t(ms,mt)**2 - 2.d0*v_st * y_s(ms,mt)*y_t(ms,mt) + v_tt * y_s(ms,mt)**2  &
-               + v_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
-               + v_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
-               - xjac_x * (v_s * y_t(ms,mt) - v_t * y_s(ms,mt)) / xjac**2
+                + v_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
+                + v_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
+                - xjac_x * (v_s * y_t(ms,mt) - v_t * y_s(ms,mt)) / xjac**2
 
           v_yy = (v_ss * x_t(ms,mt)**2 - 2.d0*v_st * x_s(ms,mt)*x_t(ms,mt) + v_tt * x_s(ms,mt)**2  &
-               + v_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
-               + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
-               - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
+                + v_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
+                + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
+                - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
 
           Bgrad_v_star = 0.d0
           if (filter_parallel_n0 .gt. 0.d0) Bgrad_v_star = ( F0 / x_g(ms,mt) * v_p  +  v_x  * psi_y - v_y  * psi_x ) / x_g(ms,mt)
@@ -1785,14 +1782,14 @@ do i_elm=1,element_list%n_elements
               p_y = (- x_t(ms,mt) * p_s + x_s(ms,mt) * p_t) / xjac
 
               p_xx = (p_ss * y_t(ms,mt)**2 - 2.d0*p_st * y_s(ms,mt)*y_t(ms,mt) + p_tt * y_s(ms,mt)**2  &
-                   + p_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
-                   + p_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
-                   - xjac_x * (p_s * y_t(ms,mt) - p_t * y_s(ms,mt)) / xjac**2
+                    + p_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
+                    + p_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
+                    - xjac_x * (p_s * y_t(ms,mt) - p_t * y_s(ms,mt)) / xjac**2
 
               p_yy = (p_ss * x_t(ms,mt)**2 - 2.d0*p_st * x_s(ms,mt)*x_t(ms,mt) + p_tt * x_s(ms,mt)**2  &
-                   + p_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
-                   + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
-                   - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
+                    + p_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
+                    + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
+                    - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
 
               Bgrad_p = 0.d0
               if (filter_parallel_n0 .gt. 0.d0) Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
@@ -1802,30 +1799,30 @@ do i_elm=1,element_list%n_elements
 
                 ELM(index_ij,index_kl)     = ELM(index_ij,index_kl)     + p * v        * xjac * x_g(ms,mt) * wst &
 
-                                           + filter_n0       * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
+                                            + filter_n0       * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
 
-                                           + filter_hyper_n0 * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst
+                                            + filter_hyper_n0 * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst
 
                 ELM(index_ij,index_kl+1)   = ELM(index_ij,index_kl+1) &
 
-                                           + filter_n0  * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst 
+                                            + filter_n0  * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst 
 
 
                 ELM(index_ij+1,index_kl)   = ELM(index_ij+1,index_kl)   + p * v   * xjac * x_g(ms,mt) * wst * zonal_factor
 
                 ELM(index_ij+1,index_kl+1) = ELM(index_ij+1,index_kl+1) &
 
-                                           - filter_parallel_n0 * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
+                                            - filter_parallel_n0 * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
 
               else
 
                 ELM(index_ij,index_kl)     = ELM(index_ij,index_kl)     + p * v           * xjac * x_g(ms,mt) * wst &
 
-                                           + filter_n0          * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
+                                            + filter_n0          * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
 
-                                           + filter_hyper_n0    * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst &
+                                            + filter_hyper_n0    * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst &
 
-                                           + filter_parallel_n0 * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
+                                            + filter_parallel_n0 * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
 
                 ELM(index_ij+1,index_kl+1) = ELM(index_ij+1,index_kl+1)  + p * v      * xjac * x_g(ms,mt) * wst       ! (dummy equation)
                 
@@ -1867,17 +1864,17 @@ do i_elm=1,element_list%n_elements
 
               index_large_k = 2*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
 
-             ! Explicitly calculate the index
+              ! Explicitly calculate the index
 
               ilarge = in + 2*(l-1) + 2*(k-1)*n_degrees &
                       
-                     + 2*(im-1)* n_vertex_max*n_degrees       &
-                     
-                     + 4*(j-1) * n_vertex_max*n_degrees       &
-                     
-                     + 4*(i-1) * n_vertex_max*n_degrees**2    &
-                     
-                     + 4*(i_elm-1)*((n_vertex_max*n_degrees)**2 )
+                      + 2*(im-1)* n_vertex_max*n_degrees       &
+                      
+                      + 4*(j-1) * n_vertex_max*n_degrees       &
+                      
+                      + 4*(i-1) * n_vertex_max*n_degrees**2    &
+                      
+                      + 4*(i_elm-1)*((n_vertex_max*n_degrees)**2 )
 
               mumps_par%irn(ilarge) = index_large_i
               mumps_par%jcn(ilarge) = index_large_k
@@ -2000,7 +1997,7 @@ character*(*), intent(in)           :: filename
 integer, intent(in) :: n_fields !< number of different particle groups to output
 real*8, intent(in) :: time
 
- 
+  
 #include "version.h"
 ! --- Local variables
 integer :: i
@@ -2028,8 +2025,8 @@ call tr_allocate(t_neighbours,1,element_list%n_elements,1,n_vertex_max,"neighbou
 call tr_allocate(t_size,      1,element_list%n_elements,1,n_vertex_max,1,n_degrees,"size",CAT_UNKNOWN)
 
 do i=1,node_list%n_nodes
-   t_x(i,:,:,:)      = node_list%node(i)%x
-   t_values(i,:,:,:) = node_list%node(i)%values(:,:,1:n_fields)
+    t_x(i,:,:,:)      = node_list%node(i)%x
+    t_values(i,:,:,:) = node_list%node(i)%values(:,:,1:n_fields)
 end do
 
 do i=1,element_list%n_elements
@@ -2067,16 +2064,16 @@ call HDF5_integer_saving(file_id,element_list%n_elements,'n_elements'//char(0))
 call HDF5_integer_saving(file_id,node_list%n_dof,'n_dof'//char(0))
 
 call HDF5_array4D_saving(file_id,t_x, &
-     node_list%n_nodes,n_coord_tor,n_degrees,n_dim,'x'//char(0))
+      node_list%n_nodes,n_coord_tor,n_degrees,n_dim,'x'//char(0))
 call HDF5_array4D_saving(file_id,t_values, &
-     node_list%n_nodes,n_tor,n_degrees,n_fields,'values'//char(0))
+      node_list%n_nodes,n_tor,n_degrees,n_fields,'values'//char(0))
 
 call HDF5_array2D_saving_int(file_id,t_vertex, &
-     element_list%n_elements,n_vertex_max,'vertex'//char(0))
+      element_list%n_elements,n_vertex_max,'vertex'//char(0))
 call HDF5_array2D_saving_int(file_id,t_neighbours, &
-     element_list%n_elements,n_vertex_max,'neighbours'//char(0))
+      element_list%n_elements,n_vertex_max,'neighbours'//char(0))
 call HDF5_array3D_saving(file_id,t_size, &
-     element_list%n_elements,n_vertex_max,n_degrees,'size'//char(0))
+      element_list%n_elements,n_vertex_max,n_degrees,'size'//char(0))
 call HDF5_real_saving(file_id,time,'t_now'//char(0))
 
 ! -> close file

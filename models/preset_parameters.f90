@@ -6,9 +6,8 @@
 subroutine preset_parameters
   
   use phys_module
-  
   implicit none
-  
+
   time_evol_scheme = 'Crank-Nicholson'
   
   n_tor_fft_thresh = 2
@@ -839,7 +838,6 @@ subroutine preset_parameters
   Sigma = 0.d0
 
 !===================== particle input values
-n_particles        = 0
 nstep_particles    = 0
 nsubstep_particles = 1
 tstep_particles    = 1d-9
@@ -850,28 +848,32 @@ filter_perp_n0     = 0.d0
 filter_hyper_n0    = 1.d-10
 filter_par_n0      = 0.d0
 restart_particles  = .false.
-use_ncs            = .false.
-use_ccs            = .false.
-use_pcs            = .false.
-use_pcs_full       = .false.
-use_kn_ionisation     = .true.
-use_kn_sputtering     = .false.
-use_kn_cx             = .true.
 use_marker         = .false.
-use_kn_recombination = .true.
-use_kn_puffing       = .false.
-use_kn_line_radiation= .true.
 
 n_puff        = 0
 puff_rate     = 0.d0
-r_valve       = 0.d0
-R_valve_loc   = 0.d0
-Z_valve       = 0.d0
-R_valve_loc2  = 0.d0
-Z_valve2      = 0.d0
+
+! -------------- particle groups ---------------
+n_part_groups = 0
+particle_group_configs(:)%Z                 = 1
+particle_group_configs(:)%mass              = 0.d0
+particle_group_configs(:)%coupling_scheme   = 'non'
+particle_group_configs(:)%n_particles       = 0.d0
+particle_group_configs(:)%type              = 'none'
+particle_group_configs(:)%id                = 'non'
+!-- specific to ncs 
+particle_group_configs(:)%atom_data_suffix      = ''
+particle_group_configs(:)%use_kin_recombination  = .false.
+particle_group_configs(:)%use_kin_puffing        = .false.
+particle_group_configs(:)%use_kin_line_radiation = .false.
+particle_group_configs(:)%use_kin_ionisation     = .false.
+particle_group_configs(:)%use_kin_sputtering     = .false.
+particle_group_configs(:)%n_reflect_ratio       = 5.d-4
+particle_group_configs(:)%use_kin_cx             = .false.
+
+!-----------------------------------------------
 
 use_manual_random_seed = .false.
 manual_seed = 498932990          !< chosen arbitarily
-
 
 end subroutine preset_parameters

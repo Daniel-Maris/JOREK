@@ -7,22 +7,15 @@
   restart_particles=.t.
 
   tstep_n=10.
-  nstep_n=1
+  nstep_n=10
 
   nout = 1
 
   use_manual_random_seed = .true.
   manual_seed = 498932990
 
-  use_ncs = .true.
-  use_pcs = .f.
-  use_ccs = .f.
-  use_kn_puffing = .t.
-  use_kn_sputtering = .t.
-
   deuterium_adas    = .true.
 
-  n_particles        = 1e4 
   tstep_particles    = 5.d-7
   filter_perp_n0     = 0.d0 
   filter_hyper_n0    = 1.d-10
@@ -138,5 +131,23 @@
   gmres_4 = 1.d0
   gmres_max_iter = 200
   gmres_tol = 1.d-8
+
+  ! ----  particle groups
+  n_part_groups = 1
+  particle_group_configs(1)%Z = -2
+  particle_group_configs(1)%mass = 2.01410178
+  particle_group_configs(1)%coupling_scheme = 'ncs'
+  particle_group_configs(1)%n_particles     = 1e4
+  particle_group_configs(1)%type            = 'particle_kinetic_leapfrog'
+
+  particle_group_configs(1)%use_kin_puffing        = .t.
+  particle_group_configs(1)%use_kin_cx             = .t.
+  particle_group_configs(1)%use_kin_ionisation     = .t.
+  particle_group_configs(1)%use_kin_sputtering     = .t.
+  particle_group_configs(1)%use_kin_recombination  = .t.
+  particle_group_configs(1)%use_kin_line_radiation = .t.
+  particle_group_configs(1)%atom_data_suffix = '12_h'
+
+
  /
  

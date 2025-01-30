@@ -934,21 +934,10 @@ module phys_module
   real*8  :: D_neutral
 
   !> @name Particles-related input parameters
-  integer :: n_aux_var = n_var   ! number of variables in aux_node_list (= n_var is temporary)
-  integer :: n_diag_var = n_var  ! number of variables in diag_node_list (= n_var is temporary)
+  integer :: n_aux_var           !< number of variables in aux_node_list
+  integer :: n_diag_var = n_var  !< number of variables in diag_node_list (= n_var is temporary)
   logical :: restart_particles
-  logical :: use_ncs          !< use neutral particles
-  logical :: use_ccs          !< use current coupling scheme for fast particles
-  logical :: use_pcs          !< use pressure coupling scheme for fast particles
-  logical :: use_pcs_full     !< use full tensor pressure coupling scheme for fast particles
-  logical :: use_kn_cx        !< switch on sputtering         (in particle module)
   logical :: use_marker       !< This flag determines whether to use marker particles to treat impurity (Placeholder)
-  logical :: use_kn_sputtering   !< switch on charge-exchange    (in particle module)
-  logical :: use_kn_ionisation   !< switch on ionisation         (in particle module)
-  logical :: use_kn_recombination !< switch on recombination         (in particle module)
-  logical :: use_kn_puffing       !< switch on particle puffing         (in particle module)
-  logical :: use_kn_line_radiation !< switch on line radiation         (in particle module)
-  real*8  :: n_particles      !< the number of particles (real on purpose)
   real*8  :: tstep_particles  !< the time step for the particles
   integer :: nstep_particles  !< the number of particle time steps
   integer :: nsubstep_particles !< the number of particles substeps (without projection)
@@ -960,13 +949,39 @@ module phys_module
   real*8  :: filter_par_n0    !< particle projection smoothing parameter, parallel direction (n=0)
 
   real*8  :: puff_rate        !< physical atoms/sec puffed (shared over 2 places)
-  real*8  :: r_valve          !< radius of poloidal circular source
-  real*8  :: R_valve_loc      !< R position valve 1
-  real*8  :: Z_valve          !< Z position valve 1
-  real*8  :: R_valve_loc2     !< R position valve 2
-  real*8  :: Z_valve2         !< Z position valve 2
   integer :: n_puff           !< superparticles used per puffing action per valve
-    
+  
+  ! ------------------------------------------------
+  ! --- Structures for particle groups
+  ! ------------------------------------------------
+  !> @name Particle group settings
+  integer            :: n_part_groups                !< number of particle groups being used
+  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups     
+  
+  !> Contains configuration and settings relating to a particle group
+  type :: type_particle_group_config
+    integer            :: Z                        !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
+    real*8             :: mass                     !< Mass of all the particles in the group
+    character(len=3)   :: coupling_scheme          !< three character code for the coupling scheme to use for the group
+    real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
+    character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
+    character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
+
+    ! --------------- for neutral particles ------------
+
+    character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
+    logical             :: use_kin_cx               !< switch on charge-exchange for group     
+    logical             :: use_kin_sputtering       !< switch on sputtering for group (only relevant for neutrals)
+    logical             :: use_kin_ionisation       !< switch on ionisation for group         
+    logical             :: use_kin_recombination    !< switch on recombination for group         
+    logical             :: use_kin_puffing          !< switch on particle puffing for group    
+    real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
+    logical             :: use_kin_line_radiation   !< switch on line radiation for group
+
+  end type type_particle_group_config
+
+  type (type_particle_group_config), dimension(n_part_groups_max) :: particle_group_configs 
+
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
   integer :: n_mode_families                          !< number of families

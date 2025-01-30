@@ -55,8 +55,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 zjz_0, zjz_1, zj_coef,                              &
                 rho_0, rho_1, rho_coef, rho_min,                    &
                 T_0,   T_1,   T_coef, T_min,                        &
-				T_min_neg,rho_min_neg,                              &
-				corr_neg_temp_coef, corr_neg_dens_coef,             &
+                T_min_neg,rho_min_neg,                              &
+                corr_neg_temp_coef, corr_neg_dens_coef,             &
                 Ti_0,  Ti_1,  Ti_coef,                              &
                 Te_0,  Te_1,  Te_coef,                              &
                 FF_0,  FF_1,  FF_coef,                              &
@@ -120,12 +120,11 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 mode_families_modes, n_mode_families,               &
                 weights_per_family, autodistribute_ranks,           &
                 ranks_per_family, treat_axis, Z_xpoint_limit,       &
-                n_particles, tstep_particles, nstep_particles,      & !Particles extension
+                tstep_particles, nstep_particles,                   & !Particles extension
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                use_kn_cx, use_kn_sputtering, use_kn_ionisation,             &
-                use_ncs, use_pcs, use_ccs, cte_current_FB_fact,     &
+                cte_current_FB_fact,                                &
                 eta_ohmic, CARIDDI_mode, use_newton, maxNewton,     &
                 gamma_Newton, alpha_Newton, vacuum_min,             &
                 strumpack_matching, forceSDN, SDN_threshold,        &

@@ -1,9 +1,10 @@
 !> Initialize parameters and broadcast them to all MPI procs.
-subroutine initialise_and_broadcast_parameters(my_id, filename)
+subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
   
   use constants, only: mu_zero
   use mod_parameters,  only: n_tor, n_period
   use mod_plasma_functions, only: initialise_reference_parameters
+  use mod_coupling_settings
   use phys_module
   
   implicit none
@@ -11,8 +12,39 @@ subroutine initialise_and_broadcast_parameters(my_id, filename)
   ! --- Routine parameters
   integer,                      intent(in) :: my_id
   character(len=*),             intent(in) :: filename
+  logical,                      intent(in) :: use_particles
   
   call initialise_parameters(my_id, filename)
+
+  ! Determine coupling parameters
+  if (my_id .eq. 0) then
+
+    ! check if particle groups are requested
+    if (n_part_groups > 0) then
+
+      ! check if use_particles is enabled for the executable
+      if (use_particles) then
+        write(*,*) n_part_groups, " particle groups slots requested."
+  
+        ! --- check that number of particle groups requested fits 
+        if (n_part_groups > n_part_groups_max) then
+          write(*,*) "Error: number of particle groups defined exceeds maximum. "
+          write(*,*) "  Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)"
+        endif
+  
+        ! --- Scan over particle groups and determine the coupling scheme parameters
+        call determine_coupling_schemes()
+  
+        ! --- Determine the coupling variables used, their index, and n_aux_var
+        call determine_coupling_variables() 
+      else
+        write(*,*) "WARNING: requested n_part_groups > 0, however you are running a purely fluid" 
+        write(*,*) "  executable, overwriting n_part_groups to 0."
+        n_part_groups = 0
+      endif
+
+    endif ! n_part_groups > 0
+  endif
   
   ! --- Broadcast input parameters from MPI thread 0 to the others.
   call broadcast_phys(my_id)

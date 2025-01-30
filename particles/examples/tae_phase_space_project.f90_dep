@@ -47,7 +47,7 @@ program tae_phase_space_project
   type(write_particle_diagnostics)                  :: diag
   type(phase_space_projection)                      :: fourD_dist
   type(phase_space_projection)                      :: power_exchange_vpar_mu
-  real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
+  real*8, parameter  :: H_binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
   real*8    :: target_time
   real*8    :: physical_particles, weight
   real*8    :: oldtime, step_rest_time, particle_step_time, particle_start_time, diag_time

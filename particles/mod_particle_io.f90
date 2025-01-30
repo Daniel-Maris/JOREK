@@ -35,6 +35,7 @@ contains
 !>   mpi_info_in:                (integer)(optional) MPI info structre for parallel IO
 subroutine write_simulation_hdf5(sim,filename,file_access_in,use_native_hdf5_mpio_in,&
 use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
+  use phys_module
   use mpi
   use hdf5,               only: HSIZE_T,HID_T,H5F_ACC_TRUNC_F
   use hdf5,               only: H5Gcreate_f,H5Gclose_f
@@ -372,6 +373,7 @@ end subroutine write_simulation_hdf5
 !>   sim: (particle_sim) particle simulation object
 subroutine read_simulation_hdf5(sim,filename,use_hdf5_access_properties,&
 mpi_comm_in,mpi_info_in,test_in)
+  use phys_module
   use mpi
   use hdf5,               only: HSIZE_T,HID_T
   use hdf5,               only: H5Gopen_f,H5Gget_info_f
@@ -395,7 +397,7 @@ mpi_comm_in,mpi_info_in,test_in)
   use mod_particle_types, only: particle_fieldline
   use mod_particle_types, only: particle_kinetic_relativistic
   use mod_particle_types, only: particle_gc_relativistic
-  use mod_particle_sim,   only: particle_sim
+  use mod_particle_sim,   only: particle_sim, configure_particle_groups
   use mod_coronal,        only: coronal
   use mod_openadas,       only: read_adf11
   implicit none
@@ -410,7 +412,7 @@ mpi_comm_in,mpi_info_in,test_in)
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
-  integer                                        :: ii,ierr,h5err,errorcode,n_groups
+  integer                                        :: ii,ierr,h5err,errorcode,n_groups_old
   integer                                        :: mpi_comm_loc,mpi_info_loc
   integer                                        :: storage_type,max_corder,rank
   integer(HID_T)                                 :: file_id,group_id
@@ -447,17 +449,31 @@ mpi_comm_in,mpi_info_in,test_in)
   call HDF5_real_reading(file_id,sim%time,"/time",mpi_rank=sim%my_id,n_mpi_tasks=sim%n_mpi)
   !> get number of groups
   call H5Gopen_f(file_id,"/groups/",group_id,h5err)   
-  call H5Gget_info_f(group_id,storage_type,n_groups,max_corder,h5err)
+  call H5Gget_info_f(group_id,storage_type,n_groups_old,max_corder,h5err) ! n_groups_old as n_groups can change in the future based on user input
   call H5Gclose_f(group_id,h5err)  
-  !> allocate simulation groups
-  if(allocated(sim%groups)) deallocate(sim%groups); allocate(sim%groups(n_groups));
-  do ii=1,n_groups
+  !> check if n_part_groups from restart fits in n_part_group_max
+  if (n_groups_old > n_part_groups_max) then
+    write(*,*) "Error: n_part_groups being imported from restart exceeds n_part_groups_max"
+    stop
+  endif
+  !> check if the number of groups requested differs from the number of groups in part_restart.h5
+  !> will be removed after adding feature to support changing num groups
+  if (n_groups_old /= n_part_groups) then
+    write(*,*) "Error: mismatch between n_part_groups requested and that found in part_restart.h5"
+    stop
+  endif
+  !> the line below should only be the case in certain unit tests, otherwise the
+  !> allocation of groups and their configuration should be done in sim%initialize()
+  if (.not. (allocated(sim%groups))) call sim%allocate_groups(n_part_groups)
+
+  do ii=1,n_groups_old
     !> read and load group datasets. We assume that the ith-particle group of 
     !> all tasks is defined by the same unique value stored in the hdf5 file
     ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
     call HDF5_allocatable_char_reading(file_id,particle_type_str,trim(group_name)//"type")
     call HDF5_integer_reading(file_id,sim%groups(ii)%Z,trim(group_name)//"Z")
     call HDF5_real_reading(file_id,sim%groups(ii)%mass,trim(group_name)//"mass")
+    call HDF5_char_reading(file_id,sim%groups(ii)%coupling_scheme,trim(group_name)//"coupling_scheme")
     call HDF5_char_reading(file_id,sim%groups(ii)%ad%suffix,trim(group_name)//"adas_suffix")
     if((len_trim(sim%groups(ii)%ad%suffix).gt.0).and.(.not.test)) then
       sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
@@ -471,6 +487,8 @@ mpi_comm_in,mpi_info_in,test_in)
     (sim%n_mpi-1)*n_particles_per_proc(master_task+1)
     offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
     n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
+    !> set n_particles for the group
+    sim%groups(ii)%n_particles = int(n_particles_tot(1))
     !> allocate particle list and initialise to 0
     select case (trim(particle_type_str))
     case ("particle_kinetic")

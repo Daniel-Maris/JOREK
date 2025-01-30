@@ -9,7 +9,9 @@ contains
 subroutine log_parameters(my_id, short)
 
 use phys_module
+use mod_coupling_settings
 use vacuum
+use particle_tracer, only: sim
 use gauss, only: n_gauss
 #ifdef USE_CATALYST
   use mod_catalyst_adaptor, only: catalyst_scripts
@@ -36,7 +38,7 @@ character(len=512), parameter :: CHAR_FMT2 = "(1X,A,I2,A,' = ""',A,'""')"
 
 ! --- Local variables
 integer           :: ivar, itor
-integer           :: i, j, n_rows !> do loop index 
+integer           :: i, j, n_rows, group_num !> do loop index 
 character(len=10) :: mode_num
 logical           :: short2
 
@@ -987,8 +989,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
    end if
 #endif
   write(*,REAL_FMT) 'loop_voltage        ',loop_voltage
+  write(*,INTG_FMT) 'n_aux_var           ',n_aux_var
   write(*,LOGI_FMT) 'restart_particles   ',restart_particles
-  write(*,REAL_FMT) 'n_particles         ',n_particles
   write(*,INTG_FMT) 'nstep_particles     ',nstep_particles
   write(*,INTG_FMT) 'nsubstep_particles  ',nsubstep_particles
   write(*,REAL_FMT) 'tstep_particles     ',tstep_particles
@@ -1001,22 +1003,43 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_ncs,            ',use_ncs     
   write(*,LOGI_FMT) 'use_ccs,            ',use_ccs    
   write(*,LOGI_FMT) 'use_pcs,            ',use_pcs
-  write(*,LOGI_FMT) 'use_kn_ionisation,     ',use_kn_ionisation    
-  write(*,LOGI_FMT) 'use_kn_sputtering,     ',use_kn_sputtering    
-  write(*,LOGI_FMT) 'use_kn_cx,             ',use_kn_cx
-  write(*,LOGI_FMT) 'use_kn_recombination,  ',use_kn_recombination
-  write(*,LOGI_FMT) 'use_kn_puffing,        ',use_kn_puffing
-  write(*,LOGI_FMT) 'use_kn_line_radiation, ',use_kn_line_radiation
+  write(*,INTG_FMT) 'n_puff                ',  n_puff
+  write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
+  
+  if (n_part_groups > 0) then
+    write(*,*) "=== Coupling schemes === "
+    write(*,*) "  use_ncs      = ", use_ncs
+    write(*,*) "  use_ccs      = ", use_ccs
+    write(*,*) "  use_pcs      = ", use_pcs
+    write(*,*) "  use_pcf      = ", use_pcf
+    write(*,*) ""
 
-  if (use_kn_puffing) then 
-    write(*,INTG_FMT) 'n_puff                ',  n_puff
-    write(*,REAL_FMT) 'puff_rate,            ',puff_rate
-    write(*,REAL_FMT) 'r_valve,              ',r_valve
-    write(*,REAL_FMT) 'R_valve_loc,          ',R_valve_loc
-    write(*,REAL_FMT) 'Z_valve,              ',Z_valve
-    write(*,REAL_FMT) 'R_valve_loc2,         ',R_valve_loc2
-    write(*,REAL_FMT) 'Z_valve2,             ',Z_valve2
+    write(*,*) '==== Particle Groups ===='
+    write(*,INTG_FMT) 'n_part_groups     ',n_part_groups
+    do group_num=1, n_part_groups
+      write(*,*) "---- Particle group slot: ", group_num, " ----" 
+      write(*,CHAR_FMT) 'id,                    ',sim%groups(group_num)%id
+      write(*,INTG_FMT) 'Z,                     ',sim%groups(group_num)%Z
+      write(*,REAL_FMT) 'mass                   ',sim%groups(group_num)%mass
+      write(*,CHAR_FMT) 'coupling_scheme,       ',sim%groups(group_num)%coupling_scheme
+      write(*,REAL_FMT) 'n_particles,           ',sim%groups(group_num)%n_particles
+      write(*,CHAR_FMT) 'type,                  ',trim(particle_group_configs(group_num)%type)
+
+      if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then     
+        write(*,LOGI_FMT) 'use_kin_ionisation,     ',sim%groups(group_num)%use_kin_ionisation    
+        write(*,LOGI_FMT) 'use_kin_sputtering,     ',sim%groups(group_num)%use_kin_sputtering    
+        write(*,LOGI_FMT) 'use_kin_cx,             ',sim%groups(group_num)%use_kin_cx
+        write(*,LOGI_FMT) 'use_kin_recombination,  ',sim%groups(group_num)%use_kin_recombination
+        write(*,LOGI_FMT) 'use_kin_puffing,        ',sim%groups(group_num)%use_kin_puffing
+        write(*,REAL_FMT) 'n_reflect_ratio,       ',sim%groups(group_num)%n_reflect_ratio
+        write(*,LOGI_FMT) 'use_kin_line_radiation, ',sim%groups(group_num)%use_kin_line_radiation
+        write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(particle_group_configs(group_num)%atom_data_suffix)
+      endif
+      
+    enddo
   endif
+  write(*,*) '==== End of particle groups ===='
+
 
   write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
   if (use_manual_random_seed) then
