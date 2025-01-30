@@ -105,7 +105,7 @@ subroutine allocate_particles(sim)
   do i=1, n_part_groups
     if (.not. allocated(sim%groups(i)%particles)) then
 
-      n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_cpu)
+      n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_mpi)
 
       select case (trim(particle_group_configs(i)%type))
         case ("particle_kinetic_leapfrog")
