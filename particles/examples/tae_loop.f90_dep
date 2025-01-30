@@ -45,7 +45,7 @@ type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: D_edge
 type(write_particle_diagnostics)                  :: diag
 
-real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
+real*8, parameter  :: H_binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
 real*8    :: target_time
 real*8    :: physical_particles, weight, tstep_keep
 real*8    :: oldtime, step_rest_time, particle_step_time, particle_start_time, diag_time

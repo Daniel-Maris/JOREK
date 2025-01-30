@@ -471,7 +471,7 @@ do i=1,n_vertex_max
           elseif (use_pcs) then
             aux_P0      = eq_aux_g(mp,1,ms,mt)
             aux_jz0_pcs = 0.d0 !eq_aux_g(mp,5,ms,mt)
-          elseif(use_pcs_full) then 
+          elseif(use_pcf) then 
             aux_PIRR    = eq_aux_g(mp,1,ms,mt);
             aux_PIRR_s  = eq_aux_s(mp,1,ms,mt);
             aux_PIRR_t  = eq_aux_t(mp,1,ms,mt);

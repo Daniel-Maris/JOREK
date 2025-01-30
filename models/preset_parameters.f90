@@ -8,8 +8,6 @@ subroutine preset_parameters
   use phys_module
   implicit none
 
-  integer :: i ! for iterations
-  
   time_evol_scheme = 'Crank-Nicholson'
   
   n_tor_fft_thresh = 2

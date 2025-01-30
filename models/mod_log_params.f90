@@ -1007,6 +1007,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
   
   if (n_part_groups > 0) then
+    write(*,*) "=== Coupling schemes === "
+    write(*,*) "  use_ncs      = ", use_ncs
+    write(*,*) "  use_ccs      = ", use_ccs
+    write(*,*) "  use_pcs      = ", use_pcs
+    write(*,*) "  use_pcf      = ", use_pcf
+    write(*,*) ""
+
     write(*,*) '==== Particle Groups ===='
     write(*,INTG_FMT) 'n_part_groups     ',n_part_groups
     write(*, "(1X,A, ' = ')", advance="no") "part_groups_in_use"

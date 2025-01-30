@@ -9,11 +9,11 @@ implicit none
 
 ! the variables below are global variables determined by scanning over particle groups, 
 ! and hence shoud NOT be modified manually
-logical :: use_ncs              = .false. !< use neutral kinetic particles
-logical :: use_ccs              = .false. !< use current coupling scheme for fast particles
-logical :: use_pcs              = .false. !< use pressure coupling scheme for fast particles
-logical :: use_pcs_full         = .false. !< use full tensor pressure coupling scheme for fast particles
-logical :: use_kin_recomb_global = .false. !< whether recombination is required 
+logical :: use_ncs               = .false. !< use neutral kinetic particles
+logical :: use_ccs               = .false. !< use current coupling scheme for fast particles
+logical :: use_pcs               = .false. !< use pressure coupling scheme for fast particles
+logical :: use_pcf               = .false. !< use full tensor pressure coupling scheme for fast particles
+logical :: use_kin_recomb_global = .false. !< whether recombination is required (has effect on both fluid and kinetic side)
 contains
 
     
@@ -21,7 +21,7 @@ contains
 !> Scans over all the particle groups and determines how the coupling scheme booleans should be initialized
 subroutine determine_coupling_schemes()
   implicit none
-  integer        :: group_num
+  integer                    ::   group_num
 
   do group_num=1, n_part_groups
     select case (particle_group_configs(group_num)%coupling_scheme)
@@ -32,7 +32,13 @@ subroutine determine_coupling_schemes()
       case ('pcs')
         use_pcs = .true.
       case ('pcf')
-        use_pcs_full = .true.
+        use_pcf = .true.
+      case ('non')
+        
+      case default
+        write(*,*) "ERROR: The coupling scheme '", particle_group_configs(group_num)%coupling_scheme, "' is invalid."
+        stop
+
     end select
 
     if (particle_group_configs(group_num)%use_kin_recombination .eqv. .true.) then
@@ -40,12 +46,11 @@ subroutine determine_coupling_schemes()
     endif 
     
   enddo 
-
-  ! maybe some write out here to provide info?
-
 end subroutine determine_coupling_schemes
 
-!> used for accumulating variables for coupling
+!> compares the name of a given coupling variable associated with a coupling scheme (i.e. assessed_var) 
+!> with the list of coupling variables already used by the simulation (i.e. coupling_vars). If the 
+!> assessed_var is unique it will be appended to the list 
 subroutine assess_and_accumulate_variable(assessed_var, coupling_var_idx, coupling_vars)
   implicit none
   character(len=var_name_len), intent(in) :: assessed_var
@@ -64,7 +69,7 @@ subroutine assess_and_accumulate_variable(assessed_var, coupling_var_idx, coupli
   endif
 end subroutine assess_and_accumulate_variable
 
-
+!> determines the list of unique coupling variables required by the simulation and assigns their corresponding indices
 subroutine determine_coupling_variables()
   implicit none
   integer :: i
@@ -87,9 +92,7 @@ subroutine determine_coupling_variables()
     enddo
   endif
 
-  !use_pcs
-
-  !use_pcs_full
+  !> additional coupling schemes will be added here in future PRs (e.g. use_pcs, use_pcf)  
     
   !> assign indices to the coupling variables and determine n_aux_var
   do i=1, coupling_var_idx
