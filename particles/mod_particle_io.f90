@@ -155,7 +155,7 @@ use_hdf5_access_properties,collective_mpio_in,mpi_comm_in,mpi_info_in)
         n_particles_offset  = int(sum(n_particles_glob(1:sim%my_id,ii)),kind=HSIZE_T)
       endif
       !> create the HDF5 group for the particle list
-      write(group_name,"(A,i0.3,A)") "/groups/",ii,"/"
+      write(group_name,"(A,A,A)") "/groups/",trim(sim%groups(ii)%id),"/"
       if((use_gatherv_mpio.and.(sim%my_id.eq.master_rank)).or.use_hdf5_parallel) then
         call H5Gcreate_f(file_id,trim(group_name),group_id,h5err)
         call H5Gclose_f(group_id,h5err)
@@ -489,15 +489,22 @@ mpi_comm_in,mpi_info_in,test_in)
   !> allocation of groups and their configuration should be done in sim%initialize()
   if (.not. (allocated(sim%groups))) call sim%allocate_groups(n_part_groups)
 
-  write(*,*) "=== LOADING PARTICLE GROUPS ==="
+  if (sim%my_id == 0) then
+    write(*,*) "" 
+    write(*,*) "====== LOADING PARTICLE GROUPS ======"
+  endif 
+
   dropped_groups_counter = 0
   do i=1, n_part_groups ! loop over groups in part_groups_in_use
 
-    if (sim%my_id == 0) write(*,*) " --- Group ID to match: ", part_groups_in_use(i) " --- "
+    if (sim%my_id == 0) then
+      write(*,*) ""
+      write(*,*) " --- Group ID to match: ", part_groups_in_use(i), " --- "
+    endif
 
     do ii=1,n_groups_old ! loop over the saved particle groups
       !> check for id match between id from part_groups_in_use and part_restart.h5
-      ierr = 0; write(group_name,'(A,i0.3,A)') "/groups/",ii,"/";
+      ierr = 0; write(group_name,'(A,A,A)') "/groups/",trim(part_groups_in_use_old(ii)),"/";
       call HDF5_char_reading(file_id, part_group_id, trim(group_name)//"id")
 
       if (part_group_id == part_groups_in_use(i)) then
@@ -672,6 +679,10 @@ mpi_comm_in,mpi_info_in,test_in)
     enddo ! n_groups_old (particle groups in restart)
   enddo ! n_part_groups (particle groups requested in part_groups_in_use)
 
+  if (sim%my_id == 0) then 
+    write(*,*) "====== PARTICLE GROUPS LOADED ====== "
+    write(*,*) ""
+  endif
   ! inform about the groups that have been dropped
 
 
