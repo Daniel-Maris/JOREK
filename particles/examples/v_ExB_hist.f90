@@ -13,7 +13,7 @@ use mod_fields_linear, only: last_file_before_time
 use mod_fields_hermite_birkhoff
 use phys_module, only: xpoint, xcase
 use mod_sobseq_rng, only: sobseq_rng
-use mod_rng_seed, only: rng_seed
+use mod_random_seed, only: random_seed
 use constants, only: TWOPI
 use mod_initialise_particles, only: domain_bounding_box
 use mod_math_operators, only: cross_product
@@ -55,7 +55,7 @@ write(*,*) "Psi_xpoint: ", psi_xpoint(1), " Psi_axis: ", psi_axis
 ! Get the size of the domain
 call domain_bounding_box(sim%fields%node_list, sim%fields%element_list, Rmin, Rmax, Zmin, Zmax)
 
-seed = rng_seed()
+seed = random_seed()
 n_threads = 1
 i_thread = 1
 counts = 0

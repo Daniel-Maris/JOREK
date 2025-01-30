@@ -9,7 +9,7 @@ use mod_particle_sim
 use mod_fields_linear, only: last_file_before_time
 use mod_fields_hermite_birkhoff
 use phys_module, only: xpoint, xcase
-use mod_rng_seed, only: rng_seed
+use mod_random_seed, only: random_seed
 use mod_sobseq_rng, only: sobseq_rng
 use constants, only: TWOPI, PI
 use mod_initialise_particles, only: domain_bounding_box
@@ -58,7 +58,7 @@ write(*,*) "Point density: ", real(n_points)/(PI*(Rmax**2 - Rmin**2)*(Zmax - Zmi
 
 allocate(psi_norm(n_points))
 
-seed = rng_seed()
+seed = random_seed()
 n_threads = 1
 i_thread = 1
 !$omp parallel default(private) shared(sim, seed, Rmin, Rmax, Zmin, Zmax, psi_xpoint, psi_axis, Z_xpoint, psi_norm)

@@ -8,7 +8,7 @@ use mod_particle_io
 use mod_event
 use mod_particle_loop
 use nodes_elements
-use mod_rng_seed
+use mod_random_seed
 use mod_math_operators, only: cross_product
 use mod_pusher_tools, only: particle_position_to_gc
 use mod_gc_variational
@@ -332,7 +332,7 @@ contains
 
     
 subroutine loop_particle_kinetic_leapfrog(sim, timesteps, n_steps, particle_start_time)
-use mod_rng_seed
+use mod_random_seed
 use mod_interp, only: sincosperiod_moivre
 use mod_particle_types, only: copy_particle_kinetic_leapfrog
 

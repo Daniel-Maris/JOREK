@@ -48,7 +48,7 @@ subroutine setup_shared_rngs(n_dim, seed, rng_type, rngs)
   use mpi_mod
   !$ use omp_lib
   integer, intent(in)                                     :: n_dim !< number of dimensions of the RNG
-  integer, intent(in)                                     :: seed !< seed value for the RNG, typically from [[mod_rng_seed]].  Only used on mpi ID 0, discarded on others
+  integer, intent(in)                                     :: seed !< seed value for the RNG, typically from [[mod_random_seed]].  Only used on mpi ID 0, discarded on others
   class(type_rng), intent(in)                             :: rng_type !< what type of rng do we want?
   class(type_rng), dimension(:), allocatable, intent(out) :: rngs !< output array of RNGs, one per openmp thread
 

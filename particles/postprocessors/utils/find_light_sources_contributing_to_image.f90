@@ -351,7 +351,7 @@ subroutine generate_particle_simulation_from_active_light_sources(lights_inout,&
 rng,fields,my_id,n_mpis,n_dead_particles,n_particles,n_spectra,accept_threshold,&
 mass,time,active_light_source_intensities,sign_charge,sim_particle_out,sign_p_parallel_in)
   use mod_rng
-  use mod_rng_seed
+  use mod_random_seed
   use mod_fields,         only: fields_base
   use mod_particle_types, only: particle_base
   use mod_particle_types, only: particle_gc_relativistic
@@ -383,7 +383,7 @@ mass,time,active_light_source_intensities,sign_charge,sim_particle_out,sign_p_pa
   sign_p_parallel = 1; if(present(sign_p_parallel_in)) sign_p_parallel = sign_p_parallel_in;
   check_particle_to_copy = .false.; ifail = 0;
   !> generate random numbers
-  call rng%initialize(n_particles,rng_seed(),n_mpis,my_id,ifail)
+  call rng%initialize(n_particles,random_seed(),n_mpis,my_id,ifail)
   if(ifail.ne.0) call MPI_ABORT(MPI_COMM_WORLD,-1,ifail)  
   call rng%next(random_numbers)
   !> initialise particle simulation

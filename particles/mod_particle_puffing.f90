@@ -54,7 +54,7 @@ contains
 !> To do: add generalization to choose group number.
 function new_particle_puffing(n_puff, puffing_rate, valve_r, R, Z, phi, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start,poly_R,poly_Z,boxpuff) result(new)
   use mod_pcg32_rng,   only: pcg32_rng
-  use mod_rng_seed,    only: rng_seed
+  use mod_random_seed, only: random_seed
   
   type(particle_puffing)    :: new
 
@@ -72,7 +72,7 @@ function new_particle_puffing(n_puff, puffing_rate, valve_r, R, Z, phi, rng, see
   logical, intent(in), optional :: boxpuff
   
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
-  integer, intent(in), optional         :: seed !< Seed for the RNG (default rng_seed() on my_id + bcast)
+  integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
   integer                               :: my_seed
   
   new%n_puff       = n_puff
@@ -94,7 +94,7 @@ function new_particle_puffing(n_puff, puffing_rate, valve_r, R, Z, phi, rng, see
   if (present(seed)) then
     my_seed = seed
   else
-    my_seed = rng_seed()
+    my_seed = random_seed()
   end if
   if (present(rng)) then
     call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=rng, rngs=new%rng)

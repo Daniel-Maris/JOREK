@@ -92,7 +92,7 @@ subroutine initialise_particles(particles, node_list, element_list, &
   rng, variables, transform, f, Rbound, Zbound, Phibound)
   use mpi
   use mod_sampling
-  use mod_rng_seed
+  use mod_random_seed
   use mod_interp
 !$ use omp_lib
   implicit none
@@ -168,7 +168,7 @@ subroutine initialise_particles(particles, node_list, element_list, &
   if (present(Phibound)) PhiBox = Phibound
 
   ! Calculate a single random seed and communicate it over MPI
-  if (my_id .eq. 0) seed = rng_seed()
+  if (my_id .eq. 0) seed = random_seed()
   call MPI_Bcast(seed, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ifail)
 
   ! Prepare list of particles to seed
@@ -330,7 +330,7 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
   n_real_samp_to_part_param_in,real_samp_to_part_param_in,n_int_samp_to_part_param_in, &
   int_samp_to_part_param_in)
   use mod_fields,                only: fields_base
-  use mod_rng_seed,              only: rng_seed
+  use mod_random_seed,           only: random_seed
   use mod_particle_types,        only: particle_base
   use mod_rng
 !$ use omp_lib
@@ -384,7 +384,7 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
   allocate(variables(n_variables+1))
   allocate(rngs(n_threads),source=rng_base)
   do ii=1,n_threads
-    call rngs(ii)%initialize(n_variables+1, rng_seed(), n_mpi*n_threads, my_id*n_threads+ii,ifail)
+    call rngs(ii)%initialize(n_variables+1, random_seed(), n_mpi*n_threads, my_id*n_threads+ii,ifail)
     if (ifail.ne.0) call MPI_ABORT(MPI_COMM_WORLD, -1, ifail)
   end do
 
@@ -591,7 +591,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
   uniform_space_rej_f, uniform_space_rej_vars, cor, charge)
   use mod_rng
   use mod_fields
-  use mod_rng_seed
+  use mod_random_seed
   use mod_sampling
   use constants
   use phys_module, only: F0, central_density
@@ -724,7 +724,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
 
   ! Preparatory work: setup RNG
   allocate(rng,source=rng_base)
-  call rng%initialize(8, rng_seed(), 1, 1, ifail)
+  call rng%initialize(8, random_seed(), 1, 1, ifail)
 
   ! Preparatory work: get R_axis, Z_axis
   call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
@@ -1023,7 +1023,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   uniform_space_rej_f, uniform_space_rej_vars, cor, charge, n_phi_planes_in,n_gyro_orbit_in)
   use mod_rng
   use mod_fields
-  use mod_rng_seed
+  use mod_random_seed
   use mod_sampling
   use constants
   use phys_module, only: F0, central_density
@@ -1176,7 +1176,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
 
   ! Preparatory work: setup RNG
   allocate(rng,source=rng_base)
-  call rng%initialize(8, rng_seed(), 1, 1, ifail)
+  call rng%initialize(8, random_seed(), 1, 1, ifail)
 
   ! Preparatory work: get R_axis, Z_axis
   call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
@@ -1828,7 +1828,7 @@ subroutine set_velocity_from_T(particles, mass, node_list, element_list, cor, v_
   use phys_module, only: central_density, central_mass, F0
   use mod_sampling
   use mpi
-  use mod_rng_seed
+  use mod_random_seed
   use mod_coordinate_transforms
   use mod_coronal
   implicit none
@@ -1855,7 +1855,7 @@ subroutine set_velocity_from_T(particles, mass, node_list, element_list, cor, v_
 ! Calculate a single random seed and communicate it over MPI
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
   call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
-  if (my_id .eq. 0) seed = rng_seed()
+  if (my_id .eq. 0) seed = random_seed()
   call MPI_Bcast(seed, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ifail)
 
 #ifndef WITH_Vpar

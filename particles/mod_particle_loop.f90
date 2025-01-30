@@ -14,7 +14,7 @@ contains
 subroutine loop_particle_kinetic(sim, jorek_feedback, rng, timesteps, n_steps, particle_start_time)
 
   use mod_project_particles
-  use mod_rng_seed
+  use mod_random_seed
   use mod_interp, only: mode_moivre
   use mod_basisfunctions
   use mod_particle_sputtering, only: sample_fluid_particle_energy
@@ -99,7 +99,7 @@ if (sim%my_id .eq. 0) then
   write(*,'(A,e14.6)') ' E_norm   : ',E_norm
 endif
 
-if(use_manual_rng_seed) then
+if(use_manual_random_seed) then
   !$ call omp_set_schedule(omp_sched_static,10)
 else
   !$ call omp_set_schedule(omp_sched_dynamic,10)

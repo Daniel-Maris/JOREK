@@ -46,7 +46,7 @@ subroutine do_sputter(this, sim, ev)
   use mod_particle_sim
   use mpi
   use mod_pcg32_rng
-  use mod_rng_seed
+  use mod_random_seed
   use constants, only: TWOPI, EL_CHG, ATOMIC_MASS_UNIT
   !$ use omp_lib
   class(simple_sputter), intent(inout) :: this
@@ -60,7 +60,7 @@ subroutine do_sputter(this, sim, ev)
   type(pcg32_rng) :: rng
 
   do i=1,size(sim%groups,1)
-    if (sim%my_id .eq. 0) seed = rng_seed()
+    if (sim%my_id .eq. 0) seed = random_seed()
     call MPI_Bcast(seed, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
 
     allocate(is_free(size(sim%groups(i)%particles,1)))

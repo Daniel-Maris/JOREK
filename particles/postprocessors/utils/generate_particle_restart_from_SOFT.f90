@@ -259,7 +259,7 @@ soft_orbit_x,soft_orbit_ppar,soft_orbit_pperp,soft_orbit_weights)
   use mpi
   use constants,                 only: SPEED_OF_LIGHT
   use mod_coordinate_transforms, only: cartesian_to_cylindrical
-  use mod_rng_seed,              only: rng_seed
+  use mod_random_seed,           only: random_seed
   use mod_rng
   !$ use omp_lib
   implicit none
@@ -288,7 +288,7 @@ soft_orbit_x,soft_orbit_ppar,soft_orbit_pperp,soft_orbit_weights)
 !$ n_threads = omp_get_max_threads()
   allocate(rngs(n_threads),source=rng_base) 
   do ii=1,n_threads
-    call rngs(ii)%initialize(n_phi,rng_seed(),n_mpis*n_threads,my_id*n_threads+ii,ifail)
+    call rngs(ii)%initialize(n_phi,random_seed(),n_mpis*n_threads,my_id*n_threads+ii,ifail)
     if(ifail.ne.0) call MPI_Abort(MPI_COMM_WORLD,-1,ifail)
   enddo
   !> initialise and allocate particle simulation array

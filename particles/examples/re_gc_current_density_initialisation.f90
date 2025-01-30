@@ -11,7 +11,7 @@ use mod_expression,           only: exprs_all_int,init_expr,exprs,SI_UNITS
 use mod_integrals3D,          only: int3d_new
 use mod_boundary,             only: boundary_from_grid
 use equil_info
-use mod_rng_seed
+use mod_random_seed
 use mod_particle_diagnostics, only: write_particle_diagnostics
 use mod_io_actions,           only: write_action,read_action
 use particle_tracer

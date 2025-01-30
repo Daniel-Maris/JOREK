@@ -123,7 +123,7 @@ contains
 function new_particle_sputter(edge_element_template, target_group, n_sputter, background_relative_density, &
         background_species_Z, filename, basename, decimal_digits, fractional_digits, rng, seed) result(new)
   use mod_pcg32_rng, only: pcg32_rng
-  use mod_rng_seed,  only: rng_seed
+  use mod_random_seed, only: random_seed
   use mpi_mod
   type(particle_sputter)          :: new
   type(edge_elements), intent(in) :: edge_element_template !< a prepared set of edge elements
@@ -138,7 +138,7 @@ function new_particle_sputter(edge_element_template, target_group, n_sputter, ba
   integer, intent(in), optional          :: decimal_digits
   integer, intent(in), optional          :: fractional_digits
   class(type_rng), intent(in), optional  :: rng !< random-number generator to use (default PCG32)
-  integer, intent(in), optional          :: seed !< Seed for the RNG (default rng_seed() on my_id 0 + bcast)
+  integer, intent(in), optional          :: seed !< Seed for the RNG (default random_seed() on my_id 0 + bcast)
   integer :: u, my_seed, n_stream, n_streams, ierr, i
 
 
@@ -197,7 +197,7 @@ function new_particle_sputter(edge_element_template, target_group, n_sputter, ba
   if (present(seed)) then
     my_seed = seed
   else
-    my_seed = rng_seed()
+    my_seed = random_seed()
   end if
   if (present(rng)) then
     call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=rng, rngs=new%rng)
@@ -291,7 +291,7 @@ subroutine do_particle_sputter(this, sim, ev)
   use mod_atomic_elements, only: element_symbols
   use mod_parameters, only: n_plane, n_period
   use mod_interp, only: interp_RZ
-  use phys_module, only: use_manual_rng_seed, tstep, central_mass, central_density
+  use phys_module, only: use_manual_random_seed, tstep, central_mass, central_density
   
   class(particle_sputter), intent(inout) :: this
   type(particle_sim), intent(inout)      :: sim
@@ -449,7 +449,7 @@ subroutine do_particle_sputter(this, sim, ev)
     
   select type (pa => sim%groups(i)%particles)
   type is (particle_kinetic_leapfrog)
-  if(use_manual_rng_seed) then
+  if(use_manual_random_seed) then
     !$ call omp_set_schedule(omp_sched_static,10)
   else
     !$ call omp_set_schedule(omp_sched_dynamic,10)
@@ -741,7 +741,7 @@ subroutine do_particle_sputter(this, sim, ev)
 
   ! might be replaced with omp workshare, or just the array expression.
   ! there is an issue with derived type arrays in gfortran though, and this works
-  if(use_manual_rng_seed) then
+  if(use_manual_random_seed) then
     !$ call omp_set_schedule(omp_sched_static,100)
   else
     !$ call omp_set_schedule(omp_sched_dynamic,100)
