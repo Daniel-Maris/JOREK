@@ -144,7 +144,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                use_cx, use_sputtering, use_ionisation,             &
+                use_kn_cx, use_kn_sputtering, use_kn_ionisation,             &
                 use_ncs, use_pcs, use_ccs, cte_current_FB_fact,     &
                 eta_ohmic, force_central_node, D_par_imp,           &
                 D_perp_imp, imp_type, adas_dir,                     &
@@ -169,6 +169,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 vacuum_min, strumpack_matching,                     &
                 forceSDN, SDN_threshold, eta_coul_log_dep,          &
                 xpoint_search_tries, export_aux_node_list,          &
+                use_manual_random_seed, manual_seed,                &
                 bgf_rpolar, bgf_tht
 
 if (my_id .eq. 0) then
@@ -246,6 +247,7 @@ if (my_id .eq. 0) then
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
   else
     tstep_n    = 0.d0
     tstep_n(1) = tstep

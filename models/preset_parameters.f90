@@ -265,8 +265,8 @@ subroutine preset_parameters
   ne_SI_min          = 1.d18
   Te_eV_min          = 5.
   rn0_min            = 1.d-8
-  T_min              = 1.0d-20
-  rho_min            = 1.0d-20
+  T_min              = 1.0d-20  !-1.0d20
+  rho_min            = 1.0d-20  !-1.0d20
   T_min_neg          = -1.d12 !< only used if T_min_neg>0 , 2.01d-5*central_density*Tmin_ev (cd = 1, 20 eV)
   T_min_ZKpar        = -1.d12 
   Ti_min_ZKpar       = -1.d12 
@@ -753,6 +753,7 @@ subroutine preset_parameters
   D_neutral_p = 1.d-5
   delta_n_convection = 0
   nimp_bg = 0.
+
   n_adas = 1
   adas_dir = ' '
   imp_type = ' '
@@ -852,9 +853,24 @@ use_ncs            = .false.
 use_ccs            = .false.
 use_pcs            = .false.
 use_pcs_full       = .false.
-use_ionisation     = .true.
-use_sputtering     = .false.
-use_cx             = .true.
+use_kn_ionisation     = .true.
+use_kn_sputtering     = .false.
+use_kn_cx             = .true.
 use_marker         = .false.
+use_kn_recombination = .true.
+use_kn_puffing       = .false.
+use_kn_line_radiation= .true.
+
+n_puff        = 0
+puff_rate     = 0.d0
+r_valve       = 0.d0
+R_valve_loc   = 0.d0
+Z_valve       = 0.d0
+R_valve_loc2  = 0.d0
+Z_valve2      = 0.d0
+
+use_manual_random_seed = .false.
+manual_seed = 498932990          !< chosen arbitarily
+
 
 end subroutine preset_parameters

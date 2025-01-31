@@ -197,7 +197,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles,                                 &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                use_cx, use_sputtering, use_ionisation,             &
+                use_kn_cx, use_kn_sputtering, use_kn_ionisation,             &
                 use_ncs, use_pcs, use_ccs,                          &
                 min_sheath_angle, bcs,                              &
                 use_sc, add_sources_in_sc, visco_sc_num,            &
@@ -214,6 +214,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 alpha_Newton, vacuum_min, strumpack_matching,       &
                 visco_old_setup, visco_heating, eta_coul_log_dep,   &
                 export_polar_boundary, xpoint_search_tries,         &
+                use_manual_random_seed, manual_seed,                &
                 loop_voltage, export_aux_node_list
 
 
@@ -279,6 +280,7 @@ if (my_id .eq. 0) then
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
   else
     tstep_n    = 0.d0
     tstep_n(1) = tstep

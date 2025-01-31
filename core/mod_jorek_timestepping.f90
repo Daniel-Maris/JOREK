@@ -14,7 +14,7 @@ use equil_info
 implicit none
 
 private
-public jorek_timestep_action, new_jorek_timestep_action
+public jorek_timestep_action, new_jorek_timestep_action, get_tstep_n
 
 #ifdef USE_FFTW
   include 'fftw3.f03'
@@ -74,7 +74,7 @@ contains
 function new_jorek_timestep_action(auxiliary_node_list) result(new)
   type(jorek_timestep_action) :: new
   type(type_node_list), intent(in), target,  optional :: auxiliary_node_list
-!  if (present(auxiliary_node_list)) new%auxiliary_node_list => auxiliary_node_list
+  if (present(auxiliary_node_list)) new%auxiliary_node_list => auxiliary_node_list
   new%istep = 1
   new%name = "JOREK timestep"
   new%log = .true.
@@ -206,6 +206,7 @@ subroutine setup_solvers(this, sim)
 
   call tr_allocatep(this%local_elms,1,sim%fields%element_list%n_elements,"local_elms",CAT_FEM)
 
+
   this%a_mat%comm = MPI_COMM_WORLD
   
   this%mhd_sim%my_id         = sim%my_id
@@ -235,7 +236,10 @@ subroutine setup_solvers(this, sim)
   call this%solver%setup()
   this%setup_done = .true.
 
-  if (.not. associated(aux_node_list)) allocate(aux_node_list) ! information of particle moments is stored in aux_list
+  if (.not. associated(aux_node_list)) then 
+    allocate(aux_node_list) ! information of particle moments is stored in aux_list
+    call init_node_list(aux_node_list, n_nodes_max, aux_node_list%n_dof, n_aux_var)
+  endif
 
 end subroutine setup_solvers
 
@@ -414,7 +418,6 @@ subroutine do_jorek_timestep(this, sim, ev)
     ! This is a change from jorek2_main, where these quantities are calculated using the old xpoint and axis data
     call update_equil_state(sim%my_id,sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase)
     this%es = ES
-
     call energy(W_mag, W_kin)
     
 !    call integrals(sim%fields%node_list, sim%fields%element_list,                                                         &
@@ -471,7 +474,8 @@ subroutine do_jorek_timestep(this, sim, ev)
   
   endif ! myid = 0
 
-  call int3d_new(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
+
+  call int3d_new(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1, aux_node_list=this%auxiliary_node_list)
 
   if (sim%my_id .eq. 0 ) then
     ! --- Output energies and growth_rates to text files during the code run

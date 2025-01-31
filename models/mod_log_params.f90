@@ -833,8 +833,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'bench_without_plot    ', bench_without_plot
   write(*,LOGI_FMT) 'mach_one_bnd_integral ', mach_one_bnd_integral
   write(*,LOGI_FMT) 'deuterium_adas        ', deuterium_adas       
-  write(*,LOGI_FMT) 'deuterium_adas_1e20   ', deuterium_adas_1e20
   write(*,LOGI_FMT) 'old_deuterium_atomic  ', old_deuterium_atomic
+  write(*,LOGI_FMT) 'deuterium_adas_1e20   ', deuterium_adas_1e20
   write(*,LOGI_FMT) 'no_mach1_bc           ', no_mach1_bc
   write(*,LOGI_FMT) 'use_newton            ', use_newton
   write(*,INTG_FMT) 'maxNewton             ', maxNewton
@@ -1001,9 +1001,28 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_ncs,            ',use_ncs     
   write(*,LOGI_FMT) 'use_ccs,            ',use_ccs    
   write(*,LOGI_FMT) 'use_pcs,            ',use_pcs
-  write(*,LOGI_FMT) 'use_ionisation,     ',use_ionisation    
-  write(*,LOGI_FMT) 'use_sputtering,     ',use_sputtering    
-  write(*,LOGI_FMT) 'use_cx,             ',use_cx
+  write(*,LOGI_FMT) 'use_kn_ionisation,     ',use_kn_ionisation    
+  write(*,LOGI_FMT) 'use_kn_sputtering,     ',use_kn_sputtering    
+  write(*,LOGI_FMT) 'use_kn_cx,             ',use_kn_cx
+  write(*,LOGI_FMT) 'use_kn_recombination,  ',use_kn_recombination
+  write(*,LOGI_FMT) 'use_kn_puffing,        ',use_kn_puffing
+  write(*,LOGI_FMT) 'use_kn_line_radiation, ',use_kn_line_radiation
+
+  if (use_kn_puffing) then 
+    write(*,INTG_FMT) 'n_puff                ',  n_puff
+    write(*,REAL_FMT) 'puff_rate,            ',puff_rate
+    write(*,REAL_FMT) 'r_valve,              ',r_valve
+    write(*,REAL_FMT) 'R_valve_loc,          ',R_valve_loc
+    write(*,REAL_FMT) 'Z_valve,              ',Z_valve
+    write(*,REAL_FMT) 'R_valve_loc2,         ',R_valve_loc2
+    write(*,REAL_FMT) 'Z_valve2,             ',Z_valve2
+  endif
+
+  write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
+  if (use_manual_random_seed) then
+    write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+  endif     
+
 #ifdef USE_CATALYST
   write(*,CHAR_FMT) 'catalyst_scripts,   ',trim(catalyst_scripts)
 #endif
