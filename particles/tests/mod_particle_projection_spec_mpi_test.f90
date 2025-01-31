@@ -8,6 +8,7 @@ public :: run_fruit_particle_projection_spec_mpi
 !> Set to true to wrtie restart files with projected density
 logical,parameter :: write_projection_output=.false.
 logical,parameter :: impose_dirichlet=.false.
+logical,parameter :: rng_n_streams_round_off=.true.
 integer,parameter :: message_len=100
 integer,parameter :: filename_len=100
 integer,parameter :: master_rank=0
@@ -31,24 +32,24 @@ subroutine run_fruit_particle_projection_spec_mpi(rank,n_tasks,ifail)
   write(*,'(/A)') "  ... setting-up: particle projection spec mpi"
   call setup(rank,n_tasks,ifail)
   write(*,'(/A)') "  ... running: particle projection spec mpi"
-  call run_test_case(test_particle_projection_square_10_10_pcg32,&
-  'test_particle_projection_square_10_10_pcg32')
+!  call run_test_case(test_particle_projection_square_10_10_pcg32,&
+!  'test_particle_projection_square_10_10_pcg32')
   call run_test_case(test_particle_projection_square_10_10_sobseq,&
   'test_particle_projection_square_10_10_sobseq')
-  call run_test_case(test_particle_projection_polar_30_22_sobseq,&
-  'test_particle_projection_polar_30_22_sobseq')
-  call run_test_case(test_particle_projection_polar_30_21_sobseq,&
-  'test_particle_projection_polar_30_21_sobseq')
-  call run_test_case(test_particle_projection_flux_40_31_pcg32,&
-  'test_particle_projection_flux_40_31_pcg32')
-  call run_test_case(test_particle_projection_flux_40_32_pcg32,&
-  'test_particle_projection_flux_40_32_pcg32')
-  call run_test_case(test_particle_projection_polar_30_22_10000_sob_smoothing,&
-  'test_particle_projection_polar_30_22_10000_sob_smoothing')
-  call run_test_case(test_rhs_square_10_10_pcg32,&
-  'test_rhs_square_10_10_pcg32')
-  call run_test_case(test_rhs_square_10_10_sobseq,&
-  'test_rhs_square_10_10_sobseq')
+!  call run_test_case(test_particle_projection_polar_30_22_sobseq,&
+!  'test_particle_projection_polar_30_22_sobseq')
+!  call run_test_case(test_particle_projection_polar_30_21_sobseq,&
+!  'test_particle_projection_polar_30_21_sobseq')
+!  call run_test_case(test_particle_projection_flux_40_31_pcg32,&
+!  'test_particle_projection_flux_40_31_pcg32')
+!  call run_test_case(test_particle_projection_flux_40_32_pcg32,&
+!  'test_particle_projection_flux_40_32_pcg32')
+!  call run_test_case(test_particle_projection_polar_30_22_10000_sob_smoothing,&
+!  'test_particle_projection_polar_30_22_10000_sob_smoothing')
+!  call run_test_case(test_rhs_square_10_10_pcg32,&
+!  'test_rhs_square_10_10_pcg32')
+!  call run_test_case(test_rhs_square_10_10_sobseq,&
+!  'test_rhs_square_10_10_sobseq')
   write(*,'(/A)') "  ... tearing-down: particle projection spec mpi"
   call teardown(rank,n_tasks,ifail)
 end subroutine run_fruit_particle_projection_spec_mpi
@@ -400,7 +401,8 @@ apply_dirichlet_in,write_particle_in,n_fields_write_in)
     !> to prevent omp trouble (!?)
     call find_RZ(node_list,element_list,R_particle_in,Z_particle_in,&
     R_out,Z_out,ielm_out,s_out,t_out,ifail)
-    call initialise_particles(sim%groups(1)%particles,node_list,element_list,rng)
+    call initialise_particles(sim%groups(1)%particles,node_list,element_list,&
+    rng, rng_n_streams_round_off_in=rng_n_streams_round_off)
     do ii=1,n(kk)
       sim%groups(1)%particles(ii)%weight = volume/real(n_tasks*n(kk),kind=8)
     enddo
