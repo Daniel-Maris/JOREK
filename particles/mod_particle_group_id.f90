@@ -33,7 +33,6 @@ contains
     integer :: i
 
     do i=1, n_part_groups
-
       if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
 
         if (particle_group_configs(i)%id(1:1) == 'P') then
@@ -50,7 +49,6 @@ contains
         endif
 
       endif
-
     enddo
 
     if (part_groups_in_use(1) == 'non') then ! part_groups_in_use is not assigned
@@ -66,7 +64,6 @@ contains
     character(len=3), intent(inout) :: id
     character(len=2)        :: temp
 
-    
     id_counter = id_counter + 1
     write(temp, '(I2.2)') id_counter
     id = 'P' // temp

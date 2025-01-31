@@ -2,6 +2,7 @@
 !> TODO: add metadata and/or use H5MD format (http://nongnu.org/h5md/h5md.html)
 !> The documentation of the module is at link: https://www.jorek.eu/wiki/doku.php?id=jorek-particles_i_o
 module mod_particle_io
+use mod_particle_allocation
 implicit none
 private
 public write_simulation_hdf5,read_simulation_hdf5,get_simulation_hdf5_time
@@ -11,51 +12,6 @@ integer,parameter :: master_task=0
 integer,parameter :: n_cpu_1=1
 integer,parameter :: group_name_len=12
 contains
-
-
-! allocate an empty array of a specified particle type for a specific particle group for each mpi process
-subroutine allocate_particle_array(sim, group_num, particle_type_str, n_particles_per_proc, mpi_comm_loc)
-  use mod_particle_sim, only: particle_sim
-  use mod_particle_types
-  use mpi
-
-  implicit none
-
-  type(particle_sim),            intent(inout) :: sim
-  integer,                       intent(in)    :: group_num
-  character(len=:), allocatable, intent(in)    :: particle_type_str
-  integer,                       intent(in)    :: n_particles_per_proc
-  integer, optional,             intent(in)    :: mpi_comm_loc
-  integer                                      :: errorcode, ierr
-
-  select case (trim(particle_type_str))
-  case ("particle_kinetic")
-    allocate(particle_kinetic::sim%groups(group_num)%particles(n_particles_per_proc))
-  case ("particle_kinetic_leapfrog")
-    allocate(particle_kinetic_leapfrog::sim%groups(group_num)%particles(n_particles_per_proc))
-  case ("particle_gc")
-    allocate(particle_gc::sim%groups(group_num)%particles(n_particles_per_proc))
-  case ("particle_gc_vpar")
-    allocate(particle_gc_vpar::sim%groups(group_num)%particles(n_particles_per_proc))
-  case ("particle_gc_Qin")
-    allocate(particle_gc_Qin::sim%groups(group_num)%particles(n_particles_per_proc))
-  case ("particle_fieldline")
-    allocate(particle_fieldline::sim%groups(group_num)%particles(n_particles_per_proc))
-  case ("particle_kinetic_relativistic")
-    allocate(particle_kinetic_relativistic::sim%groups(group_num)%particles(n_particles_per_proc))
-  case ("particle_gc_relativistic")
-    allocate(particle_gc_relativistic::sim%groups(group_num)%particles(n_particles_per_proc))
-  case default
-    write(*,*) "Error: missing type name declaration ",trim(particle_type_str)," for reading: ABORT!"
-    if (present(mpi_comm_loc)) then
-      call MPI_Abort(mpi_comm_loc,errorcode,ierr)
-    else
-      stop
-    endif
-  end select
-
-end subroutine allocate_particle_array
-
 
 
 !> Export all particles using HDF5 IO
@@ -627,9 +583,7 @@ mpi_comm_in,mpi_info_in,test_in)
         endif
 
         !> compute the number of particles per processor and allocate particle array ---------
-        n_particles_per_proc = int(n_particles_tot(1))/sim%n_cpu
-        n_particles_per_proc(master_task+1) = int(n_particles_tot(1)) - &
-        (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
+        call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_proc, master_task)
         offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
         n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
         !> set n_particles for the group
@@ -717,10 +671,7 @@ mpi_comm_in,mpi_info_in,test_in)
       endif
 
       ! calculate load balancing ------
-      ! turn below into a function
-      n_particles_per_proc = int(particle_group_configs(i)%n_particles)/sim%n_cpu
-      n_particles_per_proc(master_task+1) = int(particle_group_configs(i)%n_particles) - &
-      (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
+      call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_proc, master_task)
 
       ! getting particle type --------- 
       ! should clean up a bit here
