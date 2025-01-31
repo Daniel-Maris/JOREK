@@ -469,7 +469,7 @@ mpi_comm_in,mpi_info_in,test_in)
   integer                                        :: i,ii,ierr,h5err,errorcode
   integer                                        :: mpi_comm_loc,mpi_info_loc
   integer                                        :: storage_type,max_corder,rank
-  integer                                        :: n_groups_old
+  integer                                        :: n_groups_old, n_dropped_groups
   integer(HID_T)                                 :: file_id,group_id
   integer(HSIZE_T)                               :: offset,n_particles_hsizet
   integer,          dimension(:),    allocatable :: n_particles_per_proc
@@ -486,13 +486,13 @@ mpi_comm_in,mpi_info_in,test_in)
   real*8,           dimension(:,:,:),allocatable :: dAstar_k_arr
   character(len=group_name_len)                  :: group_name
   character(len=:),                  allocatable :: particle_type_str
-  logical                                        :: create_access_plist,test
-  character(len=3)                               :: dropped_groups(n_part_groups_max)
+  logical                                        :: create_access_plist,test,id_matched
   character(len=3)                               :: part_group_id
   character(len=3),                  allocatable :: part_groups_in_use_old(:) 
+  integer,          dimension(:),    allocatable :: dropped_groups_mask     ! records which groups from the restart file has been dropped
 
   ! temp group attributes
-  integer            :: tmp_Z, dropped_groups_counter
+  integer            :: tmp_Z
   real*8             :: tmp_mass
   character(len=3)   :: tmp_cs
   character(len=8)   :: tmp_ad_suffix 
@@ -531,6 +531,10 @@ mpi_comm_in,mpi_info_in,test_in)
   !> restart if it has not been manually defined
   if (part_groups_in_use(1) == 'non') part_groups_in_use(1:n_groups_old) = part_groups_in_use_old 
 
+  !> set up a recording of which group from part_restart.h5 has been dropped
+  allocate(dropped_groups_mask(n_groups_old))
+  dropped_groups_mask = 1
+
   !> the line below should only be the case in certain unit tests, otherwise the
   !> allocation of groups and their configuration should be done in sim%initialize()
   if (.not. (allocated(sim%groups))) call sim%allocate_groups(n_part_groups)
@@ -540,9 +544,8 @@ mpi_comm_in,mpi_info_in,test_in)
     write(*,*) "====== LOADING PARTICLE GROUPS ======"
   endif 
 
-  dropped_groups_counter = 0
   do i=1, n_part_groups ! loop over groups in part_groups_in_use
-
+    id_matched = .false.
     if (sim%my_id == 0) then
       write(*,*) ""
       write(*,*) " --- Group ID to match: ", part_groups_in_use(i), " --- "
@@ -555,6 +558,9 @@ mpi_comm_in,mpi_info_in,test_in)
 
       if (part_group_id == part_groups_in_use(i)) then
         if (sim%my_id == 0) write(*,*) "Matching restart group found. Loading data..."
+        id_matched = .true.
+        dropped_groups_mask(ii) = 0 ! mark group as NOT dropped
+
         !> read and load group datasets. We assume that the ith-particle group of 
         !> all tasks is defined by the same unique value stored in the hdf5 file
 
@@ -605,7 +611,7 @@ mpi_comm_in,mpi_info_in,test_in)
           write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
         endif
 
-        !> will probably need some more checks here when particle_group_configs(i)%n_particles < n_particles_tot(1)
+        !> will probably need some more checks here when particle_group_configs(i)%n_particles < n_particles_tot(1), such as checking whether if enough particles are lost?
     
         !> Setting attributes ------------------------
         sim%groups(i)%Z = tmp_Z
@@ -698,36 +704,51 @@ mpi_comm_in,mpi_info_in,test_in)
         call deallocate_particle_arrays(n_particles_per_proc(sim%my_id+1),i_elm_arr,&
         i_life_arr,q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,&
         B_norm_arr,vpar_m_arr,st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,&
-        Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)   
-      else
-        write(*,*) "WARNING: No matching group found in restart file for '", part_groups_in_use(i), "'"
-        write(*,*) "A new group will be created and initialized. "
+        Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
         
-        ! calculate load balancing ------
-        ! turn below into a function
-        n_particles_per_proc = int(particle_group_configs(i)%n_particles)/sim%n_cpu
-        n_particles_per_proc(master_task+1) = int(particle_group_configs(i)%n_particles) - &
-        (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
-
-        ! getting particle type --------- 
-        ! should clean up a bit here
-        if(allocated(particle_type_str)) deallocate(particle_type_str)
-        allocate(character(len=len(trim(particle_group_configs(i)%type)))::particle_type_str)
-        particle_type_str = trim(particle_group_configs(i)%type)
-
-        call allocate_particle_array(sim, i, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
-        
+        if (sim%my_id == 0) write(*,*) "Group '", part_groups_in_use(i), "' loaded."
       endif ! (part_group_id == part_groups_in_use(i))
     enddo ! n_groups_old (particle groups in restart)
+
+    if (.not. id_matched) then
+      if (sim%my_id == 0) then
+        write(*,*) "WARNING: No matching group found in restart file for '", part_groups_in_use(i), "'"
+        write(*,*) "A new group will be initialized according to particle_groups_configs"
+      endif
+
+      ! calculate load balancing ------
+      ! turn below into a function
+      n_particles_per_proc = int(particle_group_configs(i)%n_particles)/sim%n_cpu
+      n_particles_per_proc(master_task+1) = int(particle_group_configs(i)%n_particles) - &
+      (sim%n_cpu-1)*n_particles_per_proc(master_task+1)
+
+      ! getting particle type --------- 
+      ! should clean up a bit here
+      if(allocated(particle_type_str)) deallocate(particle_type_str)
+      allocate(character(len=len(trim(particle_group_configs(i)%type)))::particle_type_str)
+      particle_type_str = trim(particle_group_configs(i)%type)
+
+      call allocate_particle_array(sim, i, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
+      if (sim%my_id == 0) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
+    endif
   enddo ! n_part_groups (particle groups requested in part_groups_in_use)
 
   if (sim%my_id == 0) then 
-    write(*,*) ""
-    write(*,*) "====== PARTICLE GROUPS LOADED ====== "
-    write(*,*) ""
-  endif
-  ! inform about the groups that have been dropped
+    write(*,*) " ------ "
+    write(*,*) "Finished importing particle groups from part_restart.h5 "
+    n_dropped_groups = count(dropped_groups_mask == 1)
 
+    !> write out information about dropped groups
+    if (n_dropped_groups > 0) then
+      write(*, '(A, I0, A)') ' ', n_dropped_groups, " group(s) from part_restart.h5 has been dropped:"
+      do ii = 1, n_groups_old
+        if (dropped_groups_mask(ii) == 1) write(*, '(A, A, A)') "   '", part_groups_in_use_old(ii), "'"
+      enddo
+    else
+      write(*,*) "No groups have been dropped."  
+    endif
+    write(*,*) "-------------------"
+  endif
 
   !> clean-up
   call HDF5_close(file_id)

@@ -33,20 +33,24 @@ contains
     integer :: i
 
     do i=1, n_part_groups
-      ! if (particle_group_configs(i)%id(1:1) == 'P') then
-      !   write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
-      !         "as it is reserved for system assigned ids."
-      !   stop
-      ! endif
 
-      if (particle_group_configs(i)%id == 'non') then
-        if (part_groups_in_use(i) /= 'non') then 
-          write(*,*) "Error: part_groups_in_use is defined, which requires id to be explicitly " // &
-                "defined for all members of part_configs."
+      if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
+
+        if (particle_group_configs(i)%id(1:1) == 'P') then
+          write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
+                "as it is reserved for system assigned ids."
           stop
         endif
-        call generate_part_group_id(particle_group_configs(i)%id)
+
+        if (particle_group_configs(i)%id == 'non') then
+            write(*,*) "Error: part_groups_in_use is defined, which requires id to be explicitly " // &
+                  "defined for all members of part_configs."
+            stop
+          call generate_part_group_id(particle_group_configs(i)%id)
+        endif
+
       endif
+
     enddo
 
     if (part_groups_in_use(1) == 'non') then ! part_groups_in_use is not assigned
