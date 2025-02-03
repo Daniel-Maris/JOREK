@@ -32,7 +32,7 @@ contains
 
         ! putting particle_type in the right format for allocate_particle_arrray function
         ! this is so that the function can be used both here and in io
-        if(allocated(particle_type_str)) deallocate(particle_type_str)
+        if (allocated(particle_type_str)) deallocate(particle_type_str)
         allocate(character(len=len(trim(particle_group_configs(i)%type)))::particle_type_str)
         particle_type_str = trim(particle_group_configs(i)%type)
 
@@ -45,6 +45,7 @@ contains
     enddo
 
     deallocate(n_particles_per_mpi)
+    if (allocated(particle_type_str)) deallocate(particle_type_str)
     
   end subroutine allocate_particles_for_sim
 

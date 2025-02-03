@@ -428,7 +428,7 @@ mpi_comm_in,mpi_info_in,test_in)
   integer                                        :: n_groups_old, n_dropped_groups
   integer(HID_T)                                 :: file_id,group_id
   integer(HSIZE_T)                               :: offset,n_particles_hsizet
-  integer,          dimension(:),    allocatable :: n_particles_per_proc
+  integer,          dimension(:),    allocatable :: n_particles_per_mpi
   integer*4,        dimension(:),    allocatable :: i_elm_arr,i_life_arr
   integer*4,        dimension(:),    allocatable :: q_arr
   integer(HSIZE_T), dimension(:),    allocatable :: n_particles_tot,n_particles_max
@@ -454,7 +454,7 @@ mpi_comm_in,mpi_info_in,test_in)
   character(len=8)   :: tmp_ad_suffix 
 
   !> initialisation
-  allocate(n_particles_per_proc(sim%n_cpu))
+  allocate(n_particles_per_mpi(sim%n_cpu))
   !> set optional parameters
   create_access_plist = .false.
   if(present(use_hdf5_access_properties)) create_access_plist = .not.use_hdf5_access_properties
@@ -595,14 +595,14 @@ mpi_comm_in,mpi_info_in,test_in)
         endif
 
         !> compute the number of particles per processor and allocate particle array ---------
-        call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_proc, master_task)
-        offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
-        n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
+        call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_mpi, master_task)
+        offset = int(sum(n_particles_per_mpi(1:sim%my_id)),kind=HSIZE_T)
+        n_particles_hsizet = int(n_particles_per_mpi(sim%my_id+1),kind=HSIZE_T)
 
         !> allocate particle list and initialise to 0 -----------------
-        call allocate_particle_array(sim, i, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
+        call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
 
-        call initialize_particle_list_to_zero(n_particles_per_proc(sim%my_id+1),sim%groups(i)%particles,ierr)
+        call initialize_particle_list_to_zero(n_particles_per_mpi(sim%my_id+1),sim%groups(i)%particles,ierr)
 
 
         !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array -------------
@@ -657,7 +657,7 @@ mpi_comm_in,mpi_info_in,test_in)
         call HDF5_allocatable_array3D_reading(file_id,dAstar_k_arr,trim(group_name)//"dAstar_k",&
         reqdims_in=[n1_HSIZE_T,n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,i0_HSIZE_T,offset])
         !> fill particle list from arrays
-        call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(i)%particles,ierr,&
+        call particle_list_from_arrays(n_particles_per_mpi(sim%my_id+1),sim%groups(i)%particles,ierr,&
         i_elm_arr=i_elm_arr,i_life_arr=i_life_arr,t_birth_arr=t_birth_arr,weight_arr=weight_arr,&
         x_arr=x_arr,st_arr=st_arr,q_arr=q_arr,v_1d_arr=v_1d_arr,E_arr=E_arr,mu_arr=mu_arr,&
         vpar_arr=vpar_arr,B_norm_arr=B_norm_arr,vpar_m_arr=vpar_m_arr,B_hat_prev_arr=B_hat_prev_arr,&
@@ -665,7 +665,7 @@ mpi_comm_in,mpi_info_in,test_in)
         Bn_k_arr=Bn_k_arr,dBn_k_arr=dBn_k_arr,Bnorm_k_arr=Bnorm_k_arr,&
         E_k_arr=E_k_arr,dAstar_k_arr=dAstar_k_arr)
         !> deallocate structures
-        call deallocate_particle_arrays(n_particles_per_proc(sim%my_id+1),i_elm_arr,&
+        call deallocate_particle_arrays(n_particles_per_mpi(sim%my_id+1),i_elm_arr,&
         i_life_arr,q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,&
         B_norm_arr,vpar_m_arr,st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,&
         Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
@@ -681,14 +681,14 @@ mpi_comm_in,mpi_info_in,test_in)
       endif
 
       ! calculate load balancing ------
-      call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_proc, master_task)
+      call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_mpi, master_task)
 
       ! getting particle type --------- 
       if(allocated(particle_type_str)) deallocate(particle_type_str)
       allocate(character(len=len(trim(particle_group_configs(i)%type)))::particle_type_str)
       particle_type_str = trim(particle_group_configs(i)%type)
 
-      call allocate_particle_array(sim, i, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
+      call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
       if (sim%my_id == 0) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
     endif
   enddo ! n_part_groups (particle groups requested in part_groups_in_use)
@@ -712,10 +712,12 @@ mpi_comm_in,mpi_info_in,test_in)
 
   !> clean-up
   call HDF5_close(file_id)
-  if(allocated(n_particles_tot))      deallocate(n_particles_tot)
-  if(allocated(n_particles_max))      deallocate(n_particles_max)
-  if(allocated(n_particles_per_proc)) deallocate(n_particles_per_proc)
-  if(allocated(particle_type_str))    deallocate(particle_type_str)
+  if(allocated(n_particles_tot))        deallocate(n_particles_tot)
+  if(allocated(n_particles_max))        deallocate(n_particles_max)
+  if(allocated(n_particles_per_mpi))    deallocate(n_particles_per_mpi)
+  if(allocated(particle_type_str))      deallocate(particle_type_str)
+  if(allocated(part_groups_in_use_old)) deallocate(part_groups_in_use_old)
+  if(allocated(dropped_groups_mask))    deallocate(dropped_groups_mask)
 end subroutine read_simulation_hdf5
 
 !> !> Get '/time' from a file. Does not alter the units in any way
