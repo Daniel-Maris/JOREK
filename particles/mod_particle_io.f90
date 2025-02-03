@@ -561,14 +561,20 @@ mpi_comm_in,mpi_info_in,test_in)
         endif
 
         if (particle_group_configs(i)%n_particles /= n_particles_tot(1)) then
+
+          !> currently we do not allow the user to decrease the size of the particle array as we need 
+          !> a more reliable way of determining which slots of the array are free (planned improvement to the isfree system)
+          if (particle_group_configs(i)%n_particles < n_particles_tot(1)) then
+            write(*,*) "ERROR: demanding less particles than saved in the restart file for a group is currently not supported." 
+            stop
+          endif
+          
           write(*,*) "IMPORT WARNING: Attribute 'n_particles' mismatch between namelist and imported data for group: ", part_group_id
           write(*,*) " Namelist value: ", particle_group_configs(i)%n_particles 
           write(*,*) " Imported value: ", n_particles_tot(1)
           write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
         endif
 
-        !> will probably need some more checks here when particle_group_configs(i)%n_particles < n_particles_tot(1), such as checking whether if enough particles are lost?
-    
         !> Setting attributes ------------------------
         sim%groups(i)%Z = tmp_Z
         sim%groups(i)%mass = tmp_mass
