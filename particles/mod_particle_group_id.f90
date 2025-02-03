@@ -12,17 +12,26 @@ contains
   !> groups specified matches with the particle_group_configs
   subroutine check_part_groups_in_use_matches_configs()
     implicit none
-    integer :: i
+    integer :: i, defined_groups
 
-    ! count how many groups are defined in part_groups_in_use
+    defined_groups = 0
     if (trim(part_groups_in_use(1)) /= 'non') then
 
       do i=1, n_part_groups_max
         if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
           write(*,*) "ERROR: if manually defining particle groups using part_groups_in_use, the" 
           write(*,*) " groups in particle_group_configs() must match in number and id and order"
+          stop
         endif
+
+        if (part_groups_in_use(i) /= 'non') defined_groups = defined_groups + 1
       enddo
+
+      if (n_part_groups /= defined_groups) then
+        write(*,*) "ERROR: if manually defining particle groups using part_groups_in_use, the" 
+        write(*,*) " groups in particle_group_configs() must match in number and id and order"
+        stop
+      endif
 
     endif
     
