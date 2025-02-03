@@ -530,75 +530,79 @@ mpi_comm_in,mpi_info_in,test_in)
         rank,n_particles_tot,n_particles_max) ! n_particles_tot
 
         !> Check if read attributes matches with specified attributes -----------
-        if (particle_group_configs(i)%Z /= tmp_Z) then
-          write(*,*) "IMPORT ERROR: Attribute 'Z' mismatch between namelist and imported data for group: ", part_group_id
-          stop
-        endif
-
-        if (particle_group_configs(i)%mass /= tmp_mass) then
-          write(*,*) "IMPORT ERROR: Attribute 'mass' mismatch between namelist and imported data for group: ", part_group_id
-          stop
-        endif
-
-        if (trim(particle_group_configs(i)%coupling_scheme) /= trim(tmp_cs)) then
-          write(*,*) "IMPORT ERROR: Attribute 'coupling_scheme' mismatch between namelist and imported data for group: ", part_group_id
-          stop
-        endif
-
-        if (trim(particle_group_configs(i)%type) /= trim(particle_type_str)) then
-          write(*,*) "IMPORT ERROR: Attribute 'type' mismatch between namelist and imported data for group: ", part_group_id
-          write(*,*) "Namelist type: ", trim(particle_group_configs(i)%type)
-          write(*,*) "Imported type: ", trim(particle_type_str)
-          stop
-        endif
-
-        !> attributes that are allowed to change
-        if (trim(particle_group_configs(i)%atom_data_suffix) /= trim(tmp_ad_suffix)) then
-          write(*,*) "IMPORT WARNING: Attribute 'atom_data_suffix' mismatch between namelist and imported data for group: ", part_group_id
-          write(*,*) " Namelist value: ", trim(particle_group_configs(i)%atom_data_suffix) 
-          write(*,*) " Imported value: ", trim(tmp_ad_suffix)
-          write(*,*) " Will proceed with suffix given by namelist."
-        endif
-
-        if (particle_group_configs(i)%n_particles /= n_particles_tot(1)) then
-
-          !> currently we do not allow the user to decrease the size of the particle array as we need 
-          !> a more reliable way of determining which slots of the array are free (planned improvement to the isfree system)
-          if (particle_group_configs(i)%n_particles < n_particles_tot(1)) then
-            write(*,*) "ERROR: demanding less particles than saved in the restart file for a group is currently not supported." 
+        !> will only be done on main mpi process to allow for cleaner error messages
+        if (sim%my_id == master_task) then
+          if (particle_group_configs(i)%Z /= tmp_Z) then
+            write(*,*) "IMPORT ERROR: Attribute 'Z' mismatch between namelist and imported data for group: ", part_group_id
             stop
           endif
-          
-          write(*,*) "IMPORT WARNING: Attribute 'n_particles' mismatch between namelist and imported data for group: ", part_group_id
-          write(*,*) " Namelist value: ", particle_group_configs(i)%n_particles 
-          write(*,*) " Imported value: ", n_particles_tot(1)
-          write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
+  
+          if (particle_group_configs(i)%mass /= tmp_mass) then
+            write(*,*) "IMPORT ERROR: Attribute 'mass' mismatch between namelist and imported data for group: ", part_group_id
+            stop
+          endif
+  
+          if (trim(particle_group_configs(i)%coupling_scheme) /= trim(tmp_cs)) then
+            write(*,*) "IMPORT ERROR: Attribute 'coupling_scheme' mismatch between namelist and imported data for group: ", part_group_id
+            stop
+          endif
+  
+          if (trim(particle_group_configs(i)%type) /= trim(particle_type_str)) then
+            write(*,*) "IMPORT ERROR: Attribute 'type' mismatch between namelist and imported data for group: ", part_group_id
+            write(*,*) "Namelist type: ", trim(particle_group_configs(i)%type)
+            write(*,*) "Imported type: ", trim(particle_type_str)
+            stop
+          endif
+  
+          !> attributes that are allowed to change
+          if (trim(particle_group_configs(i)%atom_data_suffix) /= trim(tmp_ad_suffix)) then
+            write(*,*) "IMPORT WARNING: Attribute 'atom_data_suffix' mismatch between namelist and imported data for group: ", part_group_id
+            write(*,*) " Namelist value: ", trim(particle_group_configs(i)%atom_data_suffix) 
+            write(*,*) " Imported value: ", trim(tmp_ad_suffix)
+            write(*,*) " Will proceed with suffix given by namelist."
+          endif
+  
+          if (particle_group_configs(i)%n_particles /= n_particles_tot(1)) then
+  
+            !> currently we do not allow the user to decrease the size of the particle array as we need 
+            !> a more reliable way of determining which slots of the array are free (planned improvement to the isfree system)
+            if (particle_group_configs(i)%n_particles < n_particles_tot(1)) then
+              write(*,*) "ERROR: demanding less particles than saved in the restart file for a group is currently not supported." 
+              stop
+            endif
+  
+            write(*,*) "IMPORT WARNING: Attribute 'n_particles' mismatch between namelist and imported data for group: ", part_group_id
+            write(*,*) " Namelist value: ", particle_group_configs(i)%n_particles 
+            write(*,*) " Imported value: ", n_particles_tot(1)
+            write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
+          endif
         endif
 
         !> Setting attributes ------------------------
+
         sim%groups(i)%Z = tmp_Z
         sim%groups(i)%mass = tmp_mass
         sim%groups(i)%coupling_scheme = tmp_cs
-        sim%groups(i)%n_particles = n_particles_tot(1)
+        ! overriding n_particles_tot from import with n_particles from config
+        sim%groups(i)%n_particles = particle_group_configs(i)%n_particles
+        n_particles_tot(1) = particle_group_configs(i)%n_particles
   
         ! adas data
-        sim%groups(i)%ad%suffix = tmp_ad_suffix
-        if((len_trim(sim%groups(ii)%ad%suffix).gt.0).and.(.not.test)) then
-          sim%groups(ii)%ad  = read_adf11(sim%my_id,sim%groups(ii)%ad%suffix)
-          sim%groups(ii)%cor = coronal(sim%groups(ii)%ad) 
+        sim%groups(i)%ad%suffix = particle_group_configs(i)%atom_data_suffix
+        if((len_trim(sim%groups(i)%ad%suffix).gt.0).and.(.not.test)) then
+          sim%groups(i)%ad  = read_adf11(sim%my_id,sim%groups(i)%ad%suffix)
+          sim%groups(i)%cor = coronal(sim%groups(i)%ad) 
         endif
 
         !> compute the number of particles per processor and allocate particle array ---------
         call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_proc, master_task)
         offset = int(sum(n_particles_per_proc(1:sim%my_id)),kind=HSIZE_T)
         n_particles_hsizet = int(n_particles_per_proc(sim%my_id+1),kind=HSIZE_T)
-        !> set n_particles for the group
-        sim%groups(ii)%n_particles = int(n_particles_tot(1))
 
         !> allocate particle list and initialise to 0 -----------------
-        call allocate_particle_array(sim, ii, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
+        call allocate_particle_array(sim, i, particle_type_str, n_particles_per_proc(sim%my_id+1), mpi_comm_loc)
 
-        call initialize_particle_list_to_zero(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr)
+        call initialize_particle_list_to_zero(n_particles_per_proc(sim%my_id+1),sim%groups(i)%particles,ierr)
 
 
         !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array -------------
@@ -653,7 +657,7 @@ mpi_comm_in,mpi_info_in,test_in)
         call HDF5_allocatable_array3D_reading(file_id,dAstar_k_arr,trim(group_name)//"dAstar_k",&
         reqdims_in=[n1_HSIZE_T,n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,i0_HSIZE_T,offset])
         !> fill particle list from arrays
-        call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(ii)%particles,ierr,&
+        call particle_list_from_arrays(n_particles_per_proc(sim%my_id+1),sim%groups(i)%particles,ierr,&
         i_elm_arr=i_elm_arr,i_life_arr=i_life_arr,t_birth_arr=t_birth_arr,weight_arr=weight_arr,&
         x_arr=x_arr,st_arr=st_arr,q_arr=q_arr,v_1d_arr=v_1d_arr,E_arr=E_arr,mu_arr=mu_arr,&
         vpar_arr=vpar_arr,B_norm_arr=B_norm_arr,vpar_m_arr=vpar_m_arr,B_hat_prev_arr=B_hat_prev_arr,&
