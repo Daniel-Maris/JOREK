@@ -684,7 +684,6 @@ mpi_comm_in,mpi_info_in,test_in)
       call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_proc, master_task)
 
       ! getting particle type --------- 
-      ! should clean up a bit here
       if(allocated(particle_type_str)) deallocate(particle_type_str)
       allocate(character(len=len(trim(particle_group_configs(i)%type)))::particle_type_str)
       particle_type_str = trim(particle_group_configs(i)%type)

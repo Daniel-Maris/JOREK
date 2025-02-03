@@ -7,7 +7,7 @@ use mod_coronal
 use basis_at_gaussian
 implicit none
 private
-public particle_group, particle_sim, configure_particle_groups, allocate_particles
+public particle_group, particle_sim, configure_particle_groups
 
 !> A group of particles, implemented as an allocatable array.
 !> It must contain particles of the same species (charge number).
@@ -112,44 +112,6 @@ subroutine configure_particle_groups(sim)
   enddo 
 
 end subroutine configure_particle_groups
-
-!> allocates the particles for a group depending on its type and n_particles
-subroutine allocate_particles(sim)
-  use phys_module, only: particle_group_configs, n_part_groups
-  implicit none
-  class(particle_sim), intent(inout)       :: sim
-  integer                                  :: i, n_particles_local
-
-  do i=1, n_part_groups
-    if (.not. allocated(sim%groups(i)%particles)) then
-
-      n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_cpu)
-
-      select case (trim(particle_group_configs(i)%type))
-        case ("particle_kinetic_leapfrog")
-          ! setting up empty particle array
-          allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local))
-          select type (p => sim%groups(i)%particles)
-            type is (particle_kinetic_leapfrog)  
-              p(:)%q      = 0 !< for neutrals
-              p(:)%weight = 0.0!weight
-              p(:)%i_elm  = 0
-              p(:)%v(1)   = 0.d0 
-              p(:)%v(2)   = 0.d0
-              p(:)%v(3)   = 0.d0
-          end select
-        case ("particle_gc_relativistic")
-          allocate(particle_gc_relativistic ::sim%groups(i)%particles(n_particles_local)) 
-        case default
-          write(*,*) "Error: no match found for defined particle type, please ensure the defined type is supported (see mod_particle_types.f90 and mod_particle_sim.f90)"
-          stop 1
-      end select
-
-    endif !if allocated
-
-  enddo
-  
-end subroutine allocate_particles
 
 !> Actions to perform when setting up a simulation
 !> inputs:
