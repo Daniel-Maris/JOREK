@@ -954,9 +954,9 @@ module phys_module
   real*8  :: puff_rate        !< physical atoms/sec puffed (shared over 2 places)
   integer :: n_puff           !< superparticles used per puffing action per valve
 
-  ! ------------------------------------------------
+  ! -----------------------------------------------
   ! --- Structures for particle valves 
-  ! ------------------------------------------------
+  ! -----------------------------------------------
   !> @name Particle valve settings
   integer            :: n_valves                !< number of valves being used
   integer, parameter :: n_valves_max = 20       !< maximum number of valves   
