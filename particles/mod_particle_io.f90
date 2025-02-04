@@ -595,7 +595,7 @@ mpi_comm_in,mpi_info_in,test_in)
         endif
 
         !> compute the number of particles per processor and allocate particle array ---------
-        call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_mpi, master_task)
+        call calc_n_particles_per_mpi(int(n_particles_tot(1)), sim%n_cpu, n_particles_per_mpi, master_task)
         offset = int(sum(n_particles_per_mpi(1:sim%my_id)),kind=HSIZE_T)
         n_particles_hsizet = int(n_particles_per_mpi(sim%my_id+1),kind=HSIZE_T)
 
