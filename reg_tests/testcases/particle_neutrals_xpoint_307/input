@@ -132,6 +132,12 @@
   gmres_max_iter = 200
   gmres_tol = 1.d-8
 
+  ! --- valves
+  n_valves = 1
+  valves(1)%type = 'poly'
+  valves(1)%poly_R = 3.86d0, 3.9d0, 3.86d0, 3.9d0
+  valves(1)%poly_Z = 0.1d0,  0.1d0,  0.0d0, 0.0d0
+
   ! ----  particle groups
   n_part_groups = 1
   particle_group_configs(1)%Z = -2

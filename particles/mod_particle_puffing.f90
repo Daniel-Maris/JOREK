@@ -134,7 +134,7 @@ subroutine do_particle_puffing(this,sim, ev)
     stop
   end if
   
-  n_puff_local = this%n_puff / sim%n_cpu !n_puff local is the amount of superparticles that will be puffed per MPI process.
+  n_puff_local = this%n_puff / sim%n_mpi !n_puff local is the amount of superparticles that will be puffed per MPI process.
  
 !============== Finding free particles !< make into a function?
 allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
