@@ -681,7 +681,7 @@ mpi_comm_in,mpi_info_in,test_in)
       endif
 
       ! calculate load balancing ------
-      call calc_n_particles_per_mpi(n_particles_tot(1), sim%n_cpu, n_particles_per_mpi, master_task)
+      call calc_n_particles_per_mpi(int(n_particles_tot(1)), sim%n_cpu, n_particles_per_mpi, master_task)
 
       ! getting particle type --------- 
       if(allocated(particle_type_str)) deallocate(particle_type_str)
