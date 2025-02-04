@@ -98,10 +98,14 @@ real*8  :: r_valve, R_valve_loc, Z_valve, R_valve_loc2, Z_valve2
 ! Start up MPI, jorek
 call sim%initialize()
 
-! Set up the field reader < can this be moved to sim%initialize
-fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
-call with(sim, fieldreader) 
-tstep = tstep_n(1) !< the field reader overwrites tstep for some reason, this resets that
+! Loading the jorek fields
+if (restart) then
+  fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
+  call with(sim, fieldreader)
+else
+  if (sim%my_id == 0) write(*,*) 'ERROR: using this program without restarting from a jorek field is not possible. Please set restart=.t. in the namelist and provide a jorek_restart.h5 file'
+  stop
+end if
 
 ! setting up the particles
 if (restart_particles) then
@@ -112,7 +116,7 @@ if (restart_particles) then
 
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
-  if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_cpu, " cpus "
+  if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
 
   !> is this needed for neutrals?
   if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
@@ -132,7 +136,7 @@ if (deuterium_adas .and. use_kin_recomb_global) ad_deuterium =  read_adf11(sim%m
 seed = random_seed()
 n_stream = 1
 !$ n_stream = omp_get_max_threads()
-write(*,*) "id, n_cpu, n_stream",sim%my_id, sim%n_cpu, n_stream
+write(*,*) "id, n_mpi, n_stream",sim%my_id, sim%n_mpi, n_stream
 allocate(rng(n_stream))
 do i=1,n_stream
   call rng(i)%initialize(1, seed, n_stream, i)
@@ -339,7 +343,7 @@ call write_simulation_hdf5(sim, 'part_restart.h5')
 
 deallocate(sputter_events, recomb_groups)
 
-call sim%finalize
+call sim%finalize()
 
 !***********************************************************************
 !*                          end of main program                        *

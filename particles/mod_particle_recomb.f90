@@ -43,7 +43,7 @@ module mod_particle_recomb
     real*8, dimension(:), allocatable  :: volume_check, energy_neutrals, energy_radiation
   
     !Call mod_integrate_recombination
-    call integrate_recombination(sim%my_id,sim%n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
+    call integrate_recombination(sim%my_id,sim%n_mpi, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
   
     sanity_rec_local = 0.d0
     !calculate total recombination per mpi proces
@@ -136,7 +136,7 @@ module mod_particle_recomb
     
           ! --- Get element
           !ielm = jorek_stepper%local_elms(ife) !< actual element number
-          ielm  = (sim%my_id+1) + sim%n_cpu*(ife - 1)
+          ielm  = (sim%my_id+1) + sim%n_mpi*(ife - 1)
           element = element_list%element(ielm)
     
           ! initialise particle in the element with Position, Weight, Energy, Momentum

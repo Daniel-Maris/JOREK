@@ -112,7 +112,7 @@ subroutine do_sputter(this, sim, ev)
       sim%groups(i)%particles(k)%st = this%st
       ! The particle weight is given by the number of particles sputtered from
       ! this source in this time divided by the number of
-      ! simulation particles sputtered (all cpus). The number of simulation particles is given by
+      ! simulation particles sputtered (all mpi's). The number of simulation particles is given by
       ! n_free_all*this%fill_fraction
       sim%groups(i)%particles(k)%weight = real(this%source * (sim%time - this%last_time),4) / real(n_sputter,4)
 

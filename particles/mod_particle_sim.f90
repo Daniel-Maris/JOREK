@@ -47,7 +47,7 @@ type :: particle_sim
   type(particle_group), dimension(:), allocatable :: groups
   !< MPI settings
   integer :: my_id = 0
-  integer :: n_cpu = 1 ! if not initialized, act as if there is no mpi
+  integer :: n_mpi = 1 ! if not initialized, act as if there is no mpi
   real*8  :: wtime_start !< Clock time at the start of the program
 contains
   procedure,pass(sim) :: finalize
@@ -119,10 +119,10 @@ end subroutine configure_particle_groups
 !>   num_groups:      (integer) number of particle groups
 !>   skip_jorek2help: (logical)(optional) call jorek2help if present
 !>   my_id:           (integer)(optional) mpi rank
-!>   n_cpu:           (integer)(optional) number of mpi tasks in the commworld
+!>   n_mpi:           (integer)(optional) number of mpi tasks in the commworld
 !> outputs:
 !>   sim: (particle_sim) the particle simulation
-subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in,skip_group_config)
+subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_group_config)
   use mod_mpi_tools,     only: init_mpi_threads
   use mod_mpi_tools,     only: get_mpi_wtime
   use mod_parameters,    only: n_tor, n_period
@@ -134,16 +134,16 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in,skip_grou
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
   logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in,skip_group_config
-  integer,intent(in),optional        :: my_id,n_cpu
+  integer,intent(in),optional        :: my_id,n_mpi
   logical                            :: do_jorek_init
   integer                            :: ierr, i_tor,nthreads, group_num
 
   !> initialise the mpi comm world with threads if required
-  if(present(my_id).and.present(n_cpu)) then
-    sim%my_id = my_id; sim%n_cpu = n_cpu;
+  if(present(my_id).and.present(n_mpi)) then
+    sim%my_id = my_id; sim%n_mpi = n_mpi;
     sim%wtime_start = get_mpi_wtime()
   else
-    call init_mpi_threads(sim%my_id,sim%n_cpu,ierr,sim%wtime_start)
+    call init_mpi_threads(sim%my_id,sim%n_mpi,ierr,sim%wtime_start)
   endif
 
  !> check if the initialisation of JOREK should be performed or not
@@ -154,7 +154,7 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_cpu,do_jorek_init_in,skip_grou
     call init_threads()
 
     if (present(skip_jorek2help)) then
-      if (sim%my_id .eq. 0 .and. .not. skip_jorek2help) call jorek2help(sim%n_cpu, nbthreads)
+      if (sim%my_id .eq. 0 .and. .not. skip_jorek2help) call jorek2help(sim%n_mpi, nbthreads)
     end if
 
     ! Initialise mode numbers

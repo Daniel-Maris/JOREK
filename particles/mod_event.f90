@@ -499,7 +499,7 @@ subroutine run(this, sim, ev)
   !$ w1 = omp_get_wtime()
 
   if (this%log) then
-    if (sim%n_cpu .gt. 1) then
+    if (sim%n_mpi .gt. 1) then
       mmm = mpi_minmeanmax(t1-this%t0)
       !$ mmm2 = mpi_minmeanmax(w1-this%w0)
       if (sim%my_id .eq. 0) then
@@ -537,15 +537,15 @@ function mpi_minmeanmax(in) result(out)
   use mpi
   real*8, intent(in) :: in
   real*8 :: out(3)
-  integer :: n_cpu, my_id, ierr
+  integer :: n_mpi, my_id, ierr
   real*8, allocatable :: in_all(:)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr)
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
-  allocate(in_all(n_cpu))
+  allocate(in_all(n_mpi))
   call MPI_Gather(in, 1, MPI_REAL8, in_all, 1, MPI_REAL8, 0, MPI_COMM_WORLd, ierr)
   if (my_id .eq. 0) then
     out(1) = minval(in_all,1)
-    out(2) = sum(in_all,1)/real(n_cpu)
+    out(2) = sum(in_all,1)/real(n_mpi)
     out(3) = maxval(in_all,1)
   else
     out = 0.d0
@@ -559,18 +559,18 @@ function mpi_minmeanmedmax(in) result(out)
   use mod_quicksort
   real*8, intent(in) :: in
   real*8 :: out(4)
-  integer :: n_cpu, my_id, ierr
+  integer :: n_mpi, my_id, ierr
   real*8, allocatable :: in_all(:)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr)
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
-  allocate(in_all(n_cpu))
+  allocate(in_all(n_mpi))
   call MPI_Gather(in, 1, MPI_REAL8, in_all, 1, MPI_REAL8, 0, MPI_COMM_WORLd, ierr)
   if (my_id .eq. 0) then
     call quicksort(in_all)
     out(1) = in_all(1)
-    out(2) = sum(in_all,1)/real(n_cpu)
-    out(3) = in_all((n_cpu+1)/2)
-    out(4) = in_all(n_cpu)
+    out(2) = sum(in_all,1)/real(n_mpi)
+    out(3) = in_all((n_mpi+1)/2)
+    out(4) = in_all(n_mpi)
   else
     out = 0.d0
   end if

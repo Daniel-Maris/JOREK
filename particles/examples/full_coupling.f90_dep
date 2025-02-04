@@ -56,7 +56,7 @@ logical :: use_kn_cx, use_kn_ionisation, use_kn_sputtering
 ! Start up MPI, jorek
 call sim%initialize(num_groups=1)
 
-n_particles_local = int(n_particles/sim%n_cpu) 
+n_particles_local = int(n_particles/sim%n_mpi) 
 timesteps         = tstep_particles
 
 use_kn_cx         = .false.

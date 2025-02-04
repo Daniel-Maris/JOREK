@@ -117,7 +117,7 @@ type, extends(io_action) :: projection
   integer :: my_id_n           ! mpi id with comm_n
   integer :: mpi_group_world
   integer :: mpi_group_master
-  integer :: n_cpu, m_cpu      ! n_cpu : the total number of cores, m_cpu the number of cores per harmonic
+  integer :: n_mpi, m_mpi      ! n_mpi : the total number of cores, m_mpi the number of cores per harmonic
   integer :: n_tor_local       ! 1 or 2 : (1) or (cos,sin)
   integer :: i_tor_local       ! the starting index in the array of toroidal hamonics (as in HZ)
   integer :: n_dof             ! the number of unknowns for (n=0)
@@ -459,32 +459,32 @@ function new_projection(node_list, element_list,                                
   call MPI_Comm_dup(MPI_COMM_WORLD, new%mpi_comm_world, ierr)
 
   call MPI_COMM_RANK(new%mpi_comm_world, new%my_id, ierr)
-  call MPI_COMM_SIZE(new%mpi_comm_world, new%n_cpu, ierr)
+  call MPI_COMM_SIZE(new%mpi_comm_world, new%n_mpi, ierr)
 
   n_masters = (n_tor+1)/2
-  if (MOD(new%n_cpu, n_masters) == 0) then
-    new%m_cpu = new%n_cpu / (n_masters)
+  if (MOD(new%n_mpi, n_masters) == 0) then
+    new%m_mpi = new%n_mpi / (n_masters)
   else
-    new%m_cpu = (new%n_cpu - MOD(new%n_cpu, n_masters))/n_masters +1
+    new%m_mpi = (new%n_mpi - MOD(new%n_mpi, n_masters))/n_masters +1
   end if
 
   if (allocated(i_tor)) call tr_deallocate(i_tor,"i_tor",CAT_UNKNOWN)
-  call tr_allocate(i_tor,1,new%n_cpu,"i_tor",CAT_UNKNOWN)
+  call tr_allocate(i_tor,1,new%n_mpi,"i_tor",CAT_UNKNOWN)
 
-  do i=1,new%n_cpu
-    i_tor(i) = ((i-1) - MOD(i-1, new%m_cpu))/ new%m_cpu  + 1
+  do i=1,new%n_mpi
+    i_tor(i) = ((i-1) - MOD(i-1, new%m_mpi))/ new%m_mpi  + 1
   enddo
 
   call MPI_COMM_SPLIT(new%mpi_comm_world,i_tor(new%my_id+1),new%my_id,new%mpi_comm_n,ierr)
   
   do i=1,n_masters
-    i_rank(i) = (i-1) * new%m_cpu
+    i_rank(i) = (i-1) * new%m_mpi
   enddo
 
   call MPI_COMM_GROUP(new%mpi_comm_world,new%mpi_group_world,ierr)
   call MPI_GROUP_INCL(new%mpi_group_world,n_masters,i_rank,new%mpi_group_master,ierr)
   call MPI_COMM_CREATE(new%mpi_comm_world,new%mpi_group_master,new%mpi_comm_master,ierr)
-  call MPI_COMM_RANK(new%mpi_comm_n, new%my_id_n, ierr) ! id of this cpu in local comm
+  call MPI_COMM_RANK(new%mpi_comm_n, new%my_id_n, ierr) ! id of this mpi in local comm
   
   if (i_tor(new%my_id+1) .eq. 1) then
     new%n_tor_local = 1
@@ -778,7 +778,7 @@ subroutine project_only(this, sim)
   call MPI_Reduce(my_rhs(:,1),this%mumps_par%rhs,this%mumps_par%n*this%mumps_par%nrhs, MPI_REAL8, MPI_SUM, 0, this%mpi_comm_world, ierr)
 
   do in=2, n_tor, 2
-    id_master_in_world = in/2 * this%m_cpu
+    id_master_in_world = in/2 * this%m_mpi
     index_n = in/2 + 1
     call MPI_Reduce(my_rhs(:,index_n),this%mumps_par%rhs,this%mumps_par%n*this%mumps_par%nrhs, MPI_REAL8, MPI_SUM, id_master_in_world, this%mpi_comm_world, ierr)
   enddo
@@ -814,8 +814,8 @@ subroutine project_only(this, sim)
   
     allocate(y_tmp(n_loc_n*(n_tor+1)))            ! allocate only on my_id=0???
 
-    allocate(recv_counts(this%n_cpu/this%m_cpu))
-    allocate(recv_disp(this%n_cpu/this%m_cpu))
+    allocate(recv_counts(this%n_mpi/this%m_mpi))
+    allocate(recv_disp(this%n_mpi/this%m_mpi))
     
     y_tmp = 0.d0
 
@@ -1502,7 +1502,7 @@ mumps_par%nz        = nz_AA
 mumps_par%icntl(2)  = 6 ! print diagnostics, statistics and warnings to stderr
 mumps_par%icntl(4)  = 1 ! print errors(1), debug(2), much(3)
 mumps_par%icntl(5)  = 0 ! assembled form
-mumps_par%icntl(18) = 0 ! centralized input matrix (i.e. only on cpu 0)
+mumps_par%icntl(18) = 0 ! centralized input matrix (i.e. only on mpi 0)
 mumps_par%icntl(7)  = 7 ! compute symmetric permutation (PORD or SCOTCH autoselect)
 mumps_par%icntl(8)  = 8 ! scaling
 mumps_par%icntl(14) = 80 ! memory relaxation parameter
@@ -1955,7 +1955,7 @@ mumps_par%nz        = nz_AA
 mumps_par%icntl(2)  = 6 ! print diagnostics, statistics and warnings to stderr
 mumps_par%icntl(4)  = 1 ! print errors(1), debug(2), much(3)
 mumps_par%icntl(5)  = 0 ! assembled form
-mumps_par%icntl(18) = 0 ! centralized input matrix (i.e. only on cpu 0)
+mumps_par%icntl(18) = 0 ! centralized input matrix (i.e. only on mpi 0)
 mumps_par%icntl(7)  = 7 ! compute symmetric permutation (PORD or SCOTCH autoselect)
 mumps_par%icntl(8)  = 8 ! scaling
 mumps_par%icntl(14) = 80 ! memory relaxation parameter

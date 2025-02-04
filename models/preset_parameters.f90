@@ -550,6 +550,7 @@ subroutine preset_parameters
   pellet_density_bg = 5.958d8
   use_pellet        = .false.
   
+  tstep_rst   = 0.d0
   t_now       = 0.d0
   t_start     = 0.d0
   index_start = 0

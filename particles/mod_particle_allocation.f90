@@ -22,13 +22,13 @@ contains
     integer,    dimension(:),    allocatable :: n_particles_per_mpi
     character(len=:),            allocatable :: particle_type_str
 
-    allocate(n_particles_per_mpi(sim%n_cpu))
+    allocate(n_particles_per_mpi(sim%n_mpi))
 
     do i=1, n_part_groups
       if (.not. allocated(sim%groups(i)%particles)) then
 
         ! calculate load balancing ------
-        call calc_n_particles_per_mpi(int(sim%groups(i)%n_particles), sim%n_cpu, n_particles_per_mpi, 0)
+        call calc_n_particles_per_mpi(int(sim%groups(i)%n_particles), sim%n_mpi, n_particles_per_mpi, 0)
 
         ! putting particle_type in the right format for allocate_particle_arrray function
         ! this is so that the function can be used both here and in io

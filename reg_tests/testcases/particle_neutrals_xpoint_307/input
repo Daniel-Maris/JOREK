@@ -1,10 +1,10 @@
 &in1
 
-  restart=.f. !for kinetic_neutrals, restart=.f. as otherwise the fluid stepper would reload the already loaded restart file
+  restart=.t.
   regrid  = .f.
   refinement=.false.
 
-  restart_particles=.f.
+  restart_particles=.t.
 
   tstep_n=10.
   nstep_n=10

@@ -4,7 +4,7 @@ implicit none
 contains
 
 #include "corr_neg_include.f90"
-subroutine integrate_recombination(my_id ,n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
+subroutine integrate_recombination(my_id ,n_mpi, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
 !---------------------------------------------------------------
 !
 !---------------------------------------------------------------
@@ -27,7 +27,7 @@ implicit none
 type (type_element)      :: element
 type (type_node)         :: nodes(n_vertex_max)
 
-integer    :: n_cpu, my_id
+integer    :: n_mpi, my_id
 real*8, dimension(:,:), allocatable, intent(out) :: rec_rate_local , rec_v_R, rec_v_Z, rec_v_phi 
 real*8, dimension(:,:), allocatable, optional, intent(out) :: volume_check, energy_neutrals, energy_radiation    
 
@@ -38,7 +38,7 @@ real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_g, eq_s, eq_t
 ! real*8     :: eq_g(n_var,n_gauss,n_gauss), eq_s(n_var,n_gauss,n_gauss), eq_t(n_var,n_gauss,n_gauss)
 real*8     :: density_eq(n_gauss,n_gauss), eq_g1(n_var,n_gauss,n_gauss), Fprofile(n_gauss,n_gauss)
 
-integer    :: i, j, k, in, ms, mt,mp, iv, inode, ife,ielm, n_elements !,n_cpu
+integer    :: i, j, k, in, ms, mt,mp, iv, inode, ife,ielm, n_elements !,n_mpi
 real*8     :: xjac, BigR, wst,delta_phi
 real*8     :: ps0_x, ps0_y, u0_x, u0_y, r0, T0,vpar0
 real*8     :: T0_corr, r0_corr
@@ -56,19 +56,19 @@ integer, dimension(:), allocatable :: local_rec_elements
 !define mpi local elements
 
 ! local_rec_elements tells every MPI process how many elements he gets.
-allocate(local_rec_elements(n_cpu))
+allocate(local_rec_elements(n_mpi))
 n_elements = element_list%n_elements
-missing = mod(n_elements,n_cpu) !< tells us if n_elements can be evenly shared over all MPI processes
+missing = mod(n_elements,n_mpi) !< tells us if n_elements can be evenly shared over all MPI processes
 
 !> give all MPI processes the same amount of elements.
 !> distribute the "missing" elements over the first MPI processes until we have all elements covered.
-do i=1,n_cpu 
-    local_rec_elements(i) = floor(n_elements/real(n_cpu,8))
+do i=1,n_mpi 
+    local_rec_elements(i) = floor(n_elements/real(n_mpi,8))
     if (missing .gt. 0) then
         missing = missing - 1
         local_rec_elements(i) = local_rec_elements(i) +1	
 	endif
-enddo !n_cpu
+enddo !n_mpi
 !write(*,*) "length local rec list", local_rec_elements(my_id+1)
 
 
@@ -100,7 +100,7 @@ ksi_ion_norm = central_density * 1.d20 * ksi_ion
 !HZ_p,n_plane,n_gauss,n_order,n_vertex_max,TWOPI
 !$omp parallel do default(none)                                              &
 !$omp schedule(static, 100)                                               &
-!$omp   shared(local_rec_elements,my_id,n_cpu, volume_check,energy_neutrals, energy_radiation ,              &
+!$omp   shared(local_rec_elements,my_id,n_mpi, volume_check,energy_neutrals, energy_radiation ,              &
 !$omp          rec_rate_local,rec_v_R,rec_v_Z,rec_v_phi,                  &
 !$omp          element_list,node_list, H, H_s, H_t, HZ,                   & 
 !$omp          tstep,F0, delta_phi, ksi_ion_norm, gamma                                                      &
@@ -117,14 +117,14 @@ do ife =1,  local_rec_elements(my_id+1) !element_list%n_elements !n_local_rec_el
 
   !> real element number
   !  Note: By intention, we split the element order over the MPI processes 
-  ! e.g. if n_cpu =4 and n_elements = 18 ,then my_id = 0 gets ielm 1,5,9,13,17. my_id = 1 gets ielm 2,6,10,14,18
+  ! e.g. if n_mpi =4 and n_elements = 18 ,then my_id = 0 gets ielm 1,5,9,13,17. my_id = 1 gets ielm 2,6,10,14,18
   ! my_id = 3 gets ielm 3,7,11,15. my_id = 4 gets ielm 4,8,12,16.
   ! because we give the first MPI processes the most work.
   ! The recombination rate is localized in the plasma. So neighboring elements have similar rates.
   ! So to share the load (for the high recombination areas) over the MPI processes, 
   ! we distribute elements close to each other over different MPI processes.
   !if you want to change this, you should probably also change local_rec_elements, and the use of ielm in do_1particle_recombination
-  ielm    = (my_id+1) + n_cpu*(ife - 1) !< this splits nearby elements over different nodes
+  ielm    = (my_id+1) + n_mpi*(ife - 1) !< this splits nearby elements over different nodes
   element = element_list%element(ielm)
 
   do iv = 1, n_vertex_max
