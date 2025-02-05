@@ -49,7 +49,7 @@ use phys_module, only: n_part_groups, n_aux_var
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: puff_rate, n_puff, valves
+use phys_module, only: puff_rate, n_puff, valves, particle_group_configs
 use phys_module, only: use_manual_random_seed, manual_seed
 
 !$ use omp_lib
@@ -87,11 +87,19 @@ real*8  :: puffing_rate_start    !< [atoms/s] initial puff rate before the ramp 
 logical :: puff_t_dependent      !< puff time dependent using a flat - ramp - flat pattern (=.true.) or no time dependence at all (.false.) 
 
 !***********************************************************************
-!*                            intialisation                            *
+!*                            initialisation                            *
 !***********************************************************************
 
 ! Start up MPI, jorek
 call sim%initialize()
+
+write(*,*) "puff ctrl times 1", particle_group_configs(1)%puff_ctrl(1)%times(1)
+write(*,*) "puff ctrl times 2", particle_group_configs(1)%puff_ctrl(1)%times(2)
+
+write(*,*) "puff ctrl rates 1", particle_group_configs(1)%puff_ctrl(1)%rates(1)
+write(*,*) "puff ctrl rates 2", particle_group_configs(1)%puff_ctrl(1)%rates(2)
+
+
 
 ! Loading the jorek fields
 if (restart) then

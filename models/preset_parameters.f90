@@ -8,7 +8,7 @@ subroutine preset_parameters
   use phys_module
   implicit none
 
-  integer :: i ! for iterations
+  integer :: i, j ! for iterations
 
   time_evol_scheme = 'Crank-Nicholson'
   
@@ -884,6 +884,13 @@ particle_group_configs(:)%use_kin_ionisation     = .false.
 particle_group_configs(:)%use_kin_sputtering     = .false.
 particle_group_configs(:)%n_reflect_ratio       = 5.d-4
 particle_group_configs(:)%use_kin_cx             = .false.
+
+do i=1, n_part_groups_max
+  do j=1, n_valves_max
+    particle_group_configs(i)%puff_ctrl(j)%times = -1.0
+    particle_group_configs(i)%puff_ctrl(j)%rates = -1.0
+  enddo
+enddo
 
 part_groups_in_use(:) = 'non'
 

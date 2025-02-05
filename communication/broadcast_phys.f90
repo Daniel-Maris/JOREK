@@ -25,7 +25,7 @@ implicit none
 integer, intent(in) :: my_id
 
 ! --- internal variables
-integer                :: ierr, position, bufsize, i, n_tmp, test_value
+integer                :: ierr, position, bufsize, i, j, n_tmp, test_value
 logical                :: err_buff_too_small
 character, allocatable :: buffer(:)
 
@@ -875,6 +875,13 @@ if (my_id .eq. 0) then
   call MPI_PACK(particle_group_configs%use_kin_recombination,      n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(particle_group_configs%use_kin_puffing,            n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(particle_group_configs%use_kin_line_radiation,     n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+
+  do i=1, n_part_groups_max
+    do j=1, n_valves_max
+      call MPI_PACK(particle_group_configs(i)%puff_ctrl(j)%times,  n_puff_segment_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+      call MPI_PACK(particle_group_configs(i)%puff_ctrl(j)%rates,  n_puff_segment_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    enddo
+  enddo
 
   call MPI_PACK(part_groups_in_use,                         n_part_groups_max*3,  MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
 
@@ -1758,6 +1765,13 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,particle_group_configs%use_kin_recombination,      n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,particle_group_configs%use_kin_puffing,            n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,particle_group_configs%use_kin_line_radiation,     n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+
+  do i=1, n_part_groups_max
+    do j=1, n_valves_max
+      call MPI_UNPACK(buffer,bufsize,position,particle_group_configs(i)%puff_ctrl(j)%times,   n_puff_segment_max,MPI_REAL8,MPI_COMM_WORLD,ierr)
+      call MPI_UNPACK(buffer,bufsize,position,particle_group_configs(i)%puff_ctrl(j)%rates,   n_puff_segment_max,MPI_REAL8,MPI_COMM_WORLD,ierr)
+    enddo
+  enddo
 
   call MPI_UNPACK(buffer,bufsize,position,part_groups_in_use,                                n_part_groups_max*3, MPI_CHARACTER,MPI_COMM_WORLD,ierr)
 

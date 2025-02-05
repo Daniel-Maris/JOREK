@@ -972,6 +972,17 @@ module phys_module
   
   type (valve), dimension(n_valves_max) :: valves 
 
+  ! ------------------------------------------------
+  ! --- Structures for puffing controls 
+  ! ------------------------------------------------
+  integer, parameter :: n_puff_segment_max = 20  !< length of the times and rates arrays in a puffing object
+  
+  ! the controller for the puffing of a particle group for a specified valve
+  type :: type_puff_ctrl
+    real*8  :: times(n_puff_segment_max)  ! the time the puffing rate is defined at
+    real*8  :: rates(n_puff_segment_max)  ! the puffing rate at a defined at
+  end type type_puff_ctrl
+  !> 
   
   ! ------------------------------------------------
   ! --- Structures for particle groups
@@ -999,6 +1010,9 @@ module phys_module
     logical             :: use_kin_puffing          !< switch on particle puffing for group    
     real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
     logical             :: use_kin_line_radiation   !< switch on line radiation for group
+
+    !> --------------- puffing ----------------------
+    type(type_puff_ctrl), dimension(n_valves_max) :: puff_ctrl 
 
   end type type_particle_group_config
 
