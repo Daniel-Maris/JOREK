@@ -958,7 +958,7 @@ module phys_module
   integer            :: n_valves                !< number of valves being used
   integer, parameter :: n_valves_max = 20       !< maximum number of valves   
 
-  type :: valve
+  type :: type_valve
     character(len=4)   :: type          !< four character code for the valve type ('circ', 'poly', or 'none')
     real*8  :: phi
     ! --- specific to 'circ' type (circular valve) 
@@ -968,9 +968,9 @@ module phys_module
     ! --- specific to 'poly' type (quadrangular valve)
     real*8  :: poly_R(4)                ! R vertices
     real*8  :: poly_Z(4)                ! Z vertices
-  end type valve
+  end type type_valve
   
-  type (valve), dimension(n_valves_max) :: valves 
+  type (type_valve), dimension(n_valves_max) :: valves 
 
   ! ------------------------------------------------
   ! --- Structures for puffing controls 

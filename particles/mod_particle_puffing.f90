@@ -13,7 +13,7 @@ module mod_particle_puffing
   use mod_particle_sim
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
-  use phys_module, only: valve
+  use phys_module, only: type_valve, valves, particle_group_configs, n_puff_segment_max 
 
   implicit none
 
@@ -29,13 +29,16 @@ module mod_particle_puffing
     integer :: n_puff = -1 
     ! Average fueling rate: 9.7d22; max fueling rate 18d22
     real*8  :: puffing_rate = -1.d0
-    type(valve) :: puff_valve      !< determines the location of the puffing
+    type(type_valve) :: puff_valve      !< determines the location of the puffing
     
     ! Time dependent puffing
     logical :: puff_t_dependent = .false.
     real*8  :: puffing_rate_start = 0.d0
     real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
     real*8  :: t_puff_slope = 0.d0 !<defined in SI
+
+    real*8  :: puff_rates(n_puff_segment_max)
+    real*8  :: puff_times(n_puff_segment_max)
 
     ! Target particle group
     integer :: target_group
@@ -49,8 +52,7 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-!> To do: add generalization to choose group number.
-function new_particle_puffing(target_group, n_puff, puffing_rate, puff_valve, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start) result(new)
+function new_particle_puffing(target_group, valve_num, n_puff, puffing_rate, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start) result(new)
 
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
@@ -58,9 +60,9 @@ function new_particle_puffing(target_group, n_puff, puffing_rate, puff_valve, rn
   type(particle_puffing)    :: new
 
   integer, intent(in)           :: target_group
+  integer, intent(in)           :: valve_num           !< the valve number to use for this puffing
   integer, intent(in)           :: n_puff
   real*8, intent(in)            :: puffing_rate
-  type(valve), intent(in)       :: puff_valve
   logical, intent(in), optional :: puff_t_dependent
   real*8, intent(in), optional  :: t_puff_start,t_puff_slope
   real*8, intent(in), optional  :: puffing_rate_start 
@@ -72,7 +74,10 @@ function new_particle_puffing(target_group, n_puff, puffing_rate, puff_valve, rn
   new%target_group = target_group
   new%n_puff       = n_puff
   new%puffing_rate = puffing_rate
-  new%puff_valve   = puff_valve 
+  new%puff_valve   = valves(valve_num)
+  new%puff_rates   = particle_group_configs(target_group)%puff_ctrl(valve_num)%rates 
+  new%puff_times   = particle_group_configs(target_group)%puff_ctrl(valve_num)%times 
+
 
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
@@ -290,5 +295,21 @@ else
     to_puff = min_puff !default = 0.d0
 endif
 end function time_dependent_puff
+
+!< linearly interpolates the puff rate between two determined points (t0, y0), (t1, y1)
+!< y = y0 + [(y1 - y0)/(t1 - t0)] * (t - t0)
+subroutine calc_puff_rate_linear(time, puff_rate_0, puff_rate_1, time_0, time_1, puff_rate)
+
+  implicit none
+  real*8, intent(in)    :: time          !< current simulation time (t)
+  real*8, intent(in)    :: puff_rate_0   !< the left set value of the linear function (y0)
+  real*8, intent(in)    :: puff_rate_1   !< the right set value of the linear function (y1)
+  real*8, intent(in)    :: time_0        !< t0
+  real*8, intent(in)    :: time_1        !< t1
+  real*8, intent(inout) :: puff_rate     !< the puff rate at time t (y)
+
+  puff_rate = puff_rate_0 + (puff_rate_1 - puff_rate_0) / (time_1 - time_0) * (time - time_0)
+
+end subroutine calc_puff_rate_linear
 
 end module
