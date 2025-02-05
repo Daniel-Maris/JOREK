@@ -855,6 +855,8 @@ puff_rate     = 0.d0
 
 ! -------------- particle groups ---------------
 n_part_groups = 0
+part_groups_in_use(:) = 'non'
+
 particle_group_configs(:)%Z                 = 1
 particle_group_configs(:)%mass              = 0.d0
 particle_group_configs(:)%coupling_scheme   = 'non'
@@ -870,8 +872,6 @@ particle_group_configs(:)%use_kin_ionisation     = .false.
 particle_group_configs(:)%use_kin_sputtering     = .false.
 particle_group_configs(:)%n_reflect_ratio       = 5.d-4
 particle_group_configs(:)%use_kin_cx             = .false.
-
-part_groups_in_use(:) = 'non'
 
 !-----------------------------------------------
 

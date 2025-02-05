@@ -445,7 +445,7 @@ mpi_comm_in,mpi_info_in,test_in)
   logical                                        :: create_access_plist,test,id_matched
   character(len=3)                               :: part_group_id
   character(len=3),                  allocatable :: part_groups_in_use_old(:) 
-  integer,          dimension(:),    allocatable :: dropped_groups_mask     ! records which groups from the restart file has been dropped
+  logical,          dimension(:),    allocatable :: dropped_groups_mask     !< records which groups from the restart file has been dropped
 
   ! temp group attributes
   integer            :: tmp_Z
@@ -489,20 +489,20 @@ mpi_comm_in,mpi_info_in,test_in)
 
   !> set up a recording of which group from part_restart.h5 has been dropped
   allocate(dropped_groups_mask(n_groups_old))
-  dropped_groups_mask = 1
+  dropped_groups_mask = .true.
 
   !> the line below should only be the case in certain unit tests, otherwise the
   !> allocation of groups and their configuration should be done in sim%initialize()
   if (.not. (allocated(sim%groups))) call sim%allocate_groups(n_part_groups)
 
-  if (sim%my_id == 0) then
+  if (sim%my_id == master_task) then
     write(*,*) "" 
     write(*,*) "====== LOADING PARTICLE GROUPS ======"
   endif 
 
   do i=1, n_part_groups ! loop over groups in part_groups_in_use
     id_matched = .false.
-    if (sim%my_id == 0) then
+    if (sim%my_id == master_task) then
       write(*,*) ""
       write(*,*) " --- Group ID to match: ", part_groups_in_use(i), " --- "
     endif
@@ -513,9 +513,9 @@ mpi_comm_in,mpi_info_in,test_in)
       call HDF5_char_reading(file_id, part_group_id, trim(group_name)//"id")
 
       if (part_group_id == part_groups_in_use(i)) then
-        if (sim%my_id == 0) write(*,*) "Matching restart group found. Loading data..."
+        if (sim%my_id == master_task) write(*,*) "Matching restart group found. Loading data..."
         id_matched = .true.
-        dropped_groups_mask(ii) = 0 ! mark group as NOT dropped
+        dropped_groups_mask(ii) = .false. ! mark group as NOT dropped
 
         !> read and load group datasets. We assume that the ith-particle group of 
         !> all tasks is defined by the same unique value stored in the hdf5 file
@@ -670,12 +670,12 @@ mpi_comm_in,mpi_info_in,test_in)
         B_norm_arr,vpar_m_arr,st_arr,x_arr,B_hat_prev_arr,v_2d_arr,x_m_arr,&
         Astar_m_arr,Astar_k_arr,Bn_k_arr,dBn_k_arr,Bnorm_k_arr,E_k_arr,dAstar_k_arr)
         
-        if (sim%my_id == 0) write(*,*) "Group '", part_groups_in_use(i), "' loaded."
+        if (sim%my_id == master_task) write(*,*) "Group '", part_groups_in_use(i), "' loaded."
       endif ! (part_group_id == part_groups_in_use(i))
     enddo ! n_groups_old (particle groups in restart)
 
     if (.not. id_matched) then
-      if (sim%my_id == 0) then
+      if (sim%my_id == master_task) then
         write(*,*) "WARNING: No matching group found in restart file for '", part_groups_in_use(i), "'"
         write(*,*) "A new group will be initialized according to particle_groups_configs"
       endif
@@ -689,20 +689,20 @@ mpi_comm_in,mpi_info_in,test_in)
       particle_type_str = trim(particle_group_configs(i)%type)
 
       call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
-      if (sim%my_id == 0) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
+      if (sim%my_id == master_task) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
     endif
   enddo ! n_part_groups (particle groups requested in part_groups_in_use)
 
-  if (sim%my_id == 0) then 
+  if (sim%my_id == master_task) then 
     write(*,*) " ------ "
     write(*,*) "Finished importing particle groups from part_restart.h5 "
-    n_dropped_groups = count(dropped_groups_mask == 1)
+    n_dropped_groups = count(dropped_groups_mask .eqv. .true.)
 
     !> write out information about dropped groups
     if (n_dropped_groups > 0) then
       write(*, '(A, I0, A)') ' ', n_dropped_groups, " group(s) from part_restart.h5 has been dropped:"
       do ii = 1, n_groups_old
-        if (dropped_groups_mask(ii) == 1) write(*, '(A, A, A)') "   '", part_groups_in_use_old(ii), "'"
+        if (dropped_groups_mask(ii) .eqv. .true.) write(*, '(A, A, A)') "   '", part_groups_in_use_old(ii), "'"
       enddo
     else
       write(*,*) "No groups have been dropped."  
