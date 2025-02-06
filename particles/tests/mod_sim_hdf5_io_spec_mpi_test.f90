@@ -208,16 +208,10 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-<<<<<<< HEAD
-  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-=======
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
   reader%mpi_info_io = mpi_info_loc;
->>>>>>> develop
   call reader%run(sim_to_read);
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
@@ -253,16 +247,10 @@ subroutine test_write_native_sim_one_group_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-<<<<<<< HEAD
-  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-=======
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
   reader%mpi_info_io = mpi_info_loc;
->>>>>>> develop
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
@@ -298,16 +286,10 @@ subroutine test_write_gatherv_sim_one_group_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-<<<<<<< HEAD
-  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-=======
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
   reader%mpi_info_io = mpi_info_loc;
->>>>>>> develop
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
@@ -346,17 +328,10 @@ subroutine test_write_native_sim_two_groups_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-<<<<<<< HEAD
-  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-  reader%test = .true.; call reader%run(sim_to_read)
-=======
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
   reader%mpi_info_io = mpi_info_loc; reader%test = .true.; call reader%run(sim_to_read)
->>>>>>> develop
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
   n_particles_expect,"(native writer/native reader)")
@@ -395,17 +370,10 @@ subroutine test_write_native_sim_all_particles
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-<<<<<<< HEAD
-  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-  reader%test = .true.;
-=======
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
   reader%mpi_info_io = mpi_info_loc; reader%test = .true.;
->>>>>>> develop
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call assert_equal_particle_group(n_groups_expect,sim_to_write%groups,sim_to_read%groups)
@@ -444,17 +412,10 @@ subroutine test_write_gatherv_sim_all_particles
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-<<<<<<< HEAD
-  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc;
-  reader%test = .true.;
-=======
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
   reader%mpi_info_io = mpi_info_loc; reader%test = .true.;
->>>>>>> develop
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call assert_equal_particle_group(n_groups_expect,sim_to_write%groups,sim_to_read%groups)
@@ -492,16 +453,10 @@ subroutine test_write_gatherv_sim_two_groups_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
-<<<<<<< HEAD
-  sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
-  reader%time = sim_to_write%time; reader%use_hdf5_access_properties=.false.;
-  reader%mpi_comm_io = mpi_comm_loc; reader%mpi_info_io = mpi_info_loc; 
-=======
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
   reader%mpi_info_io = mpi_info_loc; 
->>>>>>> develop
   call reader%run(sim_to_read)
   ! Test that we have the right stuff in sim_to_read now
   call groups_same(sim_to_write,sim_to_read,n_groups_expect,&
