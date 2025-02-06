@@ -189,9 +189,9 @@ do group_num=1, n_part_groups
   
   !> puff location for simple xpoint case
   if (sim%groups(group_num)%use_kin_puffing) then
-    gas_puff = particle_puffing(group_num, 1, n_puff, puff_rate/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
+    gas_puff = particle_puffing(sim, group_num, 1, n_puff, puff_rate/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
         puffing_rate_start=puffing_rate_start/2.d0)
-    gas_puff2 = particle_puffing(group_num, 1, n_puff, puff_rate/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
+    gas_puff2 = particle_puffing(sim, group_num, 1, n_puff, puff_rate/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
         puffing_rate_start=puffing_rate_start/2.d0)
 
     gas_puff_event  = event(gas_puff)

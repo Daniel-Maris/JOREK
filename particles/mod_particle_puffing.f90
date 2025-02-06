@@ -40,6 +40,10 @@ module mod_particle_puffing
     real*8  :: puff_rates(n_puff_segment_max)
     real*8  :: puff_times(n_puff_segment_max)
 
+    ! variables required for piecewise linear time dependent puffing control 
+    integer :: current_puff_seg = 0   
+    integer :: last_puff_seg = n_puff_segment_max !< the segment number after the last defined puffing keyframe
+
     ! Target particle group
     integer :: target_group
     
@@ -52,24 +56,25 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-function new_particle_puffing(target_group, valve_num, n_puff, puffing_rate, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start) result(new)
+function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start) result(new)
 
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
   
   type(particle_puffing)    :: new
 
-  integer, intent(in)           :: target_group
-  integer, intent(in)           :: valve_num           !< the valve number to use for this puffing
-  integer, intent(in)           :: n_puff
-  real*8, intent(in)            :: puffing_rate
-  logical, intent(in), optional :: puff_t_dependent
-  real*8, intent(in), optional  :: t_puff_start,t_puff_slope
-  real*8, intent(in), optional  :: puffing_rate_start 
+  type(particle_sim), intent(in)  :: sim           
+  integer, intent(in)             :: target_group
+  integer, intent(in)             :: valve_num           !< the valve number to use for this puffing
+  integer, intent(in)             :: n_puff
+  real*8, intent(in)              :: puffing_rate
+  logical, intent(in), optional   :: puff_t_dependent
+  real*8, intent(in), optional    :: t_puff_start,t_puff_slope
+  real*8, intent(in), optional    :: puffing_rate_start 
     
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
-  integer                               :: my_seed
+  integer                               :: my_seed, i
   
   new%target_group = target_group
   new%n_puff       = n_puff
@@ -78,6 +83,15 @@ function new_particle_puffing(target_group, valve_num, n_puff, puffing_rate, rng
   new%puff_rates   = particle_group_configs(target_group)%puff_ctrl(valve_num)%rates 
   new%puff_times   = particle_group_configs(target_group)%puff_ctrl(valve_num)%times 
 
+  ! determine the current puffing segment and the last puffing segment
+  do i=1, n_puff_segment_max-1
+    !> find last puffing segment
+    if ((new%puff_times(i) /= -1) .and. (new%puff_times(i+1) == -1)) new%last_puff_seg = i
+    !> find current puffing segment
+    if (sim%time > new%puff_times(i) .and. (new%puff_times(i) /= -1)) new%current_puff_seg = i
+  enddo
+  write(*,*) "last puffing segment = ", new%last_puff_seg
+  write(*,*) "current puffing segment = ", new%current_puff_seg
 
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
@@ -118,6 +132,9 @@ subroutine do_particle_puffing(this,sim, ev)
   real*8  :: vector_normal(3), u(5)
   real*8  :: puffing_rate_t !< possibly time dependent fueling rate
 
+  ! variables for piecewise linear time dependent puffing
+  real*8  :: puff_rate_0, puff_rate_1, puff_time_0, puff_time_1
+
   integer ::    puffed_this_step_local, all_puffed_this_step
   real*8  ::    puff_weight_local, all_puff_weight
 
@@ -131,6 +148,40 @@ subroutine do_particle_puffing(this,sim, ev)
   end if
   
   n_puff_local = this%n_puff / sim%n_mpi !n_puff local is the amount of superparticles that will be puffed per MPI process.
+
+  !> check if the simulation has advanced to the next puffing segment
+  if (this%current_puff_seg /= this%last_puff_seg) then
+    if (sim%time > this%puff_times(this%current_puff_seg + 1)) this%current_puff_seg = this%current_puff_seg + 1 
+  endif
+
+  !> set the bounding values of the puffing segment
+  if (this%current_puff_seg == 0) then 
+    !> for t < puff_times(1), we keep puff_rate constant at puff_rates(1)
+    puff_rate_0  = this%puff_rates(1)
+    puff_rate_1  = this%puff_rates(1) 
+
+    !> the puff_times no longer matter in this case but (puff_times_1 - puff_times_0) has to be non zero 
+    puff_time_0 = this%puff_times(1) 
+    puff_time_1 = this%puff_times(1) + 1 
+  else if (this%current_puff_seg == this%last_puff_seg) then
+    !> for t > puff_times(last_puff_seg), we keep puff_rate constant at puff_rates(last_puff_seg)
+    puff_rate_0  = this%puff_rates(this%last_puff_seg)
+    puff_rate_1  = this%puff_rates(this%last_puff_seg) 
+
+    !> the puff_times no longer matter in this case but (puff_times_1 - puff_times_0) has to be non zero 
+    puff_time_0 = this%puff_times(this%last_puff_seg) 
+    puff_time_1 = this%puff_times(this%last_puff_seg) + 1 
+    
+  else
+    !> in general, puff_times and puff_rates are the defined values bounding the segment
+    puff_rate_0  = this%puff_rates(this%current_puff_seg)
+    puff_rate_1  = this%puff_rates(this%current_puff_seg + 1)
+    puff_time_0 = this%puff_times(this%current_puff_seg)
+    puff_time_1 = this%puff_times(this%current_puff_seg + 1)
+  endif
+
+  write(*,*) "puff_rate_0: ", puff_rate_0
+  write(*,*) "puff_rate_1: ", puff_rate_1
  
 !============== Finding free particles !< make into a function?
 allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
@@ -178,6 +229,8 @@ end do
   if (this%puff_t_dependent) then
     to_puff        = n_puff_local !int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
     puffing_rate_t = time_dependent_puff(this%puffing_rate ,sim%time, this%t_puff_start,this%t_puff_slope, this%puffing_rate_start)
+
+    call calc_puff_rate_linear(sim%time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1, puffing_rate_t)
    
     if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is puffing_rate_t:",puffing_rate_t, "atoms/s"
    
@@ -281,7 +334,7 @@ endif
   
 end subroutine do_particle_puffing
 
-pure function time_dependent_puff(max_puff,time, t_puff_start,t_puff_slope, min_puff) result(to_puff)
+function time_dependent_puff(max_puff,time, t_puff_start,t_puff_slope, min_puff) result(to_puff)
 real*8,intent(in)   :: max_puff, min_puff
 real*8              :: to_puff
 real*8,intent(in)    :: t_puff_start,t_puff_slope
@@ -294,21 +347,24 @@ elseif (time-t_puff_start .ge. 0.d0) then
 else
     to_puff = min_puff !default = 0.d0
 endif
+
+write(*,*) "t_puff_start: ", t_puff_start
+write(*,*) "t_puff_max: ", t_puff_start+t_puff_slope
 end function time_dependent_puff
 
 !< linearly interpolates the puff rate between two determined points (t0, y0), (t1, y1)
 !< y = y0 + [(y1 - y0)/(t1 - t0)] * (t - t0)
-subroutine calc_puff_rate_linear(time, puff_rate_0, puff_rate_1, time_0, time_1, puff_rate)
+subroutine calc_puff_rate_linear(time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1, puff_rate)
 
   implicit none
   real*8, intent(in)    :: time          !< current simulation time (t)
   real*8, intent(in)    :: puff_rate_0   !< the left set value of the linear function (y0)
   real*8, intent(in)    :: puff_rate_1   !< the right set value of the linear function (y1)
-  real*8, intent(in)    :: time_0        !< t0
-  real*8, intent(in)    :: time_1        !< t1
+  real*8, intent(in)    :: puff_time_0        !< t0
+  real*8, intent(in)    :: puff_time_1        !< t1
   real*8, intent(inout) :: puff_rate     !< the puff rate at time t (y)
 
-  puff_rate = puff_rate_0 + (puff_rate_1 - puff_rate_0) / (time_1 - time_0) * (time - time_0)
+  puff_rate = puff_rate_0 + (puff_rate_1 - puff_rate_0) / (puff_time_0 - puff_time_1) * (time - puff_time_0)
 
 end subroutine calc_puff_rate_linear
 
