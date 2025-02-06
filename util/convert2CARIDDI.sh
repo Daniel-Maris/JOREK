@@ -124,13 +124,20 @@ function do_convert () {
   fi
   for f in $filenames
   do
-      targetFile="$stepnum.vtk"
+      targetFile1="$stepnum.vtk"
       f=$(echo $f | sed 's/,//')
       a=${f//\'/}
-      targetFile="$targetDir/${a}.$targetFile"
-      if ( [ ! -e $targetFile ] || [ "$file" -nt "$targetFile" ] ) \
-	  &&  ( [ ! -z "$select_arguments" ] || [ `is_selected $stepnum` == "yes" ] ) ; then
-	  exist=true
+
+      for fi in ${targetDir}/${a}*.$targetFile1
+      do
+          if ( [ ! -e $fi ] || [ "$file" -nt "$fi" ] ) \
+	         &&  ( [ ! -z "$select_arguments" ] || [ `is_selected $stepnum` == "yes" ] ) ; then
+	      exist=true
+          fi
+      done
+      if [[ $exist == 'true' ]]
+      then
+         break
       fi
   done
 
@@ -166,14 +173,26 @@ function do_convert () {
     else
       egrep -i "warning|restart time" ./log
     fi
+    filenames=$(grep "comp_name" CARIDDI_plot.nml | awk -F "'" '{ for(i=2; i<NF; i+=2) print $i }')
+    if [ -z "$filenames" ]; then
+        filenames='CARIDDI_all'
+    fi
+      for f in CARIDDI_comp*;
+      do
+          fi=$(echo $f | sed 's/CARIDDI_//')
+          mv $f $fi
+      done
 
     for f in $filenames
     do
       targetFile="$stepnum.vtk"
       f=$(echo $f | sed 's/,//')
       a=${f//\'/}
-      targetFile="$targetDir/${a}.$targetFile"
-      mv "${a}.vtk" $targetFile
+      for fi in ${a}*.vtk
+      do
+          finew=$(echo $fi | sed 's/.vtk//')
+          mv $fi $targetDir/${finew}.$targetFile
+      done
     done
     if [ "$zipfiles" == "yes" ]; then
       rm -f ${targetFile}.gz
