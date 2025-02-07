@@ -488,7 +488,7 @@ subroutine test_time_loop_gather_sim_two_groups_boris
   !> initialise write particle simulation
   allocate(sim_to_write%groups(n_groups_expect));
   do ii=1,n_groups_expect
-    call allocate_particles(sim_to_write%groups(ii)%particles,n_particles_expect(ii))
+    call allocate_particles_here(sim_to_write%groups(ii)%particles,n_particles_expect(ii))
   enddo
   sim_to_write%my_id = rank_loc; sim_to_write%n_mpi = n_tasks_loc; 
   sim_to_write%groups(1)%Z = 324; sim_to_write%groups(1)%mass = 53.0; 
