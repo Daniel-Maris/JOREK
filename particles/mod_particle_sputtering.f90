@@ -281,151 +281,41 @@ subroutine load_eckstein_data(this, sim)
 end subroutine load_eckstein_data
 
 
-!> Perform the sputtering on both fluid and particles hitting the wall.
-!> Run this in an event every microsecond or less.
-!>
-!> Runs in 2 parts. First particle-particle sputtering and then particle-fluid
-!> sputtering.
-subroutine do_particle_sputter(this, sim, ev)
+!> calculates the particle to particle sputtering
+subroutine particle_particle_sputter(this, sim, delta_t, n_particle_groups)
   use mpi_mod
-  use mod_atomic_elements, only: element_symbols
   use mod_parameters, only: n_plane, n_period
-  use mod_interp, only: interp_RZ
-  use phys_module, only: use_manual_random_seed, tstep, central_mass, central_density
+  use phys_module, only: use_manual_random_seed
   
   class(particle_sputter), intent(inout) :: this
   type(particle_sim), intent(inout)      :: sim
-  type(event), intent(inout), optional   :: ev
+  real*8, intent(in)  :: delta_t
+  integer, intent(in) :: n_particle_groups
 
-  integer :: n_fluid_groups, n_particle_groups
-
-  integer :: i, j, k, i_patch, i_scalar, n_samples, ierr,this_patch, sputtered_this_step_local, all_sputtered_this_step
+  integer :: i, j, k, i_patch, n_samples, ierr,this_patch, sputtered_this_step_local, all_sputtered_this_step
   real*8  ::  bnd_kinetic_load_local, all_bnd_kinetic_load, bnd_kinetic_flux_local, all_bnd_kinetic_flux
   real*8  ::  reflbnd_kinetic_load_local,all_reflbnd_kinetic_load, reflbnd_kinetic_flux_local, all_reflbnd_kinetic_flux
-  real*8  ::  energy_reflected_local, energy_reflected_all, enery_wall_recombi_local,enery_wall_recombi_all !0D quantities
-  real*8  ::  energy_mol_recombi_local, energy_mol_recombi_all !<also wall assisted recombination
   !> binding energy of H molecule and ion in joule (2.2 eV and 13.6 eV)
-  real*8  :: mol_binding_E=3.526d-19, ion_binding_E=2.18d-18  !< should be the sum of ionisation energies from 0 to q for impurities.
   
-  integer :: q, Z
+  integer :: q
   real*8 :: E, sputtering_yield, sputtered_energy_coeff, theta, T_eV, integral !note: E is in [eV] in this subroutine, because of eckstein coeffs.
-  real*8, allocatable :: integral_i(:)
-  real*8 :: velocity(3), delta_t, vector_normal(3)
-  real*8, allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_samples) , (2,n_samples), (2,n_samples)
+  real*8 :: velocity(3), vector_normal(3)
 
   !> Prompt loss calculation
   integer :: is_prompt_loss
   real*8 :: Efield(3), B(3), pot, psi
-
-  character(len=120)  :: filename
-  !> For check free particles
-  integer, allocatable, dimension(:) :: i_free, i_elm_sampled
-  logical, allocatable, dimension(:) :: is_free
-  integer :: n_free
+  
   !> For RNG
   real*8 :: u(2)
-  integer :: i_rng, n_j, n_j_total
+  integer :: i_rng
   real*8 :: n_e, T_e
 
-  integer :: n_scalars, n, i_edge_elm, i_edge_nodes(4),i_p, nnos
-  character(len=30) :: source_name, target_name, s_tmp
-  real*8 :: area(4), av_yield, dphi
-  !> For fluid sampling
-  integer, allocatable, dimension(:) :: n_samples_fluid !< per background species
+  integer :: i_edge_elm, i_edge_nodes(4),i_p
+  real*8 :: area(4), dphi
   !> for mpi_reduce of particle contributions
-  real*4, allocatable :: scalars(:,:) !< size(st,1) by n_particle*3
   integer :: toroidal_offset !< Number of elements in the toroidal direction
   !> for deuterium and neutrals reflection instead of sputtering
   logical :: reflection, fast_reflection
-  
-  delta_t = (tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20)))
-  
-  if (this%last_diag_time .eq. 0.d0) then
-    this%last_diag_time = sim%time - delta_t
-  end if
-
-  n_fluid_groups = size(this%background_species_Z,1)
-  n_particle_groups = size(sim%groups,1)
-
-  ! load eckstein data if not already loaded
-  call this%load_eckstein_data(sim)
-  
-  !> check if  edge domain is allocate to access the list of i_elm that are included in the sputtering
-  !> If it is not allocated, don't sputter 
-  if (.not. allocated(this%fluid_sputter_yield%patch)) then
-    write(*,*)'=======================ERROR!!=================================='
-    write(*,*)'fluid_sputter_yield not initialised. Did you use the constructor?'
-    write(*,*)'exiting'
-    return
-  end if
-
-  if (this%n_sputter .le. 0 .and. sim%my_id .eq. 0) then
-    write(*,*) 'Warning: No sputtering quota set, calculating yields only'
-  end if
-
-  ! Set up scalars and scalar names for each of the patches if necessary
-  n_scalars = n_particle_diag*n_particle_groups + n_fluid_diag*n_fluid_groups + n_general_diag
-  do i=1,size(this%diagnostics%patch,1)
-    if (.not. allocated(this%diagnostics%patch(i)%scalars)) then
-      allocate(this%diagnostics%patch(i)%scalars(size(this%diagnostics%patch(i)%st,2), n_scalars))
-      this%diagnostics%patch(i)%scalars(:,:) = 0.d0
-    end if
-    if (.not. allocated(this%diagnostics%patch(i)%scalar_names)) then
-      allocate(this%diagnostics%patch(i)%scalar_names(n_scalars))
-      associate (sn => this%diagnostics%patch(i)%scalar_names)
-      n_j_total = count(sim%groups(:)%Z .eq. sim%groups(this%target_group)%Z) ! total number of groups of the target species
-      if (n_j_total .gt. 1) then
-        n_j = count(sim%groups(1:this%target_group)%Z .eq. sim%groups(this%target_group)%Z) ! number of groups of this species so far
-        write(s_tmp,'(i1)') n_j
-        target_name = trim(element_symbols(sim%groups(this%target_group)%Z))//trim(s_tmp)
-      else
-        target_name = trim(element_symbols(sim%groups(this%target_group)%Z))
-      end if
-
-      do j=1,n_particle_groups
-        ! convention is source-target-type (without dashes), with numbers where necessary
-        n_j_total = count(sim%groups(:)%Z .eq. sim%groups(j)%Z) ! total number of groups of this species
-        if (n_j_total .gt. 1) then
-          n_j = count(sim%groups(1:j)%Z .eq. sim%groups(j)%Z) ! number of groups of this species so far
-          write(s_tmp,'(i1)') n_j
-          source_name = trim(element_symbols(sim%groups(j)%Z))//trim(s_tmp)
-        else
-          source_name = trim(element_symbols(sim%groups(j)%Z))
-        end if
-        sn(n_particle_diag*j-3) = trim(source_name)//"flux"
-        sn(n_particle_diag*j-2) = trim(source_name)//"heatflux"
-        sn(n_particle_diag*j-1) = trim(source_name)//"promptflux"
-        sn(n_particle_diag*j-0) = trim(source_name)//trim(target_name)//"yield"
-      end do
-      n = n_particle_diag*n_particle_groups !< offset
-      do j=1,n_fluid_groups
-        source_name = trim(element_symbols(this%background_species_Z(j)))//'f'
-        sn(n+n_fluid_diag*j-3) = trim(source_name)//"density"
-        sn(n+n_fluid_diag*j-2) = trim(source_name)//"flux"
-        sn(n+n_fluid_diag*j-1) = trim(source_name)//"heatflux"
-        sn(n+n_fluid_diag*j-0) = trim(source_name)//trim(target_name)//"yield"
-      end do
-      n = n_particle_diag*n_particle_groups + n_fluid_diag*n_fluid_groups
-      sn(n+1) = "n_e" ! m^-3
-      sn(n+2) = "T_e" ! eV
-      sn(n+3) = "cos_alpha" ! cosine of angle between normal and B-field
-      sn(n+4) = "Psi_n" ! normalized psi
-      sn(n+5) = trim(target_name)//"_yield"
-      end associate
-    end if
-  end do
-
-  ! Allocate scalars for the fluid particle flux, one per background species
-  do i=1,size(this%fluid_sputter_yield%patch,1)
-    if (.not. allocated(this%fluid_sputter_yield%patch(i)%scalars)) then
-      allocate(this%fluid_sputter_yield%patch(i)%scalars( &
-        size(this%fluid_sputter_yield%patch(i)%st,2), n_fluid_groups))
-    end if
-    ! always reset this one to zero since its only used for the current iteration
-    this%fluid_sputter_yield%patch(i)%scalars = 0
-  end do
-    
-  
   
   
   !=============================================PARTICLE PART============================================================
@@ -718,10 +608,50 @@ subroutine do_particle_sputter(this, sim, ev)
     endif
   
   end do
+end subroutine particle_particle_sputter
 
+! routine to do the fluid_particle_sputter
+subroutine fluid_particle_sputter(this, sim, delta_t, n_fluid_groups, n_particle_groups)
+  use mpi_mod
+  use mod_atomic_elements, only: element_symbols
+  use mod_interp, only: interp_RZ
+  use phys_module, only: use_manual_random_seed
+  
+  class(particle_sputter), intent(inout) :: this
+  type(particle_sim), intent(inout)      :: sim
+  real*8, intent(in)  :: delta_t
+  integer, intent(in) :: n_fluid_groups, n_particle_groups
 
+  integer :: i, j, k,n_samples, ierr
+  real*8  ::  energy_reflected_local, energy_reflected_all, enery_wall_recombi_local,enery_wall_recombi_all !0D quantities
+  real*8  ::  energy_mol_recombi_local, energy_mol_recombi_all !<also wall assisted recombination
+  !> binding energy of H molecule and ion in joule (2.2 eV and 13.6 eV)
+  real*8  :: mol_binding_E=3.526d-19, ion_binding_E=2.18d-18  !< should be the sum of ionisation energies from 0 to q for impurities.
+  
+  integer :: q, Z
+  real*8 :: E, sputtering_yield, sputtered_energy_coeff, theta, T_eV, integral !note: E is in [eV] in this subroutine, because of eckstein coeffs.
+  real*8, allocatable :: integral_i(:)
+  real*8 :: vector_normal(3)
+  real*8, allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_samples) , (2,n_samples), (2,n_samples)
 
+  !> For check free particles
+  integer, allocatable, dimension(:) :: i_free, i_elm_sampled
+  logical, allocatable, dimension(:) :: is_free
+  integer :: n_free
 
+  !> For RNG
+  real*8 :: u(2)
+  integer :: i_rng
+  real*8 :: n_e, T_e
+
+  integer :: i_p
+  real*8 :: av_yield
+  !> For fluid sampling
+  integer, allocatable, dimension(:) :: n_samples_fluid !< per background species
+  !> for mpi_reduce of particle contributions
+  !> for deuterium and neutrals reflection instead of sputtering
+  logical :: reflection, fast_reflection
+  
   !=============================================FLUID PART================================================================
   this%background_relative_density = this%background_relative_density/sum(this%background_relative_density, dim =1)
   
@@ -858,8 +788,8 @@ subroutine do_particle_sputter(this, sim, ev)
       " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral, "  particles flux #/s : ", integral/delta_t
     end if
 
-select type (pa => sim%groups(this%target_group)%particles)
-type is (particle_kinetic_leapfrog)
+    select type (pa => sim%groups(this%target_group)%particles)
+    type is (particle_kinetic_leapfrog)
 #ifdef __GFORTRAN__
     !$omp parallel default(shared) &
 #else
@@ -1025,7 +955,136 @@ type is (particle_kinetic_leapfrog)
 
   
   deallocate(i_free, is_free)
+end subroutine fluid_particle_sputter
+
+!> Perform the sputtering on both fluid and particles hitting the wall.
+!> Run this in an event every microsecond or less.
+!>
+!> First does some setup and checks
+!> Runs in 2 parts (2 main function calls). First particle-particle sputtering and then particle-fluid
+!> sputtering.
+!> Then it generates some output vtks
+subroutine do_particle_sputter(this, sim, ev)
+  use mpi_mod
+  use mod_atomic_elements, only: element_symbols
+  use mod_parameters, only: n_plane, n_period
+  use phys_module, only: use_manual_random_seed, tstep, central_mass, central_density
   
+  class(particle_sputter), intent(inout) :: this
+  type(particle_sim), intent(inout)      :: sim
+  type(event), intent(inout), optional   :: ev
+
+  integer :: n_fluid_groups, n_particle_groups
+
+  integer :: i, j, ierr,sputtered_this_step_local, all_sputtered_this_step
+  
+  real*8 :: delta_t
+  
+  character(len=120)  :: filename
+  integer :: n_j, n_j_total
+  
+  integer :: n_scalars, n, nnos
+  character(len=30) :: source_name, target_name, s_tmp
+  !> for mpi_reduce of particle contributions
+  real*4, allocatable :: scalars(:,:) !< size(st,1) by n_particle*3
+  
+  delta_t = (tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20)))
+  
+  if (this%last_diag_time .eq. 0.d0) then
+    this%last_diag_time = sim%time - delta_t
+  end if
+
+  n_fluid_groups = size(this%background_species_Z,1)
+  n_particle_groups = size(sim%groups,1)
+
+  ! load eckstein data if not already loaded
+  call this%load_eckstein_data(sim)
+  
+  !> check if  edge domain is allocate to access the list of i_elm that are included in the sputtering
+  !> If it is not allocated, don't sputter 
+  if (.not. allocated(this%fluid_sputter_yield%patch)) then
+    write(*,*)'=======================ERROR!!=================================='
+    write(*,*)'fluid_sputter_yield not initialised. Did you use the constructor?'
+    write(*,*)'exiting'
+    return
+  end if
+
+  if (this%n_sputter .le. 0 .and. sim%my_id .eq. 0) then
+    write(*,*) 'Warning: No sputtering quota set, calculating yields only'
+  end if
+
+  ! Set up scalars and scalar names for each of the patches if necessary
+  n_scalars = n_particle_diag*n_particle_groups + n_fluid_diag*n_fluid_groups + n_general_diag
+  do i=1,size(this%diagnostics%patch,1)
+    if (.not. allocated(this%diagnostics%patch(i)%scalars)) then
+      allocate(this%diagnostics%patch(i)%scalars(size(this%diagnostics%patch(i)%st,2), n_scalars))
+      this%diagnostics%patch(i)%scalars(:,:) = 0.d0
+    end if
+    if (.not. allocated(this%diagnostics%patch(i)%scalar_names)) then
+      allocate(this%diagnostics%patch(i)%scalar_names(n_scalars))
+      associate (sn => this%diagnostics%patch(i)%scalar_names)
+      n_j_total = count(sim%groups(:)%Z .eq. sim%groups(this%target_group)%Z) ! total number of groups of the target species
+      if (n_j_total .gt. 1) then
+        n_j = count(sim%groups(1:this%target_group)%Z .eq. sim%groups(this%target_group)%Z) ! number of groups of this species so far
+        write(s_tmp,'(i1)') n_j
+        target_name = trim(element_symbols(sim%groups(this%target_group)%Z))//trim(s_tmp)
+      else
+        target_name = trim(element_symbols(sim%groups(this%target_group)%Z))
+      end if
+
+      do j=1,n_particle_groups
+        ! convention is source-target-type (without dashes), with numbers where necessary
+        n_j_total = count(sim%groups(:)%Z .eq. sim%groups(j)%Z) ! total number of groups of this species
+        if (n_j_total .gt. 1) then
+          n_j = count(sim%groups(1:j)%Z .eq. sim%groups(j)%Z) ! number of groups of this species so far
+          write(s_tmp,'(i1)') n_j
+          source_name = trim(element_symbols(sim%groups(j)%Z))//trim(s_tmp)
+        else
+          source_name = trim(element_symbols(sim%groups(j)%Z))
+        end if
+        sn(n_particle_diag*j-3) = trim(source_name)//"flux"
+        sn(n_particle_diag*j-2) = trim(source_name)//"heatflux"
+        sn(n_particle_diag*j-1) = trim(source_name)//"promptflux"
+        sn(n_particle_diag*j-0) = trim(source_name)//trim(target_name)//"yield"
+      end do
+      n = n_particle_diag*n_particle_groups !< offset
+      do j=1,n_fluid_groups
+        source_name = trim(element_symbols(this%background_species_Z(j)))//'f'
+        sn(n+n_fluid_diag*j-3) = trim(source_name)//"density"
+        sn(n+n_fluid_diag*j-2) = trim(source_name)//"flux"
+        sn(n+n_fluid_diag*j-1) = trim(source_name)//"heatflux"
+        sn(n+n_fluid_diag*j-0) = trim(source_name)//trim(target_name)//"yield"
+      end do
+      n = n_particle_diag*n_particle_groups + n_fluid_diag*n_fluid_groups
+      sn(n+1) = "n_e" ! m^-3
+      sn(n+2) = "T_e" ! eV
+      sn(n+3) = "cos_alpha" ! cosine of angle between normal and B-field
+      sn(n+4) = "Psi_n" ! normalized psi
+      sn(n+5) = trim(target_name)//"_yield"
+      end associate
+    end if
+  end do
+
+  ! Allocate scalars for the fluid particle flux, one per background species
+  do i=1,size(this%fluid_sputter_yield%patch,1)
+    if (.not. allocated(this%fluid_sputter_yield%patch(i)%scalars)) then
+      allocate(this%fluid_sputter_yield%patch(i)%scalars( &
+        size(this%fluid_sputter_yield%patch(i)%st,2), n_fluid_groups))
+    end if
+    ! always reset this one to zero since its only used for the current iteration
+    this%fluid_sputter_yield%patch(i)%scalars = 0
+  end do
+    
+
+
+  !------------ Main particle to particle sputtering call  
+  call particle_particle_sputter(this, sim, delta_t, n_particle_groups)
+
+  !------------ Main fluid to particle sputtering call
+  call fluid_particle_sputter(this, sim, delta_t, n_fluid_groups, n_particle_groups)
+  
+
+
   !> Part for writing diagnostics
   if (len_trim(this%filename) .eq. 0) then
     filename = this%get_filename(sim%time)
