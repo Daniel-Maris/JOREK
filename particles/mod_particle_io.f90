@@ -384,32 +384,33 @@ subroutine read_simulation_hdf5(sim,filename,use_hdf5_access_properties,&
 mpi_comm_in,mpi_info_in,test_in)
   use phys_module
   use mpi
-  use hdf5,               only: HSIZE_T,HID_T
-  use hdf5,               only: H5Gopen_f,H5Gget_info_f
-  use hdf5,               only: H5Gclose_f
-  use hdf5_io_module,     only: HDF5_open,HDF5_close
-  use hdf5_io_module,     only: HDF5_char_reading
-  use hdf5_io_module,     only: HDF5_allocatable_char_reading
-  use hdf5_io_module,     only: HDF5_real_reading,HDF5_integer_reading
-  use hdf5_io_module,     only: HDF5_get_dataset_rank_dims
-  use hdf5_io_module,     only: HDF5_allocatable_array1D_reading_int
-  use hdf5_io_module,     only: HDF5_allocatable_array1D_reading_r4
-  use hdf5_io_module,     only: HDF5_allocatable_array1D_reading
-  use hdf5_io_module,     only: HDF5_allocatable_array2D_reading
-  use hdf5_io_module,     only: HDF5_allocatable_array3D_reading
-  use hdf5_io_module,     only: HDF5_array1D_reading_char
-  use mod_particle_types, only: particle_list_from_arrays
-  use mod_particle_types, only: initialize_particle_list_to_zero
-  use mod_particle_types, only: deallocate_particle_arrays
-  use mod_particle_types, only: particle_kinetic,particle_kinetic_leapfrog
-  use mod_particle_types, only: particle_gc,particle_gc_vpar
-  use mod_particle_types, only: particle_gc_Qin
-  use mod_particle_types, only: particle_fieldline
-  use mod_particle_types, only: particle_kinetic_relativistic
-  use mod_particle_types, only: particle_gc_relativistic
-  use mod_particle_sim,   only: particle_sim, configure_particle_groups
-  use mod_coronal,        only: coronal
-  use mod_openadas,       only: read_adf11
+  use hdf5,                  only: HSIZE_T,HID_T
+  use hdf5,                  only: H5Gopen_f,H5Gget_info_f
+  use hdf5,                  only: H5Gclose_f
+  use hdf5_io_module,        only: HDF5_open,HDF5_close
+  use hdf5_io_module,        only: HDF5_char_reading
+  use hdf5_io_module,        only: HDF5_allocatable_char_reading
+  use hdf5_io_module,        only: HDF5_real_reading,HDF5_integer_reading
+  use hdf5_io_module,        only: HDF5_get_dataset_rank_dims
+  use hdf5_io_module,        only: HDF5_allocatable_array1D_reading_int
+  use hdf5_io_module,        only: HDF5_allocatable_array1D_reading_r4
+  use hdf5_io_module,        only: HDF5_allocatable_array1D_reading
+  use hdf5_io_module,        only: HDF5_allocatable_array2D_reading
+  use hdf5_io_module,        only: HDF5_allocatable_array3D_reading
+  use hdf5_io_module,        only: HDF5_array1D_reading_char
+  use mod_particle_types,    only: particle_list_from_arrays
+  use mod_particle_types,    only: initialize_particle_list_to_zero
+  use mod_particle_types,    only: deallocate_particle_arrays
+  use mod_particle_types,    only: particle_kinetic,particle_kinetic_leapfrog
+  use mod_particle_types,    only: particle_gc,particle_gc_vpar
+  use mod_particle_types,    only: particle_gc_Qin
+  use mod_particle_types,    only: particle_fieldline
+  use mod_particle_types,    only: particle_kinetic_relativistic
+  use mod_particle_types,    only: particle_gc_relativistic
+  use mod_particle_sim,      only: particle_sim, configure_particle_groups
+  use mod_coronal,           only: coronal
+  use mod_openadas,          only: read_adf11
+  use mod_particle_group_id, only: matching_part_config_indices
   implicit none
   !> parameters:
   integer(HSIZE_T),parameter  :: i0_HSIZE_T=int(0,kind=HSIZE_T)
@@ -422,7 +423,7 @@ mpi_comm_in,mpi_info_in,test_in)
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
-  integer                                        :: i,ii,ierr,h5err,errorcode
+  integer                                        :: i,j,ierr,h5err,errorcode
   integer                                        :: mpi_comm_loc,mpi_info_loc
   integer                                        :: storage_type,max_corder,rank
   integer                                        :: n_groups_old, n_dropped_groups
@@ -446,6 +447,7 @@ mpi_comm_in,mpi_info_in,test_in)
   character(len=3)                               :: part_group_id
   character(len=3),                  allocatable :: part_groups_in_use_old(:) 
   logical,          dimension(:),    allocatable :: dropped_groups_mask     !< records which groups from the restart file has been dropped
+  type(type_part_group_config)                   :: config
 
   ! temp group attributes
   integer            :: tmp_Z
@@ -501,21 +503,26 @@ mpi_comm_in,mpi_info_in,test_in)
   endif 
 
   do i=1, n_part_groups ! loop over groups in part_groups_in_use
+
+    ! the matching part_group_config
+    config = part_group_configs(matching_part_config_indices(i))
+
     id_matched = .false.
     if (sim%my_id == master_task) then
       write(*,*) ""
       write(*,*) " --- Group ID to match: ", part_groups_in_use(i), " --- "
     endif
 
-    do ii=1,n_groups_old ! loop over the saved particle groups
+    do j=1,n_groups_old ! loop over the saved particle groups
       !> check for id match between id from part_groups_in_use and part_restart.h5
-      ierr = 0; write(group_name,'(A,A,A)') "/groups/",trim(part_groups_in_use_old(ii)),"/";
+      ierr = 0; write(group_name,'(A,A,A)') "/groups/",trim(part_groups_in_use_old(j)),"/";
       call HDF5_char_reading(file_id, part_group_id, trim(group_name)//"id")
 
       if (part_group_id == part_groups_in_use(i)) then
         if (sim%my_id == master_task) write(*,*) "Matching restart group found. Loading data..."
         id_matched = .true.
-        dropped_groups_mask(ii) = .false. ! mark group as NOT dropped
+        dropped_groups_mask(j) = .false. ! mark group as NOT dropped
+
 
         !> read and load group datasets. We assume that the ith-particle group of 
         !> all tasks is defined by the same unique value stored in the hdf5 file
@@ -532,47 +539,47 @@ mpi_comm_in,mpi_info_in,test_in)
         !> Check if read attributes matches with specified attributes -----------
         !> will only be done on main mpi process to allow for cleaner error messages
         if (sim%my_id == master_task) then
-          if (part_group_configs(i)%Z /= tmp_Z) then
+          if (config%Z /= tmp_Z) then
             write(*,*) "IMPORT ERROR: Attribute 'Z' mismatch between namelist and imported data for group: ", part_group_id
             stop
           endif
   
-          if (part_group_configs(i)%mass /= tmp_mass) then
+          if (config%mass /= tmp_mass) then
             write(*,*) "IMPORT ERROR: Attribute 'mass' mismatch between namelist and imported data for group: ", part_group_id
             stop
           endif
   
-          if (trim(part_group_configs(i)%coupling_scheme) /= trim(tmp_cs)) then
+          if (trim(config%coupling_scheme) /= trim(tmp_cs)) then
             write(*,*) "IMPORT ERROR: Attribute 'coupling_scheme' mismatch between namelist and imported data for group: ", part_group_id
             stop
           endif
   
-          if (trim(part_group_configs(i)%type) /= trim(particle_type_str)) then
+          if (trim(config%type) /= trim(particle_type_str)) then
             write(*,*) "IMPORT ERROR: Attribute 'type' mismatch between namelist and imported data for group: ", part_group_id
-            write(*,*) "Namelist type: ", trim(part_group_configs(i)%type)
+            write(*,*) "Namelist type: ", trim(config%type)
             write(*,*) "Imported type: ", trim(particle_type_str)
             stop
           endif
   
           !> attributes that are allowed to change
-          if (trim(part_group_configs(i)%atom_data_suffix) /= trim(tmp_ad_suffix)) then
+          if (trim(config%atom_data_suffix) /= trim(tmp_ad_suffix)) then
             write(*,*) "IMPORT WARNING: Attribute 'atom_data_suffix' mismatch between namelist and imported data for group: ", part_group_id
-            write(*,*) " Namelist value: ", trim(part_group_configs(i)%atom_data_suffix) 
+            write(*,*) " Namelist value: ", trim(config%atom_data_suffix) 
             write(*,*) " Imported value: ", trim(tmp_ad_suffix)
             write(*,*) " Will proceed with suffix given by namelist."
           endif
   
-          if (part_group_configs(i)%n_particles /= n_particles_tot(1)) then
+          if (config%n_particles /= n_particles_tot(1)) then
   
             !> currently we do not allow the user to decrease the size of the particle array as we need 
             !> a more reliable way of determining which slots of the array are free (planned improvement to the isfree system)
-            if (part_group_configs(i)%n_particles < n_particles_tot(1)) then
+            if (config%n_particles < n_particles_tot(1)) then
               write(*,*) "ERROR: demanding less particles than saved in the restart file for a group is currently not supported." 
               stop
             endif
   
             write(*,*) "IMPORT WARNING: Attribute 'n_particles' mismatch between namelist and imported data for group: ", part_group_id
-            write(*,*) " Namelist value: ", part_group_configs(i)%n_particles 
+            write(*,*) " Namelist value: ", config%n_particles 
             write(*,*) " Imported value: ", n_particles_tot(1)
             write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
           endif
@@ -584,11 +591,11 @@ mpi_comm_in,mpi_info_in,test_in)
         sim%groups(i)%mass = tmp_mass
         sim%groups(i)%coupling_scheme = tmp_cs
         ! overriding n_particles_tot from import with n_particles from config
-        sim%groups(i)%n_particles = part_group_configs(i)%n_particles
-        n_particles_tot(1) = part_group_configs(i)%n_particles
+        sim%groups(i)%n_particles = config%n_particles
+        n_particles_tot(1) = config%n_particles
   
         ! adas data
-        sim%groups(i)%ad%suffix = part_group_configs(i)%atom_data_suffix
+        sim%groups(i)%ad%suffix = config%atom_data_suffix
         if((len_trim(sim%groups(i)%ad%suffix).gt.0).and.(.not.test)) then
           sim%groups(i)%ad  = read_adf11(sim%my_id,sim%groups(i)%ad%suffix)
           sim%groups(i)%cor = coronal(sim%groups(i)%ad) 
@@ -681,12 +688,12 @@ mpi_comm_in,mpi_info_in,test_in)
       endif
 
       ! calculate load balancing ------
-      call calc_n_particles_per_mpi(int(n_particles_tot(1)), sim%n_mpi, n_particles_per_mpi, master_task)
+      call calc_n_particles_per_mpi(int(config%n_particles), sim%n_mpi, n_particles_per_mpi, master_task)
 
       ! getting particle type --------- 
       if(allocated(particle_type_str)) deallocate(particle_type_str)
-      allocate(character(len=len(trim(part_group_configs(i)%type)))::particle_type_str)
-      particle_type_str = trim(part_group_configs(i)%type)
+      allocate(character(len=len(trim(config%type)))::particle_type_str)
+      particle_type_str = trim(config%type)
 
       call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
       if (sim%my_id == master_task) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
@@ -701,8 +708,8 @@ mpi_comm_in,mpi_info_in,test_in)
     !> write out information about dropped groups
     if (n_dropped_groups > 0) then
       write(*, '(A, I0, A)') ' ', n_dropped_groups, " group(s) from part_restart.h5 has been dropped:"
-      do ii = 1, n_groups_old
-        if (dropped_groups_mask(ii)) write(*, '(A, A, A)') "   '", part_groups_in_use_old(ii), "'"
+      do j = 1, n_groups_old
+        if (dropped_groups_mask(j)) write(*, '(A, A, A)') "   '", part_groups_in_use_old(j), "'"
       enddo
     else
       write(*,*) "No groups have been dropped."  

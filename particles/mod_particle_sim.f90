@@ -66,28 +66,15 @@ contains
 subroutine configure_particle_groups(sim)
   use phys_module, only: n_part_groups, part_group_configs, type_part_group_config
   use phys_module, only: part_groups_in_use
+  use mod_particle_group_id, only: matching_part_config_indices
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i,j
-  type(type_part_group_config)         :: config
-  logical                                  :: matched
+  type(type_part_group_config)             :: config
 
   do i=1, n_part_groups ! loop over groups defined in part_groups_in_use
-    
-    matched = .false.
-    do j=1, n_part_groups ! loop over the groups in part_group_configs
-      if (trim(part_group_configs(j)%id) == trim(part_groups_in_use(i))) then
-        config = part_group_configs(j)
-        matched = .true.
-      endif
-    enddo
-
-    if (.not. matched) then
-      write(*,*) "Error: No matching part_group_configs entry found for group id: "
-      write(*,*) " '", part_groups_in_use(i),"' defined in namelist variable 'part_groups_in_use'. "
-      stop
-    endif
+    config = part_group_configs(matching_part_config_indices(i))
 
     sim%groups(i)%Z = config%Z
     sim%groups(i)%mass = config%mass
