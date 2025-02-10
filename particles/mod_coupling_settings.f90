@@ -1,7 +1,7 @@
 !> variables and functions related to settings for the coupling between kinetic particles and the fluid
 module mod_coupling_settings
 use mod_model_settings, only: n_var
-use phys_module, only: n_part_groups, n_part_groups_max, particle_group_configs
+use phys_module, only: n_part_groups, n_part_groups_max, part_group_configs
 use phys_module, only: n_aux_var, n_diag_var
 use coupling_variables
 
@@ -24,7 +24,7 @@ subroutine determine_coupling_schemes()
   integer                    ::   group_num
 
   do group_num=1, n_part_groups
-    select case (particle_group_configs(group_num)%coupling_scheme)
+    select case (part_group_configs(group_num)%coupling_scheme)
       case ('ncs')
         use_ncs = .true.
       case ('ccs')
@@ -36,12 +36,12 @@ subroutine determine_coupling_schemes()
       case ('non')
         
       case default
-        write(*,*) "ERROR: The coupling scheme '", particle_group_configs(group_num)%coupling_scheme, "' is invalid."
+        write(*,*) "ERROR: The coupling scheme '", part_group_configs(group_num)%coupling_scheme, "' is invalid."
         stop
 
     end select
 
-    if (particle_group_configs(group_num)%use_kin_recombination .eqv. .true.) then
+    if (part_group_configs(group_num)%use_kin_recombination .eqv. .true.) then
       use_kin_recomb_global = .true.
     endif 
     

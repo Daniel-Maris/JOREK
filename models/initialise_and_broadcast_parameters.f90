@@ -20,6 +20,8 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
   ! Determine coupling parameters
   if (my_id .eq. 0) then
 
+    ! scan over part_group_configs to see if any particle groups are defined
+
     ! check if particle groups are requested
     if (n_part_groups > 0) then
 
@@ -27,7 +29,7 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
       if (use_particles) then
         write(*,*) n_part_groups, " particle groups slots requested."
         
-        ! --- if part_groups_in_use is manually defined, make sure it matches particle_group_configs
+        ! --- if part_groups_in_use is manually defined, make sure it matches part_group_configs
         call check_part_groups_in_use_matches_configs()
   
         ! --- check that number of particle groups requested fits 

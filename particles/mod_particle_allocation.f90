@@ -15,7 +15,7 @@ contains
 
   !> allocates all particle arrays for a simulation dependent on the configured particle group properties
   subroutine allocate_particles_for_sim(sim)
-    use phys_module, only: particle_group_configs, n_part_groups
+    use phys_module, only: part_group_configs, n_part_groups
     implicit none
     class(particle_sim), intent(inout)       :: sim
     integer                                  :: i, ierr
@@ -33,8 +33,8 @@ contains
         ! putting particle_type in the right format for allocate_particle_arrray function
         ! this is so that the function can be used both here and in io
         if (allocated(particle_type_str)) deallocate(particle_type_str)
-        allocate(character(len=len(trim(particle_group_configs(i)%type)))::particle_type_str)
-        particle_type_str = trim(particle_group_configs(i)%type)
+        allocate(character(len=len(trim(part_group_configs(i)%type)))::particle_type_str)
+        particle_type_str = trim(part_group_configs(i)%type)
 
         ! allocating particle arrays ---------
         call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1))
