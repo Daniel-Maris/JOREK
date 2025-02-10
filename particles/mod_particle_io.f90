@@ -696,13 +696,13 @@ mpi_comm_in,mpi_info_in,test_in)
   if (sim%my_id == master_task) then 
     write(*,*) " ------ "
     write(*,*) "Finished importing particle groups from part_restart.h5 "
-    n_dropped_groups = count(dropped_groups_mask .eqv. .true.)
+    n_dropped_groups = count(dropped_groups_mask)
 
     !> write out information about dropped groups
     if (n_dropped_groups > 0) then
       write(*, '(A, I0, A)') ' ', n_dropped_groups, " group(s) from part_restart.h5 has been dropped:"
       do ii = 1, n_groups_old
-        if (dropped_groups_mask(ii) .eqv. .true.) write(*, '(A, A, A)') "   '", part_groups_in_use_old(ii), "'"
+        if (dropped_groups_mask(ii)) write(*, '(A, A, A)') "   '", part_groups_in_use_old(ii), "'"
       enddo
     else
       write(*,*) "No groups have been dropped."  

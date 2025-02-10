@@ -4,7 +4,7 @@ module mod_particle_group_id
 use phys_module, only: part_groups_in_use, n_part_groups, particle_group_configs, n_part_groups_max
 implicit none
 
-integer :: id_counter = 0
+integer :: id_counter = 0  !< how many ids have been automatically generated. Used to keep IDs unique.
 
 contains
 
@@ -15,7 +15,7 @@ contains
     integer :: i, defined_groups
 
     defined_groups = 0
-    if (trim(part_groups_in_use(1)) /= 'non') then
+    if (trim(part_groups_in_use(1)) /= 'non') then !< checking if part_groups_in_use is manually defined
 
       do i=1, n_part_groups_max
         if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
@@ -41,7 +41,20 @@ contains
     implicit none
     integer :: i
 
+
+    ! check if part_groups_in_use is manually defined
+    if (part_groups_in_use(1) == 'non') then ! not manually defined
+       
+      do i=1, n_part_groups
+        if (particle_group_configs(i)%id == 'non') call generate_part_group_id(particle_group_configs(i)%id)
+        part_groups_in_use(i) = particle_group_configs(i)%id
+      enddo
+    else ! is manually defined 
+
+    endif
+
     do i=1, n_part_groups
+
       if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
 
         if (particle_group_configs(i)%id(1:1) == 'P') then
@@ -54,17 +67,13 @@ contains
             write(*,*) "Error: part_groups_in_use is defined, which requires id to be explicitly " // &
                   "defined for all members of part_configs."
             stop
-          call generate_part_group_id(particle_group_configs(i)%id)
+          
         endif
 
       endif
     enddo
 
-    if (part_groups_in_use(1) == 'non') then ! part_groups_in_use is not assigned
-      do i=1, n_part_groups
-        part_groups_in_use(i) = particle_group_configs(i)%id
-      enddo
-    endif
+
 
   end subroutine assign_part_group_ids
 
