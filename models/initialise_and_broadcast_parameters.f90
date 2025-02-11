@@ -23,17 +23,13 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
 
       ! --- Initialize part_groups_in_use and determine n_part_groups
       if (part_groups_in_use(1) == 'non') then !< part_groups_in_use not manually defined
-
-        !< generate the particle groups in use based on the defined groups in part_group_configs
+        !> generate the particle groups in use based on the defined groups in part_group_configs
         call generate_part_groups_in_use()
-        n_part_groups = count(part_groups_in_use /= 'non')
-
-      else !< part_groups_in_use manually defined
-
-        n_part_groups = count(part_groups_in_use /= 'non')
-        call match_part_groups_and_configs()
-
       endif
+
+      n_part_groups = count(part_groups_in_use /= 'non')
+      !> find the matching part_group_config for each group specified in part_groups_in_use
+      call match_part_groups_and_configs()
         
       ! --- Scan over n_part_groups and determine the coupling scheme parameters
       call determine_coupling_schemes()

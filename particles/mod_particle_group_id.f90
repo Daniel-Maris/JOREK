@@ -90,7 +90,6 @@ contains
         endif
 
         part_groups_in_use(i) = trim(part_group_configs(i)%id)
-        matching_part_config_indices(i) = i
       endif
     enddo
   end subroutine generate_part_groups_in_use
