@@ -455,8 +455,6 @@ mpi_comm_in,mpi_info_in,test_in)
   character(len=3)   :: tmp_cs
   character(len=8)   :: tmp_ad_suffix 
 
-  !> initialisation
-  allocate(n_particles_per_mpi(sim%n_mpi))
   !> set optional parameters
   create_access_plist = .false.
   if(present(use_hdf5_access_properties)) create_access_plist = .not.use_hdf5_access_properties
@@ -602,12 +600,12 @@ mpi_comm_in,mpi_info_in,test_in)
         endif
 
         !> compute the number of particles per processor and allocate particle array ---------
-        call calc_n_particles_per_mpi(int(n_particles_tot(1)), sim%n_mpi, n_particles_per_mpi, master_task)
+        n_particles_per_mpi = calc_n_particles_per_mpi(int(n_particles_tot(1)), sim%n_mpi, master_task)
         offset = int(sum(n_particles_per_mpi(1:sim%my_id)),kind=HSIZE_T)
         n_particles_hsizet = int(n_particles_per_mpi(sim%my_id+1),kind=HSIZE_T)
 
         !> allocate particle list and initialise to 0 -----------------
-        call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
+        call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
 
         call initialize_particle_list_to_zero(n_particles_per_mpi(sim%my_id+1),sim%groups(i)%particles,ierr)
 
@@ -688,14 +686,14 @@ mpi_comm_in,mpi_info_in,test_in)
       endif
 
       ! calculate load balancing ------
-      call calc_n_particles_per_mpi(int(config%n_particles), sim%n_mpi, n_particles_per_mpi, master_task)
+      n_particles_per_mpi = calc_n_particles_per_mpi(int(config%n_particles), sim%n_mpi, master_task)
 
       ! getting particle type --------- 
       if(allocated(particle_type_str)) deallocate(particle_type_str)
       allocate(character(len=len(trim(config%type)))::particle_type_str)
       particle_type_str = trim(config%type)
 
-      call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
+      call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
       if (sim%my_id == master_task) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
     endif
   enddo ! n_part_groups (particle groups requested in part_groups_in_use)

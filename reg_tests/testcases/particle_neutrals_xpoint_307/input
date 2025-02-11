@@ -133,7 +133,6 @@
   gmres_tol = 1.d-8
 
   ! ----  particle groups
-  n_part_groups = 1
   part_group_configs(1)%Z = -2
   part_group_configs(1)%mass = 2.01410178
   part_group_configs(1)%coupling_scheme = 'ncs'

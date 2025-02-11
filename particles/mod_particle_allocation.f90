@@ -9,6 +9,9 @@ use mod_particle_sim
 use mod_particle_types
 
 implicit none
+
+public allocate_particles_for_sim, allocate_particles_for_group
+
 contains
 
 
@@ -22,13 +25,11 @@ contains
     integer,    dimension(:),    allocatable :: n_particles_per_mpi
     character(len=:),            allocatable :: particle_type_str
 
-    allocate(n_particles_per_mpi(sim%n_mpi))
-
     do i=1, n_part_groups
       if (.not. allocated(sim%groups(i)%particles)) then
 
         ! calculate load balancing ------
-        call calc_n_particles_per_mpi(int(sim%groups(i)%n_particles), sim%n_mpi, n_particles_per_mpi, 0)
+        n_particles_per_mpi = calc_n_particles_per_mpi(int(sim%groups(i)%n_particles), sim%n_mpi, 0)
 
         ! putting particle_type in the right format for allocate_particle_arrray function
         ! this is so that the function can be used both here and in io
@@ -37,20 +38,20 @@ contains
         particle_type_str = trim(part_group_configs(i)%type)
 
         ! allocating particle arrays ---------
-        call allocate_particle_array(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1))
+        call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1))
 
         ! initialize them to empty ---------- (temporary, to be replaced by a more general initialization function)
         call initialize_particle_list_to_zero(n_particles_per_mpi(sim%my_id+1),sim%groups(i)%particles,ierr)
       endif !if allocated
     enddo
 
-    deallocate(n_particles_per_mpi)
+    if (allocated(n_particles_per_mpi)) deallocate(n_particles_per_mpi)
     if (allocated(particle_type_str)) deallocate(particle_type_str)
     
   end subroutine allocate_particles_for_sim
 
   !> allocate an empty array of a specified particle type for a specific particle group for each mpi process
-  subroutine allocate_particle_array(sim, group_num, particle_type_str, n_particles_per_mpi, mpi_comm_loc)
+  subroutine allocate_particles_for_group(sim, group_num, particle_type_str, n_particles_per_mpi, mpi_comm_loc)
     use mod_particle_types
 
     implicit none
@@ -88,23 +89,26 @@ contains
       endif
     end select
 
-  end subroutine allocate_particle_array
+  end subroutine allocate_particles_for_group
 
-  !> calculate the distribution of particles for a group across mpi processers (load balancing)
-  subroutine calc_n_particles_per_mpi(n_particles_tot, n_mpi, n_particles_per_mpi, master_task)
+  !> calculate how to distribute the particles in a group across the mpi processes
+  !> returns an array containing the number of particles for each mpi processor, the master mpi
+  !> processor contains the remainder of the division
+  function calc_n_particles_per_mpi(n_particles_tot, n_mpi, master_task) result(n_particles_per_mpi)
     implicit none
 
     integer,  intent(in)                                  :: n_particles_tot       !< total number of particles for a particle group
     integer,  intent(in)                                  :: n_mpi                 !< number of mpi processes being used
-    integer,  dimension(:),  allocatable,  intent(inout)  :: n_particles_per_mpi   !< array with the number of particles per mpi process
     integer,  optional                                    :: master_task           !< which mpi process is the "master" and will hence hold
                                                                                    !< the remainder of the particles after division (default 0)
+    integer,  dimension(:), allocatable                   :: n_particles_per_mpi
 
     if (.not. present(master_task)) master_task = 0
+    allocate(n_particles_per_mpi(n_mpi))
 
     n_particles_per_mpi = int(n_particles_tot)/n_mpi
     n_particles_per_mpi(master_task+1) = int(n_particles_tot) - (n_mpi-1)*n_particles_per_mpi(master_task+1)
 
-  end subroutine calc_n_particles_per_mpi
+  end function calc_n_particles_per_mpi
 
 end module mod_particle_allocation

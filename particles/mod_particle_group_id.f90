@@ -11,6 +11,9 @@ integer :: id_counter = 0  !< how many ids have been automatically generated. Us
 !> corresponding part_group_configs index)
 integer, dimension(n_part_groups_max) :: matching_part_config_indices = 1 ! only the first n_part_groups value of this should be accessed
 
+public matching_part_config_indices, match_part_groups_and_configs, generate_part_groups_in_use
+private generate_part_group_id
+
 contains
 
   !> matches the groups requested in part_groups_in_use with a corresponding 
