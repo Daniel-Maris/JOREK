@@ -690,7 +690,6 @@ mpi_comm_in,mpi_info_in,test_in)
 
       ! getting particle type --------- 
       if(allocated(particle_type_str)) deallocate(particle_type_str)
-      allocate(character(len=len(trim(config%type)))::particle_type_str)
       particle_type_str = trim(config%type)
 
       call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi(sim%my_id+1), mpi_comm_loc)
