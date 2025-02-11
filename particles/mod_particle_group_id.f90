@@ -1,5 +1,7 @@
 
-!> functions related to assigning and matching of particle group ids
+!> This module handles the checking of the validity of, assigning and matching 
+!> of particle group ids provided by the input namelist arrays 'part_groups_in_use' 
+!> and 'part_group_configs'
 module mod_particle_group_id
 use phys_module, only: part_groups_in_use, n_part_groups, part_group_configs, n_part_groups_max
 implicit none
@@ -67,9 +69,9 @@ contains
 
         !> check if the ID of the group has been manually assigned
         if (trim(part_group_configs(i)%id) == 'non') then
-            call generate_part_group_id(part_group_configs(i)%id)
-            write(*,*) "WARNING: No ID defined for particle group in slot: ", i
-            write(*,*) " Assigning it the system generated ID: '", part_group_configs(i)%id, "'."
+          part_group_configs(i)%id = generate_part_group_id()
+          write(*,*) "WARNING: No ID defined for particle group in slot: ", i
+          write(*,*) " Assigning it the system generated ID: '", part_group_configs(i)%id, "'."
 
         else
         !> if manually assigned, ensure that it does not start with 'P'
@@ -95,14 +97,14 @@ contains
 
   !> generates a unique particle group ID starting with 'P', 
   !> followed by two numerical digits
-  subroutine generate_part_group_id(id)
+  function generate_part_group_id() result(id)
     implicit none
-    character(len=3), intent(inout) :: id
+    character(len=3)        :: id
     character(len=2)        :: temp
 
     id_counter = id_counter + 1
     write(temp, '(I2.2)') id_counter
     id = 'P' // temp
-  end subroutine generate_part_group_id
+  end function generate_part_group_id
 
 end module mod_particle_group_id

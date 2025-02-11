@@ -1,8 +1,9 @@
-!> functionality to do with the allocation of the particle arrays for each particle group
-!> including load balancing. 
-!> In the future this module will be a user of the different initialization schemes defined
-!> in mod_initialise_particles.f90 (or similar) once that system has been reworked.
+!> This module contains functions to allocate sim%groups(:)%particles arrays based on the input from
+!> part_group_configs, with the particles in each group distributed evenly across the mpi processes.
 
+!> TODO:
+!> In the future this module should use the different initialization schemes defined
+!> in mod_initialise_particles.f90 (or similar) once that system has been reworked.
 module mod_particle_allocation
 use mpi
 use mod_particle_sim
