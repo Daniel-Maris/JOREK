@@ -1042,8 +1042,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       endif
       
     enddo
+    write(*,*) '==== End of particle groups ===='
   endif
-  write(*,*) '==== End of particle groups ===='
 
 
   write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
