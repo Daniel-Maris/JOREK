@@ -62,32 +62,19 @@ end type particle_sim
 
 contains
 
-!> Loads the information from a type_particle_group_config type to a particle_group type
+!> Loads the information from a type_part_group_config type to a particle_group type
 subroutine configure_particle_groups(sim)
-  use phys_module, only: n_part_groups, particle_group_configs, type_particle_group_config
+  use phys_module, only: n_part_groups, part_group_configs, type_part_group_config
   use phys_module, only: part_groups_in_use
+  use mod_particle_group_id, only: matching_part_config_indices
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i,j
-  type(type_particle_group_config)         :: config
-  logical                                  :: matched
+  type(type_part_group_config)             :: config
 
   do i=1, n_part_groups ! loop over groups defined in part_groups_in_use
-    
-    matched = .false.
-    do j=1, n_part_groups ! loop over the groups in particle_group_configs
-      if (trim(particle_group_configs(j)%id) == trim(part_groups_in_use(i))) then
-        config = particle_group_configs(j)
-        matched = .true.
-      endif
-    enddo
-
-    if (.not. matched) then
-      write(*,*) "Error: No matching particle_group_configs entry found for group id: "
-      write(*,*) " '", part_groups_in_use(i),"' defined in namelist variable 'part_groups_in_use'. "
-      stop
-    endif
+    config = part_group_configs(matching_part_config_indices(i))
 
     sim%groups(i)%Z = config%Z
     sim%groups(i)%mass = config%mass
@@ -105,7 +92,7 @@ subroutine configure_particle_groups(sim)
     sim%groups(i)%use_kin_line_radiation =  config%use_kin_line_radiation 
     
     if (len_trim(config%atom_data_suffix) > 0) then
-      sim%groups(i)%ad =  read_adf11(sim%my_id, trim(particle_group_configs(i)%atom_data_suffix))
+      sim%groups(i)%ad =  read_adf11(sim%my_id, trim(part_group_configs(i)%atom_data_suffix))
     else
       if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
     endif

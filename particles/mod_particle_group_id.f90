@@ -1,81 +1,110 @@
 
-!> functions related to assigning ids for particle groups
+!> This module handles the checking of the validity of, assigning and matching 
+!> of particle group ids provided by the input namelist arrays 'part_groups_in_use' 
+!> and 'part_group_configs'
 module mod_particle_group_id
-use phys_module, only: part_groups_in_use, n_part_groups, particle_group_configs, n_part_groups_max
+use phys_module, only: part_groups_in_use, n_part_groups, part_group_configs, n_part_groups_max
 implicit none
 
-integer :: id_counter = 0
+integer :: id_counter = 0  !< how many ids have been automatically generated. Used to keep IDs unique.
+
+!> the ith element of this array stores the matching part_group_configs index
+!> for ith group in part_groups_array (i.e converts part_groups_in_use index to 
+!> corresponding part_group_configs index)
+integer, dimension(n_part_groups_max) :: matching_part_config_indices = 1 ! only the first n_part_groups value of this should be accessed
+
+public matching_part_config_indices, match_part_groups_and_configs, generate_part_groups_in_use
+private generate_part_group_id
 
 contains
 
-  !> if part_groups_in_use is manually defined, checks whether the number and order of
-  !> groups specified matches with the particle_group_configs
-  subroutine check_part_groups_in_use_matches_configs()
+  !> matches the groups requested in part_groups_in_use with a corresponding 
+  !> group in part_group_configs. Also checks that the ids in part_groups_in_use
+  !> and part_groups_configs are unique
+  subroutine match_part_groups_and_configs()
     implicit none
-    integer :: i, defined_groups
+    integer :: i, j, matched_num, matched_idx
 
-    defined_groups = 0
-    if (trim(part_groups_in_use(1)) /= 'non') then
+    do i=1, n_part_groups ! loop over defined groups in part_groups_in_use
 
-      do i=1, n_part_groups_max
-        if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
-          write(*,*) "ERROR: if manually defining particle groups using part_groups_in_use, the" 
-          write(*,*) " groups in particle_group_configs() must match in number and id and order"
-          stop
-        endif
-
-        if (part_groups_in_use(i) /= 'non') defined_groups = defined_groups + 1
-      enddo
-
-      if (n_part_groups /= defined_groups) then
-        write(*,*) "ERROR: if manually defining particle groups using part_groups_in_use, the" 
-        write(*,*) " groups in particle_group_configs() must match in number and id and order"
+      !> check that the id is unique
+      if ( (count(part_groups_in_use == part_groups_in_use(i)) > 1) .and. part_groups_in_use(i) /= 'non') then
+        write(*,*) "ERROR: The entries in part_groups_in_use are not unique!"
         stop
       endif
+      
+      !> check that a matching group exists in part_group_configs
+      matched_num = 0
+      matched_idx = -1
+      do j=1, n_part_groups_max ! loop over part_group_configs
+        if (trim(part_group_configs(j)%id) == trim(part_groups_in_use(i))) then
+          matched_num = matched_num + 1
+          matched_idx = j
+        endif
+      enddo
 
-    endif
-    
-  end subroutine check_part_groups_in_use_matches_configs
+      if (matched_num == 0) then
+        write(*,*) "ERROR: No matching part_group_configs entry found for group id: "
+        write(*,*) " '", part_groups_in_use(i),"' defined in 'part_groups_in_use'. "
+        stop
+      else if (matched_num > 1) then
+        write(*,*) "ERROR: More than one group in part_group_configs has the id: '", part_groups_in_use(i), "'"
+      endif
 
-  subroutine assign_part_group_ids()
+      matching_part_config_indices(i) = matched_idx
+    enddo
+  end subroutine match_part_groups_and_configs
+
+  !> generates part_groups_in_use based on part_groups_configs if it is
+  !> not manually defined. A unique system generated ID is assigned if no
+  !> input for part_groups_config%id is found.
+  subroutine generate_part_groups_in_use()
     implicit none
-    integer :: i
 
-    do i=1, n_part_groups
-      if (part_groups_in_use(i) /= particle_group_configs(i)%id) then
+    integer  ::  i
 
-        if (particle_group_configs(i)%id(1:1) == 'P') then
-          write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
-                "as it is reserved for system assigned ids."
+    do i=1, n_part_groups_max
+      !> loop over actually defined configs
+      if ( (part_group_configs(i)%type /= 'none') .or. (part_group_configs(i)%n_particles > 0)) then
+
+        !> check if the ID of the group has been manually assigned
+        if (trim(part_group_configs(i)%id) == 'non') then
+          part_group_configs(i)%id = generate_part_group_id()
+          write(*,*) "WARNING: No ID defined for particle group in slot: ", i
+          write(*,*) " Assigning it the system generated ID: '", part_group_configs(i)%id, "'."
+
+        else
+        !> if manually assigned, ensure that it does not start with 'P'
+        !> (Which are reserved for system generated groups IDs)
+          if (part_group_configs(i)%id(1:1) == 'P') then
+            write(*,*) "Error: Self assigned particle ids cannot start with 'P'  " // &
+                  "as it is reserved for system assigned ids."
+            stop
+          endif
+        endif 
+
+        !> check if the assigned ID has been used before
+        if (any(part_groups_in_use == trim(part_group_configs(i)%id))) then
+          write(*,*) "ERROR: The id: '", trim(part_group_configs(i)%id), "' is being assigned to multiple particle groups."
           stop
         endif
 
-        if (particle_group_configs(i)%id == 'non') then
-            write(*,*) "Error: part_groups_in_use is defined, which requires id to be explicitly " // &
-                  "defined for all members of part_configs."
-            stop
-          call generate_part_group_id(particle_group_configs(i)%id)
-        endif
-
+        part_groups_in_use(i) = trim(part_group_configs(i)%id)
+        matching_part_config_indices(i) = i
       endif
     enddo
+  end subroutine generate_part_groups_in_use
 
-    if (part_groups_in_use(1) == 'non') then ! part_groups_in_use is not assigned
-      do i=1, n_part_groups
-        part_groups_in_use(i) = particle_group_configs(i)%id
-      enddo
-    endif
-
-  end subroutine assign_part_group_ids
-
-  subroutine generate_part_group_id(id)
+  !> generates a unique particle group ID starting with 'P', 
+  !> followed by two numerical digits
+  function generate_part_group_id() result(id)
     implicit none
-    character(len=3), intent(inout) :: id
+    character(len=3)        :: id
     character(len=2)        :: temp
 
     id_counter = id_counter + 1
     write(temp, '(I2.2)') id_counter
     id = 'P' // temp
-  end subroutine generate_part_group_id
+  end function generate_part_group_id
 
 end module mod_particle_group_id

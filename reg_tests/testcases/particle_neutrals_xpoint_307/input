@@ -139,20 +139,19 @@
   valves(1)%poly_Z = 0.1d0,  0.1d0,  0.0d0, 0.0d0
 
   ! ----  particle groups
-  n_part_groups = 1
-  particle_group_configs(1)%Z = -2
-  particle_group_configs(1)%mass = 2.01410178
-  particle_group_configs(1)%coupling_scheme = 'ncs'
-  particle_group_configs(1)%n_particles     = 1e4
-  particle_group_configs(1)%type            = 'particle_kinetic_leapfrog'
+  part_group_configs(1)%Z = -2
+  part_group_configs(1)%mass = 2.01410178
+  part_group_configs(1)%coupling_scheme = 'ncs'
+  part_group_configs(1)%n_particles     = 1e4
+  part_group_configs(1)%type            = 'particle_kinetic_leapfrog'
 
-  particle_group_configs(1)%use_kin_puffing        = .t.
-  particle_group_configs(1)%use_kin_cx             = .t.
-  particle_group_configs(1)%use_kin_ionisation     = .t.
-  particle_group_configs(1)%use_kin_sputtering     = .t.
-  particle_group_configs(1)%use_kin_recombination  = .t.
-  particle_group_configs(1)%use_kin_line_radiation = .t.
-  particle_group_configs(1)%atom_data_suffix = '12_h'
+  part_group_configs(1)%use_kin_puffing        = .t.
+  part_group_configs(1)%use_kin_cx             = .t.
+  part_group_configs(1)%use_kin_ionisation     = .t.
+  part_group_configs(1)%use_kin_sputtering     = .t.
+  part_group_configs(1)%use_kin_recombination  = .t.
+  part_group_configs(1)%use_kin_line_radiation = .t.
+  part_group_configs(1)%atom_data_suffix = '12_h'
 
 
  /

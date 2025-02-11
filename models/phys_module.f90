@@ -992,7 +992,7 @@ module phys_module
   integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups     
   
   !> Contains configuration and settings relating to a particle group
-  type :: type_particle_group_config
+  type :: type_part_group_config
     integer            :: Z                        !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
     real*8             :: mass                     !< Mass of all the particles in the group
     character(len=3)   :: coupling_scheme          !< three character code for the coupling scheme to use for the group
@@ -1011,15 +1011,12 @@ module phys_module
     real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
     logical             :: use_kin_line_radiation   !< switch on line radiation for group
 
-    !> --------------- puffing ----------------------
-    type(type_puff_ctrl), dimension(n_valves_max) :: puff_ctrl 
-
-  end type type_particle_group_config
+  end type type_part_group_config
 
   !> @name Particle groups in use (used when changing groups on restart), fill with group ids
   character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
 
-  type (type_particle_group_config), dimension(n_part_groups_max) :: particle_group_configs 
+  type (type_part_group_config), dimension(n_part_groups_max) :: part_group_configs 
 
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
