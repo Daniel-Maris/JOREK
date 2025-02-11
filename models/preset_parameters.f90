@@ -887,6 +887,12 @@ part_group_configs(:)%use_kin_sputtering     = .false.
 part_group_configs(:)%n_reflect_ratio       = 5.d-4
 part_group_configs(:)%use_kin_cx             = .false.
 
+do i=1, n_part_groups_max
+  do j=1, n_valves_max
+    part_group_configs(i)%puff_ctrl(j)%times = -1.0
+    part_group_configs(i)%puff_ctrl(j)%rates = -1.0
+  enddo
+enddo
 !-----------------------------------------------
 
 use_manual_random_seed = .false.

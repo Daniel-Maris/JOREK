@@ -878,8 +878,8 @@ if (my_id .eq. 0) then
 
   do i=1, n_part_groups_max
     do j=1, n_valves_max
-      call MPI_PACK(particle_group_configs(i)%puff_ctrl(j)%times,  n_puff_segment_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-      call MPI_PACK(particle_group_configs(i)%puff_ctrl(j)%rates,  n_puff_segment_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+      call MPI_PACK(part_group_configs(i)%puff_ctrl(j)%times,  n_puff_segment_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+      call MPI_PACK(part_group_configs(i)%puff_ctrl(j)%rates,  n_puff_segment_max,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     enddo
   enddo
 
@@ -1768,8 +1768,8 @@ if (my_id .ne. 0) then
 
   do i=1, n_part_groups_max
     do j=1, n_valves_max
-      call MPI_UNPACK(buffer,bufsize,position,particle_group_configs(i)%puff_ctrl(j)%times,   n_puff_segment_max,MPI_REAL8,MPI_COMM_WORLD,ierr)
-      call MPI_UNPACK(buffer,bufsize,position,particle_group_configs(i)%puff_ctrl(j)%rates,   n_puff_segment_max,MPI_REAL8,MPI_COMM_WORLD,ierr)
+      call MPI_UNPACK(buffer,bufsize,position,part_group_configs(i)%puff_ctrl(j)%times,   n_puff_segment_max,MPI_REAL8,MPI_COMM_WORLD,ierr)
+      call MPI_UNPACK(buffer,bufsize,position,part_group_configs(i)%puff_ctrl(j)%rates,   n_puff_segment_max,MPI_REAL8,MPI_COMM_WORLD,ierr)
     enddo
   enddo
 

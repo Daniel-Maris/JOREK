@@ -13,7 +13,7 @@ module mod_particle_puffing
   use mod_particle_sim
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
-  use phys_module, only: type_valve, valves, particle_group_configs, n_puff_segment_max 
+  use phys_module, only: type_valve, valves, part_group_configs, n_puff_segment_max 
 
   implicit none
 
@@ -80,8 +80,8 @@ function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate
   new%n_puff       = n_puff
   new%puffing_rate = puffing_rate
   new%puff_valve   = valves(valve_num)
-  new%puff_rates   = particle_group_configs(target_group)%puff_ctrl(valve_num)%rates 
-  new%puff_times   = particle_group_configs(target_group)%puff_ctrl(valve_num)%times 
+  new%puff_rates   = part_group_configs(target_group)%puff_ctrl(valve_num)%rates 
+  new%puff_times   = part_group_configs(target_group)%puff_ctrl(valve_num)%times 
 
   ! determine the current puffing segment and the last puffing segment
   do i=1, n_puff_segment_max-1
@@ -90,8 +90,6 @@ function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate
     !> find current puffing segment
     if (sim%time > new%puff_times(i) .and. (new%puff_times(i) /= -1)) new%current_puff_seg = i
   enddo
-  write(*,*) "last puffing segment = ", new%last_puff_seg
-  write(*,*) "current puffing segment = ", new%current_puff_seg
 
   if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
   if (present(t_puff_start)) new%t_puff_start = t_puff_start
@@ -180,9 +178,6 @@ subroutine do_particle_puffing(this,sim, ev)
     puff_time_1 = this%puff_times(this%current_puff_seg + 1)
   endif
 
-  write(*,*) "puff_rate_0: ", puff_rate_0
-  write(*,*) "puff_rate_1: ", puff_rate_1
- 
 !============== Finding free particles !< make into a function?
 allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
 !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &

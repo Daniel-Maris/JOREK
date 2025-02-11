@@ -1011,6 +1011,9 @@ module phys_module
     real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
     logical             :: use_kin_line_radiation   !< switch on line radiation for group
 
+    !> --------------- puffing ----------------------
+    type(type_puff_ctrl), dimension(n_valves_max) :: puff_ctrl 
+
   end type type_part_group_config
 
   !> @name Particle groups in use (used when changing groups on restart), fill with group ids
