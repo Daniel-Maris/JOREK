@@ -49,7 +49,7 @@ use phys_module, only: n_part_groups, n_aux_var
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: n_puff, part_group_configs
+use phys_module, only: part_group_configs
 use phys_module, only: use_manual_random_seed, manual_seed
 
 !$ use omp_lib
@@ -169,12 +169,10 @@ do group_num=1, n_part_groups
     recomb_groups(recomb_counter) = group_num
   endif
 
-  ! puffing (temporary, will require a more sophisticated puffing management system, to come in future PR)
-  
-  !> puff location for simple xpoint case
+  ! puffing
   if (sim%groups(group_num)%use_kin_puffing) then
-    gas_puff  = particle_puffing(sim, group_num, 1, n_puff)
-    gas_puff2 = particle_puffing(sim, group_num, 1, n_puff)
+    gas_puff  = particle_puffing(sim, group_num, group_num)
+    gas_puff2 = particle_puffing(sim, group_num, group_num)
 
     gas_puff_event  = event(gas_puff)
     gas_puff2_event = event(gas_puff2)

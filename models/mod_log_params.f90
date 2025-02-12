@@ -1003,7 +1003,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_ncs,            ',use_ncs     
   write(*,LOGI_FMT) 'use_ccs,            ',use_ccs    
   write(*,LOGI_FMT) 'use_pcs,            ',use_pcs
-  write(*,INTG_FMT) 'n_puff                ',  n_puff
   
   if (n_part_groups > 0) then
     write(*,*) "=== Coupling schemes === "

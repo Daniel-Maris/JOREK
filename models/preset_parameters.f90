@@ -852,8 +852,6 @@ filter_par_n0      = 0.d0
 restart_particles  = .false.
 use_marker         = .false.
 
-n_puff        = 0
-
 !--------------- valves -------------------------
 n_valves = 0
 valves(:)%type = 'none'
@@ -888,6 +886,7 @@ part_group_configs(:)%use_kin_cx             = .false.
 
 do i=1, n_part_groups_max
   do j=1, n_valves_max
+    part_group_configs(i)%puff_ctrl(j)%supers_per_puff = 0
     part_group_configs(i)%puff_ctrl(j)%times = -1.0
     part_group_configs(i)%puff_ctrl(j)%rates = -1.0
   enddo
