@@ -80,12 +80,6 @@ integer   :: sputter_counter = 0
 integer   :: recomb_counter  = 0
 integer, dimension(:), allocatable :: recomb_groups
 
-! Puffing parameters
-real*8  :: t_puff_start          !< [s] time to start ramping the puff rate if puff_t_dependent=.true.
-real*8  :: t_puff_slope          !< [s] time over which the puff rated is ramped to puff_rate (input) from t_puff_start where the puff rate was still puffing_rate_start
-real*8  :: puffing_rate_start    !< [atoms/s] initial puff rate before the ramp if puff_t_dependent=.true.
-logical :: puff_t_dependent      !< puff time dependent using a flat - ramp - flat pattern (=.true.) or no time dependence at all (.false.) 
-
 !***********************************************************************
 !*                            initialisation                            *
 !***********************************************************************
@@ -176,31 +170,14 @@ do group_num=1, n_part_groups
   endif
 
   ! puffing (temporary, will require a more sophisticated puffing management system, to come in future PR)
-
-  !> Adapt the following to customize the time dependent puff rate:
-  !> puffing_rate_start = initial puffing rate [atoms/s]
-  !> puff_rate = final puffing rate [atoms/s] <input parameter>
-  !> t_puff_start = At what time the puffing rate starts to increase [s]
-  !> t_puff_slope = How much time it takes to increase linearly from puffing_rate_start to puff_rate [s]
-  puff_t_dependent = .true. 
-  puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
-  t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-  t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
   
   !> puff location for simple xpoint case
   if (sim%groups(group_num)%use_kin_puffing) then
-    gas_puff = particle_puffing(sim, group_num, 1, n_puff, puff_rate/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
-        puffing_rate_start=puffing_rate_start/2.d0)
-    gas_puff2 = particle_puffing(sim, group_num, 1, n_puff, puff_rate/2.d0, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-        puffing_rate_start=puffing_rate_start/2.d0)
+    gas_puff  = particle_puffing(sim, group_num, 1, n_puff)
+    gas_puff2 = particle_puffing(sim, group_num, 1, n_puff)
 
     gas_puff_event  = event(gas_puff)
     gas_puff2_event = event(gas_puff2)
-    
-    if (sim%my_id .eq.0) then
-      write(*,*) "Gas puffing rate [#/s] : ", puff_rate
-      write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
-    endif
   endif
 
 enddo 

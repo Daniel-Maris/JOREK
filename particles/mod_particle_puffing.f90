@@ -25,27 +25,22 @@ module mod_particle_puffing
    
     class(type_rng), dimension(:), allocatable :: rng  !< one RNG per openmp thread
    
-    ! number of simulation particles/s to puff across all processes
+    !> number of simulation particles/s to puff across all processes
     integer :: n_puff = -1 
-    ! Average fueling rate: 9.7d22; max fueling rate 18d22
-    real*8  :: puffing_rate = -1.d0
+
+    !> Valve
     type(type_valve) :: puff_valve      !< determines the location of the puffing
     integer          :: valve_num       !< the index of the valve used for this puffing event
     
-    ! Time dependent puffing
-    logical :: puff_t_dependent = .false.
-    real*8  :: puffing_rate_start = 0.d0
-    real*8  :: t_puff_start = 0.d0 !< defined in JOREK time units
-    real*8  :: t_puff_slope = 0.d0 !<defined in SI
-
+    !> Time dependency
     real*8  :: puff_rates(n_puff_segment_max)
     real*8  :: puff_times(n_puff_segment_max)
 
-    ! variables required for piecewise linear time dependent puffing control 
+    !> variables required for piecewise linear time dependent puffing control 
     integer :: current_puff_seg = 0   
     integer :: last_puff_seg = n_puff_segment_max !< the segment number after the last defined puffing keyframe
 
-    ! Target particle group
+    !> Target particle group
     integer :: target_group
     
   contains
@@ -57,7 +52,7 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
-function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate, rng, seed, puff_t_dependent,t_puff_start,t_puff_slope,puffing_rate_start) result(new)
+function new_particle_puffing(sim, target_group, valve_num, n_puff, rng, seed) result(new)
 
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_random_seed, only: random_seed
@@ -68,10 +63,6 @@ function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate
   integer, intent(in)             :: target_group
   integer, intent(in)             :: valve_num           !< the valve number to use for this puffing
   integer, intent(in)             :: n_puff
-  real*8, intent(in)              :: puffing_rate
-  logical, intent(in), optional   :: puff_t_dependent
-  real*8, intent(in), optional    :: t_puff_start,t_puff_slope
-  real*8, intent(in), optional    :: puffing_rate_start 
     
   class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
@@ -79,7 +70,6 @@ function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate
   
   new%target_group = target_group
   new%n_puff       = n_puff
-  new%puffing_rate = puffing_rate
   new%puff_valve   = valves(valve_num)
   new%valve_num    = valve_num
   new%puff_rates   = part_group_configs(target_group)%puff_ctrl(valve_num)%rates 
@@ -92,11 +82,6 @@ function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate
     !> find current puffing segment
     if (sim%time > new%puff_times(i) .and. (new%puff_times(i) /= -1)) new%current_puff_seg = i
   enddo
-
-  if (present(puff_t_dependent))  new%puff_t_dependent  = puff_t_dependent
-  if (present(t_puff_start)) new%t_puff_start = t_puff_start
-  if (present(t_puff_slope)) new%t_puff_slope = t_puff_slope
-  if (present(puffing_rate_start)) new%puffing_rate_start = puffing_rate_start
 
   !> allocate random seed for sampling
   if (present(seed)) then
@@ -130,7 +115,7 @@ subroutine do_particle_puffing(this,sim, ev)
   real*8  :: tstep_fluid_si, c, R, Z, phi, s, t
   real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
   real*8  :: vector_normal(3), u(5)
-  real*8  :: puffing_rate_t !< possibly time dependent fueling rate
+  real*8  :: puffing_rate !< possibly time dependent fueling rate
 
   ! variables for piecewise linear time dependent puffing
   real*8  :: puff_rate_0, puff_rate_1, puff_time_0, puff_time_1
@@ -220,34 +205,27 @@ end do
   vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, &
           i_elm, s, t)
 
-!------------- Decide how many superparticles to initiate     
-!Adjust amount of superparticles + fueling rate if we use time dependent puffing 
-  if (this%puff_t_dependent) then
-    to_puff        = n_puff_local
-    puffing_rate_t = calc_puff_rate_linear(sim%time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1)
-    !> output time dependent puffing details
-    if (sim%my_id .eq. 0) then
-      write(*,"(A,G10.4,A)")           "Puffing details for time t=", sim%time, ":"
-      write(*,"(2X,A12, ' = ', I10)")        "puff segment", this%current_puff_seg
-      write(*,"(2X,A12, ' = ', G10.4)")      "puff_rate_0 " , puff_rate_0
-      write(*,"(2X,A12, ' = ', G10.4)")      "puff_rate_1 " , puff_rate_1
-      write(*,"(2X,A12, ' = ', G10.4,A)")    "puff_rate   "   , puffing_rate_t, " atoms/s"
-    endif
-       
-    if (to_puff .ge. n_free) then
-      write(*,*) "Warning could not puff the requested amount."
-      to_puff = n_free
-    end if
-  else
-    puffing_rate_t = this%puffing_rate
-    if (n_puff_local .ge. n_free) then
-      write(*,*) "Warning could not puff the requested amount."
-      to_puff = n_free
-    else
-      to_puff = n_puff_local
-      if (sim%my_id .eq.0) write(*,"(A,g12.4, A)") "puffing_rate:",puffing_rate_t, "atoms/s"
-    end if
-  end if !< time dependent puffing
+!------------- Decide how many superparticles to initiate 
+
+  to_puff = n_puff_local
+
+  !> calculate time dependent puffing rate
+  puffing_rate = calc_puff_rate_linear(sim%time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1)
+
+  !> output time dependent puffing details
+  if (sim%my_id .eq. 0) then
+    write(*,"(A,G10.6,A)")           "Puffing details for time t=", sim%time, ":"
+    write(*,"(2X,A12, ' = ', I10)")        "puff segment", this%current_puff_seg
+    write(*,"(2X,A12, ' = ', G10.6)")      "puff_rate_0 " , puff_rate_0
+    write(*,"(2X,A12, ' = ', G10.6)")      "puff_rate_1 " , puff_rate_1
+    write(*,"(2X,A12, ' = ', G10.6,A)")    "puff_rate   "   , puffing_rate, " atoms/s"
+  endif
+      
+  if (to_puff .ge. n_free) then
+    write(*,*) "Warning could not puff the requested amount."
+    to_puff = n_free
+  end if
+
 !-------------  
   
   
@@ -268,7 +246,7 @@ end do
   ! !$omp parallel do default(shared) &
   ! !$omp schedule(dynamic,10) &
   ! !$omp shared(sim, pa, this,i_free,c, vector_normal,                       &
-  ! !$omp   to_puff,n_puff_local, tstep_fluid_si,puffing_rate_t )                        &
+  ! !$omp   to_puff,n_puff_local, tstep_fluid_si,puffing_rate )                        &
   ! !$omp private(i_p, i_rng, j,k,u , R,Z,s,t,R_new,Z_new,s_new,t_new,     &
   ! !$omp  i_elm,i_elm_new,r_valve, theta,                                         &
   ! !$omp ifail)                                                                    &
@@ -308,7 +286,8 @@ end do
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
       pa(i_p)%i_elm   = i_elm
-      pa(i_p)%weight  = real(1.d0/n_puff_local) * tstep_fluid_si * puffing_rate_t 
+      pa(i_p)%weight  = real(1.d0/n_puff_local) * tstep_fluid_si * puffing_rate
+   
       pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   
       pa(i_p)%q       = 0_1
       if (sim%groups(this%target_group)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
