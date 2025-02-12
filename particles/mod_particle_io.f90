@@ -504,7 +504,6 @@ mpi_comm_in,mpi_info_in,test_in)
 
     ! the matching part_group_config
     config = part_group_configs(matching_part_config_indices(i))
-
     id_matched = .false.
     if (sim%my_id == master_task) then
       write(*,*) ""
@@ -592,7 +591,7 @@ mpi_comm_in,mpi_info_in,test_in)
         sim%groups(i)%n_particles = config%n_particles
         n_particles_tot(1) = config%n_particles
   
-        ! adas data
+        !> adas data
         sim%groups(i)%ad%suffix = config%atom_data_suffix
         if((len_trim(sim%groups(i)%ad%suffix).gt.0).and.(.not.test)) then
           sim%groups(i)%ad  = read_adf11(sim%my_id,sim%groups(i)%ad%suffix)
