@@ -948,7 +948,6 @@ module phys_module
   real*8  :: filter_hyper_n0  !< particle projection smoothing parameter, poloidal plane (n=0)
   real*8  :: filter_par_n0    !< particle projection smoothing parameter, parallel direction (n=0)
 
-  real*8  :: puff_rate        !< physical atoms/sec puffed (shared over 2 places)
   integer :: n_puff           !< superparticles used per puffing action per valve
 
   ! -----------------------------------------------

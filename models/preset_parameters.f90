@@ -853,7 +853,6 @@ restart_particles  = .false.
 use_marker         = .false.
 
 n_puff        = 0
-puff_rate     = 0.d0
 
 !--------------- valves -------------------------
 n_valves = 0

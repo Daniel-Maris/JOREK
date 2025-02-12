@@ -49,7 +49,7 @@ use phys_module, only: n_part_groups, n_aux_var
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: puff_rate, n_puff, part_group_configs
+use phys_module, only: n_puff, part_group_configs
 use phys_module, only: use_manual_random_seed, manual_seed
 
 !$ use omp_lib
