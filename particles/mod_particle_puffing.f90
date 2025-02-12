@@ -30,6 +30,7 @@ module mod_particle_puffing
     ! Average fueling rate: 9.7d22; max fueling rate 18d22
     real*8  :: puffing_rate = -1.d0
     type(type_valve) :: puff_valve      !< determines the location of the puffing
+    integer          :: valve_num       !< the index of the valve used for this puffing event
     
     ! Time dependent puffing
     logical :: puff_t_dependent = .false.
@@ -80,6 +81,7 @@ function new_particle_puffing(sim, target_group, valve_num, n_puff, puffing_rate
   new%n_puff       = n_puff
   new%puffing_rate = puffing_rate
   new%puff_valve   = valves(valve_num)
+  new%valve_num    = valve_num
   new%puff_rates   = part_group_configs(target_group)%puff_ctrl(valve_num)%rates 
   new%puff_times   = part_group_configs(target_group)%puff_ctrl(valve_num)%times 
 
@@ -138,10 +140,10 @@ subroutine do_particle_puffing(this,sim, ev)
 
   tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
 
-  if (sim%my_id .eq. 0) write(*,*) "Started puffing!"
+  if (sim%my_id .eq. 0) write(*,'(A,A,A,I1,A)') "--- Started puffing for Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
   
   if (this%n_puff .le. -1.d-6) then ! 0.d0
-    if (sim%my_id .eq. 0) write(*,*) 'No puf quota set, exiting. --- n_puff == 0 this will now stop the program'
+    if (sim%my_id .eq. 0) write(*,*) 'No puff quota set, exiting. --- n_puff == 0 this will now stop the program'
     stop
   end if
   
@@ -169,7 +171,6 @@ subroutine do_particle_puffing(this,sim, ev)
     !> the puff_times no longer matter in this case but (puff_times_1 - puff_times_0) has to be non zero 
     puff_time_0 = this%puff_times(this%last_puff_seg) 
     puff_time_1 = this%puff_times(this%last_puff_seg) + 1 
-    
   else
     !> in general, puff_times and puff_rates are the defined values bounding the segment
     puff_rate_0  = this%puff_rates(this%current_puff_seg)
@@ -222,13 +223,17 @@ end do
 !------------- Decide how many superparticles to initiate     
 !Adjust amount of superparticles + fueling rate if we use time dependent puffing 
   if (this%puff_t_dependent) then
-    to_puff        = n_puff_local !int( maxval((/ time_dependent_puff(real(n_puff_local,8)       ,sim%time, this%t_puff_start,this%t_puff_slope) ,10.d0 /)))
-    puffing_rate_t = time_dependent_puff(this%puffing_rate ,sim%time, this%t_puff_start,this%t_puff_slope, this%puffing_rate_start)
-
-    call calc_puff_rate_linear(sim%time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1, puffing_rate_t)
-   
-    if (sim%my_id .eq.0) write(*,"(A,g12.4,A,g12.4, A)") "Actual puffing rate at time t:", sim%time, " is puffing_rate_t:",puffing_rate_t, "atoms/s"
-   
+    to_puff        = n_puff_local
+    puffing_rate_t = calc_puff_rate_linear(sim%time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1)
+    !> output time dependent puffing details
+    if (sim%my_id .eq. 0) then
+      write(*,"(A,G10.4,A)")           "Puffing details for time t=", sim%time, ":"
+      write(*,"(2X,A12, ' = ', I10)")        "puff segment", this%current_puff_seg
+      write(*,"(2X,A12, ' = ', G10.4)")      "puff_rate_0 " , puff_rate_0
+      write(*,"(2X,A12, ' = ', G10.4)")      "puff_rate_1 " , puff_rate_1
+      write(*,"(2X,A12, ' = ', G10.4,A)")    "puff_rate   "   , puffing_rate_t, " atoms/s"
+    endif
+       
     if (to_puff .ge. n_free) then
       write(*,*) "Warning could not puff the requested amount."
       to_puff = n_free
@@ -323,44 +328,26 @@ end do
 call MPI_REDUCE(puffed_this_step_local,all_puffed_this_step,1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
 call MPI_REDUCE(puff_weight_local,all_puff_weight,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  
 if (sim%my_id .eq. 0) then
-write(*,'(A60,I7,E14.6)') "Superparticles, weight puffed this puffing action action = ", all_puffed_this_step, all_puff_weight
+  write(*,'(A60,I7,E14.6)') "Superparticles, weight puffed this puffing action = ", all_puffed_this_step, all_puff_weight
 endif
   
   
 end subroutine do_particle_puffing
 
-function time_dependent_puff(max_puff,time, t_puff_start,t_puff_slope, min_puff) result(to_puff)
-real*8,intent(in)   :: max_puff, min_puff
-real*8              :: to_puff
-real*8,intent(in)    :: t_puff_start,t_puff_slope
-real*8,intent(in)    :: time
-
-if (time-(t_puff_start+t_puff_slope) .ge. 0.d0) then
-  to_puff = max_puff
-elseif (time-t_puff_start .ge. 0.d0) then
-  to_puff = min_puff+ (max_puff -min_puff) * (time-t_puff_start)/(t_puff_slope)  
-else
-    to_puff = min_puff !default = 0.d0
-endif
-
-write(*,*) "t_puff_start: ", t_puff_start
-write(*,*) "t_puff_max: ", t_puff_start+t_puff_slope
-end function time_dependent_puff
-
 !< linearly interpolates the puff rate between two determined points (t0, y0), (t1, y1)
 !< y = y0 + [(y1 - y0)/(t1 - t0)] * (t - t0)
-subroutine calc_puff_rate_linear(time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1, puff_rate)
+function calc_puff_rate_linear(time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1) result(puff_rate)
 
   implicit none
   real*8, intent(in)    :: time          !< current simulation time (t)
   real*8, intent(in)    :: puff_rate_0   !< the left set value of the linear function (y0)
   real*8, intent(in)    :: puff_rate_1   !< the right set value of the linear function (y1)
-  real*8, intent(in)    :: puff_time_0        !< t0
-  real*8, intent(in)    :: puff_time_1        !< t1
-  real*8, intent(inout) :: puff_rate     !< the puff rate at time t (y)
+  real*8, intent(in)    :: puff_time_0   !< t0
+  real*8, intent(in)    :: puff_time_1   !< t1
+  real*8                :: puff_rate     !< the puff rate at time t (y)
 
-  puff_rate = puff_rate_0 + (puff_rate_1 - puff_rate_0) / (puff_time_0 - puff_time_1) * (time - puff_time_0)
+  puff_rate = puff_rate_0 + (puff_rate_1 - puff_rate_0) / (puff_time_1 - puff_time_0) * (time - puff_time_0)
 
-end subroutine calc_puff_rate_linear
+end function calc_puff_rate_linear
 
 end module
