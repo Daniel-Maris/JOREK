@@ -49,6 +49,7 @@ contains
         stop
       else if (matched_num > 1) then
         write(*,*) "ERROR: More than one group in part_group_configs has the id: '", part_groups_in_use(i), "'"
+        stop
       endif
 
       matching_part_config_indices(i) = matched_idx

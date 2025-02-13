@@ -1000,9 +1000,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'filter_perp_n0,     ',filter_perp_n0
   write(*,REAL_FMT) 'filter_hyper_n0,    ',filter_hyper_n0   
   write(*,REAL_FMT) 'filter_par_n0,      ',filter_par_n0     
-  write(*,LOGI_FMT) 'use_ncs,            ',use_ncs     
-  write(*,LOGI_FMT) 'use_ccs,            ',use_ccs    
-  write(*,LOGI_FMT) 'use_pcs,            ',use_pcs
   write(*,INTG_FMT) 'n_puff                ',  n_puff
   write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
   
@@ -1023,12 +1020,12 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,*)
     do group_num=1, n_part_groups
       write(*,*) "---- Particle group slot: ", group_num, " ----" 
-      write(*,CHAR_FMT) 'id,                    ',sim%groups(group_num)%id
-      write(*,INTG_FMT) 'Z,                     ',sim%groups(group_num)%Z
-      write(*,REAL_FMT) 'mass                   ',sim%groups(group_num)%mass
-      write(*,CHAR_FMT) 'coupling_scheme,       ',sim%groups(group_num)%coupling_scheme
-      write(*,REAL_FMT) 'n_particles,           ',sim%groups(group_num)%n_particles
-      write(*,CHAR_FMT) 'type,                  ',trim(part_group_configs(group_num)%type)
+      write(*,CHAR_FMT) 'id,                     ',sim%groups(group_num)%id
+      write(*,INTG_FMT) 'Z,                      ',sim%groups(group_num)%Z
+      write(*,REAL_FMT) 'mass                    ',sim%groups(group_num)%mass
+      write(*,CHAR_FMT) 'coupling_scheme,        ',sim%groups(group_num)%coupling_scheme
+      write(*,REAL_FMT) 'n_particles,            ',sim%groups(group_num)%n_particles
+      write(*,CHAR_FMT) 'type,                   ',trim(part_group_configs(group_num)%type)
 
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then     
         write(*,LOGI_FMT) 'use_kin_ionisation,     ',sim%groups(group_num)%use_kin_ionisation    
@@ -1036,9 +1033,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         write(*,LOGI_FMT) 'use_kin_cx,             ',sim%groups(group_num)%use_kin_cx
         write(*,LOGI_FMT) 'use_kin_recombination,  ',sim%groups(group_num)%use_kin_recombination
         write(*,LOGI_FMT) 'use_kin_puffing,        ',sim%groups(group_num)%use_kin_puffing
-        write(*,REAL_FMT) 'n_reflect_ratio,       ',sim%groups(group_num)%n_reflect_ratio
+        write(*,REAL_FMT) 'n_reflect_ratio,        ',sim%groups(group_num)%n_reflect_ratio
         write(*,LOGI_FMT) 'use_kin_line_radiation, ',sim%groups(group_num)%use_kin_line_radiation
-        write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(part_group_configs(group_num)%atom_data_suffix)
+        write(*,CHAR_FMT) 'atom_data_suffix,       ',trim(part_group_configs(group_num)%atom_data_suffix)
       endif
       
     enddo
@@ -1046,9 +1043,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   endif
 
 
-  write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
+  write(*,LOGI_FMT) 'use_manual_random_seed, ',use_manual_random_seed
   if (use_manual_random_seed) then
-    write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+    write(*,INTG_FMT) 'manual_seed,            ',manual_seed
   endif     
 
 #ifdef USE_CATALYST
