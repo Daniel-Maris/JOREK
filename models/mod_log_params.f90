@@ -39,6 +39,7 @@ character(len=512), parameter :: CHAR_FMT2 = "(1X,A,I2,A,' = ""',A,'""')"
 ! --- Local variables
 integer           :: ivar, itor
 integer           :: i, j, n_rows, group_num !> do loop index 
+integer           :: used_segs !< used for write out of puff ctrls
 character(len=10) :: mode_num
 logical           :: short2
 
@@ -1000,19 +1001,40 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'filter_perp_n0,     ',filter_perp_n0
   write(*,REAL_FMT) 'filter_hyper_n0,    ',filter_hyper_n0   
   write(*,REAL_FMT) 'filter_par_n0,      ',filter_par_n0     
-  write(*,LOGI_FMT) 'use_ncs,            ',use_ncs     
-  write(*,LOGI_FMT) 'use_ccs,            ',use_ccs    
-  write(*,LOGI_FMT) 'use_pcs,            ',use_pcs
   
-  if (n_part_groups > 0) then
-    write(*,*) "=== Coupling schemes === "
+  if (n_part_groups > 0) then !< particles settings
+
+    if (n_valves > 0) then
+      write(*,"(A30)") '=========== Valves ==========='
+      do i=1, n_valves
+        write(*,"(A, I2, A)") "--------- Valve ", i ," -----------" 
+        write(*,CHAR_FMT) 'type,               ', valves(i)%type
+        write(*,REAL_FMT) 'phi,                ', valves(i)%phi
+
+        if (valves(i)%type == 'circ') then
+          write(*,REAL_FMT) 'r_valve             ', valves(i)%r_valve
+          write(*,REAL_FMT) 'R_valve_loc         ', valves(i)%R_valve_loc
+          write(*,REAL_FMT) 'Z_valve_loc         ', valves(i)%Z_valve_loc
+        endif
+
+        if (valves(i)%type == 'poly') then
+          write(*,REAL_FMT) 'poly_R              ', valves(i)%poly_R
+          write(*,REAL_FMT) 'poly_Z              ', valves(i)%poly_Z
+        endif
+
+      enddo
+      write(*,"(A30)") '======= End of Valves ========'
+      write(*,*) ""
+    endif
+
+    write(*,"(A30)") "===== Coupling schemes ====== "
     write(*,*) "  use_ncs      = ", use_ncs
     write(*,*) "  use_ccs      = ", use_ccs
     write(*,*) "  use_pcs      = ", use_pcs
     write(*,*) "  use_pcf      = ", use_pcf
-    write(*,*) ""
 
-    write(*,*) '==== Particle Groups ===='
+    write(*,*) ""
+    write(*,"(A30)") '====== Particle Groups ======='
     write(*,INTG_FMT) 'n_part_groups     ',n_part_groups
     write(*, "(1X,A, ' = ')", advance="no") "part_groups_in_use"
     do i = 1, n_part_groups
@@ -1021,12 +1043,12 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,*)
     do group_num=1, n_part_groups
       write(*,*) "---- Particle group slot: ", group_num, " ----" 
-      write(*,CHAR_FMT) 'id,                    ',sim%groups(group_num)%id
-      write(*,INTG_FMT) 'Z,                     ',sim%groups(group_num)%Z
-      write(*,REAL_FMT) 'mass                   ',sim%groups(group_num)%mass
-      write(*,CHAR_FMT) 'coupling_scheme,       ',sim%groups(group_num)%coupling_scheme
-      write(*,REAL_FMT) 'n_particles,           ',sim%groups(group_num)%n_particles
-      write(*,CHAR_FMT) 'type,                  ',trim(part_group_configs(group_num)%type)
+      write(*,CHAR_FMT) 'id,                     ',sim%groups(group_num)%id
+      write(*,INTG_FMT) 'Z,                      ',sim%groups(group_num)%Z
+      write(*,REAL_FMT) 'mass                    ',sim%groups(group_num)%mass
+      write(*,CHAR_FMT) 'coupling_scheme,        ',sim%groups(group_num)%coupling_scheme
+      write(*,REAL_FMT) 'n_particles,            ',sim%groups(group_num)%n_particles
+      write(*,CHAR_FMT) 'type,                   ',trim(part_group_configs(group_num)%type)
 
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then     
         write(*,LOGI_FMT) 'use_kin_ionisation,     ',sim%groups(group_num)%use_kin_ionisation    
@@ -1034,19 +1056,33 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         write(*,LOGI_FMT) 'use_kin_cx,             ',sim%groups(group_num)%use_kin_cx
         write(*,LOGI_FMT) 'use_kin_recombination,  ',sim%groups(group_num)%use_kin_recombination
         write(*,LOGI_FMT) 'use_kin_puffing,        ',sim%groups(group_num)%use_kin_puffing
-        write(*,REAL_FMT) 'n_reflect_ratio,       ',sim%groups(group_num)%n_reflect_ratio
+        write(*,REAL_FMT) 'n_reflect_ratio,        ',sim%groups(group_num)%n_reflect_ratio
         write(*,LOGI_FMT) 'use_kin_line_radiation, ',sim%groups(group_num)%use_kin_line_radiation
-        write(*,CHAR_FMT) 'atom_data_suffix,      ',trim(part_group_configs(group_num)%atom_data_suffix)
-      endif
-      
-    enddo
+        write(*,CHAR_FMT) 'atom_data_suffix,       ',trim(part_group_configs(group_num)%atom_data_suffix)
+
+        if (sim%groups(group_num)%use_kin_puffing) then
+          write(*,*) "Puff ctrls: "
+
+          do i=1, n_valves
+            used_segs = count(part_group_configs(group_num)%puff_ctrl(i)%rates > 0)
+            if (used_segs > 0) then
+              write(*,"(3X,A,' = ',100I12)")    'Puff valve            ', i
+              write(*,"(3X,A,' = ',100I12)")    'supers_per_puff       ', part_group_configs(group_num)%puff_ctrl(i)%supers_per_puff
+              write(*,"(3X,A,' = ',99ES10.3)")  'rates                 ', part_group_configs(group_num)%puff_ctrl(i)%rates(1:used_segs)
+              write(*,"(3X,A,' = ',99ES10.3)")  'times                 ', part_group_configs(group_num)%puff_ctrl(i)%times(1:used_segs)
+            endif
+          enddo
+        endif ! puffing
+
+      endif ! 'ncs'
+    enddo ! n_part_groups
     write(*,*) '==== End of particle groups ===='
-  endif
+    write(*,*) ""
+  endif ! n_part_groups > 0
 
-
-  write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
+  write(*,LOGI_FMT) 'use_manual_random_seed, ',use_manual_random_seed
   if (use_manual_random_seed) then
-    write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+    write(*,INTG_FMT) 'manual_seed,            ',manual_seed
   endif     
 
 #ifdef USE_CATALYST
