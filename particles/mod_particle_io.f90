@@ -423,6 +423,7 @@ mpi_comm_in,mpi_info_in,test_in)
   !> inputs-outputs:
   class(particle_sim),intent(inout) :: sim  
   !> variables:
+  logical                                        :: file_exists
   integer                                        :: i,j,ierr,h5err,errorcode
   integer                                        :: mpi_comm_loc,mpi_info_loc
   integer                                        :: storage_type,max_corder,rank
@@ -463,6 +464,14 @@ mpi_comm_in,mpi_info_in,test_in)
   mpi_info_loc = MPI_INFO_NULL
   if(present(mpi_info_in)) mpi_info_loc = mpi_info_in
   test = .false.; if(present(test_in)) test = test_in;
+
+  !> check if part_restart.h5 exists
+  inquire(file=filename, exist=file_exists)
+  if (.not. file_exists) then
+    if (sim%my_id == master_task) write(*,*) "ERROR: restart_particles = .t. but part_restart.h5 does not exist."
+    stop
+  endif
+
   !> open HDF5 file 
   call HDF5_open(filename,file_id,ierr,create_access_plist_in=create_access_plist,&
   mpi_comm_in=mpi_comm_loc,mpi_info=mpi_info_loc)
