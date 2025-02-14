@@ -4,6 +4,7 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
   use constants, only: mu_zero
   use mod_parameters,  only: n_tor, n_period
   use mod_plasma_functions, only: initialise_reference_parameters
+  use mod_particle_group_id
   use mod_coupling_settings
   use phys_module
   
@@ -18,34 +19,27 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
 
   ! Determine coupling parameters
   if (my_id .eq. 0) then
+    if (use_particles) then
 
-    ! check if particle groups are requested
-    if (n_part_groups > 0) then
-
-      ! check if use_particles is enabled for the executable
-      if (use_particles) then
-        write(*,*) n_part_groups, " particle groups slots requested."
-  
-        ! --- check that number of particle groups requested fits 
-        if (n_part_groups > n_part_groups_max) then
-          write(*,*) "Error: number of particle groups defined exceeds maximum. "
-          write(*,*) "  Reduce n_part_groups or increase n_part_groups_max (hard coded parameter)"
-        endif
-  
-        ! --- Scan over particle groups and determine the coupling scheme parameters
-        call determine_coupling_schemes()
-  
-        ! --- Determine the coupling variables used, their index, and n_aux_var
-        call determine_coupling_variables() 
-      else
-        write(*,*) "WARNING: requested n_part_groups > 0, however you are running a purely fluid" 
-        write(*,*) "  executable, overwriting n_part_groups to 0."
-        n_part_groups = 0
+      ! --- Initialize part_groups_in_use and determine n_part_groups
+      if (part_groups_in_use(1) == 'non') then !< part_groups_in_use not manually defined
+        !> generate the particle groups in use based on the defined groups in part_group_configs
+        call generate_part_groups_in_use()
       endif
 
-    endif ! n_part_groups > 0
-  endif
+      n_part_groups = count(part_groups_in_use /= 'non')
+      !> find the matching part_group_config for each group specified in part_groups_in_use
+      call match_part_groups_and_configs()
+        
+      ! --- Scan over n_part_groups and determine the coupling scheme parameters
+      call determine_coupling_schemes()
   
+      ! --- Determine the coupling variables used, their index, and n_aux_var
+      call determine_coupling_variables() 
+
+    endif
+  endif
+
   ! --- Broadcast input parameters from MPI thread 0 to the others.
   call broadcast_phys(my_id)
   

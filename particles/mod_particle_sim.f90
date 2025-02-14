@@ -7,7 +7,7 @@ use mod_coronal
 use basis_at_gaussian
 implicit none
 private
-public particle_group, particle_sim, configure_particle_groups, allocate_particles
+public particle_group, particle_sim, configure_particle_groups
 
 !> A group of particles, implemented as an allocatable array.
 !> It must contain particles of the same species (charge number).
@@ -62,76 +62,43 @@ end type particle_sim
 
 contains
 
-!> Loads the information from a type_particle_group_config type to a particle_group type
+!> Loads the information from a type_part_group_config type to a particle_group type
 subroutine configure_particle_groups(sim)
-  use phys_module, only: n_part_groups, particle_group_configs, type_particle_group_config
+  use phys_module, only: n_part_groups, part_group_configs, type_part_group_config
+  use phys_module, only: part_groups_in_use
+  use mod_particle_group_id, only: matching_part_config_indices
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
   integer                                  :: i,j
+  type(type_part_group_config)             :: config
 
-  do i=1, n_part_groups
-    sim%groups(i)%Z = particle_group_configs(i)%Z
-    sim%groups(i)%mass = particle_group_configs(i)%mass
-    sim%groups(i)%coupling_scheme = particle_group_configs(i)%coupling_scheme
-    sim%groups(i)%n_particles = particle_group_configs(i)%n_particles
-    sim%groups(i)%id = particle_group_configs(i)%id
+  do i=1, n_part_groups ! loop over groups defined in part_groups_in_use
+    config = part_group_configs(matching_part_config_indices(i))
+
+    sim%groups(i)%Z = config%Z
+    sim%groups(i)%mass = config%mass
+    sim%groups(i)%coupling_scheme = config%coupling_scheme
+    sim%groups(i)%n_particles = config%n_particles
+    sim%groups(i)%id = config%id
   
     ! --- ncs options
-    sim%groups(i)%use_kin_cx             =  particle_group_configs(i)%use_kin_cx
-    sim%groups(i)%use_kin_sputtering     =  particle_group_configs(i)%use_kin_sputtering
-    sim%groups(i)%use_kin_ionisation     =  particle_group_configs(i)%use_kin_ionisation          
-    sim%groups(i)%use_kin_recombination  =  particle_group_configs(i)%use_kin_recombination         
-    sim%groups(i)%use_kin_puffing        =  particle_group_configs(i)%use_kin_puffing        
-    sim%groups(i)%n_reflect_ratio       =  particle_group_configs(i)%n_reflect_ratio 
-    sim%groups(i)%use_kin_line_radiation =  particle_group_configs(i)%use_kin_line_radiation 
+    sim%groups(i)%use_kin_cx             =  config%use_kin_cx
+    sim%groups(i)%use_kin_sputtering     =  config%use_kin_sputtering
+    sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
+    sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
+    sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
+    sim%groups(i)%n_reflect_ratio        =  config%n_reflect_ratio 
+    sim%groups(i)%use_kin_line_radiation =  config%use_kin_line_radiation 
     
-    if (len_trim(particle_group_configs(i)%atom_data_suffix) > 0) then
-      sim%groups(i)%ad =  read_adf11(sim%my_id, trim(particle_group_configs(i)%atom_data_suffix))
+    if (len_trim(config%atom_data_suffix) > 0) then
+      sim%groups(i)%ad =  read_adf11(sim%my_id, trim(part_group_configs(i)%atom_data_suffix))
     else
-      if (trim(particle_group_configs(i)%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
+      if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
     endif
   enddo 
 
 end subroutine configure_particle_groups
-
-!> allocates the particles for a group depending on its type and n_particles
-subroutine allocate_particles(sim)
-  use phys_module, only: particle_group_configs, n_part_groups
-  implicit none
-  class(particle_sim), intent(inout)       :: sim
-  integer                                  :: i, n_particles_local
-
-  do i=1, n_part_groups
-    if (.not. allocated(sim%groups(i)%particles)) then
-
-      n_particles_local = ceiling(sim%groups(i)%n_particles / sim%n_mpi)
-
-      select case (trim(particle_group_configs(i)%type))
-        case ("particle_kinetic_leapfrog")
-          ! setting up empty particle array
-          allocate(particle_kinetic_leapfrog::sim%groups(i)%particles(n_particles_local))
-          select type (p => sim%groups(i)%particles)
-            type is (particle_kinetic_leapfrog)  
-              p(:)%q      = 0 !< for neutrals
-              p(:)%weight = 0.0!weight
-              p(:)%i_elm  = 0
-              p(:)%v(1)   = 0.d0 
-              p(:)%v(2)   = 0.d0
-              p(:)%v(3)   = 0.d0
-          end select
-        case ("particle_gc_relativistic")
-          allocate(particle_gc_relativistic ::sim%groups(i)%particles(n_particles_local)) 
-        case default
-          write(*,*) "Error: no match found for defined particle type, please ensure the defined type is supported (see mod_particle_types.f90 and mod_particle_sim.f90)"
-          stop 1
-      end select
-
-    endif !if allocated
-
-  enddo
-  
-end subroutine allocate_particles
 
 !> Actions to perform when setting up a simulation
 !> inputs:

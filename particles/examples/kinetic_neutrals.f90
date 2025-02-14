@@ -25,6 +25,7 @@ use mod_particle_evolution
 use mod_particle_recomb
 use mod_particle_conservation
 use mod_particle_io
+use mod_particle_allocation
 use mod_event
 use mod_project_particles
 use mod_jorek_timestepping
@@ -109,7 +110,7 @@ end if
 ! setting up the particles
 if (restart_particles) then
   ! reading the particles from a file
-  if (sim%my_id == 0) write(*,*) 'INFO: READING PARTICLES RESTART FILE'
+  if (sim%my_id == 0) write(*,*) 'INFO: READING PARTICLES RESTART FILE =========='
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
 
@@ -123,7 +124,8 @@ else
 
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
-  call allocate_particles(sim) ! populate the particle arrays in the particle groups
+  call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
+  
 endif ! (restart_particles)
 
 
@@ -155,6 +157,11 @@ n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) dens
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
 
+! --- Setting up edge domains for sputtering
+call find_edge_domains(node_list,element_list, edge_domains)!, discont_corner=.true.)
+if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
+call sputter_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
+
 ! --- Setting up particle events
 allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups)) 
 do group_num=1, n_part_groups
@@ -163,7 +170,7 @@ do group_num=1, n_part_groups
   if (sim%groups(group_num)%use_kin_sputtering) then
     sputter_counter = sputter_counter + 1 ! note down group index as requiring sputtering
     n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
-    sputter_source = initialise_sputtering(sim%fields%node_list, sim%fields%element_list, group_num, n_reflect)
+    sputter_source = initialise_sputtering(sputter_edge, group_num, n_reflect)
     sputter_events(sputter_counter) = event(sputter_source)
   endif
 
@@ -358,25 +365,14 @@ subroutine write_to_outputfile(id,what)
 
 end subroutine
 
-function initialise_sputtering(node_list, element_list, target_group, n_reflect) result(sputter_source)
-
+function initialise_sputtering(sputter_edge, target_group, n_reflect) result(sputter_source)
   use mod_edge_domain
   use mod_edge_elements
 
-  type(type_node_list), intent(in)    :: node_list
-  type(type_element_list)             :: element_list
+  type(edge_elements), intent(in)     :: sputter_edge
   integer, intent(in)                 :: target_group
   integer, intent(in)                 :: n_reflect
   type(particle_sputter)              :: sputter_source
-  !real*8, allocatable, dimension(:)   :: wall_albedo
-  type(type_edge_domain), allocatable, dimension(:) :: edge_domains
-
-  ! number of particles to sputter per species (should be renormalized to yield)
-
-  call find_edge_domains(node_list,element_list, edge_domains)!, discont_corner=.true.)
-  if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
-  
-  call sputter_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
 
   ! target group, number of particles per mpi task, densities, Zs, basename
   sputter_source = particle_sputter(sputter_edge, target_group, n_reflect)
