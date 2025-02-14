@@ -291,6 +291,7 @@ subroutine fluid_particle_sputter(this, sim, delta_t, n_fluid_groups, n_particle
   use mod_atomic_elements, only: element_symbols
   use mod_interp, only: interp_RZ
   use phys_module, only: use_manual_random_seed
+  use mod_particle_init, only: free_particle_indices
   
   class(particle_sputter), intent(inout) :: this
   type(particle_sim), intent(inout)      :: sim
@@ -311,7 +312,6 @@ subroutine fluid_particle_sputter(this, sim, delta_t, n_fluid_groups, n_particle
 
   !> For check free particles
   integer, allocatable, dimension(:) :: i_free, i_elm_sampled
-  logical, allocatable, dimension(:) :: is_free
   integer :: n_free
 
   !> For RNG
@@ -340,33 +340,7 @@ subroutine fluid_particle_sputter(this, sim, delta_t, n_fluid_groups, n_particle
         this%yield(n_particle_groups+1:n_particle_groups+n_fluid_groups), this%fluid_sputter_yield, delta_t, sim%groups(this%target_group)%Z)
   end if
 
-
-  !===========================Check for free simulation particles=========================================
-  allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
-
-  ! might be replaced with omp workshare, or just the array expression.
-  ! there is an issue with derived type arrays in gfortran though, and this works
-  if(use_manual_random_seed) then
-    !$ call omp_set_schedule(omp_sched_static,100)
-  else
-    !$ call omp_set_schedule(omp_sched_dynamic,100)
-  end if
-  !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free, i) &
-  !$omp private(j) schedule(runtime)
-  do j=1,size(sim%groups(this%target_group)%particles,1)
-    is_free(j) = sim%groups(this%target_group)%particles(j)%i_elm .le. 0 
-  end do
-  !$omp end parallel do
-  !$omp barrier
-  n_free = count(is_free)
-  allocate(i_free(n_free))
-  k = 1
-  do j=1,size(is_free,1)
-    if (is_free(j)) then
-      i_free(k) = j
-      k = k+1
-    end if
-  end do
+  call free_particle_indices(sim%groups(this%target_group)%particles, n_free, i_free)
   
   !=======================================================================================================
   ! share the work over all mpi's. the last one takes the extra work
@@ -629,7 +603,7 @@ subroutine fluid_particle_sputter(this, sim, delta_t, n_fluid_groups, n_particle
   !<------------------------------------------------------------------------------------
 
   
-  deallocate(i_free, is_free)
+  deallocate(i_free)
 end subroutine fluid_particle_sputter
 
 !> Perform the sputtering on both fluid and particles hitting the wall.
