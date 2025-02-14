@@ -39,10 +39,10 @@ contains
     integer, intent(in)  :: seed !< Seed for the RNG if required
     integer, intent(in)  :: n_streams !< Number of output streams needed
     integer, intent(in)  :: i_stream !< Index of rng output stream (1<=i_stream<=n_streams)
-    integer,intent(in),   optional :: round_off_n_streams_in !< If true n_streams is rounded-off to 2**ceil
+    logical, intent(in),   optional :: round_off_n_streams_in !< If true n_streams is rounded-off to 2**ceil
     integer, intent(out), optional :: ierr !< Error code. If present, return on error, otherwise call mpi_abort
     integer :: mpi_err
-
+    logical :: round_off_n_streams_loc
     round_off_n_streams_loc = .false.
     if(present(round_off_n_streams_in)) round_off_n_streams_loc = round_off_n_streams_in
 
