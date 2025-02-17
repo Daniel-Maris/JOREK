@@ -171,8 +171,8 @@ do group_num=1, n_part_groups
 
   ! puffing
   if (sim%groups(group_num)%use_kin_puffing) then
-    gas_puff  = particle_puffing(sim, group_num, 1)
-    gas_puff2 = particle_puffing(sim, group_num, 1)
+    gas_puff  = particle_puffing(sim, group_num, 1, seed=seed)
+    gas_puff2 = particle_puffing(sim, group_num, 1, seed=seed)
 
     gas_puff_event  = event(gas_puff)
     gas_puff2_event = event(gas_puff2)
