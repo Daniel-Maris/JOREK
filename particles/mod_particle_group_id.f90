@@ -11,7 +11,7 @@ integer :: id_counter = 0  !< how many ids have been automatically generated. Us
 !> the ith element of this array stores the matching part_group_configs index
 !> for ith group in part_groups_array (i.e converts part_groups_in_use index to 
 !> corresponding part_group_configs index)
-integer, dimension(n_part_groups_max) :: matching_part_config_indices = 1 ! only the first n_part_groups value of this should be accessed
+integer, dimension(n_part_groups_max) :: matching_part_config_indices = n_part_groups_max ! only the first n_part_groups value of this should be accessed
 
 public matching_part_config_indices, match_part_groups_and_configs, generate_part_groups_in_use
 private generate_part_group_id
@@ -49,6 +49,7 @@ contains
         stop
       else if (matched_num > 1) then
         write(*,*) "ERROR: More than one group in part_group_configs has the id: '", part_groups_in_use(i), "'"
+        stop
       endif
 
       matching_part_config_indices(i) = matched_idx

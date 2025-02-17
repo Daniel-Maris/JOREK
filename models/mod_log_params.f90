@@ -1080,6 +1080,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,*) ""
   endif ! n_part_groups > 0
 
+
   write(*,LOGI_FMT) 'use_manual_random_seed, ',use_manual_random_seed
   if (use_manual_random_seed) then
     write(*,INTG_FMT) 'manual_seed,            ',manual_seed
