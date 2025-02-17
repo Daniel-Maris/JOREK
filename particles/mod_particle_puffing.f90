@@ -13,7 +13,7 @@ module mod_particle_puffing
   use mod_particle_sim
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
-  use phys_module, only: type_valve, valves, part_group_configs, n_puff_segment_max 
+  use phys_module, only: type_valve, valves, part_group_configs, type_puff_ctrl, n_puff_segment_max 
 
   implicit none
 
@@ -24,14 +24,12 @@ module mod_particle_puffing
   type, extends(io_action) :: particle_puffing
     
     class(type_rng), dimension(:), allocatable :: rng    !< one RNG per openmp thread
-    integer          :: supers_per_puff !< number of superparticles to use per puffing action across all mpi processors  
     !> Valve
     type(type_valve) :: puff_valve      !< determines the location of the puffing
     integer          :: valve_num       !< the index of the valve used for this puffing event
-    !> Time dependency
-    real*8           :: puff_rates(n_puff_segment_max)
-    real*8           :: puff_times(n_puff_segment_max)
-    !> variables required for piecewise linear time dependent puffing control 
+    !> Puff ctrl 
+    type(type_puff_ctrl) :: puff_ctrl   !< the controller for this puffing action
+    !> Variables required for piecewise linear time dependent puffing control 
     integer          :: current_puff_seg = 0   
     integer          :: last_puff_seg = n_puff_segment_max !< the segment number after the last defined puffing keyframe
     !> Target particle group
@@ -64,16 +62,14 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
   new%target_group     = target_group
   new%puff_valve       = valves(valve_num)
   new%valve_num        = valve_num
-  new%puff_rates       = part_group_configs(target_group)%puff_ctrl(valve_num)%rates 
-  new%puff_times       = part_group_configs(target_group)%puff_ctrl(valve_num)%times 
-  new%supers_per_puff  = part_group_configs(target_group)%puff_ctrl(valve_num)%supers_per_puff
+  new%puff_ctrl        = part_group_configs(target_group)%puff_ctrl(valve_num)
 
   ! determine the current puffing segment and the last puffing segment
   do i=1, n_puff_segment_max-1
     !> find last puffing segment
-    if ((new%puff_times(i) /= -1) .and. (new%puff_times(i+1) == -1)) new%last_puff_seg = i
+    if ((new%puff_ctrl%times(i) /= -1) .and. (new%puff_ctrl%times(i+1) == -1)) new%last_puff_seg = i
     !> find current puffing segment
-    if (sim%time > new%puff_times(i) .and. (new%puff_times(i) /= -1)) new%current_puff_seg = i
+    if (sim%time > new%puff_ctrl%times(i) .and. (new%puff_ctrl%times(i) /= -1)) new%current_puff_seg = i
   enddo
 
   !> allocate random seed for sampling
@@ -120,41 +116,41 @@ subroutine do_particle_puffing(this,sim, ev)
 
   if (sim%my_id .eq. 0) write(*,'(A,A,A,I1,A)') "--- Started puffing for Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
   
-  if (this%supers_per_puff .le. -1.d-6) then ! 0.d0
-    if (sim%my_id .eq. 0) write(*,*) "ERROR: No puff quota set, i.e. supers_per_puff = 0 for this group"  
+  if (this%puff_ctrl%supers_num_puff .le. -1.d-6) then ! 0.d0
+    if (sim%my_id .eq. 0) write(*,*) "ERROR: No puff quota set, i.e. puff_ctrl%supers_num_puff = 0 for this group"  
     stop
   end if
   
-  supers_per_puff_local = this%supers_per_puff / sim%n_mpi !supers_per_puff_local is the amount of superparticles that will be puffed per MPI process.
+  supers_per_puff_local = this%puff_ctrl%supers_num_puff / sim%n_mpi !supers_per_puff_local is the amount of superparticles that will be puffed per MPI process.
 
   !> check if the simulation has advanced to the next puffing segment
   if (this%current_puff_seg /= this%last_puff_seg) then
-    if (sim%time > this%puff_times(this%current_puff_seg + 1)) this%current_puff_seg = this%current_puff_seg + 1 
+    if (sim%time > this%puff_ctrl%times(this%current_puff_seg + 1)) this%current_puff_seg = this%current_puff_seg + 1 
   endif
 
   !> set the bounding values of the puffing segment
   if (this%current_puff_seg == 0) then 
-    !> for t < puff_times(1), we keep puff_rate constant at puff_rates(1)
-    puff_rate_0  = this%puff_rates(1)
-    puff_rate_1  = this%puff_rates(1) 
+    !> for t < puff_ctrl%times(1), we keep puff_rate constant at puff_ctrl%rates(1)
+    puff_rate_0  = this%puff_ctrl%rates(1)
+    puff_rate_1  = this%puff_ctrl%rates(1) 
 
-    !> the puff_times no longer matter in this case but (puff_times_1 - puff_times_0) has to be non zero 
-    puff_time_0 = this%puff_times(1) 
-    puff_time_1 = this%puff_times(1) + 1 
+    !> the puff_ctrl%times no longer matter in this case but (puff_ctrl%times_1 - puff_ctrl%times_0) has to be non zero 
+    puff_time_0 = this%puff_ctrl%times(1) 
+    puff_time_1 = this%puff_ctrl%times(1) + 1 
   else if (this%current_puff_seg == this%last_puff_seg) then
-    !> for t > puff_times(last_puff_seg), we keep puff_rate constant at puff_rates(last_puff_seg)
-    puff_rate_0  = this%puff_rates(this%last_puff_seg)
-    puff_rate_1  = this%puff_rates(this%last_puff_seg) 
+    !> for t > puff_ctrl%times(last_puff_seg), we keep puff_rate constant at puff_ctrl%rates(last_puff_seg)
+    puff_rate_0  = this%puff_ctrl%rates(this%last_puff_seg)
+    puff_rate_1  = this%puff_ctrl%rates(this%last_puff_seg) 
 
-    !> the puff_times no longer matter in this case but (puff_times_1 - puff_times_0) has to be non zero 
-    puff_time_0 = this%puff_times(this%last_puff_seg) 
-    puff_time_1 = this%puff_times(this%last_puff_seg) + 1 
+    !> the puff_ctrl%times no longer matter in this case but (puff_ctrl%times_1 - puff_ctrl%times_0) has to be non zero 
+    puff_time_0 = this%puff_ctrl%times(this%last_puff_seg) 
+    puff_time_1 = this%puff_ctrl%times(this%last_puff_seg) + 1 
   else
-    !> in general, puff_times and puff_rates are the defined values bounding the segment
-    puff_rate_0  = this%puff_rates(this%current_puff_seg)
-    puff_rate_1  = this%puff_rates(this%current_puff_seg + 1)
-    puff_time_0 = this%puff_times(this%current_puff_seg)
-    puff_time_1 = this%puff_times(this%current_puff_seg + 1)
+    !> in general, puff_ctrl%times and puff_ctrl%rates are the defined values bounding the segment
+    puff_rate_0  = this%puff_ctrl%rates(this%current_puff_seg)
+    puff_rate_1  = this%puff_ctrl%rates(this%current_puff_seg + 1)
+    puff_time_0 = this%puff_ctrl%times(this%current_puff_seg)
+    puff_time_1 = this%puff_ctrl%times(this%current_puff_seg + 1)
   endif
 
 !============== Finding free particles !< make into a function?

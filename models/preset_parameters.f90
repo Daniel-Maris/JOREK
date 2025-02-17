@@ -886,9 +886,14 @@ part_group_configs(:)%use_kin_cx             = .false.
 
 do i=1, n_part_groups_max
   do j=1, n_valves_max
-    part_group_configs(i)%puff_ctrl(j)%supers_per_puff = 0
-    part_group_configs(i)%puff_ctrl(j)%times = -1.0
-    part_group_configs(i)%puff_ctrl(j)%rates = -1.0
+    part_group_configs(i)%puff_ctrl(j)%supers_num_puff    = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%supers_weight_puff = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%supers_ratio_puff  = 1.d-4  
+    !< if non of these three abovesettings are set, 
+    !< supers_ratio_puff will be used with its default value
+
+    part_group_configs(i)%puff_ctrl(j)%times = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%rates = -1.d0
   enddo
 enddo
 !-----------------------------------------------

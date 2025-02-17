@@ -1067,7 +1067,16 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
             used_segs = count(part_group_configs(group_num)%puff_ctrl(i)%rates > 0)
             if (used_segs > 0) then
               write(*,"(3X,A,' = ',100I12)")    'Puff valve            ', i
-              write(*,"(3X,A,' = ',100I12)")    'supers_per_puff       ', part_group_configs(group_num)%puff_ctrl(i)%supers_per_puff
+
+              !> config of the number of supers to create per event
+              if (part_group_configs(group_num)%puff_ctrl(i)%supers_num_puff > 0) then
+                write(*,"(3X,A,' = ',100I12)")    'supers_num_puff       ', part_group_configs(group_num)%puff_ctrl(i)%supers_num_puff
+              else if (part_group_configs(group_num)%puff_ctrl(i)%supers_weight_puff > 0) then
+                write(*,"(3X,A,' = ',99ES12.6)")    'supers_weight_puff    ', part_group_configs(group_num)%puff_ctrl(i)%supers_weight_puff
+              else
+                write(*,"(3X,A,' = ',99ES12.6)")    'supers_ratio_puff     ', part_group_configs(group_num)%puff_ctrl(i)%supers_ratio_puff
+              endif
+
               write(*,"(3X,A,' = ',99ES10.3)")  'rates                 ', part_group_configs(group_num)%puff_ctrl(i)%rates(1:used_segs)
               write(*,"(3X,A,' = ',99ES10.3)")  'times                 ', part_group_configs(group_num)%puff_ctrl(i)%times(1:used_segs)
             endif
