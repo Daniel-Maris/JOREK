@@ -59,7 +59,7 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
   integer, intent(in)             :: target_group
   integer, intent(in)             :: valve_num           !< the valve number to use for this puffing
     
-  class(type_rng), intent(in), optional :: rng !< random number generator to use (deafult PCG32)
+  class(type_rng), intent(in), optional :: rng  !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
   integer                               :: my_seed, i, n_create_schemes
   
@@ -153,55 +153,23 @@ end function get_supers_to_puff
 
 !< linearly interpolates the puff rate between two determined points (t0, y0), (t1, y1)
 !< y = y0 + [(y1 - y0)/(t1 - t0)] * (t - t0)
-function calc_puff_rate_linear(time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1) result(puff_rate)
+subroutine calc_puff_rate_linear(this, time, puff_rate_0, puff_rate_1, puff_rate)
 
   implicit none
-  real*8, intent(in)    :: time          !< current simulation time (t)
-  real*8, intent(in)    :: puff_rate_0   !< the left set value of the linear function (y0)
-  real*8, intent(in)    :: puff_rate_1   !< the right set value of the linear function (y1)
-  real*8, intent(in)    :: puff_time_0   !< t0
-  real*8, intent(in)    :: puff_time_1   !< t1
-  real*8                :: puff_rate     !< the puff rate at time t (y)
+  class(particle_puffing), intent(inout) :: this
+  real*8, intent(in)                     :: time          !< current simulation time (t)
+  real*8, intent(inout)                  :: puff_rate_0   !< the left set value of the linear function (y0)
+  real*8, intent(inout)                  :: puff_rate_1   !< the right set value of the linear function (y1)
+  real*8                                 :: puff_time_0   !< t0
+  real*8                                 :: puff_time_1   !< t1
+  real*8, intent(inout)                  :: puff_rate     !< the puff rate at time t (y)
 
-  puff_rate = puff_rate_0 + (puff_rate_1 - puff_rate_0) / (puff_time_1 - puff_time_0) * (time - puff_time_0)
-
-end function calc_puff_rate_linear
-
-!> Actually puff gass
-subroutine do_particle_puffing(this,sim, ev)
-  use mpi_mod
-  use phys_module, only: tstep, central_mass, central_density
-  use constants, only: MASS_PROTON, MU_ZERO
-  ! !$ use omp_lib
-
-  class(particle_puffing) , intent(inout) :: this
-  type(particle_sim), intent(inout)       :: sim
-  type(event), intent(inout), optional    :: ev 
-
-  integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, supers_to_puff, supers_to_puff_local, i_rng
-  logical, allocatable, dimension(:) :: is_free
-  integer, allocatable, dimension(:) :: i_free
-  real*8  :: tstep_fluid_si, c, R, Z, phi, s, t
-  real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
-  real*8  :: vector_normal(3), u(5)
-  real*8  :: puff_rate !< possibly time dependent fueling rate
-
-  ! variables for piecewise linear time dependent puffing
-  real*8  :: puff_rate_0, puff_rate_1, puff_time_0, puff_time_1
-
-  integer ::    puffed_this_step_local, all_puffed_this_step
-  real*8  ::    puff_weight_local, all_puff_weight
-
-  tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
-
-  if (sim%my_id .eq. 0) write(*,'(A,A,A,I1,A)') "--- Started puffing for Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
-  
   !> check if the simulation has advanced to the next puffing segment
   if (this%current_puff_seg /= this%last_puff_seg) then
-    if (sim%time > this%puff_ctrl%times(this%current_puff_seg + 1)) this%current_puff_seg = this%current_puff_seg + 1 
+    if (time > this%puff_ctrl%times(this%current_puff_seg + 1)) this%current_puff_seg = this%current_puff_seg + 1 
   endif
 
-  !> set the bounding values of the puffing segment
+  !> set the bounding values of the current puffing segment
   if (this%current_puff_seg == 0) then 
     !> for t < puff_ctrl%times(1), we keep puff_rate constant at puff_ctrl%rates(1)
     puff_rate_0  = this%puff_ctrl%rates(1)
@@ -225,6 +193,40 @@ subroutine do_particle_puffing(this,sim, ev)
     puff_time_0 = this%puff_ctrl%times(this%current_puff_seg)
     puff_time_1 = this%puff_ctrl%times(this%current_puff_seg + 1)
   endif
+
+  puff_rate = puff_rate_0 + (puff_rate_1 - puff_rate_0) / (puff_time_1 - puff_time_0) * (time - puff_time_0)
+
+end subroutine calc_puff_rate_linear
+
+!> Actually puff gass
+subroutine do_particle_puffing(this,sim, ev)
+  use mpi_mod
+  use phys_module, only: tstep, central_mass, central_density
+  use constants, only: MASS_PROTON, MU_ZERO
+  ! !$ use omp_lib
+
+  class(particle_puffing) , intent(inout) :: this
+  type(particle_sim), intent(inout)       :: sim
+  type(event), intent(inout), optional    :: ev 
+
+  integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, supers_to_puff, supers_to_puff_local, i_rng
+  logical, allocatable, dimension(:) :: is_free
+  integer, allocatable, dimension(:) :: i_free
+  real*8  :: tstep_fluid_si, c, R, Z, phi, s, t
+  real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
+  real*8  :: vector_normal(3), u(5)
+  real*8  :: puff_rate !< possibly time dependent fueling rate
+
+  !> variables used for the piecewise linear time dependent puffing
+  real*8  :: puff_rate_0, puff_rate_1 
+
+
+  integer ::    puffed_this_step_local, all_puffed_this_step
+  real*8  ::    puff_weight_local, all_puff_weight
+
+  tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
+
+  if (sim%my_id .eq. 0) write(*,'(A,A,A,I1,A)') "--- Started puffing for Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
 
 !============== Finding free particles !< make into a function?
 allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
@@ -271,7 +273,8 @@ end do
 !------------- Decide how many superparticles to initiate 
 
   !> calculate time dependent puffing rate
-  puff_rate = calc_puff_rate_linear(sim%time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1)
+  !> piecewise linear approach 
+  call calc_puff_rate_linear(this, sim%time, puff_rate_0, puff_rate_1, puff_rate)
 
   supers_to_puff = get_supers_to_puff(this, tstep_fluid_si, puff_rate)
   supers_to_puff_local = calc_n_particles_per_mpi(supers_to_puff, sim%n_mpi, sim%my_id)
