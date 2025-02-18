@@ -976,9 +976,9 @@ module phys_module
   
   ! the controller for the puffing of a particle group for a specified valve
   type :: type_puff_ctrl
-    integer :: supers_num_puff            !< number of new superparticles initialised at each puff action (to represent the real particles puffed)
-    real*8  :: supers_weight_puff         !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action (to represent the real particles puffed)
-    real*8  :: supers_ratio_puff          !< ratio of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action (to represent the real particles puffed).
+    integer :: supers_num_puff            !< number of new superparticles initialised at each puff action
+    real*8  :: supers_weight_puff         !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action
+    real*8  :: supers_ratio_puff          !< fraction of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action
     !< if none of these three above settings are set, supers_ratio_puff
     !< will be used, taking its default value set in preset_parameters.f90
 
