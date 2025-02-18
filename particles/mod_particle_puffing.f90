@@ -225,8 +225,10 @@ subroutine do_particle_puffing(this,sim, ev)
   real*8  ::    puff_weight_local, all_puff_weight
 
   tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
-
-  if (sim%my_id .eq. 0) write(*,'(A,A,A,I1,A)') "--- Started puffing for Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
+  if (sim%my_id .eq. 0) then 
+    write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, "s ======"
+    write(*,'(A,A,A,I1,A)') "--- For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
+  endif
 
 !============== Finding free particles !< make into a function?
 allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
@@ -288,7 +290,6 @@ end do
 
   !> output time dependent puffing details
   if (sim%my_id .eq. 0) then
-    write(*,"(A,G12.6,A)")           "Puffing details for time t=", sim%time, ":"
     write(*,"(2X,A12)") "Set-up:     "
     write(*,"(4X,A18, ' = ', I12)")        "puff segment      ", this%current_puff_seg
     write(*,"(4X,A18, ' = ', G12.6)")      "puff_rate_0       " , puff_rate_0

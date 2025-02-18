@@ -91,7 +91,7 @@ contains
 
   end subroutine allocate_particles_for_group
 
-    !> function ran locally on each mpi process which calcuates the number of particles 
+  !> function ran locally on each mpi process which calcuates the number of particles 
   !> to distribute to it from a total of n_particles, master_task takes the division remainder
   function calc_n_particles_per_mpi(n_particles, n_mpi, my_id, master_task) result(n_particles_per_mpi)
 
