@@ -132,9 +132,10 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
 end function new_particle_puffing
 
 !> determine the number of super particles to puff for the puff action
-function get_supers_to_puff(this, tstep_fluid_si, puff_rate) result(supers_to_puff)
+function get_supers_to_puff(this, my_id, tstep_fluid_si, puff_rate) result(supers_to_puff)
   implicit none
   class(particle_puffing), intent(in) :: this
+  integer,                 intent(in) :: my_id
   real*8,                  intent(in) :: tstep_fluid_si
   real*8,                  intent(in) :: puff_rate
   real*8                              :: real_particles_to_puff
@@ -146,7 +147,13 @@ function get_supers_to_puff(this, tstep_fluid_si, puff_rate) result(supers_to_pu
   if (trim(this%supers_create_scheme) == "ratio") supers_to_puff = nint(part_group_configs(this%target_group)%n_particles * this%puff_ctrl%supers_ratio_puff)
 
   !> forces that at least one particle is puffed
-  if (supers_to_puff < 1) supers_to_puff = 1
+  if (supers_to_puff < 1) then
+    if (my_id == 0) then
+      write(*,*) "WARNING: The number of superparticles to be initialized for this puffing "
+      write(*,*) "  action is calculated to be less than 1. It will be overwritten to 1."
+    endif
+    supers_to_puff = 1
+  endif
 
 end function get_supers_to_puff
 
@@ -226,7 +233,7 @@ subroutine do_particle_puffing(this,sim, ev)
 
   tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
   if (sim%my_id .eq. 0) then 
-    write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, "s ======"
+    write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
     write(*,'(A,A,A,I1,A)') "--- For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
   endif
 
@@ -265,7 +272,7 @@ end do
            i_elm, s, t ,ifail)
   endif
   if (ifail .ne. 0) then
-    if (sim%my_id .eq. 0) write(*,*) "Warning: The valve location for puffing could not be found, maybe it was placed outside of the grid?"
+    if (sim%my_id .eq. 0) write(*,*) "WARNING: The valve location for puffing could not be found, maybe it was placed outside of the grid?"
     stop
   end if
 
@@ -278,7 +285,7 @@ end do
   !> piecewise linear approach 
   call calc_puff_rate_linear(this, sim%time, puff_rate_0, puff_rate_1, puff_rate)
 
-  supers_to_puff = get_supers_to_puff(this, tstep_fluid_si, puff_rate)
+  supers_to_puff = get_supers_to_puff(this, sim%my_id, tstep_fluid_si, puff_rate)
   supers_to_puff_local = calc_n_particles_per_mpi(supers_to_puff, sim%n_mpi, sim%my_id)
   to_puff = supers_to_puff_local
 
