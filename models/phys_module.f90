@@ -957,14 +957,14 @@ module phys_module
 
   type :: type_valve
     character(len=4)   :: type          !< four character code for the valve type ('circ', 'poly', or 'none')
-    real*8  :: phi
+    real*8  :: phi                      !< toroidal angle of the valve 
     ! --- specific to 'circ' type (circular valve) 
-    real*8  :: r_valve                  ! radius of poloidal circular source 
-    real*8  :: R_valve_loc              ! R position 
-    real*8  :: Z_valve_loc              ! Z position
+    real*8  :: r_valve                  ! radius of poloidal circular valve 
+    real*8  :: R_valve_loc              ! R position of a circular valve 
+    real*8  :: Z_valve_loc              ! Z position of a circular valve
     ! --- specific to 'poly' type (quadrangular valve)
-    real*8  :: poly_R(4)                ! R vertices
-    real*8  :: poly_Z(4)                ! Z vertices
+    real*8  :: poly_R(4)                ! R vertices of a quadrangular valve
+    real*8  :: poly_Z(4)                ! Z vertices of a quadrangular valve
   end type type_valve
   
   type (type_valve), dimension(n_valves_max) :: valves 
@@ -976,13 +976,15 @@ module phys_module
   
   ! the controller for the puffing of a particle group for a specified valve
   type :: type_puff_ctrl
-    integer :: supers_num_puff            !< number of superparticles used per puff action
-    real*8  :: supers_weight_puff         !< weight (no. real particles per superparticle) of each superparticle created by each puff action
-    real*8  :: supers_ratio_puff          !< ratio of the total number of superparticles allocated for this group to use for each puff action 
-    real*8  :: times(n_puff_segment_max)  !< the time the puffing rate is defined at
-    real*8  :: rates(n_puff_segment_max)  !< the puffing rate at a defined at
+    integer :: supers_num_puff            !< number of new superparticles initialised at each puff action (to represent the real particles puffed)
+    real*8  :: supers_weight_puff         !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action (to represent the real particles puffed)
+    real*8  :: supers_ratio_puff          !< ratio of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action (to represent the real particles puffed).
+    !< if none of these three above settings are set, supers_ratio_puff
+    !< will be used, taking its default value set in preset_parameters.f90
+
+    real*8  :: times(n_puff_segment_max)  !< array of time checkpoints (SI, in seconds) for which the puffing rate is specified (requires a defined puff_ctrl(i)%rates of the same length)   
+    real*8  :: rates(n_puff_segment_max)  !< array of specified puff rates (atoms/second) at given time checkpoints (requires a defined puff_ctrl(i)%times of the same length)
   end type type_puff_ctrl
-  !> 
   
   ! ------------------------------------------------
   ! --- Structures for particle groups
