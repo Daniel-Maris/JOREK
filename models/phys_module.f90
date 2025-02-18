@@ -976,9 +976,9 @@ module phys_module
   
   ! the controller for the puffing of a particle group for a specified valve
   type :: type_puff_ctrl
-    integer :: supers_num_puff            !< number of superparticles used per puffing action per valve for this group
-    real*8  :: supers_weight_puff         !< real particle weight per superparticle used per puffing action per valve for this group
-    real*8  :: supers_ratio_puff          !< ratio of the total number of particles of this group to use per puff action per valve 
+    integer :: supers_num_puff            !< number of superparticles used per puff action
+    real*8  :: supers_weight_puff         !< weight (no. real particles per superparticle) of each superparticle created by each puff action
+    real*8  :: supers_ratio_puff          !< ratio of the total number of superparticles allocated for this group to use for each puff action 
     real*8  :: times(n_puff_segment_max)  !< the time the puffing rate is defined at
     real*8  :: rates(n_puff_segment_max)  !< the puffing rate at a defined at
   end type type_puff_ctrl
