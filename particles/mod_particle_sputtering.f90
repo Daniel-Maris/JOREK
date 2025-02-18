@@ -764,7 +764,7 @@ subroutine do_particle_sputter(this, sim, ev)
   end do
   
   !=======================================================================================================
-  ! share the work over all mpi's. the last one takes the extra work
+  ! share the work over all mpi's. the last one takes the extra work (soon to be replaced with a generalized function)
   if (this%n_sputter .ge. sim%n_mpi) then
     n_samples = min(this%n_sputter/sim%n_mpi,n_free)
     if (sim%my_id .eq. sim%n_mpi) then

@@ -21,9 +21,6 @@
   filter_hyper_n0    = 1.d-10
   filter_par_n0      = 0.d0
 
-  puff_rate = 70.d21
-  n_puff=20
-
   time_evol_scheme= 'Gears'
   use_mumps_eq  = .true.
   use_pastix_eq = .false.
@@ -152,6 +149,10 @@
   part_group_configs(1)%use_kin_recombination  = .t.
   part_group_configs(1)%use_kin_line_radiation = .t.
   part_group_configs(1)%atom_data_suffix = '12_h'
+
+  part_group_configs(1)%puff_ctrl(1)%times = 0.003241819333732922, 0.007241819333732922     
+  part_group_configs(1)%puff_ctrl(1)%rates = 23.33333333333d21, 35.d21
+  part_group_configs(1)%puff_ctrl(1)%supers_num_puff = 20
 
 
  /

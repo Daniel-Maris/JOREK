@@ -608,7 +608,7 @@ mpi_comm_in,mpi_info_in,test_in)
         endif
 
         !> compute the number of particles per processor and allocate particle array ---------
-        n_particles_per_mpi = calc_n_particles_per_mpi(int(n_particles_tot(1)), sim%n_mpi, master_task)
+        n_particles_per_mpi = calc_n_particles_per_mpi_array(int(n_particles_tot(1)), sim%n_mpi, master_task)
         offset = int(sum(n_particles_per_mpi(1:sim%my_id)),kind=HSIZE_T)
         n_particles_hsizet = int(n_particles_per_mpi(sim%my_id+1),kind=HSIZE_T)
 
@@ -694,7 +694,7 @@ mpi_comm_in,mpi_info_in,test_in)
       endif
 
       ! calculate load balancing ------
-      n_particles_per_mpi = calc_n_particles_per_mpi(int(config%n_particles), sim%n_mpi, master_task)
+      n_particles_per_mpi = calc_n_particles_per_mpi_array(int(config%n_particles), sim%n_mpi, master_task)
 
       ! getting particle type --------- 
       if(allocated(particle_type_str)) deallocate(particle_type_str)
