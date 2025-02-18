@@ -11,7 +11,7 @@ use mod_particle_types
 
 implicit none
 
-public allocate_particles_for_sim, allocate_particles_for_group
+public allocate_particles_for_sim, allocate_particles_for_group, calc_n_particles_per_mpi, calc_n_particles_per_mpi_array
 
 contains
 
@@ -93,23 +93,22 @@ contains
 
     !> function ran locally on each mpi process which calcuates the number of particles 
   !> to distribute to it from a total of n_particles, master_task takes the division remainder
-  function calc_n_particles_per_mpi(n_particles, n_mpi, my_id, n_free, master_task) result(n_particles_per_mpi)
+  function calc_n_particles_per_mpi(n_particles, n_mpi, my_id, master_task) result(n_particles_per_mpi)
 
     implicit none
-    integer, intent(in) :: n_particles
-    integer, intent(in) :: n_mpi
-    integer, intent(in) :: my_id
-    integer, intent(in) :: n_free
-    integer,  optional  :: master_task          
+    integer, intent(in)            :: n_particles
+    integer, intent(in)            :: n_mpi
+    integer, intent(in)            :: my_id
+    integer, intent(in), optional  :: master_task          
+    integer                        :: n_particles_per_mpi, master_task_internal
 
-    integer             :: n_particles_per_mpi
-
-    if (.not. present(master_task)) master_task = 0
+    master_task_internal = 0
+    if (present(master_task)) master_task_internal = master_task
   
     if (n_particles .ge. n_mpi) then
-      n_particles_per_mpi = min(n_particles/n_mpi, n_free)
-      if (my_id .eq. master_task) then
-        n_particles_per_mpi = min(mod(n_particles,n_mpi) + n_particles/n_mpi, n_free)
+      n_particles_per_mpi = n_particles/n_mpi
+      if (my_id .eq. master_task_internal) then
+        n_particles_per_mpi = mod(n_particles,n_mpi) + n_particles/n_mpi
       end if
     else
       if (my_id .lt. n_particles) then
@@ -124,21 +123,24 @@ contains
   !> calculate how to distribute the particles in a group across the mpi processes when importing
   !> returns an array containing the number of particles for each mpi processor, the master mpi
   !> processor contains the remainder of the division
-  function calc_n_particles_per_mpi_array(n_particles_tot, n_mpi, master_task) result(n_particles_per_mpi)
+  function calc_n_particles_per_mpi_array(n_particles_tot, n_mpi, master_task) result(n_particles_per_mpi_array)
     implicit none
 
-    integer,  intent(in)                  :: n_particles_tot       !< total number of particles for a particle group
-    integer,  intent(in)                  :: n_mpi                 !< number of mpi processes being used
-    integer,  optional                    :: master_task           !< which mpi process is the "master" and will hence hold
-                                                                   !< the remainder of the particles after division (default 0)
-    integer,  dimension(:), allocatable   :: n_particles_per_mpi
+    integer,  intent(in)                  :: n_particles_tot             !< total number of particles for a particle group
+    integer,  intent(in)                  :: n_mpi                       !< number of mpi processes being used
+    integer,  optional                    :: master_task                 !< which mpi process is the "master" and will hence hold
+                                                                         !< the remainder of the particles after division (default 0)
+    integer,  dimension(:), allocatable   :: n_particles_per_mpi_array   !< output
+    integer                               :: i, master_task_internal
 
-    if (.not. present(master_task)) master_task = 0
-    allocate(n_particles_per_mpi(n_mpi))
+    master_task_internal = 0
+    if (present(master_task)) master_task_internal = master_task
+    allocate(n_particles_per_mpi_array(n_mpi))
 
-    n_particles_per_mpi = int(n_particles_tot)/n_mpi
-    n_particles_per_mpi(master_task+1) = int(n_particles_tot) - (n_mpi-1)*n_particles_per_mpi(master_task+1)
-
+    do i=1, n_mpi
+      n_particles_per_mpi_array(i) = calc_n_particles_per_mpi(n_particles_tot, n_mpi, i-1, master_task=master_task_internal) 
+    enddo
+    
   end function calc_n_particles_per_mpi_array
 
 

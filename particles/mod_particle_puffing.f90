@@ -13,6 +13,7 @@ module mod_particle_puffing
   use mod_particle_sim
   use mod_event
   use mod_find_rz_nearby, only: find_rz_nearby
+  use mod_particle_allocation, only: calc_n_particles_per_mpi
   use phys_module, only: type_valve, valves, part_group_configs, type_puff_ctrl, n_puff_segment_max 
 
   implicit none
@@ -256,8 +257,14 @@ end do
   puff_rate = calc_puff_rate_linear(sim%time, puff_rate_0, puff_rate_1, puff_time_0, puff_time_1)
 
   supers_to_puff = get_supers_to_puff(this, tstep_fluid_si, puff_rate)
-  supers_to_puff_local = ceiling(real(supers_to_puff) / sim%n_mpi) !supers_to_puff_local is the amount of superparticles that will be puffed per MPI process.
+  supers_to_puff_local = calc_n_particles_per_mpi(supers_to_puff, sim%n_mpi, sim%my_id)
   to_puff = supers_to_puff_local
+
+  if (to_puff .ge. n_free) then
+    to_puff = n_free
+    write(*,"(A, I3, A)") "WARNING: On mpi proc ", sim%my_id, ", not enough free particles available to puff the requested amount."
+    write(*,"(A, I12, A, I12)") "  Requested: ", supers_to_puff_local, " | Free (actually puffed): ", n_free
+  end if
 
   !> output time dependent puffing details
   if (sim%my_id .eq. 0) then
@@ -273,10 +280,6 @@ end do
     write(*,*) ""
   endif
       
-  if (to_puff .ge. n_free) then
-    write(*,*) "Warning could not puff the requested amount."
-    to_puff = n_free
-  end if
 
 !-------------  
   
