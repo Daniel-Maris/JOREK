@@ -580,7 +580,8 @@ mpi_comm_in,mpi_info_in,test_in)
             !> currently we do not allow the user to decrease the size of the particle array as we need 
             !> a more reliable way of determining which slots of the array are free (planned improvement to the isfree system)
             if (config%n_particles < n_particles_tot(1)) then
-              write(*,*) "ERROR: demanding less particles than saved in the restart file for a group is currently not supported." 
+              write(*,*) "ERROR: demanding less particles than saved in the restart"
+              write(*,*) "  file for a group is currently not supported." 
               stop
             endif
   

@@ -881,14 +881,17 @@ part_group_configs(:)%use_kin_puffing        = .false.
 part_group_configs(:)%use_kin_line_radiation = .false.
 part_group_configs(:)%use_kin_ionisation     = .false.
 part_group_configs(:)%use_kin_sputtering     = .false.
-part_group_configs(:)%n_reflect_ratio       = 5.d-4
+part_group_configs(:)%n_reflect_ratio        = 5.d-4
 part_group_configs(:)%use_kin_cx             = .false.
 
 do i=1, n_part_groups_max
   do j=1, n_valves_max
     part_group_configs(i)%puff_ctrl(j)%supers_num_puff    = -1.d0
     part_group_configs(i)%puff_ctrl(j)%supers_weight_puff = -1.d0
-    part_group_configs(i)%puff_ctrl(j)%supers_ratio_puff  = 1.d-4  !< if this is updated, please also update supers_ratio_puff_default in mod_particle_puffing.f90
+    part_group_configs(i)%puff_ctrl(j)%supers_ratio_puff  = -1.d0   
+    !< if none of these three above options are set, the supers_ratio_puff method
+    !< will be used, with its default value being set by supers_ratio_puff_default in mod_particle_puffing.f90
+    !< which overrides the default value of supers_ratio_puff set here
     part_group_configs(i)%puff_ctrl(j)%times = -1.d0
     part_group_configs(i)%puff_ctrl(j)%rates = -1.d0
   enddo

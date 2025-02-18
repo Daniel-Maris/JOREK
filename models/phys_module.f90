@@ -979,8 +979,8 @@ module phys_module
     integer :: supers_num_puff            !< number of new superparticles initialised at each puff action
     real*8  :: supers_weight_puff         !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action
     real*8  :: supers_ratio_puff          !< fraction of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action
-    !< if none of these three above settings are set, supers_ratio_puff
-    !< will be used, taking its default value set in preset_parameters.f90
+    !< if none of these three above options are set, the supers_ratio_puff method
+    !< will be used, with its default value being set by supers_ratio_puff_default in mod_particle_puffing.f90
 
     real*8  :: times(n_puff_segment_max)  !< array of time checkpoints (SI, in seconds) for which the puffing rate is specified (requires a defined puff_ctrl(i)%rates of the same length)   
     real*8  :: rates(n_puff_segment_max)  !< array of specified puff rates (atoms/second) at given time checkpoints (requires a defined puff_ctrl(i)%times of the same length)

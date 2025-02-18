@@ -18,7 +18,9 @@ module mod_particle_puffing
 
   implicit none
 
-  real*8  :: supers_ratio_puff_default = 1.d-4                 !< should match value in preset_parameters.f90
+  real*8  :: supers_ratio_puff_default = 1.d-4                 !< if none of the puff_ctrl(i)%supers_..._puff options are set, supers_to_puff will be calculated
+                                                               !< as supers_ratio_puff_default * part_group_config(i)%n_particles
+                                                               !< In this case this default value overrides the value from preset_parameters.f90
 
   private
   public  :: particle_puffing
@@ -68,24 +70,37 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
 
   n_create_schemes = 0
   !> determine supers_create_scheme
-  if (new%puff_ctrl%supers_num_puff > 0) then 
+  if (new%puff_ctrl%supers_num_puff /= -1.d0) then 
+    if (new%puff_ctrl%supers_num_puff < 0) then
+      write(*,*) "ERROR: puff_ctrl(i)%supers_num_puff cannot be negative."
+      stop
+    endif 
     new%supers_create_scheme = "num"
     n_create_schemes = n_create_schemes + 1
   endif
-  if (new%puff_ctrl%supers_weight_puff > 0) then
+  if (new%puff_ctrl%supers_weight_puff /= -1.d0) then
+    if (new%puff_ctrl%supers_weight_puff < 0) then
+      write(*,*) "ERROR: puff_ctrl(i)%supers_weight_puff cannot be negative."
+      stop
+    endif 
     new%supers_create_scheme = "weight"
     n_create_schemes = n_create_schemes + 1
   endif
-  if (new%puff_ctrl%supers_ratio_puff /= supers_ratio_puff_default) then
+  if (new%puff_ctrl%supers_ratio_puff /= -1.d0) then
+    if (new%puff_ctrl%supers_ratio_puff < 0) then
+      write(*,*) "ERROR: puff_ctrl(i)%supers_ratio_puff cannot be negative."
+      stop
+    endif 
     new%supers_create_scheme = "ratio"
     n_create_schemes = n_create_schemes + 1
   endif
 
   if (n_create_schemes > 1) then
-    if (sim%my_id == 0) write(*,*) "ERROR: Only one type of supers_X_puff can be used per puff_ctrl."
+    if (sim%my_id == 0) write(*,*) "ERROR: Only one type of supers_..._puff can be used per puff_ctrl."
     stop
   else if (n_create_schemes == 0) then
     new%supers_create_scheme = "ratio"
+    new%puff_ctrl%supers_ratio_puff = supers_ratio_puff_default
     if (sim%my_id == 0) then
       write(*,*) "WARNING: No scheme for determining the number of superparticles"
       write(*,*) "  per puff (supers_X_puff) has been assigned. Using the default"
@@ -127,8 +142,8 @@ function get_supers_to_puff(this, tstep_fluid_si, puff_rate) result(supers_to_pu
 
   supers_to_puff = 0
   if (trim(this%supers_create_scheme) == "num") supers_to_puff = this%puff_ctrl%supers_num_puff
-  if (trim(this%supers_create_scheme) == "weight") supers_to_puff = int((tstep_fluid_si * puff_rate) / this%puff_ctrl%supers_weight_puff)
-  if (trim(this%supers_create_scheme) == "ratio") supers_to_puff = int(part_group_configs(this%target_group)%n_particles * this%puff_ctrl%supers_ratio_puff)
+  if (trim(this%supers_create_scheme) == "weight") supers_to_puff = nint((tstep_fluid_si * puff_rate) / this%puff_ctrl%supers_weight_puff)
+  if (trim(this%supers_create_scheme) == "ratio") supers_to_puff = nint(part_group_configs(this%target_group)%n_particles * this%puff_ctrl%supers_ratio_puff)
 
   !> forces that at least one particle is puffed
   if (supers_to_puff < 1) supers_to_puff = 1
@@ -232,8 +247,10 @@ do j=1,size(is_free,1)
 end do
 ! ==================
   
-  ! the current set up may only work for puffing Hydrogen
+  ! The current set up may only work for puffing Hydrogen
   ! Assuming the incoming gas at T=300C and a diatomic gas
+  ! c is the sound speed of the puffed gas, which is given as c = sqrt(gamma*kB*T/m) for an ideal gas
+  ! A factor of 2 is used for the mass as we are puffing diatomic molecules
   c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(this%target_group)%mass*ATOMIC_MASS_UNIT))
   if (this%puff_valve%type == "circ") then
     call find_RZ(sim%fields%node_list, sim%fields%element_list, this%puff_valve%R_valve_loc, this%puff_valve%Z_valve_loc, R, Z, &
