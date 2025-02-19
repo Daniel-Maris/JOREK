@@ -1014,6 +1014,9 @@ module phys_module
     logical             :: use_kin_line_radiation   !< switch on line radiation for group
 
     !> --------------- puffing ----------------------
+
+    !> The index of the puff_ctrl array corresponds to the index of the valve the puffing will come from
+    !> i.e. puff_ctrl(1) will link the puff_ctrl to the valves(1)
     type(type_puff_ctrl), dimension(n_valves_max) :: puff_ctrl 
 
   end type type_part_group_config
