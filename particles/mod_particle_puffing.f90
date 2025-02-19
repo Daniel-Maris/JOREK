@@ -55,6 +55,108 @@ module mod_particle_puffing
   end interface particle_puffing
 contains
 
+
+!> validity checks for user input settings in puff_ctrl
+!> and set puffing settings based on these settings
+subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
+  implicit none
+
+  type(particle_sim),     intent(in)     :: sim
+  integer,                intent(in)     :: group_num
+  integer,                intent(in)     :: valve_num
+  type(particle_puffing), intent(inout)  :: new
+
+  integer                                :: i,n_create_schemes
+
+  !> variables for piecewise linear
+  integer :: times_counter = 0 
+  integer :: rates_counter = 0
+
+
+  !> determine supers_create_scheme (which scheme is used to calculate supers_to_puff) -----
+  n_create_schemes = 0
+
+  ! check that the supers_..._puff settings are non-negative
+  if (new%puff_ctrl%supers_num_puff /= -1.d0) then 
+    if (new%puff_ctrl%supers_num_puff < 0) then
+      if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: part_group_config(",group_num,")%puff_ctrl(",valve_num,")%supers_num_puff is negative"
+      stop
+    endif 
+    new%supers_create_scheme = "num"
+    n_create_schemes = n_create_schemes + 1
+  endif
+  if (new%puff_ctrl%supers_weight_puff /= -1.d0) then
+    if (new%puff_ctrl%supers_weight_puff < 0) then
+      if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: part_group_config(",group_num,")%puff_ctrl(",valve_num,")%supers_weight_puff is negative"
+      stop
+    endif 
+    new%supers_create_scheme = "weight"
+    n_create_schemes = n_create_schemes + 1
+  endif
+  if (new%puff_ctrl%supers_ratio_puff /= -1.d0) then
+    if (new%puff_ctrl%supers_ratio_puff < 0) then
+      if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: part_group_config(",group_num,")%puff_ctrl(",valve_num,")%supers_ratio_puff is negative"
+      stop
+    endif 
+    new%supers_create_scheme = "ratio"
+    n_create_schemes = n_create_schemes + 1
+  endif
+
+  ! check that only 1 types of supers_..._puff settings are set, or else use default setting
+  if (n_create_schemes > 1) then
+    if (sim%my_id == 0) then 
+      write(*,"(A,I2,A,I2,A)") "ERROR: In part_group_config(",group_num,")%puff_ctrl(",valve_num,"),"
+      write(*,*) "  Only one type of supers_..._puff can be used per puff_ctrl."
+    endif
+    stop
+  else if (n_create_schemes == 0) then
+    new%supers_create_scheme = "ratio"
+    new%puff_ctrl%supers_ratio_puff = supers_ratio_puff_default
+    if (sim%my_id == 0) then
+      write(*,"(A,I2,A,I2,A)") "WARNING: In part_group_config(",group_num,")%puff_ctrl(",valve_num,"),"
+      write(*,*) "  no scheme for determining the number of superparticles"
+      write(*,*) "  per puff (supers_X_puff) has been assigned. Using the default"
+      write(*,*) "  setting of supers_ratio_puff = ", supers_ratio_puff_default
+    endif
+  endif
+
+  !> specific to piecewise linear puff_ctrl ----------------------------
+
+  !> validity checks
+  do i=1, n_puff_segment_max
+    if (new%puff_ctrl%rates(i) > 0) rates_counter = rates_counter + 1
+    if (new%puff_ctrl%times(i) > 0) times_counter = times_counter + 1
+  enddo
+
+  if (rates_counter == 0) then
+    if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: No %rates set for part_group_config(",group_num,")%puff_ctrl(",valve_num,")."
+    stop
+  endif
+
+  if (times_counter == 0) then
+    if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: No %times set for part_group_config(",group_num,")%puff_ctrl(",valve_num,")."
+    stop
+  endif
+
+  if (times_counter /= rates_counter) then
+    if (sim%my_id == 0) then
+      write(*,"(A,I2,A,I2,A)") "ERROR: Mismatch in part_group_config(",group_num,")%puff_ctrl(",valve_num,"),"
+      write(*,*)               "  between number of entries of %times and %rates. "
+    endif
+    stop
+  endif
+
+  !> determine the current puffing segment and the last puffing segment 
+  do i=1, n_puff_segment_max-1
+    !> find last puffing segment
+    if ((new%puff_ctrl%times(i) /= -1) .and. (new%puff_ctrl%times(i+1) == -1)) new%last_puff_seg = i
+    !> find current puffing segment
+    if (sim%time > new%puff_ctrl%times(i) .and. (new%puff_ctrl%times(i) /= -1)) new%current_puff_seg = i
+  enddo
+  ! -------------------------------------------------
+end subroutine
+
+
 !> 1. checks whether a specific valve has been initialized properly, 
 !>    i.e. whether it has a valid type, and if it is within the domain
 !> 2. if initialized properly, determine its location in the domain
@@ -72,7 +174,7 @@ subroutine initialize_puff_valve(sim, valve_num, new)
   select case (trim(valve%type))
     !> Check whether the user forgot to set the valve type
     case ('none')
-      write(*,"(A,I3,A)") "ERROR: Valve, ", valve_num, " has been selected for puffing but no valve()%type has been set"
+      if(sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: Valve, ", valve_num, " has been selected for puffing but no valve()%type has been set"
       stop
 
     !> For valid valve types, check that it is within the domain ------------
@@ -93,8 +195,8 @@ subroutine initialize_puff_valve(sim, valve_num, new)
 
   if (ifail .ne. 0) then
     if (sim%my_id .eq. 0) then
-      write(*,*) "WARNING: The location set for valve ", valve_num, " could"
-      write(*,*) "  not be found, maybe it was placed outside of the grid?"
+      write(*,"(A,I2,A)") "WARNING: The location set for valve ", valve_num, " could"
+      write(*,*)          "  not be found, maybe it was placed outside of the grid?"
     endif
     stop
   else
@@ -116,7 +218,7 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
     
   class(type_rng), intent(in), optional :: rng  !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
-  integer                               :: my_seed, i, n_create_schemes
+  integer                               :: my_seed, i
   
   !> check the validity of the given puff valve -----
   call initialize_puff_valve(sim, valve_num, new)
@@ -127,54 +229,8 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
   new%valve_num        = valve_num
   new%puff_ctrl        = part_group_configs(target_group)%puff_ctrl(valve_num)
 
-  !> determine supers_create_scheme (which scheme is used to calculate supers_to_puff) -----
-  n_create_schemes = 0
-
-  if (new%puff_ctrl%supers_num_puff /= -1.d0) then 
-    if (new%puff_ctrl%supers_num_puff < 0) then
-      write(*,*) "ERROR: puff_ctrl(i)%supers_num_puff cannot be negative."
-      stop
-    endif 
-    new%supers_create_scheme = "num"
-    n_create_schemes = n_create_schemes + 1
-  endif
-  if (new%puff_ctrl%supers_weight_puff /= -1.d0) then
-    if (new%puff_ctrl%supers_weight_puff < 0) then
-      write(*,*) "ERROR: puff_ctrl(i)%supers_weight_puff cannot be negative."
-      stop
-    endif 
-    new%supers_create_scheme = "weight"
-    n_create_schemes = n_create_schemes + 1
-  endif
-  if (new%puff_ctrl%supers_ratio_puff /= -1.d0) then
-    if (new%puff_ctrl%supers_ratio_puff < 0) then
-      write(*,*) "ERROR: puff_ctrl(i)%supers_ratio_puff cannot be negative."
-      stop
-    endif 
-    new%supers_create_scheme = "ratio"
-    n_create_schemes = n_create_schemes + 1
-  endif
-
-  if (n_create_schemes > 1) then
-    if (sim%my_id == 0) write(*,*) "ERROR: Only one type of supers_..._puff can be used per puff_ctrl."
-    stop
-  else if (n_create_schemes == 0) then
-    new%supers_create_scheme = "ratio"
-    new%puff_ctrl%supers_ratio_puff = supers_ratio_puff_default
-    if (sim%my_id == 0) then
-      write(*,*) "WARNING: No scheme for determining the number of superparticles"
-      write(*,*) "  per puff (supers_X_puff) has been assigned. Using the default"
-      write(*,*) "  setting of supers_ratio_puff = ", supers_ratio_puff_default
-    endif
-  endif
-
-  !> determine the current puffing segment and the last puffing segment -----
-  do i=1, n_puff_segment_max-1
-    !> find last puffing segment
-    if ((new%puff_ctrl%times(i) /= -1) .and. (new%puff_ctrl%times(i+1) == -1)) new%last_puff_seg = i
-    !> find current puffing segment
-    if (sim%time > new%puff_ctrl%times(i) .and. (new%puff_ctrl%times(i) /= -1)) new%current_puff_seg = i
-  enddo
+  !> check the validity and initialize settings from puff_ctrl
+  call initialize_settings_from_puff_ctrl(sim, target_group, valve_num, new)
 
   !> allocate random seed for sampling -----
   if (present(seed)) then

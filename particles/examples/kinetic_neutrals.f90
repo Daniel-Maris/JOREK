@@ -177,7 +177,8 @@ do group_num=1, n_part_groups
   ! puffing
   if (sim%groups(group_num)%use_kin_puffing) then
     do valve_num=1, n_valves_max
-      if (part_group_configs(group_num)%puff_ctrl(valve_num)%rates(1) > 0) then
+      !> check for the puff_ctrl objects that have been set
+      if ((part_group_configs(group_num)%puff_ctrl(valve_num)%rates(1) > 0) .OR. (part_group_configs(group_num)%puff_ctrl(valve_num)%times(1) >= 0)) then
         puff_counter = puff_counter + 1   ! increase the number of puffing events required per fluid time step
         puff_actions(puff_counter) = particle_puffing(sim, group_num, valve_num, seed=seed)  
       endif
