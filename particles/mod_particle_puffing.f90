@@ -115,7 +115,7 @@ subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
     if (sim%my_id == 0) then
       write(*,"(A,I2,A,I2,A)") "WARNING: In part_group_config(",group_num,")%puff_ctrl(",valve_num,"),"
       write(*,*) "  no scheme for determining the number of superparticles"
-      write(*,*) "  per puff (supers_X_puff) has been assigned. Using the default"
+      write(*,*) "  per puff (supers_..._puff) has been assigned. Using the default"
       write(*,*) "  setting of supers_ratio_puff = ", supers_ratio_puff_default
     endif
   endif
@@ -125,7 +125,18 @@ subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
   !> validity checks
   do i=1, n_puff_segment_max
     if (new%puff_ctrl%rates(i) > 0) rates_counter = rates_counter + 1
-    if (new%puff_ctrl%times(i) > 0) times_counter = times_counter + 1
+    if (new%puff_ctrl%times(i) > 0) then
+      times_counter = times_counter + 1
+
+      !> check that the set times are increaseing
+      if (i > 1) then
+        if (new%puff_ctrl%times(i-1) >= new%puff_ctrl%times(i)) then
+          if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: inputs in %times for part_group_config(",group_num,")%puff_ctrl(",valve_num,") must be strictly increasing"
+          stop
+        endif 
+      endif
+
+    endif
   enddo
 
   if (rates_counter == 0) then
@@ -347,7 +358,7 @@ subroutine do_particle_puffing(this,sim, ev)
   !> for piecewise linear time dependent puffing
   real*8  :: puff_rate_0, puff_rate_1 
 
-  if (sim%my_id == 0) write(*,'(A,A,A,I1,A)') "====== For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ======"
+  if (sim%my_id == 0) write(*,'(A,A,A,I1,A)') "------ For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ------"
 
 
   !> Set R, Z, s, t, and i_elm to the location of the center of the valve -----
@@ -404,7 +415,6 @@ subroutine do_particle_puffing(this,sim, ev)
 
   !> write out puffing details -------------------------------------
   if (sim%my_id .eq. 0) then
-    write(*,"(A,G12.6,A)") "------ Puffing details for time t=", sim%time, " s ------"
     write(*,"(2X,A12)") "Set-up:     "
     write(*,"(4X,A18, ' = ', I12)")        "puff segment      ", this%current_puff_seg
     write(*,"(4X,A18, ' = ', G12.6)")      "puff_rate_0       " , puff_rate_0
@@ -501,7 +511,6 @@ if (sim%my_id .eq. 0) then
   write(*,"(2X,A12)") "Puffed:     "
   write(*,"(4X,A18, ' = ', I12)")    "Superparticles    ", all_puffed_this_step
   write(*,"(4X,A18, ' = ', E12.6)")  "Total Weight      ", all_puff_weight
-  write(*,"(A)") "---------------------------------------------"
 endif
   
   
