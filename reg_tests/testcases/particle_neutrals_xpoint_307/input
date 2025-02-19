@@ -151,7 +151,7 @@
   part_group_configs(1)%atom_data_suffix = '12_h'
 
   part_group_configs(1)%puff_ctrl(1)%times = 0.00722, 0.00726     
-  part_group_configs(1)%puff_ctrl(1)%rates = 23.33333333333d21, 35.d21
+  part_group_configs(1)%puff_ctrl(1)%rates = 46.d21, 70.d21
   part_group_configs(1)%puff_ctrl(1)%supers_num_puff = 20
 
 
