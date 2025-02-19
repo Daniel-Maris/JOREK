@@ -347,6 +347,9 @@ subroutine do_particle_puffing(this,sim, ev)
   !> for piecewise linear time dependent puffing
   real*8  :: puff_rate_0, puff_rate_1 
 
+  if (sim%my_id == 0) write(*,'(A,A,A,I1,A)') "====== For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ======"
+
+
   !> Set R, Z, s, t, and i_elm to the location of the center of the valve -----
   R = this%val_R
   Z = this%val_Z
@@ -401,8 +404,7 @@ subroutine do_particle_puffing(this,sim, ev)
 
   !> write out puffing details -------------------------------------
   if (sim%my_id .eq. 0) then
-    write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
-    write(*,'(A,A,A,I1,A)') "--- For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
+    write(*,"(A,G12.6,A)") "------ Puffing details for time t=", sim%time, " s ------"
     write(*,"(2X,A12)") "Set-up:     "
     write(*,"(4X,A18, ' = ', I12)")        "puff segment      ", this%current_puff_seg
     write(*,"(4X,A18, ' = ', G12.6)")      "puff_rate_0       " , puff_rate_0

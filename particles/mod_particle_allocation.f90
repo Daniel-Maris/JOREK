@@ -101,7 +101,9 @@ contains
     integer, intent(in)            :: my_id
     integer                        :: n_particles_per_mpi
 
-    n_particles_per_mpi = n_particles/n_mpi          ! this division truncates towards 0
+    n_particles_per_mpi = n_particles/n_mpi          ! integer division truncates towards 0
+
+    !> the remainder R of the division is then divided evenly amongst the first R processes
     if (my_id .lt. mod(n_particles,n_mpi)) then 
       n_particles_per_mpi = n_particles_per_mpi + 1 
     end if 
