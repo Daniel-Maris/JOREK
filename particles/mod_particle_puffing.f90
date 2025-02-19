@@ -28,12 +28,19 @@ module mod_particle_puffing
   ! Extend type
   type, extends(io_action) :: particle_puffing
     
-    class(type_rng), dimension(:), allocatable :: rng          !< one RNG per openmp thread
+    !> Set by user
     type(type_valve)     :: puff_valve                         !< determines the location of the puffing
     integer              :: valve_num                          !< the index of the valve used for this puffing event
     type(type_puff_ctrl) :: puff_ctrl                          !< the controller for this puffing action
     integer              :: target_group                       !< target particle group
+
+    !> Internal
+    class(type_rng), dimension(:), allocatable :: rng          !< one RNG per openmp thread
     character(len=10)    :: supers_create_scheme               !< how the number of superparticles created by puff action per valve is determined
+    real*8               :: vector_normal(3)                   !< vector_normal of puff_valve
+    integer              :: val_i_elm                          !< element index of puff_valve
+    real*8               :: val_R, val_Z                       !< R, Z location of puff_valve
+    real*8               :: val_s, val_t                       !< s, t location of puff_valve
 
     !> Variables required for piecewise linear time dependent puffing control 
     integer              :: current_puff_seg = 0   
@@ -47,6 +54,54 @@ module mod_particle_puffing
     module procedure new_particle_puffing
   end interface particle_puffing
 contains
+
+!> 1. checks whether a specific valve has been initialized properly, 
+!>    i.e. whether it has a valid type, and if it is within the domain
+!> 2. if initialized properly, determine its location in the domain
+!> and get the wall vector normal 
+subroutine initialize_puff_valve(sim, valve_num, new)
+  implicit none
+  type(particle_sim),     intent(in)             :: sim
+  integer,                intent(in)             :: valve_num
+  type(particle_puffing), intent(inout)          :: new
+  type(type_valve)                               :: valve
+  integer                                        :: ifail
+
+  valve = valves(valve_num)
+
+  select case (trim(valve%type))
+    !> Check whether the user forgot to set the valve type
+    case ('none')
+      write(*,"(A,I3,A)") "ERROR: Valve, ", valve_num, " has been selected for puffing but no valve()%type has been set"
+      stop
+
+    !> For valid valve types, check that it is within the domain ------------
+    !> (add a case here when implementing new valve types)
+    case ('circ')
+      call find_RZ(sim%fields%node_list, sim%fields%element_list, valve%R_valve_loc, valve%Z_valve_loc, new%val_R, new%val_Z, &
+      new%val_i_elm, new%val_s, new%val_t ,ifail)
+
+    case ('poly')
+      call find_RZ(sim%fields%node_list, sim%fields%element_list, sum(valve%poly_R(1:2))/2.d0, sum(valve%poly_Z(1:2))/2.d0, new%val_R, new%val_Z, &
+      new%val_i_elm, new%val_s, new%val_t ,ifail)
+
+    !> Types not listed as a case above are unsupported ---------------------
+    case default
+      write(*,*) "ERROR: the valve type '", valve%type, "' is currently not supported."
+      stop
+  end select
+
+  if (ifail .ne. 0) then
+    if (sim%my_id .eq. 0) then
+      write(*,*) "WARNING: The location set for valve ", valve_num, " could"
+      write(*,*) "  not be found, maybe it was placed outside of the grid?"
+    endif
+    stop
+  else
+    new%vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, new%val_i_elm, new%val_s, new%val_t)
+  end if
+
+end subroutine 
 
 function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(new)
 
@@ -63,13 +118,18 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
   integer                               :: my_seed, i, n_create_schemes
   
+  !> check the validity of the given puff valve -----
+  call initialize_puff_valve(sim, valve_num, new)
+
+  !> set puff action parameters based on input -----
   new%target_group     = target_group
   new%puff_valve       = valves(valve_num)
   new%valve_num        = valve_num
   new%puff_ctrl        = part_group_configs(target_group)%puff_ctrl(valve_num)
 
+  !> determine supers_create_scheme (which scheme is used to calculate supers_to_puff) -----
   n_create_schemes = 0
-  !> determine supers_create_scheme
+
   if (new%puff_ctrl%supers_num_puff /= -1.d0) then 
     if (new%puff_ctrl%supers_num_puff < 0) then
       write(*,*) "ERROR: puff_ctrl(i)%supers_num_puff cannot be negative."
@@ -108,7 +168,7 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
     endif
   endif
 
-  !> determine the current puffing segment and the last puffing segment
+  !> determine the current puffing segment and the last puffing segment -----
   do i=1, n_puff_segment_max-1
     !> find last puffing segment
     if ((new%puff_ctrl%times(i) /= -1) .and. (new%puff_ctrl%times(i+1) == -1)) new%last_puff_seg = i
@@ -116,7 +176,7 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
     if (sim%time > new%puff_ctrl%times(i) .and. (new%puff_ctrl%times(i) /= -1)) new%current_puff_seg = i
   enddo
 
-  !> allocate random seed for sampling
+  !> allocate random seed for sampling -----
   if (present(seed)) then
     my_seed = seed
   else
@@ -205,7 +265,7 @@ subroutine calc_puff_rate_linear(this, time, puff_rate_0, puff_rate_1, puff_rate
 
 end subroutine calc_puff_rate_linear
 
-!> Actually puff gass
+!> Actually puff gas
 subroutine do_particle_puffing(this,sim, ev)
   use mpi_mod
   use phys_module, only: tstep, central_mass, central_density
@@ -221,70 +281,58 @@ subroutine do_particle_puffing(this,sim, ev)
   integer, allocatable, dimension(:) :: i_free
   real*8  :: tstep_fluid_si, c, R, Z, phi, s, t
   real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
-  real*8  :: vector_normal(3), u(5)
+  real*8  :: u(5)
   real*8  :: puff_rate !< possibly time dependent fueling rate
-
-  !> variables used for the piecewise linear time dependent puffing
-  real*8  :: puff_rate_0, puff_rate_1 
-
 
   integer ::    puffed_this_step_local, all_puffed_this_step
   real*8  ::    puff_weight_local, all_puff_weight
 
-  tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
-  if (sim%my_id .eq. 0) then 
-    write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
-    write(*,'(A,A,A,I1,A)') "--- For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
-  endif
+  !> Variables for specific puffing patterns ----
+  !> for piecewise linear time dependent puffing
+  real*8  :: puff_rate_0, puff_rate_1 
 
-!============== Finding free particles !< make into a function?
-allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
-!$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &
-!$omp private(j) schedule(dynamic, 100)
-do j=1,size(sim%groups(this%target_group)%particles,1) !sim%groups(this%target_group)%particles
-  is_free(j) = sim%groups(this%target_group)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
-end do
-!$omp end parallel do
-!$omp barrier
-n_free = count(is_free)
-allocate(i_free(n_free))
-k = 1
-do j=1,size(is_free,1)
-  if (is_free(j)) then
-    i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(this%target_group)%particles(j)
-    k = k+1
-    !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
-  end if
-end do
-! ==================
+  !> Set R, Z, s, t, and i_elm to the location of the center of the valve -----
+  R = this%val_R
+  Z = this%val_Z
+  s = this%val_s
+  t = this%val_t
+  i_elm = this%val_i_elm
+
+  !> get SI time ----------------
+  tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
+
+  !============== Finding free particles !< make into a function?
+  allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
+  !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &
+  !$omp private(j) schedule(dynamic, 100)
+  do j=1,size(sim%groups(this%target_group)%particles,1) !sim%groups(this%target_group)%particles
+    is_free(j) = sim%groups(this%target_group)%particles(j)%i_elm .le. 0  !< array T/F is particle is free
+  end do
+  !$omp end parallel do
+  !$omp barrier
+  n_free = count(is_free)
+  allocate(i_free(n_free))
+  k = 1
+  do j=1,size(is_free,1)
+    if (is_free(j)) then
+      i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(this%target_group)%particles(j)
+      k = k+1
+      !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
+    end if
+  end do
+  ! ==================
   
   ! The current set up may only work for puffing Hydrogen
   ! Assuming the incoming gas at T=300C and a diatomic gas
   ! c is the sound speed of the puffed gas, which is given as c = sqrt(gamma*kB*T/m) for an ideal gas
   ! A factor of 2 is used for the mass as we are puffing diatomic molecules
   c = sqrt((7.d0/5.d0)*(300.d0+273.d0)*K_BOLTZ/(2.d0*sim%groups(this%target_group)%mass*ATOMIC_MASS_UNIT))
-  if (this%puff_valve%type == "circ") then
-    call find_RZ(sim%fields%node_list, sim%fields%element_list, this%puff_valve%R_valve_loc, this%puff_valve%Z_valve_loc, R, Z, &
-           i_elm, s, t ,ifail)
-           
-  else
-    call find_RZ(sim%fields%node_list, sim%fields%element_list, sum(this%puff_valve%poly_R(1:2))/2.d0, sum(this%puff_valve%poly_Z(1:2))/2.d0, R, Z, &
-           i_elm, s, t ,ifail)
-  endif
-  if (ifail .ne. 0) then
-    if (sim%my_id .eq. 0) write(*,*) "WARNING: The valve location for puffing could not be found, maybe it was placed outside of the grid?"
-    stop
-  end if
 
-  vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, &
-          i_elm, s, t)
-
-!------------- Decide how many superparticles to initiate 
-
-  !> calculate time dependent puffing rate
+  !> calculate time dependent puffing rate -----------------------
   !> piecewise linear approach 
   call calc_puff_rate_linear(this, sim%time, puff_rate_0, puff_rate_1, puff_rate)
 
+  !> calculate how many superparticles to initiate ---------------
   supers_to_puff = get_supers_to_puff(this, sim%my_id, tstep_fluid_si, puff_rate)
   supers_to_puff_local = calc_n_particles_per_mpi(supers_to_puff, sim%n_mpi, sim%my_id)
   to_puff = supers_to_puff_local
@@ -295,8 +343,10 @@ end do
     write(*,"(A, I12, A, I12)") "  Requested: ", supers_to_puff_local, " | Free (actually puffed): ", n_free
   end if
 
-  !> output time dependent puffing details
+  !> write out puffing details -------------------------------------
   if (sim%my_id .eq. 0) then
+    write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
+    write(*,'(A,A,A,I1,A)') "--- For Group: ", sim%groups(this%target_group)%id, ", Valve: ", this%valve_num, " ---"
     write(*,"(2X,A12)") "Set-up:     "
     write(*,"(4X,A18, ' = ', I12)")        "puff segment      ", this%current_puff_seg
     write(*,"(4X,A18, ' = ', G12.6)")      "puff_rate_0       " , puff_rate_0
@@ -308,10 +358,7 @@ end do
     write(*,*) ""
   endif
       
-
-!-------------  
-  
-  
+  !> Puffing loop ----------------------------------------
   puffed_this_step_local = 0
   puff_weight_local      = 0.d0
   select type (pa => sim%groups(this%target_group)%particles)
@@ -328,7 +375,7 @@ end do
   ! #else
   ! !$omp parallel do default(shared) &
   ! !$omp schedule(dynamic,10) &
-  ! !$omp shared(sim, pa, this,i_free,c, vector_normal,                       &
+  ! !$omp shared(sim, pa, this,i_free,c,                      &
   ! !$omp   to_puff,supers_to_puff_local, tstep_fluid_si,puff_rate )                        &
   ! !$omp private(i_p, i_rng, j,k,u , R,Z,s,t,R_new,Z_new,s_new,t_new,     &
   ! !$omp  i_elm,i_elm_new,r_valve, theta,                                         &
@@ -336,16 +383,19 @@ end do
   ! !$omp reduction(+:puffed_this_step_local,puff_weight_local)
     do j = 1, to_puff
       i_p = i_free(j)
+
+      !> keep doing the following until a valid position is found
       do 
-    
-        !      !$ i_rng = omp_get_thread_num()+1
+        !  !$ i_rng = omp_get_thread_num()+1
         call this%rng(1)%next(u) !rng(1)
+
+        !> additional valve type specific behaviour should be added in this if block
         if (this%puff_valve%type == "circ") then
           r_valve = this%puff_valve%r_valve*sample_piecewise_linear(2, [0.d0, 1.d0], [1.d0, 0.d0], u(1))
           theta = TWOPI * u(2)
           R_new = this%puff_valve%R_valve_loc + r_valve * cos(theta)
           Z_new = this%puff_valve%Z_valve_loc + r_valve * sin(theta)
-        else
+        else if (this%puff_valve%type == "poly") then
           s = u(1)
           t = u(2)
           R_new = this%puff_valve%poly_R(1)*(1.d0-s)*(1.d0-t) + this%puff_valve%poly_R(2)*s*(1.d0-t) + this%puff_valve%poly_R(3)*(1.d0-s)*t + this%puff_valve%poly_R(4)*s*t
@@ -371,7 +421,7 @@ end do
       pa(i_p)%i_elm   = i_elm
       pa(i_p)%weight  = real(1.d0/supers_to_puff_local) * tstep_fluid_si * puff_rate
    
-      pa(i_p)%v       = c * sample_cosine(u(4:5), vector_normal)   
+      pa(i_p)%v       = c * sample_cosine(u(4:5), this%vector_normal)   
       pa(i_p)%q       = 0_1
       if (sim%groups(this%target_group)%particles(i_p)%weight  .le. 1.d-2) then ! if the weight is too low. 
         sim%groups(this%target_group)%particles(i_p)%i_elm = 0
