@@ -45,7 +45,7 @@ use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
-use phys_module, only: n_part_groups, n_aux_var
+use phys_module, only: n_part_groups, n_aux_var, n_valves_max
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
@@ -57,7 +57,6 @@ use phys_module, only: use_manual_random_seed, manual_seed
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event), dimension(:), allocatable            :: sputter_events, puff_events ! can also be not allocatable and have size n_part_groups_max
 type(particle_sputter)                            :: sputter_source
 type(event)                                       :: gas_puff_event, gas_puff2_event
 type(event), target                               :: project_jorek_feedback, jorek_stepper_event
@@ -74,11 +73,17 @@ real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amoun
 !$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
-integer   :: i, j, istep, group_num
+integer   :: i, j, istep, group_num, valve_num
 integer   :: seed, i_rng, n_stream
+
+!> For keeping track of groups requiring specific physics (e.g. sputtering, recombination, puffing...)
 integer   :: sputter_counter = 0
 integer   :: recomb_counter  = 0
-integer, dimension(:), allocatable :: recomb_groups
+integer   :: puff_counter    = 0
+
+integer,     dimension(:), allocatable :: recomb_groups
+type(event),  dimension(:), allocatable :: sputter_events ! can also be not allocatable and have size n_part_groups_max
+type(particle_puffing), dimension(:), allocatable :: puff_actions   
 
 !***********************************************************************
 !*                            initialisation                            *
@@ -152,12 +157,12 @@ if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
 call sputter_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
 
 ! --- Setting up particle events
-allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups)) 
-do group_num=1, n_part_groups
+allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
+do group_num=1, n_part_groups
   ! sputtering
   if (sim%groups(group_num)%use_kin_sputtering) then
-    sputter_counter = sputter_counter + 1 ! note down group index as requiring sputtering
+    sputter_counter = sputter_counter + 1 ! increase the number of groups that requires sputtering
     n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
     sputter_source = initialise_sputtering(sputter_edge, group_num, n_reflect)
     sputter_events(sputter_counter) = event(sputter_source)
@@ -165,20 +170,20 @@ do group_num=1, n_part_groups
 
   ! recombination
   if (sim%groups(group_num)%use_kin_recombination) then
-    recomb_counter = recomb_counter + 1   ! add group to the list of groups requiring recombination
+    recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
     recomb_groups(recomb_counter) = group_num
   endif
 
   ! puffing
   if (sim%groups(group_num)%use_kin_puffing) then
-    gas_puff  = particle_puffing(sim, group_num, 1, seed=seed)
-    gas_puff2 = particle_puffing(sim, group_num, 1, seed=seed)
-
-    gas_puff_event  = event(gas_puff)
-    gas_puff2_event = event(gas_puff2)
+    do valve_num=1, n_valves_max
+      if (part_group_configs(group_num)%puff_ctrl(valve_num)%rates(1) > 0) then
+        puff_counter = puff_counter + 1   ! increase the number of puffing events required per fluid time step
+        puff_actions(puff_counter) = particle_puffing(sim, group_num, valve_num, seed=seed)  
+      endif
+    enddo ! n_valves_max
   endif
-
-enddo 
+enddo ! n_part_groups
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
@@ -248,10 +253,12 @@ do while (.not. sim%stop_now)
     enddo
   endif
     
-  ! needs more work 
-  call write_to_outputfile(sim%my_id, "Puffing")
-  call with(sim, gas_puff_event) 
-  call with(sim, gas_puff2_event)
+  if (puff_counter > 0) then 
+    call write_to_outputfile(sim%my_id, "Puffing")
+    do i=1, puff_counter
+      call puff_actions(i)%do(sim)
+    enddo
+  endif
 
   ! --- Interactions that happen on the particle timesteps
   
