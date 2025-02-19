@@ -4,7 +4,7 @@
   regrid  = .f.
   refinement=.false.
 
-  restart_particles=.f.
+  restart_particles=.t.
 
   tstep_n=10.
   nstep_n=10
