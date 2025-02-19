@@ -952,7 +952,6 @@ module phys_module
   ! --- Structures for particle valves 
   ! -----------------------------------------------
   !> @name Particle valve settings
-  integer            :: n_valves                !< number of valves being used
   integer, parameter :: n_valves_max = 20       !< maximum number of valves   
 
   type :: type_valve

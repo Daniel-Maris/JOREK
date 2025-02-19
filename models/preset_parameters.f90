@@ -853,7 +853,6 @@ restart_particles  = .false.
 use_marker         = .false.
 
 !--------------- valves -------------------------
-n_valves = 0
 valves(:)%type = 'none'
 valves(:)%r_valve = -1.d0
 valves(:)%R_valve_loc = -1.d0

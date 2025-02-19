@@ -1061,7 +1061,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         if (sim%groups(group_num)%use_kin_puffing) then
           write(*,*) "Puff ctrls: "
 
-          do i=1, n_valves
+          do i=1, n_valves_max
             used_segs = count(part_group_configs(group_num)%puff_ctrl(i)%rates > 0)
             if (used_segs > 0) then
               write(*,"(3X,A,' = ',100I12)")    'Puff valve            ', i
