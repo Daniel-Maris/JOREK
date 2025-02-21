@@ -24,21 +24,24 @@ integer,           intent(in) :: my_id !< MPI proc id
 logical, optional             :: short !< commandline short version or run long version
 
 ! --- Constants
-character(len=512), parameter :: REAL_FMT = "(1X,A, ' = ', 99ES12.4)"
-character(len=512), parameter :: REAL_FMT2 = "(1X,A, ' = ', ES12.4, A)"
-character(len=512), parameter :: INTG_FMT = "(1X,A, ' = ', 100I12)"
-character(len=512), parameter :: INTG_FMT2 = "(1X,A, ' = ', I12, A)"
-character(len=512), parameter :: LOGI_FMT = "(1X,A, ' = ', 10L12)"
-character(len=512), parameter :: REA2_FMT = "(1X,A, ' = ', 4ES12.4, '     ...    ', 4ES12.4)"
-character(len=512), parameter :: REA3_FMT = "(1X,A, ' = ', 9ES12.4, '     ...')"
-character(len=512), parameter :: VARI_FMT = "(3x,I3,': ',A)"
-character(len=512), parameter :: MODE_FMT = "(3x,I3,': ',A,'(',A,'*phi)')"
-character(len=512), parameter :: CHAR_FMT = "(1X,A, ' = ""', A, '""')"
-character(len=512), parameter :: CHAR_FMT2 = "(1X,A,I2,A,' = ""',A,'""')"
+character(len=512), parameter :: REAL_FMT   = "(1X,A, ' = ', 99ES12.4)"
+character(len=512), parameter :: REAL_FMT2  = "(1X,A, ' = ', ES12.4, A)"
+character(len=512), parameter :: INTG_FMT   = "(1X,A, ' = ', 100I12)"
+character(len=512), parameter :: INTG_FMT2  = "(1X,A, ' = ', I12, A)"
+character(len=512), parameter :: LOGI_FMT   = "(1X,A, ' = ', 10L12)"
+character(len=512), parameter :: REA2_FMT   = "(1X,A, ' = ', 4ES12.4, '     ...    ', 4ES12.4)"
+character(len=512), parameter :: REA3_FMT   = "(1X,A, ' = ', 9ES12.4, '     ...')"
+character(len=512), parameter :: VARI_FMT   = "(3x,I3,': ',A)"
+character(len=512), parameter :: MODE_FMT   = "(3x,I3,': ',A,'(',A,'*phi)')"
+character(len=512), parameter :: CHAR_FMT   = "(1X,A, ' = ""', A, '""')"
+character(len=512), parameter :: CHAR_FMT2  = "(1X,A,I2,A,' = ""',A,'""')"
+character(len=512), parameter :: HEADER_FMT = "(A40)"
+
 
 ! --- Local variables
 integer           :: ivar, itor
 integer           :: i, j, n_rows, group_num !> do loop index 
+integer           :: used_segs !< used for write out of puff ctrls
 character(len=10) :: mode_num
 logical           :: short2
 
@@ -1000,18 +1003,36 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'filter_perp_n0,     ',filter_perp_n0
   write(*,REAL_FMT) 'filter_hyper_n0,    ',filter_hyper_n0   
   write(*,REAL_FMT) 'filter_par_n0,      ',filter_par_n0     
-  write(*,INTG_FMT) 'n_puff                ',  n_puff
-  write(*,REAL_FMT) 'puff_rate,            ',  puff_rate
   
-  if (n_part_groups > 0) then
-    write(*,*) "=== Coupling schemes === "
+  if (n_part_groups > 0) then !< particles settings
+
+    write(*,HEADER_FMT) "=============== Valves ================="
+    do i=1, n_valves_max
+      if (trim(valves(i)%type) /= 'none') then
+        write(*,"(A, I2, A)") "--------------- Valve ", i ," ---------------" 
+        write(*,CHAR_FMT) 'type,               ', valves(i)%type
+        write(*,REAL_FMT) 'phi,                ', valves(i)%phi
+  
+        if (valves(i)%type == 'circ') then
+          write(*,REAL_FMT) 'r_valve             ', valves(i)%r_valve
+          write(*,REAL_FMT) 'R_valve_loc         ', valves(i)%R_valve_loc
+          write(*,REAL_FMT) 'Z_valve_loc         ', valves(i)%Z_valve_loc
+        endif
+  
+        if (valves(i)%type == 'poly') then
+          write(*,REAL_FMT) 'poly_R              ', valves(i)%poly_R
+          write(*,REAL_FMT) 'poly_Z              ', valves(i)%poly_Z
+        endif
+      endif
+    enddo
+
+    write(*,HEADER_FMT) "========== Coupling schemes ============"
     write(*,*) "  use_ncs      = ", use_ncs
     write(*,*) "  use_ccs      = ", use_ccs
     write(*,*) "  use_pcs      = ", use_pcs
     write(*,*) "  use_pcf      = ", use_pcf
-    write(*,*) ""
 
-    write(*,*) '==== Particle Groups ===='
+    write(*,HEADER_FMT) '=========== Particle Groups ============'
     write(*,INTG_FMT) 'n_part_groups     ',n_part_groups
     write(*, "(1X,A, ' = ')", advance="no") "part_groups_in_use"
     do i = 1, n_part_groups
@@ -1019,7 +1040,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     end do
     write(*,*)
     do group_num=1, n_part_groups
-      write(*,*) "---- Particle group slot: ", group_num, " ----" 
+      write(*,*) "---- Particle group slot: ", group_num, " -----" 
       write(*,CHAR_FMT) 'id,                     ',sim%groups(group_num)%id
       write(*,INTG_FMT) 'Z,                      ',sim%groups(group_num)%Z
       write(*,REAL_FMT) 'mass                    ',sim%groups(group_num)%mass
@@ -1036,11 +1057,35 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         write(*,REAL_FMT) 'n_reflect_ratio,        ',sim%groups(group_num)%n_reflect_ratio
         write(*,LOGI_FMT) 'use_kin_line_radiation, ',sim%groups(group_num)%use_kin_line_radiation
         write(*,CHAR_FMT) 'atom_data_suffix,       ',trim(part_group_configs(group_num)%atom_data_suffix)
-      endif
-      
-    enddo
-    write(*,*) '==== End of particle groups ===='
-  endif
+
+        if (sim%groups(group_num)%use_kin_puffing) then
+          write(*,*) "Puff ctrls: "
+
+          do i=1, n_valves_max
+            used_segs = count(part_group_configs(group_num)%puff_ctrl(i)%rates > 0)
+            if (used_segs > 0) then
+              write(*,"(3X,A,' = ',100I12)")    'Puff valve            ', i
+
+              !> config of the number of supers to create per event
+              if (part_group_configs(group_num)%puff_ctrl(i)%supers_num_puff > 0) then
+                write(*,"(3X,A,' = ',100I12)")    'supers_num_puff       ', part_group_configs(group_num)%puff_ctrl(i)%supers_num_puff
+              else if (part_group_configs(group_num)%puff_ctrl(i)%supers_weight_puff > 0) then
+                write(*,"(3X,A,' = ',99ES12.4)")    'supers_weight_puff    ', part_group_configs(group_num)%puff_ctrl(i)%supers_weight_puff
+              else
+                write(*,"(3X,A,' = ',99ES12.4)")    'supers_ratio_puff     ', part_group_configs(group_num)%puff_ctrl(i)%supers_ratio_puff
+              endif
+
+              write(*,"(3X,A,' = ',99ES10.3)")  'rates                 ', part_group_configs(group_num)%puff_ctrl(i)%rates(1:used_segs)
+              write(*,"(3X,A,' = ',99ES10.3)")  'times                 ', part_group_configs(group_num)%puff_ctrl(i)%times(1:used_segs)
+            endif
+          enddo
+        endif ! puffing
+
+      endif ! 'ncs'
+    enddo ! n_part_groups
+    write(*,HEADER_FMT) '======== End of particle groups ========'
+    write(*,*) ""
+  endif ! n_part_groups > 0
 
 
   write(*,LOGI_FMT) 'use_manual_random_seed, ',use_manual_random_seed

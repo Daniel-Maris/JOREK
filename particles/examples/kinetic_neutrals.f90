@@ -45,11 +45,11 @@ use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
-use phys_module, only: n_part_groups, n_aux_var
+use phys_module, only: n_part_groups, n_aux_var, n_valves_max
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: puff_rate, n_puff
+use phys_module, only: part_group_configs
 use phys_module, only: use_manual_random_seed, manual_seed
 
 !$ use omp_lib
@@ -57,7 +57,6 @@ use phys_module, only: use_manual_random_seed, manual_seed
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event), dimension(:), allocatable            :: sputter_events, puff_events ! can also be not allocatable and have size n_part_groups_max
 type(particle_sputter)                            :: sputter_source
 type(event)                                       :: gas_puff_event, gas_puff2_event
 type(event), target                               :: project_jorek_feedback, jorek_stepper_event
@@ -74,25 +73,20 @@ real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amoun
 !$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
-integer   :: i, j, istep, group_num
+integer   :: i, j, istep, group_num, valve_num
 integer   :: seed, i_rng, n_stream
+
+!> For keeping track of groups requiring specific physics (e.g. sputtering, recombination, puffing...)
 integer   :: sputter_counter = 0
 integer   :: recomb_counter  = 0
-integer, dimension(:), allocatable :: recomb_groups
+integer   :: puff_counter    = 0
 
-! Puffing parameters
-real*8  :: t_puff_start          !< [s] time to start ramping the puff rate if puff_t_dependent=.true.
-real*8  :: t_puff_slope          !< [s] time over which the puff rated is ramped to puff_rate (input) from t_puff_start where the puff rate was still puffing_rate_start
-real*8  :: puffing_rate_start    !< [atoms/s] initial puff rate before the ramp if puff_t_dependent=.true.
-real*8  :: poly_R(4)             !< [m] R coordinates of the quadrangular puffing valve if boxpuff=.true.
-real*8  :: poly_Z(4)             !< [m] Z coordinates of the quadrangular puffing valve if boxpuff=.true.
-real*8  :: poly_R2(4),poly_Z2(4) !  [m] second puffing valve location
-logical :: puff_t_dependent      !< puff time dependent using a flat - ramp - flat pattern (=.true.) or no time dependence at all (.false.) 
-logical :: boxpuff               !< whether to puff in a simple (=.false., uses r_valve etc) or quadrangular (=.true., uses pol_R, poly_Z) puff valve
-real*8  :: r_valve, R_valve_loc, Z_valve, R_valve_loc2, Z_valve2
+integer,     dimension(:), allocatable :: recomb_groups
+type(event),  dimension(:), allocatable :: sputter_events ! can also be not allocatable and have size n_part_groups_max
+type(particle_puffing), dimension(:), allocatable :: puff_actions   
 
 !***********************************************************************
-!*                            intialisation                            *
+!*                            initialisation                            *
 !***********************************************************************
 
 ! Start up MPI, jorek
@@ -163,12 +157,12 @@ if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
 call sputter_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
 
 ! --- Setting up particle events
-allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups)) 
-do group_num=1, n_part_groups
+allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
+do group_num=1, n_part_groups
   ! sputtering
   if (sim%groups(group_num)%use_kin_sputtering) then
-    sputter_counter = sputter_counter + 1 ! note down group index as requiring sputtering
+    sputter_counter = sputter_counter + 1 ! increase the number of groups that requires sputtering
     n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
     sputter_source = initialise_sputtering(sputter_edge, group_num, n_reflect)
     sputter_events(sputter_counter) = event(sputter_source)
@@ -176,51 +170,21 @@ do group_num=1, n_part_groups
 
   ! recombination
   if (sim%groups(group_num)%use_kin_recombination) then
-    recomb_counter = recomb_counter + 1   ! add group to the list of groups requiring recombination
+    recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
     recomb_groups(recomb_counter) = group_num
   endif
 
-  ! puffing (temporary, will require a more sophisticated puffing management system, to come in future PR)
-
-  !> Adapt the following to customize the time dependent puff rate:
-  !> puffing_rate_start = initial puffing rate [atoms/s]
-  !> puff_rate = final puffing rate [atoms/s] <input parameter>
-  !> t_puff_start = At what time the puffing rate starts to increase [s]
-  !> t_puff_slope = How much time it takes to increase linearly from puffing_rate_start to puff_rate [s]
-  !> n_puff = number of super particles puffed per valve per jorek timestep (should be small fraction of total number of super particles) <input parameter>
-  puff_t_dependent = .true. 
-  puffing_rate_start = puff_rate/1.5d0 !< initial puffing rate [atoms/s]
-  t_puff_start = 5000*t_norm !< start puffing after this amount of seconds, t_SI = t_jorek*t_norm jorek time units
-  t_puff_slope = 4.d-3       !< [s] linearly ramps up the puffing during this time
-  
-  !> puff location can be determined for a circular valve by setting input parameters: 
-  !> r_valve (valve radius), R_valve_loc, Z_valve (R,Z, coordinates of simple valve)
-  !> if boxpuff=.true., poly_R(4),poly_Z(4) are the vertices of the quadrangular puffing valve
-  boxpuff = .true. !< whether to puff using 
-  
-  !> puff location for simple xpoint case
-  if(sim%my_id .eq. 0) write(*,*) "puff location for xpoint reg_test example"
-  poly_R  = (/3.86d0, 3.9d0, 3.86d0, 3.9d0/)
-  poly_Z  = (/0.1d0,  0.1d0,  0.0d0, 0.0d0/)
-  poly_R2 = poly_R 
-  poly_Z2 = poly_Z
-  
+  ! puffing
   if (sim%groups(group_num)%use_kin_puffing) then
-    gas_puff = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc, Z_valve, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, & 
-    puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R,poly_Z=poly_Z,boxpuff=boxpuff)
-    gas_puff2 = particle_puffing(n_puff, puff_rate/2.d0, r_valve, R_valve_loc2, Z_valve2, puff_t_dependent=puff_t_dependent,t_puff_start=t_puff_start,t_puff_slope=t_puff_slope, &
-    puffing_rate_start=puffing_rate_start/2.d0,poly_R=poly_R2,poly_Z=poly_Z2,boxpuff=boxpuff)
-
-    gas_puff_event  = event(gas_puff)
-    gas_puff2_event = event(gas_puff2)
-    
-    if (sim%my_id .eq.0) then
-      write(*,*) "Gas puffing rate [#/s] : ", puff_rate
-      write(*,*) "puff_t_dependent : ",puff_t_dependent, "with puff slope",t_puff_slope,"starting at", t_puff_start, "s"
-    endif
+    do valve_num=1, n_valves_max
+      !> check for the puff_ctrl objects that have been set
+      if ((part_group_configs(group_num)%puff_ctrl(valve_num)%rates(1) > 0) .OR. (part_group_configs(group_num)%puff_ctrl(valve_num)%times(1) >= 0)) then
+        puff_counter = puff_counter + 1   ! increase the number of puffing events required per fluid time step
+        puff_actions(puff_counter) = particle_puffing(sim, group_num, valve_num, seed=seed)  
+      endif
+    enddo ! n_valves_max
   endif
-
-enddo 
+enddo ! n_part_groups
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
@@ -290,10 +254,13 @@ do while (.not. sim%stop_now)
     enddo
   endif
     
-  ! needs more work 
-  call write_to_outputfile(sim%my_id, "Puffing")
-  call with(sim, gas_puff_event) 
-  call with(sim, gas_puff2_event)
+  if (puff_counter > 0) then 
+    call write_to_outputfile(sim%my_id, "Puffing")
+    if (sim%my_id == 0) write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
+    do i=1, puff_counter
+      call puff_actions(i)%do(sim)
+    enddo
+  endif
 
   ! --- Interactions that happen on the particle timesteps
   

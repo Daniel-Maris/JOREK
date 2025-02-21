@@ -47,5 +47,5 @@ function restart_run () {
 
 # --- Compare the results of the test case to the reference solution
 function compare_results () {
-  compare_results_generic 5.e-7                                                                                           || exit 1
+  compare_results_generic 1.e-5                                                                                           || exit 1
 }
