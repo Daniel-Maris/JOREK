@@ -92,8 +92,8 @@ type :: edge_elements
   type(edge_elements_patch), allocatable, dimension(:) :: patch !< n_domains different patches of edge elements
 contains
   procedure :: prepare !< this%prepare(node_list, element_list, edge_domains, nsub, nsub_toroidal)
-  procedure :: write !< this%write(filename)
-  procedure :: sample => sample_edge_elements !< this%sample(i_scalar, n_samples, u, integral, xyz, st, ielm)
+  procedure :: write_vtk_projection !< this%write_vtk_projection(filename)
+  procedure :: sample => sample_edge_elements !< this%sample(i_scalar, n_samples, u, integral, xyz, st, i_elm)
 end type edge_elements
 
 contains
@@ -270,7 +270,7 @@ end function find_edge_element
 !> Assumptions: nsub_toroidal and n_plane are the same for each patch
 !>
 !> Writes only what is present on MPI ID 0! You need to reduce this yourself to a single set.
-subroutine write(this, filename)
+subroutine write_vtk_projection(this, filename)
   use mpi
   use mod_event
   use mod_coordinate_transforms
@@ -388,7 +388,7 @@ subroutine write(this, filename)
       vector_names,vectors)
       
   end if
-end subroutine write
+end subroutine write_vtk_projection
 
 !> Sample from the edge elements.
 !> We need to first integrate in the toroidal direction for every poloidal point.
@@ -411,7 +411,7 @@ end subroutine write
 !>
 !> Note that the sampled positions are not exactly corresponding to the sampled
 !> element-local coordinates!
-subroutine sample_edge_elements(this, i_scalar, n_samples, u, integral, xyz, st, ielm)
+subroutine sample_edge_elements(this, i_scalar, n_samples, u, integral, xyz, st, i_elm)
   use constants, only: TWOPI
   use mod_sampling, only: sample_piecewise_linear
   class(edge_elements), intent(in) :: this
@@ -421,7 +421,7 @@ subroutine sample_edge_elements(this, i_scalar, n_samples, u, integral, xyz, st,
   real*8, intent(out) :: integral
   real*8, intent(out) :: xyz(3,n_samples)
   real*8, intent(out) :: st(2,n_samples)
-  integer, intent(out) :: ielm(n_samples)
+  integer, intent(out) :: i_elm(n_samples)
 
 
   type :: arr1
@@ -485,13 +485,13 @@ subroutine sample_edge_elements(this, i_scalar, n_samples, u, integral, xyz, st,
   integral = cdf_patch(n_patch)
   if (integral .le. 1d-30) then
     ! create only lost particles
-    ielm = 0
+    i_elm = 0
     xyz = 0
     st = 0
     return
   end if
 
-  !$omp parallel do default(none) shared(n_samples, u, cdf_patch, integral, pdf_pol, xyz, st, ielm, nphi, dphi, this, i_scalar, &
+  !$omp parallel do default(none) shared(n_samples, u, cdf_patch, integral, pdf_pol, xyz, st, i_elm, nphi, dphi, this, i_scalar, &
   !$omp pdf_patch) &
   !$omp private(i, u_tmp, i_patch, i_r, i_min, i_max, f_min, f_max, p_phi, S0, S1)
   do i=1,n_samples
@@ -512,7 +512,7 @@ subroutine sample_edge_elements(this, i_scalar, n_samples, u, integral, xyz, st,
     f_max = 1-f_min
 
     ! Fill in the positions
-    ielm(i) = this%patch(i_patch)%i_elm_jorek_edge(i_min*nphi)
+    i_elm(i) = this%patch(i_patch)%i_elm_jorek_edge(i_min*nphi)
     xyz(1:2,i) = this%patch(i_patch)%xyz(1:2,i_min*nphi)*f_min + &
                  this%patch(i_patch)%xyz(1:2,i_max*nphi)*f_max
     ! We need to be careful here, since st is defined in the element with the

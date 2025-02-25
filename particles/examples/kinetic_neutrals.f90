@@ -37,7 +37,7 @@ use mod_particle_wall_interaction, only: wall_action, construct_wall_action
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
-use mod_edge_elements
+use mod_edge_elements, only: edge_elements
 use mod_atomic_coeff_deuterium, only: ad_deuterium 
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid

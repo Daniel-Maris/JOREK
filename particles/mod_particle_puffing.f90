@@ -2,7 +2,6 @@
 !> This module will create new particles at the locations where gas valves will be.
 
 module mod_particle_puffing
-  use mod_edge_elements
   use mod_io_actions, only: io_action
   use mod_sampling
   use mod_particle_types
