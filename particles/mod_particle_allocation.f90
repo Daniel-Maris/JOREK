@@ -11,7 +11,7 @@ use mod_particle_types
 
 implicit none
 
-public allocate_particles_for_sim, allocate_particles_for_group
+public allocate_particles_for_sim, allocate_particles_for_group, calc_n_particles_per_mpi, calc_n_particles_per_mpi_array
 
 contains
 
@@ -30,7 +30,7 @@ contains
       if (.not. allocated(sim%groups(i)%particles)) then
 
         ! calculate load balancing ------
-        n_particles_per_mpi = calc_n_particles_per_mpi(int(sim%groups(i)%n_particles), sim%n_mpi, 0)
+        n_particles_per_mpi = calc_n_particles_per_mpi_array(int(sim%groups(i)%n_particles), sim%n_mpi)
 
         ! putting particle_type in the right format for allocate_particle_arrray function
         ! this is so that the function can be used both here and in io
@@ -91,24 +91,43 @@ contains
 
   end subroutine allocate_particles_for_group
 
-  !> calculate how to distribute the particles in a group across the mpi processes
-  !> returns an array containing the number of particles for each mpi processor, the master mpi
-  !> processor contains the remainder of the division
-  function calc_n_particles_per_mpi(n_particles_tot, n_mpi, master_task) result(n_particles_per_mpi)
+  !> function ran locally on each mpi process which calcuates the number of particles 
+  !> to distribute to it from a total of n_particles
+  function calc_n_particles_per_mpi(n_particles, n_mpi, my_id) result(n_particles_per_mpi)
+
     implicit none
+    integer, intent(in)            :: n_particles
+    integer, intent(in)            :: n_mpi
+    integer, intent(in)            :: my_id
+    integer                        :: n_particles_per_mpi
 
-    integer,  intent(in)                                  :: n_particles_tot       !< total number of particles for a particle group
-    integer,  intent(in)                                  :: n_mpi                 !< number of mpi processes being used
-    integer,  optional                                    :: master_task           !< which mpi process is the "master" and will hence hold
-                                                                                   !< the remainder of the particles after division (default 0)
-    integer,  dimension(:), allocatable                   :: n_particles_per_mpi
+    n_particles_per_mpi = n_particles/n_mpi          ! integer division truncates towards 0
 
-    if (.not. present(master_task)) master_task = 0
-    allocate(n_particles_per_mpi(n_mpi))
-
-    n_particles_per_mpi = int(n_particles_tot)/n_mpi
-    n_particles_per_mpi(master_task+1) = int(n_particles_tot) - (n_mpi-1)*n_particles_per_mpi(master_task+1)
+    !> the remainder R of the division is then divided evenly amongst the first R processes
+    if (my_id .lt. mod(n_particles,n_mpi)) then 
+      n_particles_per_mpi = n_particles_per_mpi + 1 
+    end if 
 
   end function calc_n_particles_per_mpi
+
+  !> calculate how to distribute the particles in a group across the mpi processes when importing
+  !> returns an array containing the number of particles for each mpi processor 
+  function calc_n_particles_per_mpi_array(n_particles_tot, n_mpi) result(n_particles_per_mpi_array)
+    implicit none
+
+    integer,  intent(in)                  :: n_particles_tot             !< total number of particles for a particle group
+    integer,  intent(in)                  :: n_mpi                       !< number of mpi processes being used
+    integer,  dimension(:), allocatable   :: n_particles_per_mpi_array   !< output
+    integer                               :: i
+
+    allocate(n_particles_per_mpi_array(n_mpi))
+
+    do i=1, n_mpi
+      n_particles_per_mpi_array(i) = calc_n_particles_per_mpi(n_particles_tot, n_mpi, i-1) 
+    enddo
+    
+  end function calc_n_particles_per_mpi_array
+
+
 
 end module mod_particle_allocation

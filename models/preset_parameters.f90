@@ -8,6 +8,8 @@ subroutine preset_parameters
   use phys_module
   implicit none
 
+  integer :: i, j ! for iterations
+
   time_evol_scheme = 'Crank-Nicholson'
   
   n_tor_fft_thresh = 2
@@ -850,8 +852,16 @@ filter_par_n0      = 0.d0
 restart_particles  = .false.
 use_marker         = .false.
 
-n_puff        = 0
-puff_rate     = 0.d0
+!--------------- valves -------------------------
+valves(:)%type = 'none'
+valves(:)%r_valve = -1.d0
+valves(:)%R_valve_loc = -1.d0
+valves(:)%Z_valve_loc = -1.d0
+valves(:)%phi = -1.d0
+do i=1, n_valves_max
+  valves(i)%poly_R = 0.d0
+  valves(i)%poly_Z = 0.d0
+enddo
 
 ! -------------- particle groups ---------------
 n_part_groups = 0
@@ -870,9 +880,21 @@ part_group_configs(:)%use_kin_puffing        = .false.
 part_group_configs(:)%use_kin_line_radiation = .false.
 part_group_configs(:)%use_kin_ionisation     = .false.
 part_group_configs(:)%use_kin_sputtering     = .false.
-part_group_configs(:)%n_reflect_ratio       = 5.d-4
+part_group_configs(:)%n_reflect_ratio        = 5.d-4
 part_group_configs(:)%use_kin_cx             = .false.
 
+do i=1, n_part_groups_max
+  do j=1, n_valves_max
+    part_group_configs(i)%puff_ctrl(j)%supers_num_puff    = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%supers_weight_puff = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%supers_ratio_puff  = -1.d0   
+    !< if none of these three above options are set, the supers_ratio_puff method
+    !< will be used, with its default value being set by supers_ratio_puff_default in mod_particle_puffing.f90
+    !< which overrides the default value of supers_ratio_puff set here
+    part_group_configs(i)%puff_ctrl(j)%times = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%rates = -1.d0
+  enddo
+enddo
 !-----------------------------------------------
 
 use_manual_random_seed = .false.

@@ -67,6 +67,7 @@ module mod_particle_sputtering
   use mod_atomic_elements !< chemical elements
   use mod_particle_sim
   use mod_event
+  use mod_particle_allocation, only: calc_n_particles_per_mpi
   use equil_info, only:find_xpoint
   !$ use omp_lib 
   
@@ -764,22 +765,13 @@ subroutine do_particle_sputter(this, sim, ev)
   end do
   
   !=======================================================================================================
-  ! share the work over all mpi's. the last one takes the extra work
-  if (this%n_sputter .ge. sim%n_mpi) then
-    n_samples = min(this%n_sputter/sim%n_mpi,n_free)
-    if (sim%my_id .eq. sim%n_mpi) then
-      n_samples = min(mod(this%n_sputter,sim%n_mpi) + this%n_sputter/sim%n_mpi, n_free)
-    end if
-  else
-    if (sim%my_id .lt. this%n_sputter) then
-      n_samples = 1
-    else
-      n_samples = 0
-    end if
-  end if
+  ! share the work over all mpi's. By default the first one takes the extra work
+  n_samples = calc_n_particles_per_mpi(this%n_sputter, sim%n_mpi, sim%my_id)
  
-  if (n_samples .eq. n_free .and. this%n_sputter/sim%n_mpi .gt. n_free) then
-    write(*,"(i3,A,i3,A,i8,A,i8)") sim%my_id, 'Warning: could not sputter requested ', sim%n_mpi, 'x ', this%n_sputter/sim%n_mpi, ", bounded to ", n_samples
+  if (n_samples .gt. n_free) then
+    n_samples = n_free
+    write(*,"(A, I3, A)") "WARNING: On mpi proc ", sim%my_id, ", not enough free particles available to sputter the requested amount."
+    write(*,"(A, I12, A, I12)") "  Requested: ", n_samples, " | Free (actually sputtered): ", n_free
   end if
 
   ! Distribute the number of tries by integrated fluid sputtering yield (so the
