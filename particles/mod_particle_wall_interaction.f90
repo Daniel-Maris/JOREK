@@ -905,7 +905,7 @@ end function fluid_sputtering_yield
 !> Assume that the impact angle of all particles is 0
 subroutine project_sputter_vars_on_edge(this, sim)
   use mod_atomic_elements, only: atomic_weights
-  use phys_module, only: central_mass, xpoint, xcase, min_sheath_angle
+  use phys_module, only: central_mass, xpoint, xcase, min_sheath_angle, gamma
   
   type(wall_action),  intent(inout) :: this
   type(particle_sim), intent(in)    :: sim
@@ -917,7 +917,6 @@ subroutine project_sputter_vars_on_edge(this, sim)
   real*8 :: m, psi, U
   real*8 :: c_angle !< min_sheath_angle but then in radians, same as in mod_boundary_matrix_open
 
-  real*8, parameter :: gamma = 5.d0 / 3.d0 !< Heat capacity ratio, for adiabatic
   real*8 :: psi_axis, R_axis, Z_axis, s_axis, t_axis, psi_xpoint(2), psi_limit, R_xpoint(2), Z_xpoint(2), s_xpoint(2), t_xpoint(2)
   integer :: i_elm_axis, ifail, i_elm_xpoint(2)
 
@@ -957,7 +956,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
     !$omp parallel do default(shared) &
 #else
     !$omp parallel do default(none) &
-    !$omp shared(this, sim, diagnostics, &
+    !$omp shared(this, sim, diagnostics, gamma &
     !$omp i_patch, central_mass, psi_axis, psi_limit, c_angle) &
 #endif
     !$omp private(i, n_e, T_e, vpar, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, n_species, Gamma_d, &
@@ -1255,96 +1254,96 @@ subroutine particle_sputter_diagnostic(this, sim, particle, E, sputtering_yield)
     end do
   end if
 
-  end subroutine particle_sputter_diagnostic
+end subroutine particle_sputter_diagnostic
 
 
-  subroutine write_wall_project_vtk(this, sim)
-    use mpi_mod
+subroutine write_wall_project_vtk(this, sim)
+  use mpi_mod
 
-    implicit none
+  implicit none
 
-    type(wall_action),  intent(in) :: this
-    type(particle_sim), intent(in) :: sim
-    
-    if (sim%my_id == 0) write(*,*) "TODO write_wall_project_vtk"
-
-    ! integer :: nnos
-    !> for mpi_reduce of particle contributions
-    ! real*4, allocatable :: scalars(:,:) !< size(st,1) by n_particle*3
-    ! character(len=120)  :: filename
+  type(wall_action),  intent(in) :: this
+  type(particle_sim), intent(in) :: sim
   
-    ! if (this%last_diag_time < 0) then
-    !   this%last_diag_time = sim%time - this%delta_t
-    ! end if
+  if (sim%my_id == 0) write(*,*) "TODO write_wall_project_vtk"
 
-    ! if (len_trim(this%filename) .eq. 0) then
-    !   filename = this%get_filename(sim%time)
-    ! else
-    !   filename = this%filename
-    ! end if
-    
-    ! do i = 1,size(this%wall_projection%patch,1)
-    !   ! Turn all quantities from fluences into fluxes by dividing by the time since the last diagnostics output
-    !   ! some of these (like T_e and n_e) were actually not fluences, but
-    !   ! multiply those by this%delta_t anyway so this normalisation works and we get
-    !   ! a decent time average
-    !   this%wall_projection%patch(i)%scalars(:,:) = &
-    !       this%wall_projection%patch(i)%scalars(:,:) / real(sim%time - this%last_diag_time,4)
+  ! integer :: nnos
+  !> for mpi_reduce of particle contributions
+  ! real*4, allocatable :: scalars(:,:) !< size(st,1) by n_particle*3
+  ! character(len=120)  :: filename
 
-    !   nnos = size(this%wall_projection%patch(i)%scalars,1)
-    !   if (sim%my_id .eq. 0) then
-    !     allocate(scalars(nnos,this%n_project_diag))
-    !   else
-    !     allocate(scalars(0,0))
-    !   end if
-    !   ! And if necessary calculate the sum across mpi procs
-    !   ! this needs to be done for all particle-quantities only (i.e. 1:this%n_project_diag)
-    !   call MPI_Reduce(this%wall_projection%patch(i)%scalars(:,1:this%n_project_diag), &
-    !       scalars, &
-    !       nnos*this%n_project_diag, MPI_REAL4, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-    !   if (sim%my_id .eq. 0) then
-    !     this%wall_projection%patch(i)%scalars(:,1:this%n_project_diag) = scalars
+  ! if (this%last_diag_time < 0) then
+  !   this%last_diag_time = sim%time - this%delta_t
+  ! end if
 
-    !     ! sum the sputter yields together to calculate the total
-    !     ! which is at the last variable in diagnostics
-    !     this%wall_projection%patch(i)%scalars(:,this%n_project_diag + n_fluid_groups*n_fluid_diag + n_general_diag) = &
-    !       ! Particle set
-    !       sum(this%wall_projection%patch(i)%scalars(:,n_particle_diag*1:n_particle_diag*n_particle_groups:n_particle_diag), dim=2) + &
-    !       ! Fluid set
-    !       sum(this%wall_projection%patch(i)%scalars(:, &
-    !         n_particle_diag*n_particle_groups+n_fluid_diag*1:&
-    !         n_particle_diag*n_particle_groups+n_fluid_diag*n_fluid_groups:n_fluid_diag), dim=2)
-    !   end if
-    !   deallocate(scalars)
-    ! end do 
+  ! if (len_trim(this%filename) .eq. 0) then
+  !   filename = this%get_filename(sim%time)
+  ! else
+  !   filename = this%filename
+  ! end if
+  
+  ! do i = 1,size(this%wall_projection%patch,1)
+  !   ! Turn all quantities from fluences into fluxes by dividing by the time since the last diagnostics output
+  !   ! some of these (like T_e and n_e) were actually not fluences, but
+  !   ! multiply those by this%delta_t anyway so this normalisation works and we get
+  !   ! a decent time average
+  !   this%wall_projection%patch(i)%scalars(:,:) = &
+  !       this%wall_projection%patch(i)%scalars(:,:) / real(sim%time - this%last_diag_time,4)
+
+  !   nnos = size(this%wall_projection%patch(i)%scalars,1)
+  !   if (sim%my_id .eq. 0) then
+  !     allocate(scalars(nnos,this%n_project_diag))
+  !   else
+  !     allocate(scalars(0,0))
+  !   end if
+  !   ! And if necessary calculate the sum across mpi procs
+  !   ! this needs to be done for all particle-quantities only (i.e. 1:this%n_project_diag)
+  !   call MPI_Reduce(this%wall_projection%patch(i)%scalars(:,1:this%n_project_diag), &
+  !       scalars, &
+  !       nnos*this%n_project_diag, MPI_REAL4, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  !   if (sim%my_id .eq. 0) then
+  !     this%wall_projection%patch(i)%scalars(:,1:this%n_project_diag) = scalars
+
+  !     ! sum the sputter yields together to calculate the total
+  !     ! which is at the last variable in diagnostics
+  !     this%wall_projection%patch(i)%scalars(:,this%n_project_diag + n_fluid_groups*n_fluid_diag + n_general_diag) = &
+  !       ! Particle set
+  !       sum(this%wall_projection%patch(i)%scalars(:,n_particle_diag*1:n_particle_diag*n_particle_groups:n_particle_diag), dim=2) + &
+  !       ! Fluid set
+  !       sum(this%wall_projection%patch(i)%scalars(:, &
+  !         n_particle_diag*n_particle_groups+n_fluid_diag*1:&
+  !         n_particle_diag*n_particle_groups+n_fluid_diag*n_fluid_groups:n_fluid_diag), dim=2)
+  !   end if
+  !   deallocate(scalars)
+  ! end do 
 
 
-    ! if (sim%my_id .eq. 0) write(*,*) 'Writing particle sputtering diagnostics to ', trim(filename)
-    ! call this%wall_projection%write_vtk_projection(filename)
-  end subroutine write_wall_project_vtk
+  ! if (sim%my_id .eq. 0) write(*,*) 'Writing particle sputtering diagnostics to ', trim(filename)
+  ! call this%wall_projection%write_vtk_projection(filename)
+end subroutine write_wall_project_vtk
 
 
-  !> centralised routine to throw the error of unsupported type and exit (please change this when you add a new type)
-  subroutine wrong_interaction_type(type)
-    implicit none
-    character(len=*), intent(in) :: type !< type which is not supported (will be trimmed in this subroutine)
+!> centralised routine to throw the error of unsupported type and exit (please change this when you add a new type)
+subroutine wrong_interaction_type(type)
+  implicit none
+  character(len=*), intent(in) :: type !< type which is not supported (will be trimmed in this subroutine)
 
-    write(*,"(A)") "Wall interaction type "//trim(type)//" not supported (mod_wall_interaction.f90)"
-    write(*,"(A)") 'Available types: "self sputter", "fluid sputter", "other sputter", "reflection" or "wall recomb" '
+  write(*,"(A)") "Wall interaction type "//trim(type)//" not supported (mod_wall_interaction.f90)"
+  write(*,"(A)") 'Available types: "self sputter", "fluid sputter", "other sputter", "reflection" or "wall recomb" '
+  stop
+end subroutine wrong_interaction_type
+
+
+!> exit with message if origin_group is not target_group
+subroutine check_self_type(this)
+  implicit none
+  type(wall_action), intent(in) :: this
+  
+  if(this%origin_group /= this%target_group) then
+    write(*,*) "type "//trim(this%type)//" is a self interaction type so origin_group should be target_group"
     stop
-  end subroutine wrong_interaction_type
-
-
-  !> exit with message if origin_group is not target_group
-  subroutine check_self_type(this)
-    implicit none
-    type(wall_action), intent(in) :: this
-    
-    if(this%origin_group /= this%target_group) then
-      write(*,*) "type "//trim(this%type)//" is a self interaction type so origin_group should be target_group"
-      stop
-    end if
-  end subroutine
+  end if
+end subroutine
 
 
 end module mod_particle_wall_interaction
