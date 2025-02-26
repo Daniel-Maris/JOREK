@@ -1,60 +1,32 @@
-!> Module for particle-particle and fluid-particle sputtering calculations.
-!> This module will read where the simulated particles hit the wall.
-!> and it calculates the sputtering from that event on that point
-
-!> in delta_t time some amount of simulated particles hit the wall.
-!> calculate on every point the amount of incident particles
-!> calculate on the points of incident particles the amount of sputtered particles
-
+!> Module for particle to particle and fluid to particle interactions at the wall.
+!> 
+!> The main object is the wall action, in which the wall_action%type is a string
+!> determining the type of interaction. Examples of wall actions are a plasma fluid 
+!> species sputtering one particle group (e.g. D plasma sputtering W impurities),
+!> or particles from a particular group (e.g. N) reflecting against the wall
+!> Every such interaction needs it's own object, and internally the right routine's
+!> are then called when wall_action%do(sim) is called.
+!> 
+!> The currently implemented interaction types are: 
+!> "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "reflection" 
+!> (e.g. kinetic D -> D) and "wall recomb" (e.g. kinetic D+ -> D)
+!> 
+!> Eckstein coefficients are used to determine the yield of the interaction and the 
+!> resulting energy of the resulting particles. These yields are automatically loaded
+!> from the simulation folder based on the original and target species symbols.
 !>
-!> For the fluid-particle sputtering there are basically 2 approaches to follow
-!> the first one is to sample particles from the incoming flux of every species
-!> and then calculate the particle-particle sputtering yields. The second one is
-!> to calculate the sputtering yield by integrating over the velocity distribution
-!> and then sampling first in sputtering yield the spatial location of the particle
-!> and then by sampling from the velocity distribution * sputtering yield in some way.
-!>
-!> The sputtering yield at a specific position is given by
-!> \[
-!>   \int_v Y(E) f(v) dv
-!> \]
-!> where $f(v)$ is a maxwellian and $E$ includes the sheath potential and the Bohm outflow
-!> condition additionally.
-!>
-!> To now calculate the energy of the sputtered particle we multiply the sputtered energy
-!> coefficient with E of a particle sampled from f(v).
-!> Taking the sputtered energy coefficient * Y as a weight factor and sampling from f(v) will do the trick.
-!> we need to normalize with the sputter yield at that position, which we have calculated before.
-!> Basically this is a weighted average of Y_E(E) * E, weighted with Y(E) f(E).
-!> Alternatively we could sample directly from Y(E) Y_E(E) f(E), but I don't know how to do this generally.
-!> That would have the advantage of better distribution of statistics (more uniform weights).
-
-
-!> Sputtering:
-!> search for the number of lost particles on all mpi procs
-!> Calculate sputter yield and amount of sputtered particles
-!>   per particle species
-!>   incoming energy and angle leads to sputter yield (and sputtered energy coefficient)
-!>   distribute the to-sputter particles proportionally among processes
-!>
-!>
-!> The module comes with a few diagnostics for sputtering
-!> particle-particle sputtering:
-!>   per incoming group:
-!>     * particle flux on edge elements
-!>     * particle energy flux on edge elements
-!>     * sputtering yield
-!> fluid-particle sputtering:
-!>   per background species:
-!>     * particle flux on edge elements
-!>     * energy flux on edge elements
-!>     * sputtering yield
-!> global:
-!>   * T_e [eV]
-!> total:
-!>   * overall sputtering yield (= sum yields above)
-!> leading to 3*n_groups + 3*n_fluids + 1
-
+!> TODO: diagnostics
+!> Actions have global diagnostics (e.g. total particles of group i reflected off the 
+!> wall) printed out in the logfile, and sputter diagnostics also have local vtk
+!> diagnostics using mod_edge_elements
+!> 
+!> Limitations:
+!> - The incoming angle of the particle/fluid is not taken into account (it is hardcoded 
+!>   to 0). Implementing this correctly would require some estimation of surface roughness.
+!> - The sampling from and integrating the fluid integrals is done using mod_edge_elements 
+!>   rather than using a bezier FE description like the fluid (same is true for wall projections)
+!> - A simplified model is used for the energy of sampled particles from the fluid in 
+!>   fluid2part actions
 module mod_particle_wall_interaction
   use mod_edge_elements
   use mod_io_actions, only: io_action
@@ -365,13 +337,22 @@ subroutine do_wall_action(this, sim, ev)
 end subroutine do_wall_action
 
 
-!> routine to do the fluid to particle wall interactions
-!> currently contains options for sputtering and wall recombination
+!> Routine to do the fluid to particle wall interactions.
+!> Models fluid sputtering ("fluid sputter") and wall 
+!> recombination ("wall recomb")
+!>
+!> The fluid-particle interaction is done by calculating 
+!> the yield by integrating over the velocity distribution.
+!> Then particles are sampled using these local yields to represent
+!> the incoming flux (with the weight already adjusted for particles 
+!> resulting from the interaction). 
+!> The particles then undergo a particle-particle interaction to 
+!> determine their new energy, and the new particles are stored in
+!> free slots in the group's particle array
 subroutine fluid2part_action(this, sim)
   use mpi_mod
   use mod_atomic_elements, only: element_symbols
   use mod_interp, only: interp_RZ
-  use phys_module, only: use_manual_random_seed
   use mod_particle_init, only: free_particle_indices
   use mod_particle_types, only: initialize_particle_to_zero
   use mod_edge_elements, only: sample_edge_elements
@@ -379,37 +360,23 @@ subroutine fluid2part_action(this, sim)
   class(wall_action), intent(inout) :: this
   type(particle_sim), intent(inout) :: sim
   
-  !TODO cleanup namespace
   type(particle_kinetic_leapfrog) :: particle
-  integer :: i, j, k,n_supers_loc, ierr
-  real*8  ::  energy_reflected_local, energy_reflected_all, enery_wall_recombi_local,enery_wall_recombi_all !0D quantities
-  real*8  ::  energy_mol_recombi_local, energy_mol_recombi_all !<also wall assisted recombination
-  !> binding energy of H molecule and ion in joule (2.2 eV and 13.6 eV)
-  real*8  :: mol_binding_E=3.526d-19, ion_binding_E=2.18d-18  !< should be the sum of ionisation energies from 0 to q for impurities.
-  
+  integer :: j, i_p, n_supers_loc, ierr, i_rng
   integer :: q, Z
   real*8 :: E !< [eV] particle energy  (eV because of eckstein coeffs).
-  real*8 :: sputtering_yield, sputtered_energy_coeff, theta, T_eV
+  real*8 :: n_e, T_e, T_eV
   real*8 :: integral !< total weight of all created particles in this wall action
-  real*8 :: vector_normal(3)
-  real*8, allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_supers_loc), (2,n_supers_loc), (3,n_supers_loc)
+  real*8,  allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_supers_loc), (2,n_supers_loc), (3,n_supers_loc)
+  integer, allocatable :: i_elm_sampled(:) !< (n_supers_loc)
 
   !> For check free particles
-  integer, allocatable, dimension(:) :: i_free, i_elm_sampled
+  integer, allocatable, dimension(:) :: i_free
   integer :: n_free
 
-  !> For RNG
-  real*8 :: u(2)
-  integer :: i_rng
-  real*8 :: n_e, T_e
-
-  integer :: i_p
-  real*8 :: av_yield
-  !> For fluid sampling
-  !> for mpi_reduce of particle contributions
-  !> for deuterium and neutrals reflection instead of sputtering
-  logical :: reflection, fast_reflection
-
+  ! diagnostics
+  real*8  ::  energy_reflected_local, energy_reflected_all, enery_wall_recombi_local,enery_wall_recombi_all !0D quantities
+  real*8  ::  energy_mol_recombi_local, energy_mol_recombi_all !<also wall assisted recombination
+  
   real*8, dimension(n_global_diagnostics) :: diagnostics         !< diagnostics for the global wall loads
   real*8, dimension(n_global_diagnostics) :: diagnostics_all_mpi !< MPI reduced version of diagnostics
   
@@ -423,8 +390,9 @@ subroutine fluid2part_action(this, sim)
   ! determine how many particles to initialise on this MPI processes
   n_supers_loc = calc_n_particles_per_mpi(this%supers_num, sim%n_mpi, sim%my_id)
 
-  if (n_supers_loc .eq. n_free .and. this%supers_num/sim%n_mpi .gt. n_free) then
-    write(*,"(i3,A,i3,A,i8,A,i8)") sim%my_id, 'Warning: could not make requested ', sim%n_mpi, 'x ', this%supers_num/sim%n_mpi, ", bounded to ", n_supers_loc
+  if (n_supers_loc > n_free) then
+    write(*,"(i3,A,i8,A,i8)") sim%my_id, 'Warning: could not make requested ', n_supers_loc, ", bounded to ", n_free
+    n_supers_loc = n_free
   end if
 
   allocate(rng_sample(3,n_supers_loc))
@@ -471,8 +439,7 @@ subroutine fluid2part_action(this, sim)
   end if
 
   if (sim%my_id .eq. 0) then
-    write(*,"(A,i3,A,i8,A,A,A,A,A,i1,A,i2,A,g12.4,A,g12.4)") "fluid2wall will create ", sim%n_mpi, "x", n_supers_loc, &
-      " ", element_symbols(sim%groups(this%target_group)%Z),&
+    write(*,"(A,i8,A,A,A,A,A,i2,A,i2,A,g12.4,A,g12.4)") "fluid2wall will create ", this%supers_num," ", element_symbols(sim%groups(this%target_group)%Z),&
       " from ", element_symbols(Z), " in group ", this%target_group, &
     " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral, "  particles flux #/s : ", integral/this%delta_t
   end if
@@ -483,10 +450,10 @@ subroutine fluid2part_action(this, sim)
   !$omp parallel default(shared) &
 #else
   !$omp parallel default(none) &
-  !$omp shared(this, sim, i, k, rng_sample, xyz_sampled, st_sampled, i_elm_sampled, n_supers_loc_fluid, i_free, &
-  !$omp integral, q, Z, n_particle_groups,reflection, ION_BINDING_E, mol_binding_E) &
+  !$omp shared(this, sim, rng_sample, xyz_sampled, st_sampled, i_elm_sampled, i_free, &
+  !$omp integral, q, Z) &
 #endif
-  !$omp private(i_rng, j, theta, E, sputtering_yield, av_yield, sputtered_energy_coeff, u, i_p, vector_normal, T_e, T_eV, n_e, fast_reflection, particle) &
+  !$omp private(i_rng, j, E, T_e, T_eV, n_e, particle) &
   !$omp reduction(+:enery_wall_recombi_local,energy_reflected_local,energy_mol_recombi_local)
   i_rng = 1
   !$ i_rng = omp_get_thread_num()+1
@@ -495,6 +462,7 @@ subroutine fluid2part_action(this, sim)
     !> make a new particle which at the end of the do loop will be written into a free particle in the array
     call initialize_particle_to_zero(particle)
 
+    particle%q = int(q,1)
     particle%i_elm = i_elm_sampled(j)
     if (i_elm_sampled(j) .le. 0) cycle
     particle%st = st_sampled(:,j)
@@ -508,57 +476,31 @@ subroutine fluid2part_action(this, sim)
     !> is the total amount of incoming particles over the edge domain area * delta_t
     particle%weight = integral/(n_supers_loc*sim%n_mpi)
 
-    !TODO from here on it should make use of the single particle function
-
-    ! Assume the particle is fully ionized! For D, He, Ar this is reasonable
-    theta = 0 !< surface roughness leads to an average incoming angle of zero
-
-    ! Calculate temperature at this position
+    ! Calculate temperature at this position to determine particle energy
     call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e, T_e)
     T_eV = T_e * K_BOLTZ / EL_CHG
 
-    ! if (reflection) then ! plasma wall recombination
-    !   ! determine E
-    !   call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
-
-    !   ! determine outcoming particle
-    !   call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, i, "reflection", E)
-    ! else ! fluid to wall sputtering
-    !   E = 2 * T_eV !< from the bohm criterion, E = E_sheath_entrance + E_sheath_acceleration = 2 T_i + 3 q T_e, but for now T_i = T_e
-    !   ! so E_sheath_entrance  = 2 T_i = 2 T, and E_sheath_acceleration will be added later
-    !   call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, i, "self sputter", E)
-    ! end if
-
-    ! sample from energy distribution of the plasma on the edge of the plasma sheath
-    ! do not sample energies lower than E_threshold, since they will not sputter anyways
-    reflection= .true.
-    if (reflection) then
-      call this%rng(i_rng)%next(u)
+    select case(trim(this%type))
+    case("wall recomb")
+      ! determine E
       call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
-      ! add to this energy the plasma sheath potential
-      E = E + simple_potential_drop(q, T_eV)
-      sputtering_yield = this%yield%interp(E, theta)
-      fast_reflection = .false. 
-      if (u(1) .le. sputtering_yield) fast_reflection = .true.
-      sputtering_yield = 1.d0
 
-      enery_wall_recombi_local =  enery_wall_recombi_local+ particle%weight * ion_binding_E !< in joule
-      if (fast_reflection) then
-        E = max(E, this%energy%E_threshold + 1d0)
-        sputtered_energy_coeff = this%energy%interp(E, theta)
-        E = sputtered_energy_coeff * E !< E is in eV
-        !reflection 0D diagnostic
-        energy_reflected_local = energy_reflected_local+particle%weight * E * EL_CHG !< here, E is energy the neutral gets
-      else ! thermal release
-        E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
-        energy_mol_recombi_local = energy_mol_recombi_local+particle%weight * mol_binding_E !< molecular wall-assisted recombination energy
-      endif
-    else
-      E = 2 * T_eV !< from the bohm criterion, E = E_sheath_entrance + E_sheath_acceleration = 2 T_i + 3 q T_e, but for now T_i = T_e
-      ! so E_sheath_entrance  = 2 T_i = 2 T
-      ! add to this energy the plasma sheath potential
-      E = E + simple_potential_drop(q, T_eV)
-
+      ! determine outcoming particle
+      call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "reflection")
+    case("fluid sputter")
+      ! The yield at a specific position is given by
+      ! \[
+      !   \int_v Y(E) f(v) dv
+      ! \]
+      ! where $f(v)$ is a maxwellian and $E$ includes the sheath potential and the Bohm outflow
+      ! condition additionally.
+      !
+      ! To now calculate the energy of the sputtered particle we multiply the sputtered energy
+      ! coefficient with E of a particle sampled from f(v).
+      ! Taking the sputtered energy coefficient * Y as a weight factor and sampling from f(v) will do the trick.
+      ! we need to normalize with the sputter yield at that position, which we have calculated before.
+      ! Basically this is a weighted average of Y_E(E) * E, weighted with Y(E) f(E)
+      
       ! If sampling from the incoming energy distribution function, the
       ! sputtered energy coefficient needs to be reweighed with the sputtering
       ! yield at this energy (since the tail contributes more)
@@ -567,30 +509,18 @@ subroutine fluid2part_action(this, sim)
       ! anymore. The extension to realistic IEDFs should be done later, so 
       ! I've kept some of the code around.
 
-      ! Workaround if sampling leads to positions where the temperature is just
-      ! too low we warn here, and set the energy higher
-      ! This can happen when the cubic and linear elements mismatch in their
-      ! estimation of T
-      !if (E .le. this%yield%E_threshold) then
-        !write(*,*) "Wrong location selected:", E, this%yield%E_threshold
-      !end if
-      !E = max(E, this%yield%E_threshold + 1d0) ! add little bit to prevent zeros
+      E = 2 * T_eV !< from the bohm criterion, E = E_sheath_entrance + E_sheath_acceleration = 2 T_i + 3 q T_e, but for now T_i = T_e
+      ! so E_sheath_entrance  = 2 T_i = 2 T, and E_sheath_acceleration will be added later
+      call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "self sputter", .true.)
+
+      ! Non-implemented alternative to the above method:
+      ! We could sample directly from Y(E) Y_E(E) f(E), but I don't know how to do this generally.
+      ! That would have the advantage of better distribution of statistics (more uniform weights).
 
       !sputtering_yield = this%yield%interp(E, theta)
       ! Workaround if sputtered energy coeff threshold is lower than sputtering
       ! threshold: use sputtered energy coeff just above threshold instead
       ! (note: all this doesn't take into account theta properly)
-
-      if (this%use_thompson) then
-        call this%rng(i_rng)%next(u)
-        ! Remove the highest 2% of the distribution by clipping u (hacky)
-        u = min(u, 0.98d0)
-        E = sample_dist(this%E_dist, u(1))
-      else
-        E = max(E, this%energy%E_threshold + 1d0) ! add little bit to prevent zeros
-        sputtered_energy_coeff = this%energy%interp(E, theta)
-        E = sputtered_energy_coeff * E
-      end if
 
       !av_yield = fluid_sputtering_yield(this%yield, T_eV, Z, theta)
       ! we could probably avoid the calculation of fluid_sputtering_yield by
@@ -602,36 +532,9 @@ subroutine fluid2part_action(this, sim)
       !particle%weight = &
       !particle%weight * &
         !sputtering_yield / av_yield
-    endif
-    
-    ! In the case that sputtering from fluid is really low, we discard it.
-    ! we've put the threshold way lower than for self-bombardment to make sure the statistics of the sputtering yield,
-    ! still is valid from the fluid perspective
-    ! 10 mEv is very low already!
-    if (particle%weight .le. 1.d4 .or. E .le. 1d-2) then ! if energy negative the sqrt below will cause trouble. If zero the particle will not enter the domain
-      !write(*,*) 'weight or E limit ', E, sputtered_energy_coeff, sputtering_yield, av_yield
-      particle%i_elm = 0
-      cycle       
-    end if
-    
-
-    ! Store the result
-    vector_normal = wall_normal_vector(sim%fields%node_list, sim%fields%element_list, particle%i_elm, particle%st(1), particle%st(2))
-    call this%rng(i_rng)%next(u)
-    particle%v = sqrt(2.d0* E *EL_CHG/(sim%groups(1)%mass * ATOMIC_MASS_UNIT)) &
-            * sample_cosine(u(1:2), vector_normal)
-    ! Since it is a neutral the half-step for boris method does not matter at all
-    ! particles come back as neutrals
-    particle%q = 0_1
-    particle%i_life = particle%i_life + 1 ! This is now really a new particle
-    particle%t_birth = sim%time
-
-    ! NaN checks
-    if (any(pa(j)%x .ne. pa(j)%x) .or. E .ne. E .or. pa(j)%weight .ne. pa(j)%weight) then
-      pa(j)%i_elm = 0 ! skip this one since sputtering went wrong
-      write(*,*) 'NaN check failed', E, pa(j)%weight, pa(j)%x
-      ! TODO debug logging? openmp threading though
-    end if
+    case default
+      call wrong_interaction_type(this%type)
+    end select
 
     i_p = i_free(j)
     pa(i_p) = particle
@@ -672,7 +575,6 @@ subroutine part2self_action(this, sim)
   !TODO make a more permanent version rather than just the same old wrapper, cleanup namespace
 
   use mpi_mod
-  use mod_parameters, only: n_plane, n_period
   use phys_module, only: use_manual_random_seed
   
   class(wall_action), intent(inout) :: this
@@ -756,16 +658,17 @@ end subroutine part2self_action
 
 
 !> The interaction of a single particle with the wall, only affecting that super particle (self sputter or reflect)
-subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in)
+subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, type_in, weight_preadjusted)
   implicit none
 
   class(wall_action),                      intent(inout) :: this
   type(particle_sim),                      intent(in)    :: sim
-  type(particle_kinetic_leapfrog),         intent(inout) :: particle         !< particle to undergo interaction
-  !type(edge_elements), intent(in) :: edge_element_obj
-  class(type_rng),                         intent(inout) :: rng              !< RNG object of the current openmp thread
-  real*8, dimension(n_global_diagnostics), intent(inout) :: diagnostics      !< diagnostics for the global wall loads
-  real*8, optional,                        intent(in)    :: E_in             !< [eV] energy of the incoming particle (if not specified will be determined from particle%v)
+  type(particle_kinetic_leapfrog),         intent(inout) :: particle           !< particle to undergo interaction
+  class(type_rng),                         intent(inout) :: rng                !< RNG object of the current openmp thread
+  real*8, dimension(n_global_diagnostics), intent(inout) :: diagnostics        !< diagnostics for the global wall loads
+  real*8,            optional,             intent(in)    :: E_in               !< [eV] energy of the incoming particle (if not specified will be determined from particle%v)
+  character(len=*),  optional,             intent(in)    :: type_in            !< type of single interaction (either "self sputter" or "reflection") (if not specified will be set to this%type) 
+  logical,           optional,             intent(in)    :: weight_preadjusted !< whether the weight was already adjusted beforehand to take the yield into account (true) or not (false, default)
 
   real*8 :: n_e, T_e, theta
   real*8 :: E !<[eV] particle energy. E is in [eV] in this subroutine, because of eckstein coeffs.
@@ -773,6 +676,30 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in)
   logical :: fast_reflection !< whether the reflection is a fast reflection or a thermal desorption (not that release is instant, but the energy of the reflected particle is different)
   real*8 :: yield, energy_coeff, T_eV, fast_reflect_chance, v_new
   real*8 :: u(2)
+  character(len=20) :: local_type !< which single particle interaction to do, used to call self interaction from within fluid2part_action (=type_in if present, else =this%type)
+  logical :: skip_yield !< if weight_preadjusted = true, then the yield calculation should be skipped
+  
+  ! set the incoming particle energy
+  if(present(E_in)) then
+    E = E_in
+  else
+    ! calculate the energy associated with the velocity of the particle (in eV)
+    E = 0.5d0*sim%groups(this%origin_group)%mass*ATOMIC_MASS_UNIT*dot_product(particle%v, particle%v)/EL_CHG !< must be in eV
+  end if
+
+  ! determine the type, this can be different from this%type if single_self_interaction is called from within fluid2part
+  if(present(type_in)) then
+    local_type = type_in
+  else
+    local_type = this%type
+  end if
+
+  ! determine whether to calculate the yield
+  if(present(weight_preadjusted)) then
+    skip_yield = weight_preadjusted
+  else
+    skip_yield = .false.
+  end if
 
   ! use normal vector and velocity of particle to determine incoming angle
   ! cos(theta) = (n . v)/ (||n||.||v||)
@@ -793,25 +720,18 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in)
   !   !!$omp end critical
   ! end if
 
-  if(present(E_in)) then
-    E = E_in
-  else
-    ! calculate the energy associated with the velocity of the particle (in eV)
-    E = 0.5d0*sim%groups(this%origin_group)%mass*ATOMIC_MASS_UNIT*dot_product(particle%v, particle%v)/EL_CHG !< must be in eV
-  end if
-
   ! Update the particle energy from the potential drop in the sheath
   call sim%fields%calc_NeTe(sim%time, particle%i_elm, particle%st, particle%x(3), n_e, T_e)
   T_eV = T_e*K_BOLTZ/EL_CHG
   E = E + simple_potential_drop(int(particle%q,4),T_eV)
-    
+
   ! store this particle's contribution to incoming particle, heatflux and flux onto the wall
   diagnostics(i_wall_part_in) = diagnostics(i_wall_part_in) + 1
   diagnostics(i_wall_flux_in) = diagnostics(i_wall_flux_in) + particle%weight
   diagnostics(i_wall_heat_in) = diagnostics(i_wall_heat_in) + particle%weight * E *EL_CHG
-  
+
   !> determining interaction yield and new energy depending on interaction type
-  select case (trim(this%type))
+  select case (trim(local_type))
   case ("reflection")
     !> a particle can either bounce of the wall (fast_reflection=.true.) or be thermally released
     !> whether a particle reflects directly is determined through eckstein coefficients set for this goal
@@ -830,15 +750,6 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in)
     !> determine new energy
     if (fast_reflection) then
       ! still some energy and momentum can be lost at the reflection against the wall, this is modelled using another set of eckstein coefficients
-      
-      !> avoiding numerical issues with E being too small to calculate energy_coeff
-      ! if (E < this%energy%E_threshold + 1d0) then
-      !   !$omp critical
-      !   write(*,*) "WARNING: E too small for yields"
-      !   !$omp end critical
-      !   E = this%energy%E_threshold + 1d0
-      ! end if
-      
       energy_coeff = this%energy%interp(E,theta)
       E = energy_coeff * E
     else ! thermal release
@@ -847,13 +758,17 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in)
   case ("self sputter")
     ! use eckstein sputtering coefficients to determine both the sputter yield and resulting energy
     
-    yield = this%yield%interp(E,theta)
+    if(skip_yield) then
+      yield = 1.d0
+    else
+      yield = this%yield%interp(E,theta)
+    end if
 
     !> exponential self sputtering for yield > 1
-    if (yield .gt. 1) then
-      !!$omp critical
-      !write(*,"(A,f5.0,A,f8.3)") "> 1 self-sputtering detected, E=", E, "yield=", sputtering_yield
-      !!$omp end critical
+    if (yield .gt. 1.d0 + 1.d-12) then
+      !$omp critical
+      write(*,"(A,f5.0,A,f8.3)") "> 1 self-sputtering detected, E=", E, "yield=", yield
+      !$omp end critical
     end if
 
     !> storing this particle's contribution to sputtering on a 2D edge element patch grid as diagnostic
@@ -862,14 +777,24 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in)
     !> determining the energy of the particle post sputtering
     if (this%use_thompson) then
       call rng%next(u)
+      ! Option below to remove the highest 2% of the distribution by clipping u (hacky)
+      ! u = min(u, 0.98d0)
       E = sample_dist(this%E_dist, u(1))
     else
+      !> avoiding numerical issues with E being too small to calculate energy_coeff
+      if (E < this%energy%E_threshold + 1d0) then
+        !$omp critical
+        write(*,*) "WARNING: E too small for yields",E,this%energy%E_threshold,"setting E to just above threshold, please expand coefficients range"
+        !$omp end critical
+        E = this%energy%E_threshold + 1d0
+      end if
+
       energy_coeff = this%energy%interp(E,theta)
       E = energy_coeff * E
     end if
 
   case default
-    write(*,*) "ERROR: unknown single_self_interaction type",trim(this%type)
+    write(*,*) "ERROR: unknown single_self_interaction type",local_type
   end select
   
   ! update weight of simulated particle after the wall interaction
@@ -893,7 +818,7 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in)
   ! For particle-particle sputtering we might want them to have the same identifiers
   ! if so comment the line above
 
-  !> nan check, but seems hacky
+  !> nan check (in fortran, for x=nan, x == x will return false)
   if (any(particle%x .ne. particle%x) .or. E .ne. E .or. particle%weight .ne. particle%weight) then
     !$omp critical
     write(*,*) 'ERROR: removing particle with nans in function single_self_interaction() (x,E,w,i_elm):', particle%x, E, particle%weight, particle%i_elm
@@ -936,28 +861,15 @@ end function simple_potential_drop
 
 
 !> Integrate the sputtering yield over the distribution of incoming velocities.
-!> Since we use inverse transform sampling on u to calculate the energy we can
-!> just integrate over u from 0 to 1 to cover the whole distribution.
-!> Do this with n subelements, using gaussian quadrature in each element
-!> the subintervals go from 1/2 to n-1/2 to avoid using 0 and 1, since 1 should
-!> lead to infinity for sampling from a gaussian. Skipping the first part is reasonable
-!> since the sputtering yield will be very low there. For the high energies a maxwellian
-!> is perhaps not even the best approximation so that is probably not so bad either.
-!>
-!> The returned yield is averaged over the maxwellian at T_eV + the potential drop
 pure function fluid_sputtering_yield(coeff, T_eV, Z, theta) result(yield)
   use gauss
   class(eckstein_coeff_set), intent(in) :: coeff
-  real*8, intent(in)  :: T_eV !< Plasma temperature in eV
-  integer, intent(in) :: Z !< Atomic number of the incoming particles
-  real*8, intent(in)  :: theta !< angle of impact (usually assumed 0) in degrees
-  real*8 :: yield !< The sputter yield in atoms/ion
+  real*8,                    intent(in) :: T_eV  !< Plasma temperature in eV
+  integer,                   intent(in) :: Z     !< Atomic number of the incoming particles
+  real*8,                    intent(in) :: theta !< angle of impact (usually assumed 0) in degrees
+  real*8                                :: yield !< The sputter yield in atoms/ion
 
-  real*8 :: E, U_drop
-  integer :: i, j, k
-  integer, parameter :: n_interval = 4 !< number of intervals to calculate. (using 1 is already pretty good)
-  real*8, parameter :: idu = 1.d0/real(n_interval,8) !< interval size
-  real*8 :: u(3) !< the integration point
+  real*8 :: U_drop
   integer :: q
 
   if (Z .le. 0) then
@@ -970,45 +882,59 @@ pure function fluid_sputtering_yield(coeff, T_eV, Z, theta) result(yield)
   U_drop = simple_potential_drop(q, T_eV) ! assume particle has full charge
   yield = coeff%interp(2*T_eV + U_drop, theta)
 
-  !!--------------------
-  return
-  !!--------------------
+  ! Alternative but unused version not assuming the simplified model:
+  
+  ! Since we use inverse transform sampling on u to calculate the energy we can
+  ! just integrate over u from 0 to 1 to cover the whole distribution.
+  ! Do this with n subelements, using gaussian quadrature in each element
+  ! the subintervals go from 1/2 to n-1/2 to avoid using 0 and 1, since 1 should
+  ! lead to infinity for sampling from a gaussian. Skipping the first part is reasonable
+  ! since the sputtering yield will be very low there. For the high energies a maxwellian
+  ! is perhaps not even the best approximation so that is probably not so bad either.
+  
+  ! The returned yield is averaged over the maxwellian at T_eV + the potential drop
+  
+  ! real*8 :: E
+  ! integer :: i, j, k
+  ! integer, parameter :: n_interval = 4 !< number of intervals to calculate. (using 1 is already pretty good)
+  ! real*8, parameter :: idu = 1.d0/real(n_interval,8) !< interval size
+  ! real*8 :: u(3) !< the integration point
 
-  yield = 0.d0
-  if (T_eV .le. 1d-1) return
-  do i=0,n_interval*n_gauss-1
-    u(1) = (real(i/n_gauss,8) + xgauss(mod(i,n_gauss)+1))*idu
-    do j=0,n_interval*n_gauss-1
-      u(2) = (real(j/n_gauss,8) + xgauss(mod(j,n_gauss)+1))*idu
-      do k=0,1 ! we only use the sign of this one
-        u(3) = real(k,8)
+  ! yield = 0.d0
+  ! if (T_eV .le. 1d-1) return
+  ! do i=0,n_interval*n_gauss-1
+  !   u(1) = (real(i/n_gauss,8) + xgauss(mod(i,n_gauss)+1))*idu
+  !   do j=0,n_interval*n_gauss-1
+  !     u(2) = (real(j/n_gauss,8) + xgauss(mod(j,n_gauss)+1))*idu
+  !     do k=0,1 ! we only use the sign of this one
+  !       u(3) = real(k,8)
 
-        ! add to this energy the plasma sheath potential
-        call sample_fluid_particle_energy(T_eV, u, Z, E)
-        U_drop = simple_potential_drop(q, T_eV) ! assume particle has full charge
-        yield = yield + coeff%interp(E + U_drop, theta)
-      end do
-    end do
-  end do
-  yield = yield / (2*n_interval**2)
+  !       ! add to this energy the plasma sheath potential
+  !       call sample_fluid_particle_energy(T_eV, u, Z, E)
+  !       U_drop = simple_potential_drop(q, T_eV) ! assume particle has full charge
+  !       yield = yield + coeff%interp(E + U_drop, theta)
+  !     end do
+  !   end do
+  ! end do
+  ! yield = yield / (2*n_interval**2)
 end function fluid_sputtering_yield
 
 
-!> Calculate the flux to and some diagnostics for fluid flux in a period delta_t
-!>
-!> fluid_yield_integral contains a single scalar, the incoming fluid flux. Assume all particles are moving at the same
-!> velocity, so multiplying with the relative density is enough to get the flux of a specific species
+!> Calculate the flux to and some diagnostics for fluid flux in
+!> a period delta_t.
+!> 
+!> Fluid_yield_integral contains a single scalar, the incoming 
+!> fluid flux. Assume all particles are moving at the same
+!> velocity, so multiplying with the relative density is enough 
+!> to get the flux of a specific species.
 !>
 !> Assume that the impact angle of all particles is 0
-!> TODO: cleanup namespace
 subroutine project_sputter_vars_on_edge(this, sim)
-  use mod_edge_elements, only: edge_elements
   use mod_atomic_elements, only: atomic_weights
   use phys_module, only: central_mass, xpoint, xcase, min_sheath_angle
-  use mod_parameters, only: n_plane, n_period
   
   type(wall_action),  intent(inout) :: this
-  type(particle_sim), intent(in) :: sim
+  type(particle_sim), intent(in)    :: sim
   
   integer :: q, i, j, i_patch, Z
   real*8 :: vector_normal(3), cos_alpha, mass_ion, c_s, Gamma_d, n_species
