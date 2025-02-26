@@ -568,44 +568,19 @@ subroutine fluid2part_action(this, sim)
 end subroutine fluid2part_action
 
 
-!> wrapper to test single_self_interaction with reg test (later single_self_interaction should be called from kinetic_neutrals or even evolve_particle_group)
-!> calculates particle self interactions such as self-sputtering (e.g. W -> W) and wall reflections (e.g. D -> D)
-!> for a single species defined in this%group_out
+!> calls single_self_interaction() for all particles in the specified this%origin_group
+!> also prints the global diagnostics to the output file
 subroutine part2self_action(this, sim)
-  !TODO make a more permanent version rather than just the same old wrapper, cleanup namespace
-
   use mpi_mod
   use phys_module, only: use_manual_random_seed
   
   class(wall_action), intent(inout) :: this
-  type(particle_sim), intent(inout)      :: sim
+  type(particle_sim), intent(inout) :: sim
   
   real*8, dimension(n_global_diagnostics) :: diagnostics         !< diagnostics for the global wall loads
   real*8, dimension(n_global_diagnostics) :: diagnostics_all_mpi !< MPI reduced version of diagnostics
 
-  integer :: i, j, k, i_patch, n_supers_loc, ierr,this_patch
-
-  integer :: q
-  real*8 :: sputtering_yield, sputtered_energy_coeff, theta, T_eV, integral 
-  real*8 :: E !<[eV] particle energy. E is in [eV] in this subroutine, because of eckstein coeffs.
-  real*8 :: velocity(3), vector_normal(3)
-
-  !> Prompt loss calculation
-  integer :: is_prompt_loss
-  real*8 :: Efield(3), B(3), pot, psi
-  
-  !> For RNG
-  real*8 :: u(2)
-  integer :: i_rng
-  real*8 :: n_e, T_e
-
-  integer :: i_edge_elm, i_edge_nodes(4),i_p
-  real*8 :: area(4), dphi
-  !> for mpi_reduce of particle contributions
-  integer :: toroidal_offset !< Number of elements in the toroidal direction
-  !> for deuterium and neutrals reflection instead of sputtering
-  logical :: reflection, fast_reflection
-  
+  integer :: j, ierr, i_rng
   
   diagnostics = 0.d0
 
@@ -621,11 +596,9 @@ subroutine part2self_action(this, sim)
   !$omp parallel default(shared) & ! workaround for Error: ‘__vtab_mod_pcg32_rng_Pcg32_rng’ not specified in enclosing ‘parallel’
 #else
   !$omp parallel default(none) &
-  !$omp shared(this, sim, i,reflection) & 
+  !$omp shared(this, sim)      & 
 #endif
-  !$omp private(q, velocity, theta, E, &
-  !$omp sputtering_yield, sputtered_energy_coeff, i_rng, u, i_patch,this_patch,j, i_edge_nodes, vector_normal, T_eV, &
-  !$omp k, area, i_edge_elm, toroidal_offset, dphi, is_prompt_loss, Efield, B, psi, pot, T_e, n_e,fast_reflection)                    &
+  !$omp private(i_rng)         &
   !$omp reduction(+:diagnostics)
 
   i_rng = 1
@@ -633,7 +606,7 @@ subroutine part2self_action(this, sim)
   !$omp do schedule(runtime)
   do j = 1,size(sim%groups(this%origin_group)%particles,1)
     ! Skip if this particle is not lost in a specific location (i_elm .eq. 0 means lost 'somewhere')
-    if (pa(j)%i_elm .ge. 0) cycle !< .not. .lt.!< if this is not a lost particle go to next particle
+    if (pa(j)%i_elm .ge. 0) cycle
     
     !> Place particle back into domain
     pa(j)%i_elm = -pa(j)%i_elm
@@ -644,13 +617,14 @@ subroutine part2self_action(this, sim)
   !$omp end do
   !$omp end parallel
   class default
-    write(*,*) "particle self interaction not implemented for this type, group=", i
+    write(*,*) "part2self_action not implemented for this kinetic type, group=",this%origin_group
     call exit(13)
   end select
-    
+  
+  ! writing the diagnostics to the log file
   call MPI_REDUCE(diagnostics, diagnostics_all_mpi, n_global_diagnostics, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   if (sim%my_id .eq. 0) then
-    write(*,'(A,2f14.0)') "superparticles going (in/out) = ", diagnostics_all_mpi(i_wall_part_in),diagnostics_all_mpi(i_wall_part_out) 
+    write(*,'(A,2f14.0)' ) "superparticles going (in/out) = ", diagnostics_all_mpi(i_wall_part_in),             diagnostics_all_mpi(i_wall_part_out) 
     write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", diagnostics_all_mpi(i_wall_flux_in)/this%delta_t,diagnostics_all_mpi(i_wall_flux_out)/this%delta_t 
     write(*,'(A,2es16.6)') "heatflux (in/out) [W]         = ", diagnostics_all_mpi(i_wall_heat_in)/this%delta_t,diagnostics_all_mpi(i_wall_heat_out)/this%delta_t 
   endif
