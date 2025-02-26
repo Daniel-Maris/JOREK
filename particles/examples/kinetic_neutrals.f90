@@ -302,6 +302,11 @@ do while (.not. sim%stop_now)
   !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
   !> + pushing the particles + calculating the feedback
   !> CURRENTLY ONLY SUPPORTS KINETIC NEUTRALS (Work in progress)
+
+  !> As we call multiple kinetic loops and only want to use 1 %rhs,
+  !>   we should set it to zero here, and not in any of the kinetic loops
+  jorek_feedback%rhs = 0.d0
+
   do group_num=1, n_part_groups
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  

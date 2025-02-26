@@ -120,7 +120,7 @@ subroutine determine_coupling_variables()
   enddo
 
   n_aux_var = final_var_idx
-  n_aux_var = n_aux_var + 1 ! temporary as diag projections not yet created
+  n_aux_var = n_aux_var + 2 ! temporary as diag projections not yet created
   ! maybe some write out here to provide info?
 
 end subroutine determine_coupling_variables
