@@ -246,11 +246,8 @@ do while (.not. sim%stop_now)
 
 
   ! --- Interactions that happen on the fluid timestep (creating kinetic particles)
-  
-  ! TODO: rewrite below explanation comment
-  !> The wall interaction module actually contains 3 different effects: wall_actioning (plasma to W, which is not used in this example), 
-  !> kinetic particle reflection off the wall, and wall recombination of the plasma into kinetic neutrals (i.e. recycling)
-  !> Do this call before recombination and puffing. Otherwise to-be-reflected particles can be overwritten.
+
+  ! TODO: move reflections to after the stepper (breaks reg test)
   if (wall_action_counter > 0) then
     call write_to_outputfile(sim%my_id, "Wall actions")
     do i=1, wall_action_counter    
@@ -260,7 +257,7 @@ do while (.not. sim%stop_now)
   endif
 
   if (recomb_counter > 0) then
-    call write_to_outputfile(sim%my_id, "Recombination")
+    call write_to_outputfile(sim%my_id, "Volume recombination")
     do i=1, recomb_counter
       call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
     enddo
