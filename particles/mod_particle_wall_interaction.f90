@@ -87,10 +87,12 @@ module mod_particle_wall_interaction
   end type wall_action
   
   !> indices of different diagnostics in the global diagnostics array which is used for the output file
-  integer, parameter :: n_global_diagnostics=6, i_wall_part_in=1, i_wall_flux_in=2, i_wall_heat_in=3, i_wall_part_out=4, i_wall_flux_out=5, i_wall_heat_out=6
+  !> number of super particles is intentionally stored in a real, to easily handle all diagnostics simultaneously (in omp reductions and in MPI_reduce)
+  integer, parameter :: n_global_diagnostics=8, i_wall_part_in=1, i_wall_flux_in=2, i_wall_heat_in=3, i_wall_part_out=4, i_wall_flux_out=5, i_wall_heat_out=6, i_wall_flux_refl=7, i_wall_heat_refl=8
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
+!> TODO cleanup namespace?
 subroutine construct_wall_action(new, sim, origin_group, target_group, type, edge_element_template, filename, basename, decimal_digits, fractional_digits, rng)
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
@@ -110,7 +112,7 @@ subroutine construct_wall_action(new, sim, origin_group, target_group, type, edg
   class(type_rng),     intent(in), optional :: rng !< random-number generator to use (default PCG32)
  
   character(len=100) :: name
-  integer :: u, my_seed, n_stream, n_streams, ierr, i
+  integer :: u, my_seed, n_stream, n_streams, i
   integer :: n_project_scalars
 
   new%type = trim(type)
@@ -289,7 +291,6 @@ end subroutine load_eckstein_data
 !> Perform the wall interaction according to the setting in the wall_action object
 !> How and when to run depends on the details of the interaction
 subroutine do_wall_action(this, sim, ev)
-  use mpi_mod
   use mod_atomic_elements, only: element_symbols
   use mod_parameters, only: n_plane, n_period
   use phys_module, only: use_manual_random_seed, tstep, central_mass, central_density
@@ -361,7 +362,7 @@ subroutine fluid2part_action(this, sim)
   type(particle_sim), intent(inout) :: sim
   
   type(particle_kinetic_leapfrog) :: particle
-  integer :: j, i_p, n_supers_loc, ierr, i_rng
+  integer :: j, i_p, n_supers_loc, i_rng
   integer :: q, Z
   real*8 :: E !< [eV] particle energy  (eV because of eckstein coeffs).
   real*8 :: n_e, T_e, T_eV
@@ -374,11 +375,9 @@ subroutine fluid2part_action(this, sim)
   integer :: n_free
 
   ! diagnostics
-  real*8  ::  energy_reflected_local, energy_reflected_all, enery_wall_recombi_local,enery_wall_recombi_all !0D quantities
-  real*8  ::  energy_mol_recombi_local, energy_mol_recombi_all !<also wall assisted recombination
-  
   real*8, dimension(n_global_diagnostics) :: diagnostics         !< diagnostics for the global wall loads
   real*8, dimension(n_global_diagnostics) :: diagnostics_all_mpi !< MPI reduced version of diagnostics
+  real*8  :: mol_binding_E=3.526d-19, ion_binding_E=2.18d-18  !< ! (J) default values are only true for hydrogen, should be the sum of ionisation energies from 0 to q for impurities.
   
   !> this subroutine will calculate the incident ion flux over every fluid species on edge domain
   !> And the resulting yield of created particles (in atoms/m^2 during delta_t)
@@ -399,12 +398,6 @@ subroutine fluid2part_action(this, sim)
   allocate(xyz_sampled(3,n_supers_loc))
   allocate(st_sampled(2,n_supers_loc))
   allocate(i_elm_sampled(n_supers_loc))
-
-  !TODO temporary until global diagnostics is fully implemented:
-  !> Set all 0D diagnostics for neutrals zero for every fluid group
-  enery_wall_recombi_local=0.d0 ; enery_wall_recombi_all=0.d0
-  energy_reflected_local=0.d0 ; energy_reflected_local=0.d0
-  energy_mol_recombi_local=0.d0 ; energy_mol_recombi_all=0.d0
 
   diagnostics = 0.d0
 
@@ -439,7 +432,7 @@ subroutine fluid2part_action(this, sim)
   end if
 
   if (sim%my_id .eq. 0) then
-    write(*,"(A,i8,A,A,A,A,A,i2,A,i2,A,g12.4,A,g12.4)") "fluid2wall will create ", this%supers_num," ", element_symbols(sim%groups(this%target_group)%Z),&
+    write(*,"(A,i8,A,A,A,A,A,i2,A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", this%supers_num," ", element_symbols(sim%groups(this%target_group)%Z),&
       " from ", element_symbols(Z), " in group ", this%target_group, &
     " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral, "  particles flux #/s : ", integral/this%delta_t
   end if
@@ -454,7 +447,7 @@ subroutine fluid2part_action(this, sim)
   !$omp integral, q, Z) &
 #endif
   !$omp private(i_rng, j, E, T_e, T_eV, n_e, particle) &
-  !$omp reduction(+:enery_wall_recombi_local,energy_reflected_local,energy_mol_recombi_local)
+  !$omp reduction(+:diagnostics)
   i_rng = 1
   !$ i_rng = omp_get_thread_num()+1
   !$omp do schedule(static,1)
@@ -536,8 +529,9 @@ subroutine fluid2part_action(this, sim)
       call wrong_interaction_type(this%type)
     end select
 
+    ! write the created particle to a free slot in the array
     i_p = i_free(j)
-    pa(i_p) = particle
+    pa(i_p) = particle ! assignment(=+ operator is defined for particle_base as copy, so this works as you would intuitively think
   end do
   !$omp end do
   !$omp end parallel
@@ -546,21 +540,17 @@ subroutine fluid2part_action(this, sim)
     stop
   end select
 
-  !TODO diagnostic
+  call write_global_diag(this, sim, diagnostics)
 
-
-  ! 0D energy quantaties for neutrals !enery_wall_recombi_local,energy_reflected_local,energy_mol_recombi_local
-  call MPI_REDUCE(enery_wall_recombi_local,enery_wall_recombi_all,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(energy_reflected_local,energy_reflected_all,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr) 
-  call MPI_REDUCE(energy_mol_recombi_local,energy_mol_recombi_all,1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)   
+  ! on top of the standard global diagnostics, a few extra ones are printed
   if (sim%my_id .eq. 0) then
-    write(*,'(A50,1e16.8)') "atom wall-assisted recombination power [W] = ", enery_wall_recombi_all    /this%delta_t
-    write(*,'(A50,1e16.8)') "molecule wall-assisted recombination power [W] = ", energy_mol_recombi_all/this%delta_t
-    write(*,'(A40,1e16.8)') "Power to (fast) reflected atoms [W] = ", energy_reflected_all             /this%delta_t
+    write(*,'(A50,1es16.8)') "atom wall-assisted recombination power [W] = ",      diagnostics(i_wall_flux_in)                                  * ion_binding_E / this%delta_t
+    write(*,'(A50,1es16.8)') "molecule wall-assisted recombination power [W] = ", (diagnostics(i_wall_flux_in) - diagnostics(i_wall_flux_refl)) * mol_binding_E / this%delta_t
+    write(*,'(A50,1es16.8)') "Power to (fast) reflected atoms [W] = ",             diagnostics(i_wall_heat_refl)                                                / this%delta_t
   endif
-  !< enery_wall_recombi_all = recycled flux * 13.6 eV. All ions are neutralized on the wall. This increaes the heat load on the wall ~stangeby2000 p.653
-  !< energy_mol_recombi_all = thermal desorption flux*2.2 eV. When neutrals on the wall form neutrals, the wall heat load is increased by 2.2 eV per molecule. ~stangeby2000 p.653
-  !< energy_reflected_all = energy retained by reflected neutrals. This energy is not deposited on the wall, thus decreases the plasma heat load.
+  !< atom wall-assisted recombination power = recycled flux * 13.6 eV. All ions are neutralized on the wall. This increaes the heat load on the wall ~stangeby2000 p.653
+  !< molecule wall-assisted recombination power = thermal desorption flux*2.2 eV. When neutrals on the wall form neutrals, the wall heat load is increased by 2.2 eV per molecule. ~stangeby2000 p.653
+  !< power to (fast) reflected atoms = energy retained by reflected neutrals. This energy is not deposited on the wall, thus decreases the plasma heat load.
   !  From ITER PFPO-1 test in 2D : energy_reflected_all > enery_wall_recombi_all >> energy_mol_recombi_all
 
   deallocate(rng_sample, xyz_sampled, st_sampled, i_elm_sampled)
@@ -571,7 +561,6 @@ end subroutine fluid2part_action
 !> calls single_self_interaction() for all particles in the specified this%origin_group
 !> also prints the global diagnostics to the output file
 subroutine part2self_action(this, sim)
-  use mpi_mod
   use phys_module, only: use_manual_random_seed
   
   class(wall_action), intent(inout) :: this
@@ -580,7 +569,7 @@ subroutine part2self_action(this, sim)
   real*8, dimension(n_global_diagnostics) :: diagnostics         !< diagnostics for the global wall loads
   real*8, dimension(n_global_diagnostics) :: diagnostics_all_mpi !< MPI reduced version of diagnostics
 
-  integer :: j, ierr, i_rng
+  integer :: j, i_rng
   
   diagnostics = 0.d0
 
@@ -621,13 +610,7 @@ subroutine part2self_action(this, sim)
     call exit(13)
   end select
   
-  ! writing the diagnostics to the log file
-  call MPI_REDUCE(diagnostics, diagnostics_all_mpi, n_global_diagnostics, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  if (sim%my_id .eq. 0) then
-    write(*,'(A,2f14.0)' ) "superparticles going (in/out) = ", diagnostics_all_mpi(i_wall_part_in),             diagnostics_all_mpi(i_wall_part_out) 
-    write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", diagnostics_all_mpi(i_wall_flux_in)/this%delta_t,diagnostics_all_mpi(i_wall_flux_out)/this%delta_t 
-    write(*,'(A,2es16.6)') "heatflux (in/out) [W]         = ", diagnostics_all_mpi(i_wall_heat_in)/this%delta_t,diagnostics_all_mpi(i_wall_heat_out)/this%delta_t 
-  endif
+  call write_global_diag(this, sim, diagnostics)
 end subroutine part2self_action
 
 
@@ -726,6 +709,10 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
       ! still some energy and momentum can be lost at the reflection against the wall, this is modelled using another set of eckstein coefficients
       energy_coeff = this%energy%interp(E,theta)
       E = energy_coeff * E
+
+      ! since we have wall_flux_in, and wall_flux_in = wall_flux_refl + wall_flux_therm, we also know wall_flux_thermal. Similarly we know wall_heat_thermal
+      diagnostics(i_wall_flux_refl)   = diagnostics(i_wall_flux_refl) + particle%weight
+      diagnostics(i_wall_heat_refl)   = diagnostics(i_wall_heat_refl) + particle%weight * E * EL_CHG
     else ! thermal release
       E = (800.d0 + 273.d0) *K_BOLTZ/EL_CHG! must be in eV (800 degrees celsius)
     endif  
@@ -1345,5 +1332,32 @@ subroutine check_self_type(this)
   end if
 end subroutine
 
+!> MPI reduces and writes the normal global diagnostics, 
+!> returns the MPI reduced diagnostics back into diagnostics
+subroutine write_global_diag(this,sim,diagnostics)
+  use mpi_mod
+
+  implicit none
+
+  type(wall_action),   intent(in) :: this
+  type(particle_sim),  intent(in) :: sim
+  real*8, dimension(n_global_diagnostics), intent(inout) :: diagnostics !< diagnostics for the global wall loads
+  
+  real*8, dimension(n_global_diagnostics)                :: diagnostics_all_mpi !< MPI reduced diagnostics for the global wall loads
+  integer :: ierr
+
+  ! MPI reduce can be done at once for all diagnostics  
+  call MPI_REDUCE(diagnostics, diagnostics_all_mpi, n_global_diagnostics, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  
+  ! write standard diagnostics to logfile
+  if (sim%my_id .eq. 0) then
+    write(*,'(A,2f14.0)' ) "superparticles going (in/out) = ", diagnostics_all_mpi(i_wall_part_in),             diagnostics_all_mpi(i_wall_part_out) 
+    write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", diagnostics_all_mpi(i_wall_flux_in)/this%delta_t,diagnostics_all_mpi(i_wall_flux_out)/this%delta_t 
+    write(*,'(A,2es16.6)') "heatflux (in/out) [W]         = ", diagnostics_all_mpi(i_wall_heat_in)/this%delta_t,diagnostics_all_mpi(i_wall_heat_out)/this%delta_t 
+  endif
+
+  ! write MPI reduced diagnostics back to diagnostics so other things can be printed if the user wants it
+  diagnostics = diagnostics_all_mpi
+end subroutine
 
 end module mod_particle_wall_interaction
