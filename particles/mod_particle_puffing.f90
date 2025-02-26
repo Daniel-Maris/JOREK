@@ -125,7 +125,7 @@ subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
   !> validity checks
   do i=1, n_puff_segment_max
     if (new%puff_ctrl%rates(i) > 0) rates_counter = rates_counter + 1
-    if (new%puff_ctrl%times(i) > 0) then
+    if (new%puff_ctrl%times(i) >= 0) then
       times_counter = times_counter + 1
 
       !> check that the set times are increaseing
