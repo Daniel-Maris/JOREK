@@ -42,6 +42,7 @@ contains
     integer :: i
     do i=1,size(out,1)
       out(i) = pcg32_random_double_r(rng)
+      out(i) = 0.5
     end do
   end subroutine pcg32_random_doubles_r
 

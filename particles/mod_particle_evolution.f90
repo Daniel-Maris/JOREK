@@ -93,7 +93,6 @@ subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part
   feedback_nodelist => jorek_feedback%node_list
   feedback_element_list => jorek_feedback%element_list
 
-  ! jorek_feedback%rhs = 0.d0
   feedback_rhs       = 0.d0
   
   call with(sim, counter)
@@ -112,7 +111,8 @@ end if
    !$omp parallel do default(none) &
 #endif
    !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,                            &
-   !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &                                                    
+   !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
+   !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin,                                                        &
    !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist,feedback_element_list)                        &
    !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,                        &
    !$omp i_elm_old, i_elm, n_i, n_e, T_e,imp_charge_density,P,                                           &
@@ -175,7 +175,6 @@ end if
         line_rad_energy = 0.d0
         if (sim%groups(group_num)%use_kin_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
               call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
-              ! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
               line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
         endif ! use_kin_line_radiation
         
@@ -284,9 +283,9 @@ end if
 	      !v_S_ion   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * ion_source              / tstep_part_adj
   
               do i_tor=1,n_tor
-                feedback_rhs(m,l,i_elm_old,i_tor,1) = feedback_rhs(m,l,i_elm_old,i_tor,1) + HZ(i_tor) * v
-                feedback_rhs(m,l,i_elm_old,i_tor,2) = feedback_rhs(m,l,i_elm_old,i_tor,2) + HZ(i_tor) * v_E
-                feedback_rhs(m,l,i_elm_old,i_tor,3) = feedback_rhs(m,l,i_elm_old,i_tor,3) + HZ(i_tor) * v_v
+                feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
+                feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) + HZ(i_tor) * v_E
+                feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
                 feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj !< buiten de steps loop
 		!feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_cx
 		!feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_P_ion
@@ -319,15 +318,21 @@ end if
   if (sim%groups(group_num)%coupling_scheme == 'ncs') then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
       !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,1:3) = feedback_rhs(:,:,:,:,1:3) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,2) = 0 !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,3) = 0 !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) = feedback_rhs(:,:,:,:,Vpar_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,T_idx_kin) = feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+
 
       jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4)
       ! jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
       !jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
       !jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)
       jorek_feedback%rhs_gather_time = 0.d0
+
+      write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
+      write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,T_idx_kin))
+      write(*,*) "mom feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin))
+
   else
       jorek_feedback%rhs = feedback_rhs 
     endif

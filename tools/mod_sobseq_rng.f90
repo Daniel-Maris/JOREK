@@ -103,6 +103,7 @@ contains
     if (rng%n_streams .eq. 1) then
       do i=1,size(rng%state,1)
         out(i) = rng%state(i)%next()
+        out(i) = 0.5
       end do
     else
       N = ilog2_b_ceil(rng%n_streams)
@@ -113,6 +114,7 @@ contains
       else
         do i=1,size(rng%state,1)
           out(i) = rng%state(i)%next_strided()
+          out(i) = 0.5
         end do
       end if
     end if
