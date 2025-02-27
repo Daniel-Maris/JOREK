@@ -73,14 +73,17 @@ module mod_particle_wall_interaction
     real*8  :: weight_factor = 1.d0 !< additional weight factor of the yield (e.g. useful to split a single plasma fluid into D and T neutrals upon wall recombination)
 
     ! diagnostics
-    type(edge_elements) :: wall_projection         !< diagnostic to keep track of particle- and heat fluxes, sputtering yields, etc. resolved on the wall (1D for 2D simulations, 2D for 3D simulations)
-    integer             :: i_step_diag = 0         !< how many steps have been taken between the previous diagnostic output and now
-    integer             :: n_step_diag             !< after how many timesteps the wall projection should be saved (as vtk file in the simulation folder)
-    real*8              :: last_diag_time = -9.d99 !< Last time of output of diagnostics
-    integer             :: n_project_diag          !< Number of projection diagnostics
-    real*8              :: delta_t                 !< [s] tstep in SI
+    logical             :: do_wall_projection=.true. !< whether to do wall projections for this interaction
+    type(edge_elements) :: wall_projection           !< diagnostic to keep track of particle- and heat fluxes, sputtering yields, etc. resolved on the wall (1D for 2D simulations, 2D for 3D simulations)
+    integer             :: i_step_diag = 0           !< how many steps have been taken between the previous diagnostic output and now
+    integer             :: n_step_diag               !< after how many timesteps the wall projection should be saved (as vtk file in the simulation folder)
+    real*8              :: last_diag_time = -9.d99   !< Last time of output of diagnostics
+    integer             :: n_project_extra           !< Number of extra projection diagnostics for this interaction on top of n_project_general
+    integer             :: n_project_tot             !< Total number of wall projections for this diagnostic (i.e. shorthand for n_project_general + n_project_extra)
+    integer             :: n_project_part = -1       !< Number of particle projections (as those need to be MPI reduced)
+    real*8              :: delta_t                   !< [s] tstep in SI
  
-    logical             :: constructed =.false.    !< whether the constructor has been called (this is used as assert in the do action) 
+    logical             :: constructed =.false.      !< whether the constructor has been called (this is used as assert in the do action) 
   contains
     procedure :: do => do_wall_action
     procedure :: load_eckstein_data
@@ -89,17 +92,19 @@ module mod_particle_wall_interaction
   !> indices of different diagnostics in the global diagnostics array which is used for the output file
   !> number of super particles is intentionally stored in a real, to easily handle all diagnostics simultaneously (in omp reductions and in MPI_reduce)
   integer, parameter :: n_global_diagnostics=8, i_wall_part_in=1, i_wall_flux_in=2, i_wall_heat_in=3, i_wall_part_out=4, i_wall_flux_out=5, i_wall_heat_out=6, i_wall_flux_refl=7, i_wall_heat_refl=8
+  
+  integer, parameter :: n_project_general=4 !< number of general projections (on top of the number of interaction type specific interactions)
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
 !> TODO cleanup namespace?
-subroutine construct_wall_action(new, sim, origin_group, target_group, type, edge_element_template, filename, basename, decimal_digits, fractional_digits, rng)
+subroutine construct_wall_action(this, sim, origin_group, target_group, type, edge_element_template, filename, basename, decimal_digits, fractional_digits, rng)
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
   use phys_module, only: nout_projection
 
   implicit none
-  type(wall_action),   intent(inout) :: new       !< the new wall_action object. Inout because it may need some settings already
+  type(wall_action),   intent(inout) :: this      !< the new wall_action object. Inout because it may need some settings already
   type(particle_sim),  intent(in) :: sim
   integer,             intent(in) :: origin_group !< index specifying which group is undergoing this wall interaction. Either particle group number or fluid group number (if it is a fluid to particle interaction type)
   integer,             intent(in) :: target_group !< which particle group this wall interaction affects
@@ -112,141 +117,115 @@ subroutine construct_wall_action(new, sim, origin_group, target_group, type, edg
   class(type_rng),     intent(in), optional :: rng !< random-number generator to use (default PCG32)
  
   character(len=100) :: name
-  integer :: u, my_seed, n_stream, n_streams, i
-  integer :: n_project_scalars
+  integer :: u, my_seed, n_stream, n_streams, i, j
+  character(len=14), dimension(:), allocatable :: extra_proj_scalar_names !< additional scalar names on top of the normal ones
+  
+  this%type = trim(type)
+  this%origin_group = origin_group
+  this%target_group = target_group
 
-  new%type = trim(type)
-  new%origin_group = origin_group
-  new%target_group = target_group
-
-  ! type specific settings such as the switch here
-  ! also allocate how many wall_projections for everything here
+  ! type specific settings and checking the type
+  ! also allocate how many extra wall projections for everything here
   select case(trim(type))
   case("self sputter")
-    new%part2self = .true.
-    call check_self_type(new)
+    this%part2self = .true.
+    call check_self_type(this)
   case("fluid sputter")
-    new%fluid2part = .true.
+    this%fluid2part = .true.
   case("other sputter")
-    new%part2other = .true.
+    this%part2other = .true.
     write(*,*) 'type "other sputter" is still to be implemented'
     stop
   case("reflection")
-    new%part2self = .true.
-    call check_self_type(new)
+    this%part2self = .true.
+    call check_self_type(this)
   case("wall recomb")
-    new%fluid2part = .true.
+    this%fluid2part = .true.
   case default
     call wrong_interaction_type(type)
   end select
 
-  call new%load_eckstein_data(sim)
+  if(this%fluid2part) extra_proj_scalar_names = ["n_e           ","T_e           ","cos_alpha     ","Psi_n         ","fluid_flux    ","fluid_heatflux","fluid_yield   "]
+  
+  ! if there are no extra projections, set the allocatable to 0
+  if(.not. allocated(extra_proj_scalar_names)) allocate(extra_proj_scalar_names(0))
+  if(this%n_project_part < 0) this%n_project_part = n_project_general
 
-  ! check on the edge_element_template
+  call this%load_eckstein_data(sim)
+
+  ! initialising the edge_element objects from the template
   if (.not. allocated(edge_element_template%patch(1)%xyz)) then
     write(*,*) 'Edge element template needs to be prepared, exiting'
     stop
   end if
   
-  new%wall_projection = edge_element_template
-  new%fluid_yield_integral = edge_element_template
+  this%wall_projection = edge_element_template
+  this%fluid_yield_integral = edge_element_template
   ! Clean up the passed edge elements
   do i=1,size(edge_element_template%patch,1)
     if (allocated(edge_element_template%patch(i)%scalars)) then
-      deallocate(new%wall_projection%patch(i)%scalars, &
-                 new%fluid_yield_integral%patch(i)%scalars)
+      deallocate(this%wall_projection%patch(i)%scalars, &
+                 this%fluid_yield_integral%patch(i)%scalars)
     end if
     if (allocated(edge_element_template%patch(i)%scalar_names)) then
-      deallocate(new%wall_projection%patch(i)%scalar_names, &
-                 new%fluid_yield_integral%patch(i)%scalar_names)
+      deallocate(this%wall_projection%patch(i)%scalar_names, &
+                 this%fluid_yield_integral%patch(i)%scalar_names)
     end if
   end do
 
   ! settings for the diagnostics
-  write(name, "(A,I2.2,A,I2.2)") trim(type)//"_", origin_group, "_to_", target_group
-  new%n_step_diag = nout_projection
-  new%basename = trim(name)
-  if (present(filename)) new%filename = filename
-  if (present(basename)) new%basename = basename
-  if (present(decimal_digits)) new%decimal_digits = decimal_digits
-  if (present(fractional_digits)) new%fractional_digits = fractional_digits
-  new%extension = '.vtk'
-  new%name = trim(name)
-  new%log = .true.
+  write(name, "(A,I2.2,A,I2.2)") spaces2underscore(type)//"_", origin_group, "_to_", target_group
+  this%n_step_diag = nout_projection
+  this%basename = trim(name)//"_"
+  if (present(filename)) this%filename = filename
+  if (present(basename)) this%basename = basename
+  if (present(decimal_digits)) this%decimal_digits = decimal_digits
+  if (present(fractional_digits)) this%fractional_digits = fractional_digits
+  this%extension = '.vtk'
+  this%name = trim(name)
+  this%log = .true.
 
-  
   ! Set up scalars and scalar names for the diagnostic projections
-!   n_scalars = n_particle_diag*n_particle_groups + n_fluid_diag*n_fluid_groups + n_general_diag
-!   do i=1,size(this%wall_projection%patch,1)
-!     if (.not. allocated(this%wall_projection%patch(i)%scalars)) then
-!       allocate(this%wall_projection%patch(i)%scalars(size(this%wall_projection%patch(i)%st,2), n_scalars))
-!       this%wall_projection%patch(i)%scalars(:,:) = 0.d0
-!     end if
-!     if (.not. allocated(this%wall_projection%patch(i)%scalar_names)) then
-!       allocate(this%wall_projection%patch(i)%scalar_names(n_scalars))
-!       associate (sn => this%wall_projection%patch(i)%scalar_names)
-!       n_j_total = count(sim%groups(:)%Z .eq. sim%groups(this%target_group)%Z) ! total number of groups of the target species
-!       if (n_j_total .gt. 1) then
-!         n_j = count(sim%groups(1:this%target_group)%Z .eq. sim%groups(this%target_group)%Z) ! number of groups of this species so far
-!         write(s_tmp,'(i1)') n_j
-!         target_name = trim(element_symbols(sim%groups(this%target_group)%Z))//trim(s_tmp)
-!       else
-!         target_name = trim(element_symbols(sim%groups(this%target_group)%Z))
-!       end if
-
-!       do j=1,n_particle_groups
-!         ! convention is source-target-type (without dashes), with numbers where necessary
-!         n_j_total = count(sim%groups(:)%Z .eq. sim%groups(j)%Z) ! total number of groups of this species
-!         if (n_j_total .gt. 1) then
-!           n_j = count(sim%groups(1:j)%Z .eq. sim%groups(j)%Z) ! number of groups of this species so far
-!           write(s_tmp,'(i1)') n_j
-!           source_name = trim(element_symbols(sim%groups(j)%Z))//trim(s_tmp)
-!         else
-!           source_name = trim(element_symbols(sim%groups(j)%Z))
-!         end if
-!         sn(n_particle_diag*j-3) = trim(source_name)//"flux"
-!         sn(n_particle_diag*j-2) = trim(source_name)//"heatflux"
-!         sn(n_particle_diag*j-1) = trim(source_name)//"promptflux"
-!         sn(n_particle_diag*j-0) = trim(source_name)//trim(target_name)//"yield"
-!       end do
-!       n = n_particle_diag*n_particle_groups !< offset
-!       do j=1,n_fluid_groups
-        ! source_name = trim(element_symbols(this%fluid_Z))//'f'
-!         sn(n+n_fluid_diag*j-3) = trim(source_name)//"density"
-!         sn(n+n_fluid_diag*j-2) = trim(source_name)//"flux"
-!         sn(n+n_fluid_diag*j-1) = trim(source_name)//"heatflux"
-!         sn(n+n_fluid_diag*j-0) = trim(source_name)//trim(target_name)//"yield"
-!       end do
-!       n = n_particle_diag*n_particle_groups + n_fluid_diag*n_fluid_groups
-!       sn(n+1) = "n_e" ! m^-3
-!       sn(n+2) = "T_e" ! eV
-!       sn(n+3) = "cos_alpha" ! cosine of angle between normal and B-field
-!       sn(n+4) = "Psi_n" ! normalized psi
-!       sn(n+5) = trim(target_name)//"_yield"
-!       end associate
-!     end if
-!   end do
-
-  ! Allocate scalars for the fluid_yield_integral
-  do i=1,size(new%fluid_yield_integral%patch,1)
-    allocate(new%fluid_yield_integral%patch(i)%scalars( &
-      size(new%fluid_yield_integral%patch(i)%st,2), 1))
+  this%n_project_extra = size(extra_proj_scalar_names, dim=1)
+  write(*,*) "this%n_project_extra=",this%n_project_extra
+  this%n_project_tot = n_project_general + this%n_project_extra
+  do i=1,size(this%wall_projection%patch,1)
+    allocate(this%wall_projection%patch(i)%scalars(size(this%wall_projection%patch(i)%st,2), this%n_project_tot))
+    this%wall_projection%patch(i)%scalars(:,:) = 0.d0 ! initialising scalars
     
-    new%fluid_yield_integral%patch(i)%scalars = -1
+    allocate(this%wall_projection%patch(i)%scalar_names(this%n_project_tot))
+    
+    ! defining the scalar names
+    associate (sn => this%wall_projection%patch(i)%scalar_names)
+      sn(1) = "part_flux"
+      sn(2) = "part_heatflux"
+      sn(3) = "part_promptflux"
+      sn(4) = "part_yield"
+      do j=1,this%n_project_extra
+        sn(n_project_general+j) = trim(extra_proj_scalar_names(j))
+      enddo
+    end associate
   end do
 
-  ! temporary until rng has become part of sim
+  ! Allocate scalars for the fluid_yield_integral
+  do i=1,size(this%fluid_yield_integral%patch,1)
+    allocate(this%fluid_yield_integral%patch(i)%scalars( &
+      size(this%fluid_yield_integral%patch(i)%st,2), 1))
+    
+    this%fluid_yield_integral%patch(i)%scalars = -1
+  end do
+
   !> allocate random seed for sampling
   my_seed = random_seed()
   if (present(rng)) then
-    call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=rng, rngs=new%rng)
+    call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=rng, rngs=this%rng)
   else
     ! default to pcg32_rng
-    call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=pcg32_rng(), rngs=new%rng)
+    call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=pcg32_rng(), rngs=this%rng)
   end if
 
   !constructor finished
-  new%constructed = .true.
+  this%constructed = .true.
 end subroutine construct_wall_action
 
 
@@ -297,7 +276,7 @@ subroutine do_wall_action(this, sim, ev)
   
   class(wall_action), intent(inout)    :: this
   type(particle_sim), intent(inout)    :: sim
-  type(event), intent(inout), optional :: ev
+  type(event), intent(inout), optional :: ev   !< this is here so that it is compatible with the event structure, but we can remove it if we want to move away from it
 
   integer :: i
 
@@ -327,13 +306,6 @@ subroutine do_wall_action(this, sim, ev)
   this%i_step_diag = this%i_step_diag + 1
   if (this%i_step_diag .ge. this%n_step_diag) then
     call write_wall_project_vtk(this, sim)
-    
-    ! Reset diagnostic
-    do i = 1,size(this%wall_projection%patch,1)
-      this%wall_projection%patch(i)%scalars(:,:) = 0.d0
-    end do
-    this%i_step_diag = 0
-    this%last_diag_time = sim%time
   end if
 end subroutine do_wall_action
 
@@ -704,6 +676,9 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
     !> assume wall saturation (pumping implementation is done separately)
     yield = 1.d0
 
+    !> storing this particle's contribution on a 2D edge element patch grid as diagnostic
+    call particle_projection_diagnostic(this, sim, particle, E, yield)
+
     !> determine new energy
     if (fast_reflection) then
       ! still some energy and momentum can be lost at the reflection against the wall, this is modelled using another set of eckstein coefficients
@@ -732,8 +707,8 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
       !$omp end critical
     end if
 
-    !> storing this particle's contribution to sputtering on a 2D edge element patch grid as diagnostic
-    ! call particle_sputter_diagnostic(this, sim, particle, E, yield)
+    !> storing this particle's contribution on a 2D edge element patch grid as diagnostic
+    call particle_projection_diagnostic(this, sim, particle, E, yield)
 
     !> determining the energy of the particle post sputtering
     if (this%use_thompson) then
@@ -898,7 +873,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
   type(particle_sim), intent(in)    :: sim
   
   integer :: q, i, j, i_patch, Z
-  real*8 :: vector_normal(3), cos_alpha, mass_ion, c_s, Gamma_d, n_species
+  real*8 :: vector_normal(3), cos_alpha, mass_ion, c_s, Gamma_d
   real*8 :: T_i, T_e, n_e, yield, vpar
   real*8, dimension(3) :: E, B, B_hat
   real*8 :: m, psi, U
@@ -906,8 +881,6 @@ subroutine project_sputter_vars_on_edge(this, sim)
 
   real*8 :: psi_axis, R_axis, Z_axis, s_axis, t_axis, psi_xpoint(2), psi_limit, R_xpoint(2), Z_xpoint(2), s_xpoint(2), t_xpoint(2)
   integer :: i_elm_axis, ifail, i_elm_xpoint(2)
-
-  logical, parameter :: do_wall_projection = .false.
 
   c_angle = min_sheath_angle * PI/180.d0
 
@@ -946,7 +919,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
     !$omp shared(this, sim, diagnostics, gamma &
     !$omp i_patch, central_mass, psi_axis, psi_limit, c_angle) &
 #endif
-    !$omp private(i, n_e, T_e, vpar, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, n_species, Gamma_d, &
+    !$omp private(i, n_e, T_e, vpar, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, j, m, Gamma_d, &
     !$omp         yield, Z) schedule(static)
     do i = 1, size(this%fluid_yield_integral%patch(i_patch)%xyz, 2) !< over all nodes
       call sim%fields%calc_NeTevpar(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
@@ -977,9 +950,8 @@ subroutine project_sputter_vars_on_edge(this, sim)
       
       Z = this%fluid_Z
       m = atomic_weights(Z) * ATOMIC_MASS_UNIT
-      n_species = n_e
       
-      Gamma_d = n_species * abs(vpar) * norm2(B) * cos_alpha + n_species * c_s * c_angle
+      Gamma_d = n_e * abs(vpar) * norm2(B) * cos_alpha + n_e * c_s * c_angle
 
       ! Assume an impact angle of 0!
       ! need the abs here because we cheat using negative numbers to indicate D, T
@@ -996,43 +968,39 @@ subroutine project_sputter_vars_on_edge(this, sim)
 
       this%fluid_yield_integral%patch(i_patch)%scalars(i,1) = Gamma_d * this%delta_t * yield !< particles / m^2 in this timestep
 
-      if (do_wall_projection) then
-        ! Particle density
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-3) = &
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-3) + n_species * this%delta_t !< particle density (particles/m^3*s) (i.e. time-integrated density)
+      if (this%do_wall_projection) then
+        associate (sc => this%wall_projection%patch(i_patch)%scalars)
+        ! These are all also multiplied by delta_t so we can make an average
+        ! over the diagnostics period. Disregard the time in the units.
+        sc(i, n_project_general+1) = &
+        sc(i, n_project_general+1) + n_e * this%delta_t ! n_e [m^-3]
 
+        sc(i, n_project_general+2) = &
+        sc(i, n_project_general+2) + T_e * K_BOLTZ / EL_CHG * this%delta_t ! T_e [eV]
+
+        sc(i, n_project_general+3) = &
+        sc(i, n_project_general+3) + cos_alpha * this%delta_t ! dimensionless, cosine of angle between wall normal and fieldline B
+
+        sc(i, n_project_general+4) = &
+        sc(i, n_project_general+4) + (psi - psi_axis)/(psi_limit - psi_axis) * this%delta_t ! normalized psi, dimensionless
+        
+        ! incoming fluid projections, should be similar to incoming particle projections, so this is like a sanity check
         ! number of particles incoming
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-2) = &
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-2) + Gamma_d * this%delta_t !< incident particle flux (particles/m^2)
+        sc(i, n_project_general+5) = &
+        sc(i, n_project_general+5) + Gamma_d * this%delta_t !< incident particle flux (particles/m^2)
 
         ! incident energy integrated over delta_t
         ! where we assume the ion energy to be 2 k T_i + 3 q k T_e as in the ! sputtering calculation above
         ! J/m^2
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-1) = &
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-1) + &
+        sc(i, n_project_general+6) = &
+        sc(i, n_project_general+6) + &
           Gamma_d * this%delta_t * (2.d0 * k_boltz * T_i + 3.d0 * k_boltz * q * T_e)
 
         ! sputtering yield in this time interval at this location [particles/m^2]
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-0) = &
-        this%wall_projection%patch(i_patch)%scalars(i,this%n_project_diag*j-0) + &
+        sc(i, n_project_general+7) = &
+        sc(i, n_project_general+7) + &
           Gamma_d * this%delta_t * yield
-      end if
-      !write(*,*) "mod_wall_action: end do i_patch"
-      ! Save electron temperature
-      if (do_wall_projection) then
-        ! These are all also multiplied by delta_t so we can make an average
-        ! over the diagnostics period. Disregard the time in the units.
-        this%wall_projection%patch(i_patch)%scalars(i, 1) = &
-        this%wall_projection%patch(i_patch)%scalars(i, 1) + n_e * this%delta_t ! n_e [m^-3]
-
-        this%wall_projection%patch(i_patch)%scalars(i, 2) = &
-        this%wall_projection%patch(i_patch)%scalars(i, 2) + T_e * K_BOLTZ / EL_CHG * this%delta_t ! T_e [eV]
-
-        this%wall_projection%patch(i_patch)%scalars(i, 3) = &
-        this%wall_projection%patch(i_patch)%scalars(i, 3) + cos_alpha * this%delta_t ! dimensionless, angle between normal and fieldline
-
-        this%wall_projection%patch(i_patch)%scalars(i, 4) = &
-        this%wall_projection%patch(i_patch)%scalars(i, 4) + (psi - psi_axis)/(psi_limit - psi_axis) * this%delta_t ! normalized psi, dimensionless
+        end associate
       end if
     end do
     !$omp end parallel do
@@ -1119,8 +1087,9 @@ function elm_in_patch(i_elm, edge_element_obj) result(i_patch)
 end function elm_in_patch
 
 
-!> adds this particle's contribution to the sputter diagnostic tool
-subroutine particle_sputter_diagnostic(this, sim, particle, E, sputtering_yield)
+!> adds this particle's contribution to the wall_projection diagnostic tool
+!> TODO cleanup
+subroutine particle_projection_diagnostic(this, sim, particle, E, sputtering_yield)
   use phys_module, only: n_period, n_plane
 
   implicit none
@@ -1142,9 +1111,10 @@ subroutine particle_sputter_diagnostic(this, sim, particle, E, sputtering_yield)
   !> for mpi_reduce of particle contributions
   integer :: toroidal_offset !< Number of elements in the toroidal direction
   
+  if(.not. this%do_wall_projection) return
 
   !> find in which patch the particle is lost
-  i_patch = elm_in_patch(-particle%i_elm, this%fluid_yield_integral)
+  i_patch = elm_in_patch(particle%i_elm, this%fluid_yield_integral)
   if (i_patch < 0) then
     write(*,*) "ERR in particle_self_reflection elm_in_patch, particle lost to somewhere unknown"
     return
@@ -1218,30 +1188,31 @@ subroutine particle_sputter_diagnostic(this, sim, particle, E, sputtering_yield)
   if ((sim%time - particle%t_birth) .lt. TWOPI * sim%groups(this%origin_group)%mass*ATOMIC_MASS_UNIT/(EL_CHG * norm2(B))) is_prompt_loss = 1
 
   ! we need to loop here since omp atomic cannot set an array at once
-  if (this%n_step_diag .ge. 1) then
-    do k=1,4
-      ! these are this%n_project_diag = 3 variables
-      ! store on all 4 simultaneously, multiplied with weights
-      ! * particle flux on edge elements
-      !$omp atomic
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-3) = &
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-3) + particle%weight * area(k)/sum(area)**2
-      ! * particle energy flux on edge elements (including sheath potential)
-      !$omp atomic
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-2) = &
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-2) + particle%weight * E *EL_CHG * area(k)/sum(area)**2
-      ! * particle flux from prompt redeposition (i.e. from particles younger than 2 pi / omega_c)
-      !$omp atomic
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-1) = &
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-1) + particle%weight * is_prompt_loss * area(k)/sum(area)**2
-      ! * sputtering yield
-      !$omp atomic
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-0) = &
-      this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),this%n_project_diag-0) + particle%weight * sputtering_yield * area(k)/sum(area)**2
-    end do
-  end if
-
-end subroutine particle_sputter_diagnostic
+  associate (sc => this%wall_projection%patch(i_patch)%scalars)
+  do k=1,4
+    ! particle flux
+    !$omp atomic
+    sc(i_edge_nodes(k),1) = &
+    sc(i_edge_nodes(k),1) + particle%weight * area(k)/sum(area)**2
+    
+    ! particle heat flux on edge elements (including sheath potential)
+    !$omp atomic
+    sc(i_edge_nodes(k),2) = &
+    sc(i_edge_nodes(k),2) + particle%weight * E * EL_CHG * area(k)/sum(area)**2
+    
+    ! particle flux from prompt redeposition (i.e. from particles younger than 2 pi / omega_c)
+    !$omp atomic
+    sc(i_edge_nodes(k),3) = &
+    sc(i_edge_nodes(k),3) + particle%weight * is_prompt_loss * area(k)/sum(area)**2
+    
+    ! sputtering yield
+    !$omp atomic
+    sc(i_edge_nodes(k),4) = &
+    sc(i_edge_nodes(k),4) + particle%weight * sputtering_yield * area(k)/sum(area)**2
+    
+  end do
+  end associate
+end subroutine particle_projection_diagnostic
 
 
 subroutine write_wall_project_vtk(this, sim)
@@ -1249,64 +1220,64 @@ subroutine write_wall_project_vtk(this, sim)
 
   implicit none
 
-  type(wall_action),  intent(in) :: this
-  type(particle_sim), intent(in) :: sim
+  type(wall_action),  intent(inout) :: this
+  type(particle_sim), intent(in)    :: sim
   
-  if (sim%my_id == 0) write(*,*) "TODO write_wall_project_vtk"
+  integer :: nnos, i, ierr
+  real*4, allocatable :: scalars(:,:) !< for mpi_reduce of particle contributions
+  character(len=120)  :: filename
 
-  ! integer :: nnos
-  !> for mpi_reduce of particle contributions
-  ! real*4, allocatable :: scalars(:,:) !< size(st,1) by n_particle*3
-  ! character(len=120)  :: filename
+  ! if not initialised, setting initial value of this%last_diag_time
+  if (this%last_diag_time < 0) then
+    this%last_diag_time = sim%time - this%delta_t
+  end if
 
-  ! if (this%last_diag_time < 0) then
-  !   this%last_diag_time = sim%time - this%delta_t
-  ! end if
-
-  ! if (len_trim(this%filename) .eq. 0) then
-  !   filename = this%get_filename(sim%time)
-  ! else
-  !   filename = this%filename
-  ! end if
+  ! determine filename
+  if (len_trim(this%filename) .eq. 0) then
+    filename = this%get_filename(sim%time)
+  else
+    filename = this%filename
+  end if
   
-  ! do i = 1,size(this%wall_projection%patch,1)
-  !   ! Turn all quantities from fluences into fluxes by dividing by the time since the last diagnostics output
-  !   ! some of these (like T_e and n_e) were actually not fluences, but
-  !   ! multiply those by this%delta_t anyway so this normalisation works and we get
-  !   ! a decent time average
-  !   this%wall_projection%patch(i)%scalars(:,:) = &
-  !       this%wall_projection%patch(i)%scalars(:,:) / real(sim%time - this%last_diag_time,4)
+  ! time normalising and MPI reducing the quantities
+  do i = 1,size(this%wall_projection%patch,1)
+    ! Turn all quantities from fluences into fluxes by dividing by the time since the last diagnostics output
+    ! some of these (like T_e and n_e) were actually not fluences, but
+    ! multiply those by this%delta_t anyway so this normalisation works and we get
+    ! a decent time average
+    this%wall_projection%patch(i)%scalars(:,:) = &
+        this%wall_projection%patch(i)%scalars(:,:) / real(sim%time - this%last_diag_time,4)
 
-  !   nnos = size(this%wall_projection%patch(i)%scalars,1)
-  !   if (sim%my_id .eq. 0) then
-  !     allocate(scalars(nnos,this%n_project_diag))
-  !   else
-  !     allocate(scalars(0,0))
-  !   end if
-  !   ! And if necessary calculate the sum across mpi procs
-  !   ! this needs to be done for all particle-quantities only (i.e. 1:this%n_project_diag)
-  !   call MPI_Reduce(this%wall_projection%patch(i)%scalars(:,1:this%n_project_diag), &
-  !       scalars, &
-  !       nnos*this%n_project_diag, MPI_REAL4, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  !   if (sim%my_id .eq. 0) then
-  !     this%wall_projection%patch(i)%scalars(:,1:this%n_project_diag) = scalars
+    nnos = size(this%wall_projection%patch(i)%scalars,1)
+    if (sim%my_id .eq. 0) then
+      allocate(scalars(nnos,this%n_project_part))
+    else
+      allocate(scalars(0,0))
+    end if
+    
+    ! Calculate the sum across mpi procs
+    ! this needs to be done for all particle-quantities only (i.e. 1:this%n_project_part)
+    call MPI_Reduce(this%wall_projection%patch(i)%scalars(:,1:this%n_project_part), &
+        scalars, &
+        nnos*this%n_project_part, MPI_REAL4, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+    
+    if (sim%my_id .eq. 0) then
+      this%wall_projection%patch(i)%scalars(:,1:this%n_project_part) = scalars
+    end if
+    
+    deallocate(scalars)
+  end do 
 
-  !     ! sum the sputter yields together to calculate the total
-  !     ! which is at the last variable in diagnostics
-  !     this%wall_projection%patch(i)%scalars(:,this%n_project_diag + n_fluid_groups*n_fluid_diag + n_general_diag) = &
-  !       ! Particle set
-  !       sum(this%wall_projection%patch(i)%scalars(:,n_particle_diag*1:n_particle_diag*n_particle_groups:n_particle_diag), dim=2) + &
-  !       ! Fluid set
-  !       sum(this%wall_projection%patch(i)%scalars(:, &
-  !         n_particle_diag*n_particle_groups+n_fluid_diag*1:&
-  !         n_particle_diag*n_particle_groups+n_fluid_diag*n_fluid_groups:n_fluid_diag), dim=2)
-  !   end if
-  !   deallocate(scalars)
-  ! end do 
+  ! writing the projection
+  if (sim%my_id .eq. 0) write(*,*) 'Writing wall projection diagnostics to ', trim(filename)
+  call this%wall_projection%write_vtk_projection(filename)
 
-
-  ! if (sim%my_id .eq. 0) write(*,*) 'Writing particle sputtering diagnostics to ', trim(filename)
-  ! call this%wall_projection%write_vtk_projection(filename)
+  ! Reset diagnostic
+  do i = 1,size(this%wall_projection%patch,1)
+    this%wall_projection%patch(i)%scalars(:,:) = 0.d0
+  end do
+  this%i_step_diag = 0
+  this%last_diag_time = sim%time
 end subroutine write_wall_project_vtk
 
 
@@ -1359,5 +1330,24 @@ subroutine write_global_diag(this,sim,diagnostics)
   ! write MPI reduced diagnostics back to diagnostics so other things can be printed if the user wants it
   diagnostics = diagnostics_all_mpi
 end subroutine
+
+!> first trims and then replaces spaces by underscores (_) in the string
+function spaces2underscore(string_in) result(string_out)
+  implicit none
+
+  character(len=*), intent(in)  :: string_in !< string in which to replace spaces for _
+  character(len=:), allocatable :: string_out
+
+  character(len=:), allocatable :: string
+  integer :: i
+
+  string = trim(string_in)
+
+  do i=1,len(string)
+    if(string(i:i) == " ") string(i:i) = "_"
+  end do
+
+  string_out = string
+end function
 
 end module mod_particle_wall_interaction
