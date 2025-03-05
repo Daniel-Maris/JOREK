@@ -160,18 +160,13 @@ call sputter_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_to
 allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
 do group_num=1, n_part_groups
+
   ! sputtering
   if (sim%groups(group_num)%use_kin_sputtering) then
     sputter_counter = sputter_counter + 1 ! increase the number of groups that requires sputtering
     n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
     sputter_source = initialise_sputtering(sputter_edge, group_num, n_reflect)
     sputter_events(sputter_counter) = event(sputter_source)
-  endif
-
-  ! recombination
-  if (sim%groups(group_num)%use_kin_recombination) then
-    recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
-    recomb_groups(recomb_counter) = group_num
   endif
 
   ! puffing
@@ -184,6 +179,19 @@ do group_num=1, n_part_groups
       endif
     enddo ! n_valves_max
   endif
+
+  ! recombination
+  if (sim%groups(group_num)%use_kin_recombination) then
+    if (trim(sim%groups(group_num)%coupling_scheme) == 'ncs') then
+      recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
+      recomb_groups(recomb_counter) = group_num
+    else 
+      write(*,*) "ERROR: incompatible setting enabled for group ", sim%groups(group_num)%id, ": "
+      write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
+      stop
+    endif
+  endif
+
 enddo ! n_part_groups
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
