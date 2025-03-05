@@ -656,27 +656,22 @@ end if
       
     end select
     
-    if (use_ncs) then
-        write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-        !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
-        write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,2))
-  
-        jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-        jorek_feedback%rhs(:,:,:,:,T_idx_kin) = jorek_feedback%rhs(:,:,:,:,T_idx_kin) + feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-        jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) = jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) + feedback_rhs(:,:,:,:,Vpar_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-  
-        ! jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4)
-        jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
-        jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
-        jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)
-        jorek_feedback%rhs_gather_time = 0.d0
-  
-        write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,1))
-        write(*,*) "imp_charge feedback total: ", sum(feedback_rhs(:,:,:,:,5)) 
-  
-    else
-        jorek_feedback%rhs = feedback_rhs 
-      endif
+    write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
+    !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
+    write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,2))
+
+    jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+    jorek_feedback%rhs(:,:,:,:,T_idx_kin) = jorek_feedback%rhs(:,:,:,:,T_idx_kin) + feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+    jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) = jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) + feedback_rhs(:,:,:,:,Vpar_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+
+    ! jorek_feedback%rhs(:,:,:,:,4) = feedback_rhs(:,:,:,:,4)
+    jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
+    jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
+    jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)
+    jorek_feedback%rhs_gather_time = 0.d0
+
+    write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,1))
+    write(*,*) "imp_charge feedback total: ", sum(feedback_rhs(:,:,:,:,5)) 
       
     deallocate(feedback_rhs)
     call MPI_REDUCE(x_loc, x_loc_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr) ! [D]

@@ -9,7 +9,8 @@ implicit none
 
 ! the variables below are global variables determined by scanning over particle groups, 
 ! and hence shoud NOT be modified manually
-logical :: use_ncs               = .false. !< use neutral kinetic particles
+logical :: use_ncs               = .false. !< use kinetic neutral particles
+logical :: use_ics               = .false. !< use kinetic impurity particles
 logical :: use_ccs               = .false. !< use current coupling scheme for fast particles
 logical :: use_pcs               = .false. !< use pressure coupling scheme for fast particles
 logical :: use_pcf               = .false. !< use full tensor pressure coupling scheme for fast particles
@@ -27,6 +28,8 @@ subroutine determine_coupling_schemes()
     select case (part_group_configs(group_num)%coupling_scheme)
       case ('ncs')
         use_ncs = .true.
+      case ('ics')
+        use_ics = .true.
       case ('ccs')
         use_ccs = .true.
       case ('pcs')
@@ -83,6 +86,12 @@ subroutine determine_coupling_variables()
   if (use_ncs) then 
     do i=1, size(ncs_var_names)
       call assess_and_accumulate_variable(ncs_var_names(i), coupling_var_idx, coupling_vars)
+    enddo
+  endif
+
+  if (use_ics) then 
+    do i=1, size(ics_var_names)
+      call assess_and_accumulate_variable(ics_var_names(i), coupling_var_idx, coupling_vars)
     enddo
   endif
     

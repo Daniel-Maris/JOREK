@@ -437,8 +437,9 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,       &
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
-!$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb,                              &
+!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb,                     &
 !$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
+!$omp          rho_idx_kin, T_idx_kin, Vpar_idx_kin,                                                          &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
@@ -731,10 +732,10 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
         vpar_s  = eq_s(mp,var_Vpar,ms,mt)
         vpar_t  = eq_t(mp,var_Vpar,ms,mt)
 
-        if (use_ncs) then
-                aux_rho0  = eq_aux_g(mp,1,ms,mt)
-                aux_T0    = eq_aux_g(mp,2,ms,mt)
-                aux_Vpar0 = eq_aux_g(mp,3,ms,mt)
+        if (use_ncs .or. use_ics) then
+                aux_rho0  = eq_aux_g(mp,rho_idx_kin,ms,mt)
+                aux_T0    = eq_aux_g(mp,T_idx_kin,ms,mt)
+                aux_Vpar0 = eq_aux_g(mp,Vpar_idx_kin,ms,mt)
         end if
 
 #if (defined WITH_Neutrals)
@@ -847,7 +848,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 !-------------------------------------------
 ! --- USE NCS, PARTICLE NEUTRAL AND IMPURITY COUPLE SCHEME
 ! ------------------------------------------
-        if(use_ncs) then 
+        if(use_ncs .or. use_ics) then 
           ksi_ion_norm = central_density * 1.d20 * ksi_ion
           call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T_ncs, dSion_dT_ncs, Srec_T_ncs, dSrec_dT_ncs, LradDcont_T_ncs, dLradDcont_dT_ncs)
         
@@ -1462,7 +1463,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           VM_int = VM_int + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_int = J2_int + eta_T_ohm * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
 
-          if (use_ncs) then 
+          if (use_ncs .or. use_ics) then 
             local_aux_mom_par_int=local_aux_mom_par_int+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
           endif 
 
@@ -1517,7 +1518,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           VM_ext = VM_ext + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_ext = J2_ext + eta_T_ohm * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
 
-          if (use_ncs) then 
+          if (use_ncs .or. use_ics) then 
             local_aux_mom_par_ext=local_aux_mom_par_ext+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
           endif  
          
@@ -2747,7 +2748,7 @@ if (my_id .eq. 0) then
                                  Ohm_tot/1.d6,heating_in/1d6+heating_out/1.d6 ,source_in+source_out
 
 
-  if (use_ncs) then
+  if (use_ncs .or. use_ics) then
     write(*,'(A)') '----------------------------------------'
     write(*,'(A)') ' Kinetic neutral integrals on fluid side                  '
     write(*,'(A,4es14.6,A)') ' Ion source (aux_rho0), Recomb loss                : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
@@ -2755,7 +2756,7 @@ if (my_id .eq. 0) then
     write(*,'(A,3es14.6,A)') ' Heat source (aux_T0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
     write(*,'(A,4es14.6,A)') ' Prec, Prb                       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6, ' [MW]'
     write(*,'(A)') '----------------------------------------'
-  endif !use_ncs  
+  endif !use_ncs .or. use_ics 
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
   write(*,'(A,4es14.6)')   ' Integrals_3D, MGI              : ', total_n_particles_inj, total_n_particles

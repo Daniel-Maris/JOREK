@@ -19,6 +19,12 @@ module coupling_variables
     "T"     & !> temperature
   ]
 
+  ! ICS
+  character(len=var_name_len), dimension(2) :: ics_var_names = [character(len=var_name_len) :: &
+    "Vpar",   & !> parallel velocity
+    "T"     & !> temperature
+  ]
+
   ! CCS
   character(len=var_name_len), dimension(4) :: ccs_var_names = [character(len=var_name_len) :: &
     "q",     & !> charge density
