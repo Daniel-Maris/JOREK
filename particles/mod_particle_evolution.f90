@@ -127,8 +127,6 @@ end if
   
       call copy_particle_kinetic_leapfrog(particles(j),particle_tmp)
       !$ i_rng = omp_get_thread_num()+1
-      if (j==1) write(*,*) "nstep_particles: ", nstep_particles
-
       do k=1,nstep_particles
 
         if (particle_tmp%i_elm .le. 0) exit
