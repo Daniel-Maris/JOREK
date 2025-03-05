@@ -133,10 +133,7 @@ end if
 
         if (particle_tmp%i_elm .le. 0) exit
     
-        particle_tmp%st(1) = 0.5 ! [D]
-        particle_tmp%st(2) = 0.5 ! [D]
         t = sim%time + (k-1)*tstep_part_adj
-
 
         call sim%fields%calc_EBpsiU(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), E, B, psi, U)
         rz_old    = particle_tmp%x(1:2)
@@ -155,10 +152,6 @@ end if
         
         !adjusted n_e
         n_e = n_i + max(0.d0,imp_charge_density) ! [D]
-
-        write(*,*) sim%time, " j: ", j
-        write(*,*) " s: ", particle_tmp%st(1), " t: ", particle_tmp%st(2), " i_elm: ", particle_tmp%i_elm
-        write(*,*) "n_i: ", n_i, "n_e: ", n_e, "T_e: ", T_e, "icd: ", imp_charge_density
         
         ion_source = 0.d0
         ion_energy = 0.d0
@@ -205,7 +198,6 @@ end if
   
             ion_energy     = kinetic_energy - H_binding_energy !<binding energy should be here
             !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
-            ion_energy  = -1 * H_binding_energy * 0.5 ! [D]
   
         endif ! use_kin_ionisation
   
