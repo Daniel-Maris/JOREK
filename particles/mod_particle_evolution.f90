@@ -519,7 +519,7 @@ end if
           !vvector is fluid flow velocity [v_R, v_Z, v_phi] m/s
           !TODO: add upper limits if necessary
           limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
-    limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !limits for collisions
+          limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !limits for collisions
           if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
           
     
@@ -547,7 +547,7 @@ end if
                 !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
           radiation_energy = 0.d0
 
-          if (.false.) then
+          if (.true.) then
           ! if (use_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
                 call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
                 call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB) ! [J m^3/s]
@@ -558,7 +558,7 @@ end if
                 radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
           endif ! use_line_radiation
     
-          if (.false.) then
+          if (.true.) then
           ! if (use_coll .and. .not. limits_coll) then
              if (particle_tmp%q .gt. 0) then
                 ! Calculate collisions
@@ -635,7 +635,7 @@ end if
                   feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
                   feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) + HZ(i_tor) * v_E
                   feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
-                  feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * 1 ! impurity charge density
+                  feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * v_imp ! impurity charge density
                   ! feedback_rhs(m,l,i_elm_old,i_tor,4) = feedback_rhs(m,l,i_elm_old,i_tor,4) + HZ(i_tor) * extra_proj, only used in neutrals
                   feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_n_imp           ! impurity density 
                   feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_P_rad_N         ! impurity radiated power
