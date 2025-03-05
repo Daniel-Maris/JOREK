@@ -1055,7 +1055,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         write(*,LOGI_FMT) 'use_kin_recombination,  ',sim%groups(group_num)%use_kin_recombination
         write(*,LOGI_FMT) 'use_kin_puffing,        ',sim%groups(group_num)%use_kin_puffing
         write(*,REAL_FMT) 'n_reflect_ratio,        ',sim%groups(group_num)%n_reflect_ratio
-        write(*,LOGI_FMT) 'use_kin_line_radiation, ',sim%groups(group_num)%use_kin_line_radiation
+        write(*,LOGI_FMT) 'use_kin_radiation,      ',sim%groups(group_num)%use_kin_radiation
+        write(*,LOGI_FMT) 'use_kin_bg_collisions,  ',sim%groups(group_num)%use_kin_bg_collisions
         write(*,CHAR_FMT) 'atom_data_suffix,       ',trim(part_group_configs(group_num)%atom_data_suffix)
 
         if (sim%groups(group_num)%use_kin_puffing) then

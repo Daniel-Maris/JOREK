@@ -158,11 +158,11 @@ contains
         
         !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
         line_rad_energy = 0.d0
-        if (sim%groups(group_num)%use_kin_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+        if (sim%groups(group_num)%use_kin_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
           call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
           ! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
           line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
-        endif ! use_kin_line_radiation
+        endif ! use_kin_radiation
         
         if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
           

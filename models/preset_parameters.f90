@@ -873,15 +873,19 @@ part_group_configs(:)%coupling_scheme   = 'non'
 part_group_configs(:)%n_particles       = 0.d0
 part_group_configs(:)%type              = 'none'
 part_group_configs(:)%id                = 'non'
-!-- specific to ncs 
+
+!----- specific to ics and ncs 
 part_group_configs(:)%atom_data_suffix      = ''
-part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_puffing        = .false.
-part_group_configs(:)%use_kin_line_radiation = .false.
+part_group_configs(:)%use_kin_radiation      = .false.
 part_group_configs(:)%use_kin_ionisation     = .false.
 part_group_configs(:)%use_kin_sputtering     = .false.
 part_group_configs(:)%n_reflect_ratio        = 5.d-4
+! --- ncs only
+part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_cx             = .false.
+! --- ics only
+part_group_configs(:)%use_kin_bg_collisions  = .false.
 
 do i=1, n_part_groups_max
   do j=1, n_valves_max

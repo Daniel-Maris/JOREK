@@ -873,7 +873,8 @@ if (my_id .eq. 0) then
   call MPI_PACK(part_group_configs%use_kin_cx,                 n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(part_group_configs%use_kin_recombination,      n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(part_group_configs%use_kin_puffing,            n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-  call MPI_PACK(part_group_configs%use_kin_line_radiation,     n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(part_group_configs%use_kin_radiation,          n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(part_group_configs%use_kin_bg_collisions,      n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   do i=1, n_part_groups_max
     do j=1, n_valves_max
@@ -1765,7 +1766,8 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_cx,                 n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_recombination,      n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_puffing,            n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
-  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_line_radiation,     n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_radiation,          n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_bg_collisions,      n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
 
   do i=1, n_part_groups_max
     do j=1, n_valves_max

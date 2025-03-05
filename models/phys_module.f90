@@ -1001,16 +1001,21 @@ module phys_module
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
 
-    ! --------------- for neutral particles ------------
+    ! --------------- for neutrals and impurities (ncs and ics coupling) particles ------------
 
-    character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
-    logical             :: use_kin_cx               !< switch on charge-exchange for group     
-    logical             :: use_kin_sputtering       !< switch on sputtering for group (only relevant for neutrals)
-    logical             :: use_kin_ionisation       !< switch on ionisation for group         
-    logical             :: use_kin_recombination    !< switch on recombination for group         
-    logical             :: use_kin_puffing          !< switch on particle puffing for group    
+    character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead    
+    logical             :: use_kin_sputtering      !< switch on sputtering for group (only relevant for neutrals)
+    logical             :: use_kin_ionisation      !< switch on ionisation for group                 
+    logical             :: use_kin_puffing         !< switch on particle puffing for group    
     real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
-    logical             :: use_kin_line_radiation   !< switch on line radiation for group
+    logical             :: use_kin_radiation       !< switch on radiation for group (only line rad for ncs, line rad + bremsstrahlung + recomb for ics)
+
+    ! ---- neutrals (ncs) specific
+    logical             :: use_kin_cx              !< switch on charge-exchange for group 
+    logical             :: use_kin_recombination   !< switch on recombination for group 
+
+    ! ---- impurities (ics) specific
+    logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
 
     !> --------------- puffing ----------------------
 

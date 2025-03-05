@@ -164,10 +164,10 @@ end if
         
         !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
         line_rad_energy = 0.d0
-        if (sim%groups(group_num)%use_kin_line_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+        if (sim%groups(group_num)%use_kin_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
               call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
               line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
-        endif ! use_kin_line_radiation
+        endif ! use_kin_radiation
         
         if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
          
@@ -522,8 +522,6 @@ end if
           limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !limits for collisions
           if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
           
-    
-          
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
               call rng(i_rng)%next(ion_ran)
               particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ion_ran(1:2)),1)
@@ -544,22 +542,16 @@ end if
               endif
           endif ! use_ionisation
     
-                !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
           radiation_energy = 0.d0
-
-          if (.true.) then
-          ! if (use_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+          if (sim%groups(group_num)%use_kin_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
                 call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
                 call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB) ! [J m^3/s]
                 call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s]
                 binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q+1) * EL_CHG ! should this be q or q_old?
-                ! call ad_deuterium%plt%interp( 1, ne_si_log10, Te_si_log10, LradDrays_T, dLradDrays_dT)
-                !define P_brem = PRB - Srec*binding energy
                 radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
           endif ! use_line_radiation
     
-          if (.true.) then
-          ! if (use_coll .and. .not. limits_coll) then
+          if (sim%groups(group_num)%use_kin_bg_collisions .and. .not. limits_coll) then
              if (particle_tmp%q .gt. 0) then
                 ! Calculate collisions
                 kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
