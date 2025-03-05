@@ -522,7 +522,7 @@ function new_projection(node_list, element_list,                                
 
   new%do_zonal = .false.
   if (present(do_zonal)) new%do_zonal = do_zonal
-  new%apply_dirichlet = .true.
+  new%apply_dirichlet = .false.
   if (present(do_dirichlet)) new%apply_dirichlet = do_dirichlet
 
   if (present(to_vtk)) then
