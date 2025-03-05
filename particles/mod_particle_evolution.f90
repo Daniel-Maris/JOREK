@@ -570,7 +570,7 @@ end if
                 q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
   
                 !Calculate coulomb logarithm and limit it to reasonable values
-                coulomb_log = coulomb_logarithm(kTb, n_b, particles(j)%q, q_b, sim%groups(group_num)%mass, m_b)
+                coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)
                 coulomb_log = max(10.d0, coulomb_log)
                 coulomb_log = min(20.d0, coulomb_log)
   
