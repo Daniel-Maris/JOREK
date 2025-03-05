@@ -12,7 +12,7 @@ subroutine conservation_checks(sim)
   
   class(particle_sim), target, intent(in) :: sim
 
-  integer :: j, ierr
+  integer :: i, j, ierr
 
   real*8  :: v_kin_temp, E(3), B(3), psi, U, B_norm(3)
 
@@ -68,8 +68,10 @@ subroutine conservation_checks(sim)
             mom_par_tot+all_momentum, mom_par_tot, all_momentum, &
             pressure+kin_par_tot+all_energy, pressure, all_energy, kin_par_tot
 
-    write(*,'(A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use :',all_superparticles,' of ', sim%groups(1)%n_particles, '| in use :', &
-    real(all_superparticles)/sim%groups(1)%n_particles*100.d0,'%'
+    do i=1, size(sim%groups)
+      write(*,'(A,A3,A,I13,A,E8.2,A,F13.10,A)') 'Superparticles in use (Group ', sim%groups(i)%id, ' ):',all_superparticles,' of ', sim%groups(i)%n_particles, '| in use :', &
+      real(all_superparticles)/sim%groups(i)%n_particles*100.d0,'%'
+    enddo
 
     if ( all_superparticles .gt. 0 ) then
       write(*,'(A,2E16.8)') 'Average weight of particles',(all_particles)/all_superparticles
