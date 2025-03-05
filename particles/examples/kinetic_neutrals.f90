@@ -274,9 +274,13 @@ do while (.not. sim%stop_now)
   !>   we should set it to zero here, and not in any of the kinetic loops
   jorek_feedback%rhs = 0.d0
 
-  do group_num=1, n_part_groups
-    call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
-  enddo  
+  ! do group_num=1, n_part_groups
+  !   call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
+  ! enddo  
+
+  ! [D] Temporary
+  call evolve_particle_group(sim, 1, jorek_feedback, rng, tstep_part_adj)
+  if (size(sim%groups) > 1) call evolve_particle_group_imp(sim, 2, jorek_feedback, rng, tstep_part_adj)
 
   ! --- Update the fluid
   
