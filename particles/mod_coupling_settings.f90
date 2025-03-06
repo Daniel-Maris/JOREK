@@ -15,6 +15,7 @@ logical :: use_ccs               = .false. !< use current coupling scheme for fa
 logical :: use_pcs               = .false. !< use pressure coupling scheme for fast particles
 logical :: use_pcf               = .false. !< use full tensor pressure coupling scheme for fast particles
 logical :: use_kin_recomb_global = .false. !< whether recombination is required (has effect on both fluid and kinetic side)
+integer :: n_ics                 = 0       !< number of ics groups in the simulation
 contains
 
     
@@ -30,6 +31,8 @@ subroutine determine_coupling_schemes()
         use_ncs = .true.
       case ('ics')
         use_ics = .true.
+        n_ics = n_ics + 1
+        part_group_configs(group_num)%ics_group_idx = n_ics
       case ('ccs')
         use_ccs = .true.
       case ('pcs')
@@ -75,7 +78,7 @@ end subroutine assess_and_accumulate_variable
 !> determines the list of unique coupling variables required by the simulation and assigns their corresponding indices
 subroutine determine_coupling_variables()
   implicit none
-  integer :: i
+  integer :: i, j
   integer :: coupling_var_idx, final_var_idx
 
   coupling_vars = ""
@@ -92,6 +95,19 @@ subroutine determine_coupling_variables()
   if (use_ics) then 
     do i=1, size(ics_var_names)
       call assess_and_accumulate_variable(ics_var_names(i), coupling_var_idx, coupling_vars)
+    enddo
+
+    !> handling impurity group specific coupling variables:
+    !> these variables are not used in mod_elt_matrix_fft but are required for coupling
+    !> on the kinetic side
+    do j=1, n_ics
+      coupling_var_idx = coupling_var_idx + 1
+      coupling_vars(coupling_var_idx) = "imp_q"          !< impurity charge density
+      ics_indices_kin(j, 1) = coupling_var_idx
+
+      coupling_var_idx = coupling_var_idx + 1
+      coupling_vars(coupling_var_idx) = "imp_rad_P"      !< impurity radiated power
+      ics_indices_kin(j, 2) = coupling_var_idx
     enddo
   endif
     
@@ -122,6 +138,8 @@ subroutine determine_coupling_variables()
         j_Z_idx_kin = final_var_idx
       case ("j_Phi")
         j_Phi_idx_kin = final_var_idx
+      case ("imp_q", "imp_rad_P")
+        continue       !> do nothing as already handled above in use_ics loop
       case default
         write(*,*) "Error: no match found for coupling variable, please check coupling_variables.f90 and recompile"
         stop 1

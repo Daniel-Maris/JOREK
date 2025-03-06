@@ -566,13 +566,14 @@ end if
                 coulomb_log = max(10.d0, coulomb_log)
                 coulomb_log = min(20.d0, coulomb_log)
   
-                ! Get parallel flow velocity
+                ! Interpolate radiated impurity power
                 call sim%fields%interp_PRZ(t, particle_tmp%i_elm, [7], 1, particle_tmp%st(1), particle_tmp%st(2), &
                     particle_tmp%x(3), P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
     
                 do l=1,n_coll
                   call rng(i_rng)%next(ran2(:,l))
                 end do
+                
                 call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/norm2(B)/sim%t_norm, v_b) !P(1)*B/norm2(B)/sim%t_norm
     
                 do l=1,n_coll

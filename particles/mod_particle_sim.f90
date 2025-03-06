@@ -34,6 +34,8 @@ type :: particle_group
 
   ! --- impurities only
   logical            :: use_kin_bg_collisions    !< switch only collisions with the background plasma
+  integer            :: ics_group_idx            !< internal index given to this specific impurities group
+
 
   class(particle_base), dimension(:), allocatable :: particles
 
@@ -97,6 +99,7 @@ subroutine configure_particle_groups(sim)
 
     ! --- ics only
     sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
+    sim%groups(i)%ics_group_idx          =  config%ics_group_idx
     
     if (len_trim(config%atom_data_suffix) > 0) then
       sim%groups(i)%ad =  read_adf11(sim%my_id, trim(part_group_configs(i)%atom_data_suffix))

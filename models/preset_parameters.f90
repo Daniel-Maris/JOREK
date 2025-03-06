@@ -886,6 +886,7 @@ part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_cx             = .false.
 ! --- ics only
 part_group_configs(:)%use_kin_bg_collisions  = .false.
+part_group_configs(:)%ics_group_idx          = -1
 
 do i=1, n_part_groups_max
   do j=1, n_valves_max

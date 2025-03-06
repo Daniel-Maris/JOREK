@@ -19,10 +19,10 @@ module coupling_variables
     "T"     & !> temperature
   ]
 
-  ! ICS
+  ! ICS base variables
   character(len=var_name_len), dimension(2) :: ics_var_names = [character(len=var_name_len) :: &
     "Vpar",   & !> parallel velocity
-    "T"     & !> temperature
+    "T"       & !> temperature
   ]
 
   ! CCS
@@ -35,8 +35,7 @@ module coupling_variables
 
   ! =========== Storage variables for kinetic coupling indices ======== !
 
-  !> kn denotes kinetics
-  ! variables indices
+  !> variables indices
   integer :: rho_idx_kin   = 0
   integer :: Vpar_idx_kin  = 0
   integer :: T_idx_kin     = 0
@@ -44,5 +43,11 @@ module coupling_variables
   integer :: j_R_idx_kin   = 0
   integer :: j_Z_idx_kin   = 0
   integer :: j_Phi_idx_kin = 0
+
+  !> coupling variables specific to each impurity group
+  !> - row 1 denotes which impurity group
+  !> - row 2 col 1 stores the index of impurity charge density 
+  !> - row 2 col 2 stores the index of impurity radiated power
+  integer :: ics_indices_kin(1,2)
 
 end module coupling_variables

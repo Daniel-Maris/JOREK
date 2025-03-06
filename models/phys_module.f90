@@ -1016,6 +1016,7 @@ module phys_module
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
+    integer             :: ics_group_idx           !< internal index given to this specific impurities group
 
     !> --------------- puffing ----------------------
 
