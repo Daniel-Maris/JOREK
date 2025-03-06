@@ -5,7 +5,7 @@
 module coupling_variables
   implicit none
 
-  integer, parameter :: n_aux_var_max = 200
+  integer, parameter :: n_aux_var_max = 100
 
   ! ====== variables names and number of coupling schemes ====== !
 
@@ -48,6 +48,6 @@ module coupling_variables
   !> - row 1 denotes which impurity group
   !> - row 2 col 1 stores the index of impurity charge density 
   !> - row 2 col 2 stores the index of impurity radiated power
-  integer :: ics_indices_kin(1,2)
+  integer :: ics_indices_kin(n_aux_var_max, 2)
 
 end module coupling_variables
