@@ -51,9 +51,10 @@ subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part
   real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,extra_proj, v_P_cx, v_P_ion, v_P_rad_D, v_S_ion
   real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
   real*8    :: imp_charge_density ! impurity charge density in units of [e]
+  integer   :: imp_q_idx
   !$ real*8 :: w0, w1, mmm(3)
   
-  integer   :: i, j, k, l, m, i_elm_old, i_elm 
+  integer   :: i, j, k, l, m, n, i_elm_old, i_elm 
   integer   :: seed, i_rng, n_stream, ierr, nthreads
   integer   :: i_tor, index_lm, i_elm_temp
   integer   :: n_particles, ifail
@@ -113,7 +114,7 @@ end if
 #endif
    !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,                            &
    !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
-   !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin,                                                        &
+   !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin, ics_indices_kin,                                          &
    !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist,feedback_element_list)                        &
    !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,                        &
    !$omp i_elm_old, i_elm, n_i, n_e, T_e,imp_charge_density,P,                                           &
@@ -121,7 +122,7 @@ end if
    !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits,                 &
    !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,extra_proj, v_P_cx, v_P_ion, v_P_rad_D, v_S_ion,  &
    !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,                &
-   !$omp E_th, v_th,sum_ran,vvector,ran_norm)                                                            &
+   !$omp E_th, v_th,sum_ran,vvector,ran_norm, imp_q_idx)                                                            &
    !$omp schedule(runtime) &
    !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized, x_loc)
    do j=1,size(particles,1)
@@ -145,9 +146,15 @@ end if
         call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e)
         ! call calc_ U ne Te vpar
 
-        !calculate electron density contribution from impurities
-        call interp_0(feedback_nodelist, feedback_element_list, particle_tmp%i_elm, [4], 1 , particle_tmp%st(1), particle_tmp%st(2), particle_tmp%x(3), P)
-        imp_charge_density = P(1) ! charge density of impurities in units of [e]
+        !> loop over impurities groups and calculate their contribution to electron density
+        imp_charge_density = 0.d0
+        do n=1, size(sim%groups)
+          if (trim(sim%groups(n)%coupling_scheme) == 'ics') then
+            imp_q_idx = ics_indices_kin(sim%groups(n)%ics_group_idx,1)
+            call interp_0(feedback_nodelist, feedback_element_list, particle_tmp%i_elm, [imp_q_idx], 1 , particle_tmp%st(1), particle_tmp%st(2), particle_tmp%x(3), P)
+            imp_charge_density = imp_charge_density + P(1) ! charge density of impurities in units of [e]
+          endif
+        enddo
         
         !adjusted n_e
         n_e = n_i + max(0.d0,imp_charge_density) ! [D]
@@ -396,7 +403,7 @@ end if
     real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,v_imp, v_n_imp, v_P_rad_N 
     real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
     real*8    :: imp_charge_density
-    integer   :: imp_q_idx
+    integer   :: imp_q_idx, imp_q_idx_temp
     !$ real*8 :: w0, w1, mmm(3)
   
     !collision
@@ -408,7 +415,7 @@ end if
     real*8    :: R,Z
     !n_b,
     
-    integer   :: i, j, k, l, m, i_elm_old, i_elm ,q_old
+    integer   :: i, j, k, l, m, n, i_elm_old, i_elm ,q_old
     integer   :: seed, i_rng, n_stream, ierr, nthreads
     integer   :: i_tor, index_lm, i_elm_temp
     integer   :: n_particles, ifail
@@ -469,7 +476,7 @@ end if
 #endif
      !$omp schedule(runtime)                                                                         &
      !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,        &
-     !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin, imp_q_idx,             &
+     !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin, imp_q_idx, ics_indices_kin,            &
      !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
      !$omp feedback_nodelist, feedback_element_list, &
      !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
@@ -481,7 +488,7 @@ end if
      !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
      !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, v_sampled,q_b, q, &
      !$omp P, P_s, P_t, P_phi, P_time, R,  Z, imp_charge_density,v_imp,v_n_imp,v_P_rad_N, &
-     !$omp E_th, v_th,sum_ran,vvector,ran_norm)                                                                 &
+     !$omp E_th, v_th,sum_ran,vvector,ran_norm, imp_q_idx_temp)                                                                 &
      !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized, x_loc)
      
      ! shared jorek_feedback
@@ -508,10 +515,16 @@ end if
           !> calculate n_i and T_e
           call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, grad_T_e) ! T_e [K], grad_T_e [K/m]
   
-          !calculate electron density contribution from impurities
-          call interp_0(feedback_nodelist, feedback_element_list, particle_tmp%i_elm, [imp_q_idx], 1 , particle_tmp%st(1), particle_tmp%st(2), particle_tmp%x(3), P)
-          imp_charge_density = P(1) ! charge density of impurities in units of [e]
-           
+          !> loop over all impurity groups and calculate their contribution to electron density 
+          imp_charge_density = 0
+          do n=1, size(sim%groups)
+            if (trim(sim%groups(n)%coupling_scheme) == 'ics') then
+              imp_q_idx_temp = ics_indices_kin(sim%groups(n)%ics_group_idx,1)
+              call interp_0(feedback_nodelist, feedback_element_list, particle_tmp%i_elm, [imp_q_idx_temp], 1 , particle_tmp%st(1), particle_tmp%st(2), particle_tmp%x(3), P)
+              imp_charge_density = imp_charge_density + P(1) ! charge density of impurities in units of [e]
+            endif
+          enddo
+          
           !adjusted n_e
           n_e = n_i + max(0.d0,imp_charge_density)
   
