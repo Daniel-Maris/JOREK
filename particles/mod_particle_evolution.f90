@@ -277,7 +277,7 @@ end if
                 feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
                 feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) + HZ(i_tor) * v_E
                 feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
-                feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * extra_proj !< buiten de steps loop
+                feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj !< buiten de steps loop
 		!feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_cx
 		!feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_P_ion
 		!feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_rad_D
@@ -314,7 +314,7 @@ end if
       jorek_feedback%rhs(:,:,:,:,T_idx_kin) = feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 
 
-      jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
+      jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
       ! jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
       !jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
       !jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)
@@ -396,7 +396,7 @@ end if
     real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,v_imp, v_n_imp, v_P_rad_N 
     real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
     real*8    :: imp_charge_density
-    integer   :: imp_q_idx, imp_rad_P_idx
+    integer   :: imp_q_idx
     !$ real*8 :: w0, w1, mmm(3)
   
     !collision
@@ -421,7 +421,6 @@ end if
     !$ w0 = omp_get_wtime()
     
     imp_q_idx = ics_indices_kin(sim%groups(group_num)%ics_group_idx, 1)
-    imp_rad_P_idx = ics_indices_kin(sim%groups(group_num)%ics_group_idx, 2)
 
     n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
     rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
@@ -470,7 +469,7 @@ end if
 #endif
      !$omp schedule(runtime)                                                                         &
      !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,        &
-     !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin, imp_q_idx, imp_rad_P_idx,             &
+     !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin, imp_q_idx,             &
      !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
      !$omp feedback_nodelist, feedback_element_list, &
      !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
@@ -489,8 +488,7 @@ end if
      !private 
      do j=1,size(particles,1)
     
-        call copy_particle_kinetic_leapfrog(particles(j),particle_tmp)
-      if (j==1) write(*,*) "nstep_particles: ", nstep_particles
+      call copy_particle_kinetic_leapfrog(particles(j),particle_tmp)
   
     !      i_rng = 1
       !$ i_rng = omp_get_thread_num()+1
@@ -633,7 +631,7 @@ end if
                   feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) + HZ(i_tor) * v_E
                   feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
                   feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * v_imp ! impurity charge density
-                  feedback_rhs(m,l,i_elm_old,i_tor,imp_rad_P_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_rad_P_idx) + HZ(i_tor) * v_P_rad_N         ! impurity radiated power
+                  feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_rad_N         ! impurity radiated power
                   feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_n_imp           ! impurity density 
                 enddo
     
@@ -668,13 +666,13 @@ end if
     jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) = jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) + feedback_rhs(:,:,:,:,Vpar_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 
     jorek_feedback%rhs(:,:,:,:,imp_q_idx) = feedback_rhs(:,:,:,:,imp_q_idx)
-    jorek_feedback%rhs(:,:,:,:,imp_rad_P_idx) = feedback_rhs(:,:,:,:,imp_rad_P_idx)
+    jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
     jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)
     jorek_feedback%rhs_gather_time = 0.d0
 
     write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
     write(*,*) "imp_charge feedback total: ", sum(feedback_rhs(:,:,:,:,imp_q_idx)) 
-    write(*,*) "imp_rad_feedback total: ", sum(feedback_rhs(:,:,:,:,imp_rad_P_idx)) 
+    write(*,*) "imp_rad_feedback total: ", sum(feedback_rhs(:,:,:,:,6)) 
     write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,T_idx_kin))
 
       

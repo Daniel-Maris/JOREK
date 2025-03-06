@@ -104,10 +104,6 @@ subroutine determine_coupling_variables()
       coupling_var_idx = coupling_var_idx + 1
       coupling_vars(coupling_var_idx) = "imp_q"          !< impurity charge density
       ics_indices_kin(j, 1) = coupling_var_idx
-
-      coupling_var_idx = coupling_var_idx + 1
-      coupling_vars(coupling_var_idx) = "imp_rad_P"      !< impurity radiated power
-      ics_indices_kin(j, 2) = coupling_var_idx
     enddo
   endif
     
@@ -138,7 +134,7 @@ subroutine determine_coupling_variables()
         j_Z_idx_kin = final_var_idx
       case ("j_Phi")
         j_Phi_idx_kin = final_var_idx
-      case ("imp_q", "imp_rad_P")
+      case ("imp_q")
         continue       !< do nothing as already handled above in use_ics loop
       case default
         write(*,*) "Error: no match found for coupling variable: ", coupling_vars(i),", please check coupling_variables.f90 and recompile"
