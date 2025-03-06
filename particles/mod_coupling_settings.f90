@@ -150,6 +150,13 @@ subroutine determine_coupling_variables()
   n_aux_var = n_aux_var + 5 ! temporary as diag projections not yet created
   ! maybe some write out here to provide info?
 
+  write(*,*) "rho_idx_kin: ", rho_idx_kin
+  write(*,*) "Vpar_idx_kin: ", Vpar_idx_kin
+  write(*,*) "T_idx_kin: ", T_idx_kin
+  write(*,*) "ics_vars 1: ", ics_indices_kin(1,:)
+  write(*,*) "ics_vars 2: ", ics_indices_kin(2,:)
+  write(*,*) "ics_vars 3: ", ics_indices_kin(3,:)
+
 end subroutine determine_coupling_variables
 
 
