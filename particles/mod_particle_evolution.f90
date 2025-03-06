@@ -570,10 +570,10 @@ end if
                 coulomb_log = max(10.d0, coulomb_log)
                 coulomb_log = min(20.d0, coulomb_log)
   
-                ! Interpolate radiated impurity power
-                call sim%fields%interp_PRZ(t, particle_tmp%i_elm, [imp_rad_P_idx], 1, particle_tmp%st(1), particle_tmp%st(2), &
+                ! Get parallel flow velocity
+                call sim%fields%interp_PRZ(t, particle_tmp%i_elm, [7], 1, particle_tmp%st(1), particle_tmp%st(2), &
                     particle_tmp%x(3), P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
-    
+                
                 do l=1,n_coll
                   call rng(i_rng)%next(ran2(:,l))
                 end do
@@ -634,7 +634,7 @@ end if
                   feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
                   feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * v_imp ! impurity charge density
                   feedback_rhs(m,l,i_elm_old,i_tor,imp_rad_P_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_rad_P_idx) + HZ(i_tor) * v_P_rad_N         ! impurity radiated power
-                  feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_n_imp           ! impurity density 
+                  feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_n_imp           ! impurity density 
                 enddo
     
               enddo
@@ -662,7 +662,6 @@ end if
     
     write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
     !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
-    write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,T_idx_kin))
 
     jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
     jorek_feedback%rhs(:,:,:,:,T_idx_kin) = jorek_feedback%rhs(:,:,:,:,T_idx_kin) + feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
@@ -675,6 +674,9 @@ end if
 
     write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
     write(*,*) "imp_charge feedback total: ", sum(feedback_rhs(:,:,:,:,imp_q_idx)) 
+    write(*,*) "imp_rad_feedback total: ", sum(feedback_rhs(:,:,:,:,imp_rad_P_idx)) 
+    write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,T_idx_kin))
+
       
     deallocate(feedback_rhs)
     call MPI_REDUCE(x_loc, x_loc_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr) ! [D]

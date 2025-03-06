@@ -120,9 +120,9 @@ subroutine determine_coupling_variables()
   !> additional coupling schemes will be added here in future PRs (e.g. use_pcs, use_pcf)  
     
   !> assign indices to the coupling variables and determine n_aux_var
+  write(*,*) "===== Indices of coupling variables ====="
   do i=1, coupling_var_idx
     final_var_idx = final_var_idx + 1
-
     select case (trim(coupling_vars(i)))
       case ("rho")
         rho_idx_kin = final_var_idx
@@ -139,23 +139,18 @@ subroutine determine_coupling_variables()
       case ("j_Phi")
         j_Phi_idx_kin = final_var_idx
       case ("imp_q", "imp_rad_P")
-        continue       !> do nothing as already handled above in use_ics loop
+        continue       !< do nothing as already handled above in use_ics loop
       case default
-        write(*,*) "Error: no match found for coupling variable, please check coupling_variables.f90 and recompile"
-        stop 1
+        write(*,*) "Error: no match found for coupling variable: ", coupling_vars(i),", please check coupling_variables.f90 and recompile"
+        stop
     end select
+    write(*,"(2X,A12,' = ', I3)") coupling_vars(i), final_var_idx
   enddo
+  write(*,*) "========================================="
 
   n_aux_var = final_var_idx
   n_aux_var = n_aux_var + 5 ! temporary as diag projections not yet created
   ! maybe some write out here to provide info?
-
-  write(*,*) "rho_idx_kin: ", rho_idx_kin
-  write(*,*) "Vpar_idx_kin: ", Vpar_idx_kin
-  write(*,*) "T_idx_kin: ", T_idx_kin
-  write(*,*) "ics_vars 1: ", ics_indices_kin(1,:)
-  write(*,*) "ics_vars 2: ", ics_indices_kin(2,:)
-  write(*,*) "ics_vars 3: ", ics_indices_kin(3,:)
 
 end subroutine determine_coupling_variables
 
