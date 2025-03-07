@@ -150,7 +150,7 @@ end if
         imp_charge_density = 0.d0
         do n=1, size(sim%groups)
           if (trim(sim%groups(n)%coupling_scheme) == 'ics') then
-            imp_q_idx = ics_indices_kin(sim%groups(n)%ics_group_idx,1)
+            imp_q_idx = ics_indices_kin(sim%groups(n)%ics_group_idx)
             call interp_0(feedback_nodelist, feedback_element_list, particle_tmp%i_elm, [imp_q_idx], 1 , particle_tmp%st(1), particle_tmp%st(2), particle_tmp%x(3), P)
             imp_charge_density = imp_charge_density + P(1) ! charge density of impurities in units of [e]
           endif
@@ -427,7 +427,7 @@ end if
     real*8 :: x_loc, x_loc_all
     !$ w0 = omp_get_wtime()
     
-    imp_q_idx = ics_indices_kin(sim%groups(group_num)%ics_group_idx, 1)
+    imp_q_idx = ics_indices_kin(sim%groups(group_num)%ics_group_idx)
 
     n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
     rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
@@ -519,7 +519,7 @@ end if
           imp_charge_density = 0
           do n=1, size(sim%groups)
             if (trim(sim%groups(n)%coupling_scheme) == 'ics') then
-              imp_q_idx_temp = ics_indices_kin(sim%groups(n)%ics_group_idx,1)
+              imp_q_idx_temp = ics_indices_kin(sim%groups(n)%ics_group_idx)
               call interp_0(feedback_nodelist, feedback_element_list, particle_tmp%i_elm, [imp_q_idx_temp], 1 , particle_tmp%st(1), particle_tmp%st(2), particle_tmp%x(3), P)
               imp_charge_density = imp_charge_density + P(1) ! charge density of impurities in units of [e]
             endif

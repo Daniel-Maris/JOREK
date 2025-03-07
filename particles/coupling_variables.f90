@@ -47,6 +47,6 @@ module coupling_variables
   !> coupling variables specific to each impurity group
   !> - row 1 denotes which impurity group
   !> - row 2 stores the index of impurity charge density 
-  integer :: ics_indices_kin(n_aux_var_max, 1)
+  integer :: ics_indices_kin(n_aux_var_max) = -1
 
 end module coupling_variables

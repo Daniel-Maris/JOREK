@@ -103,7 +103,7 @@ subroutine determine_coupling_variables()
     do j=1, n_ics
       coupling_var_idx = coupling_var_idx + 1
       coupling_vars(coupling_var_idx) = "imp_q"          !< impurity charge density
-      ics_indices_kin(j, 1) = coupling_var_idx
+      ics_indices_kin(j) = coupling_var_idx
     enddo
   endif
     
