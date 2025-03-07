@@ -92,7 +92,7 @@ real*8     :: dT_dpsi(n_gauss,n_gauss),dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3
 logical    :: xpoint2, use_fft
 real*8     :: Btheta2, epsil, Btheta2_psi
 real*8, dimension(n_gauss,n_gauss)    :: amu_neo_prof, aki_neo_prof
-real*8     :: aux_rho0, aux_T0, aux_Vpar0
+real*8     :: aux_rho0, aux_E0, aux_mom_par0
 real*8     :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
 
 !Full pressure tensor terms 
@@ -236,7 +236,7 @@ dV_dz_source    = 0.d0
 eq_zne          = 0.d0
 eq_zTe          = 0.d0  
 
-aux_rho0  = 0.d0; aux_T0    = 0.d0; aux_Vpar0 = 0.d0
+aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
 aux_P0    = 0.d0; aux_P0_s  = 0.d0; aux_P0_t  = 0.d0; aux_P0_p  = 0.d0
 aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_pcs = 0.d0
 aux_divPIR_perp = 0.d0; aux_divPIZ_perp=0.d0; aux_divPIp_perp=0.d0;
@@ -458,9 +458,9 @@ do i=1,n_vertex_max
           Vpar0_tt = eq_tt(mp,7,ms,mt)
 
           if (use_ncs .or. use_ics) then
-            aux_rho0  = eq_aux_g(mp,rho_idx_kin,ms,mt)
-            aux_Vpar0 = eq_aux_g(mp,Vpar_idx_kin,ms,mt)
-            aux_T0    = eq_aux_g(mp,T_idx_kin,ms,mt)
+            aux_rho0     = eq_aux_g(mp,rho_idx_kin,ms,mt)
+            aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
+            aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if
 
           if (use_ccs) then
@@ -978,12 +978,12 @@ do i=1,n_vertex_max
             !#  equation 6   (energy equation)                                                                 #
             !###################################################################################################
 
-            rhs_ij(6) =  v * BigR * (heat_source(ms,mt) + aux_T0)                         * xjac * tstep &
+            rhs_ij(6) =  v * BigR * (heat_source(ms,mt) + aux_E0)                         * xjac * tstep &
 			+implicit_heat_source*(gamma-1.d0)*v*(0.5d0*T_min_neg + 0.5d0*T_min_neg*exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) ) -min(T0,T_min_neg))* xjac*tstep*BigR    &
 
 !!!! terms not in 303 but 500!
                     + (gamma-1.d0)*0.5d0 * v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0**2 * BB2 * BigR * xjac * tstep &
-                    - (gamma-1.d0)*v * aux_Vpar0 * vpar0 * BigR                                     * xjac * tstep &
+                    - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                                     * xjac * tstep &
 !!!!
             
                        + v * r0 * BigR**2 * ( T0_s * u0_t - T0_t * u0_s)                         * tstep &
@@ -1048,7 +1048,7 @@ do i=1,n_vertex_max
                       ! - v * F0 / BigR * aux_P0_p                                          * xjac * tstep &
                       ! + aux_P0 * (v_s * ps0_t - v_t * ps0_s)                                     * tstep &
 
-                      + v * BigR * aux_Vpar0                                              * xjac * tstep &
+                      + v * BigR * aux_mom_par0                                              * xjac * tstep &
                       + v * aux_q0 * F0**2 / BigR * u0_p                                  * xjac * tstep &
                       + v * aux_q0 * F0 * (u0_s * ps0_t - u0_t * ps0_s)                          * tstep &
 
@@ -1664,7 +1664,7 @@ do i=1,n_vertex_max
                             + v * r0 * GAMMA * T0 * (vpar_s * ps0_t - vpar_t * ps0_s)       * theta * tstep        &
 
                             - (gamma-1.d0)*v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                            + (gamma-1.d0)*v * aux_Vpar0 * vpar * BigR * xjac * theta * tstep &
+                            + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
 
   
                             + TG_num6 * 0.25d0 / BigR * 2.d0 * vpar0*vpar &

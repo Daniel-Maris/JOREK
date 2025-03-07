@@ -114,7 +114,7 @@ end if
 #endif
    !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,                            &
    !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
-   !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin, ics_indices_kin,                                          &
+   !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, ics_indices_kin,                                          &
    !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist,feedback_element_list)                        &
    !$omp private(particle_tmp, i_rng, i,j,k,l,m, t, E, B, psi, U, rz_old, st_old,                        &
    !$omp i_elm_old, i_elm, n_i, n_e, T_e,imp_charge_density,P,                                           &
@@ -282,8 +282,8 @@ end if
   
               do i_tor=1,n_tor
                 feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
-                feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) + HZ(i_tor) * v_E
-                feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
+                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * v_E
+                feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * v_v
                 feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj !< buiten de steps loop
 		!feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_cx
 		!feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_P_ion
@@ -317,8 +317,8 @@ end if
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
       !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
       jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) = feedback_rhs(:,:,:,:,Vpar_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,T_idx_kin) = feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,E_idx_kin) = feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 
 
       jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
@@ -328,8 +328,8 @@ end if
       jorek_feedback%rhs_gather_time = 0.d0
 
       write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
-      write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,T_idx_kin))
-      write(*,*) "mom feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin))
+      write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,E_idx_kin))
+      write(*,*) "mom feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin))
 
   else
       jorek_feedback%rhs = feedback_rhs 
@@ -476,7 +476,7 @@ end if
 #endif
      !$omp schedule(runtime)                                                                         &
      !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,        &
-     !$omp rho_idx_kin, Vpar_idx_kin, T_idx_kin, imp_q_idx, ics_indices_kin,            &
+     !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,            &
      !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                           &
      !$omp feedback_nodelist, feedback_element_list, &
      !$omp CENTRAL_DENSITY, CENTRAL_MASS)                                              &
@@ -641,8 +641,8 @@ end if
     
                 do i_tor=1,n_tor
                   feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
-                  feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,T_idx_kin) + HZ(i_tor) * v_E
-                  feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,Vpar_idx_kin) + HZ(i_tor) * v_v
+                  feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * v_E
+                  feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * v_v
                   feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * v_imp ! impurity charge density
                   feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_rad_N         ! impurity radiated power
                   feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_n_imp           ! impurity density 
@@ -675,8 +675,8 @@ end if
     !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
 
     jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-    jorek_feedback%rhs(:,:,:,:,T_idx_kin) = jorek_feedback%rhs(:,:,:,:,T_idx_kin) + feedback_rhs(:,:,:,:,T_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-    jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) = jorek_feedback%rhs(:,:,:,:,Vpar_idx_kin) + feedback_rhs(:,:,:,:,Vpar_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+    jorek_feedback%rhs(:,:,:,:,E_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_idx_kin) + feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+    jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 
     jorek_feedback%rhs(:,:,:,:,imp_q_idx) = feedback_rhs(:,:,:,:,imp_q_idx)
     jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
@@ -686,7 +686,7 @@ end if
     write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
     write(*,*) "imp_charge feedback total: ", sum(feedback_rhs(:,:,:,:,imp_q_idx)) 
     write(*,*) "imp_rad_feedback total: ", sum(feedback_rhs(:,:,:,:,6)) 
-    write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,T_idx_kin))
+    write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,E_idx_kin))
 
       
     deallocate(feedback_rhs)

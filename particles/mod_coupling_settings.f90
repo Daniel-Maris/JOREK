@@ -122,10 +122,10 @@ subroutine determine_coupling_variables()
     select case (trim(coupling_vars(i)))
       case ("rho")
         rho_idx_kin = final_var_idx
-      case ("Vpar")
-        Vpar_idx_kin = final_var_idx
-      case ("T")
-        T_idx_kin = final_var_idx
+      case ("mom_par")
+        mom_par_idx_kin = final_var_idx
+      case ("E")
+        E_idx_kin = final_var_idx
       case ("q")
         q_idx_kin = final_var_idx
       case ("j_R")
