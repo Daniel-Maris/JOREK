@@ -59,7 +59,6 @@ subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part
   integer   :: i_tor, index_lm, i_elm_temp
   integer   :: n_particles, ifail
   logical   :: limits
-  real*8    :: x_loc, x_loc_all
   real*8,allocatable :: feedback_rhs(:,:,:,:,:)
   type (type_node_list),       pointer :: feedback_nodelist
   type (type_element_list),    pointer :: feedback_element_list
@@ -73,10 +72,6 @@ subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part
   E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek
   M_norm   = rho_norm * v_norm                                    ! momentum normalisation
   
-
-  x_loc = 0.d0 ! [D]
-  x_loc_all = 0.d0
-
     n_lost_ion = 0.d0
     n_lost_ion_all = 0.d0
     p_lost_ion   = 0.d0
@@ -124,7 +119,7 @@ end if
    !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,                &
    !$omp E_th, v_th,sum_ran,vvector,ran_norm, imp_q_idx)                                                            &
    !$omp schedule(runtime) &
-   !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized, x_loc)
+   !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized)
    do j=1,size(particles,1)
   
       call copy_particle_kinetic_leapfrog(particles(j),particle_tmp)
@@ -144,7 +139,6 @@ end if
         ! for the particles we want to add the particle contribution to n_e
 
         call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e)
-        ! call calc_ U ne Te vpar
 
         !> loop over impurities groups and calculate their contribution to electron density
         imp_charge_density = 0.d0
@@ -157,7 +151,7 @@ end if
         enddo
         
         !adjusted n_e
-        n_e = n_i + max(0.d0,imp_charge_density) ! [D]
+        n_e = n_i + max(0.d0,imp_charge_density)
         
         ion_source = 0.d0
         ion_energy = 0.d0
@@ -166,8 +160,6 @@ end if
         !vvector is fluid flow velocity [v_R, v_Z, v_phi] m/s
         !TODO: add upper limits if necessary
         limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
-    !write(*,*) "Called calc_vvector, T_e: ", T_e
-    !write(*,*) "Calculated limits: ", limits
         if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
         
         !>for impurities, bremsstrahlung and CX radiation can be added here as well. (see W_rad_example)
@@ -229,15 +221,12 @@ end if
                 ran_norm = boxmueller_transform(cx_ran(2:5))
                 !>v_temp = sqrt(kT/m) * ran_norm
                 v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(group_num)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
-                !write(*,*) "vtemp", v_temp
                 !>add bulk fluid flow
                 v_temp = v_temp + vvector 
   
                 CX_source = particle_tmp%weight
                 CX_energy   = 0.5d0 * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
               
-                !write(*,*) "neTe",n_e,T_e			
-                !write(*,*) "CX", vvector
             endif ! cx_ran
         endif ! use_cx
         
@@ -275,20 +264,12 @@ end if
               v_E = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
               v_v = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * velocity_par_source * t_norm / m_norm
               extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(nstep_particles,8) 
-	      !v_P_cx    = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * cx_source  * cx_energy  / tstep_part_adj
-	      !v_P_ion   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * ion_source * ion_energy / tstep_part_adj
-	      !v_P_rad_D = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * line_rad_energy         / tstep_part_adj
-	      !v_S_ion   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * ion_source              / tstep_part_adj
   
               do i_tor=1,n_tor
                 feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
                 feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * v_E
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * v_v
                 feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj !< buiten de steps loop
-		!feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_cx
-		!feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_P_ion
-		!feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * v_P_rad_D
-		!feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * v_S_ion
               enddo
   
             enddo
@@ -306,7 +287,6 @@ end if
       end do ! steps 
   
       call copy_particle_kinetic_leapfrog(particle_tmp, particles(j))
-      x_loc = x_loc + particles(j)%x(1) ! [D]
     
     end do   ! particles
     !$omp end parallel do
@@ -315,16 +295,11 @@ end if
   
   if (sim%groups(group_num)%coupling_scheme == 'ncs') then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-      !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
       jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
       jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
       jorek_feedback%rhs(:,:,:,:,E_idx_kin) = feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 
-
-      jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
-      ! jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)
-      !jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
-      !jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)
+      jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5) !< extra diagnostic projection 
       jorek_feedback%rhs_gather_time = 0.d0
 
       write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
@@ -337,7 +312,6 @@ end if
     
   deallocate(feedback_rhs)
   
-  call MPI_REDUCE(x_loc, x_loc_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr) ! [D]
   call MPI_REDUCE(n_lost_ion, n_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(p_lost_ion, p_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(p_plt_lost, p_plt_lost_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -355,16 +329,7 @@ end if
   if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Energy exchange to plasma [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
   if (sim%my_id .eq. 0) write(*,'(A17,5E14.6)') 'TOTAL Exchange , delta t: ' ,sim%time,p_lost_ion_all, -p_plt_lost_all, p_cx_lost_all, tstep_part_adj * nstep_particles
   if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Total energy exchange to plasma [W]: ", sim%time, p_lost_ion_all -p_plt_lost_all+ p_cx_lost_all
-  if (sim%my_id .eq. 0) write(*,*) "x_loc all (1) :", x_loc_all 
   
-  ! if (sim%my_id .eq. 0) write(*,*) " Lost energy [J] at t due to line radiation: ", sim%time, p_plt_lost_all
-  !$ w1 = omp_get_wtime()
-  !$ mmm = mpi_minmeanmax(w1-w0)
-  !$ if (sim%my_id .eq. 0) write(*,"(f10.7,A,3f9.4,A)") sim%time, " Particle stepping complete in ", mmm, "s"
-  
-  
-  !  write(*,*) 'CAREFUL: averaging over nstep_particles : ',nstep_particles
-  !  jorek_feedback%rhs = jorek_feedback%rhs / real(nstep_particles,8)
   if (sim%my_id .eq. 0) write(*,*) 'done loop_particle_kinetic_local'
   
   end subroutine
@@ -399,7 +364,7 @@ end if
     real*8    :: kinetic_energy, ion_energy !,line_rad_energy
     real*8    :: n_lost_ion, n_lost_ion_all, p_plt_lost,p_plt_lost_all,p_cx_lost,p_cx_lost_all,p_lost_ion,p_lost_ion_all
     integer   :: n_super_ionized, n_super_ionized_all
-    real*8    :: particle_source, velocity_par_source, energy_source
+    real*8    :: velocity_par_source, energy_source
     real*8    :: v_temp(3), T_eV, K_eV, v_kin_temp, B_norm(3), v, v_v, v_E,v_imp, v_n_imp, v_P_rad_N 
     real*8    :: vvector(3),sum_ran(3), E_th, v_th,ran_norm(4)
     real*8    :: imp_charge_density
@@ -424,7 +389,6 @@ end if
     type (type_node_list),       pointer :: feedback_nodelist
     type (type_element_list),    pointer :: feedback_element_list
   
-    real*8 :: x_loc, x_loc_all
     !$ w0 = omp_get_wtime()
     
     imp_q_idx = ics_indices_kin(sim%groups(group_num)%ics_group_idx)
@@ -436,9 +400,6 @@ end if
     E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek
     M_norm   = rho_norm * v_norm                                    ! momentum normalisation
   
-    x_loc = 0.d0
-    x_loc_all = 0.d0
-
     n_lost_ion = 0.d0
     n_lost_ion_all = 0.d0
     p_lost_ion   = 0.d0
@@ -485,11 +446,11 @@ end if
      !$omp PLT,PRB,Srec, ion_rate, ion_prob, ion_ran, radiation_energy, ion_energy, kinetic_energy,        &  
      !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,limits, limits_coll,    &
      !$omp CX_rate, CX_prob, CX_source, CX_energy, v, v_E, v_v,                        &
-     !$omp particle_source, velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
+     !$omp velocity_par_source, energy_source, v_temp, K_eV, T_eV, cx_ran,&
      !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, v_sampled,q_b, q, &
      !$omp P, P_s, P_t, P_phi, P_time, R,  Z, imp_charge_density,v_imp,v_n_imp,v_P_rad_N, &
      !$omp E_th, v_th,sum_ran,vvector,ran_norm, imp_q_idx_temp)                                                                 &
-     !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized, x_loc)
+     !$omp reduction(+:feedback_rhs,n_lost_ion,p_plt_lost,p_cx_lost,p_lost_ion,n_super_ionized)
      
      ! shared jorek_feedback
      !private 
@@ -541,14 +502,6 @@ end if
               call rng(i_rng)%next(ion_ran)
               particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ion_ran(1:2)),1)
               
-              ! call sim%groups(1)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
-              ! ion_prob = 1.d0 - exp(-ion_rate * n_e * tstep_part_adj) ! [0] poisson point process, exponential 
-    
-              ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
-              !ion_source = 0.d0
-    
-              !kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT /2.d0
-    
               if (particle_tmp%q .gt. q_old) then
                 binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q +1) * EL_CHG ! should this be q or q_old?
                 ion_energy     =  - binding_energy * particle_tmp%weight !<binding energy should be here
@@ -613,9 +566,7 @@ end if
           
           ! feedback from each particle at each timestep
           energy_source       = ion_energy + radiation_energy!ion_source * ion_energy !+ cx_source * cx_energy - line_rad_energy
-          particle_source     = 0.d0 ! left 0 to later combine with neutrals
           velocity_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
-                !+ CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(1)%mass * ATOMIC_MASS_UNIT 
                    
           particle_tmp%v = v_temp 
           n_lost_ion = n_lost_ion !+ ion_source	!< local sum #particles lost due to ionisation
@@ -631,7 +582,6 @@ end if
     
                 index_lm = (l-1)*(n_order+1) + m
     
-                v   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_source     * t_norm / rho_norm
                 v_E = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
                 v_v = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * velocity_par_source * t_norm / m_norm
                 v_imp = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q /real(nstep_particles,8)
@@ -640,7 +590,6 @@ end if
                 
     
                 do i_tor=1,n_tor
-                  feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * v
                   feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * v_E
                   feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * v_v
                   feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * v_imp ! impurity charge density
@@ -663,8 +612,6 @@ end if
         end do ! steps 
     
         call copy_particle_kinetic_leapfrog(particle_tmp, particles(j))
-        x_loc = x_loc + particles(j)%x(1)
-    
       
       end do   ! particles
       !$omp end parallel do
@@ -672,25 +619,19 @@ end if
     end select
     
     write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-    !jorek_feedback%rhs = feedback_rhs / jorek_feedback%rhs_gather_time !* TWOPI
-
-    jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
     jorek_feedback%rhs(:,:,:,:,E_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_idx_kin) + feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
     jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 
     jorek_feedback%rhs(:,:,:,:,imp_q_idx) = feedback_rhs(:,:,:,:,imp_q_idx)
-    jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)
-    jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)
+    jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
+    jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
     jorek_feedback%rhs_gather_time = 0.d0
 
-    write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
     write(*,*) "imp_charge feedback total: ", sum(feedback_rhs(:,:,:,:,imp_q_idx)) 
     write(*,*) "imp_rad_feedback total: ", sum(feedback_rhs(:,:,:,:,6)) 
     write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,E_idx_kin))
 
-      
     deallocate(feedback_rhs)
-    call MPI_REDUCE(x_loc, x_loc_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr) ! [D]
     call MPI_REDUCE(n_lost_ion, n_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     call MPI_REDUCE(p_lost_ion, p_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     call MPI_REDUCE(p_plt_lost, p_plt_lost_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -705,18 +646,8 @@ end if
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionisation: ", sim%time, p_lost_ion_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to radiation: ", sim%time, p_plt_lost_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_cx_lost_all
-    if (sim%my_id .eq. 0) write(*,*) "x_loc all (2) :", x_loc_all ! [D]
     
-    ! if (sim%my_id .eq. 0) write(*,*) " Lost energy [J] at t due to line radiation: ", sim%time, p_plt_lost_all
-    !$ w1 = omp_get_wtime()
-    !$ mmm = mpi_minmeanmax(w1-w0)
-    !$ if (sim%my_id .eq. 0) write(*,"(f10.7,A,3f9.4,A)") sim%time, " Particle stepping complete in ", mmm, "s"
-    
-    
-    !  write(*,*) 'CAREFUL: averaging over nstep_particles : ',nstep_particles
-    !  jorek_feedback%rhs = jorek_feedback%rhs / real(nstep_particles,8)
     if (sim%my_id .eq. 0) write(*,*) 'done loop_particle_kinetic_impurity_local'
-    
   end subroutine 
 
 
