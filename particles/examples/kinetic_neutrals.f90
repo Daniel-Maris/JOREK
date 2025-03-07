@@ -285,7 +285,7 @@ do while (.not. sim%stop_now)
     if (trim(sim%groups(group_num)%coupling_scheme) == 'ncs') then
       call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
     else if ((sim%groups(group_num)%coupling_scheme) == 'ics') then
-      call evolve_particle_group_imp(sim, group_num, jorek_feedback, rng, tstep_part_adj) ! temporary
+      call evolve_particle_group_ics(sim, group_num, jorek_feedback, rng, tstep_part_adj) ! temporary
     endif
   enddo  
 
