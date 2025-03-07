@@ -44,9 +44,7 @@ module coupling_variables
   integer :: j_Z_idx_kin      = 0
   integer :: j_Phi_idx_kin    = 0
 
-  !> coupling variables specific to each impurity group
-  !> - row 1 denotes which impurity group
-  !> - row 2 stores the index of impurity charge density 
+  !> index of coupling variables specific to each impurity group
   integer :: ics_indices_kin(n_aux_var_max) = -1
 
 end module coupling_variables

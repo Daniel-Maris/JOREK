@@ -458,7 +458,7 @@ do i=1,n_vertex_max
           Vpar0_tt = eq_tt(mp,7,ms,mt)
 
           if (use_ncs .or. use_ics) then
-            aux_rho0     = eq_aux_g(mp,rho_idx_kin,ms,mt)
+            if (use_ncs) aux_rho0     = eq_aux_g(mp,rho_idx_kin,ms,mt)
             aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
             aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if
