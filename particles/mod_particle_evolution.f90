@@ -1,4 +1,3 @@
-!> Handles the evolution of the particle groups per time step
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
@@ -19,8 +18,10 @@ module mod_particle_evolution
 
 contains
 
-
-
+  !> For each particle group, this function does the following:
+  !> - performs coupling scheme specific physics (e.g. ionisation, radiation... etc)
+  !> - creates the feedback rhs required for projections of kinetic variables
+  !> - evolves the location and velocity of the particles based on the background plasma (pushing)
   subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
     use mod_project_particles
     use mod_random_seed
@@ -70,9 +71,9 @@ contains
     !> this is where coupling specific physics such as ionisation, charge exchange... etc happens
 
     if (part_group%coupling_scheme == 'ncs') then
-      call evolve_particle_group_ncs(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj)
+      call evolve_ncs_ics(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj)
     else if (part_group%coupling_scheme == 'ics') then
-      call evolve_particle_group_ncs(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
+      call evolve_ncs_ics(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
     endif
     
     ! ================================= CONSTRUCT PROJECTION RHS =======================================
@@ -109,8 +110,11 @@ contains
     
   end subroutine
 
-
-  subroutine evolve_particle_group_ncs(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
+  !> Internal function for gathering the feedback rhs values when using the ncs or ics coupling scheme
+  !> The two coupling schemes are handled by the same function due to large degree of overlap in the physics 
+  !> experienced by neutrals and impurities. 
+  !> The pushing of the particle is also done here
+  subroutine evolve_ncs_ics(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
     use mod_collisions
     use mod_ionisation_recombination
 
