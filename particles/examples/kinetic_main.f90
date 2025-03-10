@@ -11,7 +11,7 @@
 !> Change subroutine do1particlerecombination: use mod_integrate_recomb3D, only : integrate_recombination
 !> Particle puffing is axisymmetric by default.
 
-program kinetic_neutral_loop
+program kinetic_main
 
 use particle_tracer
 use mod_particle_diagnostics
@@ -422,4 +422,4 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 end function f_toroidal_flux
 
 
-end program kinetic_neutral_loop
+end program kinetic_main
