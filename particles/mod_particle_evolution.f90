@@ -50,6 +50,8 @@ contains
 
     !> ================================ INITIALISATION =======================================
     part_group => sim%groups(group_num)
+    if (sim%my_id .eq. 0) write(*,*) '---------- Evolving particle group: ', part_group%id, " ----------"
+
 
     !> if ics, determine index for impurity charge projection
     if (part_group%coupling_scheme == 'ics') then
@@ -95,18 +97,12 @@ contains
         jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
         jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
       endif
-
-      write(*,*) "rho feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,rho_idx_kin))
-      write(*,*) "E feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,E_idx_kin))
-      write(*,*) "mom feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin))
-      if (part_group%coupling_scheme == 'ics') write(*,*) "imp q feedback total: ", sum(jorek_feedback%rhs(:,:,:,:,imp_q_idx))
-
     endif
 
     jorek_feedback%rhs_gather_time = 0.d0
     deallocate(feedback_rhs)
     
-    if (sim%my_id .eq. 0) write(*,*) '----- evolve_particle_group finished for group: ', part_group%id, " -----"
+    if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', part_group%id, " ----------"
     
   end subroutine
 
@@ -256,18 +252,18 @@ contains
           !> check that particle weight is non negative
           if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
           
-          !> NCS SPECIFIC
+          ! ============================================ NCS SPECIFIC PHYSICS ===========================================
           if (part_group%coupling_scheme == 'ncs') then
             !> calculate fluid flow velocity [v_R, v_Z, v_phi] m/s
             call sim%fields%calc_vvector(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), vvector)
 
-            !> RADIATION (Line radiation for ncs) ==========
+            !> RADIATION (Line radiation for ncs)
             if (part_group%use_kin_radiation .and. .not. limits) then
               call part_group%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
               line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
-            endif ! use_kin_radiation
+            endif ! RADIATION
             
-            !> IONISATION ==================================
+            !> IONISATION (Neutrals)
             if (part_group%use_kin_ionisation .and. .not. limits) then
               call part_group%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
               ion_prob = 1.d0 - exp(-ion_rate * n_e * tstep_part_adj) ! [0] poisson point process, exponential 
@@ -293,9 +289,9 @@ contains
               kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) *part_group%mass * ATOMIC_MASS_UNIT /2.d0
               ion_energy     = kinetic_energy - H_binding_energy
               !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
-            endif ! use_kin_ionisation
+            endif ! IONISATION
               
-            !> CHARGE EXCHANGE ===============================
+            !> CHARGE EXCHANGE
             ! It is assumed that we will have a exchange between hydrogen isotopes
             if (part_group%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
               call part_group%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
@@ -306,7 +302,7 @@ contains
                 ! sample boltzman, randomize velocity
                 T_eV = T_e * K_BOLTZ / EL_CHG !< T_eV = electron T in [eV]
     
-                !============== NEW CX PARTICLE
+                !> ----- NEW CX PARTICLE ---------
                 !Box-Mueller sample velocities with st.dev=1
                 ran_norm = boxmueller_transform(cx_ran(2:5))
                 !>v_temp = sqrt(kT/m) * ran_norm
@@ -317,7 +313,7 @@ contains
                 CX_source = particle_tmp%weight
                 CX_energy   = 0.5d0 * part_group%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
               endif ! cx_ran
-            endif ! use_kin_cx
+            endif ! CHARGE EXCHANGE
               
             !> check that the energy feedback is valid
             if (isnan(ion_source * ion_energy + cx_source * cx_energy - line_rad_energy)) then
@@ -328,7 +324,7 @@ contains
               CYCLE !< don't feed this particle into the feedback
             endif
 
-            !> CONSTRUCT FEEDBACK =========================
+            !> ----- CONSTRUCT FEEDBACK -----
             !> the feedback per particle per time step is accumulated which is then divided by gather time later
             energy_source  = ion_source * ion_energy + cx_source * cx_energy - line_rad_energy
             density_source = ion_source * part_group%mass * ATOMIC_MASS_UNIT !< mass source in SI
@@ -363,30 +359,35 @@ contains
               enddo
             enddo
 
-          endif ! ncs
+          endif ! END OF NCS SPECIFIC PHYSICS
+
+          ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
           if (part_group%coupling_scheme == 'ics') then
-            limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !limits for collisions
+            limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !< limits for collisions
+
+            !> IONISATION (Impurities)
             if (part_group%use_kin_ionisation .and. .not. limits) then
               call rng(i_rng)%next(ion_ran_imp)
               particle_tmp%q = int(new_charge(int(q_old,4), part_group%ad, log10(n_e), log10(T_e), tstep_part_adj, ion_ran_imp(1:2)),1)
               
               if (particle_tmp%q .gt. q_old) then
                 binding_energy = part_group%ad%ionisation_energy(particle_tmp%q +1) * EL_CHG ! should this be q or q_old?
-                ion_energy     =  - binding_energy * particle_tmp%weight !<binding energy should be here
-                !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
-                ! binding energy must come from ion energy.sh
+                ion_energy     =  - binding_energy * particle_tmp%weight
+                !< including binding energy will make ion_energy negative, so it becomes a sink for the plasma
               endif
-            endif ! use_ionisation
+            endif ! IONISATION
 
+            !> RADIATION (Line radiation + Bremsstrahlung + Recombination radiation)
             if (part_group%use_kin_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
-              call part_group%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
-              call part_group%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB) ! [J m^3/s]
-              call part_group%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s]
+              call part_group%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
+              call part_group%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
+              call part_group%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
               binding_energy = part_group%ad%ionisation_energy(particle_tmp%q+1) * EL_CHG ! should this be q or q_old?
               radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
-            endif ! use_line_radiation
-  
+            endif ! RADIATION
+            
+            !> COLLISIONS WITH THE BACKGROUND PLASMA (Neoclassical collisions)
             if (part_group%use_kin_bg_collisions .and. .not. limits_coll) then
               if (particle_tmp%q .gt. 0) then
                 ! Calculate collisions
@@ -397,12 +398,12 @@ contains
                 !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
                 q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
 
-                !Calculate coulomb logarithm and limit it to reasonable values
+                !> Calculate coulomb logarithm and limit it to reasonable values
                 coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, part_group%mass, m_b)
                 coulomb_log = max(10.d0, coulomb_log)
                 coulomb_log = min(20.d0, coulomb_log)
 
-                ! Get parallel flow velocity
+                !> Get parallel flow velocity
                 call sim%fields%interp_PRZ(t, particle_tmp%i_elm, [7], 1, particle_tmp%st(1), particle_tmp%st(2), &
                     particle_tmp%x(3), P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
                 
@@ -418,9 +419,10 @@ contains
                       q_b, m_b, v_b(:,l), n_b, coulomb_log, tstep_part_adj/real(n_coll,8))
                 end do
               end if
-            endif ! use_coll
-        
-            if (isnan(imp_charge_density+ ion_energy - radiation_energy)) then
+            endif ! COLLISIONS
+            
+            !> check that the particle energy sources are valid
+            if (isnan(imp_charge_density + ion_energy - radiation_energy)) then
               write(*,*) "imp_charge_density", imp_charge_density
               write(*,*) "ion_energy", ion_energy
               write(*,*) "rad_energy", radiation_energy
@@ -428,7 +430,8 @@ contains
               CYCLE !< don't feed this particle into the feedback
             endif
         
-            ! feedback from each particle at each timestep
+            !> ----- CONSTRUCT FEEDBACK -----
+            !> the feedback per particle per time step is accumulated which is then divided by gather time later
             energy_source  = ion_energy + radiation_energy!ion_source * ion_energy !+ cx_source * cx_energy - line_rad_energy
             mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * part_group%mass * ATOMIC_MASS_UNIT !&	
 
@@ -437,7 +440,8 @@ contains
             p_lost_ion = p_lost_ion + ion_energy
             p_lost_plt = p_lost_plt + radiation_energy
             p_lost_cx  = p_lost_cx + cx_source * cx_energy
-          ! Calculate the projection of the ion source in real-time
+
+            !> Calculate the projection of the ion source in real-time
             call basisfunctions(particle_tmp%st(1), particle_tmp%st(2), HH, HH_s, HH_t)
             call mode_moivre(particle_tmp%x(3), HZ)
             
@@ -464,9 +468,9 @@ contains
               enddo
             enddo
 
-          endif ! ics
+          endif ! END OF ICS SPECIFIC PHYSICS
 
-          !> PUSH PARTICLE ====================================
+          !> =============================== PUSH PARTICLE ====================================
           if (particle_tmp%i_elm .gt. 0) then
             call boris_push_cylindrical(particle_tmp, part_group%mass, E, B, tstep_part_adj)
             call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, rz_old(1), rz_old(2), st_old(1), st_old(2), i_elm_old, &
@@ -481,7 +485,7 @@ contains
       
     end select
 
-    !> DIAGNOSTICS =====================
+    !> ===================================== DIAGNOSTICS ===================================
     call MPI_REDUCE(n_lost_ion, n_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     call MPI_REDUCE(p_lost_ion, p_lost_ion_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     call MPI_REDUCE(p_lost_plt, p_lost_plt_all, 1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
@@ -489,17 +493,14 @@ contains
     call MPI_REDUCE(n_super_ionized, n_super_ionized_all, 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     
     if (sim%my_id .eq. 0) write(*,'(A46,E14.6,I6)') "Lost superparticles at t due to ionisation: ", sim%time, n_super_ionized_all
-    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') " Lost particles at t due to ionisation: ", sim%time, n_lost_ion_all
-    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') " Ionization rate at time t [#/s]: ", sim%time, n_lost_ion_all / (tstep_part_adj * nstep_particles)
+    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost particles at t due to ionisation: ", sim%time, n_lost_ion_all
     p_lost_ion_all = p_lost_ion_all / (tstep_part_adj * nstep_particles)
     p_lost_plt_all = p_lost_plt_all / (tstep_part_adj * nstep_particles)
-    p_lost_cx_all = p_lost_cx_all / (tstep_part_adj * nstep_particles)
-    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Energy exchange to plasma [W] at t due to ionisation: ", sim%time, p_lost_ion_all
-    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to line radiation: ", sim%time, p_lost_plt_all
-    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Energy exchange to plasma [W] at t due to CX radiation: ", sim%time, p_lost_cx_all
-    if (sim%my_id .eq. 0) write(*,'(A17,5E14.6)') 'TOTAL Exchange , delta t: ' ,sim%time,p_lost_ion_all, -p_lost_plt_all, p_lost_cx_all, tstep_part_adj * nstep_particles
+    p_lost_cx_all  = p_lost_cx_all / (tstep_part_adj * nstep_particles)
+    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionisation: ", sim%time, p_lost_ion_all
+    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to radiation: ", sim%time, p_lost_plt_all
+    if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_lost_cx_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Total energy exchange to plasma [W]: ", sim%time, p_lost_ion_all -p_lost_plt_all+ p_lost_cx_all
-
   end subroutine
 
 end module mod_particle_evolution

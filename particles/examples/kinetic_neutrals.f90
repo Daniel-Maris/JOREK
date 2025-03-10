@@ -271,11 +271,13 @@ do while (.not. sim%stop_now)
 
   ! --- Interactions that happen on the particle timesteps
   
-  call write_to_outputfile(sim%my_id, "Particle loop")
+  call write_to_outputfile(sim%my_id, "Particle evolution loop")
   
   !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
   !> + pushing the particles + calculating the feedback
-  !> CURRENTLY ONLY SUPPORTS KINETIC NEUTRALS (Work in progress)
+  !> Currently supports: (Work in progress)
+  !>  - kinetic neutrals
+  !>  - kinetic impurities
 
   !> As we call multiple kinetic loops and only want to use 1 %rhs,
   !>   we should set it to zero here, and not in any of the kinetic loops
