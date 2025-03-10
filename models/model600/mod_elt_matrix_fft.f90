@@ -5057,7 +5057,7 @@ subroutine construct_imp_charge_states()
   d2Z_imp_dT2 = d2Z_imp_dT2 * (EL_CHG / K_BOLTZ)**2.
   ! Derivative wrt to T, with T in JOREK units
   d2Z_imp_dT2 = d2Z_imp_dT2 / ((EL_CHG*MU_ZERO*central_density*1.d20)**2.)
-  d2Z_imp_dT2 = d2Z_imp_dT2 * (d2Te0_corr_dT2 + d2Ti0_corr_dT2)
+  d2Z_imp_dT2 = d2Z_imp_dT2 * d2Te0_corr_dT2 
   
 
   if (Te_corr_eV < 0.1) then
