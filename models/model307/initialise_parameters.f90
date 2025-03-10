@@ -144,6 +144,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 alpha_Newton, vacuum_min, strumpack_matching,       &
                 xpoint_search_tries, export_aux_node_list,          &
                 use_manual_random_seed, manual_seed,                &
+                fix_rng_for_debug,                                  &
                 bgf_rpolar, bgf_tht, min_sheath_angle
 
 

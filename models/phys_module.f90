@@ -1044,6 +1044,8 @@ module phys_module
   !> @name Manual setting of random seed (for testing)
   logical :: use_manual_random_seed                   !< whether the random seed should be manually set
   integer :: manual_seed                              !< the manually set seed value
+  logical :: fix_rng_for_debug                        !< forcibly set all rng outputs to return 0.5 (for debugging and testing only)
+
 
   contains
   

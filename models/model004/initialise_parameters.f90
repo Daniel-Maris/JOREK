@@ -187,6 +187,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 min_sheath_angle, bcs, cte_current_FB_fact, vacuum_min,    &
                 export_aux_node_list, xpoint_search_tries,          &
                 use_manual_random_seed, manual_seed,                &
+                fix_rng_for_debug,                                  &
                 bgf_rpolar, bgf_tht
 
 

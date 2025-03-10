@@ -1104,6 +1104,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   if (use_manual_random_seed) then
     write(*,INTG_FMT) 'manual_seed,            ',manual_seed
   endif     
+  write(*,LOGI_FMT) 'fix_rng_for_debug,      ',fix_rng_for_debug
 
 #ifdef USE_CATALYST
   write(*,CHAR_FMT) 'catalyst_scripts,   ',trim(catalyst_scripts)

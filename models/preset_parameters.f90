@@ -904,5 +904,6 @@ enddo
 
 use_manual_random_seed = .false.
 manual_seed = 498932990          !< chosen arbitarily
+fix_rng_for_debug = .false.
 
 end subroutine preset_parameters
