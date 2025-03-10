@@ -1,12 +1,9 @@
-!> Standard neutral atomic particle example in 2D
+!> The equivalent of jorek2_main.f90 for kinetic simulations
 !>
-!> The physics model includes puffing, recombination, ionisation, recycling and charge exchange for atomic Deuterium (no molecules).
 !> OpenADAS is used for atomic physics
 !> Plasma and neutral wall interaction are based on SDTRIM coefficients. 
 !> External files y_DD.dat and ye_DD.dat are used to determine wall recombination of plasma into atomic neutral deuterium. 
 !> These are based on interaction with a W wall
-!>
-!> To adjust the puff to your scenario, see  "! --- Setting up puffing" below
 !>
 !> To use a particle restart file: use restart_particles=.t. in the input file.
 !>
