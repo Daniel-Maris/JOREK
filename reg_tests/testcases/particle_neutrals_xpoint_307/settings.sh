@@ -1,14 +1,14 @@
 # --- General settings
 jorekmodel="307"
-description="kinetic_neutrals with model$jorekmodel using xpoint plasma"
+description="kinetic_main with model$jorekmodel using xpoint plasma"
 mpitasks=2
 num_threads=8
-binaries="kinetic_neutrals"
+binaries="kinetic_main"
 binaries_initial="jorek_model${jorekmodel}_1"
 extra_restart="part_restart.h5"
 requiredfiles="input acd12_h.dat  acd96_h.dat  ccd12_h.dat  ccd96_h.dat plt12_h.dat  plt96_h.dat  prb12_h.dat  prb96_h.dat  prc12_h.dat  prc96_h.dat  scd12_h.dat scd96_h.dat y_DD.dat  ye_DD.dat"
 extra_remote_files="acd12_h.dat  acd96_h.dat  ccd12_h.dat  ccd96_h.dat plt12_h.dat  plt96_h.dat  prb12_h.dat  prb96_h.dat  prc12_h.dat  prc96_h.dat  scd12_h.dat scd96_h.dat y_DD.dat  ye_DD.dat part_restart.h5"
-particle_example="kinetic_neutrals"
+particle_example="kinetic_main"
 particle_example_dir="particles/examples"
 
 
@@ -21,7 +21,7 @@ function compile_jorek () {
     make cleanall                                                                                                         || exit 1
   fi
   ./util/config.sh model=$jorekmodel n_tor=1 n_coord_tor=1 l_pol_domm=0 n_plane=1 n_period=1 n_coord_period=1             || exit 1
-  make $compilopt $debugoptions kinetic_neutrals                                                                          || exit 1
+  make $compilopt $debugoptions kinetic_main                                                                          || exit 1
 }
 
 
@@ -32,7 +32,7 @@ function initial_run () {
   ${codedir}/util/setinput.sh input restart_particles=.f. restart=.t. nstep_n=10 tstep_n=10.                              || exit 1
   export OMP_NUM_THREADS=$num_threads                                                                                     || exit 1
   echo "setting OMP_NUM_THREADS=$num_threads, due to the requirements of the test"                                        || exit 1
-  $MPIRUN $mpitasks ./kinetic_neutrals < input | tee logfile_initial2                                                     || exit 1
+  $MPIRUN $mpitasks ./kinetic_main < input | tee logfile_initial2                                                     || exit 1
 }
 
 
@@ -41,7 +41,7 @@ function restart_run () {
   ${codedir}/util/setinput.sh input restart_particles=.t. restart=.t. nstep_n=1 tstep_n=10.                               || exit 1
   export OMP_NUM_THREADS=$num_threads                                                                                     || exit 1
   echo "setting OMP_NUM_THREADS=$num_threads, due to the requirements of the test"                                        || exit 1
-  $MPIRUN $mpitasks ./kinetic_neutrals < input | tee logfile                                                              || exit 1
+  $MPIRUN $mpitasks ./kinetic_main < input | tee logfile                                                              || exit 1
 }
 
 
