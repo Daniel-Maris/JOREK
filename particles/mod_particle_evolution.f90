@@ -151,6 +151,8 @@ contains
 
     !> System variables ------------------------------
     type(particle_kinetic_leapfrog) :: particle_tmp
+    class(particle_base), dimension(:), pointer :: particles
+
     real*8    :: n_norm, rho_norm, t_norm, v_norm, E_norm, M_norm
     real*8    :: t, E(3), B(3), psi, U,n_i, n_e, T_e, grad_T_e(3), rz_old(2), st_old(2)
     real*8    :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, R, Z
@@ -174,7 +176,8 @@ contains
     E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek
     M_norm   = rho_norm * v_norm                                    ! momentum normalisation
 
-    select type (particles => sim%groups(group_num)%particles)
+    particles => sim%groups(group_num)%particles
+    select type (particles)
     type is (particle_kinetic_leapfrog)
       if(use_manual_random_seed) then
         !$ call omp_set_schedule(omp_sched_static,10)
