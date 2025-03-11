@@ -934,19 +934,20 @@ module phys_module
   real*8  :: D_neutral
 
   !> @name Particles-related input parameters
-  integer :: n_aux_var           !< number of variables in aux_node_list
-  integer :: n_diag_var = n_var  !< number of variables in diag_node_list (= n_var is temporary)
-  logical :: restart_particles   !< Load in previously simulated particles from a the part_restart.h5 restart file?
-  logical :: use_marker          !< This flag determines whether to use marker particles to treat impurity (Placeholder)
-  real*8  :: tstep_particles     !< the time step for the particles
-  integer :: nstep_particles     !< the number of particle time steps
-  integer :: nsubstep_particles  !< the number of particles substeps (without projection)
-  real*8  :: filter_perp         !< particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_hyper        !< particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_par          !< particle projection smoothing parameter, parallel direction
-  real*8  :: filter_perp_n0      !< particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_hyper_n0     !< particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_par_n0       !< particle projection smoothing parameter, parallel direction (n=0)
+  integer :: n_aux_var            !< number of variables in aux_node_list
+  integer :: n_diag_var = n_var   !< number of variables in diag_node_list (= n_var is temporary)
+  logical :: restart_particles    !< Load in previously simulated particles from a the part_restart.h5 restart file?
+  logical :: use_marker           !< This flag determines whether to use marker particles to treat impurity (Placeholder)
+  real*8  :: tstep_particles      !< the time step for the particles
+  integer :: nstep_particles      !< the number of particle time steps
+  integer :: nsubstep_particles   !< the number of particles substeps (without projection)
+  real*8  :: filter_perp          !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_hyper         !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_par           !< particle projection smoothing parameter, parallel direction
+  real*8  :: filter_perp_n0       !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_hyper_n0      !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
+  logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
 
   ! -----------------------------------------------
   ! --- Structures for particle valves 

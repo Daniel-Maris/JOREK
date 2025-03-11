@@ -991,18 +991,20 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
      write(*,REAL_FMT) 'spi_Vel_diff        ',  spi_Vel_diff
    end if
 #endif
-  write(*,REAL_FMT) 'loop_voltage        ',loop_voltage
-  write(*,INTG_FMT) 'n_aux_var           ',n_aux_var
-  write(*,LOGI_FMT) 'restart_particles   ',restart_particles
-  write(*,INTG_FMT) 'nstep_particles     ',nstep_particles
-  write(*,INTG_FMT) 'nsubstep_particles  ',nsubstep_particles
-  write(*,REAL_FMT) 'tstep_particles     ',tstep_particles
-  write(*,REAL_FMT) 'filter_perp,        ',filter_perp
-  write(*,REAL_FMT) 'filter_hyper,       ',filter_hyper
-  write(*,REAL_FMT) 'filter_par,         ',filter_par
-  write(*,REAL_FMT) 'filter_perp_n0,     ',filter_perp_n0
-  write(*,REAL_FMT) 'filter_hyper_n0,    ',filter_hyper_n0   
-  write(*,REAL_FMT) 'filter_par_n0,      ',filter_par_n0     
+  write(*,REAL_FMT) 'loop_voltage          ',loop_voltage
+  write(*,INTG_FMT) 'n_aux_var             ',n_aux_var
+  write(*,LOGI_FMT) 'restart_particles     ',restart_particles
+  write(*,INTG_FMT) 'nstep_particles       ',nstep_particles
+  write(*,INTG_FMT) 'nsubstep_particles    ',nsubstep_particles
+  write(*,REAL_FMT) 'tstep_particles       ',tstep_particles
+  write(*,REAL_FMT) 'filter_perp,          ',filter_perp
+  write(*,REAL_FMT) 'filter_hyper,         ',filter_hyper
+  write(*,REAL_FMT) 'filter_par,           ',filter_par
+  write(*,REAL_FMT) 'filter_perp_n0,       ',filter_perp_n0
+  write(*,REAL_FMT) 'filter_hyper_n0,      ',filter_hyper_n0   
+  write(*,REAL_FMT) 'filter_par_n0,        ',filter_par_n0   
+  write(*,LOGI_FMT) 'apply_dirichlet_proj, ',apply_dirichlet_proj     
+
   
   if (n_part_groups > 0) then !< particles settings
 

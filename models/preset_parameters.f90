@@ -851,6 +851,7 @@ filter_hyper_n0    = 1.d-10
 filter_par_n0      = 0.d0
 restart_particles  = .false.
 use_marker         = .false.
+apply_dirichlet_proj = .false.
 
 !--------------- valves -------------------------
 valves(:)%type = 'none'
