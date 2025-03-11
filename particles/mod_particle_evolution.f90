@@ -40,9 +40,9 @@ contains
     real*8, intent(in)                                        :: tstep_part_adj
     
     real*8,allocatable :: feedback_rhs(:,:,:,:,:)
-    type (type_node_list),       pointer :: feedback_nodelist
-    type (type_element_list),    pointer :: feedback_element_list
-    type (particle_group),       pointer :: part_group
+    type (type_node_list),         pointer :: feedback_nodelist
+    type (type_element_list),      pointer :: feedback_element_list
+    type (particle_group),         pointer :: part_group
     character(len=3) :: cs
 
     !> Coupling scheme specific
@@ -73,9 +73,9 @@ contains
     !> this is where coupling specific physics such as ionisation, charge exchange... etc happens
 
     if (part_group%coupling_scheme == 'ncs') then
-      call evolve_ncs_ics(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj)
+      call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj)
     else if (part_group%coupling_scheme == 'ics') then
-      call evolve_ncs_ics(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
+      call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
     endif
     
     ! ================================= CONSTRUCT PROJECTION RHS =======================================
@@ -110,13 +110,13 @@ contains
   !> The two coupling schemes are handled by the same function due to large degree of overlap in the physics 
   !> experienced by neutrals and impurities. 
   !> The pushing of the particle is also done here
-  subroutine evolve_ncs_ics(sim, part_group, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
+  subroutine evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
     use mod_collisions
     use mod_ionisation_recombination
 
     implicit none
     class(particle_sim),               intent(inout)          :: sim
-    type (particle_group),    pointer, intent(inout)          :: part_group
+    integer,                           intent(in)             :: group_num
     real*8,allocatable,                intent(inout)          :: feedback_rhs(:,:,:,:,:)
     type (type_node_list),    pointer, intent(in)             :: feedback_nodelist
     type (type_element_list), pointer, intent(in)             :: feedback_element_list
@@ -178,7 +178,7 @@ contains
     E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek
     M_norm   = rho_norm * v_norm                                    ! momentum normalisation
 
-    select type (particles => part_group%particles)
+    select type (particles => sim%groups(group_num)%particles)
     type is (particle_kinetic_leapfrog)
       if(use_manual_random_seed) then
         !$ call omp_set_schedule(omp_sched_static,10)
@@ -191,7 +191,7 @@ contains
       !$omp parallel do default(none) &
 #endif
       !$omp schedule(runtime) &
-      !$omp shared(sim, part_group, particles, nstep_particles, tstep_part_adj, rng,                            &
+      !$omp shared(sim, group_num, particles, nstep_particles, tstep_part_adj, rng,                            &
       !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
       !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                                          &
       !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
@@ -253,19 +253,19 @@ contains
           if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
           
           ! ============================================ NCS SPECIFIC PHYSICS ===========================================
-          if (part_group%coupling_scheme == 'ncs') then
+          if (sim%groups(group_num)%coupling_scheme == 'ncs') then
             !> calculate fluid flow velocity [v_R, v_Z, v_phi] m/s
             call sim%fields%calc_vvector(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), vvector)
 
             !> RADIATION (Line radiation for ncs)
-            if (part_group%use_kin_radiation .and. .not. limits) then
-              call part_group%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
+            if (sim%groups(group_num)%use_kin_radiation .and. .not. limits) then
+              call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
               line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
             endif ! RADIATION
             
             !> IONISATION (Neutrals)
-            if (part_group%use_kin_ionisation .and. .not. limits) then
-              call part_group%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
+            if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
+              call sim%groups(group_num)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ion_rate) ! [m^3/s]
               ion_prob = 1.d0 - exp(-ion_rate * n_e * tstep_part_adj) ! [0] poisson point process, exponential 
   
               ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
@@ -286,15 +286,15 @@ contains
                 particle_tmp%weight = particle_tmp%weight * (1.d0 - ion_prob)
               endif 
       
-              kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) *part_group%mass * ATOMIC_MASS_UNIT /2.d0
+              kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT /2.d0
               ion_energy     = kinetic_energy - H_binding_energy
               !<including binding energy will make ion_energy negative, so it becomes a sink for the plasma
             endif ! IONISATION
               
             !> CHARGE EXCHANGE
             ! It is assumed that we will have a exchange between hydrogen isotopes
-            if (part_group%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
-              call part_group%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
+            if (sim%groups(group_num)%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
+              call sim%groups(group_num)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
               CX_prob = 1.d0 - exp(-cx_rate * n_e * tstep_part_adj)
       
               call rng(i_rng)%next(cx_ran)
@@ -306,12 +306,12 @@ contains
                 !Box-Mueller sample velocities with st.dev=1
                 ran_norm = boxmueller_transform(cx_ran(2:5))
                 !>v_temp = sqrt(kT/m) * ran_norm
-                v_temp = sqrt(T_e * K_BOLTZ/(part_group%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
+                v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(group_num)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
                 !>add bulk fluid flow
                 v_temp = v_temp + vvector 
   
                 CX_source = particle_tmp%weight
-                CX_energy   = 0.5d0 * part_group%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
+                CX_energy   = 0.5d0 * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
               endif ! cx_ran
             endif ! CHARGE EXCHANGE
               
@@ -327,9 +327,9 @@ contains
             !> ----- CONSTRUCT FEEDBACK -----
             !> the feedback per particle per time step is accumulated which is then divided by gather time later
             energy_source  = ion_source * ion_energy + cx_source * cx_energy - line_rad_energy
-            density_source = ion_source * part_group%mass * ATOMIC_MASS_UNIT !< mass source in SI
-            mom_par_source = ion_source * dot_product(B, particle_tmp%v) * part_group%mass * ATOMIC_MASS_UNIT &	
-                  + CX_source  * dot_product(B, particle_tmp%v - v_temp) * part_group%mass * ATOMIC_MASS_UNIT 
+            density_source = ion_source * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !< mass source in SI
+            mom_par_source = ion_source * dot_product(B, particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &	
+                  + CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
                     
             particle_tmp%v = v_temp 
             n_lost_ion = n_lost_ion + ion_source	!< local sum #particles lost due to ionisation
@@ -363,32 +363,32 @@ contains
 
           ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
-          if (part_group%coupling_scheme == 'ics') then
+          if (sim%groups(group_num)%coupling_scheme == 'ics') then
             limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !< limits for collisions
 
             !> IONISATION (Impurities)
-            if (part_group%use_kin_ionisation .and. .not. limits) then
+            if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
               call rng(i_rng)%next(ion_ran_imp)
-              particle_tmp%q = int(new_charge(int(q_old,4), part_group%ad, log10(n_e), log10(T_e), tstep_part_adj, ion_ran_imp(1:2)),1)
+              particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ion_ran_imp(1:2)),1)
               
               if (particle_tmp%q .gt. q_old) then
-                binding_energy = part_group%ad%ionisation_energy(particle_tmp%q +1) * EL_CHG ! should this be q or q_old?
+                binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q +1) * EL_CHG ! should this be q or q_old?
                 ion_energy     =  - binding_energy * particle_tmp%weight
                 !< including binding energy will make ion_energy negative, so it becomes a sink for the plasma
               endif
             endif ! IONISATION
 
             !> RADIATION (Line radiation + Bremsstrahlung + Recombination radiation)
-            if (part_group%use_kin_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
-              call part_group%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
-              call part_group%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
-              call part_group%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
-              binding_energy = part_group%ad%ionisation_energy(particle_tmp%q+1) * EL_CHG ! should this be q or q_old?
+            if (sim%groups(group_num)%use_kin_radiation .and. .not. limits) then !< before or after Ionisation and CX ??
+              call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
+              call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
+              call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
+              binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q+1) * EL_CHG ! should this be q or q_old?
               radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
             endif ! RADIATION
             
             !> COLLISIONS WITH THE BACKGROUND PLASMA (Neoclassical collisions)
-            if (part_group%use_kin_bg_collisions .and. .not. limits_coll) then
+            if (sim%groups(group_num)%use_kin_bg_collisions .and. .not. limits_coll) then
               if (particle_tmp%q .gt. 0) then
                 ! Calculate collisions
                 kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
@@ -399,7 +399,7 @@ contains
                 q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
 
                 !> Calculate coulomb logarithm and limit it to reasonable values
-                coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, part_group%mass, m_b)
+                coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)
                 coulomb_log = max(10.d0, coulomb_log)
                 coulomb_log = min(20.d0, coulomb_log)
 
@@ -415,7 +415,7 @@ contains
     
                 do l=1,n_coll
                   call rng(i_rng)%next(ran)
-                  call collide_particles(ran(1:3), particle_tmp%q, part_group%mass, particle_tmp%v, &
+                  call collide_particles(ran(1:3), particle_tmp%q, sim%groups(group_num)%mass, particle_tmp%v, &
                       q_b, m_b, v_b(:,l), n_b, coulomb_log, tstep_part_adj/real(n_coll,8))
                 end do
               end if
@@ -433,7 +433,7 @@ contains
             !> ----- CONSTRUCT FEEDBACK -----
             !> the feedback per particle per time step is accumulated which is then divided by gather time later
             energy_source  = ion_energy + radiation_energy!ion_source * ion_energy !+ cx_source * cx_energy - line_rad_energy
-            mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * part_group%mass * ATOMIC_MASS_UNIT !&	
+            mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
 
             particle_tmp%v = v_temp 
             n_lost_ion = n_lost_ion !+ ion_source	!< local sum #particles lost due to ionisation
@@ -472,7 +472,7 @@ contains
 
           !> =============================== PUSH PARTICLE ====================================
           if (particle_tmp%i_elm .gt. 0) then
-            call boris_push_cylindrical(particle_tmp, part_group%mass, E, B, tstep_part_adj)
+            call boris_push_cylindrical(particle_tmp, sim%groups(group_num)%mass, E, B, tstep_part_adj)
             call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, rz_old(1), rz_old(2), st_old(1), st_old(2), i_elm_old, &
                                 particle_tmp%x(1), particle_tmp%x(2), particle_tmp%st(1), particle_tmp%st(2), particle_tmp%i_elm, ifail)
           end if
