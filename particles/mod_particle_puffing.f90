@@ -306,24 +306,24 @@ subroutine calc_puff_rate_linear(this, time, puff_rate_0, puff_rate_1, puff_rate
   !> set the bounding values of the current puffing segment
   if (this%current_puff_seg == 0) then 
     !> for t < puff_ctrl%times(1), we keep puff_rate constant at puff_ctrl%rates(1)
-    puff_rate_0  = this%puff_ctrl%rates(1)
-    puff_rate_1  = this%puff_ctrl%rates(1) 
+    puff_rate_0 = this%puff_ctrl%rates(1)
+    puff_rate_1 = this%puff_ctrl%rates(1) 
 
     !> the puff_ctrl%times no longer matter in this case but (puff_ctrl%times_1 - puff_ctrl%times_0) has to be non zero 
     puff_time_0 = this%puff_ctrl%times(1) 
     puff_time_1 = this%puff_ctrl%times(1) + 1 
   else if (this%current_puff_seg == this%last_puff_seg) then
     !> for t > puff_ctrl%times(last_puff_seg), we keep puff_rate constant at puff_ctrl%rates(last_puff_seg)
-    puff_rate_0  = this%puff_ctrl%rates(this%last_puff_seg)
-    puff_rate_1  = this%puff_ctrl%rates(this%last_puff_seg) 
+    puff_rate_0 = this%puff_ctrl%rates(this%last_puff_seg)
+    puff_rate_1 = this%puff_ctrl%rates(this%last_puff_seg) 
 
     !> the puff_ctrl%times no longer matter in this case but (puff_ctrl%times_1 - puff_ctrl%times_0) has to be non zero 
     puff_time_0 = this%puff_ctrl%times(this%last_puff_seg) 
     puff_time_1 = this%puff_ctrl%times(this%last_puff_seg) + 1 
   else
     !> in general, puff_ctrl%times and puff_ctrl%rates are the defined values bounding the segment
-    puff_rate_0  = this%puff_ctrl%rates(this%current_puff_seg)
-    puff_rate_1  = this%puff_ctrl%rates(this%current_puff_seg + 1)
+    puff_rate_0 = this%puff_ctrl%rates(this%current_puff_seg)
+    puff_rate_1 = this%puff_ctrl%rates(this%current_puff_seg + 1)
     puff_time_0 = this%puff_ctrl%times(this%current_puff_seg)
     puff_time_1 = this%puff_ctrl%times(this%current_puff_seg + 1)
   endif
@@ -349,7 +349,7 @@ subroutine do_particle_puffing(this,sim, ev)
   real*8  :: tstep_fluid_si, c, R, Z, phi, s, t
   real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
   real*8  :: u(5)
-  real*8  :: puff_rate !< possibly time dependent fueling rate
+  real*8  :: puff_rate, puff_rate_local !< possibly time dependent fueling rate, fueling rate/n_mpi
 
   integer ::    puffed_this_step_local, all_puffed_this_step
   real*8  ::    puff_weight_local, all_puff_weight
@@ -401,9 +401,10 @@ subroutine do_particle_puffing(this,sim, ev)
   !> calculate time dependent puffing rate -----------------------
   !> piecewise linear approach 
   call calc_puff_rate_linear(this, sim%time, puff_rate_0, puff_rate_1, puff_rate)
+  puff_rate_local = puff_rate / sim%n_mpi
 
   !> calculate how many superparticles to initiate ---------------
-  supers_to_puff = get_supers_to_puff(this, sim%my_id, tstep_fluid_si, puff_rate)
+  supers_to_puff = get_supers_to_puff(this, sim%my_id, tstep_fluid_si, puff_rate_local)
   supers_to_puff_local = calc_n_particles_per_mpi(supers_to_puff, sim%n_mpi, sim%my_id)
   to_puff = supers_to_puff_local
 
@@ -444,7 +445,7 @@ subroutine do_particle_puffing(this,sim, ev)
   ! !$omp parallel do default(shared) &
   ! !$omp schedule(dynamic,10) &
   ! !$omp shared(sim, pa, this,i_free,c,                      &
-  ! !$omp   to_puff,supers_to_puff_local, tstep_fluid_si,puff_rate )                        &
+  ! !$omp to_puff,supers_to_puff_local, tstep_fluid_si,puff_rate_local )                        &
   ! !$omp private(i_p, i_rng, j,k,u , R,Z,s,t,R_new,Z_new,s_new,t_new,     &
   ! !$omp  i_elm,i_elm_new,r_valve, theta,                                         &
   ! !$omp ifail)                                                                    &
@@ -487,7 +488,7 @@ subroutine do_particle_puffing(this,sim, ev)
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
       pa(i_p)%i_elm   = i_elm
-      pa(i_p)%weight  = real(1.d0/supers_to_puff_local) * tstep_fluid_si * puff_rate
+      pa(i_p)%weight  = real(1.d0/supers_to_puff_local) * tstep_fluid_si * puff_rate_local
    
       pa(i_p)%v       = c * sample_cosine(u(4:5), this%vector_normal)   
       pa(i_p)%q       = 0_1
