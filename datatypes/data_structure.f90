@@ -164,6 +164,7 @@ end type type_node
   type type_RHS
     real(kind=8), dimension(:), pointer :: val => Null()
     integer(kind=int_all)               :: n                    !< vector length
+    integer                             :: nrhs                !< number of degrees of freedom
   end type type_RHS  
   
   !> Preconditioner type  
