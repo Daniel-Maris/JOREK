@@ -2,7 +2,7 @@
 module mod_sobseq_rng
   use mod_sobseq
   use mod_rng
-  use phys_module, only: fix_rng_for_debug
+  use phys_module, only: use_fixed_rng_value, fixed_rng_value
   implicit none
   private
   public type_rng, sobseq_rng
@@ -115,7 +115,7 @@ contains
     if (rng%n_streams .eq. 1) then
       do i=1,size(rng%state,1)
         out(i) = rng%state(i)%next()
-        if (fix_rng_for_debug) out(i) = 0.5
+        if (use_fixed_rng_value) out(i) = fixed_rng_value
       end do
     else
       N = ilog2_b_ceil(rng%n_streams)
@@ -126,7 +126,7 @@ contains
       else
         do i=1,size(rng%state,1)
           out(i) = rng%state(i)%next_strided()
-          if (fix_rng_for_debug) out(i) = 0.5
+          if (use_fixed_rng_value) out(i) = fixed_rng_value
         end do
       end if
     end if

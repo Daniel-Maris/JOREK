@@ -2,7 +2,7 @@
 !> composited of interspersing output from two rngs
 module mod_mix_rng
   use mod_rng
-  use phys_module, only: fix_rng_for_debug
+  use phys_module, only: use_fixed_rng_value, fixed_rng_value
   implicit none
   private
   public mix_rng
@@ -89,7 +89,7 @@ contains
     call rng%rng_b%next(tmp_b)
     out = unpack(tmp_a, rng%use_a, out)
     out = unpack(tmp_b, .not. rng%use_a, out)
-    if (fix_rng_for_debug) out = 0.5
+    if (use_fixed_rng_value) out = fixed_rng_value
   end subroutine next_all
 
   subroutine jump_ahead_all(rng, delta)
