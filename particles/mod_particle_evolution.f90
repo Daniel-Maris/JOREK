@@ -351,7 +351,7 @@ contains
                 feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * density_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj !< buiten de steps loop
+                feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj
               enddo
             enddo
           enddo
