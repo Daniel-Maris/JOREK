@@ -70,8 +70,8 @@ real*8     :: u0, u0_x, u0_y, u0_p, u0_s, u0_t, u0_ss, u0_tt, u0_st, u0_xx, u0_x
 real*8     :: w0, w0_x, w0_y, w0_p, w0_s, w0_t, w0_ss, w0_st, w0_tt, w0_xx, w0_xy, w0_yy
 real*8     :: r0, r0_x, r0_y, r0_p, r0_s, r0_t, r0_ss, r0_st, r0_tt, r0_xx, r0_xy, r0_yy, r0_hat, r0_x_hat, r0_y_hat, r0_corr
 real*8     :: T0, T0_x, T0_y, T0_p, T0_s, T0_t, T0_ss, T0_st, T0_tt, T0_xx, T0_xy, T0_yy, T0_corr, dT0_corr_dT, d2T0_corr_dT2
-real*8     :: Ti0, Ti0_x, Ti0_y, Ti0_p, Ti0_s, Ti0_t, Ti0_ss, Ti0_st, Ti0_tt, Ti0_xx, Ti0_xy, Ti0_yy, Ti0_corr, dTi0_corr_dT, d2Te0_corr_dT2
-real*8     :: Te0, Te0_x, Te0_y, Te0_p, Te0_s, Te0_t, Te0_ss, Te0_st, Te0_tt, Te0_xx, Te0_xy, Te0_yy, Te0_corr, dTe0_corr_dT, d2Ti0_corr_dT2
+real*8     :: Ti0, Ti0_x, Ti0_y, Ti0_p, Ti0_s, Ti0_t, Ti0_ss, Ti0_st, Ti0_tt, Ti0_xx, Ti0_xy, Ti0_yy, Ti0_corr, dTi0_corr_dT
+real*8     :: Te0, Te0_x, Te0_y, Te0_p, Te0_s, Te0_t, Te0_ss, Te0_st, Te0_tt, Te0_xx, Te0_xy, Te0_yy, Te0_corr, dTe0_corr_dT, d2Te0_corr_dT2
 real*8     :: Tie_min_neg
 real*8     :: psi, psi_x, psi_y, psi_p, psi_s, psi_t, psi_ss, psi_st, psi_tt, psi_xx, psi_xy, psi_yy, psi_xpp, psi_ypp
 real*8     :: zj, zj_x, zj_y, zj_p, zj_s, zj_t, zj_ss, zj_st, zj_tt
@@ -563,8 +563,7 @@ do i=1,n_vertex_max
             Ti0_st = eq_st(mp,var_Ti,ms,mt)
                                                               ! Factors of 2 come because correction is made on total T
             Ti0_corr     = corr_neg_temp(Ti0*2.d0) / 2.d0     ! For use in eta(T), visco(T), ...
-            dTi0_corr_dT = dcorr_neg_temp_dT(Ti0*2.d0)        ! Improve the correction
-            d2Ti0_corr_dT2 = 2.0 * dcorr_neg_temp_dT(Ti0*2.d0)   
+            dTi0_corr_dT = dcorr_neg_temp_dT(Ti0*2.d0)        ! Improve the correction / y= f(2*x)/2 => dy/dx = 2*f’(2*x)/2 = f’(2*x)
            
             Te0    = eq_g(mp,var_Te,ms,mt)
             Te0_x  = (   y_t(ms,mt) * eq_s(mp,var_Te,ms,mt) - y_s(ms,mt) * eq_t(mp,var_Te,ms,mt) ) / xjac
@@ -577,8 +576,8 @@ do i=1,n_vertex_max
             Te0_st = eq_st(mp,var_Te,ms,mt)
                                                               ! Factors of 2 come because correction is made on total T
             Te0_corr     = corr_neg_temp(Te0*2.d0) / 2.d0     ! For use in eta(T), visco(T), ...
-            dTe0_corr_dT = dcorr_neg_temp_dT(Te0*2.d0)        ! Improve the correction
-            d2Te0_corr_dT2 = 2.0 * dcorr_neg_temp_dT(Te0*2.d0)   
+            dTe0_corr_dT = dcorr_neg_temp_dT(Te0*2.d0)        ! Improve the correction / y= f(2*x)/2, => dy/dx = 2*f’(2*x)/2 = f’(2*x)
+            d2Te0_corr_dT2 = 2.0 * dcorr_neg_temp_dT(Te0*2.d0)   ! y= f(2*x)/2 => d2y/dx2 = 4*f''(2*x)/2 = 2*f’'(2*x)
 
             zTi   =   eq_zTi(ms,mt)
             zTi_x = dTi_dpsi(ms,mt) * ps0_x
@@ -618,7 +617,6 @@ do i=1,n_vertex_max
 
             Ti0_corr     = T0_corr / 2.d0     ! For use in eta(T), visco(T), ...
             dTi0_corr_dT = dT0_corr_dT / 2.d0 ! Improve the correction
-            d2Ti0_corr_dT2 = d2T0_corr_dT2 / 2.d0
            
             Te0    = Ti0
             Te0_x  = Ti0_x
@@ -5058,7 +5056,6 @@ subroutine construct_imp_charge_states()
   ! Derivative wrt to T, with T in JOREK units
   d2Z_imp_dT2 = d2Z_imp_dT2 / ((EL_CHG*MU_ZERO*central_density*1.d20)**2.)
   d2Z_imp_dT2 = d2Z_imp_dT2 * d2Te0_corr_dT2 
-  
 
   if (Te_corr_eV < 0.1) then
      Z_imp       = 0.
