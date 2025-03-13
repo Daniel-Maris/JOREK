@@ -574,10 +574,10 @@ do i=1,n_vertex_max
             Te0_ss = eq_ss(mp,var_Te,ms,mt)
             Te0_tt = eq_tt(mp,var_Te,ms,mt)
             Te0_st = eq_st(mp,var_Te,ms,mt)
-                                                              ! Factors of 2 come because correction is made on total T
-            Te0_corr     = corr_neg_temp(Te0*2.d0) / 2.d0     ! For use in eta(T), visco(T), ...
-            dTe0_corr_dT = dcorr_neg_temp_dT(Te0*2.d0)        ! Improve the correction / y= f(2*x)/2, => dy/dx = 2*f’(2*x)/2 = f’(2*x)
-            d2Te0_corr_dT2 = 2.0 * dcorr_neg_temp_dT(Te0*2.d0)   ! y= f(2*x)/2 => d2y/dx2 = 4*f''(2*x)/2 = 2*f’'(2*x)
+                                                                ! Factors of 2 come because correction is made on total T
+            Te0_corr       = corr_neg_temp(Te0*2.d0) / 2.d0     ! For use in eta(T), visco(T), ...
+            dTe0_corr_dT   = dcorr_neg_temp_dT(Te0*2.d0)        ! Improve the correction / y= f(2*x)/2, => dy/dx = 2*f’(2*x)/2 = f’(2*x)
+            d2Te0_corr_dT2 = 2.0 * dcorr_neg_temp_dT(Te0*2.d0)  !  y= f(2*x)/2 => d2y/dx2 = 4*f’’(2*x)/2 = 2*f’’(2*x)
 
             zTi   =   eq_zTi(ms,mt)
             zTi_x = dTi_dpsi(ms,mt) * ps0_x
@@ -601,8 +601,8 @@ do i=1,n_vertex_max
             T0_tt = eq_tt(mp,var_T,ms,mt)
             T0_st = eq_st(mp,var_T,ms,mt)
            
-            T0_corr     = corr_neg_temp(T0)     ! For use in eta(T), visco(T), ...
-            dT0_corr_dT = dcorr_neg_temp_dT(T0) ! Improve the correction
+            T0_corr       = corr_neg_temp(T0)       ! For use in eta(T), visco(T), ...
+            dT0_corr_dT   = dcorr_neg_temp_dT(T0)   ! Improve the correction
             d2T0_corr_dT2 = d2corr_neg_temp_dT2(T0) 
 
             Ti0    = T0    / 2.d0
@@ -628,8 +628,8 @@ do i=1,n_vertex_max
             Te0_tt = Ti0_tt
             Te0_st = Ti0_st
 
-            Te0_corr     = T0_corr / 2.d0     ! For use in eta(T), visco(T), ...
-            dTe0_corr_dT = dT0_corr_dT / 2.d0 ! Improve the correction
+            Te0_corr       = T0_corr / 2.d0       ! For use in eta(T), visco(T), ...
+            dTe0_corr_dT   = dT0_corr_dT / 2.d0   ! Improve the correction
             d2Te0_corr_dT2 = d2T0_corr_dT2 / 2.d0
 
             zTi   =   eq_zT(ms,mt)         / 2.d0

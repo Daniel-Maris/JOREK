@@ -1673,7 +1673,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 #endif
       Ti0_corr     =     corr_neg_temp(Ti0 * 2.d0) / 2.d0
       Te0_corr     =     corr_neg_temp(Te0 * 2.d0) / 2.d0
-      dTe0_corr_dT = dcorr_neg_temp_dT(Te0 * 2.d0)         ! y= f(2*x)/2 => dy/dx = 2*f’(2*x)/2 = f’(2*x)
+      dTe0_corr_dT =     dcorr_neg_temp_dT(Te0 * 2.d0)       ! y= f(2*x)/2 => dy/dx = 2*f’(2*x)/2 = f’(2*x)
 
 #ifdef WITH_Vpar
       vpar0    = eq_g_1D(mp,var_vpar,ms)
