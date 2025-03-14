@@ -103,7 +103,7 @@ contains
     
     if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', part_group%id, " ----------"
     
-  end subroutine
+  end subroutine evolve_particle_group
 
   !> Internal function for gathering the feedback rhs values when using the ncs or ics coupling scheme
   !> The two coupling schemes are handled by the same function due to large degree of overlap in the physics 
@@ -257,7 +257,9 @@ contains
           !> calculate fluid flow velocity [v_R, v_Z, v_phi] m/s
           call sim%fields%calc_vvector(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), vvector)
 
-          !> RADIATION (Line radiation for ncs)
+          !> RADIATION (only line radiation* for ncs)
+          !>   (*Line radiation due to collisional excitation of the neutral's bound electrons with the 
+          !>    electrons in the background plasma. The spectrum of these radiations are discrete.)
           if (sim%groups(group_num)%use_kin_radiation .and. .not. limits) then
             call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT) ! [J m^3/s]
             line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
@@ -497,9 +499,6 @@ contains
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to radiation: ", sim%time, p_lost_plt_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_lost_cx_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Total energy exchange to plasma [W]: ", sim%time, p_lost_ion_all -p_lost_plt_all+ p_lost_cx_all
-  end subroutine
+  end subroutine evolve_ncs_ics
 
 end module mod_particle_evolution
-
-
-
