@@ -12,6 +12,7 @@ module mod_integrals3D
   use tr_module
   use phys_module
   use mod_coupling_settings
+  use coupling_variables
   use mod_interp
   use convert_character
   use mpi_mod

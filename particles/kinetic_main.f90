@@ -179,14 +179,8 @@ do group_num=1, n_part_groups
 
   ! recombination
   if (sim%groups(group_num)%use_kin_recombination) then
-    if (trim(sim%groups(group_num)%coupling_scheme) == 'ncs') then
-      recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
-      recomb_groups(recomb_counter) = group_num
-  else 
-      write(*,*) "ERROR: incompatible setting enabled for group ", sim%groups(group_num)%id, ": "
-      write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
-      stop
-    endif
+    recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
+    recomb_groups(recomb_counter) = group_num
   endif
 
 enddo ! n_part_groups

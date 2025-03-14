@@ -6,6 +6,9 @@ use phys_module, only: n_aux_var, n_diag_var
 use coupling_variables
 
 implicit none
+private
+public  :: use_ncs, use_ics, use_ccs, use_pcs, use_pcf, use_kin_recomb_global, n_ics
+public  :: check_compatibility_and_determine_coupling_schemes, determine_coupling_variables
 
 ! the variables below are global variables determined by scanning over particle groups, 
 ! and hence shoud NOT be modified manually
@@ -19,17 +22,21 @@ integer :: n_ics                 = 0       !< number of ics groups in the simula
 contains
 
     
-
-!> Scans over all the particle groups and determines how the coupling scheme booleans should be initialized
-subroutine determine_coupling_schemes()
+!> Scans over all the particle groups and 
+!> - ensures that the physics settings enabled are compatible with the coupling scheme
+!> - determines which coupling schemes are in use and hence how the coupling scheme 
+!>   booleans should be initialized
+subroutine check_compatibility_and_determine_coupling_schemes()
   implicit none
   integer                    ::   group_num
 
   do group_num=1, n_part_groups
     select case (part_group_configs(group_num)%coupling_scheme)
       case ('ncs')
+
         use_ncs = .true.
       case ('ics')
+        call check_compatibility_ics(group_num)
         use_ics = .true.
         n_ics = n_ics + 1
         part_group_configs(group_num)%ics_group_idx = n_ics
@@ -52,7 +59,20 @@ subroutine determine_coupling_schemes()
     endif 
     
   enddo 
-end subroutine determine_coupling_schemes
+end subroutine check_compatibility_and_determine_coupling_schemes
+
+!> checks that the physics enabled for particle group is compatible with the ics coupling scheme
+subroutine check_compatibility_ics(group_num)
+  implicit none
+  integer :: group_num
+  
+  !> ics not compatible with use_kin_recombination
+  if (part_group_configs(group_num)%use_kin_recombination) then
+    write(*,*) "ERROR: incompatible setting enabled for group ", part_group_configs(group_num)%id, ": "
+    write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
+    stop
+  endif
+end subroutine check_compatibility_ics
 
 !> compares the name of a given coupling variable associated with a coupling scheme (i.e. assessed_var) 
 !> with the list of coupling variables already used by the simulation (i.e. coupling_vars). If the 
@@ -148,7 +168,5 @@ subroutine determine_coupling_variables()
   n_aux_var = n_aux_var + 5 ! temporary as diag projections not yet created
 
 end subroutine determine_coupling_variables
-
-
 
 end module mod_coupling_settings
