@@ -51,7 +51,6 @@ subroutine check_compatibility_and_determine_coupling_schemes()
       case default
         write(*,*) "ERROR: The coupling scheme '", part_group_configs(group_num)%coupling_scheme, "' is invalid."
         stop
-
     end select
 
     if (part_group_configs(group_num)%use_kin_recombination .eqv. .true.) then

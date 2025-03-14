@@ -1020,7 +1020,9 @@ module phys_module
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
-    integer             :: ics_group_idx           !< internal index given to this specific impurities group
+    integer             :: ics_group_idx           !< internal index given to this specific impurities group, used to obtain the variable index of charge density
+                                                   !< projectons specific to this group, as we require a charge density projection for each impurities group for coupling
+                                             
 
     !> --------------- puffing ----------------------
 
