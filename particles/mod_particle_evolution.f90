@@ -87,14 +87,14 @@ contains
       !> ncs specific projections
       if (part_group%coupling_scheme == 'ncs') then
         jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-        jorek_feedback%rhs(:,:,:,:,5) = feedback_rhs(:,:,:,:,5)   !< extra diagnostic projection 
+        jorek_feedback%rhs(:,:,:,:,5) = jorek_feedback%rhs(:,:,:,:,5) + feedback_rhs(:,:,:,:,5)   !< extra diagnostic projection 
       endif
 
       !> ics specific projections
       if (part_group%coupling_scheme == 'ics') then
         jorek_feedback%rhs(:,:,:,:,imp_q_idx) = jorek_feedback%rhs(:,:,:,:,imp_q_idx) + feedback_rhs(:,:,:,:,imp_q_idx)
-        jorek_feedback%rhs(:,:,:,:,6) = feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
-        jorek_feedback%rhs(:,:,:,:,7) = feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
+        jorek_feedback%rhs(:,:,:,:,6) = jorek_feedback%rhs(:,:,:,:,6) + feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
+        jorek_feedback%rhs(:,:,:,:,7) = jorek_feedback%rhs(:,:,:,:,7) + feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
       endif
     endif
 
@@ -110,7 +110,7 @@ contains
   !> experienced by neutrals and impurities. 
   !> The pushing of the particle is also done here
   subroutine evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
-    use mod_collisions
+    use mod_imp_collisions
     use mod_ionisation_recombination
 
     implicit none

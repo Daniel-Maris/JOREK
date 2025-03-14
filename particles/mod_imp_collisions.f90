@@ -1,7 +1,7 @@
-!> Contains an implementation of the binary collision model, which samples a particle
-!> from a background plasma described by a temperature, background flow and temperature
+!> Contains an implementation of the binary collision model for impurities colliding with the background plasma.
+!> The implemenation samples a particle from a background plasma described by a temperature, background flow and temperature
 !> gradient. See Y. Homma, A. Hatayama / JCP 231 (2012)
-module mod_collisions
+module mod_imp_collisions
   implicit none
   private
   public :: collide_particles
@@ -11,6 +11,8 @@ module mod_collisions
   public :: sample_velocity_dist_unmagnetized
 contains
 
+!> returns the coulomb logarithm to be used for impurity collisions
+!> TODO: should probably be consolidated and centralised with other implementations of coulomb_log calculations 
 pure function coulomb_logarithm(kT, n_i, q_a, q_b, m_a, m_b)
   use constants, only: PI, EPS_ZERO, ATOMIC_MASS_UNIT, EL_CHG
   real*8, intent(in) :: kT !< Temperature [J]
@@ -23,7 +25,6 @@ pure function coulomb_logarithm(kT, n_i, q_a, q_b, m_a, m_b)
       4 * PI * EPS_ZERO * ((m_a * m_b)/(m_a + m_b)) * ATOMIC_MASS_UNIT * &
       kT / (m_b * ATOMIC_MASS_UNIT) / &
       (real(q_a,8) * real(q_b,8) * EL_CHG**2))
-! coulomb_logarithm = 15.d0 ! for Homma JCP 2013 benchmark
 ! We should probably use a simpler parametrisation for performance reasons
 end function coulomb_logarithm
 
@@ -85,7 +86,7 @@ end subroutine collide_particles
 
 !> Calculate the heat flux density q as in the Homma 2013 JCP paper for use with sample_velocity_dist_magnetized
 !> The parallel component is in the B_hat direction. The perpendicular component is in the direction
-!> of the temperature gradient. The diamagnetic firection is perpendicular to these two.
+!> of the temperature gradient. The diamagnetic direction is perpendicular to these two.
 !>
 !> This makes a few assumptions:
 !> * Collisional background plasma (no neo or anomalous transport)
@@ -299,4 +300,4 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   end do
 end subroutine sample_distorted_maxwellian
 
-end module mod_collisions
+end module mod_imp_collisions
