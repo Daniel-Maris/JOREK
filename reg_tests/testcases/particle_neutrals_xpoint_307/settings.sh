@@ -21,7 +21,7 @@ function compile_jorek () {
     make cleanall                                                                                                         || exit 1
   fi
   ./util/config.sh model=$jorekmodel n_tor=1 n_coord_tor=1 l_pol_domm=0 n_plane=1 n_period=1 n_coord_period=1             || exit 1
-  make $compilopt $debugoptions kinetic_main                                                                          || exit 1
+  make $compilopt $debugoptions kinetic_main                                                                              || exit 1
 }
 
 
@@ -32,7 +32,7 @@ function initial_run () {
   ${codedir}/util/setinput.sh input restart_particles=.f. restart=.t. nstep_n=10 tstep_n=10.                              || exit 1
   export OMP_NUM_THREADS=$num_threads                                                                                     || exit 1
   echo "setting OMP_NUM_THREADS=$num_threads, due to the requirements of the test"                                        || exit 1
-  $MPIRUN $mpitasks ./kinetic_main < input | tee logfile_initial2                                                     || exit 1
+  $MPIRUN $mpitasks ./kinetic_main < input | tee logfile_initial2                                                         || exit 1
 }
 
 
@@ -41,7 +41,7 @@ function restart_run () {
   ${codedir}/util/setinput.sh input restart_particles=.t. restart=.t. nstep_n=1 tstep_n=10.                               || exit 1
   export OMP_NUM_THREADS=$num_threads                                                                                     || exit 1
   echo "setting OMP_NUM_THREADS=$num_threads, due to the requirements of the test"                                        || exit 1
-  $MPIRUN $mpitasks ./kinetic_main < input | tee logfile                                                              || exit 1
+  $MPIRUN $mpitasks ./kinetic_main < input | tee logfile                                                                  || exit 1
 }
 
 
