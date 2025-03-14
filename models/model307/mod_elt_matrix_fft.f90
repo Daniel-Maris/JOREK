@@ -71,7 +71,7 @@ real*8     :: rho, rho_x, rho_y, rho_s, rho_t, rho_p, rho_hat, rho_x_hat, rho_y_
 real*8     :: T, T_x, T_y, T_s, T_t, T_p, T_ss, T_st, T_tt, T_xx, T_xy, T_yy
 real*8     :: Ti0, Ti0_x, Ti0_y, Te0, Te0_x, Te0_y
 real*8     :: zTi, zTi_x, zTi_y, zTe, zTe_x, zTe_y, zn_x, zn_y
-real*8	   :: Jb_0 , Jb, dn0x, dn0y, dn0p
+real*8     :: Jb_0 , Jb, dn0x, dn0y, dn0p
 real*8     :: Vpar, Vpar_x, Vpar_y, Vpar_p, Vpar_s, Vpar_t, Vpar_ss, Vpar_st, Vpar_tt, Vpar_xx, Vpar_yy, Vpar_xy
 real*8     :: P0, P0_s, P0_t, P0_x, P0_y, P0_p, P0_ss, P0_st, P0_tt, P0_xx, P0_xy, P0_yy
 real*8     :: P0_x_rho, P0_xx_rho, P0_y_rho, P0_yy_rho, P0_xy_rho
@@ -117,11 +117,11 @@ real*8     :: Sion_T, dSion_dT                                ! Ionization rate 
 real*8     :: ksi_ion_norm                                          ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
-!   -Radiation from injected gas/impurities	
-!real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature	
-real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T	
-real*8     :: T_rad                                           ! Temperature used in radiation rate	
-!real*8     :: coef_rad_1                                      ! Radiation rate parameters	
+!   -Radiation from injected gas/impurities  
+!real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature  
+real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T  
+real*8     :: T_rad                                           ! Temperature used in radiation rate  
+!real*8     :: coef_rad_1                                      ! Radiation rate parameters  
 real*8     :: ne_SI                                           ! Electron density used in radiation rate        
 !==================================
 
@@ -798,23 +798,23 @@ do i=1,n_vertex_max
                                 source_pellet, source_volume)
           endif
 
-		  ksi_ion_norm = central_density * 1.d20 * ksi_ion
-		  !> Recombination amount per gauss point per element for kinetic particles
-		  if (use_ncs .and. use_kin_recomb_global) then
-			  call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
-			
-        ! --- Transform derivatives on Te to derivatives in total T	
-        dSrec_dT      = dSrec_dT      / 2.d0	
+      ksi_ion_norm = central_density * 1.d20 * ksi_ion
+      !> Recombination amount per gauss point per element for kinetic particles
+      if (use_ncs .and. use_kin_recomb_global) then
+        call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
+      
+        ! --- Transform derivatives on Te to derivatives in total T  
+        dSrec_dT      = dSrec_dT      / 2.d0  
         dLradDcont_dT = dLradDcont_dT / 2.d0
 
-		  else 
+      else 
         Sion_T        = 0.d0
         dSion_dT      = 0.d0
         Srec_T        = 0.d0
         dSrec_dT      = 0.d0
         LradDcont_T   = 0.d0
         dLradDcont_dT = 0.d0
-		  endif		  
+      endif      
 
           do im=n_tor_start, n_tor_end
 
@@ -954,7 +954,7 @@ do i=1,n_vertex_max
 
                        + v * 2.d0 * tauIC * p0_y * BigR                                           * xjac * tstep &
                        
-					   - v * r0_corr * r0_corr  * BigR * Srec_T                                   * xjac * tstep &
+             - v * r0_corr * r0_corr  * BigR * Srec_T                                   * xjac * tstep &
 
                        + zeta * v * delta_g(mp,5,ms,mt) * BigR                                    * xjac         &
 
@@ -979,7 +979,7 @@ do i=1,n_vertex_max
             !###################################################################################################
 
             rhs_ij(6) =  v * BigR * (heat_source(ms,mt) + aux_E0)                         * xjac * tstep &
-			+implicit_heat_source*(gamma-1.d0)*v*(0.5d0*T_min_neg + 0.5d0*T_min_neg*exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) ) -min(T0,T_min_neg))* xjac*tstep*BigR    &
+      +implicit_heat_source*(gamma-1.d0)*v*(0.5d0*T_min_neg + 0.5d0*T_min_neg*exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) ) -min(T0,T_min_neg))* xjac*tstep*BigR    &
 
 !!!! terms not in 303 but 500!
                     + (gamma-1.d0)*0.5d0 * v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0**2 * BB2 * BigR * xjac * tstep &
@@ -1008,10 +1008,10 @@ do i=1,n_vertex_max
                        - ZK_par_num * (v_ps0_x  * ps0_y - v_ps0_y  * ps0_x) &
                                     * (T0_ps0_x * ps0_y - T0_ps0_y * ps0_x)               * xjac * tstep  &
 
-						- v * BigR * r0_corr * r0_corr  * LradDcont_T                       * xjac * tstep  & !< includes gamma-1
-						+ v * BigR * r0_corr * r0_corr  * (ksi_ion_norm*Srec_T)                   * xjac * tstep  & !< correction term for LradDcont_T
-						- (gamma-1.d0)* v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T     * xjac * tstep  & ! 
-									
+            - v * BigR * r0_corr * r0_corr  * LradDcont_T                       * xjac * tstep  & !< includes gamma-1
+            + v * BigR * r0_corr * r0_corr  * (ksi_ion_norm*Srec_T)                   * xjac * tstep  & !< correction term for LradDcont_T
+            - (gamma-1.d0)* v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T     * xjac * tstep  & ! 
+                  
                        - TG_num6 * 0.25d0 * BigR**3 * T0 * (r0_x * u0_y - r0_y * u0_x)         &
                                           * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep  &
                        - TG_num6 * 0.25d0 * BigR**3 * r0 * (T0_x * u0_y - T0_y * u0_x)         &
@@ -1423,10 +1423,10 @@ do i=1,n_vertex_max
 
                           - v * 2.d0 * tauIC * (rho_y * T0 + rho*T0_y) * BigR                           * xjac * theta * tstep &
 
-				   !-----------------------------Recombination to kinetic particles
-				          + v * rho * 2.d0 * r0_corr * BigR * Srec_T * xjac * theta * tstep &
-					!-------------------------------						  
-						  
+           !-----------------------------Recombination to kinetic particles
+                  + v * rho * 2.d0 * r0_corr * BigR * Srec_T * xjac * theta * tstep &
+          !-------------------------------              
+              
                           + D_perp_num * (v_xx + v_x/BigR + v_yy)*(rho_xx + rho_x/BigR + rho_yy)  * BigR * xjac * theta * tstep &
 
                           + TG_num5 * 0.25d0 * BigR**3 * (rho_x * u0_y - rho_y * u0_x)                                &
@@ -1459,9 +1459,9 @@ do i=1,n_vertex_max
                   amat(5,6) = - v * 2.d0 * tauIC * (T_y * r0 + T*r0_y) * BigR                             * xjac * theta * tstep &
 
 !-----------------------------Recombination to kinetic particles  
-				              + v * BigR * r0_corr * r0_corr *  dSrec_dT * T                            * xjac * theta * tstep  
-				  
-				  
+                      + v * BigR * r0_corr * r0_corr *  dSrec_dT * T                            * xjac * theta * tstep  
+          
+          
                   amat(5,7) = + v * F0 / BigR * Vpar * r0_p                                               * xjac * theta * tstep &
                               + v * Vpar * (r0_s * ps0_t - r0_t * ps0_s)                                         * theta * tstep &
                               + v * r0 * (vpar_s * ps0_t - vpar_t * ps0_s)                                       * theta * tstep &
@@ -1558,11 +1558,11 @@ do i=1,n_vertex_max
                             + v * rho * GAMMA * T0_corr * (vpar0_s * ps0_t - vpar0_t * ps0_s)        * theta * tstep &
                             + v * rho * GAMMA * T0_corr * F0 / BigR * vpar0_p                 * xjac * theta * tstep &
 
-							+ v * BigR * rho * 2d0 * r0_corr * LradDcont_T                * xjac * theta * tstep &
-							- v * BigR * rho * 2d0 * r0_corr * Srec_T*ksi_ion_norm              * xjac * theta * tstep &
-							+ (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * T0                      * xjac * theta * tstep & !
-							! - v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T          * xjac * theta * tstep & !rhs
-							
+              + v * BigR * rho * 2d0 * r0_corr * LradDcont_T                * xjac * theta * tstep &
+              - v * BigR * rho * 2d0 * r0_corr * Srec_T*ksi_ion_norm              * xjac * theta * tstep &
+              + (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * T0                      * xjac * theta * tstep & !
+              ! - v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T          * xjac * theta * tstep & !rhs
+              
                          + TG_num6 * 0.25d0 * BigR**2 * T0_corr* (rho_x * u0_y - rho_y * u0_x)      &
                                    * ( v_x * u0_y - v_y * u0_x) * xjac * theta*tstep*tstep     &
                          + TG_num6 * 0.25d0 * BigR**2 * rho * (T0_x * u0_y - T0_y * u0_x)      &
@@ -1595,8 +1595,8 @@ do i=1,n_vertex_max
                   amat(6,6) = v * r0_corr * T   * BigR * xjac * (1.d0 + zeta)     &
                             - v * r0 * BigR**2 * ( T_s  * u0_t - T_t  * u0_s)               * theta * tstep &
                             - v * T  * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)               * theta * tstep &
-							
-							-implicit_heat_source*(gamma-1.d0)*v*(exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) ) -1.d0)*T* xjac*theta*tstep*BigR &
+              
+              -implicit_heat_source*(gamma-1.d0)*v*(exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) ) -1.d0)*T* xjac*theta*tstep*BigR &
 
                             - v * r0 * 2.d0* GAMMA * BigR * T * u0_y                 * xjac * theta * tstep &
 
@@ -1618,9 +1618,9 @@ do i=1,n_vertex_max
                             -v * T * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0 * BigR * xjac * theta * tstep &
 
                             + v * BigR * T * r0_corr * r0_corr  * dLradDcont_dT             * xjac * theta * tstep &
-							- v * BigR * T * r0_corr * r0_corr  * dSrec_dT*ksi_ion_norm           * xjac * theta * tstep &
-							+ (gamma-1.d0)*v * BigR *0.5d0 * T * r0_corr * r0_corr * (Srec_T +T0*dSrec_dT) * xjac * theta * tstep  & 
-							
+              - v * BigR * T * r0_corr * r0_corr  * dSrec_dT*ksi_ion_norm           * xjac * theta * tstep &
+              + (gamma-1.d0)*v * BigR *0.5d0 * T * r0_corr * r0_corr * (Srec_T +T0*dSrec_dT) * xjac * theta * tstep  & 
+              
                             + TG_num6 * 0.25d0 * BigR**2 * T* (r0_x * u0_y - r0_y * u0_x)         &
                                       * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep &
                             + TG_num6 * 0.25d0 * BigR**2 * r0* (T_x * u0_y - T_y * u0_x)          &

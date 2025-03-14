@@ -1009,8 +1009,11 @@ module phys_module
     logical             :: use_kin_ionisation      !< switch on ionisation for group                 
     logical             :: use_kin_puffing         !< switch on particle puffing for group    
     real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
-    logical             :: use_kin_radiation       !< switch on radiation for group (only line rad for ncs, line rad + bremsstrahlung + recomb for ics)
-
+    logical             :: use_kin_radiation       !< switch on radiation for group (only line rad* for ncs, line rad + bremsstrahlung + recomb** for ics)
+                                                   !  *line radiation here refers to the radiation resultant from energy level changes of bound electrons 
+                                                   !  in neutrals/impurity ions due to collisions with the background plasma. Their spectra is discrete
+                                                   !  **recomb radiation results from the release of excess energy when a free electron is captured by an atom
+                                                   !  during recombination, and has a continous spectra
     ! ---- neutrals (ncs) specific
     logical             :: use_kin_cx              !< switch on charge-exchange for group 
     logical             :: use_kin_recombination   !< switch on recombination for group 
