@@ -195,7 +195,7 @@ enddo ! n_part_groups
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0=filter_par_n0,            &
                                 filter = filter_perp, filter_hyper = filter_hyper, filter_parallel=filter_par, fractional_digits = 9,       &
-                                do_zonal = .false., calc_integrals=.false., to_vtk=.TRUE., to_h5 = .false., basename='projections', nsub=2, &
+                                do_zonal = .false., calc_integrals=.false., to_vtk=.false., to_h5 = .false., basename='projections', nsub=2, &
                                 do_dirichlet=apply_dirichlet_proj)
 aux_node_list => jorek_feedback%node_list
 
