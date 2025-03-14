@@ -38,6 +38,7 @@ use mod_edge_elements
 use mod_atomic_coeff_deuterium, only: ad_deuterium 
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
+use mod_coupling_settings, only: use_kin_recomb_global
 use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -181,7 +182,7 @@ do group_num=1, n_part_groups
     if (trim(sim%groups(group_num)%coupling_scheme) == 'ncs') then
       recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
       recomb_groups(recomb_counter) = group_num
-    else 
+  else 
       write(*,*) "ERROR: incompatible setting enabled for group ", sim%groups(group_num)%id, ": "
       write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
       stop

@@ -1,3 +1,5 @@
+!> this module contains the functionality related to performing physics on particles that needs to happen each particle step
+!> the main functionality is all contained in evolve_particle_group, so below for more explanation
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
@@ -13,7 +15,8 @@ module mod_particle_evolution
     !$ use omp_lib
 
     implicit none
-    public evolve_particle_group
+    private
+    public :: evolve_particle_group
 contains
 
   !> For each particle group, this function does the following:

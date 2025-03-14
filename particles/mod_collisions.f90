@@ -11,7 +11,6 @@ module mod_collisions
   public :: sample_velocity_dist_unmagnetized
 contains
 
-
 pure function coulomb_logarithm(kT, n_i, q_a, q_b, m_a, m_b)
   use constants, only: PI, EPS_ZERO, ATOMIC_MASS_UNIT, EL_CHG
   real*8, intent(in) :: kT !< Temperature [J]
@@ -83,8 +82,6 @@ pure subroutine collide_particles(u, q_a, m_a, v_a, q_b, m_b, v_b, n_b, coulomb_
   v_a = v_a + (m_b/(m_a+m_b))*delta_v
   v_b = v_b - (m_a/(m_a+m_b))*delta_v
 end subroutine collide_particles
-
-
 
 !> Calculate the heat flux density q as in the Homma 2013 JCP paper for use with sample_velocity_dist_magnetized
 !> The parallel component is in the B_hat direction. The perpendicular component is in the direction
@@ -175,12 +172,10 @@ subroutine sample_velocity_dist_magnetized(n, u, ktb, q, n_b, m_b, q_b, v_b, w_1
     w_1(:,i) = w_1(:,i) * v_thermal + v_b
     if (isnan(w_1(1,i)) .or. isnan(w_1(2,i)) .or. isnan(w_1(3,i))) then
       write(*,*) u(:,i), w_1(:,i)
-      call sample_distorted_maxwellian_debug(n, u, A, q, w_1)
+      call sample_distorted_maxwellian(n, u, A, q, w_1)
     end if
   end do
 end subroutine sample_velocity_dist_magnetized
-
-
 
 !> sample n particles from the distorted maxwellian with ktb and grad_ktb, and mean flow v_b.
 !>
@@ -215,9 +210,6 @@ subroutine sample_velocity_dist_unmagnetized(n, u, coulomb_logarithm, ktb, grad_
     w_1(:,i) = w_1(:,i) * v_thermal + v_b
   end do
 end subroutine sample_velocity_dist_unmagnetized
-
-
-
 
 !> Sample from a distribution of the form
 !> 
@@ -272,7 +264,6 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   ! Reset the norm for use later
   rho = norm2(q)
 
-  ! 4.2.3
   ! Get 4 uniform random numbers on [0,1]
   ! Transform them into gaussian numbers
   do i=1,n
@@ -282,7 +273,6 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   ! and take the square root (here implemented as norm2)
   w_mag = norm2(w(1:3,:),dim=1)! in units of v_thermal
 
-  ! 4.2.4
   ! Removed the divide by v_thermal, multiply later
   alpha = A * (1.d0 - w_mag**2/(5.d0)) * w_mag * rho
   R = u(5,:)
@@ -298,13 +288,10 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   where(abs(alpha) .gt. 1.d0) cos_theta_2 = sign(2.d0*sqrt(R)-1.d0,alpha)
   where(abs(alpha) .le. 1.d0 .and. abs(alpha) .gt. 1d-10) cos_theta_2 = (sqrt(4.d0*abs(alpha)*R + (1.d0-abs(alpha))**2) - 1.d0)/alpha
 
-  ! 4.2.5
   phi_2 = TWOPI*u(6,:)
   sin_theta_2 = sqrt(1.d0-min(cos_theta_2**2, 1d0)) ! cap cos_theta_2^2 here
-  ! because sometimes it ends up to be something like 1.0000000000002 due to
-  ! floating point bullshit
+  ! because sometimes it ends up to be something like 1.0000000000002 due to floating point errors
 
-  ! 4.2.6
   do i=1,n
     w_1(:,i) = matmul(T2_1, &
       w_mag(i)*[sin_theta_2(i)*cos(phi_2(i)), sin_theta_2(i)*sin(phi_2(i)), cos_theta_2(i)] &
@@ -312,79 +299,4 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   end do
 end subroutine sample_distorted_maxwellian
 
-
-
-subroutine sample_distorted_maxwellian_debug(n, u, A, q, w_1)
-  use constants, only: TWOPI, EL_CHG
-  use mod_sampling
-
-  integer, intent(in)                :: n !< number of particles to sample
-  real*8, dimension(6,n), intent(in) :: u !< uniformly distributed random numbers
-  real*8, intent(in), dimension(3)   :: q !< local heat flux vector in [W/m^2]
-  real*8, intent(in)                 :: A !< Distortion coefficient A
-  real*8, intent(out), dimension(3,n):: w_1 !< Sampled particle velocities, in units of v_thermal
-
-  real*8 :: w_mag(n), w(4,n), alpha(n), R(n)
-  real*8 :: cos_theta_2(n), phi_2(n), sin_theta_2(n)
-  real*8 :: T2_1(3,3)
-  real*8 :: x, y, z, xy2, rho ! components of grad_kTb, after adding a small x-component
-  integer :: i
-
-  ! preparation
-  x = sign(max(abs(q(1)), 1d-8*EL_CHG), q(1)) ! add a small component so this works for grad_Ktb = 0
-  y = q(2)
-  z = q(3)
-  xy2 = norm2([x,y])
-  rho = norm2([x,y,z])
-  ! Create transformation matrix in a more efficient way
-  T2_1(:,1) = [(x*z)/(xy2*rho), (y*z)/(xy2*rho), -xy2/rho]
-  T2_1(:,2) = [-y/xy2, x/xy2, 0.d0]
-  T2_1(:,3) = [x/rho,y/rho,z/rho]
-  ! Reset the norm for use later
-  rho = norm2(q)
-
-  ! 4.2.3
-  ! Get 4 uniform random numbers on [0,1]
-  ! Transform them into gaussian numbers
-  do i=1,n
-    w(:,i) = boxmueller_transform(u(1:4,i))
-  end do
-  ! Get a Chi^2_3-distributed number by summing their squares
-  ! and take the square root (here implemented as norm2)
-  w_mag = norm2(w(1:3,:),dim=1)! in units of v_thermal
-
-  ! 4.2.4
-  ! Removed the divide by v_thermal, multiply later
-  alpha = A * (1.d0 - w_mag**2/(5.d0)) * w_mag * rho
-  R = u(5,:)
-  write(*,*) 'alpha=', alpha
-  ! create a single expression for all cases so we don't need if-statements
-  ! Expression verified against piecewise expression from paper:
-  ! R=0.5, alpha=-1,1
-  ! Manipulate[Plot[{Min[(Sqrt[4 Abs[α] R + (1 - Abs[α])^2] - 1)/Abs[α], 2 Sqrt[R] - 1]*Sign[α],
-  !  Piecewise[{{2R-1,α==0},{(Sqrt[4 α R + (1-α)^2]-1)/α, 0 < α ≤ 1}, {2Sqrt[R]-1, α>1},
-  !                         {(Sqrt[-4α R + (1+α)^2]-1)/α, -1 ≤ α<0}, {1-2Sqrt[R],α< -1}}]
-  ! },{α, -1.5, 1.5}], {R,0,1}]
-  ! Mistake here with preferential sign of alpha
-  cos_theta_2 = 2.d0*R-1.d0 ! default case, where(abs(alpha) .lt. 1d-10)
-  where(abs(alpha) .gt. 1.d0) cos_theta_2 = sign(2.d0*sqrt(R)-1.d0,alpha)
-  where(abs(alpha) .le. 1.d0 .and. abs(alpha) .gt. 1d-10) cos_theta_2 = (sqrt(4.d0*abs(alpha)*R + (1.d0-abs(alpha))**2) - 1.d0)/alpha
-  write(*,*) 'cos(theta)=', cos_theta_2
-
-  ! 4.2.5
-  phi_2 = TWOPI*u(6,:)
-  write(*,*) min(cos_theta_2**2, 1d0)
-  write(*,*) 'sin(theta)^2=', 1.d0-min(cos_theta_2**2, 1d0)
-  write(*,*) 'sin(theta)=', sqrt(1.d0-min(cos_theta_2**2, 1d0))
-  sin_theta_2 = sqrt(1.d0-min(cos_theta_2**2, 1d0)) ! cap cos_theta_2 here
-  ! because sometimes it ends up to be -1.0000000000002 due to floating point
-  ! bullshit
-
-  ! 4.2.6
-  do i=1,n
-    w_1(:,i) = matmul(T2_1, &
-      w_mag(i)*[sin_theta_2(i)*cos(phi_2(i)), sin_theta_2(i)*sin(phi_2(i)), cos_theta_2(i)] &
-    )
-  end do
-end subroutine sample_distorted_maxwellian_debug
 end module mod_collisions
