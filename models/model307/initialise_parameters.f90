@@ -137,8 +137,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles, restart_particles,              &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
-                apply_dirichlet_proj,                               &
-                restart_particles, part_group_configs,              &
+                apply_dirichlet_proj, part_group_configs,           &
                 part_groups_in_use, valves,                         &
                 cte_current_FB_fact, Z_xpoint_limit,                &
                 CARIDDI_mode, use_newton, maxNewton, gamma_Newton,  &
