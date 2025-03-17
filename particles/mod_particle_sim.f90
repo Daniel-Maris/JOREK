@@ -23,10 +23,6 @@ type :: particle_group
  
   ! ================ for neutral particles =============
   logical            :: use_kin_cx               !< switch on charge-exchange for group  
-
-  logical            :: use_kin_sputtering       !< switch on sputtering for group 
-  real*8             :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events
-
   logical            :: use_kin_ionisation       !< switch on ionisation for group         
   logical            :: use_kin_recombination    !< switch on recombination for group       
   logical            :: use_kin_puffing          !< switch on particle puffing for group
@@ -84,11 +80,9 @@ subroutine configure_particle_groups(sim)
   
     ! --- ncs options
     sim%groups(i)%use_kin_cx             =  config%use_kin_cx
-    sim%groups(i)%use_kin_sputtering     =  config%use_kin_sputtering
     sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
     sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
     sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
-    sim%groups(i)%n_reflect_ratio        =  config%n_reflect_ratio 
     sim%groups(i)%use_kin_line_radiation =  config%use_kin_line_radiation 
     
     if (len_trim(config%atom_data_suffix) > 0) then

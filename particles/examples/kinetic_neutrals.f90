@@ -33,7 +33,7 @@ use mod_random_seed
 use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
-use mod_particle_wall_interaction, only: wall_action, construct_wall_action
+use mod_particle_wall_interaction
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
@@ -163,19 +163,14 @@ call edge_elm_template%prepare(node_list, element_list, edge_domains, nsub=6, ns
 ! --- Setting up particle events
 allocate(recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
-! wall actions have to be set globally
-! TODO: make dependent on input
-wall_action_counter = 2
-allocate(wall_actions(wall_action_counter))
-call construct_wall_action(wall_actions(1), sim, 1, 1, "reflection",  edge_elm_template)
-wall_actions(2)%fluid_Z = -2 !< needs to be set before calling the constructor because the loaded Eckstein data depends on it
-call construct_wall_action(wall_actions(2), sim, 1, 1, "wall recomb", edge_elm_template)
-wall_actions(2)%supers_num = 5
+! getting the wall actions from the input
+wall_actions =  wall_actions_from_config(sim, edge_elm_template)
+wall_action_counter = size(wall_actions)
 
+! TODO: remove (breaks reg test)
+wall_actions(2)%supers_num = 5 ! TODO: let depend on input
 call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=wall_rng) !< for reg test
 wall_actions(1)%rng = wall_rng
-
-
 
 do group_num=1, n_part_groups
   ! recombination
@@ -252,7 +247,7 @@ do while (.not. sim%stop_now)
     call write_to_outputfile(sim%my_id, "Wall actions")
     do i=1, wall_action_counter    
       call wall_actions(i)%do(sim)
-      wall_actions(2)%rng = wall_actions(1)%rng !< forcing same rng object for both actions
+      wall_actions(2)%rng = wall_actions(1)%rng !< TODO: remove (breaks reg test), as it enforces same rng object for both actions
     enddo
   endif
 

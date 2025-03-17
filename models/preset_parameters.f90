@@ -879,13 +879,11 @@ part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_puffing        = .false.
 part_group_configs(:)%use_kin_line_radiation = .false.
 part_group_configs(:)%use_kin_ionisation     = .false.
-part_group_configs(:)%use_kin_sputtering     = .false.
-part_group_configs(:)%n_reflect_ratio        = 5.d-4
 part_group_configs(:)%use_kin_cx             = .false.
 
 do i=1, n_part_groups_max
   do j=1, n_valves_max
-    part_group_configs(i)%puff_ctrl(j)%supers_num_puff    = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%supers_num_puff    = -1
     part_group_configs(i)%puff_ctrl(j)%supers_weight_puff = -1.d0
     part_group_configs(i)%puff_ctrl(j)%supers_ratio_puff  = -1.d0   
     !< if none of these three above options are set, the supers_ratio_puff method
@@ -893,6 +891,37 @@ do i=1, n_part_groups_max
     !< which overrides the default value of supers_ratio_puff set here
     part_group_configs(i)%puff_ctrl(j)%times = -1.d0
     part_group_configs(i)%puff_ctrl(j)%rates = -1.d0
+  enddo
+enddo
+
+do i=1, n_part_groups_max
+  do j=1, n_part_groups_max
+    part_group_configs(i)%wall_act_configs(j)%type          = "none"
+    part_group_configs(i)%wall_act_configs(j)%target_group  = -1
+    part_group_configs(i)%wall_act_configs(j)%weight_factor = 1.d0
+
+    part_group_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
+    part_group_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
+    part_group_configs(i)%wall_act_configs(j)%supers_ratio_wall  = -1.d0   
+    !< if none of these three above options are set, the supers_ratio_wall method
+    !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
+  enddo
+enddo
+
+! --- fluid groups
+n_fluid_groups = 0
+
+fluid_configs(:)%Z = -999
+
+do i=1, n_fluid_groups_max
+  do j=1, n_part_groups_max
+    fluid_configs(i)%wall_act_configs(j)%type          = "none"
+    fluid_configs(i)%wall_act_configs(j)%target_group  = -1
+    fluid_configs(i)%wall_act_configs(j)%weight_factor = 1.d0
+
+    fluid_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
+    fluid_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
+    fluid_configs(i)%wall_act_configs(j)%supers_ratio_wall  = -1.d0
   enddo
 enddo
 !-----------------------------------------------
