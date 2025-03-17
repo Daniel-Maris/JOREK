@@ -265,6 +265,7 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   ! Reset the norm for use later
   rho = norm2(q)
 
+  ! 4.2.3 <--- these numbers refers to sections in the Y. Homma, A. Hatayama / JCP 231 (2012) paper
   ! Get 4 uniform random numbers on [0,1]
   ! Transform them into gaussian numbers
   do i=1,n
@@ -274,6 +275,7 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   ! and take the square root (here implemented as norm2)
   w_mag = norm2(w(1:3,:),dim=1)! in units of v_thermal
 
+  ! 4.2.4
   ! Removed the divide by v_thermal, multiply later
   alpha = A * (1.d0 - w_mag**2/(5.d0)) * w_mag * rho
   R = u(5,:)
@@ -289,10 +291,12 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   where(abs(alpha) .gt. 1.d0) cos_theta_2 = sign(2.d0*sqrt(R)-1.d0,alpha)
   where(abs(alpha) .le. 1.d0 .and. abs(alpha) .gt. 1d-10) cos_theta_2 = (sqrt(4.d0*abs(alpha)*R + (1.d0-abs(alpha))**2) - 1.d0)/alpha
 
+  ! 4.2.5
   phi_2 = TWOPI*u(6,:)
   sin_theta_2 = sqrt(1.d0-min(cos_theta_2**2, 1d0)) ! cap cos_theta_2^2 here
   ! because sometimes it ends up to be something like 1.0000000000002 due to floating point errors
 
+  ! 4.2.6
   do i=1,n
     w_1(:,i) = matmul(T2_1, &
       w_mag(i)*[sin_theta_2(i)*cos(phi_2(i)), sin_theta_2(i)*sin(phi_2(i)), cos_theta_2(i)] &
