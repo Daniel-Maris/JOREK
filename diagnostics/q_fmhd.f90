@@ -68,7 +68,7 @@ call log_parameters(my_id)
 if ( my_id == 0 ) call import_restart(node_list,element_list, 'jorek_restart', rst_format, ierr, .true.)
 call broadcast_phys(my_id)  
 call broadcast_elements(my_id, element_list)                ! elements
-call broadcast_nodes(my_id, node_list)                      ! nodes
+call broadcast_nodes(my_id, node_list, n_var)               ! nodes
 call broadcast_boundary(my_id,bnd_elm_list,bnd_node_list)
 call populate_element_rtree(node_list, element_list)
 call broadcast_equil_state(my_id)

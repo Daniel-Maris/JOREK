@@ -518,7 +518,7 @@ write(*,*) "n elements:", element_list%n_elements
   
   if (RMP_on) call broadcast_RMP_profiles(my_id, bnd_node_list)        ! psi_RMP profiles
 
-  call broadcast_nodes(my_id, node_list)                      ! nodes
+  call broadcast_nodes(my_id, node_list, n_var)                      ! nodes
 
   ! Let every mpi proc calculate this
 #ifdef USE_NO_TREE

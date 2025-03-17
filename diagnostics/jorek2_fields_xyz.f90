@@ -34,6 +34,7 @@ program jorek2_fields_xyz
 
   use mod_vacuum_fields
   use mod_plasma_response,  only: plasma_fields_at_xyz
+  use mod_model_settings, only: n_var
   use data_structure
   use phys_module
   use mod_parameters
@@ -187,7 +188,7 @@ program jorek2_fields_xyz
 
     call broadcast_phys(my_id)  
     call broadcast_elements(my_id, element_list)                ! elements
-    call broadcast_nodes(my_id, node_list)                      ! nodes
+    call broadcast_nodes(my_id, node_list, n_var)               ! nodes
   
     if (.not. freeboundary) then
       write(*,*) ' **** Fatal: jorek2_fields_xyz needs freeboundary simulations ****'

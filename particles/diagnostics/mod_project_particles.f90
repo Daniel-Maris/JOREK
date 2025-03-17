@@ -635,6 +635,7 @@ end subroutine project
 !> Gather all of the rhs-es into a single matrix and feed it to mumps, and then
 !> broadcast the result
 subroutine project_only(this, sim)
+  use phys_module, only: n_aux_var
   use mpi_mod
   use mod_event
   use, intrinsic :: ieee_exceptions
@@ -883,7 +884,7 @@ subroutine project_only(this, sim)
 
   call MPI_BARRIER(this%mpi_comm_world, ierr)
 
-  call broadcast_nodes(this%my_id, this%node_list)
+  call broadcast_nodes(this%my_id, this%node_list, n_aux_var)
 
 #ifdef DEBUG
     call cpu_time(t1)

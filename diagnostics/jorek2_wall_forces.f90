@@ -132,7 +132,7 @@ program jorek2_wall_forces
 
     call broadcast_phys(my_id)  
     call broadcast_elements(my_id, element_list)                ! elements
-    call broadcast_nodes(my_id, node_list)                      ! nodes
+    call broadcast_nodes(my_id, node_list, n_var)               ! nodes
   
     if (.not. freeboundary) then
       write(*,*) ' **** Fatal: jorek2_wall_forces needs freeboundary simulations ****'

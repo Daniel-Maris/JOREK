@@ -370,7 +370,7 @@ program jorek2_fast_camera
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   call initialise_basis
   call broadcast_elements(my_id, element_list)                ! elements
-  call broadcast_nodes(my_id, node_list)                      ! nodes
+  call broadcast_nodes(my_id, node_list, n_var)               ! nodes
   call populate_element_rtree(node_list, element_list)        ! rtree
   call broadcast_phys(my_id)                                  ! physics parameters
   call broadcast_equil_state(my_id)                           ! equil_state

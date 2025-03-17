@@ -129,7 +129,7 @@ program jorek2_connection_flux_aligned
 
   ! --- Broadcast accross MPIs
 !  call broadcast_elements(my_id, element_list)              ! elements
-!  call broadcast_nodes(my_id, node_list)                    ! nodes
+!  call broadcast_nodes(my_id, node_list, n_var)             ! nodes
   call populate_element_rtree(node_list, element_list)       ! popc
   ! --- Define element neighbours
   allocate(element_neighbours(4,element_list%n_elements))

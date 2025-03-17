@@ -102,7 +102,7 @@ bnd_node_list_out,bnd_element_list_out)
   call initial_grid(node_list,element_list,bnd_node_list,bnd_elm_list,my_id,n_mpi)
   call broadcast_boundary(my_id,bnd_elm_list,bnd_node_list)
   call broadcast_elements(my_id,element_list)
-  call broadcast_nodes(my_id,node_list)
+  call broadcast_nodes(my_id,node_list,n_var)
   call populate_element_rtree(node_list,element_list)
   if(present(bnd_node_list_out))    bnd_node_list_out      = bnd_node_list
   if(present(bnd_element_list_out)) bnd_element_list_out   = bnd_elm_list
@@ -148,7 +148,7 @@ subroutine default_polar_grid(my_id,n_mpi,npol,nrad,node_list,element_list,ifail
   call initial_grid(node_list,element_list,bnd_node_list,bnd_elm_list,my_id,n_mpi)
   call broadcast_boundary(my_id,bnd_elm_list,bnd_node_list)
   call broadcast_elements(my_id,element_list)
-  call broadcast_nodes(my_id,node_list)
+  call broadcast_nodes(my_id,node_list,n_var)
   call populate_element_rtree(node_list,element_list)
   if(present(bnd_node_list_out))    bnd_node_list_out      = bnd_node_list
   if(present(bnd_element_list_out)) bnd_element_list_out   = bnd_elm_list
@@ -313,7 +313,7 @@ bnd_node_list_out,bnd_element_list_out)
   !> broadcast all calculations
   call broadcast_boundary(my_id,bnd_elm_list,bnd_node_list)
   call broadcast_elements(my_id,element_list)
-  call broadcast_nodes(my_id,node_list)
+  call broadcast_nodes(my_id,node_list,n_var)
   call broadcast_equil_state(my_id)
   call populate_element_rtree(node_list,element_list)
   call update_equil_state(my_id,node_list,element_list,bnd_elm_list,xpoint,xcase)

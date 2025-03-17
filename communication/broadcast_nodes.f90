@@ -1,4 +1,4 @@
-subroutine Broadcast_nodes(my_id,node_list)
+subroutine Broadcast_nodes(my_id,node_list,n_variables)
 !----------------------------------------------------------
 ! subroutine to broadcast all the nodes in the node_list
 !----------------------------------------------------------
@@ -7,24 +7,12 @@ use data_structure
 use mpi_mod
 implicit none
 
-type (type_node_list)    :: node_list
+type (type_node_list)         :: node_list
+integer, intent(in)           :: n_variables
 
-type (type_node)         :: anode
-integer                  :: i, ierr, my_id, position, bufsize, IDBL_EXT, INT_EXT, ILOG_EXT
-character, allocatable   :: buffer(:)
-
-!  type type_node                                      ! type definition of a node (i.e. a vertex)
-!    real*8     :: x(n_degrees,n_dim)                  ! x,y,z coordinates of points and additional nodal geometry
-!    real*8     :: values(n_tor,n_degrees,n_var)
-!    integer    :: index(n_degrees)                    ! the index in the main matrix
-!    integer    :: boundary                            ! = 1, 2 or 3 for boundary nodes
-!  endtype type_node                                   ! x(:,1) : position, x(:,2) : vector u, x(:,3) : vector v, x(4) : vector w
-
-!  type type_node_list                                 ! type definition of a list of nodes
-!    integer :: n_nodes                                ! the number of nodes in the list
-!    type (type_node)     :: node(n_nodes_max)         ! an allocatable list of nodes
-!  endtype type_node_list
-
+type (type_node)              :: anode
+integer                       :: i, ierr, my_id, position, bufsize, IDBL_EXT, INT_EXT, ILOG_EXT
+character, allocatable        :: buffer(:)
 
 call MPI_PACK_SIZE(1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,IDBL_EXT,ierr)
 call MPI_PACK_SIZE(1,MPI_INTEGER,MPI_COMM_WORLD,INT_EXT,ierr)
@@ -34,16 +22,16 @@ call MPI_BCAST(node_list%n_nodes,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 call MPI_BCAST(node_list%n_dof,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
 #ifdef STELLARATOR_MODEL
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*(n_dim+2*3+1) + 2*n_tor*n_degrees*n_var + n_tor*n_degrees + 2 + 2*n_degrees)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*(n_dim+2*3+1) + 2*n_tor*n_degrees*n_variables + n_tor*n_degrees + 2 + 2*n_degrees)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #elif fullmhd
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_var+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #elif altcs                          
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_var+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #else                                
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_var+2)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables+2)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #endif
 
-call init_node(anode, n_var)
+call init_node(anode, n_variables)
 allocate(buffer(bufsize))
 call tr_register_mem(bufsize,"bcastn_buffer")
 
@@ -56,8 +44,8 @@ if (my_id .eq. 0) then
     call make_deep_copy_node(node_list%node(i), anode)
 
     call MPI_PACK(anode%x              ,n_coord_tor*n_degrees*n_dim      ,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-    call MPI_PACK(anode%values         ,n_tor*n_degrees*n_var,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-    call MPI_PACK(anode%deltas         ,n_tor*n_degrees*n_var,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%values         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%deltas         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 #ifdef STELLARATOR_MODEL
     call MPI_PACK(anode%r_tor_eq       ,n_degrees,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 #if JOREK_MODEL == 180
@@ -93,14 +81,14 @@ call MPI_BCAST(buffer,bufsize,MPI_PACKED,0,MPI_COMM_WORLD,ierr)
 
 if (my_id .ne. 0) then
 
-    if (.not. allocated(node_list%node)) call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_var)
+    if (.not. allocated(node_list%node)) call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_variables)
 
   position = 0
   do i=1,node_list%n_nodes
 
     call MPI_UNPACK(buffer,bufsize,position,anode%x              ,n_coord_tor*n_degrees*n_dim      ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-    call MPI_UNPACK(buffer,bufsize,position,anode%values         ,n_tor*n_degrees*n_var,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-    call MPI_UNPACK(buffer,bufsize,position,anode%deltas         ,n_tor*n_degrees*n_var,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%values         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%deltas         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
 #ifdef STELLARATOR_MODEL
     call MPI_UNPACK(buffer,bufsize,position,anode%r_tor_eq       ,n_degrees                        ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
 #if JOREK_MODEL == 180
