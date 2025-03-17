@@ -3,6 +3,7 @@
 !> The documentation of the module is at link: https://www.jorek.eu/wiki/doku.php?id=jorek-particles_i_o
 module mod_particle_io
 use mod_particle_allocation
+use phys_module, only: adas_dir
 implicit none
 private
 public write_simulation_hdf5,read_simulation_hdf5,get_simulation_hdf5_time
@@ -604,7 +605,11 @@ mpi_comm_in,mpi_info_in,test_in)
         !> adas data
         sim%groups(i)%ad%suffix = config%atom_data_suffix
         if((len_trim(sim%groups(i)%ad%suffix).gt.0).and.(.not.test)) then
-          sim%groups(i)%ad  = read_adf11(sim%my_id,sim%groups(i)%ad%suffix)
+          if (trim(adas_dir) .eq. '') then
+            sim%groups(i)%ad = read_adf11(sim%my_id,sim%groups(i)%ad%suffix)
+          else
+            sim%groups(i)%ad = read_adf11(sim%my_id,sim%groups(i)%ad%suffix,trim(adas_dir))
+          endif
           sim%groups(i)%cor = coronal(sim%groups(i)%ad) 
         endif
 
