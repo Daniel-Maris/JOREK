@@ -198,7 +198,7 @@ integer*8  :: ion_i, ion_k
 real*8     :: T_or_Te, T_or_Te_corr, T_or_Te_0, dT_or_Te_corr_dT
 
 ! --- Factor to use the conservative form or not of the momentum equation
-real*8     :: fact_conservative_u = 1.d0
+real*8     :: fact_conservative_u = 0.d0 ![D]
 
 ! --- Factor to use old viscosity model
 real*8     :: visco_fact_old, visco_fact_new
