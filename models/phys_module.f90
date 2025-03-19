@@ -306,6 +306,7 @@ module phys_module
              ZK_i_perp_num_tanh, ZK_i_perp_num_tanh_psin, ZK_i_perp_num_tanh_sig,    &
              ZK_e_perp_num_tanh, ZK_e_perp_num_tanh_psin, ZK_e_perp_num_tanh_sig
   real*8  :: Dn_perp_num
+  logical :: maintain_profiles
 
   !> @name Shock-capturing terms
   logical :: use_sc  !< Use shock-capturing stabilization
