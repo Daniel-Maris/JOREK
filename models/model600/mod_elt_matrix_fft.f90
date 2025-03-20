@@ -1179,10 +1179,10 @@ do i=1,n_vertex_max
             D_prof_imp = 0.
           endif
           ! --- Increase diffusivity if very small density
-          if ((r0-rimp0) .lt. D_prof_neg_thresh) then
-            D_prof  = D_prof_neg
-            D_par   = D_prof_neg
-          endif
+          ! if ((r0-rimp0) .lt. D_prof_neg_thresh) then
+          !   D_prof  = D_prof_neg
+          !   D_par   = D_prof_neg
+          ! endif
           ! if (rimp0 .lt. D_prof_imp_neg_thresh) then
           !   D_prof_imp  = D_prof_neg
           !   D_par_imp   = D_prof_neg
