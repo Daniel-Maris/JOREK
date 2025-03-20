@@ -4,9 +4,86 @@ module mod_particle_init
   implicit none
    
   private
-  public :: free_particle_indices
+  public :: free_particle_indices, determine_supers_create_scheme
 
 contains
+
+
+!> checks the set parameters for the create scheme to determine the scheme, or stop for wrong input 
+subroutine determine_supers_create_scheme(supers_num, supers_weight, supers_ratio, scheme, default, my_id, identifier)
+  implicit none
+
+  integer,           intent(in)           :: supers_num
+  real*8,            intent(in)           :: supers_weight 
+  real*8,            intent(inout)        :: supers_ratio  !< inout because it will take the default value if nothing is specified
+  character(len=10), intent(out)          :: scheme        !< chosen scheme (num, weight or ratio)
+  real*8,            intent(in), optional :: default       !< default for supers_ratio for this scheme
+  integer,           intent(in), optional :: my_id         !< for printing errors
+  character(len=*),  intent(in), optional :: identifier    !< for tracing back the origin of the error
+  
+
+  integer :: id, n_create_schemes
+  real*8  :: supers_ratio_default
+  character(len=1000) :: identifier_local
+
+  id = 0
+  if(present(my_id)) id = my_id
+  
+  identifier_local = ""
+  if(present(identifier)) identifier_local = identifier
+
+  supers_ratio_default = 1.d-4
+  if(present(default)) supers_ratio_default = default
+  
+  !> determine supers_create_scheme (which scheme is used to calculate supers_to_create) -----
+  n_create_schemes = 0
+
+  ! check that the supers_... settings are non-negative
+  if (supers_num /= -1.d0) then 
+    if (supers_num < 0) then
+      if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%supers_num is negative"
+      stop
+    endif 
+    scheme = "num"
+    n_create_schemes = n_create_schemes + 1
+  endif
+  if (supers_weight /= -1.d0) then
+    if (supers_weight < 0) then
+      if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%supers_weight is negative"
+      stop
+    endif 
+    scheme = "weight"
+    n_create_schemes = n_create_schemes + 1
+  endif
+  if (supers_ratio /= -1.d0) then
+    if (supers_ratio < 0) then
+      if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%supers_ratio is negative"
+      stop
+    endif
+    scheme = "ratio"
+    n_create_schemes = n_create_schemes + 1
+  endif
+
+  ! check that only 1 types of supers_... settings are set, or else use default setting
+  if (n_create_schemes > 1) then
+    if (id == 0) then 
+      write(*,"(A,A)") "ERROR: in create scheme ",trim(identifier_local)
+      write(*,*) "  Only one type of supers_... can be used per creation event"
+    endif
+    stop
+  else if (n_create_schemes == 0) then
+    scheme = "ratio"
+    supers_ratio = supers_ratio_default
+    if (id == 0) then
+      write(*,"(A,I2,A,I2,A)") "WARNING: in create scheme ",trim(identifier_local)
+      write(*,*) "  no scheme for determining the number of superparticles (supers_...)"
+      write(*,*) "  has been assigned. Using the default"
+      write(*,*) "  setting of supers_ratio = ", supers_ratio_default
+    endif
+  endif
+
+end subroutine determine_supers_create_scheme
+
 
 !> determines the indices of all free particles for a particles array (typically sim%particle_group(group_num)%particles)
 subroutine free_particle_indices(part_arr, n_free, i_free, n_needed)

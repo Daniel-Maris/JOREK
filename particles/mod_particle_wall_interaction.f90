@@ -94,6 +94,10 @@ module mod_particle_wall_interaction
   integer, parameter :: n_global_diagnostics=8, i_wall_part_in=1, i_wall_flux_in=2, i_wall_heat_in=3, i_wall_part_out=4, i_wall_flux_out=5, i_wall_heat_out=6, i_wall_flux_refl=7, i_wall_heat_refl=8
   
   integer, parameter :: n_project_general=4 !< number of general projections (on top of the number of interaction type specific interactions)
+
+  real*8  :: supers_ratio_wall_default = 5.d-4                 !< if none of the wall_act_configs(i)%supers_..._wall options are set, supers_to_create will be calculated
+                                                               !< as supers_ratio_wall_default * part_group_config(this%target_group)%n_particles
+                                                               !< In this case this default value overrides the value from preset_parameters.f90
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.

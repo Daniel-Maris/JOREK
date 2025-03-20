@@ -58,6 +58,8 @@ contains
 !> validity checks for user input settings in puff_ctrl
 !> and set puffing settings based on these settings
 subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
+  use mod_particle_init, only: determine_supers_create_scheme
+  
   implicit none
 
   type(particle_sim),     intent(in)     :: sim
@@ -65,60 +67,18 @@ subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
   integer,                intent(in)     :: valve_num
   type(particle_puffing), intent(inout)  :: new
 
-  integer                                :: i,n_create_schemes
+  integer                                :: i
+  character(len=1000)                    :: identifier
 
   !> variables for piecewise linear
   integer :: times_counter = 0 
   integer :: rates_counter = 0
 
-
-  !> determine supers_create_scheme (which scheme is used to calculate supers_to_puff) -----
-  n_create_schemes = 0
-
-  ! check that the supers_..._puff settings are non-negative
-  if (new%puff_ctrl%supers_num_puff /= -1.d0) then 
-    if (new%puff_ctrl%supers_num_puff < 0) then
-      if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: part_group_config(",group_num,")%puff_ctrl(",valve_num,")%supers_num_puff is negative"
-      stop
-    endif 
-    new%supers_create_scheme = "num"
-    n_create_schemes = n_create_schemes + 1
-  endif
-  if (new%puff_ctrl%supers_weight_puff /= -1.d0) then
-    if (new%puff_ctrl%supers_weight_puff < 0) then
-      if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: part_group_config(",group_num,")%puff_ctrl(",valve_num,")%supers_weight_puff is negative"
-      stop
-    endif 
-    new%supers_create_scheme = "weight"
-    n_create_schemes = n_create_schemes + 1
-  endif
-  if (new%puff_ctrl%supers_ratio_puff /= -1.d0) then
-    if (new%puff_ctrl%supers_ratio_puff < 0) then
-      if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: part_group_config(",group_num,")%puff_ctrl(",valve_num,")%supers_ratio_puff is negative"
-      stop
-    endif 
-    new%supers_create_scheme = "ratio"
-    n_create_schemes = n_create_schemes + 1
-  endif
-
-  ! check that only 1 types of supers_..._puff settings are set, or else use default setting
-  if (n_create_schemes > 1) then
-    if (sim%my_id == 0) then 
-      write(*,"(A,I2,A,I2,A)") "ERROR: In part_group_config(",group_num,")%puff_ctrl(",valve_num,"),"
-      write(*,*) "  Only one type of supers_..._puff can be used per puff_ctrl."
-    endif
-    stop
-  else if (n_create_schemes == 0) then
-    new%supers_create_scheme = "ratio"
-    new%puff_ctrl%supers_ratio_puff = supers_ratio_puff_default
-    if (sim%my_id == 0) then
-      write(*,"(A,I2,A,I2,A)") "WARNING: In part_group_config(",group_num,")%puff_ctrl(",valve_num,"),"
-      write(*,*) "  no scheme for determining the number of superparticles"
-      write(*,*) "  per puff (supers_..._puff) has been assigned. Using the default"
-      write(*,*) "  setting of supers_ratio_puff = ", supers_ratio_puff_default
-    endif
-  endif
-
+  ! determine the create scheme
+  write(identifier,"(A,I2,A,I2,A)") "part_group_config(",group_num,")%puff_ctrl(",valve_num,")"
+  call determine_supers_create_scheme(new%puff_ctrl%supers_num_puff, new%puff_ctrl%supers_weight_puff, new%puff_ctrl%supers_ratio_puff, new%supers_create_scheme, &
+    default=supers_ratio_puff_default, my_id=sim%my_id, identifier=identifier)
+  
   !> specific to piecewise linear puff_ctrl ----------------------------
 
   !> validity checks

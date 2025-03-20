@@ -1119,7 +1119,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   ! fluid groups
   if(n_fluid_groups > 0) then
     write(*,HEADER_FMT) "============= Fluid groups ============="
-
+    write(*,INTG_FMT) 'n_fluid_groups     ',n_fluid_groups
+    
     do group_num=1,n_fluid_groups
       write(*,*) "---- Fluid group slot: ", group_num, " -----" 
       write(*,INTG_FMT) 'Z,       ', fluid_configs(group_num)%Z
