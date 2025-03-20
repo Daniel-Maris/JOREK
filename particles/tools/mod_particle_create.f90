@@ -1,31 +1,49 @@
 !> module to contain common tools for initialisation and destruction of particles
-module mod_particle_init
-  
+module mod_particle_create
+
   implicit none
    
   private
-  public :: free_particle_indices, determine_supers_create_scheme
+  public :: free_particle_indices, part_create_scheme, type_part_create_scheme
+
+  !> holds the super particle creation scheme information for this action
+  type :: type_part_create_scheme
+    integer           :: supers_num    = -1     !< number of new superparticles initialised at each puff action
+    real*8            :: supers_weight = -1.d0  !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action
+    real*8            :: supers_ratio  = -1.d0  !< fraction of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action
+    character(len=10) :: scheme        = "none" !< either "num", "weight" or "ratio"
+    real*8            :: n_particles   = -1     !< total number of particles (of the group this event creates). Is used for 
+  contains
+    procedure :: supers_to_create
+  end type
 
 contains
 
 
 !> checks the set parameters for the create scheme to determine the scheme, or stop for wrong input 
-subroutine determine_supers_create_scheme(supers_num, supers_weight, supers_ratio, scheme, default, my_id, identifier)
+function part_create_scheme(supers_num, supers_weight, supers_ratio, n_particles, default, my_id, identifier) result(this)
   implicit none
-
-  integer,           intent(in)           :: supers_num
-  real*8,            intent(in)           :: supers_weight 
-  real*8,            intent(inout)        :: supers_ratio  !< inout because it will take the default value if nothing is specified
-  character(len=10), intent(out)          :: scheme        !< chosen scheme (num, weight or ratio)
-  real*8,            intent(in), optional :: default       !< default for supers_ratio for this scheme
-  integer,           intent(in), optional :: my_id         !< for printing errors
-  character(len=*),  intent(in), optional :: identifier    !< for tracing back the origin of the error
   
-
+  integer,                       intent(in)              :: supers_num
+  real*8,                        intent(in)              :: supers_weight 
+  real*8,                        intent(in)              :: supers_ratio  
+  real*8,                        intent(in)              :: n_particles
+  real*8,                        intent(in), optional    :: default       !< default for supers_ratio for this scheme
+  integer,                       intent(in), optional    :: my_id         !< for printing errors
+  character(len=*),              intent(in), optional    :: identifier    !< for tracing back the origin of the error
+  type(type_part_create_scheme)                          :: this 
+  
   integer :: id, n_create_schemes
   real*8  :: supers_ratio_default
   character(len=1000) :: identifier_local
 
+  !setting values
+  this%supers_num    = supers_num
+  this%supers_weight = supers_weight
+  this%supers_ratio  = supers_ratio
+  this%n_particles   = n_particles
+
+  !determining presets
   id = 0
   if(present(my_id)) id = my_id
   
@@ -44,7 +62,7 @@ subroutine determine_supers_create_scheme(supers_num, supers_weight, supers_rati
       if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%supers_num is negative"
       stop
     endif 
-    scheme = "num"
+    this%scheme = "num"
     n_create_schemes = n_create_schemes + 1
   endif
   if (supers_weight /= -1.d0) then
@@ -52,7 +70,7 @@ subroutine determine_supers_create_scheme(supers_num, supers_weight, supers_rati
       if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%supers_weight is negative"
       stop
     endif 
-    scheme = "weight"
+    this%scheme = "weight"
     n_create_schemes = n_create_schemes + 1
   endif
   if (supers_ratio /= -1.d0) then
@@ -60,7 +78,7 @@ subroutine determine_supers_create_scheme(supers_num, supers_weight, supers_rati
       if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%supers_ratio is negative"
       stop
     endif
-    scheme = "ratio"
+    this%scheme = "ratio"
     n_create_schemes = n_create_schemes + 1
   endif
 
@@ -72,8 +90,8 @@ subroutine determine_supers_create_scheme(supers_num, supers_weight, supers_rati
     endif
     stop
   else if (n_create_schemes == 0) then
-    scheme = "ratio"
-    supers_ratio = supers_ratio_default
+    this%scheme = "ratio"
+    this%supers_ratio = supers_ratio_default
     if (id == 0) then
       write(*,"(A,I2,A,I2,A)") "WARNING: in create scheme ",trim(identifier_local)
       write(*,*) "  no scheme for determining the number of superparticles (supers_...)"
@@ -82,7 +100,33 @@ subroutine determine_supers_create_scheme(supers_num, supers_weight, supers_rati
     endif
   endif
 
-end subroutine determine_supers_create_scheme
+end function part_create_scheme
+
+
+!> determine the number of super particles to create for this action
+function supers_to_create(this, my_id, weight) result(n_supers)
+  implicit none
+  class(type_part_create_scheme), intent(in) :: this
+  integer,                        intent(in) :: my_id    !< for printing warning
+  real*8,                         intent(in) :: weight   !< [weight] weight of real particles created, used for weight scheme
+  
+  integer                                    :: n_supers !< number of superparticles to create this creation action
+
+  n_supers = 0
+  if (trim(this%scheme) == "num")    n_supers = this%supers_num
+  if (trim(this%scheme) == "weight") n_supers = nint((weight) / this%supers_weight)
+  if (trim(this%scheme) == "ratio")  n_supers = nint(this%n_particles * this%supers_ratio)
+
+  !> forces that at least one particle is puffed
+  if (n_supers < 1) then
+    if (my_id == 0) then
+      write(*,*) "WARNING: The number of superparticles to be initialized for this puffing "
+      write(*,*) "  action is calculated to be less than 1. It will be overwritten to 1."
+    endif
+    n_supers = 1
+  endif
+
+end function supers_to_create
 
 
 !> determines the indices of all free particles for a particles array (typically sim%particle_group(group_num)%particles)
@@ -168,4 +212,4 @@ subroutine free_particle_indices(part_arr, n_free, i_free, n_needed)
 
 end subroutine free_particle_indices
 
-end module mod_particle_init
+end module mod_particle_create

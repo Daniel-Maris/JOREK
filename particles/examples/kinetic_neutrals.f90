@@ -42,6 +42,7 @@ use mod_atomic_coeff_deuterium, only: ad_deuterium
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
 use equil_info
+use mod_particle_group_id, only: matching_part_config_indices
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
@@ -74,7 +75,7 @@ real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amoun
 !$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
-integer   :: i, j, istep, group_num, valve_num
+integer   :: i, j, istep, group_num, config_num, valve_num
 integer   :: seed, i_rng, n_stream
 
 !> For keeping track of groups requiring specific physics (e.g. wall actions, recombination, puffing...)
@@ -173,6 +174,8 @@ call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=w
 wall_actions(1)%rng = wall_rng
 
 do group_num=1, n_part_groups
+  config_num = matching_part_config_indices(group_num)
+  
   ! recombination
   if (sim%groups(group_num)%use_kin_recombination) then
     recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
@@ -183,7 +186,7 @@ do group_num=1, n_part_groups
   if (sim%groups(group_num)%use_kin_puffing) then
     do valve_num=1, n_valves_max
       !> check for the puff_ctrl objects that have been set
-      if ((part_group_configs(group_num)%puff_ctrl(valve_num)%rates(1) > 0) .OR. (part_group_configs(group_num)%puff_ctrl(valve_num)%times(1) >= 0)) then
+      if ((part_group_configs(config_num)%puff_ctrl(valve_num)%rates(1) > 0) .OR. (part_group_configs(config_num)%puff_ctrl(valve_num)%times(1) >= 0)) then
         puff_counter = puff_counter + 1   ! increase the number of puffing events required per fluid time step
         puff_actions(puff_counter) = particle_puffing(sim, group_num, valve_num, seed=seed)  
       endif

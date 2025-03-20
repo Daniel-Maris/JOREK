@@ -14,6 +14,8 @@ module mod_particle_puffing
   use mod_find_rz_nearby, only: find_rz_nearby
   use mod_particle_allocation, only: calc_n_particles_per_mpi
   use phys_module, only: type_valve, valves, part_group_configs, type_puff_ctrl, n_puff_segment_max 
+  use mod_particle_create, only: type_part_create_scheme
+  use mod_particle_group_id, only: matching_part_config_indices
 
   implicit none
 
@@ -34,8 +36,8 @@ module mod_particle_puffing
     integer              :: target_group                       !< target particle group
 
     !> Internal
+    type(type_part_create_scheme) :: create_scheme             !< super particle create scheme 
     class(type_rng), dimension(:), allocatable :: rng          !< one RNG per openmp thread
-    character(len=10)    :: supers_create_scheme               !< how the number of superparticles created by puff action per valve is determined
     real*8               :: vector_normal(3)                   !< vector_normal of puff_valve
     integer              :: val_i_elm                          !< element index of puff_valve
     real*8               :: val_R, val_Z                       !< R, Z location of puff_valve
@@ -58,7 +60,7 @@ contains
 !> validity checks for user input settings in puff_ctrl
 !> and set puffing settings based on these settings
 subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
-  use mod_particle_init, only: determine_supers_create_scheme
+  use mod_particle_create, only: part_create_scheme
   
   implicit none
 
@@ -67,16 +69,19 @@ subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
   integer,                intent(in)     :: valve_num
   type(particle_puffing), intent(inout)  :: new
 
-  integer                                :: i
+  integer                                :: i, config_num
   character(len=1000)                    :: identifier
 
   !> variables for piecewise linear
   integer :: times_counter = 0 
   integer :: rates_counter = 0
 
+  config_num = matching_part_config_indices(group_num)
+
   ! determine the create scheme
-  write(identifier,"(A,I2,A,I2,A)") "part_group_config(",group_num,")%puff_ctrl(",valve_num,")"
-  call determine_supers_create_scheme(new%puff_ctrl%supers_num_puff, new%puff_ctrl%supers_weight_puff, new%puff_ctrl%supers_ratio_puff, new%supers_create_scheme, &
+  write(identifier,"(A,I2,A,I2,A)") "part_group_config(",config_num,")%puff_ctrl(",valve_num,")"
+  new%create_scheme = part_create_scheme(new%puff_ctrl%supers_num_puff, new%puff_ctrl%supers_weight_puff, &
+    new%puff_ctrl%supers_ratio_puff, sim%groups(group_num)%n_particles, &
     default=supers_ratio_puff_default, my_id=sim%my_id, identifier=identifier)
   
   !> specific to piecewise linear puff_ctrl ----------------------------
@@ -90,7 +95,7 @@ subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
       !> check that the set times are increaseing
       if (i > 1) then
         if (new%puff_ctrl%times(i-1) >= new%puff_ctrl%times(i)) then
-          if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: inputs in %times for part_group_config(",group_num,")%puff_ctrl(",valve_num,") must be strictly increasing"
+          if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: inputs in %times for part_group_config(",config_num,")%puff_ctrl(",valve_num,") must be strictly increasing"
           stop
         endif 
       endif
@@ -99,18 +104,18 @@ subroutine initialize_settings_from_puff_ctrl(sim, group_num, valve_num, new)
   enddo
 
   if (rates_counter == 0) then
-    if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: No %rates set for part_group_config(",group_num,")%puff_ctrl(",valve_num,")."
+    if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: No %rates set for part_group_config(",config_num,")%puff_ctrl(",valve_num,")."
     stop
   endif
 
   if (times_counter == 0) then
-    if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: No %times set for part_group_config(",group_num,")%puff_ctrl(",valve_num,")."
+    if (sim%my_id == 0) write(*,"(A,I2,A,I2,A)") "ERROR: No %times set for part_group_config(",config_num,")%puff_ctrl(",valve_num,")."
     stop
   endif
 
   if (times_counter /= rates_counter) then
     if (sim%my_id == 0) then
-      write(*,"(A,I2,A,I2,A)") "ERROR: Mismatch in part_group_config(",group_num,")%puff_ctrl(",valve_num,"),"
+      write(*,"(A,I2,A,I2,A)") "ERROR: Mismatch in part_group_config(",config_num,")%puff_ctrl(",valve_num,"),"
       write(*,*)               "  between number of entries of %times and %rates. "
     endif
     stop
@@ -188,7 +193,9 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
     
   class(type_rng), intent(in), optional :: rng  !< random number generator to use (deafult PCG32)
   integer, intent(in), optional         :: seed !< Seed for the RNG (default random_seed() on my_id + bcast)
-  integer                               :: my_seed, i
+  integer                               :: my_seed, i, config_num
+
+  config_num = matching_part_config_indices(target_group)
   
   !> check the validity of the given puff valve -----
   call initialize_puff_valve(sim, valve_num, new)
@@ -197,7 +204,7 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
   new%target_group     = target_group
   new%puff_valve       = valves(valve_num)
   new%valve_num        = valve_num
-  new%puff_ctrl        = part_group_configs(target_group)%puff_ctrl(valve_num)
+  new%puff_ctrl        = part_group_configs(config_num)%puff_ctrl(valve_num)
 
   !> check the validity and initialize settings from puff_ctrl
   call initialize_settings_from_puff_ctrl(sim, target_group, valve_num, new)
@@ -216,32 +223,6 @@ function new_particle_puffing(sim, target_group, valve_num, rng, seed) result(ne
   end if
 
 end function new_particle_puffing
-
-!> determine the number of super particles to puff for the puff action
-function get_supers_to_puff(this, my_id, tstep_fluid_si, puff_rate) result(supers_to_puff)
-  implicit none
-  class(particle_puffing), intent(in) :: this
-  integer,                 intent(in) :: my_id
-  real*8,                  intent(in) :: tstep_fluid_si
-  real*8,                  intent(in) :: puff_rate
-  real*8                              :: real_particles_to_puff
-  integer                             :: supers_to_puff
-
-  supers_to_puff = 0
-  if (trim(this%supers_create_scheme) == "num") supers_to_puff = this%puff_ctrl%supers_num_puff
-  if (trim(this%supers_create_scheme) == "weight") supers_to_puff = nint((tstep_fluid_si * puff_rate) / this%puff_ctrl%supers_weight_puff)
-  if (trim(this%supers_create_scheme) == "ratio") supers_to_puff = nint(part_group_configs(this%target_group)%n_particles * this%puff_ctrl%supers_ratio_puff)
-
-  !> forces that at least one particle is puffed
-  if (supers_to_puff < 1) then
-    if (my_id == 0) then
-      write(*,*) "WARNING: The number of superparticles to be initialized for this puffing "
-      write(*,*) "  action is calculated to be less than 1. It will be overwritten to 1."
-    endif
-    supers_to_puff = 1
-  endif
-
-end function get_supers_to_puff
 
 
 !< linearly interpolates the puff rate between two determined points (t0, y0), (t1, y1)
@@ -362,7 +343,7 @@ subroutine do_particle_puffing(this,sim, ev)
   call calc_puff_rate_linear(this, sim%time, puff_rate_0, puff_rate_1, puff_rate)
 
   !> calculate how many superparticles to initiate ---------------
-  supers_to_puff = get_supers_to_puff(this, sim%my_id, tstep_fluid_si, puff_rate)
+  supers_to_puff = this%create_scheme%supers_to_create(sim%my_id, tstep_fluid_si * puff_rate)
   supers_to_puff_local = calc_n_particles_per_mpi(supers_to_puff, sim%n_mpi, sim%my_id)
   to_puff = supers_to_puff_local
 
@@ -379,9 +360,9 @@ subroutine do_particle_puffing(this,sim, ev)
     write(*,"(4X,A18, ' = ', G12.6)")      "puff_rate_0       " , puff_rate_0
     write(*,"(4X,A18, ' = ', G12.6)")      "puff_rate_1       " , puff_rate_1
     write(*,"(4X,A18, ' = ', G12.6,A)")    "puff_rate         "   , puff_rate, " atoms/s"
-    if (trim(this%supers_create_scheme) == "num") write(*,"(4X,A18, ' = ', I12)") "supers_num_puff   ", this%puff_ctrl%supers_num_puff
-    if (trim(this%supers_create_scheme) == "weight") write(*,"(4X,A18, ' = ', G12.6)") "supers_weight_puff", this%puff_ctrl%supers_weight_puff
-    if (trim(this%supers_create_scheme) == "ratio") write(*,"(4X,A18, ' = ', G12.6)") "supers_ratio_puff ", this%puff_ctrl%supers_ratio_puff
+    if (trim(this%create_scheme%scheme) == "num") write(*,"(4X,A18, ' = ', I12)") "supers_num_puff   ", this%puff_ctrl%supers_num_puff
+    if (trim(this%create_scheme%scheme) == "weight") write(*,"(4X,A18, ' = ', G12.6)") "supers_weight_puff", this%puff_ctrl%supers_weight_puff
+    if (trim(this%create_scheme%scheme) == "ratio") write(*,"(4X,A18, ' = ', G12.6)") "supers_ratio_puff ", this%puff_ctrl%supers_ratio_puff
     write(*,*) ""
   endif
       

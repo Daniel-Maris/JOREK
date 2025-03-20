@@ -465,7 +465,7 @@ subroutine fluid2part_action(this, sim)
   use mpi_mod
   use mod_atomic_elements, only: element_symbols
   use mod_interp, only: interp_RZ
-  use mod_particle_init, only: free_particle_indices
+  use mod_particle_create, only: free_particle_indices
   use mod_particle_types, only: initialize_particle_to_zero
   use mod_edge_elements, only: sample_edge_elements
   
