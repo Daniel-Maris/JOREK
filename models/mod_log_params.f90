@@ -1029,11 +1029,12 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     enddo
 
     write(*,HEADER_FMT) "========== Coupling schemes ============"
-    write(*,*) "  use_ncs      = ", use_ncs
-    write(*,*) "  use_ics      = ", use_ics
-    write(*,*) "  use_ccs      = ", use_ccs
-    write(*,*) "  use_pcs      = ", use_pcs
-    write(*,*) "  use_pcf      = ", use_pcf
+    write(*,*) "  use_ncs               = ", use_ncs
+    write(*,*) "  use_ics               = ", use_ics
+    write(*,*) "  use_ccs               = ", use_ccs
+    write(*,*) "  use_pcs               = ", use_pcs
+    write(*,*) "  use_pcf               = ", use_pcf
+    write(*,*) "  use_kin_recomb_global = ", use_kin_recomb_global
 
     write(*,HEADER_FMT) '=========== Particle Groups ============'
     write(*,INTG_FMT) 'n_part_groups     ',n_part_groups

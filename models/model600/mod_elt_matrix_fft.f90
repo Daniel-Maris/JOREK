@@ -1164,7 +1164,7 @@ do i=1,n_vertex_max
           endif
 
           ! --- Particle diffusivities
-          D_prof   = get_dperp (psi_norm)
+          D_prof   = get_dperp(psi_norm)
           D_perp_num_psin = D_perp_num +                                                  &
                             D_perp_num_tanh * 0.5d0*(1.d0-                                &
                             tanh((psi_norm-D_perp_num_tanh_psin)/D_perp_num_tanh_sig))
@@ -1183,16 +1183,16 @@ do i=1,n_vertex_max
             D_prof  = D_prof_neg
             D_par   = D_prof_neg
           endif
-          if (rimp0 .lt. D_prof_imp_neg_thresh) then
-            D_prof_imp  = D_prof_neg
-            D_par_imp   = D_prof_neg
-          endif
-          if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
-            D_prof  = D_prof_neg
-            D_par   = D_prof_neg
-            D_prof_imp  = D_prof_neg
-            D_par_imp   = D_prof_neg
-          endif
+          ! if (rimp0 .lt. D_prof_imp_neg_thresh) then
+          !   D_prof_imp  = D_prof_neg
+          !   D_par_imp   = D_prof_neg
+          ! endif
+          ! if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
+          !   D_prof  = D_prof_neg
+          !   D_par   = D_prof_neg
+          !   D_prof_imp  = D_prof_neg
+          !   D_par_imp   = D_prof_neg
+          ! endif
 
           Dn0x = D_neutral_x      
           Dn0y = D_neutral_y      
@@ -1215,18 +1215,18 @@ do i=1,n_vertex_max
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))
           end if
           ! --- Increase diffusivity if very small temperature
-          if ( with_TiTe ) then
-            if (Ti0 .lt. ZK_i_prof_neg_thresh) then
-              ZKi_prof = ZK_i_prof_neg
-            end if
-            if (Te0 .lt. ZK_e_prof_neg_thresh) then
-              ZKe_prof = ZK_e_prof_neg
-            end if
-          else ! (with_TiTe = .f.), i.e. with single temperature
-            if (T0 .lt. ZK_prof_neg_thresh) then
-              ZK_prof = ZK_prof_neg
-            end if
-          endif ! (with_TiTe)
+          ! if ( with_TiTe ) then
+          !   if (Ti0 .lt. ZK_i_prof_neg_thresh) then
+          !     ZKi_prof = ZK_i_prof_neg
+          !   end if
+          !   if (Te0 .lt. ZK_e_prof_neg_thresh) then
+          !     ZKe_prof = ZK_e_prof_neg
+          !   end if
+          ! else ! (with_TiTe = .f.), i.e. with single temperature
+          !   if (T0 .lt. ZK_prof_neg_thresh) then
+          !     ZK_prof = ZK_prof_neg
+          !   end if
+          ! endif ! (with_TiTe)
 
           ! --- Parallel momentum source
           Vt0   = V_source(ms,mt)
@@ -1244,6 +1244,8 @@ do i=1,n_vertex_max
 
           source_pellet = 0.d0
           source_volume = 0.d0
+
+          particle_source = 0.d0 ![D]
 
           if (use_pellet) then
             call pellet_source2(pellet_amplitude,pellet_R,pellet_Z,pellet_psi,pellet_phi, &
@@ -2811,13 +2813,6 @@ do i=1,n_vertex_max
                                                - visco_par_par * F0**2 / (BigR * BB2**2) * BB2_psi * Bgrad_vpar * Bgrad_rho_k_star          * xjac * theta * tstep &
                                                + visco_par_par * F0**2 / (BigR * BB2)          * Bgrad_vpar_psi * Bgrad_rho_k_star          * xjac * theta * tstep  
                     
-                    ! ---------------------------------------------- from kinetic coupling -------------------------------------------------
-                    amat(var_vpar,var_u) = amat(var_vpar,var_u) &
-                           - v * aux_q0 * F0**2 / BigR * u_p                        * xjac * theta * tstep &
-                           - v * (u_s * ps0_t - u_t * ps0_s) * F0 * aux_q0                 * theta * tstep 
-                    ! ----------------------------------------end of terms from kinetic coupling ------------------------------------------
-                    
-
                     !---------------------------------------- NEO
                     if ( NEO ) then
                       amat(var_vpar,var_psi) = amat(var_vpar,var_psi) &
@@ -2831,7 +2826,13 @@ do i=1,n_vertex_max
                            -v * amu_neo_prof(ms,mt)*BB2/(Btheta2+epsil) * r0 * (ps0_x*u_x + ps0_y*u_y) * BigR * xjac * theta * tstep 
                     endif
                     !---------------------------------------- NEO
-  
+                    ! ---------------------------------------------- from kinetic coupling ------------------------------------------------
+                    amat(var_vpar,var_u) = amat(var_vpar,var_u) &
+                           - v * aux_q0 * F0**2 / BigR * u_p                        * xjac * theta * tstep &
+                           - v * (u_s * ps0_t - u_t * ps0_s) * F0 * aux_q0                 * theta * tstep 
+                    ! ----------------------------------------end of terms from kinetic coupling ------------------------------------------
+                    
+
                     ! New term coming from -(\partial_t \rho + \nabla \cdot (\rho \mathbf{v})) \mathbf{v} in RHS of momentum equation
                     ! (see wiki: https://www.jorek.eu/wiki/doku.php?id=model500_501_555#equations):
                     amat(var_vpar,var_u) = amat(var_vpar,var_u) - v * (r0_x_hat * u_y - r0_y_hat * u_x) * vpar0 * BB2 * theta * xjac * tstep * fact_conservative_u
