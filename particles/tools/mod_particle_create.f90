@@ -120,7 +120,7 @@ function supers_to_create(this, my_id, weight) result(n_supers)
   !> forces that at least one particle is puffed
   if (n_supers < 1) then
     if (my_id == 0) then
-      write(*,*) "WARNING: The number of superparticles to be initialized for this puffing "
+      write(*,*) "WARNING: The number of superparticles to be initialized for this "
       write(*,*) "  action is calculated to be less than 1. It will be overwritten to 1."
     endif
     n_supers = 1

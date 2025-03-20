@@ -15,7 +15,6 @@
 !> resulting energy of the resulting particles. These yields are automatically loaded
 !> from the simulation folder based on the original and target species symbols.
 !>
-!> TODO: diagnostics
 !> Actions have global diagnostics (e.g. total particles of group i reflected off the 
 !> wall) printed out in the logfile, and sputter diagnostics also have local vtk
 !> diagnostics using mod_edge_elements
@@ -42,6 +41,7 @@ module mod_particle_wall_interaction
   use mod_event
   use mod_particle_allocation, only: calc_n_particles_per_mpi
   use equil_info, only:find_xpoint
+  use mod_particle_create, only: part_create_scheme, type_part_create_scheme
   !$ use omp_lib 
   
   implicit none
@@ -68,8 +68,8 @@ module mod_particle_wall_interaction
     !> when the origin group is a fluid species
     integer             :: fluid_Z         = -999     !< Z of this fluid species (e.g. -2 for D)
     type(edge_elements) :: fluid_yield_integral       !< the yield (of the specified interaction type) integrated over f(v) for this fluid species
-    
-    integer :: supers_num    = -1   !< number of simulation particles to create for this interaction (if origin is not the same as target)
+
+    type(type_part_create_scheme) :: create_scheme    !< super particles create scheme
     real*8  :: weight_factor = 1.d0 !< additional weight factor of the yield (e.g. useful to split a single plasma fluid into D and T neutrals upon wall recombination)
 
     ! diagnostics
@@ -101,11 +101,10 @@ module mod_particle_wall_interaction
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
-!> TODO cleanup namespace?
-subroutine construct_wall_action(this, sim, origin_group, target_group, type, edge_element_template, fluid_Z, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
+subroutine construct_wall_action(this, sim, origin_group, target_group, type, edge_element_template, fluid_Z, wall_config_num, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
-  use phys_module, only: nout_projection, n_fluid_groups, n_part_groups
+  use phys_module, only: nout_projection, n_fluid_groups, n_part_groups, fluid_configs, type_wall_act_config
   use mod_particle_group_id, only: matching_part_config_indices
 
   implicit none
@@ -115,19 +114,21 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
   integer,             intent(in) :: target_group !< which particle group this wall interaction affects
   character(len=*),    intent(in) :: type         !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
   type(edge_elements), intent(in) :: edge_element_template !< a prepared set of edge elements
-  integer,             intent(in), optional :: fluid_Z     !< Z of this fluid species (e.g. -2 for D)
-  character(len=*),    intent(in), optional :: filename    !< where to save the diagnostics
+  integer,             intent(in), optional :: fluid_Z          !< Z of this fluid species (e.g. -2 for D)
+  integer,             intent(in), optional :: wall_config_num  !< which wall_act_config this action is based on, [fluid]/[part_groups]_configs(i)%wall_act_configs(wall_config_num)
+  character(len=*),    intent(in), optional :: filename         !< where to save the diagnostics
   character(len=*),    intent(in), optional :: basename
   integer,             intent(in), optional :: decimal_digits
   integer,             intent(in), optional :: fractional_digits
-  class(type_rng),     intent(in), optional :: rng !< random-number generator to use (default PCG32)
+  class(type_rng),     intent(in), optional :: rng              !< random-number generator to use (default PCG32)
   character(len=*),    intent(in), optional :: input_identifier !< extra message on stops, to determine which construct_wall_action call had wrong input
  
   character(len=100) :: name
-  integer :: u, my_seed, n_stream, n_streams, i, j, target_group_loc
+  integer :: my_seed, i, j, target_group_loc
   character(len=14), dimension(:), allocatable :: extra_proj_scalar_names !< additional scalar names on top of the normal ones
   character(len=1000) :: msg !< error message
   character(len=1000) :: identifier
+  type(type_wall_act_config) :: config
 
   ! setting the identifier (it is optional for the sake of using construct_wall_action directly from inside a program rather than through the namelist)
   if(present(input_identifier)) then
@@ -201,6 +202,14 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
   !checking whether the user set origin group and target group differently while it is a self interaction
   if (this%part2self) then
     call check_self_type(this, sim%my_id, identifier)
+  end if
+
+  !setting the creation scheme
+  if (this%fluid2part) then
+    if(.not. present(wall_config_num)) call wrong_input("wall_config_num should be present for particle creating routines in construct_wall_action", sim%my_id, identifier)
+    config = fluid_configs(this%origin_group)%wall_act_configs(wall_config_num)
+    this%create_scheme = part_create_scheme(config%supers_num_wall,config%supers_weight_wall,config%supers_ratio_wall, &
+        sim%groups(target_group)%n_particles,default=supers_ratio_wall_default,my_id=sim%my_id,identifier=identifier)
   end if
 
   ! --- diagnostics
@@ -302,7 +311,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   type(type_wall_act_config) :: config
 
   character(len=1000) :: identifier
-  integer :: i, j, Z
+  integer :: i, j, Z, config_num_i, config_num_j
   integer :: n_wall_acts !< number of wall_action objects to make
   integer :: i_wall_acts !< ith wall_action to be put in the wall_actions
 
@@ -311,7 +320,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   
   do i=1,n_part_groups !from particles
     do j=1,n_part_groups_max
-      config = part_group_configs(matching_part_config_indices(i))%wall_act_configs(j)
+      config = part_group_configs(i)%wall_act_configs(j)
       if(trim(config%type) == "none") cycle
 
       n_wall_acts = n_wall_acts + 1
@@ -328,7 +337,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   end do
 
   if(n_wall_acts > n_part_groups_max**2 + n_part_groups_max*n_fluid_groups_max) then
-    write(*,*) "ERROR: number of wall actions is bigger then should be possible?"
+    write(*,*) "ERROR: number of wall actions is bigger than should be possible?"
     stop
   end if
 
@@ -340,12 +349,14 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   !from particles
   do i=1,n_part_groups !loop over particle groups
     do j=1,n_part_groups_max !loop over wall action configs
-      config = part_group_configs(matching_part_config_indices(i))%wall_act_configs(j)
+      config_num_i = matching_part_config_indices(i)
+      config_num_j = matching_part_config_indices(j)
+      config = part_group_configs(config_num_i)%wall_act_configs(config_num_j)
       if(trim(config%type) == "none") cycle
 
       ! being here means it is a wall action that should be used
       i_wall_acts = i_wall_acts + 1
-      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: particle_group_config(",i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
+      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: particle_group_config(",config_num_i,")%wall_act_configs(",config_num_j,"). (This corresponds to wall_action: ",i_wall_acts,")"
       call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,input_identifier=identifier)      
     end do
   end do
@@ -355,13 +366,14 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
     Z = fluid_configs(i)%Z
     
     do j=1,n_part_groups_max !loop over wall action configs
-      config = fluid_configs(i)%wall_act_configs(j)
+      config_num_j = matching_part_config_indices(j)
+      config = fluid_configs(i)%wall_act_configs(config_num_j)
       if(trim(config%type) == "none") cycle
 
       ! being here means it is a wall action that should be used
       i_wall_acts = i_wall_acts + 1
-      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: fluid_config(",i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template, fluid_Z=Z,input_identifier=identifier)
+      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: fluid_config(",i,")%wall_act_configs(",config_num_j,"). (This corresponds to wall_action: ",i_wall_acts,")"
+      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,fluid_Z=Z,wall_config_num=j,input_identifier=identifier)
     end do
   end do
 
@@ -467,13 +479,14 @@ subroutine fluid2part_action(this, sim)
   use mod_interp, only: interp_RZ
   use mod_particle_create, only: free_particle_indices
   use mod_particle_types, only: initialize_particle_to_zero
-  use mod_edge_elements, only: sample_edge_elements
+  use mod_edge_elements, only: sample_edge_elements, integrate_edge_elements, type_cdf_data
   
   class(wall_action), intent(inout) :: this
   type(particle_sim), intent(inout) :: sim
   
+  type(type_cdf_data) :: res !< data on the cumulative distribution function calculated at the integral which is needed when sampling
   type(particle_kinetic_leapfrog) :: particle
-  integer :: j, i_p, n_supers_loc, i_rng
+  integer :: j, i_p, n_supers, n_supers_loc, i_rng
   integer :: q, Z
   real*8 :: E !< [eV] particle energy  (eV because of eckstein coeffs).
   real*8 :: n_e, T_e, T_eV
@@ -494,21 +507,25 @@ subroutine fluid2part_action(this, sim)
   !> And the resulting yield of created particles (in atoms/m^2 during delta_t)
   call project_sputter_vars_on_edge(this, sim)
 
-  ! determine indices of free particles
-  call free_particle_indices(sim%groups(this%target_group)%particles, n_free, i_free)
-  
-  ! determine how many particles to initialise on this MPI processes
-  n_supers_loc = calc_n_particles_per_mpi(this%supers_num, sim%n_mpi, sim%my_id)
+  ! determine integral over the domain
+  call integrate_edge_elements(this%fluid_yield_integral, 1, integral, res)
 
-  if (n_supers_loc > n_free) then
-    write(*,"(i3,A,i8,A,i8)") sim%my_id, 'Warning: could not make requested ', n_supers_loc, ", bounded to ", n_free
-    n_supers_loc = n_free
+  if (integral .le. 1d-12) then
+    if(sim%my_id == 0) write(*,"(A,I2,A)") "fluid2part wall action "//trim(this%type)//" with Z=",this%fluid_Z," has 0 yield. returning"
+    return ! Move along, nothing to do
   end if
 
-  allocate(rng_sample(3,n_supers_loc))
-  allocate(xyz_sampled(3,n_supers_loc))
-  allocate(st_sampled(2,n_supers_loc))
-  allocate(i_elm_sampled(n_supers_loc))
+  ! determine how many particles to initialise on this MPI proces
+  n_supers = this%create_scheme%supers_to_create(sim%my_id,integral*this%weight_factor)
+  n_supers_loc = calc_n_particles_per_mpi(n_supers, sim%n_mpi, sim%my_id)
+
+  ! determine indices of free particles
+  call free_particle_indices(sim%groups(this%target_group)%particles, n_free, i_free, n_needed=n_supers_loc)  
+
+  allocate(rng_sample(3,size(i_free)))
+  allocate(xyz_sampled(3,size(i_free)))
+  allocate(st_sampled(2,size(i_free)))
+  allocate(i_elm_sampled(size(i_free)))
 
   diagnostics = 0.d0
 
@@ -535,15 +552,10 @@ subroutine fluid2part_action(this, sim)
   q = min(q, 4) ! limit to 4 for divertor conditions
   Z = this%fluid_Z
 
-  call sample_edge_elements(this%fluid_yield_integral, 1, n_supers_loc, rng_sample(1:2,:), integral, xyz_sampled, st_sampled, i_elm_sampled)
-
-  if (integral .le. 1d-12) then
-    if(sim%my_id == 0) write(*,"(A,I2,A)") "fluid2part wall action "//trim(this%type)//" with Z=",this%fluid_Z," has 0 yield. returning"
-    return ! Move along, nothing to do
-  end if
+  call sample_edge_elements(this%fluid_yield_integral, res, 1, n_supers_loc, rng_sample(1:2,:), xyz_sampled, st_sampled, i_elm_sampled)
 
   if (sim%my_id .eq. 0) then
-    write(*,"(A,i8,A,A,A,A,A,i2,A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", this%supers_num," ", element_symbols(sim%groups(this%target_group)%Z),&
+    write(*,"(A,i8,A,A,A,A,A,i2,A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", n_supers," ", element_symbols(sim%groups(this%target_group)%Z),&
       " from ", element_symbols(Z), " in group ", this%target_group, &
     " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral*this%weight_factor, "  particles flux #/s : ", integral*this%weight_factor/this%delta_t
   end if
@@ -578,7 +590,8 @@ subroutine fluid2part_action(this, sim)
 
     !> weight of fluid particle is equally distributed as a fraction of the incoming flux. Such that the sum of all incoming fluid particles ,
     !> is the total amount of incoming particles over the edge domain area * delta_t
-    particle%weight = this%weight_factor * integral/(n_supers_loc*sim%n_mpi)
+    !> multiplication with this%weight will be done in single_self_interaction
+    particle%weight = integral/(n_supers_loc*sim%n_mpi)
 
     ! Calculate temperature at this position to determine particle energy
     call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e, T_e)
@@ -876,7 +889,7 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   particle%weight = this%weight_factor * yield * particle%weight 
 
   ! use E from previous section to calculate velocity in one 
-  v_new = sqrt(2.d0* E *EL_CHG/(sim%groups(this%origin_group)%mass * ATOMIC_MASS_UNIT)) !< TODO: is this wrong, shouldn't it be sqrt(3 kb T / m), (leave for now for regtest)
+  v_new = sqrt(2.d0* E *EL_CHG/(sim%groups(this%origin_group)%mass * ATOMIC_MASS_UNIT)) !< TODO: is this wrong, shouldn't it be sqrt(3 kb T / m)? (leave for now for regtest)
   
   ! give particle a new direction:
   ! Calculate vector normal and select a random vector with a cosine distribution in angle between the normal and itself
@@ -1227,13 +1240,12 @@ end function elm_in_patch
 
 
 !> adds this particle's contribution to the wall_projection diagnostic tool
-!> TODO cleanup
 subroutine particle_projection_diagnostic(this, sim, particle, E, sputtering_yield)
   use phys_module, only: n_period, n_plane
 
   implicit none
 
-  class(wall_action),         intent(inout) :: this
+  class(wall_action),              intent(inout) :: this
   class(particle_sim),             intent(in)    :: sim
   type(particle_kinetic_leapfrog), intent(in)    :: particle !< particle to undergo interaction
   real*8,                          intent(in)    :: E !< old energy of particle in eV

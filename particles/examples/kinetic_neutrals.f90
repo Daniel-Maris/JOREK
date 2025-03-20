@@ -169,7 +169,6 @@ wall_actions =  wall_actions_from_config(sim, edge_elm_template)
 wall_action_counter = size(wall_actions)
 
 ! TODO: remove (breaks reg test)
-wall_actions(2)%supers_num = 5 ! TODO: let depend on input
 call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=wall_rng) !< for reg test
 wall_actions(1)%rng = wall_rng
 
