@@ -1087,17 +1087,16 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       do i=1,n_part_groups_max
         if(trim(part_group_configs(group_num)%wall_act_configs(i)%type) /= "none") n_wall_actions = n_wall_actions + 1
       end do
+      write(*,INTG_FMT) "n_wall_actions          ",n_wall_actions
       if(n_wall_actions > 0) then
-        write(*,INTG_FMT) "n_wall_actions ",n_wall_actions
-        
         do i=1,n_part_groups_max
           if (trim(part_group_configs(group_num)%wall_act_configs(i)%type) == "none") cycle
           
           write(*,*)    '--- wall action slot: ', i, ' ---'
           
-          write(*,"(3X,A,' = ',A)") 'type,               ', part_group_configs(group_num)%wall_act_configs(i)%type
-          write(*,"(3X,A,' = ',I12)") 'target_group,       ', part_group_configs(group_num)%wall_act_configs(i)%target_group
-          write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,      ', part_group_configs(group_num)%wall_act_configs(i)%weight_factor
+          write(*,"(3X,A, ' = ""', A, '""')") 'type,                 ', trim(part_group_configs(group_num)%wall_act_configs(i)%type)
+          write(*,"(3X,A,' = ',I12)") 'target_group,         ', part_group_configs(group_num)%wall_act_configs(i)%target_group
+          write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,        ', part_group_configs(group_num)%wall_act_configs(i)%weight_factor
           
           !> config of the number of supers to create per event
           if (part_group_configs(group_num)%wall_act_configs(i)%supers_num_wall > 0) then
@@ -1113,17 +1112,19 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
     enddo ! n_part_groups
     write(*,HEADER_FMT) '======== End of particle groups ========'
+    write(*,INTG_FMT) 'matching_part_config_indices ', matching_part_config_indices
+    write(*,INTG_FMT) 'matching_sim_groups_indices  ', matching_sim_groups_indices  
     write(*,*) ""
   endif ! n_part_groups > 0
 
   ! fluid groups
+  write(*,INTG_FMT) 'n_fluid_groups          ',n_fluid_groups
   if(n_fluid_groups > 0) then
     write(*,HEADER_FMT) "============= Fluid groups ============="
-    write(*,INTG_FMT) 'n_fluid_groups     ',n_fluid_groups
     
     do group_num=1,n_fluid_groups
       write(*,*) "---- Fluid group slot: ", group_num, " -----" 
-      write(*,INTG_FMT) 'Z,       ', fluid_configs(group_num)%Z
+      write(*,INTG_FMT) 'Z,                      ', fluid_configs(group_num)%Z
 
       ! wall interactions
       n_wall_actions = 0
@@ -1131,16 +1132,16 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         if(trim(fluid_configs(group_num)%wall_act_configs(i)%type) /= "none") n_wall_actions = n_wall_actions + 1
       end do
       if(n_wall_actions > 0) then
-        write(*,INTG_FMT) "n_wall_actions ",n_wall_actions
+        write(*,INTG_FMT) "n_wall_actions          ",n_wall_actions
         
         do i=1,n_part_groups_max
           if (trim(fluid_configs(group_num)%wall_act_configs(i)%type) == "none") cycle
           
           write(*,*)    '--- wall action slot: ', i, ' ---'
 
-          write(*,"(3X,A,' = ',A)") 'type,               ', fluid_configs(group_num)%wall_act_configs(i)%type
-          write(*,"(3X,A,' = ',I12)") 'target_group,       ', fluid_configs(group_num)%wall_act_configs(i)%target_group
-          write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,      ', fluid_configs(group_num)%wall_act_configs(i)%weight_factor
+          write(*,"(3X,A, ' = ""', A, '""')") 'type,                 ', trim(fluid_configs(group_num)%wall_act_configs(i)%type)
+          write(*,"(3X,A,' = ',I12)") 'target_group,         ', fluid_configs(group_num)%wall_act_configs(i)%target_group
+          write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,        ', fluid_configs(group_num)%wall_act_configs(i)%weight_factor
           
           !> config of the number of supers to create per event
           if (fluid_configs(group_num)%wall_act_configs(i)%supers_num_wall > 0) then

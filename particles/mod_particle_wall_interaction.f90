@@ -50,8 +50,8 @@ module mod_particle_wall_interaction
   public :: wall_action, wall_actions_from_config
 
   type, extends(io_action) :: wall_action
-    integer           :: origin_group  !< index specifying which group is undergoing this wall interaction. Either particle group number or fluid group number (if it is a fluid to particle interaction type)
-    integer           :: target_group  !< which particle group this wall interaction affects
+    integer           :: origin_group  !< index specifying which group is undergoing this wall interaction. Either particle group number (sim%groups(target_group)) or fluid group number (if it is a fluid to particle interaction type)
+    integer           :: target_group  !< which particle group (sim%groups(target_group)) this wall interaction affects
     character(len=20) :: type = "none" !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
 
     ! internal variables to determine which kind of backend function needs to be called, depending on whether the origin group is fluid or not and the target group is the origin group or not
@@ -101,19 +101,20 @@ module mod_particle_wall_interaction
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
-subroutine construct_wall_action(this, sim, origin_group, target_group, type, edge_element_template, fluid_Z, wall_config_num, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
+subroutine construct_wall_action(this, sim, origin_group, target_group, type, edge_element_template, origin_is_fluid, fluid_Z, wall_config_num, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
-  use phys_module, only: nout_projection, n_fluid_groups, n_part_groups, fluid_configs, type_wall_act_config
-  use mod_particle_group_id, only: matching_part_config_indices
-
+  use phys_module, only: nout_projection, n_fluid_groups_max, n_part_groups, n_part_groups_max, fluid_configs, type_wall_act_config
+  use phys_module, only: matching_sim_groups_indices
+    
   implicit none
   type(wall_action),   intent(inout) :: this      !< the new wall_action object. Inout because it may need some settings already
   type(particle_sim),  intent(in) :: sim
-  integer,             intent(in) :: origin_group !< index specifying which group is undergoing this wall interaction. Either particle group number or fluid group number (if it is a fluid to particle interaction type)
-  integer,             intent(in) :: target_group !< which particle group this wall interaction affects
+  integer,             intent(in) :: origin_group !< config index specifying which group is undergoing this wall interaction. Either particle group number or fluid group number (if it is a fluid to particle interaction type)
+  integer,             intent(in) :: target_group !< config index specifying which particle group (part_group_configs(target_group)) this wall interaction affects
   character(len=*),    intent(in) :: type         !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
   type(edge_elements), intent(in) :: edge_element_template !< a prepared set of edge elements
+  logical,             intent(in) :: origin_is_fluid       !< whether the origin group is a fluid group (.true.) or a particle group (.false.)
   integer,             intent(in), optional :: fluid_Z          !< Z of this fluid species (e.g. -2 for D)
   integer,             intent(in), optional :: wall_config_num  !< which wall_act_config this action is based on, [fluid]/[part_groups]_configs(i)%wall_act_configs(wall_config_num)
   character(len=*),    intent(in), optional :: filename         !< where to save the diagnostics
@@ -159,12 +160,6 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
   
   ! --- general checks on input
   if (this%fluid2part) then
-    if(origin_group < 1 .or. origin_group > n_fluid_groups) then
-      write(msg,*) "fluid origin group is not valid (origin_group/max)",origin_group,n_fluid_groups
-      call wrong_input(msg, sim%my_id, identifier)
-    end if
-    this%origin_group = origin_group
-
     if(present(fluid_Z)) then
       ! check whether Z is sensical
       if(fluid_Z < lbound(element_symbols,1) .or. fluid_Z > ubound(element_symbols,1)) then
@@ -176,13 +171,27 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
       write(msg,"(A,3I5)") "fluid Z must be specified for fluid type interaction"
       call wrong_input(msg, sim%my_id, identifier)
     end if
-  else ! origin_group is a particle group
-    if(origin_group < 1 .or. origin_group > n_part_groups) then
-      write(msg,*) "particle origin group is not valid (origin_group/max)",origin_group,n_part_groups
+
+    if(origin_group < 1 .or. origin_group > n_fluid_groups_max) then
+      write(msg,*) "fluid origin group is not valid (origin_group/max)",origin_group,n_fluid_groups_max
       call wrong_input(msg, sim%my_id, identifier)
     end if
+    this%origin_group = origin_group
 
-    this%origin_group = matching_part_config_indices(origin_group)
+  else ! origin_group is a particle group
+    ! check whether it is in bounds for the matching array
+    if(origin_group < 1 .or. origin_group > n_part_groups_max) then
+      write(msg,*) "particle config origin group is not valid (origin_group/max)",origin_group,n_part_groups_max
+      call wrong_input(msg, sim%my_id, identifier)
+    end if
+    
+    this%origin_group = matching_sim_groups_indices(origin_group)
+
+    ! check if it is in bounds of sim%groups(this%origin)
+    if(this%origin_group < 1 .or. this%origin_group > n_part_groups) then
+      write(msg,*) "sim%groups(this%origin_group) is not valid (this%origin_group/max)",this%origin_group,n_part_groups
+      call wrong_input(msg, sim%my_id, identifier)
+    end if
   end if
   
   !self interactions default to have the same target as origin if the wall_act_config%target_group is the unchanged namelist input value -1
@@ -193,23 +202,43 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
   end if
 
   !checking and setting target group
-  if(target_group_loc < 1 .or. target_group_loc > n_part_groups) then
-    write(msg,*) "target group is not valid (target_group/max)",target_group_loc,n_part_groups
+  ! check whether it is in bounds for the matching array
+  if(target_group_loc < 1 .or. target_group_loc > n_part_groups_max) then
+    write(msg,*) "target group is not valid (target_group/max)",target_group_loc,n_part_groups_max
     call wrong_input(msg, sim%my_id, identifier)
   end if
-  this%target_group = matching_part_config_indices(target_group_loc)
+  this%target_group = matching_sim_groups_indices(target_group_loc)
+  ! check if it is in bounds of sim%groups(this%target_group)
+  if(this%target_group < 1 .or. this%target_group > n_part_groups) then
+    write(msg,*) "sim%groups(this%target_group) is not valid (this%target_group/max)",this%target_group,n_part_groups
+    call wrong_input(msg, sim%my_id, identifier)
+  end if
 
   !checking whether the user set origin group and target group differently while it is a self interaction
   if (this%part2self) then
     call check_self_type(this, sim%my_id, identifier)
   end if
 
-  !setting the creation scheme
-  if (this%fluid2part) then
+  ! check whether the origin group (particle or fluid group) is compatible with the interaction
+  if (this%fluid2part) then ! type suggests that origin is fluid group
+    if(.not. origin_is_fluid) then
+      write(msg,"(3A)") "interaction type '",trim(type),"' cannot be used for particle species"
+      call wrong_input(msg, sim%my_id, identifier)
+    end if
+  else ! type suggests that origin is particle group
+    if(origin_is_fluid) then
+      write(msg,"(3A)") "interaction type '",trim(type),"' cannot be used for fluid species"
+      call wrong_input(msg, sim%my_id, identifier)
+    end if
+  end if
+
+  ! setting the creation scheme
+  if(.not. this%part2self) then ! this interaction requires resulting species particles to be created
+    ! particle creating interactions need to have a specified creation scheme, so we need to link back to the config
     if(.not. present(wall_config_num)) call wrong_input("wall_config_num should be present for particle creating routines in construct_wall_action", sim%my_id, identifier)
     config = fluid_configs(this%origin_group)%wall_act_configs(wall_config_num)
     this%create_scheme = part_create_scheme(config%supers_num_wall,config%supers_weight_wall,config%supers_ratio_wall, &
-        sim%groups(target_group)%n_particles,default=supers_ratio_wall_default,my_id=sim%my_id,identifier=identifier)
+        sim%groups(this%target_group)%n_particles,default=supers_ratio_wall_default,my_id=sim%my_id,identifier=identifier)
   end if
 
   ! --- diagnostics
@@ -299,8 +328,8 @@ end subroutine construct_wall_action
 !> set up the wall actions array from the configs of the namelist
 function wall_actions_from_config(sim, edge_element_template) result(wall_actions)
   use phys_module, only: part_group_configs, n_part_groups, n_part_groups_max, type_wall_act_config
-  use phys_module, only: fluid_configs, n_fluid_groups, n_fluid_groups_max
-  use mod_particle_group_id, only: matching_part_config_indices
+  use phys_module, only: fluid_configs, n_fluid_groups_max
+  use phys_module, only: matching_part_config_indices
 
   implicit none
 
@@ -311,9 +340,11 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   type(type_wall_act_config) :: config
 
   character(len=1000) :: identifier
-  integer :: i, j, Z, config_num_i, config_num_j
+  integer :: i, j, Z, config_num_i
   integer :: n_wall_acts !< number of wall_action objects to make
   integer :: i_wall_acts !< ith wall_action to be put in the wall_actions
+
+  if(sim%my_id == 0) write(*,*) "determining wall_actions from the namelist configs"
 
   !determining number of wall actions necessary
   n_wall_acts = 0
@@ -350,14 +381,13 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   do i=1,n_part_groups !loop over particle groups
     do j=1,n_part_groups_max !loop over wall action configs
       config_num_i = matching_part_config_indices(i)
-      config_num_j = matching_part_config_indices(j)
-      config = part_group_configs(config_num_i)%wall_act_configs(config_num_j)
+      config = part_group_configs(config_num_i)%wall_act_configs(j)
       if(trim(config%type) == "none") cycle
 
       ! being here means it is a wall action that should be used
       i_wall_acts = i_wall_acts + 1
-      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: particle_group_config(",config_num_i,")%wall_act_configs(",config_num_j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,input_identifier=identifier)      
+      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: particle_group_configs(",config_num_i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
+      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,.false.,input_identifier=identifier)      
     end do
   end do
 
@@ -366,16 +396,20 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
     Z = fluid_configs(i)%Z
     
     do j=1,n_part_groups_max !loop over wall action configs
-      config_num_j = matching_part_config_indices(j)
-      config = fluid_configs(i)%wall_act_configs(config_num_j)
+      config = fluid_configs(i)%wall_act_configs(j)
       if(trim(config%type) == "none") cycle
 
       ! being here means it is a wall action that should be used
       i_wall_acts = i_wall_acts + 1
-      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: fluid_config(",i,")%wall_act_configs(",config_num_j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,fluid_Z=Z,wall_config_num=j,input_identifier=identifier)
+      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: fluid_configs(",i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
+      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,.true.,fluid_Z=Z,wall_config_num=j,input_identifier=identifier)
     end do
   end do
+
+  if(i_wall_acts /= n_wall_acts) then
+    write(*,*) "ERROR: the total amount of wall actions is not equal to the number of initialised wall actions, so something went wrong"
+    stop
+  end if
 
 end function wall_actions_from_config
 
@@ -440,8 +474,8 @@ subroutine do_wall_action(this, sim, ev)
   ! check whether the constructor was used (so that all other sanity checks can be done once in the constructor)
   if (.not. this%constructed) then
     write(*,*)'=======================ERROR!!=================================='
-    write(*,*)"particle wall action object of type "//trim(this%type)
-    write(*,"(A,I2,A,I2, A)") "with origin ",this%origin_group," and target ", this%target_group, "has not finished it's construction"
+    write(*,*)"particle wall action object of type '"//trim(this%type)//"'"
+    write(*,"(A,I2,A,I2, A)") "with origin ",this%origin_group," and target ", this%target_group, " has not finished it's construction"
     write(*,*)'please use the constructor'
     stop
   end if
@@ -664,18 +698,25 @@ subroutine fluid2part_action(this, sim)
     stop
   end select
 
-  call write_global_diag(this, sim, diagnostics)
+  call reduce_global_diag(diagnostics)
 
-  ! on top of the standard global diagnostics, a few extra ones are printed
+  ! write global diagnostics, taylored for fluid to particle
   if (sim%my_id .eq. 0) then
-    write(*,'(A50,1es16.8)') "atom wall-assisted recombination power [W] = ",      diagnostics(i_wall_flux_in)                                  * ion_binding_E / this%delta_t
-    write(*,'(A50,1es16.8)') "molecule wall-assisted recombination power [W] = ", (diagnostics(i_wall_flux_in) - diagnostics(i_wall_flux_refl)) * mol_binding_E / this%delta_t
-    write(*,'(A50,1es16.8)') "Power to (fast) reflected atoms [W] = ",             diagnostics(i_wall_heat_refl)                                                / this%delta_t
+    write(*,'(A,1f14.0)' ) "superparticles created        = ", diagnostics(i_wall_part_out) 
+    write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", integral*this%weight_factor/this%delta_t,diagnostics(i_wall_flux_out)/this%delta_t 
+    if(trim(this%type) == "wall recomb") then
+      write(*,'(A,2es16.6)') "heatflux (in/out) [W]            = ", diagnostics(i_wall_heat_in)/this%delta_t,diagnostics(i_wall_heat_out)/this%delta_t 
+      write(*,'(A50,1es16.8)') "atom wall-assisted recombination power [W] = ",      diagnostics(i_wall_flux_in)                                  * ion_binding_E / this%delta_t
+      write(*,'(A50,1es16.8)') "molecule wall-assisted recombination power [W] = ", (diagnostics(i_wall_flux_in) - diagnostics(i_wall_flux_refl)) * mol_binding_E / this%delta_t
+      write(*,'(A50,1es16.8)') "Power to (fast) reflected atoms [W] = ",             diagnostics(i_wall_heat_refl)                                                / this%delta_t
+      !< atom wall-assisted recombination power = recycled flux * 13.6 eV. All ions are neutralized on the wall. This increaes the heat load on the wall ~stangeby2000 p.653
+      !< molecule wall-assisted recombination power = thermal desorption flux*2.2 eV. When neutrals on the wall form neutrals, the wall heat load is increased by 2.2 eV per molecule. ~stangeby2000 p.653
+      !< power to (fast) reflected atoms = energy retained by reflected neutrals. This energy is not deposited on the wall, thus decreases the plasma heat load.
+      !  From ITER PFPO-1 test in 2D : energy_reflected_all > enery_wall_recombi_all >> energy_mol_recombi_all
+    else ! fluid sputter
+      write(*,'(A,2es16.6)') "heatflux (out) [W]            = ", diagnostics(i_wall_heat_out)/this%delta_t 
+    end if
   endif
-  !< atom wall-assisted recombination power = recycled flux * 13.6 eV. All ions are neutralized on the wall. This increaes the heat load on the wall ~stangeby2000 p.653
-  !< molecule wall-assisted recombination power = thermal desorption flux*2.2 eV. When neutrals on the wall form neutrals, the wall heat load is increased by 2.2 eV per molecule. ~stangeby2000 p.653
-  !< power to (fast) reflected atoms = energy retained by reflected neutrals. This energy is not deposited on the wall, thus decreases the plasma heat load.
-  !  From ITER PFPO-1 test in 2D : energy_reflected_all > enery_wall_recombi_all >> energy_mol_recombi_all
 
   deallocate(rng_sample, xyz_sampled, st_sampled, i_elm_sampled)
   deallocate(i_free)
@@ -1440,8 +1481,8 @@ subroutine wrong_input(message, my_id, identifier)
   integer,          intent(in) :: my_id
   character(len=*), intent(in) :: identifier
 
-  if(my_id == 0) then
-    write(*,"(3A)") trim(message), " ", trim(identifier)
+  if(my_id > -1) then
+    write(*,"(5A)") "ERROR: ",trim(message), " ", trim(identifier), " Exiting."
   end if
 
   stop
@@ -1474,18 +1515,38 @@ subroutine check_self_type(this, my_id, identifier)
     write(msg,*) "type "//trim(this%type)//" is a self interaction type so origin_group should be target_group"
     call wrong_input(msg, my_id, identifier)
   end if
-end subroutine
+end subroutine check_self_type
 
 
-!> MPI reduces and writes the normal global diagnostics, 
+!> MPI reduces and writes the normal global diagnostics
 !> returns the MPI reduced diagnostics back into diagnostics
 subroutine write_global_diag(this,sim,diagnostics)
-  use mpi_mod
-
   implicit none
 
   type(wall_action),   intent(in) :: this
   type(particle_sim),  intent(in) :: sim
+  real*8, dimension(n_global_diagnostics), intent(inout) :: diagnostics !< diagnostics for the global wall loads
+  
+  integer :: ierr
+
+  call reduce_global_diag(diagnostics)
+
+  ! write standard diagnostics to logfile
+  if (sim%my_id .eq. 0) then
+    write(*,'(A,2f14.0)' ) "superparticles going (in/out) = ", diagnostics(i_wall_part_in),             diagnostics(i_wall_part_out) 
+    write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", diagnostics(i_wall_flux_in)/this%delta_t,diagnostics(i_wall_flux_out)/this%delta_t 
+    write(*,'(A,2es16.6)') "heatflux (in/out) [W]         = ", diagnostics(i_wall_heat_in)/this%delta_t,diagnostics(i_wall_heat_out)/this%delta_t 
+  endif
+
+end subroutine write_global_diag
+
+
+!> MPI reduces the global diagnostics and returns the reduced version
+subroutine reduce_global_diag(diagnostics)
+  use mpi_mod
+
+  implicit none
+
   real*8, dimension(n_global_diagnostics), intent(inout) :: diagnostics !< diagnostics for the global wall loads
   
   real*8, dimension(n_global_diagnostics)                :: diagnostics_all_mpi !< MPI reduced diagnostics for the global wall loads
@@ -1494,16 +1555,9 @@ subroutine write_global_diag(this,sim,diagnostics)
   ! MPI reduce can be done at once for all diagnostics  
   call MPI_REDUCE(diagnostics, diagnostics_all_mpi, n_global_diagnostics, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   
-  ! write standard diagnostics to logfile
-  if (sim%my_id .eq. 0) then
-    write(*,'(A,2f14.0)' ) "superparticles going (in/out) = ", diagnostics_all_mpi(i_wall_part_in),             diagnostics_all_mpi(i_wall_part_out) 
-    write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", diagnostics_all_mpi(i_wall_flux_in)/this%delta_t,diagnostics_all_mpi(i_wall_flux_out)/this%delta_t 
-    write(*,'(A,2es16.6)') "heatflux (in/out) [W]         = ", diagnostics_all_mpi(i_wall_heat_in)/this%delta_t,diagnostics_all_mpi(i_wall_heat_out)/this%delta_t 
-  endif
-
-  ! write MPI reduced diagnostics back to diagnostics so other things can be printed if the user wants it
+  ! write MPI reduced diagnostics back to diagnostics
   diagnostics = diagnostics_all_mpi
-end subroutine
+end subroutine reduce_global_diag
 
 
 !> first trims and then replaces spaces by underscores (_) in the string

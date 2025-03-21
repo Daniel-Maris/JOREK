@@ -78,6 +78,10 @@ function part_create_scheme(supers_num, supers_weight, supers_ratio, n_particles
       if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%supers_ratio is negative"
       stop
     endif
+    if (n_particles < 1.d0) then
+      if (id == 0) write(*,"(A,A,A)") "ERROR: ",trim(identifier_local),"%n_particles is < 1"
+      stop
+    end if
     this%scheme = "ratio"
     n_create_schemes = n_create_schemes + 1
   endif
@@ -93,7 +97,7 @@ function part_create_scheme(supers_num, supers_weight, supers_ratio, n_particles
     this%scheme = "ratio"
     this%supers_ratio = supers_ratio_default
     if (id == 0) then
-      write(*,"(A,I2,A,I2,A)") "WARNING: in create scheme ",trim(identifier_local)
+      write(*,"(2A)") "WARNING: in create scheme ",trim(identifier_local)
       write(*,*) "  no scheme for determining the number of superparticles (supers_...)"
       write(*,*) "  has been assigned. Using the default"
       write(*,*) "  setting of supers_ratio = ", supers_ratio_default

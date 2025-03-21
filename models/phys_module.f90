@@ -1042,6 +1042,18 @@ module phys_module
 
   type (type_part_group_config), dimension(n_part_groups_max) :: part_group_configs 
 
+  !> @name index translation arrays
+  ! the indices in part_group_configs do not have to correspond to those in sim%groups because part_group_configs can be dropped based on part_groups_in_use
+  ! therefore we need the following two translation arrays to get the one from the other:
+  
+  !> used to translate from sim%groups(group_num) to part_group_configs%(config_num)
+  !> as config_num = matching_part_config_indices(group_num)
+  integer, dimension(n_part_groups_max) :: matching_part_config_indices ! only the first n_part_groups value of this should be accessed
+
+  !> used to translate from part_group_configs%(config_num) to sim%groups(group_num)
+  !> as group_num = matching_sim_groups_indices(config_num)
+  integer, dimension(n_part_groups_max) :: matching_sim_groups_indices
+
   ! ------------------------------------------------
   ! --- Structures for fluid groups
   ! ------------------------------------------------

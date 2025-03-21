@@ -42,7 +42,6 @@ use mod_atomic_coeff_deuterium, only: ad_deuterium
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
 use equil_info
-use mod_particle_group_id, only: matching_part_config_indices
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
@@ -52,6 +51,7 @@ use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: part_group_configs
 use phys_module, only: use_manual_random_seed, manual_seed
+use phys_module, only: matching_part_config_indices
 
 use mod_pcg32_rng, only: pcg32_rng
 use mod_rng, only: type_rng, setup_shared_rngs

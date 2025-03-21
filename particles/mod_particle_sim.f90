@@ -62,7 +62,7 @@ contains
 subroutine configure_particle_groups(sim)
   use phys_module, only: n_part_groups, part_group_configs, type_part_group_config
   use phys_module, only: part_groups_in_use
-  use mod_particle_group_id, only: matching_part_config_indices
+  use phys_module, only: matching_part_config_indices
 
   implicit none
   class(particle_sim), intent(inout)       :: sim

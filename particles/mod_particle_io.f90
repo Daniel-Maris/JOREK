@@ -411,7 +411,6 @@ mpi_comm_in,mpi_info_in,test_in)
   use mod_particle_sim,      only: particle_sim, configure_particle_groups
   use mod_coronal,           only: coronal
   use mod_openadas,          only: read_adf11
-  use mod_particle_group_id, only: matching_part_config_indices
   implicit none
   !> parameters:
   integer(HSIZE_T),parameter  :: i0_HSIZE_T=int(0,kind=HSIZE_T)
