@@ -156,21 +156,23 @@ n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) dens
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
 
-! --- Setting up edge domains for wall actions
+! --- Setting up wall actions
+! edge domains for wall actions
 call find_edge_domains(node_list,element_list, edge_domains)!, discont_corner=.true.)
 if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
 call edge_elm_template%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
-
-! --- Setting up particle events
-allocate(recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
 ! getting the wall actions from the input
 wall_actions =  wall_actions_from_config(sim, edge_elm_template)
 wall_action_counter = size(wall_actions)
 
+! keeping compatible with the reg test
 ! TODO: remove (breaks reg test)
 call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=wall_rng) !< for reg test
 wall_actions(1)%rng = wall_rng
+
+! --- Setting up particle events
+allocate(recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
 do group_num=1, n_part_groups
   config_num = matching_part_config_indices(group_num)
