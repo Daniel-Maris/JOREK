@@ -563,7 +563,7 @@ do i=1,n_vertex_max
             Ti0_st = eq_st(mp,var_Ti,ms,mt)
                                                               ! Factors of 2 come because correction is made on total T
             Ti0_corr     = corr_neg_temp(Ti0*2.d0) / 2.d0     ! For use in eta(T), visco(T), ...
-            dTi0_corr_dT = dcorr_neg_temp_dT(Ti0*2.d0)        ! Improve the correction / y= f(2*x)/2 => dy/dx = 2*f’(2*x)/2 = f’(2*x)
+            dTi0_corr_dT = dcorr_neg_temp_dT(Ti0*2.d0)        ! Improve the correction 
            
             Te0    = eq_g(mp,var_Te,ms,mt)
             Te0_x  = (   y_t(ms,mt) * eq_s(mp,var_Te,ms,mt) - y_s(ms,mt) * eq_t(mp,var_Te,ms,mt) ) / xjac
@@ -576,8 +576,8 @@ do i=1,n_vertex_max
             Te0_st = eq_st(mp,var_Te,ms,mt)
                                                                 ! Factors of 2 come because correction is made on total T
             Te0_corr       = corr_neg_temp(Te0*2.d0) / 2.d0     ! For use in eta(T), visco(T), ...
-            dTe0_corr_dT   = dcorr_neg_temp_dT(Te0*2.d0)        ! Improve the correction / y= f(2*x)/2, => dy/dx = 2*f’(2*x)/2 = f’(2*x)
-            d2Te0_corr_dT2 = 2.0 * d2corr_neg_temp_dT2(Te0*2.d0)  !  y= f(2*x)/2 => d2y/dx2 = 4*f’’(2*x)/2 = 2*f’’(2*x)
+            dTe0_corr_dT   = dcorr_neg_temp_dT(Te0*2.d0)        ! Improve the correction 
+            d2Te0_corr_dT2 = 2.0 * d2corr_neg_temp_dT2(Te0*2.d0)  
 
             zTi   =   eq_zTi(ms,mt)
             zTi_x = dTi_dpsi(ms,mt) * ps0_x
