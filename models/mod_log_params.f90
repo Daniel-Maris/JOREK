@@ -1112,8 +1112,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
     enddo ! n_part_groups
     write(*,HEADER_FMT) '======== End of particle groups ========'
-    write(*,INTG_FMT) 'matching_part_config_indices ', matching_part_config_indices
-    write(*,INTG_FMT) 'matching_sim_groups_indices  ', matching_sim_groups_indices  
     write(*,*) ""
   endif ! n_part_groups > 0
 

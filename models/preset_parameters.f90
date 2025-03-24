@@ -908,9 +908,6 @@ do i=1, n_part_groups_max
   enddo
 enddo
 
-matching_part_config_indices(:) = n_part_groups_max
-matching_sim_groups_indices(:)  = n_part_groups_max
-
 ! --- fluid groups
 n_fluid_groups = 0
 

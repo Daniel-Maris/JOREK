@@ -51,7 +51,8 @@ use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: part_group_configs
 use phys_module, only: use_manual_random_seed, manual_seed
-use phys_module, only: matching_part_config_indices
+
+use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
 
 use mod_pcg32_rng, only: pcg32_rng
 use mod_rng, only: type_rng, setup_shared_rngs
@@ -256,7 +257,7 @@ do while (.not. sim%stop_now)
   endif
 
   if (recomb_counter > 0) then
-    call write_to_outputfile(sim%my_id, "Volume recombination")
+    call write_to_outputfile(sim%my_id, "Volume recombination") !< as opposed to wall recombination which is part of wall_actions
     do i=1, recomb_counter
       call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
     enddo

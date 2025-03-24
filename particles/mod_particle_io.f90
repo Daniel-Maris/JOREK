@@ -384,6 +384,7 @@ end subroutine write_simulation_hdf5
 subroutine read_simulation_hdf5(sim,filename,use_hdf5_access_properties,&
 mpi_comm_in,mpi_info_in,test_in)
   use phys_module
+  use mod_particle_group_id, only: matching_part_config_indices
   use mpi
   use hdf5,                  only: HSIZE_T,HID_T
   use hdf5,                  only: H5Gopen_f,H5Gget_info_f

@@ -8,8 +8,21 @@ implicit none
 
 integer :: id_counter = 0  !< how many ids have been automatically generated. Used to keep IDs unique.
 
-public  match_part_groups_and_configs, generate_part_groups_in_use
-private generate_part_group_id
+! Index translation arrays:
+! the indices in part_group_configs do not have to correspond to those in sim%groups because part_group_configs can be dropped based on part_groups_in_use
+! therefore we need the following two translation arrays to get the one from the other:
+
+!> used to translate from sim%groups(group_num) to part_group_configs%(config_num)
+!> as config_num = matching_part_config_indices(group_num)
+integer, dimension(n_part_groups_max) :: matching_part_config_indices = n_part_groups_max ! only the first n_part_groups value of this should be accessed
+
+!> used to translate from part_group_configs%(config_num) to sim%groups(group_num)
+!> as group_num = matching_sim_groups_indices(config_num)
+integer, dimension(n_part_groups_max) :: matching_sim_groups_indices  = n_part_groups_max
+
+private
+public match_part_groups_and_configs, generate_part_groups_in_use
+public matching_part_config_indices, matching_sim_groups_indices
 
 contains
 
@@ -17,7 +30,6 @@ contains
   !> group in part_group_configs. Also checks that the ids in part_groups_in_use
   !> and part_groups_configs are unique
   subroutine match_part_groups_and_configs()
-    use phys_module, only: matching_part_config_indices, matching_sim_groups_indices
     
     implicit none
     integer :: group_num, j, matched_num, matched_config_num
@@ -52,6 +64,10 @@ contains
       matching_part_config_indices(group_num) = matched_config_num
       matching_sim_groups_indices(matched_config_num) = group_num
     enddo
+
+    !logging the matching indices
+    write(*,"(A,20I4)") 'matching_part_config_indices = ', matching_part_config_indices
+    write(*,"(A,20I4)") 'matching_sim_groups_indices  = ', matching_sim_groups_indices  
   end subroutine match_part_groups_and_configs
 
   !> generates part_groups_in_use based on part_groups_configs if it is

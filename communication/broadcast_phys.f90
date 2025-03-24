@@ -5,6 +5,7 @@ use tr_module
 use phys_module
 use mod_coupling_settings
 use coupling_variables
+use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
 use vacuum
 use mpi_mod
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)

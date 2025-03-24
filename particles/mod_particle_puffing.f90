@@ -14,7 +14,7 @@ module mod_particle_puffing
   use mod_find_rz_nearby, only: find_rz_nearby
   use mod_particle_allocation, only: calc_n_particles_per_mpi
   use phys_module, only: type_valve, valves, part_group_configs, type_puff_ctrl, n_puff_segment_max 
-  use phys_module, only: matching_part_config_indices, matching_sim_groups_indices
+  use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
   use mod_particle_create, only: type_part_create_scheme
   
   implicit none

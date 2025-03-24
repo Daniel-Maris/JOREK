@@ -1,7 +1,7 @@
 !> Module for particle to particle and fluid to particle interactions at the wall.
 !> 
-!> The main object is the wall action, in which the wall_action%type is a string
-!> determining the type of interaction. Examples of wall actions are a plasma fluid 
+!> The main object is the wall_action, in which the wall_action%type is a string
+!> determining the type of interaction. Examples of wall_actions are a plasma fluid 
 !> species sputtering one particle group (e.g. D plasma sputtering W impurities),
 !> or particles from a particular group (e.g. N) reflecting against the wall
 !> Every such interaction needs it's own object, and internally the right routine's
@@ -9,7 +9,9 @@
 !> 
 !> The currently implemented interaction types are: 
 !> "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "reflection" 
-!> (e.g. kinetic D -> D) and "wall recomb" (e.g. kinetic D+ -> D)
+!> (e.g. kinetic D -> D) and "wall recomb" (e.g. kinetic D+ -> D). 
+!> "other sputter" (e.g. kinetic N -> W) is not implemented as of yet although some 
+!> preparation is already available in the code.  
 !> 
 !> Eckstein coefficients are used to determine the yield of the interaction and the 
 !> resulting energy of the resulting particles. These yields are automatically loaded
@@ -105,8 +107,8 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
   use phys_module, only: nout_projection, n_fluid_groups_max, n_part_groups, n_part_groups_max, fluid_configs, type_wall_act_config
-  use phys_module, only: matching_sim_groups_indices
-    
+  use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
+
   implicit none
   type(wall_action),   intent(inout) :: this      !< the new wall_action object. Inout because it may need some settings already
   type(particle_sim),  intent(in) :: sim
@@ -325,11 +327,11 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
 end subroutine construct_wall_action
 
 
-!> set up the wall actions array from the configs of the namelist
+!> set up the wall_actions array from the configs of the namelist
 function wall_actions_from_config(sim, edge_element_template) result(wall_actions)
   use phys_module, only: part_group_configs, n_part_groups, n_part_groups_max, type_wall_act_config
   use phys_module, only: fluid_configs, n_fluid_groups_max
-  use phys_module, only: matching_part_config_indices
+  use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
 
   implicit none
 
@@ -346,7 +348,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
 
   if(sim%my_id == 0) write(*,*) "determining wall_actions from the namelist configs"
 
-  !determining number of wall actions necessary
+  !determining number of wall_actions necessary
   n_wall_acts = 0
   
   do i=1,n_part_groups !from particles
@@ -368,23 +370,23 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   end do
 
   if(n_wall_acts > n_part_groups_max**2 + n_part_groups_max*n_fluid_groups_max) then
-    write(*,*) "ERROR: number of wall actions is bigger than should be possible?"
+    write(*,*) "ERROR: size of wall_actions is bigger than should be possible?"
     stop
   end if
 
-  !setting up the wall actions
+  !setting up the wall_actions
   allocate(wall_actions(n_wall_acts))
 
   i_wall_acts = 0
   
   !from particles
   do i=1,n_part_groups !loop over particle groups
-    do j=1,n_part_groups_max !loop over wall action configs
+    do j=1,n_part_groups_max !loop over wall_action configs
       config_num_i = matching_part_config_indices(i)
       config = part_group_configs(config_num_i)%wall_act_configs(j)
       if(trim(config%type) == "none") cycle
 
-      ! being here means it is a wall action that should be used
+      ! being here means it is a wall_action that should be used
       i_wall_acts = i_wall_acts + 1
       write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: particle_group_configs(",config_num_i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
       call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,.false.,input_identifier=identifier)      
@@ -395,11 +397,11 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   do i=1,n_fluid_groups_max !loop over fluid groups
     Z = fluid_configs(i)%Z
     
-    do j=1,n_part_groups_max !loop over wall action configs
+    do j=1,n_part_groups_max !loop over wall_action configs
       config = fluid_configs(i)%wall_act_configs(j)
       if(trim(config%type) == "none") cycle
 
-      ! being here means it is a wall action that should be used
+      ! being here means it is a wall_action that should be used
       i_wall_acts = i_wall_acts + 1
       write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: fluid_configs(",i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
       call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,edge_element_template,.true.,fluid_Z=Z,wall_config_num=j,input_identifier=identifier)
@@ -407,7 +409,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
   end do
 
   if(i_wall_acts /= n_wall_acts) then
-    write(*,*) "ERROR: the total amount of wall actions is not equal to the number of initialised wall actions, so something went wrong"
+    write(*,*) "ERROR: the total amount of wall_actions is not equal to the number of initialised wall_actions, so something went wrong"
     stop
   end if
 
@@ -474,7 +476,7 @@ subroutine do_wall_action(this, sim, ev)
   ! check whether the constructor was used (so that all other sanity checks can be done once in the constructor)
   if (.not. this%constructed) then
     write(*,*)'=======================ERROR!!=================================='
-    write(*,*)"particle wall action object of type '"//trim(this%type)//"'"
+    write(*,*)"particle wall_action object of type '"//trim(this%type)//"'"
     write(*,"(A,I2,A,I2, A)") "with origin ",this%origin_group," and target ", this%target_group, " has not finished it's construction"
     write(*,*)'please use the constructor'
     stop
@@ -524,7 +526,7 @@ subroutine fluid2part_action(this, sim)
   integer :: q, Z
   real*8 :: E !< [eV] particle energy  (eV because of eckstein coeffs).
   real*8 :: n_e, T_e, T_eV
-  real*8 :: integral !< total weight of all created particles in this wall action
+  real*8 :: integral !< total weight of all created particles in this wall_action
   real*8,  allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_supers_loc), (2,n_supers_loc), (3,n_supers_loc)
   integer, allocatable :: i_elm_sampled(:) !< (n_supers_loc)
 
@@ -545,7 +547,7 @@ subroutine fluid2part_action(this, sim)
   call integrate_edge_elements(this%fluid_yield_integral, 1, integral, res)
 
   if (integral .le. 1d-12) then
-    if(sim%my_id == 0) write(*,"(A,I2,A)") "fluid2part wall action "//trim(this%type)//" with Z=",this%fluid_Z," has 0 yield. returning"
+    if(sim%my_id == 0) write(*,"(A,I2,A)") "fluid2part wall_action "//trim(this%type)//" with Z=",this%fluid_Z," has 0 yield. returning"
     return ! Move along, nothing to do
   end if
 
@@ -1496,7 +1498,7 @@ subroutine wrong_interaction_type(type, identifier)
   character(len=*), intent(in), optional :: identifier
 
   write(*,"(A)") "Wall interaction type "//trim(type)//" not supported (mod_wall_interaction.f90)"
-  write(*,"(A)") 'Available types: "self sputter", "fluid sputter", "other sputter", "reflection" or "wall recomb" '
+  write(*,"(A)") 'Available types: "self sputter", "fluid sputter", "reflection" or "wall recomb" '
   if(present(identifier)) write(*,"(2A)") "Error detected ",trim(identifier)
   stop
 end subroutine wrong_interaction_type
