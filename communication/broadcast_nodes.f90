@@ -7,12 +7,13 @@ use data_structure
 use mpi_mod
 implicit none
 
-type (type_node_list)         :: node_list
-integer                       :: n_variables
+integer, intent(in)                        :: my_id
+type (type_node_list), intent(inout)       :: node_list
 
-type (type_node)              :: anode
-integer                       :: i, ierr, my_id, position, bufsize, IDBL_EXT, INT_EXT, ILOG_EXT
-character, allocatable        :: buffer(:)
+integer                                    :: n_variables
+type (type_node)                           :: anode
+integer                                    :: i, ierr, position, bufsize, IDBL_EXT, INT_EXT, ILOG_EXT
+character, allocatable                     :: buffer(:)
 
 if (my_id .eq. 0) n_variables = size(node_list%node(1)%values, 3)
 
