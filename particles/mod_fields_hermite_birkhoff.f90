@@ -456,7 +456,7 @@ subroutine read_next_file(this, f, i_found, prefer_plus_2)
         ! Read the next restart file
         call import_hdf5_restart(f%node_list,f%element_list,trim(restart_file),this%rst_format,ierr)
         call broadcast_elements(my_id, f%element_list)
-        call broadcast_nodes(my_id, f%node_list, n_var)
+        call broadcast_nodes(my_id, f%node_list)
         call broadcast_phys(my_id) ! we only really use tstep_rst and t_start but this is simpler to write
         if (ierr .ne. 0) then
           if (my_id .eq. 0) write(*,*) "ERROR: cannot open restart file"
@@ -476,7 +476,7 @@ subroutine read_next_file(this, f, i_found, prefer_plus_2)
     call MPI_Bcast(i_found, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
   else
     call broadcast_elements(my_id, f%element_list)
-    call broadcast_nodes(my_id, f%node_list, n_var)
+    call broadcast_nodes(my_id, f%node_list)
     call broadcast_phys(my_id) ! we only really use tstep_rst and t_start but this is simpler to write
     call MPI_Bcast(i_found, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
   end if
