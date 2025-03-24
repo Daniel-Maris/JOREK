@@ -97,7 +97,7 @@ program jorek2_poincare
   
   ! --- Broadcast accross MPIs
   call broadcast_elements(my_id, element_list)  	      ! elements
-  call broadcast_nodes(my_id, node_list, n_var)		      ! nodes
+  call broadcast_nodes(my_id, node_list)		      ! nodes
   call broadcast_phys(my_id)				      ! physics parameters
   
   ! --- Define element neighbours

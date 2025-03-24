@@ -1,4 +1,4 @@
-subroutine Broadcast_nodes(my_id,node_list,n_variables)
+subroutine Broadcast_nodes(my_id,node_list)
 !----------------------------------------------------------
 ! subroutine to broadcast all the nodes in the node_list
 !----------------------------------------------------------
@@ -8,30 +8,33 @@ use mpi_mod
 implicit none
 
 type (type_node_list)         :: node_list
-integer, intent(in)           :: n_variables
+integer                       :: n_variables
 
 type (type_node)              :: anode
 integer                       :: i, ierr, my_id, position, bufsize, IDBL_EXT, INT_EXT, ILOG_EXT
 character, allocatable        :: buffer(:)
 
+if (my_id .eq. 0) n_variables2 = size(node_list%node(1)%values, 3)
+
 call MPI_PACK_SIZE(1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,IDBL_EXT,ierr)
 call MPI_PACK_SIZE(1,MPI_INTEGER,MPI_COMM_WORLD,INT_EXT,ierr)
 call MPI_PACK_SIZE(1,MPI_LOGICAL,MPI_COMM_WORLD,ILOG_EXT,ierr)
 
+call MPI_BCAST(n_variables2,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 call MPI_BCAST(node_list%n_nodes,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 call MPI_BCAST(node_list%n_dof,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
 #ifdef STELLARATOR_MODEL
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*(n_dim+2*3+1) + 2*n_tor*n_degrees*n_variables + n_tor*n_degrees + 2 + 2*n_degrees)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*(n_dim+2*3+1) + 2*n_tor*n_degrees*n_variables2 + n_tor*n_degrees + 2 + 2*n_degrees)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #elif fullmhd
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables2+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #elif altcs                          
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables2+2*n_degrees+2)*IDBL_EXT + (n_degrees +1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #else                                
-bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables+2)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
+bufsize = node_list%n_nodes * ((n_coord_tor*n_degrees*n_dim + 2*n_tor*n_degrees*n_variables2+2)*IDBL_EXT + (n_degrees + 1+3+1+1)*INT_EXT + (2)*ILOG_EXT)
 #endif
 
-call init_node(anode, n_variables)
+call init_node(anode, n_variables2)
 allocate(buffer(bufsize))
 call tr_register_mem(bufsize,"bcastn_buffer")
 
@@ -44,8 +47,8 @@ if (my_id .eq. 0) then
     call make_deep_copy_node(node_list%node(i), anode)
 
     call MPI_PACK(anode%x              ,n_coord_tor*n_degrees*n_dim      ,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-    call MPI_PACK(anode%values         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-    call MPI_PACK(anode%deltas         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%values         ,n_tor*n_degrees*n_variables2,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+    call MPI_PACK(anode%deltas         ,n_tor*n_degrees*n_variables2,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 #ifdef STELLARATOR_MODEL
     call MPI_PACK(anode%r_tor_eq       ,n_degrees,MPI_DOUBLE_PRECISION,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 #if JOREK_MODEL == 180
@@ -81,14 +84,14 @@ call MPI_BCAST(buffer,bufsize,MPI_PACKED,0,MPI_COMM_WORLD,ierr)
 
 if (my_id .ne. 0) then
 
-    if (.not. allocated(node_list%node)) call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_variables)
+    if (.not. allocated(node_list%node)) call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_variables2)
 
   position = 0
   do i=1,node_list%n_nodes
 
     call MPI_UNPACK(buffer,bufsize,position,anode%x              ,n_coord_tor*n_degrees*n_dim      ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-    call MPI_UNPACK(buffer,bufsize,position,anode%values         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-    call MPI_UNPACK(buffer,bufsize,position,anode%deltas         ,n_tor*n_degrees*n_variables,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%values         ,n_tor*n_degrees*n_variables2,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+    call MPI_UNPACK(buffer,bufsize,position,anode%deltas         ,n_tor*n_degrees*n_variables2,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
 #ifdef STELLARATOR_MODEL
     call MPI_UNPACK(buffer,bufsize,position,anode%r_tor_eq       ,n_degrees                        ,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
 #if JOREK_MODEL == 180
