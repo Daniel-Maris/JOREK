@@ -44,7 +44,7 @@ subroutine neutral_self_collision(sim, rng, dt)
   
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: n_elm
-  integer :: i_pa_group, i_phi, is, it, ns, nt, nst, n_pa_bin, n_pa_subbin, aim_pa_per_subbin, i_pair
+  integer :: i_pa_group, i_phi, is, it, ns, nt, n_pa_bin, n_pa_subbin, aim_pa_per_subbin, i_pair
   integer :: i_subbin !< the bin index of the first particle in this subbin (so if this is the second subbin for aim_per_pa=50, i_subbin=51, etc)
   real*8, parameter :: subbin_factor = 2 !< factor by which a collisional bin is allowed to be larger than aim_pa_per_bin before splitting into subbings
   integer :: i,j, i_elm, i_loc, i_global
@@ -68,9 +68,10 @@ subroutine neutral_self_collision(sim, rng, dt)
   integer, dimension(:),       allocatable :: i_loc_arr !< local index in the element array of particle indices (n_elm)
   
   
-  real :: R, R_s, R_t, Z, Z_s, Z_t
-  real :: lt,ls !< [m] physical size of element / bin in s direction
-  real :: V_c !< [m^3] grid cell (collisional bin) volume 
+  real*8 :: R, R_s, R_t, Z, Z_s, Z_t
+  real*8 :: nst
+  real*8 :: lt,ls !< [m] physical size of element / bin in s direction
+  real*8 :: V_c !< [m^3] grid cell (collisional bin) volume 
   real*8 :: RN(3) !< random numbers for chance to collide, impact parameter and scattering plane angle
   integer :: i_rng
 
@@ -130,6 +131,7 @@ subroutine neutral_self_collision(sim, rng, dt)
         i_elm = pa(i)%i_elm
         if(i_elm < 1) cycle
         pa_elm_arr(i) = i_elm
+        !$omp atomic update
         pa_in_elm_arr(i_elm) = pa_in_elm_arr(i_elm) + 1
       end do
       !$omp end parallel do
@@ -219,10 +221,10 @@ subroutine neutral_self_collision(sim, rng, dt)
         call cpu_time(t_priv(4))
         t_priv_tot(4) = t_priv(4)-t_priv(2)
 
-        !determine how many poloidal bins for this element. floor to make sure the average number of particles does not get much smaller than aim_pa_per_bin
-        nst = floor((pa_in_elm/real(aim_pa_per_bin * n_phi))) !< number of bins in poloidal plane
+        !determine how many poloidal bins for this element. real to give the best approximation to ns, nt
+        nst = pa_in_elm/real(aim_pa_per_bin * n_phi) !< number of bins in poloidal plane
 
-        if(nst .gt. 1) then        
+        if(nst .gt. 1.d0) then        
           !determine how to distribute the poloidal bins based on what size the element is along the s and t coordinates
           call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,0.5d0,0.5d0,R,R_s,R_t,Z,Z_s,Z_t)
           ls = sqrt(R_s**2 + Z_s**2)
@@ -232,14 +234,24 @@ subroutine neutral_self_collision(sim, rng, dt)
           ns = nint(sqrt(nst*ls/lt))
           nt = nint(sqrt(nst*lt/ls))
 
+          !if ns = nt = 1 while nst != 1, set the biggest side to nst
+          if(ns .le. 1 .and. nt .le. 1) then
+            if (ls < lt) then
+              ns = 1
+              nt = floor(nst)
+            else 
+              nt = 1
+              ns = floor(nst)
+            end if
+          end if
           !if the element is very elongated, make sure there's always at least one bin in both directions
           if(ns .le. 1) then
             ns = 1
-            nt = nst
+            nt = floor(nst)
           end if
           if(nt .le. 1) then
             nt = 1
-            ns = nst
+            ns = floor(nst)
           end if
         else 
           ns = 1
@@ -333,7 +345,7 @@ subroutine neutral_self_collision(sim, rng, dt)
               call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
               ls = sqrt(R_s**2 + Z_s**2)/real(ns)
               lt = sqrt(R_t**2 + Z_t**2)/real(nt)
-              V_c = ls*lt*(2.d0*PI/real(n_period*n_phi))
+              V_c = ls*lt*(2.d0*PI*R/real(n_period*n_phi))
               
               !determine weight of phi direction necessary for nearest neighbour calculation based on bin size
               if(n_period .eq. 1 .and. n_phi .eq. 1) then !< axi symmetry
@@ -394,11 +406,11 @@ subroutine neutral_self_collision(sim, rng, dt)
                   call cpu_time(t_priv(13))
                   t_priv_tot(13) = t_priv_tot(13) + t_priv(13)-t_priv(12)
 
-                  !> Find nearest neighbour pa_subbin(i_pa2) to pa_subbin(i_pa1)
+                  !> Find weighted near neighbour pa_subbin(i_pa2) to pa_subbin(i_pa1) by looping through all unpaired particles in bin
                   RZPhi=pa_subbin(i_pa1)%x
                   d2 = 1.d99
                   i_pa2 = -1
-                  do i=1,n_pa_subbin !< finds weighted nearest neighbour by looping through all particles in bin
+                  do i=i_pair+1,n_pa_subbin ! All particles up and until i_pair are already paired
                     if(paired(i)) cycle !< skip particles that have been paired already
                     RZPhi_try = pa_subbin(i)%x 
                     !> find lowest squared distance rather than real distance
@@ -426,13 +438,16 @@ subroutine neutral_self_collision(sim, rng, dt)
                   call cpu_time(t_priv(15))
                   t_priv_tot(15) = t_priv_tot(15) + t_priv(15)-t_priv(14)
                   
-                  P_try = w_g * n_pa_bin * sigma_T * v_r * dt / V_c
+                  ! the factor n_pa_bin / (2*int(n_pa_bin/2)) corrects for unpaired particle if n_pa_bin is odd
+                  P_try = w_g * n_pa_bin * (n_pa_bin / (2*int(n_pa_bin/2))) * sigma_T * v_r * dt / V_c 
 
                   if (P_try > P_max(1)) P_max(1) = P_try
                   if (P_try/n_pa_bin > P_max(2)) P_max(2) = P_try/n_pa_bin
-                  if (P_try > 1.d0) &
-                    write(*,"(A,8es15.5)") "ERROR in NNC: P_try > 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
-
+                  if (P_try > 1.d0) then
+                    !$omp critical
+                    write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try > 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
+                    !$omp end critical
+                  end if
                   !generate random number
                   call rng(i_rng)%next(RN)
 
@@ -533,18 +548,18 @@ function calc_sigma_T(v_r, m1, m2) result(sigma_T)
   
   implicit none
   
-  real*8, intent(in)  :: v_r     !< relative velocity
-  real*8, intent(in)  :: m1      !< mass of first particle
-  real*8, intent(in)  :: m2      !< mass of second particle
+  real*8, intent(in)  :: v_r     !< relative velocity [m/s]
+  real*8, intent(in)  :: m1      !< mass of first particle [AMU]
+  real*8, intent(in)  :: m2      !< mass of second particle [AMU]
 
   real*8              :: sigma_T !< total collisional cross section sigma_T
 
   ! local variables
-  real*8 :: d     !< diameter
-  real*8 :: T_ref !< reference temperature for d_ref and omega
-  real*8 :: d_ref !< diameter at reference temperature 
+  real*8 :: d     !< diameter [m]
+  real*8 :: T_ref !< reference temperature for d_ref and omega [K]
+  real*8 :: d_ref !< diameter at reference temperature [m]
   real*8 :: omega !< viscosity index
-  real*8 :: m_r   !< reduced mass m=m1*m2/(m1+m2)
+  real*8 :: m_r   !< reduced mass m=m1*m2/(m1+m2) [kg]
 
   if (abs(v_r) .lt. 1.d-12) then
     sigma_T = 0.d0
@@ -557,6 +572,7 @@ function calc_sigma_T(v_r, m1, m2) result(sigma_T)
   T_ref = 273
   omega = 0.68 !Varoutis 2017 paper 
   m_r   = m1*m2/(m1+m2)
+  m_r   = m_r * ATOMIC_MASS_UNIT
 
   d = d_ref*sqrt(((2*K_BOLTZ*T_ref/(m_r*v_r**2))**(omega-0.5d0) )/ gamma(2.5d0-omega)) !< gamma here is the gamma function, not phys_module gamma
   sigma_T = PI*d**2
