@@ -79,7 +79,6 @@ DIRS := diagnostics				\
 	particles/benchmarks/pusher_cartesian	\
 	particles/benchmarks/pusher		\
 	particles/benchmarks/projection		\
-	particles/tools                     \
 	elements				\
 	elements/tests				\
 	grids					\
