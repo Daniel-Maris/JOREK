@@ -206,13 +206,13 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, ed
   !checking and setting target group
   ! check whether it is in bounds for the matching array
   if(target_group_loc < 1 .or. target_group_loc > n_part_groups_max) then
-    write(msg,*) "target group is not valid (target_group/max)",target_group_loc,n_part_groups_max
+    write(msg,"(A,2I3,A)") "%target_group is not valid (target_group/max): ",target_group_loc,n_part_groups_max," Did you forget to set %target_group"
     call wrong_input(msg, sim%my_id, identifier)
   end if
   this%target_group = matching_sim_groups_indices(target_group_loc)
   ! check if it is in bounds of sim%groups(this%target_group)
   if(this%target_group < 1 .or. this%target_group > n_part_groups) then
-    write(msg,*) "sim%groups(this%target_group) is not valid (this%target_group/max)",this%target_group,n_part_groups
+    write(msg,"(A,2I3,A)") "%target_group points to an invalid sim%groups(matching(target_group)) (this%target_group/max): ",this%target_group,n_part_groups," Did you define the part_group_configs(target_group) correctly and include it in part_groups_in_use (if you manually set part_groups_in_use)? Origin: %target_group"
     call wrong_input(msg, sim%my_id, identifier)
   end if
 
