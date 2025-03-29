@@ -95,15 +95,12 @@ module mod_equations
     !###################################################################################################
     !#  Current Definition Equation for zj                                                             #
     !###################################################################################################
+    ! old version of rhs: integration by parts to avoid first order derivatives in curl of B
     !rhs_semianalytic(var_zj)  = (-dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R)   &
     !                          +  dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R)   &
     !                          -  dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R)
 
-    ! new version of rhs, curl of B has to be in cylindrical coordinates
-
-    !rhs_semianalytic(var_zj)  = (dx(v) * (chi * (dy(B0p_gvec) - dp(B0y_gvec)/R)) &
-    !                          +  dy(v) * (chi * -(B0p_gvec + R*dx(B0p_gvec))/R + dp(B0x_gvec)/R) &
-    !                          +  dp(v) * (chi * (dx(B0y_gvec) - dy(B0x_gvec)))) !* heaviside
+    ! current version of rhs: curl of B is used to cut off currents near the boundary
     rhs_semianalytic(var_zj) = (-v) * (dx(chi)   * (dy(B0p_gvec) - dp(B0y_gvec)/R)                   &
                                     +  dy(chi)   * (-(B0p_gvec + R*dx(B0p_gvec))/R + dp(B0x_gvec)/R) &
                                     +  dp(chi)/R * (dx(B0y_gvec) - dy(B0x_gvec))) * heaviside
