@@ -65,7 +65,7 @@ program jorek2_fields_xyz_stel
  
  
   !***********************************************************************
-  !*                  intialisation (copied from jorek2_main)            *
+  !*                  initialisation (copied from jorek2_main)           *
   !***********************************************************************
 #ifdef FUNNELED
   required = MPI_THREAD_FUNNELED

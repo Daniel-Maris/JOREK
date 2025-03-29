@@ -220,9 +220,6 @@ contains
     x_g  = 0.d0; x_s = 0.d0; x_p = 0.d0
     y_g  = 0.d0; y_s = 0.d0; y_p = 0.d0
     
-    !open(1607, file="integration_points_mod_boundary_condition.dat", action="write")
-    !write(1607, '(a)') "R coord, Z coord"
-
     do ielm=1,N_tht
       bnd_element = boundary_list%bnd_element(ielm)
 
@@ -249,21 +246,12 @@ contains
           end do
         end do
       end do 
-
-      !do ms=1,n_gauss
-      !  do mp=1,n_plane
-      !    write(1607,*), x_g(mp,ms,ielm), y_g(mp,ms,ielm)
-      !  enddo
-      !enddo
     end do
     
-    !close(1607)
-    
-    Amat = 0.d0; RHS = 0.d0
     ! Integration of the RHS: it is much easier to integrate over one period than over the manifold [0,2*pi]x[chi_0,chi_0+2*pi*F_0/N_p]
     ! Due to periodicity, integration over the manifold above is equivalent to integration over one period
     ! The Jacobian for dtheta*dchi -> dtheta*dphi is dchi/dphi
-    
+    Amat = 0.d0; RHS = 0.d0
     if (extended_boundary) then
       ! write out points in .nml file for xyz points
       open(66,file='xyz.nml',action='write')
@@ -286,7 +274,7 @@ contains
  
       write(*,*) "xyz.nml file is created"
       write(*,*) "if the integration points changed, please re-run jorek2_fields_xyz_stel with this new xyz.nml file"
-      write(*,*) "run model083 again afterwards"
+      write(*,*) "run model 180 again afterwards"
       close(66)
 
       inquire(file="fields_xyz.dat", exist = file_exists)
@@ -308,7 +296,7 @@ contains
       else
          write(*,*) "Could not find fields_xyz.dat file"
          write(*,*) "please run jorek2_fields_xyz_stel.f90 with genereated xyz.nml file to create fields_xyz.dat file"
-         write(*,*) "run model083 again afterwards"
+         write(*,*) "run model 180 again afterwards"
       endif
 
       open(69, file="Bpn_theta_phi.dat", action="write")

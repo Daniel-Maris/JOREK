@@ -586,35 +586,15 @@ module mod_plasma_response
 
             B_phi = B_gvec(i_phi,mp,ms,mt)
   
-            !       (ii)   get JR, JZ, J_phi from J = curl(B), curl in JOREK cylindrical coordinates
-            
-            !JR    =                             (-1/R)* Bz_p - Bp_z
-            !J_phi =                                     BR_z - Bz_R
-            !JZ    = (-1/R)*(-R*Bp_R + B_phi - BR_p)
-
-            !JR = 0
-            !JZ = 0
-            !J_phi = 1
-
-            !       (iii)  convert to Cartesian coordinates 
-
-            !J_x   =  JR*Cos(phi) - J_phi*Sin(phi)
-            !J_y   = -JR*Sin(phi) - J_phi*Cos(phi)
-            !J_z   =  JZ
-            !J_vec =  (/ J_x, J_y, J_z /) 
-            !J_vec = (/ 0.d0, 0.d0, 0.d0 /)    !?????? 
-
-            ! new way to calculate J_vec, curl and coverting in one step
-
+            ! Get current in cartesian coordinates
             J_x = (Bp_z-1/R*Bz_p)*Cos(phi)    + (Bz_R-BR_z)*(-Sin(phi)) 
             J_y = (Bp_z-1/R*Bz_p)*(-Sin(phi)) + (Bz_R-BR_z)*(-Cos(phi)) 
             J_z = -1/R*(B_phi + R*Bp_R) + 1/R*BR_p
 
             J_vec =  (/ J_x, J_y, J_z /)
-            J_vec = J_vec * 0.5-0.5*tanh((s_norm(ms,mt)-j_cutoff_rcoord)/j_cutoff_sig)  ! Cut off currents near plasma boundary
+            J_vec = J_vec * (0.5-0.5*tanh((s_norm(ms,mt)-j_cutoff_rcoord)/j_cutoff_sig))  ! Cut off currents near plasma boundary
 
             ! --- Go over the given points and calculate magnetic field from Biot-Savart
-
             do i=1, n_points
 
               d_vec(:)  = (/ xp-x(i), yp-y(i), zp-z(i) /)
