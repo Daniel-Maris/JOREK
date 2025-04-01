@@ -110,7 +110,7 @@ contains
   !> experienced by neutrals and impurities. 
   !> The pushing of the particle is also done here
   subroutine evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
-    use mod_imp_collisions
+    use mod_collisions
     use mod_ionisation_recombination
 
     implicit none
@@ -368,9 +368,11 @@ contains
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
           limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !< limits for collisions
 
-          !> IONISATION (Impurities)
+          !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call rng(i_rng)%next(ionize_ran_imp)
+
+            !> determines the new charge of the particle using ionisation/recombination rate coefficients
             particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ionize_ran_imp(1:2)),1)
             
             if (particle_tmp%q .gt. q_old) then
