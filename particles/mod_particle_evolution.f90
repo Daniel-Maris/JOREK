@@ -246,7 +246,6 @@ contains
         !> adjust n_e based on impurity charge
         n_e = n_i + max(0.d0, imp_charge_density)
         
-        !TODO: add upper limits if necessary
         limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
         
         !> check that particle weight is non negative
@@ -436,11 +435,11 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          energy_source  = ionize_energy + radiation_energy!ionize_source * ionize_energy !+ cx_source * cx_energy - line_rad_energy
+          energy_source  = ionize_energy + radiation_energy
           mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
 
           particle_tmp%v = v_temp 
-          n_lost_ion = n_lost_ion !+ ionize_source	!< local sum #particles lost due to ionisation
+          n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
           p_lost_plt = p_lost_plt + radiation_energy
           p_lost_cx  = p_lost_cx + cx_source * cx_energy
