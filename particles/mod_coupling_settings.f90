@@ -33,7 +33,7 @@ subroutine check_compatibility_and_determine_coupling_schemes()
   do group_num=1, n_part_groups
     select case (part_group_configs(group_num)%coupling_scheme)
       case ('ncs')
-
+        call check_compatibility_ncs(group_num)
         use_ncs = .true.
       case ('ics')
         call check_compatibility_ics(group_num)
@@ -60,6 +60,20 @@ subroutine check_compatibility_and_determine_coupling_schemes()
   enddo 
 end subroutine check_compatibility_and_determine_coupling_schemes
 
+!> checks that the physics enabled for particle group is compatible with the ncs coupling scheme
+subroutine check_compatibility_ncs(group_num)
+  implicit none
+  integer :: group_num
+  
+  !> currently ncs particles must be of type 'particle_kinetic_leapfrog'
+  if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
+    write(*,*) "ERROR: incompatible setting enabled for group ", part_group_configs(group_num)%id, ": "
+    write(*,*) "  currently can only type = 'particle_kinetic_leapfrog' is supported for"
+    write(*,*) "  groups with coupling scheme 'ncs'"
+    stop
+  endif
+end subroutine check_compatibility_ncs
+
 !> checks that the physics enabled for particle group is compatible with the ics coupling scheme
 subroutine check_compatibility_ics(group_num)
   implicit none
@@ -71,6 +85,15 @@ subroutine check_compatibility_ics(group_num)
     write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
     stop
   endif
+
+  !> currently ics particles must be of type 'particle_kinetic_leapfrog'
+  if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
+    write(*,*) "ERROR: incompatible setting enabled for group ", part_group_configs(group_num)%id, ": "
+    write(*,*) "  currently can only type = 'particle_kinetic_leapfrog' is supported for"
+    write(*,*) "  groups with coupling scheme 'ics'"
+    stop
+  endif
+
 end subroutine check_compatibility_ics
 
 !> compares the name of a given coupling variable associated with a coupling scheme (i.e. assessed_var) 
