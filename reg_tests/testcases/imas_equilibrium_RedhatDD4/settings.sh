@@ -36,7 +36,7 @@ function restart_run () {
   if [ -d ~/public/imasdb/${database}/4/111111/1/ ]; then
       rm -rf ~/public/imasdb/${database}/4/111111/1/
   fi
-      
+  exit 1
 }
 
 # --- Compare the results of the test case to the reference solution
