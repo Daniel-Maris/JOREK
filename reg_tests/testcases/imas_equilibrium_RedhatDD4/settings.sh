@@ -32,6 +32,7 @@ function restart_run () {
  
   cp jorek_restart.h5 jorek00000.h5
   ./jorek2_IDS < input0                                                              || exit 1
+  ./jorek2_IDS < input0                                                              || exit 1
   python imas2jorek.py -d ${database} -p 111111 -r 1 -dd 4 -tk inxflow               || exit 1
   if [ -d ~/public/imasdb/${database}/4/111111/1/ ]; then
       rm -rf ~/public/imasdb/${database}/4/111111/1/
