@@ -159,7 +159,7 @@ module mod_jorek2IMAS
     allocate(  plasma_profiles_ids%time(n_slice) )
     allocate(  plasma_profiles_ids%ggd(n_slice ) )
 
-    plasma_profiles_ids%ids_properties%homogeneous_time = 1
+    plasma_profiles_ids%ids_properties%homogeneous_time = 2
   
     plasma_profiles_ids%time(i_slice)     = time_SI 
     plasma_profiles_ids%ggd(i_slice)%time = time_SI
@@ -326,7 +326,7 @@ module mod_jorek2IMAS
     i_vv         = 1
     i_fw         = 2
 
-    wall_ids%ids_properties%homogeneous_time = 1
+    wall_ids%ids_properties%homogeneous_time = 2
 
     ! --- Set times
     n_slice = 1  
