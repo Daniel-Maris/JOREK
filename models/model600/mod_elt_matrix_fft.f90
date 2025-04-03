@@ -1262,11 +1262,14 @@ do i=1,n_vertex_max
           endif
 
           ! ------------
-          ! --- Neutrals: source (e.g. from MGI or SPI) and related atomic coefficients
-      
+          ! --- Neutrals (can be fluid or kinetic, but the two are currently not compatible)
+          !     - both types exchanges density, mom. and energy with the fluid plasma 
+          !     - use of fluid neutrals leads to additional equations to be solved in this module  
+          !     - the kinetic neutrals are handled by modules in the /particles/ folder
+
           ksi_ion_norm = central_density * 1.d20 * ksi_ion  ! Ionization energy 
  
-          if (with_neutrals) then
+          if (with_neutrals) then !< using fluid neutrals
 
             call atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
                                         LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0, rn0, .true. )
@@ -1280,7 +1283,7 @@ do i=1,n_vertex_max
             endif
     
             !--------------------------------------------------------
-            ! --- Source of neutrals, e.g. from MGI/SPI
+            ! --- Source of fluid neutrals, e.g. from MGI/SPI
             !--------------------------------------------------------
       
             source_neutral       = 0.d0; source_neutral_arr       = 0.d0
@@ -1309,7 +1312,15 @@ do i=1,n_vertex_max
             source_neutral       = max(0.,source_neutral)
             source_neutral_drift = max(0.,source_neutral_drift)
 
-          else ! no neutrals (neutral terms are always multiplied by one of these coefficients)
+          else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
+            
+            call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
+      
+            ! --- Transform derivatives on Te to derivatives in total T  
+            dSrec_dT      = dSrec_dT      / 2.d0  
+            dLradDcont_dT = dLradDcont_dT / 2.d0
+          
+          else !< no neutrals of any kind (neutral terms are always multiplied by one of these coefficients)
             
             Sion_T        = 0.d0
             dSion_dT      = 0.d0 
