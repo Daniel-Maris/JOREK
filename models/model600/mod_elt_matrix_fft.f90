@@ -1490,6 +1490,7 @@ do i=1,n_vertex_max
                          + BigR**2 * ( -aux_divPIR_perp*v_y + aux_divPIZ_perp*v_x)                          * xjac * tstep                   & 
                          - BigR**2 * (v_s * u0_t - v_t * u0_s) * F0 * aux_q0                                       * tstep                   &
                          - BigR * F0 * (v_x * aux_jx0 + v_y * aux_jy0)                                      * xjac * tstep                   &
+                         ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
                          - visco_num_T * (v_xx + v_x/Bigr + v_yy)*(w0_xx + w0_x/Bigr + w0_yy)               * xjac * tstep * factor(var_u,5) &
 
