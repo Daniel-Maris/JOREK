@@ -62,6 +62,8 @@ real*8     :: Bgrad_rhoimp, Bgrad_rhoimp_psi, Bgrad_rhoimp_rhoimp, Bgrad_rhoimp_
 real*8     :: ZK_par_T, dZK_par_dT, ZKi_par_T, dZKi_par_dT, ZKe_par_T, dZKe_par_dT
 real*8     :: D_prof, D_prof_par, ZK_prof, ZKi_prof, ZKe_prof, psi_norm, theta, zeta, delta_u_x, delta_u_y, delta_ps_x, delta_ps_y
 real*8     :: D_prof_imp, D_prof_par_imp
+real*8     :: D_prof, D_prof_par, ZK_prof, ZKi_prof, ZKe_prof, psi_norm, theta, zeta, delta_u_x, delta_u_y, delta_ps_x, delta_ps_y
+real*8     :: D_prof_imp, D_prof_par_imp
 real*8     :: rhs_ij(n_var), rhs_ij_k(n_var)
 real*8     :: amat(n_var,n_var), amat_k(n_var,n_var), amat_n(n_var,n_var), amat_kn(n_var,n_var), amat_nn(n_var,n_var)
 
@@ -1168,8 +1170,8 @@ do i=1,n_vertex_max
           endif
 
           ! --- Particle diffusivities
-          D_prof         = get_dperp (psi_norm)
-          D_prof_par     = D_par
+          D_prof   = get_dperp(psi_norm)
+          D_prof_par = D_par
           D_prof_par_imp = D_par_imp
           D_perp_num_psin = D_perp_num +                                                  &
                             D_perp_num_tanh * 0.5d0*(1.d0-                                &
@@ -1542,24 +1544,24 @@ do i=1,n_vertex_max
             !#  Density Equation                                                                               #
             !###################################################################################################
 
-            rhs_ij(var_rho)  = v * BigR * (particle_source(ms,mt) + source_pellet + source_bg_drift + source_imp_drift)               * xjac * tstep * factor(var_rho,1) &
-                       + v * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)                                                              * tstep * factor(var_rho,2) &
-                       + v * 2.d0 * BigR * r0 * u0_y                                                                      * xjac * tstep * factor(var_rho,3) &
-                       - ((D_prof_par+D_par_sc_num*tau_sc) - D_prof)  * BigR / BB2 * Bgrad_rho_star * (Bgrad_rho-Bgrad_rhoimp) * xjac * tstep * factor(var_rho,4) &
-                       - ((D_prof_par_imp+D_par_imp_sc_num*tau_sc) - D_prof_imp)  * BigR / BB2 * Bgrad_rho_star * Bgrad_rhoimp * xjac * tstep * factor(var_rho,4) &
-                       - D_prof * BigR  * (v_x*(r0_x-rimp0_x) + v_y*(r0_y-rimp0_y)                  )                     * xjac * tstep * factor(var_rho,5) &
-                       - D_prof_imp * BigR  * (v_x*rimp0_x + v_y*rimp0_y                            )                     * xjac * tstep * factor(var_rho,5) & 
-                       - v * F0 / BigR * Vpar0 * r0_p                                                                     * xjac * tstep * factor(var_rho,6) &
-                       - v * Vpar0 * (r0_s * ps0_t - r0_t * ps0_s)                                                               * tstep * factor(var_rho,6) &
-                       - v * F0 / BigR * r0 * vpar0_p                                                                     * xjac * tstep * factor(var_rho,3) &
-                       - v * r0 * (vpar0_s * ps0_t - vpar0_t * ps0_s)                                                            * tstep * factor(var_rho,3) &
-
-                       + v * 2.d0 * tauIC*2. * Pi0_y * BigR                                                               * xjac * tstep * factor(var_rho,7) &
-
-                       + v * (r0+alpha_e*rimp0) * rn0 * BigR * Sion_T                                                     * xjac * tstep * factor(var_rho,8) &
-                       - v * (r0+alpha_e*rimp0) * (r0-rimp0) * BigR * Srec_T                                              * xjac * tstep * factor(var_rho,9) &
-                       
-                       + zeta * v * delta_g(mp,var_rho,ms,mt) * BigR                                                      * xjac         * factor(var_rho,10)&
+            rhs_ij(var_rho)  = v * BigR * (particle_source(ms,mt) + source_pellet + source_bg_drift + source_imp_drift + aux_rho0)   * xjac * tstep * factor(var_rho,1) &
+                       + v * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)                                                                         * tstep * factor(var_rho,2) &
+                       + v * 2.d0 * BigR * r0 * u0_y                                                                                 * xjac * tstep * factor(var_rho,3) &
+                       - ((D_prof_par+D_par_sc_num*tau_sc) - D_prof)  * BigR / BB2 * Bgrad_rho_star * (Bgrad_rho-Bgrad_rhoimp)            * xjac * tstep * factor(var_rho,4) &
+                       - ((D_prof_par_imp+D_par_imp_sc_num*tau_sc) - D_prof_imp)  * BigR / BB2 * Bgrad_rho_star * Bgrad_rhoimp            * xjac * tstep * factor(var_rho,4) &
+                       - D_prof * BigR  * (v_x*(r0_x-rimp0_x) + v_y*(r0_y-rimp0_y)                  )                                * xjac * tstep * factor(var_rho,5) &
+                       - D_prof_imp * BigR  * (v_x*rimp0_x + v_y*rimp0_y                            )                                * xjac * tstep * factor(var_rho,5) & 
+                       - v * F0 / BigR * Vpar0 * r0_p                                                                                * xjac * tstep * factor(var_rho,6) &
+                       - v * Vpar0 * (r0_s * ps0_t - r0_t * ps0_s)                                                                          * tstep * factor(var_rho,6) &
+                       - v * F0 / BigR * r0 * vpar0_p                                                                                * xjac * tstep * factor(var_rho,3) &
+                       - v * r0 * (vpar0_s * ps0_t - vpar0_t * ps0_s)                                                                       * tstep * factor(var_rho,3) &
+           
+                       + v * 2.d0 * tauIC*2. * Pi0_y * BigR                                                                          * xjac * tstep * factor(var_rho,7) &
+           
+                       + v * (r0+alpha_e*rimp0) * rn0 * BigR * Sion_T                                                                * xjac * tstep * factor(var_rho,8) &
+                       - v * (r0+alpha_e*rimp0) * (r0-rimp0) * BigR * Srec_T                                                         * xjac * tstep * factor(var_rho,9) &
+                                  
+                       + zeta * v * delta_g(mp,var_rho,ms,mt) * BigR                                                                 * xjac         * factor(var_rho,10)&
 
                        - D_perp_num_psin*(v_xx + v_x/Bigr + v_yy)*(r0_xx + r0_x/Bigr + r0_yy) * BigR                                 * xjac * tstep * factor(var_rho,11)&
 
@@ -1569,13 +1571,13 @@ do i=1,n_vertex_max
                                  * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                                                                                     &
                                  * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep                                          * factor(var_rho,12)
 
-            rhs_ij_k(var_rho) = - ((D_prof_par+D_par_sc_num*tau_sc)-D_prof) * BigR / BB2 * Bgrad_rho_k_star * (Bgrad_rho-Bgrad_rhoimp) * xjac * tstep * factor(var_rho,4) &
-                            - ((D_prof_par_imp+D_par_imp_sc_num*tau_sc)-D_prof_imp) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rhoimp     * xjac * tstep * factor(var_rho,4) &
-                            - D_prof * BigR  * (                  v_p*(r0_p-rimp0_p) /BigR**2 )     * xjac * tstep * factor(var_rho,5) &
-                            - D_prof_imp * BigR  * (                  v_p*rimp0_p /BigR**2 )        * xjac * tstep * factor(var_rho,5) &
-                       - tgnum_rho * 0.25d0 / BigR * vpar0**2 &
-                                 * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                              &
-                                 * (                            + F0 / BigR * v_p) * xjac * tstep * tstep        * factor(var_rho,12)
+            rhs_ij_k(var_rho) = - ((D_prof_par+D_par_sc_num*tau_sc)-D_prof) * BigR / BB2 * Bgrad_rho_k_star * (Bgrad_rho-Bgrad_rhoimp)    * xjac * tstep * factor(var_rho,4) &
+                            - ((D_prof_par_imp+D_par_imp_sc_num*tau_sc)-D_prof_imp) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rhoimp        * xjac * tstep * factor(var_rho,4) &
+                            - D_prof * BigR  * (                  v_p*(r0_p-rimp0_p) /BigR**2 )                                      * xjac * tstep * factor(var_rho,5) &
+                            - D_prof_imp * BigR  * (                  v_p*rimp0_p /BigR**2 )                                         * xjac * tstep * factor(var_rho,5) &
+                       - tgnum_rho * 0.25d0 / BigR * vpar0**2                                                                                                           &
+                                 * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                                                                                     &
+                                 * (                            + F0 / BigR * v_p) * xjac * tstep * tstep                                          * factor(var_rho,12)
 
             !###################################################################################################
             !#  Parallel Velocity Equation                                                                     #
