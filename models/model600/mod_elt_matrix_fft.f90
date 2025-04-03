@@ -1221,18 +1221,18 @@ do i=1,n_vertex_max
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))
           end if
           ! --- Increase diffusivity if very small temperature
-          ! if ( with_TiTe ) then
-          !   if (Ti0 .lt. ZK_i_prof_neg_thresh) then
-          !     ZKi_prof = ZK_i_prof_neg
-          !   end if
-          !   if (Te0 .lt. ZK_e_prof_neg_thresh) then
-          !     ZKe_prof = ZK_e_prof_neg
-          !   end if
-          ! else ! (with_TiTe = .f.), i.e. with single temperature
-          !   if (T0 .lt. ZK_prof_neg_thresh) then
-          !     ZK_prof = ZK_prof_neg
-          !   end if
-          ! endif ! (with_TiTe)
+          if ( with_TiTe ) then
+            if (Ti0 .lt. ZK_i_prof_neg_thresh) then
+              ZKi_prof = ZK_i_prof_neg
+            end if
+            if (Te0 .lt. ZK_e_prof_neg_thresh) then
+              ZKe_prof = ZK_e_prof_neg
+            end if
+          else ! (with_TiTe = .f.), i.e. with single temperature
+            if (T0 .lt. ZK_prof_neg_thresh) then
+              ZK_prof = ZK_prof_neg
+            end if
+          endif ! (with_TiTe)
 
           ! --- Parallel momentum source
           Vt0   = V_source(ms,mt)
