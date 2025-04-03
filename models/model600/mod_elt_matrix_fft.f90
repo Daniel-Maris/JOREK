@@ -27,7 +27,7 @@ use corr_neg
 use mod_neutral_source
 use mod_injection_source
 use mod_bootstrap_functions
-use mod_atomic_coeff_deuterium, only : atomic_coeff_deuterium
+use mod_atomic_coeff_deuterium, only : atomic_coeff_deuterium, rec_rate_to_kinetic
 use mod_impurity, only: radiation_function, radiation_function_linear
 use mod_sources
 use mod_model_settings

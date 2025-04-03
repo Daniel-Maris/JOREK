@@ -387,9 +387,9 @@ subroutine do_jorek_timestep(this, sim, ev)
 
     if (use_pellet) then
       pellet_volume = total_pellet_volume
-      call update_pellet(my_id,node_list,element_list)
+      call update_pellet(sim%my_id, sim%fields%node_list, sim%fields%element_list)
 
-      if (my_id == 0) then
+      if (sim%my_id == 0) then
         xtime_pellet_R(index_now)         = pellet_R
         xtime_pellet_Z(index_now)         = pellet_Z
         xtime_pellet_psi(index_now)       = pellet_psi
