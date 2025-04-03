@@ -1007,7 +1007,8 @@ module phys_module
 
     character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead    
     logical             :: use_kin_sputtering      !< switch on sputtering for group (only relevant for neutrals)
-    logical             :: use_kin_ionisation      !< switch on ionisation for group                 
+    logical             :: use_kin_ionisation      !< switch on ionisation* for group 
+                                                   !  *for ics this also includes recombination as it switches on the changing of the particle's charge state               
     logical             :: use_kin_puffing         !< switch on particle puffing for group    
     real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
     logical             :: use_kin_radiation       !< switch on radiation for group (only line rad* for ncs, line rad + bremsstrahlung + recomb** for ics)
@@ -1017,7 +1018,9 @@ module phys_module
                                                    !  during recombination, and has a continous spectra
     ! ---- neutrals (ncs) specific
     logical             :: use_kin_cx              !< switch on charge-exchange for group 
-    logical             :: use_kin_recombination   !< switch on recombination for group 
+    logical             :: use_kin_recombination   !< switch on recombination from the plasma fluid to this kinetic neutrals group*
+                                                   !  *if 2+ ncs groups are present, how the fluid recombination is divided amongst the groups is not yet implemented
+                                                  
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma

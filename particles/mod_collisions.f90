@@ -1,7 +1,7 @@
 !> Contains an implementation of the binary collision model for impurities colliding with the background plasma.
 !> The implemenation samples a particle from a background plasma described by a temperature, background flow and temperature
 !> gradient. See Y. Homma, A. Hatayama / JCP 231 (2012)
-module mod_imp_collisions
+module mod_collisions
   implicit none
   private
   public :: collide_particles
@@ -304,4 +304,4 @@ pure subroutine sample_distorted_maxwellian(n, u, A, q, w_1)
   end do
 end subroutine sample_distorted_maxwellian
 
-end module mod_imp_collisions
+end module mod_collisions

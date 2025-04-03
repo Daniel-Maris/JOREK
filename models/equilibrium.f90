@@ -755,7 +755,7 @@ end if ! my_id == 0
 
 if (freeboundary_equil) then
   call broadcast_elements(my_id, element_list)
-  call broadcast_nodes(my_id, node_list, n_var)  !--- This is required for boundary_check
+  call broadcast_nodes(my_id, node_list)  !--- This is required for boundary_check
   call broadcast_boundary(my_id, bnd_elm_list, bnd_node_list)
   call boundary_check(my_id)
   deallocate(response_m_eq)

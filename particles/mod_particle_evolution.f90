@@ -110,7 +110,7 @@ contains
   !> experienced by neutrals and impurities. 
   !> The pushing of the particle is also done here
   subroutine evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
-    use mod_imp_collisions
+    use mod_collisions
     use mod_ionisation_recombination
 
     implicit none
@@ -246,7 +246,6 @@ contains
         !> adjust n_e based on impurity charge
         n_e = n_i + max(0.d0, imp_charge_density)
         
-        !TODO: add upper limits if necessary
         limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
         
         !> check that particle weight is non negative
@@ -366,11 +365,13 @@ contains
         ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
-          limits_coll = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !< limits for collisions
+          limits_coll = T_e > 0.d0 !< limits for collisions
 
-          !> IONISATION (Impurities)
+          !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call rng(i_rng)%next(ionize_ran_imp)
+
+            !> determines the new charge of the particle using ionisation/recombination rate coefficients
             particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ionize_ran_imp(1:2)),1)
             
             if (particle_tmp%q .gt. q_old) then
@@ -434,11 +435,11 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          energy_source  = ionize_energy + radiation_energy!ionize_source * ionize_energy !+ cx_source * cx_energy - line_rad_energy
+          energy_source  = ionize_energy + radiation_energy
           mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
 
           particle_tmp%v = v_temp 
-          n_lost_ion = n_lost_ion !+ ionize_source	!< local sum #particles lost due to ionisation
+          n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
           p_lost_plt = p_lost_plt + radiation_energy
           p_lost_cx  = p_lost_cx + cx_source * cx_energy
