@@ -159,7 +159,7 @@ module mod_jorek2IMAS
     allocate(  plasma_profiles_ids%time(n_slice) )
     allocate(  plasma_profiles_ids%ggd(n_slice ) )
 
-    plasma_profiles_ids%ids_properties%homogeneous_time = 2
+    plasma_profiles_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS
   
     plasma_profiles_ids%time(i_slice)     = time_SI 
     plasma_profiles_ids%ggd(i_slice)%time = time_SI
@@ -326,7 +326,7 @@ module mod_jorek2IMAS
     i_vv         = 1
     i_fw         = 2
 
-    wall_ids%ids_properties%homogeneous_time = 2
+    wall_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS
 
     ! --- Set times
     n_slice = 1  
@@ -737,7 +737,7 @@ module mod_jorek2IMAS
     real*8, allocatable :: pot_c(:) 
     type(t_coil_set_starwall) :: coil_set
    
-    pf_passive%ids_properties%homogeneous_time = 1
+    pf_passive%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS
 
     if (sr%n_diag_coils == 0) then
       write(*,*) '  No diagnostic coils in the STARWALL response file'
@@ -795,9 +795,10 @@ module mod_jorek2IMAS
       endif
 
       allocate( pf_passive%loop(i_coil)%current(n_slice) )
+      allocate( pf_passive%loop(i_coil)%time(n_slice) )
 
       pf_passive%loop(i_coil)%current(i_slice) = pot_c(i) / MU_ZERO * fact_Ip
-
+      pf_passive%loop(i_coil)%time(i_slice)    = time_SI
     enddo
 
   end subroutine fill_pf_passive_IDS
@@ -831,7 +832,7 @@ module mod_jorek2IMAS
       return
     endif
 
-    spi%ids_properties%homogeneous_time = 1
+    spi%ids_properties%homogeneous_time = IDS_TIME_MODE_HOMOGENEOUS
 
     ! --- Set times
     allocate( spi%time(n_slice) )
@@ -929,7 +930,7 @@ module mod_jorek2IMAS
     real*8, allocatable :: pot_c(:) 
     type(t_coil_set_starwall) :: coil_set
    
-    pf_active%ids_properties%homogeneous_time = 1
+    pf_active%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS
 
     if (sr%n_pol_coils == 0) then
       write(*,*) '  No poloidal active coils in the STARWALL response file'
@@ -987,8 +988,10 @@ module mod_jorek2IMAS
       endif
 
       allocate( pf_active%coil(i_coil)%current%data(n_slice) )
+      allocate( pf_active%coil(i_coil)%current%time(n_slice) )
 
       pf_active%coil(i_coil)%current%data(i_slice) = pot_c(i) / MU_ZERO * fact_Ip
+      pf_active%coil(i_coil)%current%time(i_slice) = time_SI
 
     enddo
 
@@ -1056,7 +1059,7 @@ module mod_jorek2IMAS
     i_slice = 1
     allocate(  radiation_ids%time(n_slice) )
 
-    radiation_ids%ids_properties%homogeneous_time = 1
+    radiation_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS
     allocate( radiation_ids%process(1))   ! --- 1 type of radiation
     allocate( radiation_ids%process(1)%ggd(n_slice) )
   
@@ -1125,7 +1128,7 @@ module mod_jorek2IMAS
     rho0               = central_density * 1.d20 * central_mass * mass_proton
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
     
-    plasma_profiles_ids%ids_properties%homogeneous_time = 1    
+    plasma_profiles_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HOMOGENEOUS     
     plasma_profiles_ids%time(i_slice) = time_SI 
 
     ! --- Call expressions and do a flux average
@@ -1406,7 +1409,7 @@ module mod_jorek2IMAS
     rho0               = central_density * 1.d20 * central_mass * mass_proton
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
     
-    equilibrium_ids%ids_properties%homogeneous_time = 1    
+    equilibrium_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HOMOGENEOUS    
     equilibrium_ids%time(i_slice) = time_SI 
 
     ! --- Call expressions and do a flux average
@@ -1722,7 +1725,7 @@ module mod_jorek2IMAS
     ! --- Set times
     n_slice = 1;   i_slice = 1
     allocate( summary_ids%time(n_slice) )
-    summary_ids%ids_properties%homogeneous_time = 1   
+    summary_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HOMOGENEOUS   
     if (first_step) then 
       allocate(summary_ids%ids_properties%comment(1))
       summary_ids%ids_properties%comment = simulation_description
@@ -1878,7 +1881,7 @@ module mod_jorek2IMAS
     ! --- Set times
     n_slice = 1;   i_slice = 1
     allocate( disruption_ids%time(n_slice) )
-    disruption_ids%ids_properties%homogeneous_time = 1    
+    disruption_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HOMOGENEOUS    
     disruption_ids%time(i_slice) = time_SI 
 
     do i_exp=1, exprs_all_int%n_expr
@@ -2028,7 +2031,7 @@ module mod_jorek2IMAS
     allocate(  plasma_profiles_ids%time(n_slice) )
     allocate(  plasma_profiles_ids%ggd(n_slice ) )
 
-    plasma_profiles_ids%ids_properties%homogeneous_time = 1
+    plasma_profiles_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS 
 
     allocate(plasma_profiles_ids%ids_properties%comment(1))
   
