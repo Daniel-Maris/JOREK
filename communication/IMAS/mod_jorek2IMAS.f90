@@ -842,6 +842,7 @@ module mod_jorek2IMAS
 
     ! --- Loop over injectors
     allocate( spi%injector(n_inj) )
+    n_spi_begin = 1
     do i_inj = 1, n_inj 
 
       ! --- Pellet properties
@@ -873,7 +874,6 @@ module mod_jorek2IMAS
       spi%injector(i_inj)%velocity_mass_centre_fragments_tor = spi_vel_RxZref(i_inj) * fact_phi_dir
 
       ! --- Fragment properties
-      n_spi_begin = 1
       allocate( spi%injector(i_inj)%fragment( n_spi(i_inj) ) )
       
       do i_frag=1, n_spi(i_inj)
@@ -896,10 +896,10 @@ module mod_jorek2IMAS
         spi%injector(i_inj)%fragment(i_frag)%velocity_tor(i_slice) = pellets(i_frag_glob)%spi_vel_rxz * fact_phi_dir
 
         spi%injector(i_inj)%fragment(i_frag)%volume(i_slice) = 4.d0/3.d0*PI*pellets(i_frag_glob)%spi_radius**3.d0 
-      enddo
+      enddo ! --- fragments
 
       n_spi_begin = n_spi_begin + n_spi(i_inj)
-    end do
+    end do  ! --- injectors
 
   end subroutine fill_spi_IDS
 
