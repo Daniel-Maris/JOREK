@@ -4,7 +4,7 @@
 module mod_penning_case_jorek
   use mod_project_particles
   use mod_penning_case, only: charge, mass, omega_e, omega_b, epsilon
-  use data_structure, only: type_node_list, type_element_list
+  use data_structure, only: type_node_list, type_element_list, type_SP_MATRIX
   use mod_parameters, only: n_degrees
   implicit none
   private
