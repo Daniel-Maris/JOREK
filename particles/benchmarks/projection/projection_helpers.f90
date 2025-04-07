@@ -7,6 +7,7 @@ module projection_helpers
 use mod_project_particles
 use data_structure
 use mod_particle_types
+include 'dmumps_struc.h'        ! MUMPS include files defining its datastructure
 implicit none
 
 interface
@@ -234,6 +235,8 @@ end subroutine default_flux_grid
 !> Project a function onto the JOREK elements
 subroutine project_f(node_list, element_list, f, filter, filter_hyper, integral)
   use mpi_mod
+  use mod_projection_helpers_test_tools, only: map_matrix_to_MUMPS_datastructure
+
   type(type_node_list), intent(inout)    :: node_list
   type(type_element_list), intent(inout) :: element_list
   real*8, external                       :: f
@@ -241,6 +244,7 @@ subroutine project_f(node_list, element_list, f, filter, filter_hyper, integral)
   real*8, optional, intent(out)          :: integral !< The integral of the projected function, from the weights
   real*8, dimension(:), allocatable      :: this_integral_weights
   type(DMUMPS_STRUC)                     :: p
+  type (type_SP_MATRIX)                  :: a_mat
   integer :: i, k, index, i_tor_local, n_tor_local, mpi_comm_n, mpi_comm_master, ierr
   real*8  :: my_filter, my_filter_hyper, area, volume
 
@@ -259,11 +263,13 @@ subroutine project_f(node_list, element_list, f, filter, filter_hyper, integral)
 !  if (present(integral)) then  
   if (i_tor_local .eq. 1) then  
     call prepare_mumps_par_n0(node_list, element_list, n_tor_local, i_tor_local, mpi_comm_world, mpi_comm_n, mpi_comm_master, &
-                              p,  area, volume, filter=my_filter, filter_hyper=my_filter_hyper, filter_parallel=0.d0, integral_weights=this_integral_weights)
+                          a_mat,  area, volume, filter=my_filter, filter_hyper=my_filter_hyper, filter_parallel=0.d0, integral_weights=this_integral_weights)
   else
     call prepare_mumps_par(node_list, element_list, n_tor_local, i_tor_local, mpi_comm_world, mpi_comm_n, mpi_comm_master, &
-                           p, filter=my_filter, filter_hyper=my_filter_hyper, filter_parallel=0.d0)
+                          a_mat, filter=my_filter, filter_hyper=my_filter_hyper, filter_parallel=0.d0)
   endif
+
+  call map_matrix_to_MUMPS_datastructure(a_mat, p)
 
   ! Project manually
   p%JOB = 3

@@ -16,6 +16,7 @@ rank_in, master_in, ifail_out)
   use mod_project_particles, only             : prepare_mumps_par_n0
   use projection_helpers,   only              : calc_rhs_f
   use mod_projection_helpers_test_tools, only : broadcast_dmumps_project_struct
+  use mod_projection_helpers_test_tools, only : map_matrix_to_MUMPS_datastructure
   use phys_module, only       : F0, central_mass, central_density, tstep
   use constants, only         : mass_proton, mu_zero, el_chg, atomic_mass_unit
   use mpi_mod
@@ -37,6 +38,8 @@ rank_in, master_in, ifail_out)
   integer             :: mpi_comm_n, mpi_comm_master, i_tor_local, n_tor_local, ierr
   logical             :: apply_dirichlet
   integer             :: rank,master,ifail
+
+  type (type_SP_MATRIX) :: a_mat
 
   !> Note that we have to cheat a little bit here:
   !> We need F0 nonzero for the electric potential, but we need F0 = 0 to not have
@@ -71,7 +74,8 @@ rank_in, master_in, ifail_out)
   call prepare_mumps_par_n0(node_list, element_list, n_tor_local, i_tor_local, mpi_comm_world, mpi_comm_n, mpi_comm_master, &
                             p,  area, volume, filter=0.d0, filter_hyper=0.d0, filter_parallel=0.d0, &
                             apply_dirichlet_condition_in=apply_dirichlet , integral_weights=integral_weights )
-
+  
+  call map_matrix_to_MUMPS_datastructure(a_mat,mumps_data)
 
   allocate(p%rhs(p%n))
 
