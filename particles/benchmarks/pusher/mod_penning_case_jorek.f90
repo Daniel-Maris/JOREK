@@ -72,10 +72,10 @@ rank_in, master_in, ifail_out)
   n_tor_local = 1
 
   call prepare_mumps_par_n0(node_list, element_list, n_tor_local, i_tor_local, mpi_comm_world, mpi_comm_n, mpi_comm_master, &
-                            p,  area, volume, filter=0.d0, filter_hyper=0.d0, filter_parallel=0.d0, &
+                            a_mat,  area, volume, filter=0.d0, filter_hyper=0.d0, filter_parallel=0.d0, &
                             apply_dirichlet_condition_in=apply_dirichlet , integral_weights=integral_weights )
   
-  call map_matrix_to_MUMPS_datastructure(a_mat,mumps_data)
+  call map_matrix_to_MUMPS_datastructure(a_mat,p)
 
   allocate(p%rhs(p%n))
 
