@@ -139,17 +139,15 @@ real*8     :: t_norm
 !   -Ionization
 real*8     :: Sion_T, dSion_dT                                ! Ionization rate and its derivative wrt. temperature
 real*8     :: coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss ! Ionization rate parameters
-real*8     :: ksi_ion_norm                                          ! Ionization energy
+real*8     :: ksi_ion_norm                                    ! Ionization energy
 !   -Recombination
 real*8     :: Srec_T, dSrec_dT                                ! Recombination rate and its derivative wrt. temperature
 real*8     :: coef_rec_1                                      ! Recombination rate parameters
 !   -Radiation from injected gas/impurities
 real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature
 real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T
-real*8     :: LradDcont_corr, dLradDcont_dT_corr              ! LradDcont_T minus Srec_T * ksi_ion_norm and its deriv. wrt. T
-                                                              ! this corrected version should be used when calculating energy loss 
-                                                              ! from the plasma as the dielectronic cascade energy (Srec_T * ksi_ion_norm)
-                                                              ! remains in the electron fluid
+real*8     :: LradDcont_corr, dLradDcont_dT_corr              ! LradDcont_T corrected for potential extra counting of dielectronic cascade energy loss
+                                                              ! (see mod_atomic_coeff_deuterium for more details)
 !   -Radiation from background impurities
 real*8     :: Arad_bg, Brad_bg, Crad_bg, frad_bg, dfrad_bg_dT ! Retain the hard-coded fitting for argon
 real*8     :: Lrad_imp_bg, dLrad_imp_bg_dT                    ! Radiation rate and its derivative wrt. temperature
@@ -1149,19 +1147,17 @@ do i=1,n_vertex_max
  
           if (with_neutrals) then
 
-            call atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                        LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0, rn0, .true. )
+            call atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                        LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0, rn0, .true. )
 
             if (.not. with_TiTe) then
               ! --- Transform derivatives on Te to derivatives in total T
-              dSion_dT      = dSion_dT      / 2.d0
-              dSrec_dT      = dSrec_dT      / 2.d0
-              dLradDrays_dT = dLradDrays_dT / 2.d0
-              dLradDcont_dT = dLradDcont_dT / 2.d0
+              dSion_dT           = dSion_dT      / 2.d0
+              dSrec_dT           = dSrec_dT      / 2.d0
+              dLradDrays_dT      = dLradDrays_dT / 2.d0
+              dLradDcont_dT      = dLradDcont_dT / 2.d0
+              dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
             endif
-
-            LradDcont_corr     = LradDcont_T - ksi_ion_norm * Srec_T        !< subtracting out the dielectronic cascade energy loss
-            dLradDcont_dT_corr = dLradDCont_dT - dSrec_dT * ksi_ion_norm 
     
             !--------------------------------------------------------
             ! --- Source of neutrals, e.g. from MGI/SPI
