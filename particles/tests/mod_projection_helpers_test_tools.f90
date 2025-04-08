@@ -622,9 +622,10 @@ end subroutine broadcast_dmumps_project_struct
 subroutine map_matrix_to_MUMPS_datastructure(a_mat, mumps_par)
   use, intrinsic :: ieee_exceptions
   implicit none
-  type (type_SP_MATRIX), intent(inout)   :: a_mat
+  type (type_SP_MATRIX), intent(in)      :: a_mat
   type (DMUMPS_STRUC)  , intent(inout)   :: mumps_par
   logical :: halt(size(IEEE_USUAL,1)), found_nan
+  integer :: my_id_n, ierr
 
   ! initialise MUMPS
   mumps_par%COMM = a_mat%comm
@@ -632,12 +633,20 @@ subroutine map_matrix_to_MUMPS_datastructure(a_mat, mumps_par)
   mumps_par%SYM  = 0
   mumps_par%PAR  = 1
 
-  call DMUMPS(mumps_par)
+  call MPI_COMM_RANK(mumps_par%COMM, my_id_n, ierr)
 
-  ! map already constructed matrix to mumps datastructure
-  mumps_par%irn => a_mat%irn
-  mumps_par%jcn => a_mat%jcn
-  mumps_par%A   => a_mat%val
+  call DMUMPS(mumps_par)
+ 
+  if (my_id_n .eq. 0) then
+
+    ! allocate(mumps_par%irn(a_mat%nnz),mumps_par%jcn(a_mat%nnz),mumps_par%A(a_mat%nnz))
+
+    ! map already constructed matrix to mumps datastructure
+    mumps_par%irn => a_mat%irn
+    mumps_par%jcn => a_mat%jcn
+    mumps_par%A   => a_mat%val
+
+  endif
 
   mumps_par%n   = a_mat%ng
   mumps_par%nz  = a_mat%nnz
