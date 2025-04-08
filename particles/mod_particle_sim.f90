@@ -21,12 +21,18 @@ type :: particle_group
   real*8             :: n_particles                                !< number of super/marker particles in group
   character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
  
-  ! ================ for neutral particles =============
-  logical            :: use_kin_cx               !< switch on charge-exchange for group  
+  ! ================ for neutrals and impurities =============
   logical            :: use_kin_ionisation       !< switch on ionisation for group         
-  logical            :: use_kin_recombination    !< switch on recombination for group       
   logical            :: use_kin_puffing          !< switch on particle puffing for group
-  logical            :: use_kin_line_radiation   !< switch on line radiation for group
+  logical            :: use_kin_radiation        !< switch on line radiation for group
+
+  ! --- neutrals only
+  logical            :: use_kin_cx               !< switch on charge-exchange for group  
+  logical            :: use_kin_recombination    !< switch on recombination for group       
+
+  ! --- impurities only
+  logical            :: use_kin_bg_collisions    !< switch only collisions with the background plasma
+  integer            :: ics_group_idx            !< internal index given to this specific impurities group
 
 
   class(particle_base), dimension(:), allocatable :: particles
@@ -78,12 +84,18 @@ subroutine configure_particle_groups(sim)
     sim%groups(i)%n_particles = config%n_particles
     sim%groups(i)%id = config%id
   
-    ! --- ncs options
-    sim%groups(i)%use_kin_cx             =  config%use_kin_cx
+    ! === ncs and ics options
     sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
-    sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
     sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
-    sim%groups(i)%use_kin_line_radiation =  config%use_kin_line_radiation 
+    sim%groups(i)%use_kin_radiation      =  config%use_kin_radiation 
+
+    ! --- ncs only
+    sim%groups(i)%use_kin_cx             =  config%use_kin_cx
+    sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
+
+    ! --- ics only
+    sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
+    sim%groups(i)%ics_group_idx          =  config%ics_group_idx
     
     if (len_trim(config%atom_data_suffix) > 0) then
       sim%groups(i)%ad =  read_adf11(sim%my_id, trim(part_group_configs(i)%atom_data_suffix))

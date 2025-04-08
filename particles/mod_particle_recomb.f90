@@ -44,7 +44,7 @@ module mod_particle_recomb
   
     !Call mod_integrate_recombination
     call integrate_recombination(sim%my_id,sim%n_mpi, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
-  
+
     sanity_rec_local = 0.d0
     !calculate total recombination per mpi proces
     total_volume = sum( volume_check(:) )
@@ -95,7 +95,6 @@ module mod_particle_recomb
       if (is_free(j)) then
         i_free(k) = j !< i_free(k) has index of free particle in  sim%groups(target_group)%particles(j)
         k = k+1
-        !if (sim%my_id .eq. 0) write(*,*) "Adding to the list number: ", j
       end if
     end do
     ! ==================
@@ -126,16 +125,14 @@ module mod_particle_recomb
         do ife = 1, size(rec_rate_local) ! loop over all local elements
   
           if (isnan(rec_v_R(ife)) .or. isnan(rec_v_Z(ife)) .or. isnan(rec_v_phi(ife))) CYCLE !NaN check
-          if (rec_rate_local(ife)* central_density* 1.d20 .le. 1.d3) CYCLE
+          if (rec_rate_local(ife) * central_density * 1.d20 .le. 1.d3) CYCLE
     
           !$ i_rng = omp_get_thread_num()+1
-          !if (rec_rate_local(ife) / real(particles_per_element)* central_density* 1.d20 .le. 1.d7) cycle
     
           k = ife !< every OMP thread gets different values
           !< every MPI process has it's own list of i_free.
     
           ! --- Get element
-          !ielm = jorek_stepper%local_elms(ife) !< actual element number
           ielm  = (sim%my_id+1) + sim%n_mpi*(ife - 1)
           element = element_list%element(ielm)
     

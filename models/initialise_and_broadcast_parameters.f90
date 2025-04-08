@@ -31,8 +31,8 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
       !> find the matching part_group_config for each group specified in part_groups_in_use
       call match_part_groups_and_configs()
         
-      ! --- Scan over n_part_groups and determine the coupling scheme parameters
-      call determine_coupling_schemes()
+      ! --- Scan over n_part_groups and determine the coupling scheme parameters as well as their compatibility
+      call check_compatibility_and_determine_coupling_schemes()
   
       ! --- Determine the coupling variables used, their index, and n_aux_var
       call determine_coupling_variables() 

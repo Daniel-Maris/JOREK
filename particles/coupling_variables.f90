@@ -5,7 +5,7 @@
 module coupling_variables
   implicit none
 
-  integer, parameter :: n_aux_var_max = 200
+  integer, parameter :: n_aux_var_max = 100
 
   ! ====== variables names and number of coupling schemes ====== !
 
@@ -14,29 +14,37 @@ module coupling_variables
 
   ! NCS
   character(len=var_name_len), dimension(3) :: ncs_var_names = [character(len=var_name_len) :: &
-    "rho",    & !> density
-    "Vpar",   & !> parallel velocity
-    "T"     & !> temperature
+    "rho",      & !> density
+    "mom_par",  & !> parallel momentum
+    "E"         & !> energy
+  ]
+
+  ! ICS base variables
+  character(len=var_name_len), dimension(2) :: ics_var_names = [character(len=var_name_len) :: &
+    "mom_par",  & !> parallel momentum
+    "E"         & !> energy
   ]
 
   ! CCS
   character(len=var_name_len), dimension(4) :: ccs_var_names = [character(len=var_name_len) :: &
-    "q",     & !> charge density
-    "j_R",    & !> R   component of current
-    "j_Z",    & !> Z   component of current
-    "j_Phi"   & !> Phi compoment of current  
+    "q",        & !> charge density
+    "j_R",      & !> R   component of current
+    "j_Z",      & !> Z   component of current
+    "j_Phi"     & !> Phi compoment of current  
   ]
 
   ! =========== Storage variables for kinetic coupling indices ======== !
 
-  !> kn denotes kinetics
-  ! variables indices
-  integer :: rho_idx_kin   = 0
-  integer :: Vpar_idx_kin  = 0
-  integer :: T_idx_kin     = 0
-  integer :: q_idx_kin     = 0
-  integer :: j_R_idx_kin   = 0
-  integer :: j_Z_idx_kin   = 0
-  integer :: j_Phi_idx_kin = 0
+  !> variables indices
+  integer :: rho_idx_kin      = 0
+  integer :: mom_par_idx_kin  = 0
+  integer :: E_idx_kin        = 0
+  integer :: q_idx_kin        = 0
+  integer :: j_R_idx_kin      = 0
+  integer :: j_Z_idx_kin      = 0
+  integer :: j_Phi_idx_kin    = 0
+
+  !> index of coupling variables specific to each impurity group
+  integer :: ics_indices_kin(n_aux_var_max) = -1
 
 end module coupling_variables

@@ -1,13 +1,13 @@
 # --- General settings
 jorekmodel="307"
-description="kinetic_main with model$jorekmodel using xpoint plasma"
+description="kinetic_main with impurities and neutrals using model$jorekmodel simulating an xpoint plasma, with time dependent puffing, as well as ionisation, radiation, recombination, charge exchange (neutrals only) and collisions (imp only) enabled"
 mpitasks=2
 num_threads=8
 binaries="kinetic_main"
 binaries_initial="jorek_model${jorekmodel}_1"
 extra_restart="part_restart.h5"
-requiredfiles="input acd12_h.dat  acd96_h.dat  ccd12_h.dat  ccd96_h.dat plt12_h.dat  plt96_h.dat  prb12_h.dat  prb96_h.dat  prc12_h.dat  prc96_h.dat  scd12_h.dat scd96_h.dat y_DD.dat  ye_DD.dat"
-extra_remote_files="acd12_h.dat  acd96_h.dat  ccd12_h.dat  ccd96_h.dat plt12_h.dat  plt96_h.dat  prb12_h.dat  prb96_h.dat  prc12_h.dat  prc96_h.dat  scd12_h.dat scd96_h.dat y_DD.dat  ye_DD.dat part_restart.h5"
+requiredfiles="input acd12_h.dat  acd96_h.dat  ccd12_h.dat  ccd96_h.dat plt12_h.dat  plt96_h.dat  prb12_h.dat  prb96_h.dat  prc12_h.dat  prc96_h.dat  scd12_h.dat scd96_h.dat acd96_n.dat ccd96_n.dat ion_n.dat plt96_n.dat prb96_n.dat prc96_n.dat scd96_n.dat y_DD.dat ye_DD.dat ye_NN.dat y_NN.dat"
+extra_remote_files="acd12_h.dat  acd96_h.dat  ccd12_h.dat  ccd96_h.dat plt12_h.dat  plt96_h.dat  prb12_h.dat  prb96_h.dat  prc12_h.dat  prc96_h.dat  scd12_h.dat scd96_h.dat y_DD.dat  ye_DD.dat acd96_n.dat ccd96_n.dat ion_n.dat plt96_n.dat prb96_n.dat prc96_n.dat scd96_n.dat y_DD.dat ye_DD.dat ye_NN.dat y_NN.dat part_restart.h5"
 particle_example="kinetic_main"
 particle_example_dir="particles/examples"
 

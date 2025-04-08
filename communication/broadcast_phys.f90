@@ -377,6 +377,7 @@ if (my_id .eq. 0) then
 
   call MPI_PACK(spi_plume_file, n_inj_max*256,MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(spi_plume_hdf5,             1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(spi_abl_mag_reduction,      1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   if (using_spi) then
     call MPI_PACK(pellets,      n_spi_tot,dtype,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -827,8 +828,10 @@ if (my_id .eq. 0) then
   call MPI_PACK(filter_perp_n0,         1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(filter_hyper_n0,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(filter_par_n0,          1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(apply_dirichlet_proj,   1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(restart_particles,      1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(use_ncs,                1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(use_ics,                1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(use_ccs,                1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(use_pcs,                1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(use_pcf,           1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -848,12 +851,13 @@ if (my_id .eq. 0) then
 
   ! particle coupling variables
   call MPI_PACK(rho_idx_kin,       1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-  call MPI_PACK(Vpar_idx_kin,      1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-  call MPI_PACK(T_idx_kin,         1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(mom_par_idx_kin,   1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(E_idx_kin,         1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(q_idx_kin,         1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(j_R_idx_kin,       1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(j_Z_idx_kin,       1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(j_Phi_idx_kin,     1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(ics_indices_kin,   n_aux_var_max,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   ! particle group parameters
   call MPI_PACK(n_part_groups,                              1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -872,7 +876,9 @@ if (my_id .eq. 0) then
   call MPI_PACK(part_group_configs%use_kin_cx,                 n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(part_group_configs%use_kin_recombination,      n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(part_group_configs%use_kin_puffing,            n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
-  call MPI_PACK(part_group_configs%use_kin_line_radiation,     n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(part_group_configs%use_kin_radiation,          n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(part_group_configs%use_kin_bg_collisions,      n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(part_group_configs%ics_group_idx,              n_part_groups_max,     MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   do i=1, n_part_groups_max
     do j=1, n_valves_max
@@ -916,6 +922,8 @@ if (my_id .eq. 0) then
 
   call MPI_PACK(use_manual_random_seed, 1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(manual_seed,            1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(use_fixed_rng_value,    1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(fixed_rng_value,        1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
  
   call MPI_PACK(autodistribute_modes,1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr) 
   if (.not. autodistribute_modes) then
@@ -1290,6 +1298,7 @@ if (my_id .ne. 0) then
 
   call MPI_UNPACK(buffer,bufsize,position,spi_plume_file, n_inj_max*256,MPI_CHARACTER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,spi_plume_hdf5,             1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,spi_abl_mag_reduction,      1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
 
   if (using_spi) then
     if (.not. allocated(pellets)) allocate (pellets(n_spi_tot))  !< Dynamically allocate memeries for pellets
@@ -1745,8 +1754,10 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,filter_perp_n0,         1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,filter_hyper_n0,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,filter_par_n0,          1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,apply_dirichlet_proj,   1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,restart_particles,      1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,use_ncs,                1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,use_ics,                1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,use_ccs,                1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,use_pcs,                1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,use_pcf,           1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
@@ -1766,12 +1777,13 @@ if (my_id .ne. 0) then
 
   ! particle coupling variables
   call MPI_UNPACK(buffer,bufsize,position,rho_idx_kin,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
-  call MPI_UNPACK(buffer,bufsize,position,Vpar_idx_kin,            1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
-  call MPI_UNPACK(buffer,bufsize,position,T_idx_kin,               1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,mom_par_idx_kin,         1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,E_idx_kin,               1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,q_idx_kin,               1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,j_R_idx_kin,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,j_Z_idx_kin,             1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,j_Phi_idx_kin,           1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,ics_indices_kin,         n_aux_var_max,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
   ! particle group parameters
   call MPI_UNPACK(buffer,bufsize,position,n_part_groups,          1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
@@ -1790,7 +1802,9 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_cx,                 n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_recombination,      n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_puffing,            n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
-  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_line_radiation,     n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_radiation,          n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_bg_collisions,      n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%ics_group_idx,              n_part_groups_max,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
   do i=1, n_part_groups_max
     do j=1, n_valves_max
@@ -1834,6 +1848,8 @@ if (my_id .ne. 0) then
 
   call MPI_UNPACK(buffer,bufsize,position,use_manual_random_seed, 1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,manual_seed,            1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,use_fixed_rng_value,    1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,fixed_rng_value,        1,MPI_REAL8,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,autodistribute_modes,1,MPI_LOGICAL,MPI_COMM_WORLD,ierr) 
   if (.not. autodistribute_modes) then

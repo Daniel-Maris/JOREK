@@ -160,7 +160,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 spi_Vel_Rref,spi_Vel_Zref, using_spi, n_spi, n_inj, &
                 spi_Vel_RxZref, spi_quantity, spi_abl_model,        &
                 ns_radius_ratio, ns_radius_min, spi_angle,          &
-                spi_L_inj, spi_L_inj_diff,                          &
+                spi_L_inj, spi_L_inj_diff, spi_abl_mag_reduction,   &
                 drift_distance, energy_teleported,                  &
                 K_Dmv, A_Dmv, L_tube, V_Dmv, P_Dmv,                 &
                 spi_Vel_diff, t_ns, JET_MGI, ASDEX_MGI,             &
@@ -197,6 +197,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 nsubstep_particles,                                 &
                 filter_perp,    filter_hyper,    filter_par,        &
                 filter_perp_n0, filter_hyper_n0, filter_par_n0,     &
+                apply_dirichlet_proj,                               &
                 min_sheath_angle, bcs,                              &
                 use_sc, add_sources_in_sc, visco_sc_num,            &
                 D_perp_sc_num, D_par_sc_num, ZK_perp_sc_num,        &
@@ -213,6 +214,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 visco_old_setup, visco_heating, eta_coul_log_dep,   &
                 export_polar_boundary, xpoint_search_tries,         &
                 use_manual_random_seed, manual_seed,                &
+                use_fixed_rng_value, fixed_rng_value,               &
                 loop_voltage, export_aux_node_list
 
 

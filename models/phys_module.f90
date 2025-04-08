@@ -504,6 +504,7 @@ module phys_module
   character(len=256) :: spi_shard_file(n_inj_max)!< The name of the shard size file
   character(len=256) :: spi_plume_file(n_inj_max)!< The name of the shard information datafile (array)
   logical            :: spi_plume_hdf5           !< if 'spi_plume_file' is in HDF5format?
+  logical            :: spi_abl_mag_reduction    !< Whether to use the magnetic reduction effect described in Eq.(27) of Nucl. Fusion 60 066027
 
   integer :: n_adas             !< Number of species to be traced by ADAS
 
@@ -934,19 +935,20 @@ module phys_module
   real*8  :: D_neutral
 
   !> @name Particles-related input parameters
-  integer :: n_aux_var           !< number of variables in aux_node_list
-  integer :: n_diag_var = n_var  !< number of variables in diag_node_list (= n_var is temporary)
-  logical :: restart_particles   !< Load in previously simulated particles from a the part_restart.h5 restart file?
-  logical :: use_marker          !< This flag determines whether to use marker particles to treat impurity (Placeholder)
-  real*8  :: tstep_particles     !< the time step for the particles
-  integer :: nstep_particles     !< the number of particle time steps
-  integer :: nsubstep_particles  !< the number of particles substeps (without projection)
-  real*8  :: filter_perp         !< particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_hyper        !< particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_par          !< particle projection smoothing parameter, parallel direction
-  real*8  :: filter_perp_n0      !< particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_hyper_n0     !< particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_par_n0       !< particle projection smoothing parameter, parallel direction (n=0)
+  integer :: n_aux_var            !< number of variables in aux_node_list
+  integer :: n_diag_var = n_var   !< number of variables in diag_node_list (= n_var is temporary)
+  logical :: restart_particles    !< Load in previously simulated particles from a the part_restart.h5 restart file?
+  logical :: use_marker           !< This flag determines whether to use marker particles to treat impurity (Placeholder)
+  real*8  :: tstep_particles      !< the time step for the particles
+  integer :: nstep_particles      !< the number of particle time steps
+  integer :: nsubstep_particles   !< the number of particles substeps (without projection)
+  real*8  :: filter_perp          !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_hyper         !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_par           !< particle projection smoothing parameter, parallel direction
+  real*8  :: filter_perp_n0       !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_hyper_n0      !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
+  logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
 
   ! -----------------------------------------------
   ! --- Structures for particle valves 
@@ -1018,14 +1020,28 @@ module phys_module
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
 
-    ! --------------- for neutral particles ------------
+    ! --------------- for neutrals and impurities (ncs and ics coupling) particles ------------
 
-    character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead
-    logical             :: use_kin_cx               !< switch on charge-exchange for group     
-    logical             :: use_kin_ionisation       !< switch on ionisation for group         
-    logical             :: use_kin_recombination    !< switch on recombination for group         
-    logical             :: use_kin_puffing          !< switch on particle puffing for group    
-    logical             :: use_kin_line_radiation   !< switch on line radiation for group
+    character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead    
+    logical             :: use_kin_ionisation      !< switch on ionisation* for group 
+                                                   !  *for ics this also includes recombination as it switches on the changing of the particle's charge state               
+    logical             :: use_kin_puffing         !< switch on particle puffing for group    
+    logical             :: use_kin_radiation       !< switch on radiation for group (only line rad* for ncs, line rad + bremsstrahlung + recomb** for ics)
+                                                   !  *line radiation here refers to the radiation resultant from energy level changes of bound electrons 
+                                                   !  in neutrals/impurity ions due to collisions with the background plasma. Their spectra is discrete
+                                                   !  **recomb radiation results from the release of excess energy when a free electron is captured by an atom
+                                                   !  during recombination, and has a continous spectra
+    ! ---- neutrals (ncs) specific
+    logical             :: use_kin_cx              !< switch on charge-exchange for group 
+    logical             :: use_kin_recombination   !< switch on recombination from the plasma fluid to this kinetic neutrals group*
+                                                   !  *if 2+ ncs groups are present, how the fluid recombination is divided amongst the groups is not yet implemented
+                                                  
+
+    ! ---- impurities (ics) specific
+    logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
+    integer             :: ics_group_idx           !< internal index given to this specific impurities group, used to obtain the variable index of charge density
+                                                   !< projectons specific to this group, as we require a charge density projection for each impurities group for coupling
+                                             
 
     !> --------------- puffing ----------------------
 
@@ -1072,6 +1088,9 @@ module phys_module
   !> @name Manual setting of random seed (for testing)
   logical :: use_manual_random_seed                   !< whether the random seed should be manually set
   integer :: manual_seed                              !< the manually set seed value
+  logical :: use_fixed_rng_value                      !< forcibly set all rng outputs to return a specific value (set by fixed_rng_value, use this for debugging and testing only)
+  real*8  :: fixed_rng_value                          !< the value the fixed rng is set to when using use_fixed_rng_value
+
 
   contains
   

@@ -796,6 +796,7 @@ subroutine preset_parameters
   spi_shard_file(:) = 'none'
   spi_plume_file(:) = 'none'
   spi_plume_hdf5  = .false.
+  spi_abl_mag_reduction  = .false.
   spi_tor_rot     = .false.
   spi_num_vol     = .true.
   using_spi       = .false.
@@ -851,6 +852,7 @@ filter_hyper_n0    = 1.d-10
 filter_par_n0      = 0.d0
 restart_particles  = .false.
 use_marker         = .false.
+apply_dirichlet_proj = .false.
 
 !--------------- valves -------------------------
 valves(:)%type = 'none'
@@ -873,13 +875,18 @@ part_group_configs(:)%coupling_scheme   = 'non'
 part_group_configs(:)%n_particles       = 0.d0
 part_group_configs(:)%type              = 'none'
 part_group_configs(:)%id                = 'non'
-!-- specific to ncs 
+
+!----- specific to ics and ncs 
 part_group_configs(:)%atom_data_suffix      = ''
-part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_puffing        = .false.
-part_group_configs(:)%use_kin_line_radiation = .false.
+part_group_configs(:)%use_kin_radiation      = .false.
 part_group_configs(:)%use_kin_ionisation     = .false.
+! --- ncs only
+part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_cx             = .false.
+! --- ics only
+part_group_configs(:)%use_kin_bg_collisions  = .false.
+part_group_configs(:)%ics_group_idx          = -1
 
 do i=1, n_part_groups_max
   do j=1, n_valves_max
@@ -928,5 +935,7 @@ enddo
 
 use_manual_random_seed = .false.
 manual_seed = 498932990          !< chosen arbitarily
+use_fixed_rng_value = .false.
+fixed_rng_value = 0.5
 
 end subroutine preset_parameters

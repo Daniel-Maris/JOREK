@@ -522,7 +522,7 @@ function new_projection(node_list, element_list,                                
 
   new%do_zonal = .false.
   if (present(do_zonal)) new%do_zonal = do_zonal
-  new%apply_dirichlet = .true.
+  new%apply_dirichlet = .false.
   if (present(do_dirichlet)) new%apply_dirichlet = do_dirichlet
 
   if (present(to_vtk)) then
@@ -635,6 +635,7 @@ end subroutine project
 !> Gather all of the rhs-es into a single matrix and feed it to mumps, and then
 !> broadcast the result
 subroutine project_only(this, sim)
+  use phys_module, only: n_aux_var
   use mpi_mod
   use mod_event
   use, intrinsic :: ieee_exceptions
@@ -883,7 +884,7 @@ subroutine project_only(this, sim)
 
   call MPI_BARRIER(this%mpi_comm_world, ierr)
 
-  call broadcast_nodes(this%my_id, this%node_list)
+  call broadcast_nodes(this%my_id, this%node_list, n_aux_var)
 
 #ifdef DEBUG
     call cpu_time(t1)
@@ -1727,7 +1728,7 @@ do i_elm=1,element_list%n_elements
       psi_y = (- x_t(ms,mt) * psi_s(ms,mt) + x_s(ms,mt) * psi_t(ms,mt)) / xjac
 
       BB2 = 1.d0
-      if (filter_parallel_n0 .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)
+      if (filter_parallel_n0 .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)**2
 
       area   = area   + xjac * wst
       volume = volume + TWOPI * x_g(ms,mt) * xjac * wst

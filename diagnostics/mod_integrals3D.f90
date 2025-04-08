@@ -12,6 +12,7 @@ module mod_integrals3D
   use tr_module
   use phys_module
   use mod_coupling_settings
+  use coupling_variables
   use mod_interp
   use convert_character
   use mpi_mod
@@ -165,7 +166,7 @@ real*8  :: viscopar_flux, viscopar_f, vpar_s, vpar_t, vpar_x, vpar_y, li3_tot, l
 real*8  :: varmin(n_var), varmax(n_var), V_min(n_var), V_max(n_var)
 
 !> for use_ncs
-real*8  :: aux_rho0, aux_T0, aux_Vpar0
+real*8  :: aux_rho0, aux_E0, aux_mom_par0
 real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
 !Ionisation recombination for aux/use_ncs purposes. 
 real*8  :: Nion, Nrec, plasmaneutral, Prec, Prb !Also needed for use_ncs
@@ -437,8 +438,9 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,       &
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
-!$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb,                              &
+!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb,                     &
 !$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
+!$omp          rho_idx_kin, E_idx_kin, mom_par_idx_kin,                                                          &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
@@ -475,7 +477,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp,   &
 !$omp           AZ0_Zp, A30, A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,  &
 !$omp           Srec_T_ncs, dSrec_dT_ncs, ksi_ion_norm, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs,       &
-!$omp           dSion_dT_ncs, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_T0, aux_Vpar0, &
+!$omp           dSion_dT_ncs, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_E0, aux_mom_par0, &
 !$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
 !$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
@@ -545,7 +547,7 @@ do ife = ife_min, ife_max
   enddo
 
 eq_aux_g = 0.d0; eq_aux_s = 0.d0; eq_aux_t = 0.d0; eq_aux_p = 0.d0;  
-aux_rho0  = 0.d0; aux_T0    = 0.d0; aux_Vpar0 = 0.d0
+aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
 aux_P0    = 0.d0; aux_P0_s  = 0.d0; aux_P0_t  = 0.d0; aux_P0_p  = 0.d0
 aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_pcs = 0.d0
   
@@ -731,10 +733,10 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
         vpar_s  = eq_s(mp,var_Vpar,ms,mt)
         vpar_t  = eq_t(mp,var_Vpar,ms,mt)
 
-        if (use_ncs) then
-                aux_rho0  = eq_aux_g(mp,1,ms,mt)
-                aux_T0    = eq_aux_g(mp,2,ms,mt)
-                aux_Vpar0 = eq_aux_g(mp,3,ms,mt)
+        if (use_ncs .or. use_ics) then
+                if (use_ncs) aux_rho0     = eq_aux_g(mp,rho_idx_kin,ms,mt)
+                aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
+                aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
         end if
 
 #if (defined WITH_Neutrals)
@@ -847,7 +849,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 !-------------------------------------------
 ! --- USE NCS, PARTICLE NEUTRAL AND IMPURITY COUPLE SCHEME
 ! ------------------------------------------
-        if(use_ncs) then 
+        if(use_ncs .or. use_ics) then 
           ksi_ion_norm = central_density * 1.d20 * ksi_ion
           call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T_ncs, dSion_dT_ncs, Srec_T_ncs, dSrec_dT_ncs, LradDcont_T_ncs, dLradDcont_dT_ncs)
         
@@ -858,16 +860,16 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           local_Nrec = local_Nrec + (Srec_T_ncs * r0_corr * r0_corr)*BigR *xjac * delta_phi *wst ! rho_rec
           
           !> coupled energies
-          !>aux_T0 (plasma neutral interaction)
-          local_pn = local_pn + aux_T0 *BigR * xjac* delta_phi * wst !& !aux_T0
+          !>aux_E0 (plasma neutral interaction)
+          local_pn = local_pn + aux_E0 *BigR * xjac* delta_phi * wst !& !aux_E0
                       !+ (gamma-1.d0)* 0.5d0 *aux_rho0 *vpar0**2 * BB2 * BigR*xjac* delta_phi *wst &
-                      !- (gamma-1.d0)* aux_Vpar0 * vpar0 * BigR *xjac* delta_phi *wst
+                      !- (gamma-1.d0)* aux_mom_par0 * vpar0 * BigR *xjac* delta_phi *wst
           !>Lost to recombination (no Brehmstralung)
           local_Prec = local_Prec + r0_corr*r0_corr*(T0_corr*Srec_T_ncs)*BigR *xjac* delta_phi *wst
           ! Power recombination and bremstrhalung combined
           local_Prb = local_Prb + r0_corr*r0_corr*(LradDcont_T_ncs-ksi_ion_norm*Srec_T_ncs)*BigR *xjac* delta_phi *wst
           !> aux_vpar = dot_product(SI momentum source,B). so we  divide by |B| to obtain the integral of the SI momentum
-          local_aux_mom_par_tot=local_aux_mom_par_tot+ aux_vpar0 /sqrt(BB2) * xjac * BigR * wst * delta_phi !< * sqrt(BB2)
+          local_aux_mom_par_tot=local_aux_mom_par_tot+ aux_mom_par0 /sqrt(BB2) * xjac * BigR * wst * delta_phi !< * sqrt(BB2)
 
         endif ! use_ncs  
  
@@ -1462,8 +1464,8 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           VM_int = VM_int + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_int = J2_int + eta_T_ohm * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
 
-          if (use_ncs) then 
-            local_aux_mom_par_int=local_aux_mom_par_int+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
+          if (use_ncs .or. use_ics) then 
+            local_aux_mom_par_int=local_aux_mom_par_int+ aux_mom_par0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
           endif 
 
           
@@ -1517,8 +1519,8 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           VM_ext = VM_ext + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_ext = J2_ext + eta_T_ohm * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
 
-          if (use_ncs) then 
-            local_aux_mom_par_ext=local_aux_mom_par_ext+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
+          if (use_ncs .or. use_ics) then 
+            local_aux_mom_par_ext=local_aux_mom_par_ext+ aux_mom_par0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
           endif  
          
 
@@ -1679,7 +1681,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 #endif
       Ti0_corr     =     corr_neg_temp(Ti0 * 2.d0) / 2.d0
       Te0_corr     =     corr_neg_temp(Te0 * 2.d0) / 2.d0
-      dTe0_corr_dT = dcorr_neg_temp_dT(Te0 * 2.d0) / 2.d0
+      dTe0_corr_dT =     dcorr_neg_temp_dT(Te0 * 2.d0)       
 
 #ifdef WITH_Vpar
       vpar0    = eq_g_1D(mp,var_vpar,ms)
@@ -2747,15 +2749,15 @@ if (my_id .eq. 0) then
                                  Ohm_tot/1.d6,heating_in/1d6+heating_out/1.d6 ,source_in+source_out
 
 
-  if (use_ncs) then
+  if (use_ncs .or. use_ics) then
     write(*,'(A)') '----------------------------------------'
     write(*,'(A)') ' Kinetic neutral integrals on fluid side                  '
     write(*,'(A,4es14.6,A)') ' Ion source (aux_rho0), Recomb loss                : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
-    write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_vpar0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
-    write(*,'(A,3es14.6,A)') ' Heat source (aux_T0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
+    write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_mom_par0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
+    write(*,'(A,3es14.6,A)') ' Heat source (aux_E0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
     write(*,'(A,4es14.6,A)') ' Prec, Prb                       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6, ' [MW]'
     write(*,'(A)') '----------------------------------------'
-  endif !use_ncs  
+  endif !use_ncs .or. use_ics 
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
   write(*,'(A,4es14.6)')   ' Integrals_3D, MGI              : ', total_n_particles_inj, total_n_particles

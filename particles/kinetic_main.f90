@@ -1,12 +1,9 @@
-!> Standard neutral atomic particle example in 2D
+!> The equivalent of jorek2_main.f90 for kinetic simulations
 !>
-!> The physics model includes puffing, recombination, ionisation, recycling and charge exchange for atomic Deuterium (no molecules).
 !> OpenADAS is used for atomic physics
 !> Plasma and neutral wall interaction are based on SDTRIM coefficients. 
 !> External files y_DD.dat and ye_DD.dat are used to determine wall recombination of plasma into atomic neutral deuterium. 
 !> These are based on interaction with a W wall
-!>
-!> To adjust the puff to your scenario, see  "! --- Setting up puffing" below
 !>
 !> To use a particle restart file: use restart_particles=.t. in the input file.
 !>
@@ -14,7 +11,7 @@
 !> Change subroutine do1particlerecombination: use mod_integrate_recomb3D, only : integrate_recombination
 !> Particle puffing is axisymmetric by default.
 
-program kinetic_neutral_loop
+program kinetic_main
 
 use particle_tracer
 use mod_particle_diagnostics
@@ -41,6 +38,7 @@ use mod_edge_elements, only: edge_elements
 use mod_atomic_coeff_deuterium, only: ad_deuterium 
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
+use mod_coupling_settings, only: use_kin_recomb_global
 use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -49,10 +47,10 @@ use phys_module, only: n_part_groups, n_aux_var, n_valves_max
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: part_group_configs
+use phys_module, only: apply_dirichlet_proj, part_group_configs
 use phys_module, only: use_manual_random_seed, manual_seed
 
-use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
+use mod_particle_group_id, only: matching_part_config_indices
 
 use mod_pcg32_rng, only: pcg32_rng
 use mod_rng, only: type_rng, setup_shared_rngs
@@ -169,8 +167,10 @@ wall_action_counter = size(wall_actions)
 
 ! keeping compatible with the reg test
 ! TODO: remove (breaks reg test)
-call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=wall_rng) !< for reg test
-wall_actions(1)%rng = wall_rng
+if (wall_action_counter > 0) then
+  call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=wall_rng) !< for reg test
+  wall_actions(1)%rng = wall_rng
+endif
 
 ! --- Setting up particle events
 allocate(recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
@@ -178,12 +178,6 @@ allocate(recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max))
 do group_num=1, n_part_groups
   config_num = matching_part_config_indices(group_num)
   
-  ! recombination
-  if (sim%groups(group_num)%use_kin_recombination) then
-    recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
-    recomb_groups(recomb_counter) = group_num
-  endif
-
   ! puffing
   if (sim%groups(group_num)%use_kin_puffing) then
     do valve_num=1, n_valves_max
@@ -194,13 +188,21 @@ do group_num=1, n_part_groups
       endif
     enddo ! n_valves_max
   endif
+
+  ! recombination
+  if (sim%groups(group_num)%use_kin_recombination) then
+    recomb_counter = recomb_counter + 1   ! increase the number of groups that requires recombination
+    recomb_groups(recomb_counter) = group_num
+  endif
+
 enddo ! n_part_groups
 
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
-                                filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0=filter_par_n0,      &
-                                filter = filter_perp, filter_hyper = filter_hyper, filter_parallel=filter_par, fractional_digits = 9, &
-                                do_zonal = .false., calc_integrals=.false., to_vtk=.TRUE., to_h5 = .false., basename='projections', nsub=2)
+                                filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0=filter_par_n0,            &
+                                filter = filter_perp, filter_hyper = filter_hyper, filter_parallel=filter_par, fractional_digits = 9,       &
+                                do_zonal = .false., calc_integrals=.false., to_vtk=.false., to_h5 = .false., basename='projections', nsub=2, &
+                                do_dirichlet=apply_dirichlet_proj)
 aux_node_list => jorek_feedback%node_list
 
 !> define feedback size dependent on the number of variables required for coupling
@@ -273,11 +275,18 @@ do while (.not. sim%stop_now)
 
   ! --- Interactions that happen on the particle timesteps
   
-  call write_to_outputfile(sim%my_id, "Particle loop")
+  call write_to_outputfile(sim%my_id, "Particle evolution loop")
   
   !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
   !> + pushing the particles + calculating the feedback
-  !> CURRENTLY ONLY SUPPORTS KINETIC NEUTRALS (Work in progress)
+  !> Currently supports: (Work in progress)
+  !>  - kinetic neutrals
+  !>  - kinetic impurities
+
+  !> As we call multiple kinetic loops and only want to use 1 %rhs,
+  !>   we should set it to zero here, and not in any of the kinetic loops
+  jorek_feedback%rhs = 0.d0
+
   do group_num=1, n_part_groups
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  
@@ -403,4 +412,4 @@ pure function f_toroidal_flux(n, P, grad_P) result(f)
 end function f_toroidal_flux
 
 
-end program kinetic_neutral_loop
+end program kinetic_main
