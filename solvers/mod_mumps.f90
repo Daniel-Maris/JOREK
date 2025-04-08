@@ -74,7 +74,7 @@ module mod_mumps
       mmss%mumps_par%jcn_loc => a_mat%jcn
 
       mmss%mumps_par%n      = a_mat%ng
-      mmss%mumps_par%nz     = a_mat%nnz
+      mmss%mumps_par%nz_loc = a_mat%nnz
 
       mmss%mumps_par%icntl(7)  = mmss%mumps_ordering               ! ordering option (7:automatic, 3:Scotch, 4:PORD, 5:METIS), default: 7
       mmss%mumps_par%icntl(8)  = 7                            ! row and column scaling  7: automatic scaling
