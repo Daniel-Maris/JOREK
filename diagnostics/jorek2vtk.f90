@@ -1793,10 +1793,10 @@ if (SI_units) then
       rn0_real8 = scalars(i,8)/central_density
 
       if ( with_TiTe ) then
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, 
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
                                     LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. )  ! T, rho and rhon should be in JOREK unit here
       else
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, 
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
                                     LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. ) 
       endif
 
