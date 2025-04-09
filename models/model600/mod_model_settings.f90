@@ -73,8 +73,8 @@ integer, parameter :: var_up   = 0
 logical, parameter :: unified_element_matrix = .true.
 
 !> parameters for naming equation terms in the RHS diagnostic 
-integer,  parameter :: max_terms    = 20
-integer,  parameter :: n_terms_psi  = 6
+integer,  parameter :: max_terms    = 24
+integer,  parameter :: n_terms_psi  = 5
 integer,  parameter :: n_terms_u    = 11
 integer,  parameter :: n_terms_zj   = 1
 integer,  parameter :: n_terms_w    = 1
@@ -92,8 +92,7 @@ character*36, dimension(n_terms_psi),  parameter :: Psi_term_names=  &
                                                  'psi_Eq__B.grad_u         ', &  ! 2: \mathbf{B}\cdot\nabla u 
                                                  'psi_Eq__eta_num_term     ', &  ! 3: \eta_{num}\nabla^2 j 
                                                  'psi_Eq__diamag_term      ', &  ! 4: \mathbf{B}\cdot\nabla p
-                                                 'psi_Eq__zeta_timevol_term', &  ! 5: \zeta\delta\psi
-                                                 'psi_Eq__eta_aux_J        '/)   ! 6: \eta aux_j (current from kinetic particles)   
+                                                 'psi_Eq__zeta_timevol_term'/)   ! 5: \zeta\delta\psi
 
 character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                               (/ 'u_Eq__rho_v.grad_v     ', &  !  1:

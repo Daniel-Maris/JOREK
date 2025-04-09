@@ -207,19 +207,6 @@ real*8     :: visco_fact_old, visco_fact_new
 
 ! --- Fluid-kinetic coupling variables
 real*8     :: aux_rho0, aux_E0, aux_mom_par0
-real*8     :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
-
-! Full pressure tensor terms 
-real*8     :: aux_PIRR, aux_PIRR_s, aux_PIRR_t, aux_PIRR_R, aux_PIRR_Z,aux_PIRR_p
-real*8     :: aux_PIZZ, aux_PIZZ_s, aux_PIZZ_t, aux_PIZZ_R, aux_PIZZ_Z,aux_PIZZ_p
-real*8     :: aux_PIPP, aux_PIPP_s, aux_PIPP_t, aux_PIPP_R, aux_PIPP_Z,aux_PIPP_p
-real*8     :: aux_PIZR, aux_PIZR_s, aux_PIZR_t, aux_PIZR_R, aux_PIZR_Z,aux_PIZR_p
-real*8     :: aux_PIRP, aux_PIRP_s, aux_PIRP_t, aux_PIRP_R, aux_PIRP_Z,aux_PIRP_p
-real*8     :: aux_PIZP, aux_PIZP_s, aux_PIZP_t, aux_PIZP_R, aux_PIZP_Z,aux_PIZP_p
-real*8     :: aux_divPIR_perp, aux_divPIZ_perp,     aux_divPIp_perp
-real*8     :: aux_divPIR,      aux_divPIZ,          aux_divPIp
-real*8     :: aux_BdivPI,aux_BB2
-
 
 #define DIM1 n_plane
 #define DIM2 1:n_vertex_max*n_var*n_degrees
@@ -344,9 +331,6 @@ eq_zTe          = 0.d0
 eq_zT           = 0.d0
 
 aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
-aux_P0    = 0.d0; aux_P0_s  = 0.d0; aux_P0_t  = 0.d0; aux_P0_p  = 0.d0
-aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_pcs = 0.d0
-aux_divPIR_perp = 0.d0; aux_divPIZ_perp=0.d0; aux_divPIp_perp=0.d0;
 
 amu_neo_prof   = 0.d0
 aki_neo_prof   = 0.d0
@@ -715,74 +699,6 @@ do i=1,n_vertex_max
             aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
             aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if
-
-          if (use_ccs) then
-            aux_q0       = eq_aux_g(mp,q_idx_kin,ms,mt)
-            aux_jx0      = eq_aux_g(mp,j_R_idx_kin,ms,mt)
-            aux_jy0      = eq_aux_g(mp,j_Z_idx_kin,ms,mt)
-            aux_jz0      = eq_aux_g(mp,j_Phi_idx_kin,ms,mt)
-          elseif (use_pcs) then
-            aux_P0      = eq_aux_g(mp,1,ms,mt)
-            aux_jz0_pcs = 0.d0 !eq_aux_g(mp,5,ms,mt)
-          elseif(use_pcf) then 
-            aux_PIRR    = eq_aux_g(mp,1,ms,mt);
-            aux_PIRR_s  = eq_aux_s(mp,1,ms,mt);
-            aux_PIRR_t  = eq_aux_t(mp,1,ms,mt);
-            aux_PIRR_R  = (   y_t(ms,mt) * aux_PIRR_s - y_s(ms,mt) * aux_PIRR_t ) / xjac
-            aux_PIRR_Z  = ( - x_t(ms,mt) * aux_PIRR_s + x_s(ms,mt) * aux_PIRR_t ) / xjac
-            aux_PIRR_p  = eq_aux_p(mp,1,ms,mt);
-
-            aux_PIZZ    = eq_aux_g(mp,2,ms,mt);
-            aux_PIZZ_s  = eq_aux_s(mp,2,ms,mt);
-            aux_PIZZ_t  = eq_aux_t(mp,2,ms,mt);
-            aux_PIZZ_R  = (   y_t(ms,mt) * aux_PIZZ_s - y_s(ms,mt) * aux_PIZZ_t ) / xjac
-            aux_PIZZ_Z  = ( - x_t(ms,mt) * aux_PIZZ_s + x_s(ms,mt) * aux_PIZZ_t ) / xjac
-            aux_PIZZ_p  = eq_aux_p(mp,2,ms,mt);
-            
-            aux_PIPP    = eq_aux_g(mp,3,ms,mt);
-            aux_PIPP_s  = eq_aux_s(mp,3,ms,mt);
-            aux_PIPP_t  = eq_aux_t(mp,3,ms,mt);
-            aux_PIPP_R  = (   y_t(ms,mt) * aux_PIPP_s - y_s(ms,mt) * aux_PIPP_t ) / xjac
-            aux_PIPP_Z  = ( - x_t(ms,mt) * aux_PIPP_s + x_s(ms,mt) * aux_PIPP_t ) / xjac
-            aux_PIPP_p  = eq_aux_p(mp,3,ms,mt);             
-
-            aux_PIZR    = eq_aux_g(mp,4,ms,mt);
-            aux_PIZR_s  = eq_aux_s(mp,4,ms,mt);
-            aux_PIZR_t  = eq_aux_t(mp,4,ms,mt);
-            aux_PIZR_R  = (   y_t(ms,mt) * aux_PIZR_s - y_s(ms,mt) * aux_PIZR_t ) / xjac
-            aux_PIZR_Z  = ( - x_t(ms,mt) * aux_PIZR_s + x_s(ms,mt) * aux_PIZR_t ) / xjac
-            aux_PIZR_p  = eq_aux_p(mp,4,ms,mt);             
-
-            aux_PIRP    = eq_aux_g(mp,5,ms,mt);
-            aux_PIRP_s  = eq_aux_s(mp,5,ms,mt);
-            aux_PIRP_t  = eq_aux_t(mp,5,ms,mt);
-            aux_PIRP_R  = (   y_t(ms,mt) * aux_PIRP_s - y_s(ms,mt) * aux_PIRP_t ) / xjac
-            aux_PIRP_Z  = ( - x_t(ms,mt) * aux_PIRP_s + x_s(ms,mt) * aux_PIRP_t ) / xjac
-            aux_PIRP_p  = eq_aux_p(mp,5,ms,mt);             
-
-            aux_PIZP    = eq_aux_g(mp,6,ms,mt);
-            aux_PIZP_s  = eq_aux_s(mp,6,ms,mt);
-            aux_PIZP_t  = eq_aux_t(mp,6,ms,mt);
-            aux_PIZP_R  = (   y_t(ms,mt) * aux_PIZP_s - y_s(ms,mt) * aux_PIZP_t ) / xjac
-            aux_PIZP_Z  = ( - x_t(ms,mt) * aux_PIZP_s + x_s(ms,mt) * aux_PIZP_t ) / xjac
-            aux_PIZP_p  = eq_aux_p(mp,6,ms,mt);
-
-            !See https://www.jorek.eu/wiki/doku.php?id=coordinates, div Pi (tensor)
-            !in physical components
-            !These calculations are the same in reduced MHD. Only the way in which these terms enter
-            !the projected equations differs.
-            aux_divPIR  = aux_PIRR_R + aux_PIZR_Z + (aux_PIRP_p + aux_PIRR - aux_PIPP) / BigR
-            aux_divPIZ  = aux_PIZZ_Z + aux_PIZR_R + (aux_PIZP_p + aux_PIZR) / BigR
-            aux_divPIp  = aux_PIPP_p / BigR + aux_PIRP_R + aux_PIZP_Z + 2.d0 / BigR * aux_PIRP
- 
-            ! B. div P
-            aux_BdivPI      = ps0_y/BigR * aux_divPIR  - ps0_x/BigR * aux_divPIZ + F0/BigR * aux_divPIp
-            ! Ensuring B. div P is perpendicular to B.
-            aux_BB2= (ps0_y / BigR)**2 + (-ps0_x / BigR)**2 + (F0 / BigR)**2
-            aux_divPIR_perp = aux_divPIR - ps0_y / BigR / aux_BB2 * aux_BdivPI
-            aux_divPIZ_perp = aux_divPIZ + ps0_x / BigR / aux_BB2 * aux_BdivPI
-            aux_divPIp_perp = aux_divPIp - F0 / BigR / aux_BB2 * aux_BdivPI
-          endif
 
           if (with_neutrals) then
             rn0      = eq_g(mp,var_rhon,ms,mt)
@@ -1455,9 +1371,6 @@ do i=1,n_vertex_max
             !###################################################################################################
 
             rhs_ij(var_psi) = v * eta_T  * (zj0 - current_source(ms,mt) - Jb)/ BigR           * xjac * tstep * factor(var_psi,1) &
-                      ! --------------------------------- from kinetic coupling -------------------------------------------------
-                      + v * eta_T  * (aux_jz0 + aux_jz0_pcs)                                  * xjac * tstep * factor(var_psi,5) &
-                      ! ----------------------------end of terms from kinetic coupling ------------------------------------------
                       
                       + v * (ps0_s * u0_t - ps0_t * u0_s)                                            * tstep * factor(var_psi,2) &
                       - v * F0 / BigR  * u0_p                                                 * xjac * tstep * factor(var_psi,2) &
@@ -1483,14 +1396,6 @@ do i=1,n_vertex_max
 
                          - v * F0 / BigR * zj0_p                                                            * xjac * tstep * factor(var_u,2) &
                          + BigR**2 * (v_s * p0_t - v_t * p0_s)                                                     * tstep * factor(var_u,4) &
-                        
-                         ! --------------------------------- from kinetic coupling -------------------------------------------------
-                         + BigR * aux_jz0 * (v_s * ps0_t - v_t * ps0_s)                                            * tstep                   &
-                         + aux_p0 * 2.d0 * BigR * v_y                                                       * xjac * tstep                   &
-                         + BigR**2 * ( -aux_divPIR_perp*v_y + aux_divPIZ_perp*v_x)                          * xjac * tstep                   & 
-                         - BigR**2 * (v_s * u0_t - v_t * u0_s) * F0 * aux_q0                                       * tstep                   &
-                         - BigR * F0 * (v_x * aux_jx0 + v_y * aux_jy0)                                      * xjac * tstep                   &
-                         ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
                          - visco_num_T * (v_xx + v_x/Bigr + v_yy)*(w0_xx + w0_x/Bigr + w0_yy)               * xjac * tstep * factor(var_u,5) &
 
@@ -1600,8 +1505,6 @@ do i=1,n_vertex_max
                                 ! -------------------------------------- from kinetic coupling -------------------------------------------------
                                  - v * aux_rho0 * vpar0 * BB2 * BigR                                                    * xjac * tstep * factor(var_vpar,11) &
                                  + v * BigR * aux_mom_par0                                                              * xjac * tstep * factor(var_vpar,12) &
-                                 + v * aux_q0 * F0**2 / BigR * u0_p                                                     * xjac * tstep                       &
-                                 + v * aux_q0 * F0 * (u0_s * ps0_t - u0_t * ps0_s)                                             * tstep                       &
                                 ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
                                 ! Not to be included in the conservative form
@@ -1616,11 +1519,6 @@ do i=1,n_vertex_max
                                  
                                  + zeta * v * delta_g(mp,var_vpar,ms,mt) * r0_corr * F0**2 / BigR                       * xjac         * factor(var_vpar,5)  &
                                  + zeta * v * r0_corr * vpar0 * (ps0_x * delta_ps_x + ps0_y * delta_ps_y) / BigR        * xjac         * factor(var_vpar,5)  &
-
-                                ! -------------------------------------- from kinetic coupling -------------------------------------------------
-                                 - zeta * v * aux_q0 * F0 / BigR * delta_g(mp,1,ms,mt)                                  * xjac                               &
-                                ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
-
 
                                  ! New terms coming from -(\partial_t \rho + \nabla \cdot (\rho \mathbf{v})) \mathbf{v} in RHS of momentum equation
                                  ! (see wiki: https://www.jorek.eu/wiki/doku.php?id=model500_501_555#equations):
@@ -1885,8 +1783,9 @@ do i=1,n_vertex_max
               rhs_ij(var_T) =  v * BigR * (heat_source(ms,mt) + aux_E0)                         * xjac * tstep * factor(var_T,1 ) &
                                                               ! ^ kinetics coupling term
 
-                            ! --------------------------------------- from kinetic coupling -------------------------------------------------
                              + (gamma-1.d0)*0.5d0 * v * (particle_source(ms,mt) + source_pellet) * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,22) &
+
+                            ! --------------------------------------- from kinetic coupling -------------------------------------------------
                              + (gamma-1.d0)*0.5d0 * v * aux_rho0                                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,23) &
                              - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                                              * xjac * tstep * factor(var_T,24) &
                             ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
@@ -2300,10 +2199,6 @@ do i=1,n_vertex_max
                   else ! (with_TiTe = .f.), i.e. with single temperature *********************************
                     amat(var_psi,var_T) = - deta_dT * v * T * (zj0 - current_source(ms,mt) - Jb)/ BigR    * xjac * theta * tstep &
                                    - deta_num_dT * T * (v_x * zj0_x + v_y * zj0_y)                        * xjac * theta * tstep &
-                                  
-                                  ! -------------------------------------- from kinetic coupling -------------------------------------------------
-                                   - deta_dT * v * T * (aux_jz0 + aux_jz0_pcs)                            * xjac * theta * tstep &
-                                  ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
                               + v * tauIC/(r0_corr*BB2) * F0**2/BigR**2 * r0 * (ps0_s * T_t  - ps0_t * T_s)   * theta * tstep &
                               + v * tauIC/(r0_corr*BB2) * F0**2/BigR**2 * T  * (ps0_s * r0_t - ps0_t * r0_s)  * theta * tstep &
@@ -2321,10 +2216,6 @@ do i=1,n_vertex_max
                   !###################################################################################################
 
                   amat(var_u,var_psi) = - v * (psi_s * zj0_t - psi_t * zj0_s)                          * theta * tstep &
-                                        
-                                        ! -------------------------------------- from kinetic coupling -------------------------------------------------
-                                        - BigR * (v_s * psi_t  - psi_s * v_t ) * aux_jz0               * theta * tstep &
-                                        ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
                                         ! New terms coming from -(\partial_t \rho + \nabla \cdot (\rho \mathbf{v})) \mathbf{v} in RHS of momentum equation
                                         ! (see wiki: https://www.jorek.eu/wiki/doku.php?id=model500_501_555#equations):
@@ -2355,10 +2246,6 @@ do i=1,n_vertex_max
                   amat(var_u,var_u) = - BigR**3 * r0_corr * (v_x * u_x + v_y * u_y) * xjac * (1.d0 + zeta)                                &
                                     + r0_hat * BigR**2 * w0 * (v_s * u_t  - v_t  * u_s)                                   * theta * tstep &
                                     + BigR**2 * (u_x * u0_x + u_y * u0_y) * (v_x * r0_y_hat - v_y * r0_x_hat)      * xjac * theta * tstep &
-
-                                    ! -------------------------------------- from kinetic coupling -------------------------------------------------
-                                    + BigR**2 * (v_s * u_t  - v_t * u_s ) * aux_q0 * F0                                   * theta * tstep &
-                                    ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
                                     + tauIC*2. * BigR**3 * Pi0_y * (v_x* u_x + v_y * u_y)                          * xjac * theta * tstep &
 
@@ -2763,8 +2650,6 @@ do i=1,n_vertex_max
                               + v * r0_corr * vpar0 / BigR * (ps0_x * psi_x + ps0_y * psi_y) * xjac * (1.d0 + zeta) &
                               
                               ! --------------------------------- from kinetic coupling -------------------------------------------------
-                              - v * aux_q0 * F0 / BigR * psi                                                     * xjac * (1.d0 + zeta) &
-                              - v * (u0_s * psi_t - u0_t * psi_s) * F0 * aux_q0                                         * theta * tstep &
                               + v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * BB2_psi * BigR * xjac * theta * tstep &
                               ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
@@ -2845,12 +2730,6 @@ do i=1,n_vertex_max
                            -v * amu_neo_prof(ms,mt)*BB2/(Btheta2+epsil) * r0 * (ps0_x*u_x + ps0_y*u_y) * BigR * xjac * theta * tstep 
                     endif
                     !---------------------------------------- NEO
-                    ! ---------------------------------------------- from kinetic coupling ------------------------------------------------
-                    amat(var_vpar,var_u) = amat(var_vpar,var_u) &
-                           - v * aux_q0 * F0**2 / BigR * u_p                        * xjac * theta * tstep &
-                           - v * (u_s * ps0_t - u_t * ps0_s) * F0 * aux_q0                 * theta * tstep 
-                    ! ----------------------------------------end of terms from kinetic coupling ------------------------------------------
-                    
 
                     ! New term coming from -(\partial_t \rho + \nabla \cdot (\rho \mathbf{v})) \mathbf{v} in RHS of momentum equation
                     ! (see wiki: https://www.jorek.eu/wiki/doku.php?id=model500_501_555#equations):
