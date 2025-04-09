@@ -1502,11 +1502,6 @@ do i=1,n_vertex_max
               rhs_ij(var_vpar) = - v * F0 / BigR * P0_p                                                                 * xjac * tstep * factor(var_vpar,1)  &
                                  - v * (P0_s * ps0_t - P0_t * ps0_s)                                                           * tstep * factor(var_vpar,1)  &
                       
-                                ! -------------------------------------- from kinetic coupling -------------------------------------------------
-                                 - v * aux_rho0 * vpar0 * BB2 * BigR                                                    * xjac * tstep * factor(var_vpar,11) &
-                                 + v * BigR * aux_mom_par0                                                              * xjac * tstep * factor(var_vpar,12) &
-                                ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
-
                                 ! Not to be included in the conservative form
                                  - v*(particle_source(ms,mt)+source_pellet+source_bg_drift+source_imp_drift) * vpar0 * BB2 * BigR   * xjac * tstep * factor(var_vpar,2) &
                                      * (1.d0 - fact_conservative_u)  &          
@@ -1575,7 +1570,12 @@ do i=1,n_vertex_max
                            * (                                          + F0 / BigR * v_p)  * xjac * tstep * tstep * factor(var_vpar,6)&
 
             !===============================End of new TG_num terms============================
-                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_k_star             * xjac * tstep * factor(var_vpar,9) 
+                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_k_star             * xjac * tstep * factor(var_vpar,9)& 
+
+            ! -------------------------------------- from kinetic coupling -------------------------------------------------
+              - v * aux_rho0 * vpar0 * BB2 * BigR                                                    * xjac * tstep * factor(var_vpar,11) &
+              + v * BigR * aux_mom_par0                                                              * xjac * tstep * factor(var_vpar,12) 
+            ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
             end if ! (with_vpar)
             
@@ -1780,15 +1780,7 @@ do i=1,n_vertex_max
               !#  Electron + Ion Energy Equation                                                                 #
               !###################################################################################################
                                                               
-              rhs_ij(var_T) =  v * BigR * (heat_source(ms,mt) + aux_E0)                         * xjac * tstep * factor(var_T,1 ) &
-                                                              ! ^ kinetics coupling term
-
-                             + (gamma-1.d0)*0.5d0 * v * (particle_source(ms,mt) + source_pellet) * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,22) &
-
-                            ! --------------------------------------- from kinetic coupling -------------------------------------------------
-                             + (gamma-1.d0)*0.5d0 * v * aux_rho0                                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,23) &
-                             - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                                              * xjac * tstep * factor(var_T,24) &
-                            ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
+              rhs_ij(var_T) =  v * BigR * heat_source(ms,mt)                                    * xjac * tstep * factor(var_T,1 ) &
               
                              + v * (r0 + rimp0*alpha_imp_bis) * BigR**2 * (T0_s  * u0_t - T0_t * u0_s) * tstep * factor(var_T,2 ) &
                              + v * T0 * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)                         * tstep * factor(var_T,2 ) &
@@ -1854,7 +1846,15 @@ do i=1,n_vertex_max
                              + zeta * v * T0      * delta_g(mp,var_rho,ms,mt) * BigR            * xjac * factor(var_T,10)                     &
                              +implicit_heat_source*(gamma-1.d0)*v &
                              * (0.5d0*T_min_neg*(1 + exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) )) -min(T0,T_min_neg)) &
-                             *                                                                                 xjac*tstep*BigR  * factor(var_T,20)   
+                             *                                                                                 xjac*tstep*BigR  * factor(var_T,20) &
+
+                             + (gamma-1.d0)*0.5d0 * v * (particle_source(ms,mt) + source_pellet) * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,22) &
+
+                            ! --------------------------------------- from kinetic coupling -------------------------------------------------
+                             + v * BigR * aux_E0                                                                         * xjac * tstep * factor(var_T,23) &
+                             + (gamma-1.d0)*0.5d0 * v * aux_rho0                                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,24) &
+                             - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                                              * xjac * tstep * factor(var_T,25) 
+                            ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
 
               if (with_impurities) then
                 rhs_ij(var_T) = rhs_ij(var_T) + &
@@ -2647,11 +2647,7 @@ do i=1,n_vertex_max
                               + visco_par_par * F0**2 / (BigR * BB2)    * Bgrad_vpar_psi * Bgrad_rho_star       * xjac * theta * tstep &
                               + visco_par_par * F0**2 / (BigR * BB2)    * Bgrad_vpar * Bgrad_rho_star_psi       * xjac * theta * tstep &
 
-                              + v * r0_corr * vpar0 / BigR * (ps0_x * psi_x + ps0_y * psi_y) * xjac * (1.d0 + zeta) &
-                              
-                              ! --------------------------------- from kinetic coupling -------------------------------------------------
-                              + v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * BB2_psi * BigR * xjac * theta * tstep &
-                              ! ----------------------------end of terms from kinetic coupling ------------------------------------------
+                              + v * r0_corr * vpar0 / BigR * (ps0_x * psi_x + ps0_y * psi_y) * xjac * (1.d0 + zeta) &                            
 
                               + v * (P0_s * psi_t - P0_t * psi_s)                                       * theta * tstep &
   
@@ -2675,6 +2671,10 @@ do i=1,n_vertex_max
                               ! Not to be included in conservative form
                               + v*(particle_source(ms,mt)+source_pellet+source_bg_drift+source_imp_drift)*vpar0* BB2_psi * BigR * xjac * theta * tstep &
                                  * (1.d0 - fact_conservative_u)  &
+
+                              ! --------------------------------- from kinetic coupling -------------------------------------------------
+                              + v * aux_rho0 * vpar0 * BB2_psi * BigR * xjac * theta * tstep * (1.d0 - fact_conservative_u) &
+                              ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
                               + (1.d0 - delta_n_convection) * (  &  
                                 + v *((r0+alpha_e*rimp0) * rn0 * Sion_T) * vpar0 * BB2_psi * BigR                   * xjac * theta * tstep &
@@ -2865,7 +2865,7 @@ do i=1,n_vertex_max
                                *(1.d0 - fact_conservative_u) &
 
                             ! --------------------------------------------------- from kinetic coupling -------------------------------------------------
-                            + v*(particle_source(ms,mt) + source_pellet + aux_rho0)*vpar*BB2 * BigR * xjac * theta * tstep &
+                            + v*aux_rho0*vpar*BB2 * BigR * xjac * theta * tstep * (1.d0 - fact_conservative_u) &
                             ! ---------------------------------------------end of terms from kinetic coupling ------------------------------------------
 
   
@@ -4056,7 +4056,7 @@ do i=1,n_vertex_max
 
                                             ! --------------------------------- from kinetic coupling -------------------------------------------------
                                              - (gamma-1.d0)*v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                                             + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
+                                             + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & ! should there be a conservative factor adjustment here?
                                             ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
 

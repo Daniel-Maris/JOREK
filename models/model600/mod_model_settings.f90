@@ -73,13 +73,13 @@ integer, parameter :: var_up   = 0
 logical, parameter :: unified_element_matrix = .true.
 
 !> parameters for naming equation terms in the RHS diagnostic 
-integer,  parameter :: max_terms    = 24
+integer,  parameter :: max_terms    = 25
 integer,  parameter :: n_terms_psi  = 5
 integer,  parameter :: n_terms_u    = 11
 integer,  parameter :: n_terms_zj   = 1
 integer,  parameter :: n_terms_w    = 1
 integer,  parameter :: n_terms_rho  = 12
-integer,  parameter :: n_terms_T    = 24
+integer,  parameter :: n_terms_T    = 25
 integer,  parameter :: n_terms_Te   = 19
 integer,  parameter :: n_terms_Ti   = 14
 integer,  parameter :: n_terms_vpar = 12
@@ -150,8 +150,10 @@ character*36, dimension(n_terms_T),     parameter :: T_term_names=  &
                                                  'T_Eq__impl_heating      ', &  ! 20:
                                                  'T_Eq__visco_heating     ', &  ! 21:
                                                  'T_Eq__ext_part_source   ', &  ! 22:
-                                                 'T_Eq__aux_part_source   ', &  ! 23:
-                                                 'T_Eq__aux_par_mom_source'/)   ! 24:
+                                                 'T_Eq__aux_E_source      ', &  ! 23:
+                                                 'T_Eq__aux_part_source   ', &  ! 24:
+                                                 'T_Eq__aux_par_mom_source'/)   ! 25:
+
 
 character*36, dimension(n_terms_Ti),    parameter :: Ti_term_names=  &
                                               (/ 'Ti_Eq__ext_heat_source ', &  !  1:
@@ -203,7 +205,7 @@ character*36, dimension(n_terms_vpar),  parameter :: vpar_term_names=  &
                                                  'vpar_Eq__viscopar_term     ', &  !  9:
                                                  'vpar_Eq__neoclassical_term ', &  ! 10:
                                                  'vpar_Eq__aux_part_source   ', &  ! 11:
-                                                 'vpar_Eq__aux_par_mom_source'/)   ! 12:   
+                                                 'vpar_Eq__aux_mom_par_source'/)   ! 12:   
 
  character*36, dimension(n_terms_rhon), parameter :: rhon_term_names=  &
                                               (/ 'rhon_Eq__neutral_diffusion', &  !  1:
