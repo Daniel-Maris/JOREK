@@ -127,10 +127,6 @@ subroutine atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradD
     LradDcont_T   = Szrb_T 
     dLradDcont_dT = dSzrb_dT
 
-    !> no corrections as no dielectronic cascade contribution for this fit
-    LradDcont_corr = LradDcont_T 
-    dLradDcont_dT_corr = dLradDcont_dT
-
     if ( Te_eV < 0.2d0) then  ! --- Don't radiate or ionize below 0.2 eV, recombination allowed
       LradDcont_T   = 0.d0
       dLradDcont_dT = 0.d0
@@ -217,10 +213,6 @@ subroutine atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradD
     dLradDrays_dT = dLradDrays_dT * 2.d0
     dLradDcont_dT = dLradDcont_dT * 2.d0
 
-    !> no correction necessary for this fit as only Bremsstrahlung contribution is included
-    LradDcont_corr = LradDcont_T 
-    dLradDcont_dT_corr = dLradDcont_dT
-
   else  ! --- use OPEN ADAS
     Te_eV_lim  = max(Te_eV,     0.2d0)  ! ADAS data is given between 0.2eV and 10 keV  
     Te_eV_lim  = min(Te_eV_lim, 1.d4 )  
@@ -271,9 +263,6 @@ subroutine atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradD
     dLradDrays_dT = dLradDrays_dT * (central_density * 1.d20)**2 * MU_zero * t_norm * gamma_factor & 
                                   / (K_BOLTZ*MU_ZERO*central_density*1.d20) ! factor to get the T derivative in JOREK units
 
-    !> correction required to remove dielectronic cascade energy loss
-    LradDcont_corr = LradDcont_T - Srec_T * ksi_ion_norm
-    dLradDcont_dT_corr = dLradDcont_dT - dSrec_dT * ksi_ion_norm
   endif
 
   ! --- Switich off atomic coefficients in case of small or negative densities
@@ -292,6 +281,10 @@ subroutine atomic_coeff_deuterium(Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradD
       endif
     endif
   endif
+
+  !> correction required to remove dielectronic cascade energy loss
+  LradDcont_corr = LradDcont_T - Srec_T * ksi_ion_norm
+  dLradDcont_dT_corr = dLradDcont_dT - dSrec_dT * ksi_ion_norm
  
 end subroutine
 
