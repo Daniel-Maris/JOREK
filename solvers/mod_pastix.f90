@@ -16,6 +16,7 @@ module mod_pastix
     logical                                      :: equilibrium = .false.
     logical                                      :: scaled      = .false.
     logical                                      :: refine      = .false.
+    logical                                      :: projection  = .false.
 
     integer(kind=int_all), dimension(:), pointer :: loc2glob => null(), glob2loc => null()  ! mapping for column distribution
     real(kind=8), dimension(:), pointer          :: rhs_val => Null()
@@ -419,6 +420,7 @@ module mod_pastix
     logical                                      :: equilibrium = .false.
     logical                                      :: scaled      = .false.
     logical                                      :: refine      = .false.
+    logical                                      :: projection  = .false.
 
     integer(kind=int_all), dimension(:), pointer :: irn => Null()
     integer(kind=int_all), dimension(:), pointer :: jcn => Null()
@@ -486,7 +488,7 @@ module mod_pastix
     call MPI_COMM_RANK(comm, my_id, ierr)
     call MPI_COMM_SIZE(comm, n_cpu, ierr)
 
-    if (.not.ptss%equilibrium) then
+    if (.not.ptss%equilibrium .and. .not. ptss%projection) then
 
       call scale_by_cols(ad_mat)
       if (associated(ptss%solution_scaling)) then
@@ -563,7 +565,7 @@ module mod_pastix
     ptss%nblock = nblock
     ptss%block_size = block_size
 
-    if (ptss%equilibrium) then
+    if (ptss%equilibrium .or. ptss%projection) then
     ! combine duplicated values
       nnz = ac_mat%jcn(ac_mat%ng + 1) - 1
       call pastix_fortran_checkmatrix(check_data, ac_mat%comm, &

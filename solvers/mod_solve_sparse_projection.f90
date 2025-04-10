@@ -67,12 +67,14 @@ module mod_solve_sparse_projection
 #ifdef USE_STRUMPACK
           if (verbose) write(*,*) "Using STRUMPACK solver"
           solver%spss%equilibrium = solver%equilibrium
+          solver%spss%projection  = solver%projection
           call solve_strumpack_all(solver%spss, a_mat, rhs_vec, solver%solve_only, tag)
 #endif
       elseif (solver%library.eq.pastix) then
 #if (defined USE_PASTIX) || (defined USE_PASTIX6)
           if (verbose) write(*,*) "Using PaStiX solver"
           solver%ptss%equilibrium = solver%equilibrium
+          solver%ptss%projection  = solver%projection
           solver%ptss%refine = .true.
           call solve_pastix_all(solver%ptss, a_mat, rhs_vec, solver%solve_only, tag)
 #endif

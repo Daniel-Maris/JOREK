@@ -15,6 +15,7 @@ module mod_strumpack
     logical                          :: analyzed = .false.
     logical                          :: equilibrium = .false.
     integer                          :: comm = 0
+    logical                          :: projection  = .false.
   end type type_STRUMPACK_SOLVER
 
   private
@@ -240,7 +241,7 @@ module mod_strumpack
 
       endif
       
-      if (eql) then
+      if (eql .or. spss%projection) then
         call remove_duplicates(a_mat%ng,a_mat%nnz,a_mat%irn,a_mat%jcn,a_mat%val)
         n_d = a_mat%ng
         nnz_d = a_mat%nnz
@@ -294,14 +295,25 @@ module mod_strumpack
    
     subroutine strumpack_factorize(spss)
       use data_structure, only: type_SP_MATRIX
+      use, intrinsic :: ieee_exceptions
 
       implicit none
       
       type(type_STRUMPACK_SOLVER)       :: spss
       integer ierr
+      logical :: halt(size(IEEE_USUAL,1))
+
+      if (spss%projection) then
+        call ieee_get_halting_mode(IEEE_USUAL, halt)
+        call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
+      endif
 
       call spk_fact(spss%sscp,spss%comm)
       call MPI_Barrier(spss%comm,ierr)
+      
+      if (spss%projection) then
+        call ieee_set_halting_mode(IEEE_USUAL, halt)
+      endif
 
       return
     end subroutine strumpack_factorize

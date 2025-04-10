@@ -578,8 +578,20 @@ function new_projection(node_list, element_list,                                
   endif
 
   new%solver%verbose = .true.
-  new%solver%library = mumps
   new%solver%projection = .true.
+
+#ifdef USE_STRUMPACK
+  new%solver%library = strumpack
+#endif
+
+#ifdef USE_PASTIX
+  new%solver%library = pastix
+#endif
+
+#ifdef USE_MUMPS
+  new%solver%library = mumps
+#endif
+
 
 end function new_projection
 
