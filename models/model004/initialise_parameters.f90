@@ -154,7 +154,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 spi_Vel_diff, t_ns, JET_MGI, ASDEX_MGI,             &
                 delta_n_convection, nimp_bg, output_prad_phi,       &
                 RMP_on, RMP_har_cos,RMP_har_sin, spi_shard_file,    &
-                spi_plume_file, spi_plume_hdf5,                     &
+                spi_plume_file, spi_plume_hdf5, spi_abl_mag_reduction, &
                 RMP_growth_rate, RMP_ramp_up_time,                  &
                 RMP_psi_cos_file, RMP_psi_sin_file,                 &
                 Number_RMP_harmonics,RMP_har_cos_spectrum,          &
@@ -188,6 +188,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 use_ncs, use_pcs, use_ccs,                          &
                 min_sheath_angle, bcs, cte_current_FB_fact, vacuum_min,    &
                 export_aux_node_list, xpoint_search_tries,          &
+                use_manual_random_seed, manual_seed,                &
                 bgf_rpolar, bgf_tht
 
 
@@ -253,6 +254,7 @@ if (my_id .eq. 0) then
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
   else
     tstep_n    = 0.d0
     tstep_n(1) = tstep

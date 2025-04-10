@@ -967,6 +967,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
        write(*,CHAR_FMT2) 'spi_plume_file(',i,')    ',  trim(spi_plume_file(i))
      end do
      write(*,LOGI_FMT) 'spi_plume_hdf5      ',  spi_plume_hdf5
+     write(*,LOGI_FMT) 'spi_abl_mag_reduction',  spi_abl_mag_reduction
      write(*,INTG_FMT) 'spi_rnd_seed        ',  spi_rnd_seed
      write(*,INTG_FMT) 'spi_abl_model       ',  spi_abl_model
      do i = 1,n_inj
@@ -1017,6 +1018,11 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,REAL_FMT) 'R_valve_loc2,         ',R_valve_loc2
     write(*,REAL_FMT) 'Z_valve2,             ',Z_valve2
   endif
+
+  write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
+  if (use_manual_random_seed) then
+    write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+  endif     
 
 #ifdef USE_CATALYST
   write(*,CHAR_FMT) 'catalyst_scripts,   ',trim(catalyst_scripts)
