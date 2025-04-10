@@ -306,7 +306,9 @@ module phys_module
              ZK_i_perp_num_tanh, ZK_i_perp_num_tanh_psin, ZK_i_perp_num_tanh_sig,    &
              ZK_e_perp_num_tanh, ZK_e_perp_num_tanh_psin, ZK_e_perp_num_tanh_sig
   real*8  :: Dn_perp_num
-  logical :: maintain_profiles
+  logical :: maintain_profiles             !< Add artificial sources to maintain initial rho and T profiles
+                                           !! (diffusion acts on deviation from initial profiles)
+					   !! at present only implemented for stellarator model 183
 
   !> @name Shock-capturing terms
   logical :: use_sc  !< Use shock-capturing stabilization
