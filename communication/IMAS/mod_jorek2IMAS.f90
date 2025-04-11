@@ -133,6 +133,7 @@ module mod_jorek2IMAS
       ! --- Put the grid in GGD
       allocate( plasma_profiles_ids%grid_ggd(n_grid) )
       grid => plasma_profiles_ids%grid_ggd(grid_ind)
+      grid%time = time_SI
       call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
     else 
       if ( associated(plasma_profiles_ids%grid_ggd) ) then
@@ -1039,6 +1040,7 @@ module mod_jorek2IMAS
       ! --- Put the grid in GGD
       allocate( radiation_ids%grid_ggd(n_grid) )
       grid => radiation_ids%grid_ggd(grid_ind)
+      grid%time = time_SI
       call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
     else
       if ( associated(radiation_ids%grid_ggd)) then
@@ -2017,6 +2019,7 @@ module mod_jorek2IMAS
       ! --- Put the grid in GGD
       allocate( plasma_profiles_ids%grid_ggd(n_grid) )
       grid => plasma_profiles_ids%grid_ggd(grid_ind)
+      grid%time = time_SI
       call rect_grid2ggd( grid, rect_elms_vertices, RZ )
     else
       if ( associated(plasma_profiles_ids%grid_ggd)) then
