@@ -2961,7 +2961,7 @@ do i=1,n_vertex_max
                               - v * ((GAMMA - 1.) / BigR) * vpar0**2 * (psi_x * ps0_x + psi_y * ps0_y)&
                                   * ((r0+alpha_e*rimp0)*rn0*Sion_T)                                          * xjac * theta * tstep &
                               - v * ((GAMMA - 1.) / BigR) * vpar0**2 * (psi_x * ps0_x + psi_y * ps0_y)&
-                                  * (source_bg_drift + source_imp_drift)                                     * xjac * theta * tstep &
+                                  * (particle_source(ms,mt) + source_pellet + source_bg_drift + source_imp_drift)                                     * xjac * theta * tstep &
                               !==============================End of friction terms=================
  
                            + tgnum_Ti* 0.25d0 / BigR * vpar0**2                                                         &
@@ -3706,7 +3706,7 @@ do i=1,n_vertex_max
                     !================= End ionization potential energy ===========================
                     !===================== Additional terms from friction terms============
                                           - v * ((GAMMA - 1.) / BigR) * vpar0**2 * (psi_x * ps0_x + psi_y * ps0_y)&
-                                              * ((r0+alpha_e*rimp0)*rn0*Sion_T + source_bg_drift + source_imp_drift) * xjac * theta * tstep &
+                                              * ((r0+alpha_e*rimp0)*rn0*Sion_T + particle_source(ms,mt) + source_pellet + source_bg_drift + source_imp_drift) * xjac * theta * tstep &
                     !==============================End of friction terms=================
   
                           + tgnum_T * 0.25d0 / BigR * vpar0**2                                                        &
