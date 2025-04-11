@@ -1459,7 +1459,7 @@ do i=1,n_vertex_max
             !#  Density Equation                                                                               #
             !###################################################################################################
 
-            rhs_ij(var_rho)  = v * BigR * (particle_source(ms,mt) + source_pellet + source_bg_drift + source_imp_drift + aux_rho0)   * xjac * tstep * factor(var_rho,1) &
+            rhs_ij(var_rho)  = v * BigR * (particle_source(ms,mt) + source_pellet + source_bg_drift + source_imp_drift)   * xjac * tstep * factor(var_rho,1) &
                        + v * BigR**2 * ( r0_s * u0_t - r0_t * u0_s)                                                                         * tstep * factor(var_rho,2) &
                        + v * 2.d0 * BigR * r0 * u0_y                                                                                 * xjac * tstep * factor(var_rho,3) &
                        - ((D_prof_par+D_par_sc_num*tau_sc) - D_prof)  * BigR / BB2 * Bgrad_rho_star * (Bgrad_rho-Bgrad_rhoimp)            * xjac * tstep * factor(var_rho,4) &
@@ -1484,7 +1484,11 @@ do i=1,n_vertex_max
                                                     * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep                                             * factor(var_rho,12)&
                        - tgnum_rho * 0.25d0 / BigR * vpar0**2                                                                                                           &
                                  * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                                                                                     &
-                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep                                          * factor(var_rho,12)
+                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep                                          * factor(var_rho,12)&
+
+                      ! -------------------------------------- from kinetic coupling -------------------------------------------------
+                       + v * BigR * aux_rho0                                                                                         * xjac * tstep * factor(var_rho,13) 
+                      ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
             rhs_ij_k(var_rho) = - ((D_prof_par+D_par_sc_num*tau_sc)-D_prof) * BigR / BB2 * Bgrad_rho_k_star * (Bgrad_rho-Bgrad_rhoimp)    * xjac * tstep * factor(var_rho,4) &
                             - ((D_prof_par_imp+D_par_imp_sc_num*tau_sc)-D_prof_imp) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rhoimp        * xjac * tstep * factor(var_rho,4) &
@@ -1573,7 +1577,7 @@ do i=1,n_vertex_max
                  - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_k_star             * xjac * tstep * factor(var_vpar,9)& 
 
             ! -------------------------------------- from kinetic coupling -------------------------------------------------
-              - v * aux_rho0 * vpar0 * BB2 * BigR                                                    * xjac * tstep * factor(var_vpar,11) &
+              - v * aux_rho0 * vpar0 * BB2 * BigR * (1.d0 - fact_conservative_u)                     * xjac * tstep * factor(var_vpar,11) &
               + v * BigR * aux_mom_par0                                                              * xjac * tstep * factor(var_vpar,12) 
             ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
@@ -4056,7 +4060,7 @@ do i=1,n_vertex_max
 
                                             ! --------------------------------- from kinetic coupling -------------------------------------------------
                                              - (gamma-1.d0)*v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                                             + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & ! should there be a conservative factor adjustment here?
+                                             + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & 
                                             ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
 
