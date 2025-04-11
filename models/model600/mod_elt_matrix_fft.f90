@@ -1567,10 +1567,11 @@ do i=1,n_vertex_max
                                    * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * tstep * tstep * factor(var_Ti,8)&
 
                          !===================== Additional terms from friction terms============
-                         + v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * ((r0+alpha_e*rimp0)*rn0*Sion_T) * xjac * tstep * factor(var_Ti,10) &
-                         + v * BigR * ((GAMMA - 1.)/2.) * vv2 * (((r0+alpha_e*rimp0)*rn0*Sion_T))          * xjac * tstep * factor(var_Ti,10) &
+                         + v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * ((r0+alpha_e*rimp0)*rn0*Sion_T)             * xjac * tstep * factor(var_Ti,10) &
+                         + v * BigR * ((GAMMA - 1.)/2.) * vv2 * (((r0+alpha_e*rimp0)*rn0*Sion_T))                      * xjac * tstep * factor(var_Ti,10) &
                          + v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * (source_bg_drift + source_imp_drift)        * xjac * tstep * factor(var_Ti,10) &
                          + v * BigR * ((GAMMA - 1.)/2.) * vv2 * (source_bg_drift + source_imp_drift)                   * xjac * tstep * factor(var_Ti,10) &
+                         + v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * (particle_source(ms,mt) + source_pellet)    * xjac * tstep * factor(var_Ti,10) &
                          !==============================End of friction terms=================
   
                          !============================Behold, the parallel viscous heating terms!=============
@@ -2960,7 +2961,7 @@ do i=1,n_vertex_max
                               - v * ((GAMMA - 1.) / BigR) * vpar0**2 * (psi_x * ps0_x + psi_y * ps0_y)&
                                   * ((r0+alpha_e*rimp0)*rn0*Sion_T)                                          * xjac * theta * tstep &
                               - v * ((GAMMA - 1.) / BigR) * vpar0**2 * (psi_x * ps0_x + psi_y * ps0_y)&
-                                  * (source_bg_drift + source_imp_drift)                                                 * xjac * theta * tstep &
+                                  * (source_bg_drift + source_imp_drift)                                     * xjac * theta * tstep &
                               !==============================End of friction terms=================
  
                            + tgnum_Ti* 0.25d0 / BigR * vpar0**2                                                         &
@@ -3143,8 +3144,9 @@ do i=1,n_vertex_max
                                 + v * (r0 + rimp0*alpha_i) * GAMMA * Ti0 * (vpar_s * ps0_t - vpar_t * ps0_s)   * theta * tstep &
 
                       !===================== Additional terms from friction terms============
-                                - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * ((r0+rimp0*alpha_e)*rn0*Sion_T) * xjac * theta * tstep &
+                                - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * ((r0+rimp0*alpha_e)*rn0*Sion_T)             * xjac * theta * tstep &
                                 - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * (source_bg_drift + source_imp_drift)        * xjac * theta * tstep &
+                                - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * (particle_source(ms,mt) + source_pellet)    * xjac * theta * tstep &
                       !==============================End of friction terms=================
 
                       !============================Behold, the parallel viscous heating terms!=============
