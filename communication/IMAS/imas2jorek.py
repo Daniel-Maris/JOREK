@@ -415,7 +415,7 @@ namelist.write(" "+"\n")
 namelist.write("! --- Physical parameters -------------------\n")
 
 eta_JU  = eta_spitzer(Te_ids[0], n_tot[0], 1) * np.sqrt(rho0/mu0)
-namelist.write("  keep_current_prof     = .false. ! Fix current profile")
+namelist.write("  keep_current_prof     = .false. ! Fix current profile\n")
 namelist.write("  eta                   = %18.9e    !!! Spitzer value at Zeff=1 \n"%(eta_JU))
 namelist.write("  eta_ohmic             = %18.9e    !!! Spitzer value at Zeff=1 \n"%(eta_JU))
 namelist.write("  eta_T_dependent       = .t.  \n" )
