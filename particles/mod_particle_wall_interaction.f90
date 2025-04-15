@@ -130,7 +130,7 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
   class(type_rng),               intent(in), optional :: rng                    !< random-number generator to use (default PCG32)
   character(len=*),              intent(in), optional :: input_identifier       !< extra message on stops, to determine which construct_wall_action call had wrong input
  
-  character(len=100) :: name
+  character(len=100) :: name, origin_name
   integer :: my_seed, i, j, target_group_loc, supers_num_loc
   real*8  :: supers_weight_loc, supers_ratio_loc, n_particles
   character(len=14), dimension(:), allocatable :: extra_proj_scalar_names !< additional scalar names on top of the normal ones
@@ -312,7 +312,12 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
   end do
 
   ! settings for the diagnostics
-  write(name, "(A,I2.2,A,I2.2)") spaces2underscore(type)//"_", origin_group, "_to_", this%target_group
+  if(this%fluid2part) then
+    write(origin_name,"(I2.2)") this%origin_group
+  else
+    origin_name = sim%groups(this%origin_group)%id
+  end if
+  write(name, "(5A)") spaces2underscore(type),"_", trim(origin_name), "_to_", sim%groups(this%target_group)%id
   this%n_step_diag = nout_projection
   this%basename = trim(name)//"_"
   if (present(filename)) this%filename = filename
@@ -648,9 +653,9 @@ subroutine fluid2part_action(this, sim)
   call sample_edge_elements(this%fluid_yield_integral, res, 1, n_supers_loc, rng_sample(1:2,:), xyz_sampled, st_sampled, i_elm_sampled)
 
   if (sim%my_id .eq. 0) then
-    write(*,"(A,i8,A,A,A,A,A,i2,A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", n_supers," ", element_symbols(sim%groups(this%target_group)%Z),&
+    write(*,"(A,i8,A,A,A,A,A,i2,3A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", n_supers," ", element_symbols(sim%groups(this%target_group)%Z),&
       " from ", element_symbols(Z), " in group ", this%target_group, &
-    " (Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral*this%weight_factor, "  particles flux #/s : ", integral*this%weight_factor/this%delta_t
+    " (ID=",sim%groups(this%target_group)%id,", Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral*this%weight_factor, "  particles flux #/s : ", integral*this%weight_factor/this%delta_t
   end if
 
   select type (pa => sim%groups(this%target_group)%particles)
