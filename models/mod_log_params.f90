@@ -1138,6 +1138,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     do group_num=1,n_fluid_groups
       write(*,*) "---- Fluid group slot: ", group_num, " -----" 
       write(*,INTG_FMT) 'Z,                      ', fluid_configs(group_num)%Z
+      write(*,REAL_FMT) 'density_fraction,       ', fluid_configs(group_num)%density_fraction
 
       ! wall interactions
       n_wall_actions = 0

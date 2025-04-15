@@ -919,6 +919,8 @@ enddo
 n_fluid_groups = 0
 
 fluid_configs(:)%Z = -999
+fluid_configs(:)%density_fraction = -1.d99
+fluid_configs(1)%density_fraction = 1.d0 !< the first one should have default 1, if more then one fluid is used, the user should specify the distribution
 
 do i=1, n_fluid_groups_max
   do j=1, n_part_groups_max

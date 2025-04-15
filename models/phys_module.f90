@@ -994,7 +994,7 @@ module phys_module
   type :: type_wall_act_config
     character(len=20) :: type          !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
     integer           :: target_group  !< which particle group this wall interaction affects (refers to the config number, which is converted to which sim%groups number internally)
-    real*8            :: weight_factor !< additional weight factor of the yield (e.g. useful to split a single plasma fluid into D and T neutrals upon wall recombination)
+    real*8            :: weight_factor !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
     
     ! settings for number of superparticles created when new super particles must be initialised
     integer           :: supers_num_wall    !< number of new superparticles initialised at each puff action
@@ -1067,7 +1067,8 @@ module phys_module
 
   !> currently only holds information for wall_action objects from the fluid side
   type :: type_fluid_config
-    integer :: Z          !< Z of this fluid species (e.g. -2 for D)
+    integer :: Z                !< Z of this fluid species (e.g. -2 for D)
+    real*8  :: density_fraction !< fraction of the plasma density of this specific fluid. The density fractions of all used fluid configs should add up to 1
     type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
   end type type_fluid_config
 
