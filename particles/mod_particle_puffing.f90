@@ -277,6 +277,7 @@ subroutine do_particle_puffing(this,sim, ev)
   use mpi_mod
   use phys_module, only: tstep, central_mass, central_density
   use constants, only: MASS_PROTON, MU_ZERO
+  ! use mod_particle_create, only: free_particle_indices ! TODO
   ! !$ use omp_lib
 
   class(particle_puffing) , intent(inout) :: this
@@ -284,7 +285,7 @@ subroutine do_particle_puffing(this,sim, ev)
   type(event), intent(inout), optional    :: ev 
 
   integer :: ierr,i_scalar, n_free, j, k, n_group, i_elm, i_elm_new, ifail, i_p, to_puff, supers_to_puff, supers_to_puff_local, i_rng
-  logical, allocatable, dimension(:) :: is_free
+  logical, allocatable, dimension(:) :: is_free ! TODO rm
   integer, allocatable, dimension(:) :: i_free
   real*8  :: tstep_fluid_si, c, R, Z, phi, s, t
   real*8  :: R_new, Z_new, s_new, t_new, r_valve, theta
@@ -311,6 +312,7 @@ subroutine do_particle_puffing(this,sim, ev)
   !> get SI time ----------------
   tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
 
+  ! TODO rm
   !============== Finding free particles !< make into a function?
   allocate(is_free(size(sim%groups(this%target_group)%particles,1))) 
   !$omp parallel do default(none) shared(sim, this, n_free, i_free, is_free) &
@@ -346,8 +348,12 @@ subroutine do_particle_puffing(this,sim, ev)
   !> calculate how many superparticles to initiate ---------------
   supers_to_puff = this%create_scheme%supers_to_create(sim%my_id, tstep_fluid_si * puff_rate)
   supers_to_puff_local = calc_n_particles_per_mpi(supers_to_puff, sim%n_mpi, sim%my_id)
-  to_puff = supers_to_puff_local
 
+  ! TODO: use function
+  ! ! determine indices of free particles
+  ! call free_particle_indices(sim%groups(this%target_group)%particles, n_free, i_free, n_needed=supers_to_puff_local)  
+
+  to_puff = supers_to_puff_local
   if (to_puff .ge. n_free) then
     to_puff = n_free
     write(*,"(A, I3, A)") "WARNING: On mpi proc ", sim%my_id, ", not enough free particles available to puff the requested amount."
@@ -428,7 +434,7 @@ subroutine do_particle_puffing(this,sim, ev)
       pa(i_p)%x(1:2)  = [R, Z]
       pa(i_p)%st(1:2) = [s, t]
       pa(i_p)%i_elm   = i_elm
-      pa(i_p)%weight  = real(1.d0/supers_to_puff_local) * tstep_fluid_si * puff_rate_local
+      pa(i_p)%weight  = real(1.d0/to_puff) * tstep_fluid_si * puff_rate_local
    
       pa(i_p)%v       = c * sample_cosine(u(4:5), this%vector_normal)   
       pa(i_p)%q       = 0_1

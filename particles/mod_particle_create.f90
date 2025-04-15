@@ -202,6 +202,7 @@ subroutine free_particle_indices(part_arr, n_free, i_free, n_needed)
 
   ! Step 3: give first n_needed elements back if n_needed was specified, else return array with all free particle indices
   ! TODO: could copying be sped up using omp?
+  ! TODO move if(present(n_needed)) to earlier, you only need to fill first n_needed, that's way quicker
   if(present(n_needed)) then
     if(n_free < n_needed) then
       write(*,*) "ERROR: More free particles needed than available, returning only available free particles (avail/needed)", n_free, n_needed
