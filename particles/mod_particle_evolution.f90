@@ -17,7 +17,7 @@ module mod_particle_evolution
 
     implicit none
     private
-    public :: evolve_particle_group
+    public :: evolve_particle_group, evolve_REs
 contains
 
   !> For each particle group, this function does the following:
@@ -145,7 +145,7 @@ contains
     if (sim%my_id .eq. 0) write(*,*) '---------- Evolving particle group: ', sim%groups(group_num)%id, " ----------"
 
     !> Set up storage of feedback
-    jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + nstep_particles * tstep_part_adj
+    jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + nstep_particles * tstep_part_adj 
     allocate(feedback_rhs,source=jorek_feedback%rhs)
     feedback_nodelist => jorek_feedback%node_list
     feedback_element_list => jorek_feedback%element_list
@@ -170,14 +170,14 @@ contains
       !$omp private(j, k, m, n, HZ, HH, HH_s, HH_t, E, B, psi, U,  &
       !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, v_n, i_tor, ifail, &
       !$omp cylindrical_velocity, cylindrical_momentum, v_par, v_perp, gamma_m ) &
-      !$omp shared (nstep_particles, tstep_part_adj, sim, group_num, rho_norm) &
+      !$omp shared (nstep_particles, tstep_part_adj, sim, group_num, rho_norm, &
+      !$omp mom_par_idx_kin, mom_perp_idx_kin, j_phi_idx_kin) &
       !$omp reduction(+:feedback_rhs_inv)
   
       do j=1,size(particles,1)
         do k=1,nstep_particles
           if (particles(j)%i_elm .le. 0) exit
   
-          !call cpu_time(start)
           call basisfunctions(particles(j)%st(1), particles(j)%st(2), HH, HH_s, HH_t)
           call mode_moivre(particles(j)%x(3), HZ)
   
@@ -208,11 +208,9 @@ contains
               v_n     = proj_factor
   
               do i_tor = 1,n_tor
-                feedback_rhs_inv(1,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(1,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
-                feedback_rhs_inv(2,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(2,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Pperp
-                
-                feedback_rhs_inv(3,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(3,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_jPhi
-  
+                feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
+                feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Pperp
+                feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_jPhi
               enddo
             enddo
           enddo
@@ -228,10 +226,19 @@ contains
 
     ! ================================= CONSTRUCT PROJECTION RHS =======================================
     !> enter gathered rhs into jorek_feedback
+    feedback_rhs_inv  = feedback_rhs_inv / real(nstep_particles,8)
+    feedback_rhs      = reshape(feedback_rhs_inv, (/n_degrees, n_vertex_max, sim%fields%element_list%n_elements, n_tor, n_aux_var/), order=(/5,4,3,2,1/))
 
+    !> rep specific projections
+    if (sim%groups(group_num)%coupling_scheme == 'rep') then
+      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / real(nstep_particles,8) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) / real(nstep_particles,8) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) / real(nstep_particles,8) !* TWOPI
+    endif
 
     jorek_feedback%rhs_gather_time = 0.d0
     deallocate(feedback_rhs)
+    deallocate(feedback_rhs_inv) 
     
     if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', sim%groups(group_num)%id, " ----------"
     
