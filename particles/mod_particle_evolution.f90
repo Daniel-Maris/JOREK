@@ -3,7 +3,7 @@
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: nstep_particles, use_manual_random_seed
+    use phys_module, only: nstep_particles, use_manual_random_seed, n_aux_var
     use mod_coupling_settings
     use coupling_variables
     use mod_project_particles
@@ -12,6 +12,7 @@ module mod_particle_evolution
     use mod_basisfunctions
     use mod_particle_types, only: copy_particle_kinetic_leapfrog
     use mod_sampling, only: boxmueller_transform,sample_chi_squared_3
+    use mod_coordinate_transforms, only: vector_cartesian_to_cylindrical
     !$ use omp_lib
 
     implicit none
@@ -104,6 +105,139 @@ contains
     if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', part_group%id, " ----------"
     
   end subroutine evolve_particle_group
+
+  subroutine evolve_REs(sim, group_num, jorek_feedback, rng, tstep_part_adj)
+    use mod_project_particles
+    use mod_random_seed
+    use mod_interp, only: mode_moivre
+    use mod_basisfunctions
+    use mod_particle_types, only: copy_particle_kinetic_leapfrog
+    use mod_sampling, only: boxmueller_transform,sample_chi_squared_3
+    
+    implicit none
+    class(particle_sim), target, intent(inout)                :: sim
+    integer, intent(in)                                       :: group_num
+    type(projection), target, intent(inout)                   :: jorek_feedback
+    type(count_action)                                        :: counter
+    type(pcg32_rng), dimension(:), allocatable, intent(inout) :: rng
+    real*8, intent(in)                                        :: tstep_part_adj
+    
+    real*8,allocatable :: feedback_rhs(:,:,:,:,:)
+    real*8,allocatable :: feedback_rhs_inv(:,:,:,:,:) 
+    type (type_node_list),         pointer :: feedback_nodelist
+    type (type_element_list),      pointer :: feedback_element_list
+    character(len=3) :: cs
+
+    !> RE specific variables
+    real*8    :: n_norm, rho_norm
+    real*8    :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
+    real*8    :: v_n, v_jR, v_jZ, v_jPhi, v_Ppar, v_Pperp
+
+    real*8    :: E(3), B(3), B_norm2(3), psi, U
+    real*8    :: cylindrical_velocity(3), cylindrical_momentum(3)
+    real*8    :: v_par, v_perp, gamma_m, proj_factor
+    integer   :: j, k, m, n, ifail, i_tor, n_lost
+
+    n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
+    rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+
+    !> ================================ INITIALISATION =======================================
+    if (sim%my_id .eq. 0) write(*,*) '---------- Evolving particle group: ', sim%groups(group_num)%id, " ----------"
+
+    !> Set up storage of feedback
+    jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + nstep_particles * tstep_part_adj
+    allocate(feedback_rhs,source=jorek_feedback%rhs)
+    feedback_nodelist => jorek_feedback%node_list
+    feedback_element_list => jorek_feedback%element_list
+    feedback_rhs       = 0.d0
+
+    !> set up of inv storage (from RE implementation)
+    allocate(feedback_rhs_inv(n_aux_var,n_tor,sim%fields%element_list%n_elements,n_vertex_max,n_degrees))
+    feedback_rhs_inv    = 0.d0
+    
+    !> count number of particles in system
+    call with(sim, counter)
+    
+    !> ================================ COUPLING SPECIFIC LOOPS =======================================
+    !> gathers feedback rhs per particle per tstep_part_adj and pushes particle
+    !> this is where coupling specific physics such as ionisation, charge exchange... etc happens
+
+    ! Loop over all particle groups
+    n_lost = 0
+    select type (particles => sim%groups(group_num)%particles)
+    type is (particle_kinetic_relativistic)
+      !$omp parallel do default(none) &
+      !$omp private(j, k, m, n, HZ, HH, HH_s, HH_t, E, B, psi, U,  &
+      !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, v_n, i_tor, ifail, &
+      !$omp cylindrical_velocity, cylindrical_momentum, v_par, v_perp, gamma_m ) &
+      !$omp shared (nstep_particles, tstep_part_adj, sim, group_num, rho_norm) &
+      !$omp reduction(+:feedback_rhs_inv)
+  
+      do j=1,size(particles,1)
+        do k=1,nstep_particles
+          if (particles(j)%i_elm .le. 0) exit
+  
+          !call cpu_time(start)
+          call basisfunctions(particles(j)%st(1), particles(j)%st(2), HH, HH_s, HH_t)
+          call mode_moivre(particles(j)%x(3), HZ)
+  
+          ! Determines velocity in cylindrical coordinates
+          cylindrical_momentum = vector_cartesian_to_cylindrical(particles(j)%x(3), particles(j)%p)
+          cylindrical_velocity = cylindrical_momentum / &
+                                  sqrt(dot_product(cylindrical_momentum,cylindrical_momentum)/SPEED_OF_LIGHT**2 + sim%groups(group_num)%mass**2)
+  
+          ! Uncomment for PCS
+          call sim%fields%calc_EBpsiU(sim%time, particles(j)%i_elm, particles(j)%st, particles(j)%x(3), E, B, psi, U)
+          B_norm2 = B/norm2(B)
+  
+          v_par   = dot_product(cylindrical_velocity, B_norm2)
+          v_perp  = norm2(cylindrical_velocity - v_par * B_norm2)
+          gamma_m = sqrt(MASS_ELECTRON**2 + dot_product(cylindrical_momentum,cylindrical_momentum)*ATOMIC_MASS_UNIT**2/SPEED_OF_LIGHT**2)
+  
+          do n=1,n_degrees
+            do m=1,n_vertex_max
+  
+              proj_factor = HH(m,n) * sim%fields%element_list%element(particles(j)%i_elm)%size(m,n) * particles(j)%weight
+
+              ! PCS for REs
+              v_Ppar  = proj_factor * gamma_m * v_par**2 * MU_ZERO
+              v_Pperp = proj_factor * gamma_m * v_perp**2 / 2.d0 * MU_ZERO
+  
+              v_jPhi  = - proj_factor * real(particles(j)%q, 8) * EL_CHG * cylindrical_velocity(3) * particles(j)%x(1) * MU_ZERO
+              
+              v_n     = proj_factor
+  
+              do i_tor = 1,n_tor
+                feedback_rhs_inv(1,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(1,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
+                feedback_rhs_inv(2,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(2,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Pperp
+                
+                feedback_rhs_inv(3,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(3,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_jPhi
+  
+              enddo
+            enddo
+          enddo
+  
+          call volume_preserving_push_jorek(particles(j),sim%fields,sim%groups(group_num)%mass,sim%time,tstep_part_adj,ifail)
+  
+  
+        end do !< steps
+      end do !< particles
+      !$omp end parallel do 
+  
+    end select
+
+    ! ================================= CONSTRUCT PROJECTION RHS =======================================
+    !> enter gathered rhs into jorek_feedback
+
+
+    jorek_feedback%rhs_gather_time = 0.d0
+    deallocate(feedback_rhs)
+    
+    if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', sim%groups(group_num)%id, " ----------"
+    
+  end subroutine evolve_REs
+
+
 
   !> Internal function for gathering the feedback rhs values when using the ncs or ics coupling scheme
   !> The two coupling schemes are handled by the same function due to large degree of overlap in the physics 

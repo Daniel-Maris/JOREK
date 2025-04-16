@@ -1032,9 +1032,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,HEADER_FMT) "========== Coupling schemes ============"
     write(*,*) "  use_ncs               = ", use_ncs
     write(*,*) "  use_ics               = ", use_ics
-    write(*,*) "  use_ccs               = ", use_ccs
-    write(*,*) "  use_pcs               = ", use_pcs
-    write(*,*) "  use_pcf               = ", use_pcf
+    write(*,*) "  use_rep               = ", use_rep
     write(*,*) "  use_kin_recomb_global = ", use_kin_recomb_global
 
     write(*,HEADER_FMT) '=========== Particle Groups ============'

@@ -716,74 +716,6 @@ do i=1,n_vertex_max
             aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if
 
-          if (use_ccs) then
-            aux_q0       = eq_aux_g(mp,q_idx_kin,ms,mt)
-            aux_jx0      = eq_aux_g(mp,j_R_idx_kin,ms,mt)
-            aux_jy0      = eq_aux_g(mp,j_Z_idx_kin,ms,mt)
-            aux_jz0      = eq_aux_g(mp,j_Phi_idx_kin,ms,mt)
-          elseif (use_pcs) then
-            aux_P0      = eq_aux_g(mp,1,ms,mt)
-            aux_jz0_pcs = 0.d0 !eq_aux_g(mp,5,ms,mt)
-          elseif(use_pcf) then 
-            aux_PIRR    = eq_aux_g(mp,1,ms,mt);
-            aux_PIRR_s  = eq_aux_s(mp,1,ms,mt);
-            aux_PIRR_t  = eq_aux_t(mp,1,ms,mt);
-            aux_PIRR_R  = (   y_t(ms,mt) * aux_PIRR_s - y_s(ms,mt) * aux_PIRR_t ) / xjac
-            aux_PIRR_Z  = ( - x_t(ms,mt) * aux_PIRR_s + x_s(ms,mt) * aux_PIRR_t ) / xjac
-            aux_PIRR_p  = eq_aux_p(mp,1,ms,mt);
-
-            aux_PIZZ    = eq_aux_g(mp,2,ms,mt);
-            aux_PIZZ_s  = eq_aux_s(mp,2,ms,mt);
-            aux_PIZZ_t  = eq_aux_t(mp,2,ms,mt);
-            aux_PIZZ_R  = (   y_t(ms,mt) * aux_PIZZ_s - y_s(ms,mt) * aux_PIZZ_t ) / xjac
-            aux_PIZZ_Z  = ( - x_t(ms,mt) * aux_PIZZ_s + x_s(ms,mt) * aux_PIZZ_t ) / xjac
-            aux_PIZZ_p  = eq_aux_p(mp,2,ms,mt);
-            
-            aux_PIPP    = eq_aux_g(mp,3,ms,mt);
-            aux_PIPP_s  = eq_aux_s(mp,3,ms,mt);
-            aux_PIPP_t  = eq_aux_t(mp,3,ms,mt);
-            aux_PIPP_R  = (   y_t(ms,mt) * aux_PIPP_s - y_s(ms,mt) * aux_PIPP_t ) / xjac
-            aux_PIPP_Z  = ( - x_t(ms,mt) * aux_PIPP_s + x_s(ms,mt) * aux_PIPP_t ) / xjac
-            aux_PIPP_p  = eq_aux_p(mp,3,ms,mt);             
-
-            aux_PIZR    = eq_aux_g(mp,4,ms,mt);
-            aux_PIZR_s  = eq_aux_s(mp,4,ms,mt);
-            aux_PIZR_t  = eq_aux_t(mp,4,ms,mt);
-            aux_PIZR_R  = (   y_t(ms,mt) * aux_PIZR_s - y_s(ms,mt) * aux_PIZR_t ) / xjac
-            aux_PIZR_Z  = ( - x_t(ms,mt) * aux_PIZR_s + x_s(ms,mt) * aux_PIZR_t ) / xjac
-            aux_PIZR_p  = eq_aux_p(mp,4,ms,mt);             
-
-            aux_PIRP    = eq_aux_g(mp,5,ms,mt);
-            aux_PIRP_s  = eq_aux_s(mp,5,ms,mt);
-            aux_PIRP_t  = eq_aux_t(mp,5,ms,mt);
-            aux_PIRP_R  = (   y_t(ms,mt) * aux_PIRP_s - y_s(ms,mt) * aux_PIRP_t ) / xjac
-            aux_PIRP_Z  = ( - x_t(ms,mt) * aux_PIRP_s + x_s(ms,mt) * aux_PIRP_t ) / xjac
-            aux_PIRP_p  = eq_aux_p(mp,5,ms,mt);             
-
-            aux_PIZP    = eq_aux_g(mp,6,ms,mt);
-            aux_PIZP_s  = eq_aux_s(mp,6,ms,mt);
-            aux_PIZP_t  = eq_aux_t(mp,6,ms,mt);
-            aux_PIZP_R  = (   y_t(ms,mt) * aux_PIZP_s - y_s(ms,mt) * aux_PIZP_t ) / xjac
-            aux_PIZP_Z  = ( - x_t(ms,mt) * aux_PIZP_s + x_s(ms,mt) * aux_PIZP_t ) / xjac
-            aux_PIZP_p  = eq_aux_p(mp,6,ms,mt);
-
-            !See https://www.jorek.eu/wiki/doku.php?id=coordinates, div Pi (tensor)
-            !in physical components
-            !These calculations are the same in reduced MHD. Only the way in which these terms enter
-            !the projected equations differs.
-            aux_divPIR  = aux_PIRR_R + aux_PIZR_Z + (aux_PIRP_p + aux_PIRR - aux_PIPP) / BigR
-            aux_divPIZ  = aux_PIZZ_Z + aux_PIZR_R + (aux_PIZP_p + aux_PIZR) / BigR
-            aux_divPIp  = aux_PIPP_p / BigR + aux_PIRP_R + aux_PIZP_Z + 2.d0 / BigR * aux_PIRP
- 
-            ! B. div P
-            aux_BdivPI      = ps0_y/BigR * aux_divPIR  - ps0_x/BigR * aux_divPIZ + F0/BigR * aux_divPIp
-            ! Ensuring B. div P is perpendicular to B.
-            aux_BB2= (ps0_y / BigR)**2 + (-ps0_x / BigR)**2 + (F0 / BigR)**2
-            aux_divPIR_perp = aux_divPIR - ps0_y / BigR / aux_BB2 * aux_BdivPI
-            aux_divPIZ_perp = aux_divPIZ + ps0_x / BigR / aux_BB2 * aux_BdivPI
-            aux_divPIp_perp = aux_divPIp - F0 / BigR / aux_BB2 * aux_BdivPI
-          endif
-
           if (with_neutrals) then
             rn0      = eq_g(mp,var_rhon,ms,mt)
             rn0_x    = (   y_t(ms,mt) * eq_s(mp,var_rhon,ms,mt) - y_s(ms,mt) * eq_t(mp,var_rhon,ms,mt) ) / xjac    
@@ -1185,20 +1117,20 @@ do i=1,n_vertex_max
             D_prof_imp = 0.
           endif
           ! --- Increase diffusivity if very small density
-          ! if ((r0-rimp0) .lt. D_prof_neg_thresh) then
-          !   D_prof         = D_prof_neg
-          !   D_prof_par     = D_prof_neg
-          ! endif
-          ! if (rimp0 .lt. D_prof_imp_neg_thresh) then
-          !   D_prof_imp     = D_prof_neg
-          !   D_prof_par_imp = D_prof_neg
-          ! endif
-          ! if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
-          !   D_prof         = D_prof_neg
-          !   D_prof_par     = D_prof_neg
-          !   D_prof_imp     = D_prof_neg
-          !   D_prof_par_imp = D_prof_neg
-          ! endif
+          if ((r0-rimp0) .lt. D_prof_neg_thresh) then
+            D_prof         = D_prof_neg
+            D_prof_par     = D_prof_neg
+          endif
+          if (rimp0 .lt. D_prof_imp_neg_thresh) then
+            D_prof_imp     = D_prof_neg
+            D_prof_par_imp = D_prof_neg
+          endif
+          if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
+            D_prof         = D_prof_neg
+            D_prof_par     = D_prof_neg
+            D_prof_imp     = D_prof_neg
+            D_prof_par_imp = D_prof_neg
+          endif
 
           Dn0x = D_neutral_x      
           Dn0y = D_neutral_y      
