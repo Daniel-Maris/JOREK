@@ -23,7 +23,6 @@ integer, dimension(n_part_groups_max) :: matching_sim_groups_indices  = n_part_g
 private
 public match_part_groups_and_configs, generate_part_groups_in_use
 public matching_part_config_indices, matching_sim_groups_indices
-public group_num_from_id, config_num_from_id
 
 contains
 
@@ -121,51 +120,5 @@ contains
     write(temp, '(I2.2)') id_counter
     id = 'P' // temp
   end function generate_part_group_id
-
-  !> returns the group_num which satisfies sim%groups(group_num)%id = id
-  function group_num_from_id(sim,id) result(group_num)
-    use mod_particle_sim, only: particle_sim
-
-    type(particle_sim), intent(in) :: sim
-    character(len=3),   intent(in) :: id !< particle group %id
-    integer :: group_num !< the number sim%groups(group_num)
-    integer :: i
-
-    group_num = -1
-
-    do i=1,size(sim%groups,1)
-      if(sim%groups(i)%id == id) then ! matching id is found
-        group_num = i
-        return
-      end if
-    end do
-
-    ! if at the end the matching id is not found, then the input id is not actually a valid used id in the sim
-    if(sim%my_id == 0) write(*,"(3A)") "ERROR: id ",id," not found among sim%groups(:)%id (group_num_from_id)"
-
-  end function group_num_from_id
-
-  !> returns the group_num which satisfies part_group_configs(config_num)%id = id
-  !> note that this particle group does not necessarily have to be in use!
-  function config_num_from_id(id) result(config_num)
-    use phys_module, only: part_group_configs
-
-    character(len=3),   intent(in) :: id !< particle group %id
-    integer :: config_num !< the number part_group_configs(config_num)%id
-    integer :: i
-
-    config_num = -1
-
-    do i=1,size(part_group_configs,1)
-      if(part_group_configs(i)%id == id) then ! matching id is found
-        config_num = i
-        return
-      end if
-    end do
-
-    ! if at the end the matching id is not found, then the input id is not actually a valid used id in the sim
-    write(*,"(3A)") "ERROR: id ",id," not found among part_group_configs(:)%id (config_num_from_id)"
-
-  end function config_num_from_id
 
 end module mod_particle_group_id

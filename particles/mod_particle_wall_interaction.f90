@@ -107,7 +107,8 @@ subroutine construct_wall_action(this, sim, origin_group, target_group_id, type,
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
   use phys_module, only: nout_projection, n_fluid_groups_max, n_part_groups, n_part_groups_max, fluid_configs, type_wall_act_config
-  use mod_particle_group_id, only: matching_sim_groups_indices, group_num_from_id
+  use mod_particle_group_id, only: matching_sim_groups_indices
+  use mod_particle_sim, only: group_num_from_id
 
   implicit none
   type(wall_action),             intent(inout) :: this         !< the new wall_action object. Inout because it may need some settings already
