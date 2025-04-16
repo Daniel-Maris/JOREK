@@ -1,9 +1,9 @@
 !> The equivalent of jorek2_main.f90 for kinetic simulations
 !>
 !> OpenADAS is used for atomic physics
-!> Plasma and neutral wall interaction are based on SDTRIM coefficients. 
-!> External files y_DD.dat and ye_DD.dat are used to determine wall recombination of plasma into atomic neutral deuterium. 
-!> These are based on interaction with a W wall
+!> The wall interaction rates are based on external files with Eckstein coefficients such as 
+!> y_DD.dat (for yield of a D -> D reaction, which would be wall recombination) and 
+!> ye_DD.dat (for the resulting energy of the same reaction).
 !>
 !> To use a particle restart file: use restart_particles=.t. in the input file.
 !>
