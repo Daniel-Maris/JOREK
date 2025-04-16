@@ -934,6 +934,9 @@ module phys_module
   real*8  :: zjz_0, zjz_1,  zj_coef(10)
   real*8  :: D_neutral
 
+  !> @name Global quantity for REs 
+  real*8, allocatable :: re_current_t(:), Ipre_tot_t(:)
+
   !> @name Particles-related input parameters
   integer :: n_aux_var            !< number of variables in aux_node_list
   integer :: n_diag_var = n_var   !< number of variables in diag_node_list (= n_var is temporary)
