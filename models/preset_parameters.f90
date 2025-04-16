@@ -903,9 +903,9 @@ enddo
 
 do i=1, n_part_groups_max
   do j=1, n_part_groups_max
-    part_group_configs(i)%wall_act_configs(j)%type          = "none"
-    part_group_configs(i)%wall_act_configs(j)%target_group  = -1
-    part_group_configs(i)%wall_act_configs(j)%weight_factor = 1.d0
+    part_group_configs(i)%wall_act_configs(j)%type            = "none"
+    part_group_configs(i)%wall_act_configs(j)%target_group_id = "non"
+    part_group_configs(i)%wall_act_configs(j)%weight_factor   = 1.d0
 
     part_group_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
     part_group_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
@@ -924,9 +924,9 @@ fluid_configs(1)%density_fraction = 1.d0 !< the first one should have default 1,
 
 do i=1, n_fluid_groups_max
   do j=1, n_part_groups_max
-    fluid_configs(i)%wall_act_configs(j)%type          = "none"
-    fluid_configs(i)%wall_act_configs(j)%target_group  = -1
-    fluid_configs(i)%wall_act_configs(j)%weight_factor = 1.d0
+    fluid_configs(i)%wall_act_configs(j)%type            = "none"
+    fluid_configs(i)%wall_act_configs(j)%target_group_id = "non"
+    fluid_configs(i)%wall_act_configs(j)%weight_factor   = 1.d0
 
     fluid_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
     fluid_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0

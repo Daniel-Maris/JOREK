@@ -171,7 +171,7 @@
   ! Deuterium plasma species
   ! fluid_configs(1)%Z=-2
   ! fluid_configs(1)%wall_act_configs(1)%type="wall recomb"
-  ! fluid_configs(1)%wall_act_configs(1)%target_group=1
+  ! fluid_configs(1)%wall_act_configs(1)%target_group_id="D01"
   ! fluid_configs(1)%wall_act_configs(1)%supers_num_wall=5
 
   ! ------------- Puffing patterns:

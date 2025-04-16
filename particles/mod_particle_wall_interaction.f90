@@ -103,19 +103,19 @@ module mod_particle_wall_interaction
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
-subroutine construct_wall_action(this, sim, origin_group, target_group, type, weight_factor, edge_element_template, origin_is_fluid, fluid_Z, fluid_density_fraction, supers_num, supers_weight, supers_ratio, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
+subroutine construct_wall_action(this, sim, origin_group, target_group_id, type, weight_factor, edge_element_template, origin_is_fluid, fluid_Z, fluid_density_fraction, supers_num, supers_weight, supers_ratio, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
   use phys_module, only: nout_projection, n_fluid_groups_max, n_part_groups, n_part_groups_max, fluid_configs, type_wall_act_config
-  use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
+  use mod_particle_group_id, only: matching_sim_groups_indices, group_num_from_id
 
   implicit none
-  type(wall_action),             intent(inout) :: this       !< the new wall_action object. Inout because it may need some settings already
+  type(wall_action),             intent(inout) :: this         !< the new wall_action object. Inout because it may need some settings already
   type(particle_sim),            intent(in) :: sim
-  integer,                       intent(in) :: origin_group  !< config index specifying which group is undergoing this wall interaction. Either particle group number or fluid group number (if it is a fluid to particle interaction type)
-  integer,                       intent(in) :: target_group  !< config index specifying which particle group (part_group_configs(target_group)) this wall interaction affects
-  character(len=*),              intent(in) :: type          !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
-  real*8,                        intent(in) :: weight_factor !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
+  integer,                       intent(in) :: origin_group    !< config index specifying which group is undergoing this wall interaction. Either particle group number or fluid group number (if it is a fluid to particle interaction type)
+  character(len=3),              intent(in) :: target_group_id !< which particle group (as defined by its id) this wall interaction affects
+  character(len=*),              intent(in) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
+  real*8,                        intent(in) :: weight_factor   !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
   type(edge_elements),           intent(in) :: edge_element_template !< a prepared set of edge elements
   logical,                       intent(in) :: origin_is_fluid       !< whether the origin group is a fluid group (.true.) or a particle group (.false.)
   integer,                       intent(in), optional :: fluid_Z                !< Z of this fluid species (e.g. -2 for D)
@@ -155,7 +155,7 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
     this%fluid2part = .true.
   case("other sputter")
     this%part2other = .true.
-    write(msg,*) 'type "other sputter" is still to be implemented'
+    write(msg,"(A)") 'type "other sputter" is still to be implemented'
     call wrong_input(msg, sim%my_id, identifier)
   case("reflection")
     this%part2self = .true.
@@ -174,17 +174,17 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
         call wrong_input(msg, sim%my_id, identifier)
       end if
       if(fluid_Z < lbound(element_symbols,1) .or. fluid_Z > ubound(element_symbols,1)) then
-        write(msg,"(A,3I5,A)") "fluid Z not in bound (Z/min/max)",fluid_Z,lbound(element_symbols,1),ubound(element_symbols,1)
+        write(msg,"(A,3I5)") "fluid Z not in bound (Z/min/max)",fluid_Z,lbound(element_symbols,1),ubound(element_symbols,1)
         call wrong_input(msg, sim%my_id, identifier)
       end if
       this%fluid_Z = fluid_Z
     else ! fluid Z must be present
-      write(msg,"(A,3I5)") "fluid Z must be specified for fluid type interaction"
+      write(msg,"(A)") "fluid Z must be specified for fluid type interaction"
       call wrong_input(msg, sim%my_id, identifier)
     end if
 
     if(origin_group < 1 .or. origin_group > n_fluid_groups_max) then
-      write(msg,*) "fluid origin group is not valid (origin_group/max)",origin_group,n_fluid_groups_max
+      write(msg,"(A,2I4)") "fluid origin group is not valid (origin_group/max)",origin_group,n_fluid_groups_max
       call wrong_input(msg, sim%my_id, identifier)
     end if
     this%origin_group = origin_group
@@ -196,7 +196,7 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
         call wrong_input(msg, sim%my_id, identifier)
       end if
       if(fluid_density_fraction > 1.d0 + 1.d-12) then
-        write(msg,"(A,es12.2)") "Fluid density_fraction cannot be > 1, please set the relative density between 0 and 1"
+        write(msg,"(A,es12.2,A)") "Fluid density_fraction=",fluid_density_fraction,", but cannot be > 1, please set the relative density between 0 and 1"
         call wrong_input(msg, sim%my_id, identifier)
       end if
     end if
@@ -204,7 +204,7 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
   else ! origin_group is a particle group
     ! check whether it is in bounds for the matching array
     if(origin_group < 1 .or. origin_group > n_part_groups_max) then
-      write(msg,*) "particle config origin group is not valid (origin_group/max)",origin_group,n_part_groups_max
+      write(msg,"(A,2I4)") "particle config origin group is not valid (origin_group/max)",origin_group,n_part_groups_max
       call wrong_input(msg, sim%my_id, identifier)
     end if
     
@@ -212,29 +212,32 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
 
     ! check if it is in bounds of sim%groups(this%origin)
     if(this%origin_group < 1 .or. this%origin_group > n_part_groups) then
-      write(msg,*) "sim%groups(this%origin_group) is not valid (this%origin_group/max)",this%origin_group,n_part_groups
+      write(msg,"(A,2I4)") "sim%groups(this%origin_group) is not valid (this%origin_group/max)",this%origin_group,n_part_groups
       call wrong_input(msg, sim%my_id, identifier)
     end if
   end if
-  
-  !self interactions default to have the same target as origin if the wall_act_config%target_group is the unchanged namelist input value -1
-  if(this%part2self .and. target_group == -1) then
-    target_group_loc = origin_group
-  else
-    target_group_loc = target_group
-  end if
 
   !checking and setting target group
-  ! check whether it is in bounds for the matching array
-  if(target_group_loc < 1 .or. target_group_loc > n_part_groups_max) then
-    write(msg,"(A,2I3,A)") "%target_group is not valid (target_group/max): ",target_group_loc,n_part_groups_max," Did you forget to set %target_group"
-    call wrong_input(msg, sim%my_id, identifier)
-  end if
-  this%target_group = matching_sim_groups_indices(target_group_loc)
-  ! check if it is in bounds of sim%groups(this%target_group)
-  if(this%target_group < 1 .or. this%target_group > n_part_groups) then
-    write(msg,"(A,2I3,A)") "%target_group points to an invalid sim%groups(matching(target_group)) (this%target_group/max): ",this%target_group,n_part_groups," Did you define the part_group_configs(target_group) correctly and include it in part_groups_in_use (if you manually set part_groups_in_use)? Origin: %target_group"
-    call wrong_input(msg, sim%my_id, identifier)
+  !self interactions default to have the same target as origin if the wall_act_config%target_group_id is the unchanged namelist input value "non"
+  if(this%part2self .and. target_group_id == "non") then
+    this%target_group = this%origin_group
+  else
+    !the id should be specified
+    if(target_group_id == "non") then
+      write(msg,"(A)") "target_group_id was not set and has to be set (for this interaction type)"
+      call wrong_input(msg, sim%my_id, identifier)
+    end if
+    !get the corresponding group_num
+    this%target_group = group_num_from_id(sim,target_group_id)
+    !check that a match was found
+    if(this%target_group == -1) then
+      write(msg,"(3A)") "target_group_id ",target_group_id," is not a valid id that is in use in sim%groups(:). Did you spell it correctly and include this particle group in part_groups_in_use? Error"
+      call wrong_input(msg, sim%my_id, identifier)
+    else if(this%target_group < 1 .or. this%target_group > n_part_groups_max) then     
+      !sanity check on this%target_group, we should never end up here, so there's a bug somewhere if you get this print
+      write(msg,"(A,2I3,3A)") "%target_group is not valid (target_group/max): ",target_group_loc,n_part_groups_max," This happened for id=",target_group_id," Something strange happened"
+      call wrong_input(msg, sim%my_id, identifier)
+    end if   
   end if
 
   !checking whether the user set origin group and target group differently while it is a self interaction
@@ -271,7 +274,7 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
 
   ! checking and setting the weight_factor
   if(weight_factor > 1.d0 + 1.d-12) then
-    if(sim%my_id == 0) write(*,"(A,A)") "WARNING: having a weight_factor > 1 is usually undesireable. Make sure you really want this. weight_factor > 1 ",identifier
+    if(sim%my_id == 0) write(*,"(2A)") "WARNING: having a weight_factor > 1 is usually undesireable. Make sure you really want this. weight_factor > 1",identifier
   end if
   if(weight_factor < - 1.d-12) then
     write(msg,"(A,es12.2)") "you cannot have negative weight_factor: ",weight_factor
@@ -293,7 +296,7 @@ subroutine construct_wall_action(this, sim, origin_group, target_group, type, we
 
   ! initialising the edge_element objects from the template
   if (.not. allocated(edge_element_template%patch(1)%xyz)) then
-    write(msg,*) 'Edge element template needs to be prepared, exiting'
+    write(msg,"(A)") 'Edge element template needs to be prepared, exiting'
     call wrong_input(msg, sim%my_id, identifier)
   end if
   
@@ -375,7 +378,7 @@ end subroutine construct_wall_action
 function wall_actions_from_config(sim, edge_element_template) result(wall_actions)
   use phys_module, only: part_group_configs, n_part_groups, n_part_groups_max, type_wall_act_config
   use phys_module, only: fluid_configs, n_fluid_groups_max
-  use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
+  use mod_particle_group_id, only: matching_part_config_indices
 
   implicit none
 
@@ -388,7 +391,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
 
   character(len=1000) :: identifier
   character(len=1000) :: msg !< error message
-  integer :: i, j, Z, config_num_i
+  integer :: i, j, Z, config_num_i, n_fluids
   integer :: n_wall_acts !< number of wall_action objects to make
   integer :: i_wall_acts !< ith wall_action to be put in the wall_actions
   real*8  :: density_fraction
@@ -436,12 +439,13 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
 
       ! being here means it is a wall_action that should be used
       i_wall_acts = i_wall_acts + 1
-      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: particle_group_configs(",config_num_i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,config%weight_factor,edge_element_template,.false.,input_identifier=identifier)      
+      write(identifier,"(A,I2,A,I2,A,I3,A)") "for input namelist: particle_group_configs(",config_num_i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
+      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group_id,config%type,config%weight_factor,edge_element_template,.false.,input_identifier=identifier)      
     end do
   end do
 
   !from the fluid
+  n_fluids = 0
   density_fraction_sum = 0
   do i=1,n_fluid_groups_max !loop over fluid groups
     Z = fluid_configs(i)%Z
@@ -452,6 +456,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
         call wrong_input(msg,sim%my_id,"")
       end if
       density_fraction_sum = density_fraction_sum + density_fraction
+      n_fluids = n_fluids + 1
       !don't cycle the loop, because it should be checked whether the user set wall actions for a fluid config without having specified Z. This is checked in construct_wall_action
     end if
     do j=1,n_part_groups_max !loop over wall_action configs
@@ -460,16 +465,18 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
 
       ! being here means it is a wall_action that should be used
       i_wall_acts = i_wall_acts + 1
-      write(identifier,"(A,I2,A,I2,A,I3,A)") " for input namelist: fluid_configs(",i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group,config%type,config%weight_factor,edge_element_template,.true.,fluid_Z=Z,fluid_density_fraction=density_fraction,input_identifier=identifier,supers_num=config%supers_num_wall,supers_weight=config%supers_weight_wall,supers_ratio=config%supers_ratio_wall)
+      write(identifier,"(A,I2,A,I2,A,I3,A)") "for input namelist: fluid_configs(",i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
+      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group_id,config%type,config%weight_factor,edge_element_template,.true.,fluid_Z=Z,fluid_density_fraction=density_fraction,input_identifier=identifier,supers_num=config%supers_num_wall,supers_weight=config%supers_weight_wall,supers_ratio=config%supers_ratio_wall)
     end do
   end do
 
-  if(abs(density_fraction_sum - 1.d0) > 1.d-12) then
+  !check that the density_fractions add up to 1 if there is at least one fluid_config defined
+  if(n_fluids > 0 .and. abs(density_fraction_sum - 1.d0) > 1.d-12) then
     write(msg,"(A,f24.14,A)") "the sum of fluid_configs(:)%density_fraction has to be 1 (of the fluid configs in use, i.e. with specified Z), but it is ",density_fraction_sum,". Please check your fluid_configs(:)%density_fraction."
     call wrong_input(msg,sim%my_id,"")
   end if
 
+  !sanity check on the pre calculated number of wall actions and the actual number. If this creates an error that must mean there's a bug inside this function somewhere
   if(i_wall_acts /= n_wall_acts) then
     write(msg,"(A)") "the total amount of wall_actions is not equal to the number of initialised wall_actions, so something went wrong."
     call wrong_input(msg,sim%my_id,"")
@@ -758,7 +765,7 @@ subroutine fluid2part_action(this, sim)
   !$omp end do
   !$omp end parallel
   class default
-    write(*,*) 'Target particle type not implemented for fluid2part actions (origin/target)', this%origin_group, this%target_group
+    write(*,*) 'Target particle type not implemented for fluid2part actions (origin/target id)', this%origin_group, sim%groups(this%target_group)%id
     stop
   end select
 
@@ -835,7 +842,7 @@ subroutine part2self_action(this, sim)
   !$omp end do
   !$omp end parallel
   class default
-    write(*,*) "part2self_action not implemented for this kinetic type, group=",this%target_group
+    write(*,*) "part2self_action not implemented for this kinetic type, group id=",sim%groups(this%target_group)%id
     call exit(13)
   end select
   
@@ -1579,7 +1586,7 @@ subroutine check_self_type(this, my_id, identifier)
   character(len=1000) :: msg
 
   if(this%origin_group /= this%target_group) then
-    write(msg,*) "type "//trim(this%type)//" is a self interaction type so origin_group should be target_group"
+    write(msg,"(A)") "type "//trim(this%type)//" is a self interaction type so origin_group should be target_group. If you want you can leave the target_group_id blank for self interaction types, but you cannot specify another species. Please check your input"
     call wrong_input(msg, my_id, identifier)
   end if
 end subroutine check_self_type

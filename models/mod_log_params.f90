@@ -1110,7 +1110,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           write(*,*)    '--- wall action slot: ', i, ' ---'
           
           write(*,"(3X,A, ' = ""', A, '""')") 'type,                 ', trim(part_group_configs(group_num)%wall_act_configs(i)%type)
-          write(*,"(3X,A,' = ',I12)") 'target_group,         ', part_group_configs(group_num)%wall_act_configs(i)%target_group
+          write(*,"(3X,A,' = ',A)") 'target_group_id,      ', part_group_configs(group_num)%wall_act_configs(i)%target_group_id
           write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,        ', part_group_configs(group_num)%wall_act_configs(i)%weight_factor
           
           !> config of the number of supers to create per event
@@ -1154,7 +1154,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           write(*,*)    '--- wall action slot: ', i, ' ---'
 
           write(*,"(3X,A, ' = ""', A, '""')") 'type,                 ', trim(fluid_configs(group_num)%wall_act_configs(i)%type)
-          write(*,"(3X,A,' = ',I12)") 'target_group,         ', fluid_configs(group_num)%wall_act_configs(i)%target_group
+          write(*,"(3X,A,' = ',A)") 'target_group_id,      ', fluid_configs(group_num)%wall_act_configs(i)%target_group_id
           write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,        ', fluid_configs(group_num)%wall_act_configs(i)%weight_factor
           
           !> config of the number of supers to create per event

@@ -992,9 +992,9 @@ module phys_module
   ! ------------------------------------------------
   !> Contains settings to define one wall_action (see mod_particle_wall_interaction)
   type :: type_wall_act_config
-    character(len=20) :: type          !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
-    integer           :: target_group  !< which particle group this wall interaction affects (refers to the config number, which is converted to which sim%groups number internally)
-    real*8            :: weight_factor !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
+    character(len=20) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
+    character(len=3)  :: target_group_id !< which particle group (as identified by its %id) this wall interaction affects
+    real*8            :: weight_factor   !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
     
     ! settings for number of superparticles created when new super particles must be initialised
     integer           :: supers_num_wall    !< number of new superparticles initialised at each puff action
