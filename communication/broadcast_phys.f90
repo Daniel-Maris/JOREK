@@ -140,6 +140,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(D_neutral,              1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(HW_coef,               10,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(constant_imp_source,    1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(maintain_profiles,      1,MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   call MPI_PACK(D_prof_neg,             1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(D_prof_neg_thresh,      1,MPI_REAL8,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -986,6 +987,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,D_neutral,              1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,HW_coef,               10,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,constant_imp_source,    1,MPI_REAL8,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,maintain_profiles,      1,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,D_prof_neg,             1,MPI_REAL8,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,D_prof_neg_thresh,      1,MPI_REAL8,MPI_COMM_WORLD,ierr)
