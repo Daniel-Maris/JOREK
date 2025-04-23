@@ -128,6 +128,8 @@ type, extends(io_action) :: projection
   type (type_RHS)       :: rhs_vec
   type (type_SP_SOLVER) :: solver
 
+  integer :: system_size !< size of the system to solve, previously a_mat%ng, but if we distribute the matrix, it is being overwritten by the number of local rows owned by the process
+
 contains
   procedure :: do => project
   procedure :: close_mumps => close_mumps
@@ -557,9 +559,10 @@ function new_projection(node_list, element_list,                                
                               new%a_mat, new%area, new%volume,                                  &
                               new%filter_n0, new%filter_hyper_n0, new%filter_parallel_n0,           &
                               integral_weights=new%integral_weights, do_zonal=new%do_zonal,         &
-                              apply_dirichlet_condition_in=new%apply_dirichlet)  
-
-    new%n_dof = new%a_mat%ng / 2
+                              apply_dirichlet_condition_in=new%apply_dirichlet) 
+    
+    new%system_size = new%a_mat%ng
+    new%n_dof = new%system_size / 2
   
   else
 
@@ -567,8 +570,9 @@ function new_projection(node_list, element_list,                                
                            new%mpi_comm_world, new%mpi_comm_n, new%mpi_comm_master,              &
                            new%a_mat, new%filter, new%filter_hyper, new%filter_parallel,     &
                            apply_dirichlet_condition_in=new%apply_dirichlet)
-
-    new%n_dof = new%a_mat%ng / new%n_tor_local
+    
+    new%system_size = new%a_mat%ng
+    new%n_dof = new%system_size / new%n_tor_local
 
   end if
 
@@ -690,20 +694,15 @@ subroutine project_only(this, sim)
   i_tor_local = this%i_tor_local
 
   this%rhs_vec%nrhs = (n_rhs + n_rhs_f)
-  this%rhs_vec%n = this%a_mat%ng
+  this%rhs_vec%n = this%system_size
 
   if (2*this%n_dof .ne. this%rhs_vec%n) then
     write(*,*) 'FATAL : 2*this%n_dof .ne. this%rhs_vec%n'
     write(*,*) n_tor_local*this%n_dof,  this%rhs_vec%n
   endif
 
-  if (this%my_id_n .eq. 0) then
-    ! For some reason gfortran throws an error with the allocated statement here. Instead just reallocate on every call
-    allocate(this%rhs_vec%val(this%rhs_vec%n*this%rhs_vec%nrhs))
-  else
-    allocate(this%rhs_vec%val(0)) ! dummy allocation for MPI
-  end if
-    this%rhs_vec%val = 0.d0
+  allocate(this%rhs_vec%val(this%rhs_vec%n*this%rhs_vec%nrhs))
+  this%rhs_vec%val = 0.d0
 
   allocate(my_rhs(this%rhs_vec%n * this%rhs_vec%nrhs, (n_tor+1)/2))
   

@@ -164,8 +164,11 @@ module mod_strumpack
 
       call MPI_COMM_RANK(spss%comm, rank, ierr)
       call MPI_COMM_SIZE(spss%comm, n_cpu, ierr)
-      
-      !write(*,*) "n_cpu, a_mat%ng, a_mat%nnz", n_cpu, a_mat%ng, a_mat%nnz
+      if (eql .or. spss%projection) then
+        if (rank.eq.0) call remove_duplicates(a_mat%ng,a_mat%nnz,a_mat%irn,a_mat%jcn,a_mat%val)
+        call MPI_Bcast(a_mat%ng, 1, MPI_INTEGER, 0, spss%comm, ierr)
+        call MPI_Bcast(a_mat%nnz, 1, MPI_INTEGER, 0, spss%comm, ierr)
+      endif
       
       allocate(distr(n_cpu+1))
 
@@ -173,6 +176,18 @@ module mod_strumpack
         ! distribute rows between n_cpu
         call distribute_rows(a_mat,n_cpu,distr)
         if (rank.eq.0) write(*,*) "Matrix is not row-distributed. Distributing now."
+
+        if (spss%projection) then
+          write(*,*) "a_mat%ng, a_mat%nnz", a_mat%ng, a_mat%nnz
+          if (rank.ne.0) then
+            allocate(a_mat%irn(a_mat%nnz))
+            allocate(a_mat%jcn(a_mat%nnz))
+            allocate(a_mat%val(a_mat%nnz))
+          endif
+          call MPI_Bcast(a_mat%irn, a_mat%nnz, MPI_INTEGER, 0, spss%comm, ierr)
+          call MPI_Bcast(a_mat%jcn, a_mat%nnz, MPI_INTEGER, 0, spss%comm, ierr)
+          call MPI_Bcast(a_mat%val, a_mat%nnz, MPI_DOUBLE_PRECISION, 0, spss%comm, ierr)
+        endif
 
         allocate(myelm(a_mat%nnz))
         j = 1
@@ -199,6 +214,8 @@ module mod_strumpack
         a_mat%irn => irn_d
         a_mat%jcn => jcn_d
         a_mat%val => val_d
+        a_mat%nnz =  nnz_d
+        a_mat%ng  =  n_d
         a_mat%row_distributed = .true.
 
         deallocate(myelm)
@@ -241,11 +258,6 @@ module mod_strumpack
 
       endif
       
-      if (eql .or. spss%projection) then
-        call remove_duplicates(a_mat%ng,a_mat%nnz,a_mat%irn,a_mat%jcn,a_mat%val)
-        n_d = a_mat%ng
-        nnz_d = a_mat%nnz
-      endif
       
       if (a_mat%indexing.eq.1) then
         a_mat%irn(1:nnz_d) = a_mat%irn(1:nnz_d) - a_mat%indexing;
@@ -280,13 +292,25 @@ module mod_strumpack
     
     subroutine strumpack_analyze(spss)
       use data_structure, only: type_SP_MATRIX
+      use, intrinsic :: ieee_exceptions
 
       implicit none
       
       type(type_STRUMPACK_SOLVER)       :: spss
       integer ierr
+      logical :: halt(size(IEEE_USUAL,1))
+
+      if (spss%projection) then
+        call ieee_get_halting_mode(IEEE_USUAL, halt)
+        call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
+      endif
 
       call spk_reord(spss%sscp,spss%comm)
+
+      if (spss%projection) then
+        call ieee_set_halting_mode(IEEE_USUAL, halt)
+      endif
+
       call MPI_Barrier(spss%comm,ierr)
       spss%analyzed = .true.
 
@@ -321,6 +345,7 @@ module mod_strumpack
     subroutine strumpack_solve(spss, rhs_vec)
       use data_structure, only: type_SP_MATRIX, type_RHS
       use, intrinsic :: iso_c_binding
+      use, intrinsic :: ieee_exceptions
 
       implicit none
       
@@ -330,15 +355,33 @@ module mod_strumpack
       type(c_ptr)                   :: dist_c
       integer :: ierr
       integer(kind=C_INT_ALL), allocatable, target :: dist(:)
-      integer :: i, n_cpu
+      integer :: i, n_cpu, rank
+      logical :: halt(size(IEEE_USUAL,1))
       
-      call MPI_COMM_SIZE(spss%comm, n_cpu, ierr) 
+      call MPI_COMM_SIZE(spss%comm, n_cpu, ierr)
+      call MPI_COMM_RANK(spss%comm, rank, ierr)
+
+      if (spss%projection) then
+        rhs_vec%val = rhs_vec%val / n_cpu
+        if (rank.ne.0) allocate (rhs_vec%val(rhs_vec%n*rhs_vec%nrhs))
+        call MPI_Bcast(rhs_vec%val, rhs_vec%n*rhs_vec%nrhs, MPI_DOUBLE_PRECISION, 0, spss%comm, ierr)
+      endif
 
       rhs_c = c_loc(rhs_vec%val);
       dist_c = c_loc(spss%distr)
 
+      if (spss%projection) then
+        call ieee_get_halting_mode(IEEE_USUAL, halt)
+        call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
+      endif
+
+
       call spk_solve(rhs_vec%n, dist_c, rhs_c, spss%sscp, spss%comm)
       call MPI_Barrier(spss%comm,ierr)
+
+      if (spss%projection) then
+        call ieee_set_halting_mode(IEEE_USUAL, halt)
+      endif
 
       return
     end subroutine strumpack_solve
