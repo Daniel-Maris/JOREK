@@ -192,7 +192,7 @@ extern "C" void spk_solve_multple(int_all* n_, int_all ** dist_, double** rhs_,
     b[i-dist[rank]]=rhs[i];
 
   t0 = std::chrono::steady_clock::now();
-  spss->solve(nrhs, n_local, b.data(), n_local, x.data(), false);
+  spss->solve(nrhs, b.data(), n_local, x.data(), n_local, false);
 
   // Gather the solution
   std::vector<double> x_glob(n*nrhs), x_buf(n*nrhs);
