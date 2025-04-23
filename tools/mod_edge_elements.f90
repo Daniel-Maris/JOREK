@@ -523,7 +523,7 @@ subroutine integrate_edge_elements(this, i_scalar, integral, res)
   class(edge_elements), intent(in) :: this
   integer, intent(in) :: i_scalar
   real*8, intent(out) :: integral
-  type(type_cdf_data), intent(inout) :: res
+  type(type_cdf_data), intent(out) :: res
  
   integer :: j, n, i_patch, n_patch
   real*8, allocatable :: dl(:), r(:), p_phi(:)
