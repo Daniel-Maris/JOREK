@@ -9,7 +9,7 @@
 !> 
 !> The currently implemented interaction types are: 
 !> "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "reflection" 
-!> (e.g. kinetic D -> D) and "wall recomb" (e.g. kinetic D+ -> D). 
+!> (e.g. kinetic D -> D) and "wall recomb" (e.g. fluid D+ -> D). 
 !> "other sputter" (e.g. kinetic N -> W) is not implemented as of yet although some 
 !> preparation is already available in the code.  
 !> 
@@ -20,6 +20,19 @@
 !> Actions have global diagnostics (e.g. total particles of group i reflected off the 
 !> wall) printed out in the logfile, and sputter diagnostics also have local vtk
 !> diagnostics using mod_edge_elements
+!>
+!> Wall_actions are gathered into wall_act_groups. There are 3 types of groups,
+!> - "fluid sputter to one" is a group of "fluid sputter" type wall_actions with
+!>   the same target species (e.g. all sputter into "W01"). The yields are precalculated
+!>   and there is one create scheme for the whole group, in which the number of particles
+!>   are distributed evenly according to their yields. The create scheme for this group is
+!>   set by setting it for exactly one of the wall_act_configs in the group. Because there
+!>   is a group per target species, there can be multiple of these groups.
+!> - "part2self" contains "self sputter" and "reflection" type wall_actions, it needs no 
+!>   create scheme and it should be run after the evolution loop so that particles hitting
+!>   the wall are reflected back before being saved or overwritten. This group exists only once
+!> - "other" contains the rest, which currently only is "wall recomb". They all have their own
+!>   create scheme. This group exists only once
 !> 
 !> Limitations:
 !> - The incoming angle of the particle/fluid is not taken into account (it is hardcoded 
@@ -29,7 +42,6 @@
 !> - A simplified model is used for the energy of sampled particles from the fluid in 
 !>   fluid2part actions
 module mod_particle_wall_interaction
-  use mod_edge_elements
   use mod_io_actions, only: io_action
   use mod_sampling
   use mod_particle_types
@@ -44,13 +56,15 @@ module mod_particle_wall_interaction
   use mod_particle_allocation, only: calc_n_particles_per_mpi
   use equil_info, only:find_xpoint
   use mod_particle_create, only: part_create_scheme, type_part_create_scheme
+  use mod_edge_elements, only: edge_elements, type_cdf_data
   !$ use omp_lib 
   
   implicit none
    
   private
-  public :: wall_action, wall_actions_from_config
+  public :: wall_act_group, wall_actions_from_config
 
+  ! action containing the wall interaction information for one origin species to one target species
   type, extends(io_action) :: wall_action
     integer           :: origin_group  !< index specifying which group is undergoing this wall interaction. Either particle group number (sim%groups(target_group)) or fluid group number (if it is a fluid to particle interaction type)
     integer           :: target_group  !< which particle group (sim%groups(target_group)) this wall interaction affects
@@ -70,6 +84,9 @@ module mod_particle_wall_interaction
     !> when the origin group is a fluid species
     integer             :: fluid_Z         = -999     !< Z of this fluid species (e.g. -2 for D)
     type(edge_elements) :: fluid_yield_integral       !< the yield (of the specified interaction type) integrated over f(v) for this fluid species
+    type(type_cdf_data) :: res                        !< data on the cumulative distribution function calculated at the integral which is needed when sampling
+    real*8              :: domain_integral            !< [# particles] total weight of all created particles in this wall_action for this timestep
+    logical             :: yield_calculated=.false.   !< whether the fluid yield integral has already been separately calculated for this timestep (.true.) or not (.false.)
 
     type(type_part_create_scheme) :: create_scheme    !< super particles create scheme
     real*8  :: weight_factor = 1.d0 !< additional weight factor of the yield, combines density_fraction for fluids and wall_act_config(:)%weight_factor (e.g. useful to split a single plasma fluid into D and T neutrals upon wall recombination, or set finite wall absorption)
@@ -87,9 +104,26 @@ module mod_particle_wall_interaction
  
     logical             :: constructed =.false.      !< whether the constructor has been called (this is used as assert in the do action) 
   contains
+    procedure :: calc_fluid_yield
     procedure :: do => do_wall_action
     procedure :: load_eckstein_data
+    procedure :: update_delta_t
   end type wall_action
+
+  ! wall action groups host similar wall actions that should run together, for instance because they have to communicate with eachother
+  ! as is the case for "fluid sputter to one" (fluid sputter type wall actions making one particle species) that need to communicate the 
+  ! sputter yields to distribute the superparticles per fluid species
+  type :: wall_act_group
+    character(len=80)                            :: group_type="none"    !< "fluid sputter to one" for fluids sputtering into one particle species (so type "fluid sputter", and same target_group_id), "part2self" for particle interactions with themself (currently "reflection", "self sputter"), or "other" for other interactions (currently "wall recomb")
+    logical                                      :: contains_part2part   !< whether the group contains some particle -> particle (.true.) interaction(s) or only fluid -> particle (.false.) interactions
+    character(len=3)                             :: target_id="non"      !< id of the particle group being made by this wall_act_group (if it is "sputter many to one")
+    type(type_part_create_scheme)                :: create_scheme        !< shared super particles create scheme for the whole group (for type "fluid sputter to one")
+    type(wall_action), allocatable, dimension(:) :: wall_actions         !< array with wall actions for this group
+
+    logical                                      :: constructed =.false. !< whether the constructor has been called (this is used as assert in the do action) 
+  contains
+    procedure :: do => do_wall_act_group
+  end type wall_act_group
   
   !> indices of different diagnostics in the global diagnostics array which is used for the output file
   !> number of super particles is intentionally stored in a real, to easily handle all diagnostics simultaneously (in omp reductions and in MPI_reduce)
@@ -375,48 +409,129 @@ subroutine construct_wall_action(this, sim, origin_group, target_group_id, type,
 end subroutine construct_wall_action
 
 
-!> set up the wall_actions array from the configs of the namelist
-function wall_actions_from_config(sim, edge_element_template) result(wall_actions)
+!> Set up the wall_act_groups array from the configs of the namelist.
+!> There is currently 1 "part2self" group created (or none), 1 "other" group (or none), 
+!> and as many "fluid sputter to one" groups as there are unique targets for "fluid sputter"
+!> actions. (so between 0 and n_part_groups_max) 
+!> The create scheme of the "fluid sputter to one" groups can be set by setting exactly one of the 
+!> child wall actions of that group
+function wall_actions_from_config(sim, edge_element_template) result(wall_act_groups)
   use phys_module, only: part_group_configs, n_part_groups, n_part_groups_max, type_wall_act_config
   use phys_module, only: fluid_configs, n_fluid_groups_max
   use mod_particle_group_id, only: matching_part_config_indices
+  use mod_particle_sim, only: group_num_from_id
 
   implicit none
 
   type(particle_sim),  intent(in) :: sim
   type(edge_elements), intent(in) :: edge_element_template !< a prepared set of edge elements
-  type(wall_action), dimension(:), allocatable :: wall_actions
-
+  
+  type(wall_act_group), dimension(:), allocatable :: wall_act_groups
   type(type_wall_act_config) :: config
   type(type_part_create_scheme) :: create_scheme
 
   character(len=1000) :: identifier
   character(len=1000) :: msg !< error message
-  integer :: i, j, Z, config_num_i, n_fluids
-  integer :: n_wall_acts !< number of wall_action objects to make
-  integer :: i_wall_acts !< ith wall_action to be put in the wall_actions
-  real*8  :: density_fraction
+  integer :: i, j, k, Z, config_num_i, n_fluids, n_groups, idx_group, idx_act, i_target_group
+  integer :: i_wall_acts, n_wall_acts !< total number of wall_action objects to make
+  integer :: i_other, n_other !< number of wall_action objects in the "other" group
+  integer :: i_part2self, n_part2self !< number of wall_action objects in the "part2self" group
+  real*8  :: density_fraction, n_particles
   real*8  :: density_fraction_sum !< to check wether sum of density fractions is 1
+  character(len=3), dimension(n_part_groups_max) :: sputter_target_ids="non" !< the id's of target groups that are being sputtered into
+  integer, dimension(n_part_groups_max) :: i_sputter_group, n_sputter_group=0 !< how many wall actions in the sputter group of the id from sputter_target_ids
+  logical, dimension(n_part_groups_max) :: group_scheme_set=.false. !< whether the group scheme was already set or not
+  integer, dimension(n_part_groups_max,3) :: group_scheme_namelist_idx=-1 !< index of where the group create scheme was set in the namelist (part_group_configs (1) or fluid_configs (2), config_num, wall_act_num)
+  integer :: n_sputter_groups=0 !< how many "fluid sputter to one" groups to make
+  logical :: new_target !< whether the sputter target was already encountered before and written into sputter_target_ids (.false.), or not (.true.)
+  integer, parameter :: idx_part2self=1,idx_other=2,idx_offset=2
 
   if(sim%my_id == 0) write(*,*) "determining wall_actions from the namelist configs"
 
-  !determining number of wall_actions necessary
+  ! --- determining number of wall_actions and groups necessary
   n_wall_acts = 0
+  n_other = 0
+  n_part2self = 0
   
-  do i=1,n_part_groups !from particles
+  !from particles
+  do i=1,n_part_groups
     do j=1,n_part_groups_max
       config = part_group_configs(i)%wall_act_configs(j)
-      if(trim(config%type) == "none") cycle
+      select case(trim(config%type))
+      case("none") 
+        cycle
+      case("reflection","self sputter")
+        n_part2self = n_part2self + 1
+      case default
+        n_other = n_other + 1
+      end select
 
       n_wall_acts = n_wall_acts + 1
     end do
   end do
   
-  do i=1,n_fluid_groups_max !from the fluid
+  !from the fluid
+  do i=1,n_fluid_groups_max
     do j=1,n_part_groups_max
       config = fluid_configs(i)%wall_act_configs(j)
-      if(trim(config%type) == "none") cycle
+      select case(trim(config%type))
+      case("none") 
+        cycle
+      case("fluid sputter")
+        new_target=.true.
+        ! check whether a group already exists for this target
+        do k=1,n_part_groups_max
+          if(sputter_target_ids(k) == config%target_group_id) then
+            n_sputter_group(k) = n_sputter_group(k) + 1
+            new_target=.false.
+            exit
+          end if
+        end do
 
+        !if no group exists yet, make it
+        if(new_target) then
+          !save this target as the first unused id in sputter_target_ids
+          do k=1,n_part_groups_max
+            if(sputter_target_ids(k) == "non") then
+              sputter_target_ids(k) = config%target_group_id
+              n_sputter_group(k) = 1
+              exit
+            end if
+          end do
+
+          n_sputter_groups = n_sputter_groups + 1
+        end if
+
+        !check and set the part_create_scheme for the group 
+        if(config%supers_num_wall /= -1 .or. config%supers_weight_wall /= -1 .or. config%supers_ratio_wall /= -1) then
+          do k=1,n_part_groups_max
+            if(sputter_target_ids(k) == config%target_group_id) then
+              if(group_scheme_set(k)) then
+                select case(group_scheme_namelist_idx(k,1))
+                case(1)
+                  write(identifier,"(A)") "part_group_configs("
+                case(2)
+                  write(identifier,"(A)") "fluid_configs("
+                case default
+                  write(identifier,"(A)") "[ERROR in traceback]("
+                end select
+                write(msg,"(5A,I2,A,I2,A,I2,A,I2,4A)") "you can only specify one create scheme for all fluid_configs sputtering into a particle group, ", &
+                                  "but for sputtering into particle group with id=",config%target_group_id," both a ",trim(identifier),group_scheme_namelist_idx(k,2), &
+                                  ")%wall_act_configs(",group_scheme_namelist_idx(k,3),")%supers...wall option and a fluid_configs(",i,")%wall_act_configs(",j,")%super...wall ", &
+                                  "option was set. This is not allowed, please provide only one create option (%supers...wall) for all fluids sputtering into ",config%target_group_id,"."
+                call wrong_input(msg,sim%my_id,"")
+              end if
+              group_scheme_namelist_idx(k,:) = [2,i,j]
+              group_scheme_set(k) = .true.
+              exit
+            end if
+          end do
+          ! if(trim(wall_act_groups(idx_group)%create_scheme%scheme == "non")
+        end if
+      case default
+        n_other = n_other + 1
+      end select
+    
       n_wall_acts = n_wall_acts + 1
     end do
   end do
@@ -426,22 +541,90 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
     call wrong_input(msg,sim%my_id,"")
   end if
 
-  !setting up the wall_actions
-  allocate(wall_actions(n_wall_acts))
+  ! --- setting up the wall_act_groups
+  ! determining the number of wall_act_groups to set up
+  n_groups = 0
+  if(n_part2self > 0) n_groups = n_groups + 1
+  if(n_other > 0) n_groups = n_groups + 1
+  n_groups = n_groups + n_sputter_groups
 
+  ! allocating and setting wall_act_groups settings
+  allocate(wall_act_groups(n_groups))
+  if(size(wall_act_groups,1) == 0) return ! avoid allocation issues below
+  allocate(wall_act_groups(idx_part2self)%wall_actions(n_part2self))
+  allocate(wall_act_groups(idx_other)%wall_actions(n_other))
+  
+  wall_act_groups(:)%contains_part2part = .false.
+  wall_act_groups(idx_part2self)%group_type = "part2self"
+  wall_act_groups(idx_part2self)%contains_part2part = .true.
+  wall_act_groups(idx_other)%group_type = "other"
+  
+  do k=1,n_sputter_groups ! for the sputter groups
+    i=k+idx_offset
+    !generic group settings
+    wall_act_groups(i)%group_type = "fluid sputter to one"
+    wall_act_groups(i)%target_id = sputter_target_ids(k)
+
+    !setting the creation scheme of the group
+    i_target_group = group_num_from_id(sim,wall_act_groups(i)%target_id)
+    if(i_target_group > 0) then !check that id was found before asking for the n_particles of this group
+      n_particles = sim%groups(i_target_group)%n_particles
+    else
+      n_particles = 1 !just to avoid crashing here, in the generation of the wall_actions the wrong id will give a helpful error message, but we don't want to duplicate that check
+    end if
+    if(group_scheme_set(k)) then !if a scheme is set by one of the action in the input, use that for the group
+      config_num_i = group_scheme_namelist_idx(k,2) ! config index
+      idx_act = group_scheme_namelist_idx(k,3) ! action index
+      select case(group_scheme_namelist_idx(k,1))
+      case(1)
+        config = part_group_configs(config_num_i)%wall_act_configs(idx_act)
+        write(identifier,"(A,I2,A,I2,A)") "part_group_configs(",config_num_i,")%wall_act_configs(",idx_act,")"
+      case(2)
+        write(identifier,"(A,I2,A,I2,A)") "fluid_configs(",config_num_i,")%wall_act_configs(",idx_act,")"
+        config = fluid_configs(config_num_i)%wall_act_configs(idx_act)
+      case default
+        write(msg,"(A,I2,A,I2,A,I2,A)") " bug in setting the creation scheme of wall_action group ",i,": group_scheme_namelist_idx(",k,",1)=",group_scheme_namelist_idx(k,1),", but it should be either 1 or 2..."
+        call wrong_input(msg,sim%my_id,"")
+      end select
+      wall_act_groups(i)%create_scheme = part_create_scheme(config%supers_num_wall,config%supers_weight_wall,config%supers_ratio_wall,n_particles,my_id=sim%my_id,identifier=identifier)
+    else ! no scheme was set in the input for this group, so use the default scheme for this group
+      write(identifier,"(A)") 'default create scheme for "fluid sputter to one" wall_act_groups'
+      wall_act_groups(i)%create_scheme = part_create_scheme(-1,-1.d0,-1.d0,n_particles,my_id=sim%my_id,identifier=identifier)
+    end if
+    
+    !allocation of wall_actions themselves
+    allocate(wall_act_groups(i)%wall_actions(n_sputter_group(k)))
+  end do
+
+  ! --- filling out the wall actions in the groups from the configs
   i_wall_acts = 0
+  i_other = 0
+  i_part2self = 0
+  i_sputter_group(:) = 0
   
   !from particles
   do i=1,n_part_groups !loop over particle groups
     do j=1,n_part_groups_max !loop over wall_action configs
       config_num_i = matching_part_config_indices(i)
       config = part_group_configs(config_num_i)%wall_act_configs(j)
-      if(trim(config%type) == "none") cycle
+      
+      select case(trim(config%type))
+      case("none") 
+        cycle
+      case("reflection","self sputter")
+        idx_group = idx_part2self
+        i_part2self = i_part2self + 1
+        idx_act = i_part2self
+      case default
+        idx_group = idx_other
+        i_other = i_other + 1
+        idx_act = i_other
+      end select
 
       ! being here means it is a wall_action that should be used
       i_wall_acts = i_wall_acts + 1
       write(identifier,"(A,I2,A,I2,A,I3,A)") "for input namelist: particle_group_configs(",config_num_i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group_id,config%type,config%weight_factor,edge_element_template,.false.,input_identifier=identifier)      
+      call construct_wall_action(wall_act_groups(idx_group)%wall_actions(idx_act),sim,i,config%target_group_id,config%type,config%weight_factor,edge_element_template,.false.,input_identifier=identifier)      
     end do
   end do
 
@@ -462,12 +645,33 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
     end if
     do j=1,n_part_groups_max !loop over wall_action configs
       config = fluid_configs(i)%wall_act_configs(j)
-      if(trim(config%type) == "none") cycle
+      
+      select case(trim(config%type))
+      case("none") 
+        cycle
+      case("fluid sputter")
+        do k=1,n_part_groups_max
+          if(sputter_target_ids(k) == config%target_group_id) then
+            idx_group = idx_offset + k
+            i_sputter_group(k) = i_sputter_group(k) + 1
+            idx_act = i_sputter_group(k)
+            exit
+          end if
+        end do
+        !overriding the create scheme to supers_num
+        config%supers_num_wall    = 1
+        config%supers_ratio_wall  = -1.d0
+        config%supers_weight_wall = -1.d0
+      case default
+        idx_group = idx_other
+        i_other = i_other + 1
+        idx_act = i_other
+      end select
 
       ! being here means it is a wall_action that should be used
       i_wall_acts = i_wall_acts + 1
       write(identifier,"(A,I2,A,I2,A,I3,A)") "for input namelist: fluid_configs(",i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_actions(i_wall_acts),sim,i,config%target_group_id,config%type,config%weight_factor,edge_element_template,.true.,fluid_Z=Z,fluid_density_fraction=density_fraction,input_identifier=identifier,supers_num=config%supers_num_wall,supers_weight=config%supers_weight_wall,supers_ratio=config%supers_ratio_wall)
+      call construct_wall_action(wall_act_groups(idx_group)%wall_actions(idx_act),sim,i,config%target_group_id,config%type,config%weight_factor,edge_element_template,.true.,fluid_Z=Z,fluid_density_fraction=density_fraction,input_identifier=identifier,supers_num=config%supers_num_wall,supers_weight=config%supers_weight_wall,supers_ratio=config%supers_ratio_wall)
     end do
   end do
 
@@ -477,11 +681,18 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_action
     call wrong_input(msg,sim%my_id,"")
   end if
 
-  !sanity check on the pre calculated number of wall actions and the actual number. If this creates an error that must mean there's a bug inside this function somewhere
+  !sanity checks on the pre calculated number of wall actions and the actual number. If this creates an error that must mean there's a bug inside this function somewhere
   if(i_wall_acts /= n_wall_acts) then
-    write(msg,"(A)") "the total amount of wall_actions is not equal to the number of initialised wall_actions, so something went wrong."
+    write(msg,"(A,I3,A,I3,A)") "the total amount of wall_actions (",n_wall_acts,") is not equal to the number of initialised wall_actions (",i_wall_acts,"), so something went wrong."
     call wrong_input(msg,sim%my_id,"")
   end if
+
+  if(n_wall_acts /= i_other + i_part2self + sum(i_sputter_group)) then
+    write(msg,"(A,I3,A,I3,A)") "the total amount of wall_actions (",n_wall_acts,") is not equal to sum of initialised wall_actions from all groups (",i_other + i_part2self + sum(i_sputter_group),"), so something went wrong."
+    call wrong_input(msg,sim%my_id,"")
+  end if
+
+  wall_act_groups(:)%constructed =.true.
 
 end function wall_actions_from_config
 
@@ -523,13 +734,87 @@ subroutine load_eckstein_data(this, sim)
   end if
 end subroutine load_eckstein_data
 
+!> does everything for the group (wall_actions & any other things like setting the create schemes)
+subroutine do_wall_act_group(this, sim, post_evolution)
+  implicit none
+  
+  class(wall_act_group), intent(inout)    :: this
+  type(particle_sim),    intent(inout)    :: sim
+  logical,               intent(in)       :: post_evolution !< whether this call is after the evolve particle groups call (.true.) or not (.false.)
+
+  integer :: i, n_supers_tot, n_supers_child
+  real*8  :: total_yield, yield_fraction
+
+  !> if we're after the evolution, we should run part2part wall_actions
+  if(post_evolution) then
+    if(this%contains_part2part) then
+      call all_acts_in_group(this,sim)
+    end if
+  else ! we should run the creation wall actions
+    select case(trim(this%group_type))
+    case("part2self") !< is all already done in post_evolution
+      return
+    case("other")
+      call all_acts_in_group(this,sim)
+    case("fluid sputter to one")
+      if(sim%my_id == 0) write(*,"(3A)") '===== wall_action group: "fluid sputter to one" -> ',this%target_id,' ===== '
+
+      ! calculating the partial yields and the total_yield
+      total_yield = 0.d0
+      do i=1,size(this%wall_actions,1)
+        call this%wall_actions(i)%calc_fluid_yield(sim)
+        total_yield = total_yield + this%wall_actions(i)%domain_integral*this%wall_actions(i)%weight_factor
+      end do
+
+      ! determining the number of supers for the group
+      n_supers_tot = this%create_scheme%supers_to_create(sim%my_id,total_yield)
+  
+      if(sim%my_id == 0) then
+        write(*,"(A50,' = ',es16.6)") "total sputter yield for this wall_act_group       ",total_yield
+        if (trim(this%create_scheme%scheme) == "num") write(*,"(A50,' = ',I12)") "supers_num                                        ", this%create_scheme%supers_num
+        if (trim(this%create_scheme%scheme) == "weight") write(*,"(A50,' = ',es16.6)") "supers_weight                                     ", this%create_scheme%supers_weight
+        if (trim(this%create_scheme%scheme) == "ratio") write(*,"(A50,' = ',es16.6)") "supers_ratio                                      ", this%create_scheme%supers_ratio
+        write(*,"(A50,' = ',I12)") "superparticles to create for this wall_act_group  ",n_supers_tot
+      end if
+
+      ! setting the number of supers for the children actions by equal distribution (at least 1)
+      do i=1,size(this%wall_actions,1)
+        yield_fraction = this%wall_actions(i)%domain_integral*this%wall_actions(i)%weight_factor / total_yield
+        n_supers_child = max(1,nint(n_supers_tot * yield_fraction))
+        this%wall_actions(i)%create_scheme%supers_num = n_supers_child
+      end do
+
+      !run children actions
+      call all_acts_in_group(this,sim)
+
+      if(sim%my_id == 0) write(*,"(A)") "===== end wall_action group ===== "
+    case default
+      call wrong_input("wrong ",sim%my_id,"do_wall_act_group")
+    end select
+  end if
+  
+end subroutine do_wall_act_group
+
+!> runs all wall_actions in this group
+subroutine all_acts_in_group(this, sim)
+  implicit none
+  class(wall_act_group), intent(inout)    :: this
+  type(particle_sim),    intent(inout)    :: sim
+
+  integer :: i
+
+  do i=1,size(this%wall_actions,1)
+    call this%wall_actions(i)%do(sim)
+  end do
+  
+end subroutine all_acts_in_group
 
 !> Perform the wall interaction according to the setting in the wall_action object
 !> How and when to run depends on the details of the interaction
 subroutine do_wall_action(this, sim, ev)
   use mod_atomic_elements, only: element_symbols
   use mod_parameters, only: n_plane, n_period
-  use phys_module, only: use_manual_random_seed, tstep, central_mass, central_density
+  use phys_module, only: use_manual_random_seed
   
   class(wall_action), intent(inout)    :: this
   type(particle_sim), intent(inout)    :: sim
@@ -537,11 +822,8 @@ subroutine do_wall_action(this, sim, ev)
 
   integer :: i
 
-  if(sim%my_id == 0) write(*,"(A)") "--- wall action: "//trim(this%name)//" --- "
-
-  ! --- setup
-  ! updating the timestep in SI (as tstep can change)
-  this%delta_t = (tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20)))
+  ! --- setup  
+  if(sim%my_id == 0) write(*,"(A)") "--- wall_action: "//trim(this%name)//" --- "
 
   ! check whether the constructor was used (so that all other sanity checks can be done once in the constructor)
   if (.not. this%constructed) then
@@ -551,6 +833,9 @@ subroutine do_wall_action(this, sim, ev)
     write(*,*)'please use the constructor'
     stop
   end if
+
+  ! updating the timestep in SI (as tstep can change)
+  call this%update_delta_t()
 
   ! --- underlying function calls
   if(this%fluid2part) call fluid2part_action(this, sim)
@@ -585,20 +870,19 @@ subroutine fluid2part_action(this, sim)
   use mod_interp, only: interp_RZ
   use mod_particle_create, only: free_particle_indices
   use mod_particle_types, only: initialize_particle_to_zero
-  use mod_edge_elements, only: sample_edge_elements, integrate_edge_elements, type_cdf_data
+  use mod_edge_elements, only: sample_edge_elements
   
   class(wall_action), intent(inout) :: this
   type(particle_sim), intent(inout) :: sim
   
-  type(type_cdf_data) :: res !< data on the cumulative distribution function calculated at the integral which is needed when sampling
   type(particle_kinetic_leapfrog) :: particle
   integer :: j, i_p, n_supers, n_supers_loc, i_rng
   integer :: q, Z
   real*8 :: E !< [eV] particle energy  (eV because of eckstein coeffs).
   real*8 :: n_e, T_e, T_eV
-  real*8 :: integral !< total weight of all created particles in this wall_action
   real*8,  allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_supers_loc), (2,n_supers_loc), (3,n_supers_loc)
   integer, allocatable :: i_elm_sampled(:) !< (n_supers_loc)
+  logical :: do_main !> whether to do the main calculation (we can't just return early because that breaks the MPI_REDUCE at the end of the subroutine)
 
   !> For check free particles
   integer, allocatable, dimension(:) :: i_free
@@ -608,174 +892,187 @@ subroutine fluid2part_action(this, sim)
   real*8, dimension(n_global_diagnostics) :: diagnostics         !< diagnostics for the global wall loads
   real*8, dimension(n_global_diagnostics) :: diagnostics_all_mpi !< MPI reduced version of diagnostics
   real*8  :: mol_binding_E=3.526d-19, ion_binding_E=2.18d-18  !< ! (J) default values are only true for hydrogen, should be the sum of ionisation energies from 0 to q for impurities.
-  
-  !> this subroutine will calculate the incident ion flux over every fluid species on edge domain
-  !> And the resulting yield of created particles (in atoms/m^2 during delta_t)
-  call project_sputter_vars_on_edge(this, sim)
 
-  ! determine integral over the domain
-  call integrate_edge_elements(this%fluid_yield_integral, 1, integral, res)
-
-  if (integral .le. 1d-12) then
-    if(sim%my_id == 0) write(*,"(A,I2,A)") "fluid2part wall_action "//trim(this%type)//" with Z=",this%fluid_Z," has 0 yield. returning"
-    return ! Move along, nothing to do
-  end if
-
-  ! determine how many particles to initialise on this MPI proces
-  n_supers = this%create_scheme%supers_to_create(sim%my_id,integral*this%weight_factor)
-  n_supers_loc = calc_n_particles_per_mpi(n_supers, sim%n_mpi, sim%my_id)
-
-  ! determine indices of free particles
-  call free_particle_indices(sim%groups(this%target_group)%particles, n_free, i_free, n_needed=n_supers_loc)  
-
-  allocate(rng_sample(3,size(i_free)))
-  allocate(xyz_sampled(3,size(i_free)))
-  allocate(st_sampled(2,size(i_free)))
-  allocate(i_elm_sampled(size(i_free)))
+  do_main=.true.
 
   diagnostics = 0.d0
 
-  ! We need to properly use all RNGS here to avoid missing numbers
-  ! needs default(shared) for gfortran
-#ifdef __GFORTRAN__
-  !$omp parallel default(shared) &
-#else
-  !$omp parallel default(none) &
-  !$omp shared(this, rng_sample, n_supers_loc) &
-#endif 
-  !$omp private(i_rng, j)
-  i_rng = 1
-  !$ i_rng = omp_get_thread_num()+1
-  !$omp do schedule(static,1)
-  do j=1,n_supers_loc
-    call this%rng(i_rng)%next(rng_sample(:,j))
-  end do
-  !$omp end do
-  !$omp end parallel
-
-  q = this%fluid_Z
-  if (q .le. 0) q = 1 ! deuterium, tritium special case
-  q = min(q, 4) ! limit to 4 for divertor conditions
-  Z = this%fluid_Z
-
-  call sample_edge_elements(this%fluid_yield_integral, res, 1, n_supers_loc, rng_sample(1:2,:), xyz_sampled, st_sampled, i_elm_sampled)
-
-  if (sim%my_id .eq. 0) then
-    write(*,"(A,i8,A,A,A,A,A,i2,3A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", n_supers," ", element_symbols(sim%groups(this%target_group)%Z),&
-      " from ", element_symbols(Z), " in group ", this%target_group, &
-    " (ID=",sim%groups(this%target_group)%id,", Z=", sim%groups(this%target_group)%Z, ") with total weight ", integral*this%weight_factor, "  particles flux #/s : ", integral*this%weight_factor/this%delta_t
+  ! calculate the yield if not done so already
+  if(.not. this%yield_calculated) then
+    call this%calc_fluid_yield(sim)
   end if
 
-  select type (pa => sim%groups(this%target_group)%particles)
-  type is (particle_kinetic_leapfrog)
+  ! check if we need to do anything
+  if (this%domain_integral .le. 1d-12) then
+    if(sim%my_id == 0) write(*,"(3A,I2,3A)") "fluid2part wall_action ",trim(this%type)," with origin ",this%origin_group," and target_id=",sim%groups(this%target_group)%id," has 0 yield. returning"
+    do_main = .false. ! Move along, nothing to do
+  else ! normal behaviour
+    ! determine how many particles to initialise on this MPI proces
+    n_supers = this%create_scheme%supers_to_create(sim%my_id,this%domain_integral*this%weight_factor)
+    n_supers_loc = calc_n_particles_per_mpi(n_supers, sim%n_mpi, sim%my_id)
+
+    ! determine indices of free particles
+    call free_particle_indices(sim%groups(this%target_group)%particles, n_free, i_free, n_needed=n_supers_loc)  
+    n_supers_loc = size(i_free,1)
+
+    ! check if we need to do anything on this mpi process
+    if(n_supers_loc == 0) then
+      write(*,"(A,I2,3A,I2,3A)") "on sim%my_id=",sim%my_id," fluid2part wall_action ",trim(this%type)," with origin ",this%origin_group," and target_id=",sim%groups(this%target_group)%id," will not create any particles. returning"
+      do_main=.false. ! Move along, nothing to do
+    end if
+  end if
+  
+  if(do_main) then  
+    allocate(rng_sample(3,size(i_free)))
+    allocate(xyz_sampled(3,size(i_free)))
+    allocate(st_sampled(2,size(i_free)))
+    allocate(i_elm_sampled(size(i_free)))
+
+    ! We need to properly use all RNGS here to avoid missing numbers
+    ! needs default(shared) for gfortran
 #ifdef __GFORTRAN__
-  !$omp parallel default(shared) &
+    !$omp parallel default(shared) &
 #else
-  !$omp parallel default(none) &
-  !$omp shared(this, sim, rng_sample, xyz_sampled, st_sampled, i_elm_sampled, i_free, &
-  !$omp integral, q, Z, n_supers_loc) &
+    !$omp parallel default(none) &
+    !$omp shared(this, rng_sample, n_supers_loc) &
+#endif 
+    !$omp private(i_rng, j)
+    i_rng = 1
+    !$ i_rng = omp_get_thread_num()+1
+    !$omp do schedule(static,1)
+    do j=1,n_supers_loc
+      call this%rng(i_rng)%next(rng_sample(:,j))
+    end do
+    !$omp end do
+    !$omp end parallel
+
+    q = this%fluid_Z
+    if (q .le. 0) q = 1 ! deuterium, tritium special case
+    q = min(q, 4) ! limit to 4 for divertor conditions
+    Z = this%fluid_Z
+
+    call sample_edge_elements(this%fluid_yield_integral, this%res, 1, n_supers_loc, rng_sample(1:2,:), xyz_sampled, st_sampled, i_elm_sampled)
+
+    if (sim%my_id .eq. 0) then
+      write(*,"(A,i8,A,A,A,A,A,i2,3A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", n_supers," ", element_symbols(sim%groups(this%target_group)%Z),&
+        " from ", element_symbols(Z), " in group ", this%target_group, &
+      " (ID=",sim%groups(this%target_group)%id,", Z=", sim%groups(this%target_group)%Z, ") with total weight ", this%domain_integral*this%weight_factor, "  particles flux #/s : ", this%domain_integral*this%weight_factor/this%delta_t
+    end if
+
+    select type (pa => sim%groups(this%target_group)%particles)
+    type is (particle_kinetic_leapfrog)
+#ifdef __GFORTRAN__
+    !$omp parallel default(shared) &
+#else
+    !$omp parallel default(none) &
+    !$omp shared(this, sim, rng_sample, xyz_sampled, st_sampled, i_elm_sampled, i_free, &
+    !$omp q, Z, n_supers_loc, n_supers) &
 #endif
-  !$omp private(i_rng, j, E, T_e, T_eV, n_e, particle, i_p) &
-  !$omp reduction(+:diagnostics)
-  i_rng = 1
-  !$ i_rng = omp_get_thread_num()+1
-  !$omp do schedule(static,1)
-  do j=1,n_supers_loc
-    !> make a new particle which at the end of the do loop will be written into a free particle in the array
-    call initialize_particle_to_zero(particle)
+    !$omp private(i_rng, j, E, T_e, T_eV, n_e, particle, i_p) &
+    !$omp reduction(+:diagnostics)
+    i_rng = 1
+    !$ i_rng = omp_get_thread_num()+1
+    !$omp do schedule(static,1)
+    do j=1,n_supers_loc
+      !> make a new particle which at the end of the do loop will be written into a free particle in the array
+      call initialize_particle_to_zero(particle)
 
-    particle%q = int(q,1)
-    particle%i_elm = i_elm_sampled(j)
-    if (i_elm_sampled(j) .le. 0) cycle
-    particle%st = st_sampled(:,j)
-    call interp_RZ(sim%fields%node_list, sim%fields%element_list, i_elm_sampled(j), &
-      st_sampled(1,j), st_sampled(2,j), &
-      particle%x(1), &
-      particle%x(2))
-    particle%x(3) = xyz_sampled(3,j) ! phi coordinate from sampling
+      particle%q = int(q,1)
+      particle%i_elm = i_elm_sampled(j)
+      if (i_elm_sampled(j) .le. 0) cycle
+      particle%st = st_sampled(:,j)
+      call interp_RZ(sim%fields%node_list, sim%fields%element_list, i_elm_sampled(j), &
+        st_sampled(1,j), st_sampled(2,j), &
+        particle%x(1), &
+        particle%x(2))
+      particle%x(3) = xyz_sampled(3,j) ! phi coordinate from sampling
 
-    !> weight of fluid particle is equally distributed as a fraction of the incoming flux. Such that the sum of all incoming fluid particles ,
-    !> is the total amount of incoming particles over the edge domain area * delta_t
-    !> multiplication with this%weight will be done in single_self_interaction
-    particle%weight = integral/(n_supers_loc*sim%n_mpi)
+      !> weight of fluid particle is equally distributed as a fraction of the incoming flux. Such that the sum of all incoming fluid particles,
+      !> is the total amount of incoming particles over the edge domain area * delta_t
+      !> multiplication with this%weight_fraction will be done in single_self_interaction
+      !> note that in the off case there are not enough free particles this is wrong because the sum of n_supers_loc < n_supers then (but stuff starts breaking then anyway)
+      !> this could be fixed using an MPI reduce, but that costs communication time for something which is normally never necessary
+      !particle%weight = this%domain_integral/n_supers !< TODO better spread out but breaks reg test
+      particle%weight = this%domain_integral/(n_supers_loc*sim%n_mpi)
 
-    ! Calculate temperature at this position to determine particle energy
-    call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e, T_e)
-    T_eV = T_e * K_BOLTZ / EL_CHG
+      ! Calculate temperature at this position to determine particle energy
+      call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e, T_e)
+      T_eV = T_e * K_BOLTZ / EL_CHG
 
-    select case(trim(this%type))
-    case("wall recomb")
-      ! determine E
-      call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
+      select case(trim(this%type))
+      case("wall recomb")
+        ! determine E
+        call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
 
-      ! determine outcoming particle
-      call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "reflection")
-    case("fluid sputter")
-      ! The yield at a specific position is given by
-      ! \[
-      !   \int_v Y(E) f(v) dv
-      ! \]
-      ! where $f(v)$ is a maxwellian and $E$ includes the sheath potential and the Bohm outflow
-      ! condition additionally.
-      !
-      ! To now calculate the energy of the sputtered particle we multiply the sputtered energy
-      ! coefficient with E of a particle sampled from f(v).
-      ! Taking the sputtered energy coefficient * Y as a weight factor and sampling from f(v) will do the trick.
-      ! we need to normalize with the sputter yield at that position, which we have calculated before.
-      ! Basically this is a weighted average of Y_E(E) * E, weighted with Y(E) f(E)
-      
-      ! If sampling from the incoming energy distribution function, the
-      ! sputtered energy coefficient needs to be reweighed with the sputtering
-      ! yield at this energy (since the tail contributes more)
-      ! This is commented below since we have simplified the model for now to
-      ! work at a fixed energy of 3 q T_e + 2 T_i, so we don't need to do this
-      ! anymore. The extension to realistic IEDFs should be done later, so 
-      ! I've kept some of the code around.
+        ! determine outcoming particle
+        call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "reflection")
+      case("fluid sputter")
+        ! The yield at a specific position is given by
+        ! \[
+        !   \int_v Y(E) f(v) dv
+        ! \]
+        ! where $f(v)$ is a maxwellian and $E$ includes the sheath potential and the Bohm outflow
+        ! condition additionally.
+        !
+        ! To now calculate the energy of the sputtered particle we multiply the sputtered energy
+        ! coefficient with E of a particle sampled from f(v).
+        ! Taking the sputtered energy coefficient * Y as a weight factor and sampling from f(v) will do the trick.
+        ! we need to normalize with the sputter yield at that position, which we have calculated before.
+        ! Basically this is a weighted average of Y_E(E) * E, weighted with Y(E) f(E)
+        
+        ! If sampling from the incoming energy distribution function, the
+        ! sputtered energy coefficient needs to be reweighed with the sputtering
+        ! yield at this energy (since the tail contributes more)
+        ! This is commented below since we have simplified the model for now to
+        ! work at a fixed energy of 3 q T_e + 2 T_i, so we don't need to do this
+        ! anymore. The extension to realistic IEDFs should be done later, so 
+        ! I've kept some of the code around.
 
-      E = 2 * T_eV !< from the bohm criterion, E = E_sheath_entrance + E_sheath_acceleration = 2 T_i + 3 q T_e, but for now T_i = T_e
-      ! so E_sheath_entrance  = 2 T_i = 2 T, and E_sheath_acceleration will be added later
-      call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "self sputter", .true.)
+        E = 2 * T_eV !< from the bohm criterion, E = E_sheath_entrance + E_sheath_acceleration = 2 T_i + 3 q T_e, but for now T_i = T_e
+        ! so E_sheath_entrance  = 2 T_i = 2 T, and E_sheath_acceleration will be added later
+        call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "self sputter", .true.)
 
-      ! Non-implemented alternative to the above method:
-      ! We could sample directly from Y(E) Y_E(E) f(E), but I don't know how to do this generally.
-      ! That would have the advantage of better distribution of statistics (more uniform weights).
+        ! Non-implemented alternative to the above method:
+        ! We could sample directly from Y(E) Y_E(E) f(E), but I don't know how to do this generally.
+        ! That would have the advantage of better distribution of statistics (more uniform weights).
 
-      !sputtering_yield = this%yield%interp(E, theta)
-      ! Workaround if sputtered energy coeff threshold is lower than sputtering
-      ! threshold: use sputtered energy coeff just above threshold instead
-      ! (note: all this doesn't take into account theta properly)
+        !sputtering_yield = this%yield%interp(E, theta)
+        ! Workaround if sputtered energy coeff threshold is lower than sputtering
+        ! threshold: use sputtered energy coeff just above threshold instead
+        ! (note: all this doesn't take into account theta properly)
 
-      !av_yield = fluid_sputtering_yield(this%yield, T_eV, Z, theta)
-      ! we could probably avoid the calculation of fluid_sputtering_yield by
-      ! using the discretisation we just sampled from (if theta is constant)
-      !if (av_yield .le. 1d-18) av_yield = 1d-6 ! does not matter since then sputtering_yield must be 0, just to avoid a NaN below
-      
-      ! now we weigh the particles with the prevalence of this energy in sputtered particles, i.e. sputtering_yield
-      ! over the integral of sputtering_yield, which we calculate (again)
-      !particle%weight = &
-      !particle%weight * &
-        !sputtering_yield / av_yield
-    case default
-      call wrong_interaction_type(this%type)
+        !av_yield = fluid_sputtering_yield(this%yield, T_eV, Z, theta)
+        ! we could probably avoid the calculation of fluid_sputtering_yield by
+        ! using the discretisation we just sampled from (if theta is constant)
+        !if (av_yield .le. 1d-18) av_yield = 1d-6 ! does not matter since then sputtering_yield must be 0, just to avoid a NaN below
+        
+        ! now we weigh the particles with the prevalence of this energy in sputtered particles, i.e. sputtering_yield
+        ! over the integral of sputtering_yield, which we calculate (again)
+        !particle%weight = &
+        !particle%weight * &
+          !sputtering_yield / av_yield
+      case default
+        call wrong_interaction_type(this%type)
+      end select
+
+      ! write the created particle to a free slot in the array
+      i_p = i_free(j)
+      pa(i_p) = particle ! assignment(=+ operator is defined for particle_base as copy, so this works as you would intuitively think
+    end do
+    !$omp end do
+    !$omp end parallel
+    class default
+      write(*,*) 'Target particle type not implemented for fluid2part actions (origin/target id)', this%origin_group, sim%groups(this%target_group)%id
+      stop
     end select
-
-    ! write the created particle to a free slot in the array
-    i_p = i_free(j)
-    pa(i_p) = particle ! assignment(=+ operator is defined for particle_base as copy, so this works as you would intuitively think
-  end do
-  !$omp end do
-  !$omp end parallel
-  class default
-    write(*,*) 'Target particle type not implemented for fluid2part actions (origin/target id)', this%origin_group, sim%groups(this%target_group)%id
-    stop
-  end select
+  end if !do_main
 
   call reduce_global_diag(diagnostics)
 
   ! write global diagnostics, taylored for fluid to particle
   if (sim%my_id .eq. 0) then
     write(*,'(A,1f14.0)' ) "superparticles created        = ", diagnostics(i_wall_part_out) 
-    write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", integral*this%weight_factor/this%delta_t,diagnostics(i_wall_flux_out)/this%delta_t 
+    write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", this%domain_integral*this%weight_factor/this%delta_t,diagnostics(i_wall_flux_out)/this%delta_t 
     if(trim(this%type) == "wall recomb") then
       write(*,'(A,2es16.6)') "heatflux (in/out) [W]            = ", diagnostics(i_wall_heat_in)/this%delta_t,diagnostics(i_wall_heat_out)/this%delta_t 
       write(*,'(A50,1es16.8)') "atom wall-assisted recombination power [W] = ",      diagnostics(i_wall_flux_in)                                  * ion_binding_E / this%delta_t
@@ -790,8 +1087,10 @@ subroutine fluid2part_action(this, sim)
     end if
   endif
 
-  deallocate(rng_sample, xyz_sampled, st_sampled, i_elm_sampled)
-  deallocate(i_free)
+  this%yield_calculated = .false.
+
+  if(allocated(rng_sample)) deallocate(rng_sample, xyz_sampled, st_sampled, i_elm_sampled)
+  if(allocated(i_free)) deallocate(i_free)
 end subroutine fluid2part_action
 
 
@@ -1036,6 +1335,42 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   diagnostics(i_wall_heat_out) = diagnostics(i_wall_heat_out) + particle%weight * E *EL_CHG
   
 end subroutine single_self_interaction
+
+
+!> calculates the fluid yield and stores the results in the wall action
+subroutine calc_fluid_yield(this,sim)
+  use mod_edge_elements, only: integrate_edge_elements
+
+  implicit none
+  
+  class(wall_action),                      intent(inout) :: this
+  type(particle_sim),                      intent(in)    :: sim
+
+  ! updating the timestep in SI (as tstep can change)
+  call this%update_delta_t()
+
+  !> this subroutine will calculate the incident ion flux over every fluid species on edge domain
+  !> And the resulting yield of created particles (in atoms/m^2 during delta_t)
+  call project_sputter_vars_on_edge(this, sim)
+
+  ! determine integral over the domain
+  call integrate_edge_elements(this%fluid_yield_integral, 1, this%domain_integral, this%res)
+
+  this%yield_calculated = .true.
+end subroutine calc_fluid_yield
+
+
+!> updates this%delta_t, as that can change when tstep changes during the simulation
+subroutine update_delta_t(this)
+  use phys_module, only: tstep, central_mass, central_density
+
+  implicit none
+  
+  class(wall_action), intent(inout)    :: this
+  
+  this%delta_t = (tstep*sqrt((MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20)))
+
+end subroutine update_delta_t
 
 
 !> The potential drop from a debye sheath. Could support two-temperature model later
@@ -1358,6 +1693,7 @@ end function elm_in_patch
 !> adds this particle's contribution to the wall_projection diagnostic tool
 subroutine particle_projection_diagnostic(this, sim, particle, E, sputtering_yield)
   use phys_module, only: n_period, n_plane
+  use mod_edge_elements, only: find_edge_element
 
   implicit none
 

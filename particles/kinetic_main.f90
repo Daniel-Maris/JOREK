@@ -78,13 +78,13 @@ integer   :: i, j, istep, group_num, config_num, valve_num
 integer   :: seed, i_rng, n_stream
 
 !> For keeping track of groups requiring specific physics (e.g. wall actions, recombination, puffing...)
-integer   :: wall_action_counter = 0
+integer   :: n_wall_act_groups = 0
 integer   :: recomb_counter  = 0
 integer   :: puff_counter    = 0
 
-integer,     dimension(:), allocatable :: recomb_groups
+integer,                dimension(:), allocatable :: recomb_groups
 type(particle_puffing), dimension(:), allocatable :: puff_actions   
-type(wall_action),      dimension(:), allocatable :: wall_actions
+type(wall_act_group),   dimension(:), allocatable :: wall_act_groups
 
 !tmp
 class(type_rng), dimension(:), allocatable :: wall_rng
@@ -162,14 +162,14 @@ if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
 call edge_elm_template%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
 
 ! getting the wall actions from the input
-wall_actions =  wall_actions_from_config(sim, edge_elm_template)
-wall_action_counter = size(wall_actions)
+wall_act_groups =  wall_actions_from_config(sim, edge_elm_template)
+n_wall_act_groups = size(wall_act_groups,1)
 
 ! keeping compatible with the reg test
 ! TODO: remove (breaks reg test)
-if (wall_action_counter > 0) then
+if (n_wall_act_groups > 0) then
   call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=wall_rng) !< for reg test
-  wall_actions(1)%rng = wall_rng
+  wall_act_groups(1)%wall_actions(1)%rng = wall_rng
 endif
 
 ! --- Setting up particle events
@@ -250,11 +250,12 @@ do while (.not. sim%stop_now)
   ! --- Interactions that happen on the fluid timestep (creating kinetic particles)
 
   ! TODO: move reflections to after the stepper (breaks reg test)
-  if (wall_action_counter > 0) then
+  if (n_wall_act_groups > 0) then
     call write_to_outputfile(sim%my_id, "Wall actions")
-    do i=1, wall_action_counter    
-      call wall_actions(i)%do(sim)
-      wall_actions(2)%rng = wall_actions(1)%rng !< TODO: remove (breaks reg test), as it enforces same rng object for both actions
+    do i=1, n_wall_act_groups
+      call wall_act_groups(i)%do(sim,.true.) !< TODO: after stepper
+      wall_act_groups(2)%wall_actions(1)%rng = wall_act_groups(1)%wall_actions(1)%rng !< TODO: remove (breaks reg test), as it enforces same rng object for both actions
+      call wall_act_groups(i)%do(sim,.false.)
     enddo
   endif
 
