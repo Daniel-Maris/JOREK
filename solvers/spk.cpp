@@ -166,6 +166,63 @@ extern "C" void spk_fact(StrumpackSparseSolverMPIDist<double,int_all>** spss_,MP
   return;
 }
 
+extern "C" void spk_solve_multple(int_all* n_, int_all ** dist_, double** rhs_,
+  StrumpackSparseSolverMPIDist<double,int_all>** spss_,MPI_Fint* comm_,int* phase, int_all* nrhs_) {
+
+  int_all n=*n_;
+  double* rhs=*rhs_;
+  int_all nrhs=*nrhs_;
+  int_all *dist = *dist_;
+
+  StrumpackSparseSolverMPIDist<double,int_all>* spss= *spss_;
+
+  MPI_Comm comm=MPI_Comm_f2c(*comm_);
+  int thread_level,rank,P;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &P);
+  std::chrono::steady_clock::time_point t0, t1;
+
+  int_all n_local = dist[rank+1]-dist[rank];
+
+  // set local RHS
+  std::vector<double> b(n_local*nrhs), x(n_local*nrhs);
+
+#pragma omp for
+  for (int_all i=dist[rank]; i<dist[rank+1]; i++)
+    b[i-dist[rank]]=rhs[i];
+
+  t0 = std::chrono::steady_clock::now();
+  spss->solve(nrhs, n_local, b.data(), n_local, x.data(), false);
+
+  // Gather the solution
+  std::vector<double> x_glob(n*nrhs), x_buf(n*nrhs);
+  x_glob.assign(n*nrhs,0);
+  x_buf.assign(n*nrhs,0);
+
+#pragma omp for
+  for (int_all i=dist[rank]*nrhs; i<dist[rank+1]*nrhs; i++)
+    x_buf[i]=x[i-(dist[rank]*nrhs)];
+
+  MPI_Allreduce(x_buf.data(), x_glob.data(), n*nrhs, MPI_DOUBLE_PRECISION, MPI_SUM, comm);
+
+  t1 = std::chrono::steady_clock::now();
+  if (!rank){
+    std::cout<<"Time to solve (s) = "<< std::chrono::duration_cast<
+    std::chrono::microseconds>(t1 - t0).count()*1e-6 << std::endl;
+  }
+
+#pragma omp for
+  for (int_all i=0;i<n*nrhs;i++){
+    (*rhs_)[i] = x_glob[i];
+  }
+
+  x.clear();
+  b.clear();
+  x_glob.clear();
+  x_buf.clear();
+
+  return;
+}
 
 extern "C" void spk_solve(int_all* n_, int_all ** dist_, double** rhs_,
         StrumpackSparseSolverMPIDist<double,int_all>** spss_,MPI_Fint* comm_,int* phase) {
