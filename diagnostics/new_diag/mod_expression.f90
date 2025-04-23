@@ -2087,19 +2087,19 @@ module mod_expression
                 res = J_boot / R / fact_mu_zero
 
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
-              case ( 'radiation' )
+              case ( 'radiation' ) !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 
                 if (rn0 .lt. 0.d0) then
-                  res = r0 * r0 * LradDcont_corr * fact_rad &
+                  res = r0 * r0 * LradDcont_T * fact_rad &
                        + r0 * fact_ne * frad_bg ! Conversion of units for frad_bg already done above for WITH_Neutrals 
                 else
                   res = r0 * rn0 * LradDrays_T * fact_rad &
-                       + r0 * r0 * LradDcont_corr * fact_rad &
+                       + r0 * r0 * LradDcont_T * fact_rad &
                        + r0 * fact_ne * frad_bg
                 endif
 
-              case ( 'brem' )
-                res = r0 * r0 * LradDcont_corr * fact_rad
+              case ( 'brem' ) !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
+                res = r0 * r0 * LradDcont_T * fact_rad
 
               case ('line_rad')
                 res = r0 * max(rn0,0.d0) * LradDrays_T * fact_rad

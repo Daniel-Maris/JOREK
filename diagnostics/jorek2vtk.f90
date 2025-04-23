@@ -1411,7 +1411,7 @@ enddo  ! n_elements
 
       scalars(i,ineu(1)) = ksi_ion_norm * scalars(i,var_rho) * scalars(i,var_rhon) * Sion_T
       scalars(i,ineu(2)) = scalars(i,var_rho) * scalars(i,var_rhon) * LradDrays_T
-      scalars(i,ineu(3)) = LradDcont_corr * scalars(i,var_rho)**2.d0
+      scalars(i,ineu(3)) = LradDcont_T * scalars(i,var_rho)**2.d0                           !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 #ifdef fullmhd
       scalars(i,ineu(4)) = 0.d0   ! NEEDS BE CALCULATED FOR FULL MHD ELESEWHERE! 
 #else /* not fullmhd */ 
@@ -1807,7 +1807,7 @@ if (SI_units) then
 
       scalars(i,ineu(2)) = scalars(i,var_rho)* 1.d20 * scalars(i,var_rhon) * 1.d20 * LradDrays_T/ coef_rad_1
 
-      scalars(i,ineu(3)) = LradDcont_corr * (scalars(i,var_rho)*1.d20)**2.d0 / coef_rad_1
+      scalars(i,ineu(3)) = LradDcont_T * (scalars(i,var_rho)*1.d20)**2.d0 / coef_rad_1  !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 
       scalars(i,ineu(4)) = eta_Sp * (1.d6*scalars(i,var_zj))**2.d0
 #endif /* WITH_Neutrals but not WITH_Impurities */
