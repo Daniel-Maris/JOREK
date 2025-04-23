@@ -80,6 +80,19 @@ module mod_strumpack
       integer, intent(in) :: comm
     end subroutine spk_solve
 
+    subroutine spk_solv_multiple(n,dist,rhs,sscp,comm) bind(C)
+      use iso_c_binding
+      use mod_integer_types
+      implicit none
+
+      integer(kind=C_INT_ALL), intent(in) :: n, nrhs
+      type(c_ptr), intent(inout) :: sscp, rhs
+      type(c_ptr) :: dist
+      !integer(kind=C_INT_ALL), dimension(:), pointer, intent(in) :: dist
+      integer, intent(in) :: comm
+    end subroutine spk_solv_multiple
+
+
     subroutine spk_delete_factors(sscp) bind(C)
       use iso_c_binding
       implicit none
@@ -374,8 +387,12 @@ module mod_strumpack
         call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
       endif
 
+      if (spss%projection) then
+        call spk_solve_multiple(rhs_vec%n, dist_c, rhs_c, spss%sscp, spss%comm, rhs_vec%nrhs)
+      else
+        call spk_solve(rhs_vec%n, dist_c, rhs_c, spss%sscp, spss%comm)
+      endif
 
-      call spk_solve(rhs_vec%n, dist_c, rhs_c, spss%sscp, spss%comm)
       call MPI_Barrier(spss%comm,ierr)
 
       if (spss%projection) then

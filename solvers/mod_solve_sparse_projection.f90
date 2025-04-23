@@ -42,8 +42,6 @@ module mod_solve_sparse_projection
     call MPI_COMM_SIZE(a_mat%comm, n_cpu, ierr)
     call MPI_COMM_RANK(a_mat%comm, my_id, ierr)
 
-    rhs_vec%val = rhs_vec%val / n_cpu
-
     verbose = solver%verbose.and.(my_id.eq.0)
 #ifdef SAVEMATRIX
     write(fname,'(A5,I2.2,A3)') "matA_",my_id,".h5"
