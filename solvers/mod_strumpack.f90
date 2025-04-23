@@ -362,7 +362,6 @@ module mod_strumpack
       call MPI_COMM_RANK(spss%comm, rank, ierr)
 
       if (spss%projection) then
-        rhs_vec%val = rhs_vec%val / n_cpu
         if (rank.ne.0) allocate (rhs_vec%val(rhs_vec%n*rhs_vec%nrhs))
         call MPI_Bcast(rhs_vec%val, rhs_vec%n*rhs_vec%nrhs, MPI_DOUBLE_PRECISION, 0, spss%comm, ierr)
       endif
