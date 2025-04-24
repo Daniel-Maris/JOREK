@@ -102,7 +102,7 @@ module mod_pastix
   end interface
 
   contains
-!> Initialize PaStiX solver instance
+  !> Initialize PaStiX solver instance
   subroutine pastix_initialize(ptss)
     use, intrinsic :: iso_c_binding
     use mpi_mod
@@ -120,10 +120,10 @@ module mod_pastix
     return
   end subroutine pastix_initialize
 
-!> Prepare sparse matrix for pastix solver
-!! Matrix is distributed column-wise among MPI processes in comm
-!! The values are scaled such that the largest value in each column is 1
-!! The matrix is converted to CSC format as required by distributed PaStiX
+  !> Prepare sparse matrix for pastix solver
+  !! Matrix is distributed column-wise among MPI processes in comm
+  !! The values are scaled such that the largest value in each column is 1
+  !! The matrix is converted to CSC format as required by distributed PaStiX
   subroutine pastix_set_mat(ptss, ad_mat, ac_mat, tag)
 
     use, intrinsic :: iso_c_binding
@@ -171,10 +171,10 @@ module mod_pastix
 
     endif
 
-! centralize matrix if it's not distributed by columns; then it will be reduced and distributed
+  ! centralize matrix if it's not distributed by columns; then it will be reduced and distributed
     centralize = (n_cpu.gt.1).and.(.not.ad_mat%col_distributed)
     if (centralize) then
-! new ac_mat is allocated, ad_mat is deallocated
+  ! new ac_mat is allocated, ad_mat is deallocated
       call clck_time(t0)
 
       call matrix_split_reduce(ad_mat,ac_mat)
@@ -183,7 +183,7 @@ module mod_pastix
       if (tag .ge. 0)  write(*,FMT_TIMING) tag, '## Elapsed time mpi_gather :', tsecond
 
     else
-! new ac_mat points to ad_mat; no allocation is done
+  ! new ac_mat points to ad_mat; no allocation is done
       call ad_mat%move_to(ac_mat, with_data=.true.)
       ac_mat%reduced = .true.
     endif
@@ -340,7 +340,7 @@ module mod_pastix
     return
   end subroutine pastix_solve
 
-!> Assign local matrix as selected column range from the reduced matrix
+  !> Assign local matrix as selected column range from the reduced matrix
   subroutine distribute_matrix(jmin,jmax,ac_mat)
     use data_structure, only: type_SP_MATRIX
     implicit none
@@ -727,6 +727,15 @@ module mod_pastix
     ! dummy arguments to be used with pastix interface
     integer(kind=int_all), pointer    :: irn(:), jcn(:)
     real(kind=8), pointer             :: val(:)
+    integer :: ierr, rank
+
+    call MPI_Comm_rank(ptss%comm, rank, ierr)
+
+    if (ptss%projection) then
+      if (rank.ne.0) allocate (rhs_vec%val(rhs_vec%n*rhs_vec%nrhs))
+      call MPI_Bcast(rhs_vec%val, rhs_vec%n*rhs_vec%nrhs, MPI_DOUBLE_PRECISION, 0, ptss%comm, ierr)
+    endif
+
 
     ptss%iparm(IPARM_START_TASK) = API_TASK_SOLVE
     ptss%iparm(IPARM_END_TASK)   = API_TASK_SOLVE
