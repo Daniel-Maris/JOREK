@@ -166,8 +166,8 @@ extern "C" void spk_fact(StrumpackSparseSolverMPIDist<double,int_all>** spss_,MP
   return;
 }
 
-extern "C" void spk_solve_multple(int_all* n_, int_all ** dist_, double** rhs_,
-  StrumpackSparseSolverMPIDist<double,int_all>** spss_,MPI_Fint* comm_,int* phase, int_all* nrhs_) {
+extern "C" void spk_solve_multiple(int_all* n_, int_all* nrhs_, int_all ** dist_, double** rhs_,
+  StrumpackSparseSolverMPIDist<double,int_all>** spss_,MPI_Fint* comm_,int* phase) {
 
   int_all n=*n_;
   double* rhs=*rhs_;

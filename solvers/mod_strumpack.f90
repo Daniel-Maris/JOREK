@@ -80,7 +80,7 @@ module mod_strumpack
       integer, intent(in) :: comm
     end subroutine spk_solve
 
-    subroutine spk_solve_multiple(n,dist,rhs,sscp,comm, nrhs) bind(C)
+    subroutine spk_solve_multiple(n,nrhs,dist,rhs,sscp,comm) bind(C)
       use iso_c_binding
       use mod_integer_types
       implicit none
@@ -388,7 +388,7 @@ module mod_strumpack
       endif
 
       if (spss%projection) then
-        call spk_solve_multiple(rhs_vec%n, dist_c, rhs_c, spss%sscp, spss%comm, rhs_vec%nrhs)
+        call spk_solve_multiple(rhs_vec%n, rhs_vec%nrhs, dist_c, rhs_c, spss%sscp, spss%comm)
       else
         call spk_solve         (rhs_vec%n, dist_c, rhs_c, spss%sscp, spss%comm)
       endif
