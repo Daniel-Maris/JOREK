@@ -185,23 +185,28 @@ extern "C" void spk_solve_multiple(int_all* n_, int_all* nrhs_, int_all ** dist_
   int_all n_local = dist[rank+1]-dist[rank];
 
   // set local RHS
-  std::vector<double> b(n_local*nrhs), x(n_local*nrhs);
+  // std::vector<double> b(n_local*nrhs), x(n_local*nrhs);
+  DenseMatrix<double> b(n_local, nrhs), x(n_local, nrhs);
 
-#pragma omp for
-  for (int_all i=dist[rank]; i<dist[rank+1]; i++)
-    b[i-dist[rank]]=rhs[i];
+
+  for (int_all j=0; j<nrhs; j++)
+    #pragma omp for
+    for (int_all i=dist[rank]; i<dist[rank+1]; i++)
+      b(i-dist[rank],j)=rhs[i+n*j];
 
   t0 = std::chrono::steady_clock::now();
-  spss->solve(nrhs, b.data(), n_local, x.data(), n_local, false);
+  // spss->solve(nrhs, b.data(), nrhs, x.data(), nrhs, false);
+  spss->solve(b, x, false);
 
   // Gather the solution
   std::vector<double> x_glob(n*nrhs), x_buf(n*nrhs);
   x_glob.assign(n*nrhs,0);
   x_buf.assign(n*nrhs,0);
 
-#pragma omp for
-  for (int_all i=dist[rank]*nrhs; i<dist[rank+1]*nrhs; i++)
-    x_buf[i]=x[i-(dist[rank]*nrhs)];
+for (int_all j=0; j<nrhs; j++)
+  #pragma omp for
+  for (int_all i=dist[rank]; i<dist[rank+1]; i++)
+    x_buf[i+n*j]=x(i-dist[rank], j);
 
   MPI_Allreduce(x_buf.data(), x_glob.data(), n*nrhs, MPI_DOUBLE_PRECISION, MPI_SUM, comm);
 
