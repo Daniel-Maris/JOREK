@@ -305,24 +305,13 @@ module mod_strumpack
     
     subroutine strumpack_analyze(spss)
       use data_structure, only: type_SP_MATRIX
-      use, intrinsic :: ieee_exceptions
 
       implicit none
       
       type(type_STRUMPACK_SOLVER)       :: spss
       integer ierr
-      logical :: halt(size(IEEE_USUAL,1))
-
-      if (spss%projection) then
-        call ieee_get_halting_mode(IEEE_USUAL, halt)
-        call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
-      endif
 
       call spk_reord(spss%sscp,spss%comm)
-
-      if (spss%projection) then
-        call ieee_set_halting_mode(IEEE_USUAL, halt)
-      endif
 
       call MPI_Barrier(spss%comm,ierr)
       spss%analyzed = .true.
@@ -332,25 +321,14 @@ module mod_strumpack
    
     subroutine strumpack_factorize(spss)
       use data_structure, only: type_SP_MATRIX
-      use, intrinsic :: ieee_exceptions
 
       implicit none
       
       type(type_STRUMPACK_SOLVER)       :: spss
       integer ierr
-      logical :: halt(size(IEEE_USUAL,1))
-
-      if (spss%projection) then
-        call ieee_get_halting_mode(IEEE_USUAL, halt)
-        call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
-      endif
 
       call spk_fact(spss%sscp,spss%comm)
       call MPI_Barrier(spss%comm,ierr)
-      
-      if (spss%projection) then
-        call ieee_set_halting_mode(IEEE_USUAL, halt)
-      endif
 
       return
     end subroutine strumpack_factorize
@@ -358,7 +336,6 @@ module mod_strumpack
     subroutine strumpack_solve(spss, rhs_vec)
       use data_structure, only: type_SP_MATRIX, type_RHS
       use, intrinsic :: iso_c_binding
-      use, intrinsic :: ieee_exceptions
 
       implicit none
       
@@ -369,7 +346,6 @@ module mod_strumpack
       integer :: ierr
       integer(kind=C_INT_ALL), allocatable, target :: dist(:)
       integer :: i, n_cpu, rank
-      logical :: halt(size(IEEE_USUAL,1))
       
       call MPI_COMM_SIZE(spss%comm, n_cpu, ierr)
       call MPI_COMM_RANK(spss%comm, rank, ierr)
@@ -383,21 +359,12 @@ module mod_strumpack
       dist_c = c_loc(spss%distr)
 
       if (spss%projection) then
-        call ieee_get_halting_mode(IEEE_USUAL, halt)
-        call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
-      endif
-
-      if (spss%projection) then
         call spk_solve_multiple(rhs_vec%n, rhs_vec%nrhs, dist_c, rhs_c, spss%sscp, spss%comm)
       else
         call spk_solve         (rhs_vec%n, dist_c, rhs_c, spss%sscp, spss%comm)
       endif
 
       call MPI_Barrier(spss%comm,ierr)
-
-      if (spss%projection) then
-        call ieee_set_halting_mode(IEEE_USUAL, halt)
-      endif
 
       return
     end subroutine strumpack_solve
