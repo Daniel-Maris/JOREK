@@ -589,19 +589,22 @@ function new_projection(node_list, element_list,                                
 #ifdef USE_STRUMPACK
   new%solver%library = strumpack
 #else
-  write(*,*) "FATAL: strumpack not available"
+  write(*,*) ' FATAL : use_strumpack_prj requires defined USE_STRUMPACK'
+  call MPI_Abort(MPI_COMM_WORLD, 3, ierr)
 #endif
   else if (use_pastix_prj) then
 #ifdef USE_PASTIX
   new%solver%library = pastix
 #else
-  write(*,*) "FATAL: pastix not available"
+  write(*,*) ' FATAL : use_pastix_prj requires defined USE_PASTIX'
+  call MPI_Abort(MPI_COMM_WORLD, 3, ierr)
 #endif
   else if (use_mumps_prj) then
 #ifdef USE_MUMPS
   new%solver%library = mumps
 #else
-  write(*,*) "FATAL: mumps not available"
+  write(*,*) ' FATAL : use_mumps_prj requires defined USE_MUMPS'
+  call MPI_Abort(MPI_COMM_WORLD, 3, ierr)
 #endif
 endif
 
