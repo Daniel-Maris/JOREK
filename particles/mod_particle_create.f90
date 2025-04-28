@@ -133,8 +133,9 @@ function supers_to_create(this, my_id, weight) result(n_supers)
 end function supers_to_create
 
 
-!> determines the indices of all free particles for a particles array (typically sim%particle_group(group_num)%particles)
-subroutine free_particle_indices(part_arr, n_free, i_free, n_needed)
+!> determines the indices of the first n_needed free particles (or all free particles if n_needed is not specified)
+!> for a particles array (typically sim%particle_group(group_num)%particles) 
+subroutine free_particle_indices(part_arr, i_free, n_needed)
   use mod_particle_types, only: particle_base
   use phys_module, only: use_manual_random_seed
   !$ use omp_lib 
@@ -142,79 +143,92 @@ subroutine free_particle_indices(part_arr, n_free, i_free, n_needed)
   implicit none
   
   class(particle_base), dimension(:), allocatable, intent(in)  :: part_arr          !< typically sim%particle_group(group_num)%particles
-  integer,                                         intent(out) :: n_free            !< number of free particles
-  integer,             dimension(:), allocatable,  intent(out) :: i_free            !< indices of free particles (size: n_free or n_needed if specified)
-  integer,                           optional,     intent(in)  :: n_needed          !< number of free particles needed. If this is specified, routine returns first n_needed free particles instead 
+  integer,              dimension(:), allocatable, intent(out) :: i_free            !< indices of free particles (size: n_free or n_needed if specified)
+  integer, optional,                               intent(in)  :: n_needed          !< number of free particles needed
   
   logical, dimension(:), allocatable :: is_free
   integer, dimension(:), allocatable :: i_free_tmp
-  integer :: i, j, k, k_thread, n_part
+  integer :: i, j, k, k_thread, n_part, n_free, n_want, n_found, n_found_thread
+  logical :: done !< to terminate early so that not the whole array has to be searched if n_needed << n_free
   
   n_part = size(part_arr)
 
-  ! Step 1: find which particles are free using a mask is_free
-  allocate(is_free(n_part)) 
+  n_want = n_part
+  if(present(n_needed)) n_want = n_needed
+  if(n_want .le. 0) then
+    write(*,*) "ERROR: n_need=0 or size(part_arr)=0 in free_particle_indices. Returning"
+    allocate(i_free(0))
+    return
+  end if
 
-  ! might be replaced with omp workshare, or just the array expression.
-  ! there is an issue with derived type arrays in gfortran though, and this works
+  ! Step 1: find which particles are free using a mask is_free
+  allocate(is_free(n_part), source=.false.) 
+
+  done=.false.
+  n_found=0
   if(use_manual_random_seed) then
     !$ call omp_set_schedule(omp_sched_static,100)
   else
     !$ call omp_set_schedule(omp_sched_dynamic,100)
   end if
-  !$omp parallel do default(none) shared(part_arr, n_part, is_free) &
-  !$omp private(j) schedule(runtime)
+  !$omp parallel do default(none) shared(part_arr, n_part, is_free, done, n_found, n_want) &
+  !$omp private(j, n_found_thread) schedule(runtime)
   do j=1,n_part
-    ! i_elm < 0 technically means the particle left the domain rather than that it is free, thus to easier catch bugs, only i_elm = 0 particles are considered free by default 
-    !however for reg test purpose we need .le.
-    !is_free(j) = part_arr(j)%i_elm .eq. 0 
-    is_free(j) = part_arr(j)%i_elm .le. 0 
+    ! i_elm < 0 technically means the particle left the domain rather than that it is free, thus to easier catch bugs, only i_elm = 0 particles are considered free by default
+    ! thus particles that are lost to the domain boundary that are supposed to be freed up should be explicitly freed up elsewhere in the program 
+    if(.not. done) then
+      if(part_arr(j)%i_elm == 0) then
+        !$omp atomic capture
+        n_found = n_found + 1
+        n_found_thread = n_found
+        !$omp end atomic
+        if(n_found_thread >= n_want) then
+          !$omp atomic write
+          done=.true.
+          !$omp end atomic
+        end if
+        is_free(j) = .true.
+      end if
+    end if
   end do
   !$omp end parallel do
   
-  ! what is the function of this barrier?
-  !$omp barrier
-  
-  n_free = count(is_free)
-  allocate(i_free(n_free))
+  if(done) then ! we found enough free particles
+    allocate(i_free(n_want))
+  else ! we didn't find enough free particles
+    n_found = count(is_free)
+    write(*,*) "ERROR: More free particles needed than available, returning only available free particles (avail/needed)", n_found, n_want
+    allocate(i_free(n_found))
+  end if
   
   ! Step 2: write their indices in an array
+  done=.false.
   k = 1
-
-  ! omp parallelisation breaks reg test because of rng
   ! if(use_manual_random_seed) then
   !   !$ call omp_set_schedule(omp_sched_static,1)
   ! else
   !   !$ call omp_set_schedule(omp_sched_dynamic,100)
   ! end if
-  ! !$omp parallel do default(none) shared(is_free, i_free, n_part, k) &
+  ! !$omp parallel do default(none) shared(is_free, i_free, n_part, done, k, n_want) &
   ! !$omp private(j, k_thread) schedule(runtime)
   do j=1,n_part
-    if (is_free(j)) then
-      ! !$omp atomic capture
-      k_thread = k
-      k = k+1
-      ! !$omp end atomic
-      i_free(k_thread) = j
+    if(.not. done) then
+      if (is_free(j)) then
+        ! !$omp atomic capture
+        k_thread = k
+        k = k+1
+        ! !$omp end atomic
+        if(k_thread >= n_want) then
+          ! !$omp atomic write
+          done=.true.
+          ! !$omp end atomic
+        end if
+        if(k_thread <= n_want) i_free(k_thread) = j
+      end if
     end if
   end do
   ! !$omp end parallel do
-
-  ! Step 3: give first n_needed elements back if n_needed was specified, else return array with all free particle indices
-  ! TODO: could copying be sped up using omp?
-  ! TODO move if(present(n_needed)) to earlier, you only need to fill first n_needed, that's way quicker
-  if(present(n_needed)) then
-    if(n_free < n_needed) then
-      write(*,*) "ERROR: More free particles needed than available, returning only available free particles (avail/needed)", n_free, n_needed
-      ! then just send the full i_free
-      return
-    end if
-    ! make i_free smaller
-    i_free_tmp = i_free(1:n_needed)
-    deallocate(i_free)
-    i_free = i_free_tmp
-  end if
-
+  
 end subroutine free_particle_indices
 
 end module mod_particle_create

@@ -886,7 +886,6 @@ subroutine fluid2part_action(this, sim)
 
   !> For check free particles
   integer, allocatable, dimension(:) :: i_free
-  integer :: n_free
 
   ! diagnostics
   real*8, dimension(n_global_diagnostics) :: diagnostics         !< diagnostics for the global wall loads
@@ -912,7 +911,7 @@ subroutine fluid2part_action(this, sim)
     n_supers_loc = calc_n_particles_per_mpi(n_supers, sim%n_mpi, sim%my_id)
 
     ! determine indices of free particles
-    call free_particle_indices(sim%groups(this%target_group)%particles, n_free, i_free, n_needed=n_supers_loc)  
+    call free_particle_indices(sim%groups(this%target_group)%particles, i_free, n_needed=n_supers_loc)  
     n_supers_loc = size(i_free,1)
 
     ! check if we need to do anything on this mpi process
