@@ -1102,20 +1102,20 @@ do i=1,n_vertex_max
             D_prof_imp = 0.
           endif
           ! --- Increase diffusivity if very small density
-          if ((r0-rimp0) .lt. D_prof_neg_thresh) then
-            D_prof         = D_prof_neg
-            D_par_local     = D_prof_neg
-          endif
-          if (rimp0 .lt. D_prof_imp_neg_thresh) then
-            D_prof_imp     = D_prof_neg
-            D_par_local_imp = D_prof_neg
-          endif
-          if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
-            D_prof         = D_prof_neg
-            D_par_local     = D_prof_neg
-            D_prof_imp     = D_prof_neg
-            D_par_local_imp = D_prof_neg
-          endif
+          ! if ((r0-rimp0) .lt. D_prof_neg_thresh) then
+          !   D_prof         = D_prof_neg
+          !   D_par_local     = D_prof_neg
+          ! endif
+          ! if (rimp0 .lt. D_prof_imp_neg_thresh) then
+          !   D_prof_imp     = D_prof_neg
+          !   D_par_local_imp = D_prof_neg
+          ! endif
+          ! if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
+          !   D_prof         = D_prof_neg
+          !   D_par_local     = D_prof_neg
+          !   D_prof_imp     = D_prof_neg
+          !   D_par_local_imp = D_prof_neg
+          ! endif
 
           Dn0x = D_neutral_x      
           Dn0y = D_neutral_y      
@@ -1138,18 +1138,18 @@ do i=1,n_vertex_max
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))
           end if
           ! --- Increase diffusivity if very small temperature
-          if ( with_TiTe ) then
-            if (Ti0 .lt. ZK_i_prof_neg_thresh) then
-              ZKi_prof = ZK_i_prof_neg
-            end if
-            if (Te0 .lt. ZK_e_prof_neg_thresh) then
-              ZKe_prof = ZK_e_prof_neg
-            end if
-          else ! (with_TiTe = .f.), i.e. with single temperature
-            if (T0 .lt. ZK_prof_neg_thresh) then
-              ZK_prof = ZK_prof_neg
-            end if
-          endif ! (with_TiTe)
+          ! if ( with_TiTe ) then
+          !   if (Ti0 .lt. ZK_i_prof_neg_thresh) then
+          !     ZKi_prof = ZK_i_prof_neg
+          !   end if
+          !   if (Te0 .lt. ZK_e_prof_neg_thresh) then
+          !     ZKe_prof = ZK_e_prof_neg
+          !   end if
+          ! else ! (with_TiTe = .f.), i.e. with single temperature
+          !   if (T0 .lt. ZK_prof_neg_thresh) then
+          !     ZK_prof = ZK_prof_neg
+          !   end if
+          ! endif ! (with_TiTe)
 
           ! --- Parallel momentum source
           Vt0   = V_source(ms,mt)
@@ -1233,10 +1233,15 @@ do i=1,n_vertex_max
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
             
             call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
-      
-            ! --- Transform derivatives on Te to derivatives in total T  
-            dSrec_dT      = dSrec_dT      / 2.d0  
-            dLradDcont_dT = dLradDcont_dT / 2.d0
+                  
+            if (.not. with_TiTe) then
+              ! --- Transform derivatives on Te to derivatives in total T
+              dSion_dT           = dSion_dT      / 2.d0
+              dSrec_dT           = dSrec_dT      / 2.d0
+              dLradDrays_dT      = dLradDrays_dT / 2.d0
+              dLradDcont_dT      = dLradDcont_dT / 2.d0
+              dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
+            endif
           
           else !< no neutrals of any kind (neutral terms are always multiplied by one of these coefficients)
             
@@ -1839,6 +1844,8 @@ do i=1,n_vertex_max
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * LradDcont_corr * xjac * tstep * factor(var_T,14) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * frad_bg                               * xjac * tstep * factor(var_T,15) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * rimp0_corr * Lrad                     * xjac * tstep * factor(var_T,16) &
+                             -(GAMMA-1.) * v * 0.5d0 * T0 * BigR * r0_corr * r0_corr * Srec_T                  * xjac * tstep * factor(var_T,23) & ! ion thermal energy lost from plasma due to recombination
+
                              ! Additional energy teleportation term for plasmoid drift
                              + v * BigR * power_dens_teleport_ju                                * xjac * tstep * factor(var_T,18) &
                             
@@ -1861,9 +1868,9 @@ do i=1,n_vertex_max
                              *                                                                                 xjac*tstep*BigR  * factor(var_T,20) &
 
                             ! --------------------------------------- from kinetic coupling -------------------------------------------------
-                             + v * BigR * aux_E0                                                                         * xjac * tstep * factor(var_T,23) &
-                             + (gamma-1.d0)*0.5d0 * v * aux_rho0                                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,24) &
-                             - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                                              * xjac * tstep * factor(var_T,25) 
+                             + v * BigR * aux_E0                                                                         * xjac * tstep * factor(var_T,24) &
+                             + (gamma-1.d0)*0.5d0 * v * aux_rho0                                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,25) &
+                             - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                                              * xjac * tstep * factor(var_T,26) 
                             ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
 
               if (with_impurities) then
@@ -3871,6 +3878,8 @@ do i=1,n_vertex_max
                                           + v * BigR * rho * rn0 * ksi_ion_norm * Sion_T                             * xjac * theta * tstep &
                                           + v * BigR * rho * rn0_corr * LradDrays_T                                  * xjac * theta * tstep &
                                           + v * BigR * rho * (2.d0*r0_corr+(alpha_e-1.)*rimp0_corr)*LradDcont_corr   * xjac * theta * tstep &
+                                          + (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * T0                      * xjac * theta * tstep & 
+                                          - v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T                       * xjac * theta * tstep & 
                                           + v * BigR * rho * frad_bg                                                 * xjac * theta * tstep &
                                           + v * BigR * rho * rimp0_corr * Lrad                                       * xjac * theta * tstep &
                                           ! New term from Z_eff
@@ -3989,6 +3998,7 @@ do i=1,n_vertex_max
                                       + v * BigR * T * dalpha_e_dT*rimp0_corr       * rn0_corr * LradDrays_T   * xjac * theta * tstep &
                                       + v * BigR * T * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * dLradDcont_dT_corr * xjac * theta * tstep &
                                       + v * BigR * T * dalpha_e_dT*rimp0_corr * (r0_corr-rimp0_corr) * LradDcont_corr           * xjac * theta * tstep &
+                                      + (gamma-1.d0)*v * BigR *0.5d0 * T * r0_corr * r0_corr * (Srec_T +T0*dSrec_dT)            * xjac * theta * tstep & 
                                       + v * BigR * T * (r0_corr+alpha_e*rimp0_corr) * dfrad_bg_dT              * xjac * theta * tstep &
                                       + v * BigR * T * dalpha_e_dT*rimp0_corr * frad_bg                        * xjac * theta * tstep &
                                       + v * BigR * T * (r0_corr + alpha_e*rimp0_corr) * rimp0_corr * dLrad_dT  * xjac * theta * tstep &
