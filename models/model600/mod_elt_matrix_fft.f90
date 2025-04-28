@@ -1860,8 +1860,6 @@ do i=1,n_vertex_max
                              * (0.5d0*T_min_neg*(1 + exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) )) -min(T0,T_min_neg)) &
                              *                                                                                 xjac*tstep*BigR  * factor(var_T,20) &
 
-                             + (gamma-1.d0)*0.5d0 * v * (particle_source(ms,mt) + source_pellet) * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,22) &
-
                             ! --------------------------------------- from kinetic coupling -------------------------------------------------
                              + v * BigR * aux_E0                                                                         * xjac * tstep * factor(var_T,23) &
                              + (gamma-1.d0)*0.5d0 * v * aux_rho0                                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_T,24) &
