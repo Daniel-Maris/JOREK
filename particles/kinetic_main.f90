@@ -242,11 +242,10 @@ do while (.not. sim%stop_now)
 
   ! --- Interactions that happen on the fluid timestep (creating kinetic particles)
 
-  ! TODO: move reflections to after the stepper (breaks reg test)
   if (n_wall_act_groups > 0) then
-    call write_to_outputfile(sim%my_id, "Wall actions")
+    ! here only do the wall actions that create particles
+    call write_to_outputfile(sim%my_id, "Particle creating wall_actions")
     do i=1, n_wall_act_groups
-      call wall_act_groups(i)%do(sim,.true.) !< TODO: after stepper
       call wall_act_groups(i)%do(sim,.false.)
     enddo
   endif
@@ -283,6 +282,17 @@ do while (.not. sim%stop_now)
   do group_num=1, n_part_groups
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  
+
+  ! --- Handling the particles that left the domain
+
+  ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
+  ! which might lead to bad behaviour in other code than the wall_actions
+  if (n_wall_act_groups > 0) then
+    call write_to_outputfile(sim%my_id, "Particle particle wall_actions")
+    do i=1, n_wall_act_groups
+      call wall_act_groups(i)%do(sim,.true.)
+    enddo
+  endif
 
   ! --- Update the fluid
   
