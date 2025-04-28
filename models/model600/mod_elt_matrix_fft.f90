@@ -1232,7 +1232,7 @@ do i=1,n_vertex_max
 
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
             
-            call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
+            call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
       
             ! --- Transform derivatives on Te to derivatives in total T  
             dSrec_dT      = dSrec_dT      / 2.d0  
@@ -1494,8 +1494,8 @@ do i=1,n_vertex_max
                        + v * BigR * aux_rho0                                                                                         * xjac * tstep * factor(var_rho,13) 
                       ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
-            rhs_ij_k(var_rho) = - ((D_prof_par+D_par_sc_num*tau_sc)-D_prof) * BigR / BB2 * Bgrad_rho_k_star * (Bgrad_rho-Bgrad_rhoimp)    * xjac * tstep * factor(var_rho,4) &
-                            - ((D_prof_par_imp+D_par_imp_sc_num*tau_sc)-D_prof_imp) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rhoimp        * xjac * tstep * factor(var_rho,4) &
+            rhs_ij_k(var_rho) = - ((D_par_local+D_par_sc_num*tau_sc)-D_prof) * BigR / BB2 * Bgrad_rho_k_star * (Bgrad_rho-Bgrad_rhoimp)    * xjac * tstep * factor(var_rho,4) &
+                            - ((D_par_local_imp+D_par_imp_sc_num*tau_sc)-D_prof_imp) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rhoimp        * xjac * tstep * factor(var_rho,4) &
                             - D_prof * BigR  * (                  v_p*(r0_p-rimp0_p) /BigR**2 )                                      * xjac * tstep * factor(var_rho,5) &
                             - D_prof_imp * BigR  * (                  v_p*rimp0_p /BigR**2 )                                         * xjac * tstep * factor(var_rho,5) &
                        - tgnum_rho * 0.25d0 / BigR * vpar0**2                                                                                                           &
