@@ -437,6 +437,7 @@ function new_projection(node_list, element_list,                                
                         nsub, filename, basename, decimal_digits, fractional_digits, calc_integrals,&
                         do_dirichlet) result(new)
   use mpi_mod
+  use phys_module, only: use_mumps_prj, use_pastix_prj, use_strumpack_prj
   !use mod_parameters, only n_node_max
   type(projection) :: new
   type(type_node_list), intent(in)       :: node_list
@@ -584,18 +585,25 @@ function new_projection(node_list, element_list,                                
   new%solver%verbose = .true.
   new%solver%projection = .true.
 
+  if (use_strumpack_prj) then
 #ifdef USE_STRUMPACK
   new%solver%library = strumpack
+#else
+  write(*,*) "FATAL: strumpack not available"
 #endif
-
+  else if (use_pastix_prj) then
 #ifdef USE_PASTIX
   new%solver%library = pastix
+#else
+  write(*,*) "FATAL: pastix not available"
 #endif
-
+  else if (use_mumps_prj) then
 #ifdef USE_MUMPS
   new%solver%library = mumps
+#else
+  write(*,*) "FATAL: mumps not available"
 #endif
-
+endif
 
 end function new_projection
 

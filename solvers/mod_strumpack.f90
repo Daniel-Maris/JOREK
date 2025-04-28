@@ -191,7 +191,6 @@ module mod_strumpack
         if (rank.eq.0) write(*,*) "Matrix is not row-distributed. Distributing now."
 
         if (spss%projection) then
-          write(*,*) "a_mat%ng, a_mat%nnz", a_mat%ng, a_mat%nnz
           if (rank.ne.0) then
             allocate(a_mat%irn(a_mat%nnz))
             allocate(a_mat%jcn(a_mat%nnz))
