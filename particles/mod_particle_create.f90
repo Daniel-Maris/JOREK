@@ -204,30 +204,30 @@ subroutine free_particle_indices(part_arr, i_free, n_needed)
   ! Step 2: write their indices in an array
   done=.false.
   k = 1
-  ! if(use_manual_random_seed) then
-  !   !$ call omp_set_schedule(omp_sched_static,1)
-  ! else
-  !   !$ call omp_set_schedule(omp_sched_dynamic,100)
-  ! end if
-  ! !$omp parallel do default(none) shared(is_free, i_free, n_part, done, k, n_want) &
-  ! !$omp private(j, k_thread) schedule(runtime)
+  if(use_manual_random_seed) then
+    !$ call omp_set_schedule(omp_sched_static,1)
+  else
+    !$ call omp_set_schedule(omp_sched_dynamic,100)
+  end if
+  !$omp parallel do default(none) shared(is_free, i_free, n_part, done, k, n_want) &
+  !$omp private(j, k_thread) schedule(runtime)
   do j=1,n_part
     if(.not. done) then
       if (is_free(j)) then
-        ! !$omp atomic capture
+        !$omp atomic capture
         k_thread = k
         k = k+1
-        ! !$omp end atomic
+        !$omp end atomic
         if(k_thread >= n_want) then
-          ! !$omp atomic write
+          !$omp atomic write
           done=.true.
-          ! !$omp end atomic
+          !$omp end atomic
         end if
         if(k_thread <= n_want) i_free(k_thread) = j
       end if
     end if
   end do
-  ! !$omp end parallel do
+  !$omp end parallel do
   
 end subroutine free_particle_indices
 

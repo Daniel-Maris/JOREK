@@ -991,8 +991,7 @@ subroutine fluid2part_action(this, sim)
       !> multiplication with this%weight_fraction will be done in single_self_interaction
       !> note that in the off case there are not enough free particles this is wrong because the sum of n_supers_loc < n_supers then (but stuff starts breaking then anyway)
       !> this could be fixed using an MPI reduce, but that costs communication time for something which is normally never necessary
-      !particle%weight = this%domain_integral/n_supers !< TODO better spread out but breaks reg test
-      particle%weight = this%domain_integral/(n_supers_loc*sim%n_mpi)
+      particle%weight = this%domain_integral/n_supers
 
       ! Calculate temperature at this position to determine particle energy
       call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e, T_e)
@@ -1303,7 +1302,7 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   particle%weight = yield * particle%weight 
 
   ! use E from previous section to calculate velocity in one 
-  v_new = sqrt(2.d0* E *EL_CHG/(sim%groups(this%target_group)%mass * ATOMIC_MASS_UNIT)) !< TODO: is this wrong, shouldn't it be sqrt(3 kb T / m)? (leave for now for regtest)
+  v_new = sqrt(2.d0* E *EL_CHG/(sim%groups(this%target_group)%mass * ATOMIC_MASS_UNIT))
   
   ! give particle a new direction:
   ! Calculate vector normal and select a random vector with a cosine distribution in angle between the normal and itself

@@ -165,13 +165,6 @@ call edge_elm_template%prepare(node_list, element_list, edge_domains, nsub=6, ns
 wall_act_groups =  wall_actions_from_config(sim, edge_elm_template)
 n_wall_act_groups = size(wall_act_groups,1)
 
-! keeping compatible with the reg test
-! TODO: remove (breaks reg test)
-if (n_wall_act_groups > 0) then
-  call setup_shared_rngs(n_dim=3, seed=random_seed(), rng_type=pcg32_rng(), rngs=wall_rng) !< for reg test
-  wall_act_groups(1)%wall_actions(1)%rng = wall_rng
-endif
-
 ! --- Setting up particle events
 allocate(recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
@@ -254,7 +247,6 @@ do while (.not. sim%stop_now)
     call write_to_outputfile(sim%my_id, "Wall actions")
     do i=1, n_wall_act_groups
       call wall_act_groups(i)%do(sim,.true.) !< TODO: after stepper
-      wall_act_groups(2)%wall_actions(1)%rng = wall_act_groups(1)%wall_actions(1)%rng !< TODO: remove (breaks reg test), as it enforces same rng object for both actions
       call wall_act_groups(i)%do(sim,.false.)
     enddo
   endif
