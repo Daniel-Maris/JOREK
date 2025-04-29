@@ -4076,7 +4076,7 @@ do i=1,n_vertex_max
                                              + v * (r0 + rimp0 * alpha_imp) * GAMMA * T0 * (vpar_s * ps0_t - vpar_t * ps0_s)     * theta * tstep &
 
                                             ! --------------------------------- from kinetic coupling -------------------------------------------------
-                                             - (gamma-1.d0)*v * (particle_source(ms,mt) + source_pellet + aux_rho0) * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                             - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
                                              + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & 
                                             ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
