@@ -75,7 +75,7 @@ module mod_solve_sparse_projection
           if (verbose) write(*,*) "Using PaStiX solver"
           solver%ptss%equilibrium = solver%equilibrium
           solver%ptss%projection  = solver%projection
-          solver%ptss%refine = .true.
+          solver%ptss%refine = .false.
           call solve_pastix_all(solver%ptss, a_mat, rhs_vec, solver%solve_only, tag)
 #endif
       endif

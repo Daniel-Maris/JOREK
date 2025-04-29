@@ -742,10 +742,10 @@ module mod_pastix
     if (ptss%refine) ptss%iparm(IPARM_END_TASK) = API_TASK_REFINE
 
     call pastix_fortran(ptss%idata, ptss%comm, ptss%nblock, ptss%jcn, ptss%irn, ptss%val, &
-                        ptss%perm_vars, ptss%iperm_vars, rhs_vec%val, int1, ptss%iparm, ptss%dparm)
+                        ptss%perm_vars, ptss%iperm_vars, rhs_vec%val, rhs_vec%nrhs, ptss%iparm, ptss%dparm)
 
     if (ptss%scaled) then
-      do i=1,rhs_vec%n
+      do i=1,rhs_vec%n*rhs_vec%nrhs
         rhs_vec%val(i) =  rhs_vec%val(i)/ptss%solution_scaling(i)
       enddo
     endif
