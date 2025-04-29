@@ -1,6 +1,6 @@
 !> variables and functions related to settings for the coupling between kinetic particles and the fluid
 module mod_coupling_settings
-use mod_model_settings, only: n_var
+use mod_model_settings
 use phys_module, only: n_part_groups, n_part_groups_max, part_group_configs
 use phys_module, only: n_aux_var, n_diag_var
 use coupling_variables
@@ -67,11 +67,36 @@ subroutine check_compatibility_ncs(group_num)
   
   !> currently ncs particles must be of type 'particle_kinetic_leapfrog'
   if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
-    write(*,*) "ERROR: incompatible setting enabled for group ", part_group_configs(group_num)%id, ": "
-    write(*,*) "  currently can only type = 'particle_kinetic_leapfrog' is supported for"
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently can only type = 'particle_kinetic_leapfrog' is supported for"
     write(*,*) "  groups with coupling scheme 'ncs'"
     stop
   endif
+
+  !> currently ncs particles are not compatible with fluid neutrals and fluid impurities
+  if (with_neutrals .or. with_impurities) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic neutrals are not compatible with fluid neutrals/impurities."
+    write(*,*) "  Please recompile with with_neutrals and with_impurities=.false."
+    stop
+  endif
+
+  !> currently ncs particles are not compatible with two temperature
+  if (with_TiTe) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic neutrals are not compatible with two temperature models, "
+    write(*,*) "  Please recompile with with_TiTe=.false."
+    stop
+  endif
+
+    !> currently ncs particles require vpar
+  if (.not. with_Vpar) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic neutrals must be ran with parallel velocity,"
+    write(*,*) "  Please recompile with with_vpar=.true."
+    stop
+  endif
+  
 end subroutine check_compatibility_ncs
 
 !> checks that the physics enabled for particle group is compatible with the ics coupling scheme
@@ -81,16 +106,40 @@ subroutine check_compatibility_ics(group_num)
   
   !> ics not compatible with use_kin_recombination
   if (part_group_configs(group_num)%use_kin_recombination) then
-    write(*,*) "ERROR: incompatible setting enabled for group ", part_group_configs(group_num)%id, ": "
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
     write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
     stop
   endif
 
   !> currently ics particles must be of type 'particle_kinetic_leapfrog'
   if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
-    write(*,*) "ERROR: incompatible setting enabled for group ", part_group_configs(group_num)%id, ": "
-    write(*,*) "  currently can only type = 'particle_kinetic_leapfrog' is supported for"
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently can only type = 'particle_kinetic_leapfrog' is supported for"
     write(*,*) "  groups with coupling scheme 'ics'"
+    stop
+  endif
+
+  !> currently ics particles are not compatible with fluid neutrals and fluid impurities
+  if (with_neutrals .or. with_impurities) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic impurities are not compatible with fluid neutrals/impurities."
+    write(*,*) "  Please recompile with with_neutrals and with_impurities=.false."
+    stop
+  endif
+
+  !> currently ics particles are not compatible with two temperature
+  if (with_TiTe) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic impurities are not compatible with two temperature models, "
+    write(*,*) "  Please recompile with with_TiTe=.false."
+    stop
+  endif
+
+    !> currently ics particles require vpar
+  if (.not. with_Vpar) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic impurities must be ran with parallel velocity, " 
+    write(*,*) "  Please recompile with with_vpar=.true."
     stop
   endif
 
