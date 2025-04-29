@@ -1233,7 +1233,7 @@ do i=1,n_vertex_max
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
             
             call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
-                  
+
             if (.not. with_TiTe) then
               ! --- Transform derivatives on Te to derivatives in total T
               dSion_dT           = dSion_dT      / 2.d0
@@ -1242,7 +1242,7 @@ do i=1,n_vertex_max
               dLradDcont_dT      = dLradDcont_dT / 2.d0
               dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
             endif
-          
+
           else !< no neutrals of any kind (neutral terms are always multiplied by one of these coefficients)
             
             Sion_T             = 0.d0
@@ -2495,8 +2495,8 @@ do i=1,n_vertex_max
                                            - BigR**2 * (v_s * rimp0 * alpha_imp_tri * T * T0_t - v_t * rimp0 * alpha_imp_tri * T * T0_s) * theta * tstep
                     endif
                     amat(var_u,var_rhoimp) = -(1.d0 - delta_n_convection) * BigR**3 * (&
-                              +(alpha_e * rn0 * rhoimp * Sion_T)                          * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep &
-                              -((-2.d0*alpha_e*rimp0 +(alpha_e-1.)*r0) * rhoimp * Srec_T) * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep ) &
+                              +(alpha_e * rn0 * rhoimp * Sion_T)                          * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep) &
+                              -((-2.d0*alpha_e*rimp0 +(alpha_e-1.)*r0) * rhoimp * Srec_T) * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep &
                               - BigR**2 * (v_s * rhoimp_t * alpha_i * Ti0 - v_t * rhoimp_s * alpha_i * Ti0)                  * theta * tstep &
                               - BigR**2 * (v_s * rhoimp * alpha_i * Ti0_t - v_t * rhoimp * alpha_i * Ti0_s)                  * theta * tstep &
                               - BigR**2 * (v_s * rhoimp_t * alpha_e * Te0     - v_t * rhoimp_s * alpha_e * Te0)              * theta * tstep &
@@ -2634,7 +2634,7 @@ do i=1,n_vertex_max
                           + ((D_par_local_imp+D_par_imp_sc_num*tau_sc)-D_prof_imp) * BigR / BB2 * Bgrad_rho_star * Bgrad_rhoimp_rhoimp * xjac * theta * tstep &
                           - D_prof * BigR  * (v_x*rhoimp_x + v_y*rhoimp_y )                         * xjac * theta * tstep &
                           + D_prof_imp * BigR  * (v_x*rhoimp_x + v_y*rhoimp_y )                     * xjac * theta * tstep &
-                          - BigR * v * alpha_e * rn0 * Sion_T * rhoimp                              * xjac * theta * tstep &
+                          - BigR * v * alpha_e * rn0 * Sion_T * rhoimp                              * xjac * theta * tstep & 
                           + v * rhoimp * (-2.d0*alpha_e*rimp0 +(alpha_e-1.)*r0) * BigR * Srec_T     * xjac * theta * tstep
                           
                     amat_k(var_rho,var_rhoimp) = &
@@ -3011,7 +3011,7 @@ do i=1,n_vertex_max
                                                   + v * F0 / BigR * T_p * rimp0 * alpha_imp_bis                              * xjac * theta * tstep
                       endif
                       amat(var_vpar,var_rhoimp) = (1.d0 - delta_n_convection) * (&
-                                  + v *(alpha_e * rn0 * rhoimp  * Sion_T) * vpar0 * BB2 * BigR                         * xjac * theta * tstep &
+                                  + v *(alpha_e * rn0 * rhoimp  * Sion_T) * vpar0 * BB2 * BigR                         * xjac * theta * tstep   &
                                   - v *(rhoimp * (-2.d0*alpha_e*rimp0 +(alpha_e-1.)*r0) * Srec_T) * vpar0 * BB2 * BigR * xjac * theta * tstep ) &
                                   + v * (rhoimp_s * alpha_i * Ti0 * ps0_t     - rhoimp_t * alpha_i * Ti0 * ps0_s)             * theta * tstep &
                                   + v * (rhoimp * alpha_i * Ti0_s * ps0_t     - rhoimp * alpha_i * Ti0_t * ps0_s)             * theta * tstep &
@@ -4294,7 +4294,7 @@ do i=1,n_vertex_max
 
                     if (with_impurities) then
                       amat(var_rhon,var_rhoimp) = &
-                                                  + BigR * v * alpha_e * rn0 * rhoimp * Sion_T                          * xjac * theta * tstep &
+                                                  + BigR * v * alpha_e * rn0 * rhoimp * Sion_T                          * xjac * theta * tstep & 
                                                   - v * rhoimp * (-2.d0*alpha_e*rimp0 +(alpha_e-1.)*r0) * BigR * Srec_T * xjac * theta * tstep
                     endif 
 
