@@ -1168,8 +1168,6 @@ do i=1,n_vertex_max
           source_pellet = 0.d0
           source_volume = 0.d0
 
-          particle_source = 0.d0 ![D]
-
           if (use_pellet) then
             call pellet_source2(pellet_amplitude,pellet_R,pellet_Z,pellet_psi,pellet_phi, &
                                 pellet_radius, pellet_delta_psi, pellet_sig, pellet_length, pellet_ellipse, pellet_theta, &
