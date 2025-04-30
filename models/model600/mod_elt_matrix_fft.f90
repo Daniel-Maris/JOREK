@@ -201,7 +201,7 @@ integer*8  :: ion_i, ion_k
 real*8     :: T_or_Te, T_or_Te_corr, T_or_Te_0, dT_or_Te_corr_dT
 
 ! --- Factor to use the conservative form or not of the momentum equation
-real*8     :: fact_conservative_u = 0.d0 ![D]
+real*8     :: fact_conservative_u = 1.d0
 
 ! --- Factor to use old viscosity model
 real*8     :: visco_fact_old, visco_fact_new
@@ -1102,20 +1102,20 @@ do i=1,n_vertex_max
             D_prof_imp = 0.
           endif
           ! --- Increase diffusivity if very small density
-          ! if ((r0-rimp0) .lt. D_prof_neg_thresh) then
-          !   D_prof         = D_prof_neg
-          !   D_par_local     = D_prof_neg
-          ! endif
-          ! if (rimp0 .lt. D_prof_imp_neg_thresh) then
-          !   D_prof_imp     = D_prof_neg
-          !   D_par_local_imp = D_prof_neg
-          ! endif
-          ! if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
-          !   D_prof         = D_prof_neg
-          !   D_par_local     = D_prof_neg
-          !   D_prof_imp     = D_prof_neg
-          !   D_par_local_imp = D_prof_neg
-          ! endif
+          if ((r0-rimp0) .lt. D_prof_neg_thresh) then
+            D_prof         = D_prof_neg
+            D_par_local     = D_prof_neg
+          endif
+          if (rimp0 .lt. D_prof_imp_neg_thresh) then
+            D_prof_imp     = D_prof_neg
+            D_par_local_imp = D_prof_neg
+          endif
+          if ((r0 .lt. D_prof_tot_neg_thresh) .and. ((r0-rimp0) .ge. D_prof_neg_thresh)) then
+            D_prof         = D_prof_neg
+            D_par_local     = D_prof_neg
+            D_prof_imp     = D_prof_neg
+            D_par_local_imp = D_prof_neg
+          endif
 
           Dn0x = D_neutral_x      
           Dn0y = D_neutral_y      
@@ -1138,18 +1138,18 @@ do i=1,n_vertex_max
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))
           end if
           ! --- Increase diffusivity if very small temperature
-          ! if ( with_TiTe ) then
-          !   if (Ti0 .lt. ZK_i_prof_neg_thresh) then
-          !     ZKi_prof = ZK_i_prof_neg
-          !   end if
-          !   if (Te0 .lt. ZK_e_prof_neg_thresh) then
-          !     ZKe_prof = ZK_e_prof_neg
-          !   end if
-          ! else ! (with_TiTe = .f.), i.e. with single temperature
-          !   if (T0 .lt. ZK_prof_neg_thresh) then
-          !     ZK_prof = ZK_prof_neg
-          !   end if
-          ! endif ! (with_TiTe)
+          if ( with_TiTe ) then
+            if (Ti0 .lt. ZK_i_prof_neg_thresh) then
+              ZKi_prof = ZK_i_prof_neg
+            end if
+            if (Te0 .lt. ZK_e_prof_neg_thresh) then
+              ZKe_prof = ZK_e_prof_neg
+            end if
+          else ! (with_TiTe = .f.), i.e. with single temperature
+            if (T0 .lt. ZK_prof_neg_thresh) then
+              ZK_prof = ZK_prof_neg
+            end if
+          endif ! (with_TiTe)
 
           ! --- Parallel momentum source
           Vt0   = V_source(ms,mt)
