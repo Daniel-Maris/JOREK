@@ -73,13 +73,13 @@ integer, parameter :: var_up   = 0
 logical, parameter :: unified_element_matrix = .true.
 
 !> parameters for naming equation terms in the RHS diagnostic 
-integer,  parameter :: max_terms    = 20
-integer,  parameter :: n_terms_psi  = 6
+integer,  parameter :: max_terms    = 26
+integer,  parameter :: n_terms_psi  = 5
 integer,  parameter :: n_terms_u    = 11
 integer,  parameter :: n_terms_zj   = 1
 integer,  parameter :: n_terms_w    = 1
 integer,  parameter :: n_terms_rho  = 12
-integer,  parameter :: n_terms_T    = 24
+integer,  parameter :: n_terms_T    = 26
 integer,  parameter :: n_terms_Te   = 19
 integer,  parameter :: n_terms_Ti   = 14
 integer,  parameter :: n_terms_vpar = 12
@@ -92,8 +92,7 @@ character*36, dimension(n_terms_psi),  parameter :: Psi_term_names=  &
                                                  'psi_Eq__B.grad_u         ', &  ! 2: \mathbf{B}\cdot\nabla u 
                                                  'psi_Eq__eta_num_term     ', &  ! 3: \eta_{num}\nabla^2 j 
                                                  'psi_Eq__diamag_term      ', &  ! 4: \mathbf{B}\cdot\nabla p
-                                                 'psi_Eq__zeta_timevol_term', &  ! 5: \zeta\delta\psi
-                                                 'psi_Eq__eta_aux_J        '/)   ! 6: \eta aux_j (current from kinetic particles)   
+                                                 'psi_Eq__zeta_timevol_term'/)   ! 5: \zeta\delta\psi
 
 character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                               (/ 'u_Eq__rho_v.grad_v     ', &  !  1:
@@ -129,30 +128,33 @@ character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                                  'rho_Eq__tg_num_term      '/)   ! 12:
 
 character*36, dimension(n_terms_T),     parameter :: T_term_names=  &
-                                              (/ 'T_Eq__ext_heat_source   ', &  !  1:
-                                                 'T_Eq__Vperp.grad_P      ', &  !  2: 
-                                                 'T_Eq__gamma_P_div_V     ', &  !  3:
-                                                 'T_Eq__Vpar.grad_P       ', &  !  4:
-                                                 'T_Eq__parallel_conduct  ', &  !  5:
-                                                 'T_Eq__perp_conduction   ', &  !  6:
-                                                 'T_Eq__ZK_perp_num_term  ', &  !  7:
-                                                 'T_Eq__tg_num_terms      ', &  !  8:
-                                                 'T_Eq__ohmic_heating     ', &  !  9:
-                                                 'T_Eq__zeta_timevol_term ', &  ! 10:
-                                                 'T_Eq__neutral_friction  ', &  ! 11:
-                                                 'T_Eq__ionization_sink   ', &  ! 12:
-                                                 'T_Eq__line_radiation    ', &  ! 13:
-                                                 'T_Eq__Brems_radiation   ', &  ! 14:
-                                                 'T_Eq__backg_imp_radiat  ', &  ! 15:
-                                                 'T_Eq__main_imp_radiat   ', &  ! 16:
-                                                 'T_Eq__imp_ionization    ', &  ! 17:
-                                                 'T_Eq__power_teleported  ', &  ! 18:
-                                                 'T_Eq__viscopar_heating  ', &  ! 19:
-                                                 'T_Eq__impl_heating      ', &  ! 20:
-                                                 'T_Eq__visco_heating     ', &  ! 21:
-                                                 'T_Eq__ext_part_source   ', &  ! 22:
-                                                 'T_Eq__aux_part_source   ', &  ! 23:
-                                                 'T_Eq__aux_par_mom_source'/)   ! 24:
+                                              (/ 'T_Eq__ext_heat_source        ', &  !  1:
+                                                 'T_Eq__Vperp.grad_P           ', &  !  2: 
+                                                 'T_Eq__gamma_P_div_V          ', &  !  3:
+                                                 'T_Eq__Vpar.grad_P            ', &  !  4:
+                                                 'T_Eq__parallel_conduct       ', &  !  5:
+                                                 'T_Eq__perp_conduction        ', &  !  6:
+                                                 'T_Eq__ZK_perp_num_term       ', &  !  7:
+                                                 'T_Eq__tg_num_terms           ', &  !  8:
+                                                 'T_Eq__ohmic_heating          ', &  !  9:
+                                                 'T_Eq__zeta_timevol_term      ', &  ! 10:
+                                                 'T_Eq__neutral_friction       ', &  ! 11:
+                                                 'T_Eq__ionization_sink        ', &  ! 12:
+                                                 'T_Eq__line_radiation         ', &  ! 13:
+                                                 'T_Eq__Brems_radiation        ', &  ! 14:
+                                                 'T_Eq__backg_imp_radiat       ', &  ! 15:  
+                                                 'T_Eq__main_imp_radiat        ', &  ! 16: 
+                                                 'T_Eq__imp_ionization         ', &  ! 17:  
+                                                 'T_Eq__power_teleported       ', &  ! 18:  
+                                                 'T_Eq__viscopar_heating       ', &  ! 19:  
+                                                 'T_Eq__impl_heating           ', &  ! 20:  
+                                                 'T_Eq__visco_heating          ', &  ! 21:   
+                                                 'T_Eq__ext_particle_source    ', &  ! 22: 
+                                                 'T_Eq__recomb_thermal_loss    ', &  ! 23:
+                                                 'T_Eq__aux_energy_source      ', &  ! 24:  
+                                                 'T_Eq__aux_particle_source    ', &  ! 25: 
+                                                 'T_Eq__aux_par_momentum_source'/)   ! 26: 
+
 
 character*36, dimension(n_terms_Ti),    parameter :: Ti_term_names=  &
                                               (/ 'Ti_Eq__ext_heat_source ', &  !  1:
@@ -193,18 +195,18 @@ character*36, dimension(n_terms_Te),    parameter :: Te_term_names=  &
 
 
 character*36, dimension(n_terms_vpar),  parameter :: vpar_term_names=  &
-                                              (/ 'vpar_Eq__B.grad_P          ', &  !  1:
-                                                 'vpar_Eq__ext_part_source   ', &  !  2: 
-                                                 'vpar_Eq__B._rho_v.grad_v   ', &  !  3:
-                                                 'vpar_Eq__viscopar_num_term ', &  !  4:
-                                                 'vpar_Eq__zeta_timevol_term ', &  !  5:
-                                                 'vpar_Eq__tg_num_terms      ', &  !  6:
-                                                 'vpar_Eq__ionization_term   ', &  !  7:
-                                                 'vpar_Eq__recombin_term     ', &  !  8:
-                                                 'vpar_Eq__viscopar_term     ', &  !  9:
-                                                 'vpar_Eq__neoclassical_term ', &  ! 10:
-                                                 'vpar_Eq__aux_part_source   ', &  ! 11:
-                                                 'vpar_Eq__aux_par_mom_source'/)   ! 12:   
+                                              (/ 'vpar_Eq__B.grad_P               ', &  !  1:
+                                                 'vpar_Eq__ext_particle_source    ', &  !  2: 
+                                                 'vpar_Eq__B._rho_v.grad_v        ', &  !  3:
+                                                 'vpar_Eq__viscopar_num_term      ', &  !  4:
+                                                 'vpar_Eq__zeta_timevol_term      ', &  !  5:
+                                                 'vpar_Eq__tg_num_terms           ', &  !  6:
+                                                 'vpar_Eq__ionization_term        ', &  !  7:
+                                                 'vpar_Eq__recombin_term          ', &  !  8:
+                                                 'vpar_Eq__viscopar_term          ', &  !  9:
+                                                 'vpar_Eq__neoclassical_term      ', &  ! 10:
+                                                 'vpar_Eq__aux_particle_source    ', &  ! 11:
+                                                 'vpar_Eq__aux_par_momentum_source'/)   ! 12:   
 
  character*36, dimension(n_terms_rhon), parameter :: rhon_term_names=  &
                                               (/ 'rhon_Eq__neutral_diffusion', &  !  1:

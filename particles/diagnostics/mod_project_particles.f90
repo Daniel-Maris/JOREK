@@ -563,9 +563,9 @@ function new_projection(node_list, element_list,                                
   else
 
     call prepare_mumps_par(node_list, element_list, new%n_tor_local, new%i_tor_local,            &
-                            new%mpi_comm_world, new%mpi_comm_n, new%mpi_comm_master,              &
-                            new%mumps_par, new%filter, new%filter_hyper, new%filter_parallel,     &
-                            apply_dirichlet_condition_in=new%apply_dirichlet)
+                           new%mpi_comm_world, new%mpi_comm_n, new%mpi_comm_master,              &
+                           new%a_mat, new%filter, new%filter_hyper, new%filter_parallel,     &
+                           apply_dirichlet_condition_in=new%apply_dirichlet)
 
     new%n_dof = new%mumps_par%n / new%n_tor_local
 
@@ -830,8 +830,8 @@ subroutine project_only(this, sim)
       recv_disp(i) = recv_disp(i-1) + recv_counts(i-1)
     enddo
 
-    call mpi_gatherv(this%mumps_par%rhs, this%mumps_par%n * this%mumps_par%nrhs, MPI_DOUBLE_PRECISION, &
-                      y_tmp, recv_counts, recv_disp, MPI_DOUBLE_PRECISION, 0, this%mpi_comm_master,ierr)
+    call mpi_gatherv(this%rhs_vec%val, this%rhs_vec%n * this%rhs_vec%nrhs, MPI_DOUBLE_PRECISION, &
+                     y_tmp, recv_counts, recv_disp, MPI_DOUBLE_PRECISION, 0, this%mpi_comm_master,ierr)
 
   endif
 
@@ -1121,9 +1121,9 @@ end subroutine save_to_h5
 !>
 !> See also [project_particles] and [mod_elt_matrix] for reference of the integration method
 subroutine prepare_mumps_par(node_list, element_list, n_tor_local, i_tor_local,           &
-                              this_mpi_comm_world, this_mpi_comm_n, this_mpi_comm_master,  &
-                              mumps_par, filter, filter_hyper, filter_parallel,            &
-                              skip_factorisation, apply_dirichlet_condition_in)
+                             this_mpi_comm_world, this_mpi_comm_n, this_mpi_comm_master,  &
+                             a_mat, filter, filter_hyper, filter_parallel,            &
+                             skip_factorisation, apply_dirichlet_condition_in)
 use phys_module, only : F0, TWOPI, mode, fix_axis_nodes
 use data_structure
 use basis_at_gaussian
@@ -1321,12 +1321,12 @@ do i_elm=1,element_list%n_elements
               v_x = (  y_t(ms,mt) * v_s - y_s(ms,mt) * v_t) / xjac
               v_y = (- x_t(ms,mt) * v_s + x_s(ms,mt) * v_t) / xjac
 
-              v_xx = (v_ss * y_t(ms,mt)**2 - 2.d0*v_st * y_s(ms,mt)*y_t(ms,mt) + v_tt * y_s(ms,mt)**2  &
+                v_xx = (v_ss * y_t(ms,mt)**2 - 2.d0*v_st * y_s(ms,mt)*y_t(ms,mt) + v_tt * y_s(ms,mt)**2  &
                     + v_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
                     + v_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
                     - xjac_x * (v_s * y_t(ms,mt) - v_t * y_s(ms,mt)) / xjac**2
 
-              v_yy = (v_ss * x_t(ms,mt)**2 - 2.d0*v_st * x_s(ms,mt)*x_t(ms,mt) + v_tt * x_s(ms,mt)**2  &
+                v_yy = (v_ss * x_t(ms,mt)**2 - 2.d0*v_st * x_s(ms,mt)*x_t(ms,mt) + v_tt * x_s(ms,mt)**2  &
                     + v_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
                     + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                     - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
@@ -1357,12 +1357,12 @@ do i_elm=1,element_list%n_elements
                     p_x = (  y_t(ms,mt) * p_s - y_s(ms,mt) * p_t) / xjac
                     p_y = (- x_t(ms,mt) * p_s + x_s(ms,mt) * p_t) / xjac
 
-                    p_xx = (p_ss * y_t(ms,mt)**2 - 2.d0*p_st * y_s(ms,mt)*y_t(ms,mt) + p_tt * y_s(ms,mt)**2  &
+                      p_xx = (p_ss * y_t(ms,mt)**2 - 2.d0*p_st * y_s(ms,mt)*y_t(ms,mt) + p_tt * y_s(ms,mt)**2  &
                           + p_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
                           + p_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
                           - xjac_x * (p_s * y_t(ms,mt) - p_t * y_s(ms,mt)) / xjac**2
 
-                    p_yy = (p_ss * x_t(ms,mt)**2 - 2.d0*p_st * x_s(ms,mt)*x_t(ms,mt) + p_tt * x_s(ms,mt)**2  &
+                      p_yy = (p_ss * x_t(ms,mt)**2 - 2.d0*p_st * x_s(ms,mt)*x_t(ms,mt) + p_tt * x_s(ms,mt)**2  &
                           + p_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
                           + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                           - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
@@ -1370,15 +1370,16 @@ do i_elm=1,element_list%n_elements
                     Bgrad_p = 0.d0
                     if (filter_parallel .gt. 0.d0) Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
 
-                    ELM(index_ij,index_kl) = ELM(index_ij,index_kl) &
-                    
+                      ELM(index_ij,index_kl) = ELM(index_ij,index_kl) &
+                      
                                             + p * v * xjac * x_g(ms,mt) * wst &
 
-                                            + filter          * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
+                                           + filter          * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
 
-                                            + filter_hyper    * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst &
+                                           + filter_hyper    * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst &
 
                                             + filter_parallel * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
+                    enddo
                   enddo
                 enddo
               enddo
@@ -1387,7 +1388,6 @@ do i_elm=1,element_list%n_elements
         enddo
       enddo
     enddo
-  enddo
 
   ! Save contribution of this element in MUMPS format
   do i=1,n_vertex_max
@@ -1414,29 +1414,30 @@ do i_elm=1,element_list%n_elements
 
               index_large_k = 2*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
 
-              ! Explicitly calculate the index
+             ! Explicitly calculate the index
 
-              ilarge = in + (l-1) * 2 + (k-1)*2*n_degrees &
+                ilarge = in + 2*(l-1) + 2*(k-1)*n_degrees      &
+                        
+                      + 2*(im-1)* n_vertex_max*n_degrees       &
                       
-                      + (im-1) * 2    * n_vertex_max*n_degrees       &
+                      + 4*(j-1) * n_vertex_max*n_degrees       &
                       
-                      + (j-1)  * 4 * n_vertex_max*n_degrees       &
+                      + 4*(i-1) * n_vertex_max*n_degrees**2    &
                       
-                      + (i-1)  * 4 * n_vertex_max*n_degrees**2    &
-                      
-                      + (i_elm-1)*(4 * (n_vertex_max*n_degrees)**2 )
+                      + 4*(i_elm-1)*((n_vertex_max*n_degrees)**2 )
 
-!$omp critical
-              mumps_par%irn(ilarge) = index_large_i
-              mumps_par%jcn(ilarge) = index_large_k
 
-              if( fix_axis_nodes .and.  (node_list%node(inode)%axis_node .and. (j .eq. 3 .or. j .eq. 4)) &
+  !$omp critical
+                a_mat%irn(ilarge)     = index_large_i
+                a_mat%jcn(ilarge)     = index_large_k
+
+                if( fix_axis_nodes .and.  (node_list%node(inode)%axis_node .and. (j .eq. 3 .or. j .eq. 4)) &
                   .and. (index_large_i .eq. index_large_k) ) then
-                  mumps_par%A(ilarge) = 1.d12
-              else
-                  mumps_par%A(ilarge)   = ELM(index_ij,index_kl) * TWOPI / real(n_plane,8)
-              endif
-!$omp end critical
+                    a_mat%val(ilarge)   = 1.d12
+                else
+                    a_mat%val(ilarge)     = ELM(index_ij,index_kl) * TWOPI / real(n_plane,8)
+                endif
+  !$omp end critical
 
             enddo
           enddo
@@ -1496,32 +1497,9 @@ nz_AA = ilarge
 
 end if
 
-! Perform the analysis and factorisation with all nodes
-mumps_par%JOB       = 4
-mumps_par%n         = n_AA
-mumps_par%nz        = nz_AA
-mumps_par%icntl(2)  = 6 ! print diagnostics, statistics and warnings to stderr
-mumps_par%icntl(4)  = 1 ! print errors(1), debug(2), much(3)
-mumps_par%icntl(5)  = 0 ! assembled form
-mumps_par%icntl(18) = 0 ! centralized input matrix (i.e. only on mpi 0)
-mumps_par%icntl(7)  = 7 ! compute symmetric permutation (PORD or SCOTCH autoselect)
-mumps_par%icntl(8)  = 8 ! scaling
-mumps_par%icntl(14) = 80 ! memory relaxation parameter
-
-do_facto = .true.
-if (present(skip_factorisation)) then
-  if (skip_factorisation) then
-    do_facto = .false.
-  endif
-endif
-if (do_facto) then
-  call ieee_get_halting_mode(IEEE_USUAL, halt)
-  call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
-  call DMUMPS(mumps_par)
-  call ieee_set_halting_mode(IEEE_USUAL, halt)
-endif
-
-if (my_id_n .eq. 0) write(*,*) " n<>0 MUMPS INFO(1) : ",mumps_par%infog(1),mumps_par%infog(2),mumps_par%info(1),mumps_par%info(2)
+! MPI broadcast the ng and nnz
+call MPI_Bcast(a_mat%ng, 1, MPI_INTEGER, 0, this_mpi_comm_world, ierr)
+call MPI_Bcast(a_mat%nnz, 1, MPI_INTEGER, 0, this_mpi_comm_world, ierr)
 
 end subroutine prepare_mumps_par
 
@@ -1620,15 +1598,15 @@ if (my_id_n .eq. 0) then
   mumps_par%A   = 0.d0
 
   allocate(integral_weights(n_AA))
-  
+ 
   integral_weights = 0.d0
   
 ! Copy wgauss into wgauss2 to get around gfortran not recognizing it as a shared
 ! thing https://groups.google.com/forum/#!topic/comp.lang.fortran/VKhoAm8m9KE
   wgauss2 = wgauss
 
-  area   = 0.
-  volume = 0.
+    area   = 0.
+    volume = 0.
 
   filter_n0             = filter 
   filter_hyper_n0       = filter_hyper 
@@ -1727,8 +1705,8 @@ do i_elm=1,element_list%n_elements
       psi_x = (  y_t(ms,mt) * psi_s(ms,mt) - y_s(ms,mt) * psi_t(ms,mt)) / xjac
       psi_y = (- x_t(ms,mt) * psi_s(ms,mt) + x_s(ms,mt) * psi_t(ms,mt)) / xjac
 
-      BB2 = 1.d0
-      if (filter_parallel_n0 .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)**2
+        BB2 = 1.d0
+        if (filter_parallel_n0 .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(ms,mt)
 
       area   = area   + xjac * wst
       volume = volume + TWOPI * x_g(ms,mt) * xjac * wst
@@ -1750,12 +1728,12 @@ do i_elm=1,element_list%n_elements
           v_x = (  y_t(ms,mt) * v_s - y_s(ms,mt) * v_t) / xjac
           v_y = (- x_t(ms,mt) * v_s + x_s(ms,mt) * v_t) / xjac
 
-          v_xx = (v_ss * y_t(ms,mt)**2 - 2.d0*v_st * y_s(ms,mt)*y_t(ms,mt) + v_tt * y_s(ms,mt)**2  &
+            v_xx = (v_ss * y_t(ms,mt)**2 - 2.d0*v_st * y_s(ms,mt)*y_t(ms,mt) + v_tt * y_s(ms,mt)**2  &
                 + v_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
                 + v_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
                 - xjac_x * (v_s * y_t(ms,mt) - v_t * y_s(ms,mt)) / xjac**2
 
-          v_yy = (v_ss * x_t(ms,mt)**2 - 2.d0*v_st * x_s(ms,mt)*x_t(ms,mt) + v_tt * x_s(ms,mt)**2  &
+            v_yy = (v_ss * x_t(ms,mt)**2 - 2.d0*v_st * x_s(ms,mt)*x_t(ms,mt) + v_tt * x_s(ms,mt)**2  &
                 + v_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
                 + v_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                 - xjac_y * (- v_s * x_t(ms,mt) + v_t * x_s(ms,mt) ) / xjac**2
@@ -1779,45 +1757,45 @@ do i_elm=1,element_list%n_elements
               p_tt = h_tt(k,l,ms,mt) * element%size(k,l)
               p_st = h_st(k,l,ms,mt) * element%size(k,l)
 
-              p_x = (  y_t(ms,mt) * p_s - y_s(ms,mt) * p_t) / xjac
-              p_y = (- x_t(ms,mt) * p_s + x_s(ms,mt) * p_t) / xjac
+                p_x = (  y_t(ms,mt) * p_s - y_s(ms,mt) * p_t) / xjac
+                p_y = (- x_t(ms,mt) * p_s + x_s(ms,mt) * p_t) / xjac
 
-              p_xx = (p_ss * y_t(ms,mt)**2 - 2.d0*p_st * y_s(ms,mt)*y_t(ms,mt) + p_tt * y_s(ms,mt)**2  &
+                p_xx = (p_ss * y_t(ms,mt)**2 - 2.d0*p_st * y_s(ms,mt)*y_t(ms,mt) + p_tt * y_s(ms,mt)**2  &
                     + p_s * (y_st(ms,mt)*y_t(ms,mt) - y_tt(ms,mt)*y_s(ms,mt) )                          &
                     + p_t * (y_st(ms,mt)*y_s(ms,mt) - y_ss(ms,mt)*y_t(ms,mt) ) )  / xjac**2             &
                     - xjac_x * (p_s * y_t(ms,mt) - p_t * y_s(ms,mt)) / xjac**2
 
-              p_yy = (p_ss * x_t(ms,mt)**2 - 2.d0*p_st * x_s(ms,mt)*x_t(ms,mt) + p_tt * x_s(ms,mt)**2  &
+                p_yy = (p_ss * x_t(ms,mt)**2 - 2.d0*p_st * x_s(ms,mt)*x_t(ms,mt) + p_tt * x_s(ms,mt)**2  &
                     + p_s * (x_st(ms,mt)*x_t(ms,mt) - x_tt(ms,mt)*x_s(ms,mt) )                          &
                     + p_t * (x_st(ms,mt)*x_s(ms,mt) - x_ss(ms,mt)*x_t(ms,mt) ) )     / xjac**2          &
                     - xjac_y * (- p_s * x_t(ms,mt) + p_t * x_s(ms,mt) ) / xjac**2
 
-              Bgrad_p = 0.d0
-              if (filter_parallel_n0 .gt. 0.d0) Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
+                Bgrad_p = 0.d0
+                if (filter_parallel_n0 .gt. 0.d0) Bgrad_p = ( F0 / x_g(ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(ms,mt)
 
 
-              if (apply_zonal) then
+                if (apply_zonal) then
 
-                ELM(index_ij,index_kl)     = ELM(index_ij,index_kl)     + p * v        * xjac * x_g(ms,mt) * wst &
+                  ELM(index_ij,index_kl)     = ELM(index_ij,index_kl)     + p * v        * xjac * x_g(ms,mt) * wst &
 
                                             + filter_n0       * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
 
                                             + filter_hyper_n0 * (v_xx + v_x/x_g(ms,mt) + v_yy)*(p_xx + p_x/x_g(ms,mt) + p_yy) * xjac * x_g(ms,mt) * wst
 
-                ELM(index_ij,index_kl+1)   = ELM(index_ij,index_kl+1) &
+                  ELM(index_ij,index_kl+1)   = ELM(index_ij,index_kl+1) &
 
                                             + filter_n0  * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst 
 
 
-                ELM(index_ij+1,index_kl)   = ELM(index_ij+1,index_kl)   + p * v   * xjac * x_g(ms,mt) * wst * zonal_factor
+                  ELM(index_ij+1,index_kl)   = ELM(index_ij+1,index_kl)   + p * v   * xjac * x_g(ms,mt) * wst * zonal_factor
 
-                ELM(index_ij+1,index_kl+1) = ELM(index_ij+1,index_kl+1) &
+                  ELM(index_ij+1,index_kl+1) = ELM(index_ij+1,index_kl+1) &
 
                                             - filter_parallel_n0 * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
 
-              else
+                else
 
-                ELM(index_ij,index_kl)     = ELM(index_ij,index_kl)     + p * v           * xjac * x_g(ms,mt) * wst &
+                  ELM(index_ij,index_kl)     = ELM(index_ij,index_kl)     + p * v           * xjac * x_g(ms,mt) * wst &
 
                                             + filter_n0          * (p_x * v_x + p_y * v_y) * xjac * x_g(ms,mt) * wst &
 
@@ -1825,50 +1803,50 @@ do i_elm=1,element_list%n_elements
 
                                             + filter_parallel_n0 * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(ms,mt) * wst
 
-                ELM(index_ij+1,index_kl+1) = ELM(index_ij+1,index_kl+1)  + p * v      * xjac * x_g(ms,mt) * wst       ! (dummy equation)
+                  ELM(index_ij+1,index_kl+1) = ELM(index_ij+1,index_kl+1)  + p * v      * xjac * x_g(ms,mt) * wst       ! (dummy equation)
+                  
+                endif
                 
-              endif
-              
+              enddo
             enddo
           enddo
         enddo
       enddo
     enddo
-  enddo
 
-  ! Save contribution of this element in MUMPS format
-  do i=1,n_vertex_max
+    ! Save contribution of this element in MUMPS format
+    do i=1,n_vertex_max
 
-    inode = element_list%element(i_elm)%vertex(i)
-  
-    do j=1,n_degrees
-
-      index_rhs = 2*(node_list%node(inode)%index(j)-1) + 1   ! base index in the main matrix
-
-      integral_weights(index_rhs) = integral_weights(index_rhs) + basisfunction_volume(i,j)
-
-      do im =1, 2
+      inode = element_list%element(i_elm)%vertex(i)
     
-        index_ij = 2*n_degrees*(i-1) + 2 * (j-1) + im   ! index in the ELM matrix
+      do j=1,n_degrees
 
-        index_large_i = 2*(node_list%node(inode)%index(j)-1) + im   ! base index in the main matrix
+        index_rhs = 2*(node_list%node(inode)%index(j)-1) + 1   ! base index in the main matrix
 
-        do k=1,n_vertex_max
+        integral_weights(index_rhs) = integral_weights(index_rhs) + basisfunction_volume(i,j)
+
+        do im =1, 2
       
-          knode = element_list%element(i_elm)%vertex(k)
-        
-          do l=1,n_degrees
+          index_ij = 2*n_degrees*(i-1) + 2 * (j-1) + im   ! index in the ELM matrix
 
-            do in =1, 2
-        
-              index_kl = 2*n_degrees*(k-1) + 2 * (l-1) + in   ! index in the ELM matrix
+          index_large_i = 2*(node_list%node(inode)%index(j)-1) + im   ! base index in the main matrix
 
-              index_large_k = 2*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
+          do k=1,n_vertex_max
+        
+            knode = element_list%element(i_elm)%vertex(k)
+          
+            do l=1,n_degrees
+
+              do in =1, 2
+          
+                index_kl = 2*n_degrees*(k-1) + 2 * (l-1) + in   ! index in the ELM matrix
+
+                index_large_k = 2*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
 
               ! Explicitly calculate the index
 
-              ilarge = in + 2*(l-1) + 2*(k-1)*n_degrees &
-                      
+                ilarge = in + 2*(l-1) + 2*(k-1)*n_degrees      &
+                        
                       + 2*(im-1)* n_vertex_max*n_degrees       &
                       
                       + 4*(j-1) * n_vertex_max*n_degrees       &
@@ -1949,32 +1927,8 @@ nz_AA = ilarge
 write(*,'(A,2e16.8)') 'area volume : ',area, volume
 end if
 
-! Perform the analysis and factorisation with all nodes
-mumps_par%JOB       = 4
-mumps_par%n         = n_AA
-mumps_par%nz        = nz_AA
-mumps_par%icntl(2)  = 6 ! print diagnostics, statistics and warnings to stderr
-mumps_par%icntl(4)  = 1 ! print errors(1), debug(2), much(3)
-mumps_par%icntl(5)  = 0 ! assembled form
-mumps_par%icntl(18) = 0 ! centralized input matrix (i.e. only on mpi 0)
-mumps_par%icntl(7)  = 7 ! compute symmetric permutation (PORD or SCOTCH autoselect)
-mumps_par%icntl(8)  = 8 ! scaling
-mumps_par%icntl(14) = 80 ! memory relaxation parameter
-
-do_facto = .true.
-if (present(skip_factorisation)) then
-  if (skip_factorisation) then
-    do_facto = .false.
-  endif
-endif
-if (do_facto) then
-  call ieee_get_halting_mode(IEEE_USUAL, halt)
-  call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
-  call DMUMPS(mumps_par)
-  call ieee_set_halting_mode(IEEE_USUAL, halt)
-endif
-
-if (my_id_n .eq. 0) write(*,*) " n=0 MUMPS INFOG(1:2) : ",mumps_par%infog(1),mumps_par%infog(2)
+call MPI_Bcast(a_mat%ng, 1, MPI_INTEGER, 0, this_mpi_comm_world, ierr)
+call MPI_Bcast(a_mat%nnz, 1, MPI_INTEGER, 0, this_mpi_comm_world, ierr)
 
 end subroutine prepare_mumps_par_n0
 
