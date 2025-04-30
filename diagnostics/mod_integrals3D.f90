@@ -448,8 +448,9 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
 !$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, local_Prb_cooling,  &
+!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, local_Prb_cooling,  &
 !$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
-!$omp          rho_idx_kin, E_idx_kin, mom_par_idx_kin,                                                          &
+!$omp          rho_idx_kin, E_idx_kin, mom_par_idx_kin,                                                       &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
