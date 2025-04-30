@@ -877,6 +877,7 @@ Z_valve2      = 0.d0
 
 use_manual_random_seed = .false.
 manual_seed = 498932990          !< chosen arbitarily
-
+use_fixed_rng_value = .false.
+fixed_rng_value = 0.5
 
 end subroutine preset_parameters
