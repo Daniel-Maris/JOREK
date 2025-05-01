@@ -64,8 +64,6 @@ module mod_sparse_data
 
     logical                     :: verbose = .true.                    !< flag for logfile printout
 
-    logical                     :: projection = .false.                !< flag to set ONLY if using with the project particles module, it assumes matrix assembled only on rank zero and multiple rhs, use with care
-
   contains
     procedure :: setup
     procedure :: finalize
