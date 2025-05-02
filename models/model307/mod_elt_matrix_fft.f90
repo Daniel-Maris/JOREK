@@ -1627,10 +1627,9 @@ do i=1,n_vertex_max
 
                             -v * T * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0 * BigR * xjac * theta * tstep &
 
-                            + v * BigR * T * r0_corr * r0_corr  * dLradDcont_dT_corr             * xjac * theta * tstep &
-              - v * BigR * T * r0_corr * r0_corr  * dSrec_dT*ksi_ion_norm           * xjac * theta * tstep &
-              + (gamma-1.d0)*v * BigR *0.5d0 * T * r0_corr * r0_corr * (Srec_T +T0*dSrec_dT) * xjac * theta * tstep  & 
-              
+                            + v * BigR * T * r0_corr * r0_corr  * dLradDcont_dT_corr                       * xjac * theta * tstep &
+							              + (gamma-1.d0)*v * BigR *0.5d0 * T * r0_corr * r0_corr * (Srec_T +T0*dSrec_dT) * xjac * theta * tstep & 
+							
                             + TG_num6 * 0.25d0 * BigR**2 * T* (r0_x * u0_y - r0_y * u0_x)         &
                                       * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep &
                             + TG_num6 * 0.25d0 * BigR**2 * r0* (T_x * u0_y - T_y * u0_x)          &
