@@ -68,7 +68,7 @@ subroutine check_compatibility_ncs(group_num)
   !> currently ncs particles must be of type 'particle_kinetic_leapfrog'
   if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently can only type = 'particle_kinetic_leapfrog' is supported for"
+    write(*,*) "  Currently only type = 'particle_kinetic_leapfrog' is supported for"
     write(*,*) "  groups with coupling scheme 'ncs'"
     stop
   endif
@@ -114,7 +114,7 @@ subroutine check_compatibility_ics(group_num)
   !> currently ics particles must be of type 'particle_kinetic_leapfrog'
   if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently can only type = 'particle_kinetic_leapfrog' is supported for"
+    write(*,*) "  Currently only type = 'particle_kinetic_leapfrog' is supported for"
     write(*,*) "  groups with coupling scheme 'ics'"
     stop
   endif
