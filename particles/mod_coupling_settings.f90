@@ -12,7 +12,7 @@ public  :: check_compatibility_and_determine_coupling_schemes, determine_couplin
 
 ! the variables below are global variables determined by scanning over particle groups, 
 ! and hence shoud NOT be modified manually
-logical :: use_ncs               = .false. !< use kinetic neutral particles
+logical :: use_ncs               = .false. !< use kinetic neutral particles 
 logical :: use_ics               = .false. !< use kinetic impurity particles
 logical :: use_rep               = .false. !< use pressure coupling scheme for runaway electrons
 logical :: use_kin_recomb_global = .false. !< whether recombination is required (has effect on both fluid and kinetic side)

@@ -1010,7 +1010,7 @@ module phys_module
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
 
-    ! --------------- for neutrals and impurities (ncs and ics coupling) particles ------------
+    ! ================ for neutrals and impurities ('ncs' and 'ics' coupling schemes) particles ===============
 
     character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead    
     logical             :: use_kin_sputtering      !< switch on sputtering for group (only relevant for neutrals)
@@ -1040,6 +1040,11 @@ module phys_module
     !> The index of the puff_ctrl array corresponds to the index of the valve the puffing will come from
     !> i.e. puff_ctrl(1) will link the puff_ctrl to the valves(1)
     type(type_puff_ctrl), dimension(n_valves_max) :: puff_ctrl 
+
+
+    ! ================ for runaway electrons ('rep' coupling scheme) particles ===============
+
+    real*8              :: num_re                  !< number of runaway electrons in the group
 
   end type type_part_group_config
 

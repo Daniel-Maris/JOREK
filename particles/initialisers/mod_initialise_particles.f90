@@ -131,6 +131,8 @@ subroutine initialise_particles(particles, node_list, element_list, &
   ostart = 0.d0
   oend   = 0.d0
 
+  write(*,*) "starting initialise particles" ![D]
+
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
   call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
   rng_n_streams_round_off = .false.
@@ -176,10 +178,12 @@ subroutine initialise_particles(particles, node_list, element_list, &
   if (my_id .eq. 0) seed = random_seed()
   call MPI_Bcast(seed, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ifail)
 
+  write(*,*) "debug 1"
   ! Prepare list of particles to seed
   allocate(i_to_find(size(particles,1)),not_found(size(particles,1)))
   i_to_find = [(i, i=1,size(particles,1))] ! which particles still to do
   not_found = .true. ! whether this one has been sampled succesfully
+  write(*,*) "i_to_find: ", i_to_find
 
   ! Setup (Q)RNGs, one per thread
   n_threads = 1

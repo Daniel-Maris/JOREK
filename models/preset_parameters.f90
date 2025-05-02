@@ -891,6 +891,9 @@ part_group_configs(:)%use_kin_cx             = .false.
 part_group_configs(:)%use_kin_bg_collisions  = .false.
 part_group_configs(:)%ics_group_idx          = -1
 
+!----- specific to ics and ncs 
+part_group_configs(:)%num_re                 = 0.d0
+
 do i=1, n_part_groups_max
   do j=1, n_valves_max
     part_group_configs(i)%puff_ctrl(j)%supers_num_puff    = -1.d0

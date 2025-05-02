@@ -39,6 +39,7 @@ use mod_atomic_coeff_deuterium, only: ad_deuterium
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
 use mod_coupling_settings, only: use_kin_recomb_global
+use initialisers_RE
 use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -82,6 +83,10 @@ integer,     dimension(:), allocatable :: recomb_groups
 type(event),  dimension(:), allocatable :: sputter_events ! can also be not allocatable and have size n_part_groups_max
 type(particle_puffing), dimension(:), allocatable :: puff_actions   
 
+! ![D] temporary variables for RE
+real*8 :: weight, energy, std_energy, pitch, I_target
+integer :: n_particles_local
+
 !***********************************************************************
 !*                            initialisation                            *
 !***********************************************************************
@@ -115,7 +120,37 @@ else
 
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
-  call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
+  ! Set initial particle properties and adjust weights accordingly
+  weight              = part_group_configs(1)%num_re / part_group_configs(1)%n_particles
+  I_target            = 0.7467798d6
+  energy              = 20.d6 !20.d6 + 0.511d6 !1.d6 !5.d6 !50.d6 !4.d6 !20.d6 !60.d6 !50.d6 !1.d6 !8.d6 !100.d6 !1.d6
+  std_energy          = 0.05d6
+  pitch               = 0.99
+  n_particles_local = int(part_group_configs(1)%n_particles/sim%n_mpi)
+
+
+  ! Allocate and initialise gyro-orbit particles
+  allocate(particle_kinetic_relativistic::sim%groups(1)%particles(n_particles_local))
+
+  
+  select type (particles => sim%groups(1)%particles)
+  type is (particle_kinetic_relativistic)
+    particles(:)%q      = -1
+    particles(:)%weight = weight
+  end select
+
+  write(*,*) "starting basic initialization"
+  call basic_initialization(sim, pcg32_rng(), energy, pitch, std_energy)
+  write(*,*) "finished basic initialization, exporting 1"
+
+  call write_simulation_hdf5(sim, 'part_restart_init1.h5')
+  ! call initialise_markers_over_time(sim, 1.d-5, 1000000) 
+  ! call write_simulation_hdf5(sim, 'part_restart_init2.h5')
+
+  call sim%finalize
+  stop
+
+  ! call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
   
 endif ! (restart_particles)
 

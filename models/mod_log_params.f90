@@ -1095,7 +1095,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           enddo
         endif ! puffing
 
-      endif ! 'ncs'
+      endif ! 'ncs' or 'ics'
+
+      ! rep (runaway electrons, only pressure coupling for now) -----
+      if (sim%groups(group_num)%coupling_scheme .eq. 'rep') then
+        write(*,REAL_FMT) 'n_re,                   ',part_group_configs(group_num)%num_re
+      endif     
+
     enddo ! n_part_groups
     write(*,HEADER_FMT) '======== End of particle groups ========'
     write(*,*) ""
