@@ -351,6 +351,7 @@ module mod_jorek2IMAS
       wall_ids%description_ggd(i_vv)%type%index  = 2  ! For thin wall description
       
       grid => wall_ids%description_ggd(i_vv)%grid_ggd(grid_ind)
+      grid%time = time_SI
       
       grid%identifier%index = 0   ! Unspecified
       allocate( grid%identifier%description(1))
@@ -414,11 +415,13 @@ module mod_jorek2IMAS
       wall_ids%description_ggd(i_vv)%thickness(1)%grid_subset(1)%grid_subset_index = grid_sub_ind
 
       wall_ids%description_ggd(i_vv)%thickness(1)%grid_subset(1)%values(:) = wall_thickness
+      wall_ids%description_ggd(i_vv)%thickness(1)%time = time_SI
 
       !--- Information about the wall component
       allocate(wall_ids%description_ggd(i_vv)%component(n_grid))
       allocate(wall_ids%description_ggd(i_vv)%component(1)%type(1))
       allocate(wall_ids%description_ggd(i_vv)%component(1)%identifiers(1))
+      wall_ids%description_ggd(i_vv)%component(1)%identifiers = ''
       wall_ids%description_ggd(i_vv)%component(1)%type(1)%grid_index        = grid_ind
       wall_ids%description_ggd(i_vv)%component(1)%type(1)%grid_subset_index = grid_sub_ind
       wall_ids%description_ggd(i_vv)%component(1)%type(1)%identifier%index  = 0  ! --- 0 means not specified yet
@@ -426,10 +429,13 @@ module mod_jorek2IMAS
       wall_ids%description_ggd(i_vv)%component(1)%type(1)%identifier%name = "Vacuum Vessel"
       allocate(wall_ids%description_ggd(i_vv)%component(1)%type(1)%identifier%description(1))
       wall_ids%description_ggd(i_vv)%component(1)%type(1)%identifier%description = "A single layer of the &
-                                                                    vacuum vessel discretized with linear thin triangles"
+          vacuum vessel discretized with linear thin triangles"
+      wall_ids%description_ggd(i_vv)%component(1)%time = time_SI
     else
       if ( associated(wall_ids%description_ggd(i_vv)%grid_ggd)) then
         call ids_deallocate_struct(wall_ids%description_ggd(i_vv)%grid_ggd(grid_ind), .false.)
+        deallocate( wall_ids%description_ggd(i_vv)%thickness)
+        deallocate( wall_ids%description_ggd(i_vv)%component)
         deallocate(wall_ids%description_ggd(i_vv)%grid_ggd)
       end if
     endif
@@ -528,6 +534,7 @@ module mod_jorek2IMAS
       wall_ids%description_ggd(i_fw)%type%index  = 2  ! For thin wall description
       
       grid => wall_ids%description_ggd(i_fw)%grid_ggd(grid_ind)
+      grid%time = time_SI
       
       grid%identifier%index = 0   ! Unspecified
       allocate( grid%identifier%description(1))
@@ -609,6 +616,7 @@ module mod_jorek2IMAS
       allocate(wall_ids%description_ggd(i_fw)%component(n_grid))
       allocate(wall_ids%description_ggd(i_fw)%component(1)%type(1))
       allocate(wall_ids%description_ggd(i_fw)%component(1)%identifiers(1))
+      wall_ids%description_ggd(i_fw)%component(1)%identifiers= ''
       wall_ids%description_ggd(i_fw)%component(1)%type(1)%grid_index        = grid_ind
       wall_ids%description_ggd(i_fw)%component(1)%type(1)%grid_subset_index = grid_sub_ind
       wall_ids%description_ggd(i_fw)%component(1)%type(1)%identifier%index  = 0  ! --- 0 means not specified yet
@@ -616,10 +624,12 @@ module mod_jorek2IMAS
       wall_ids%description_ggd(i_fw)%component(1)%type(1)%identifier%name = "FW + divertor"
       allocate(wall_ids%description_ggd(i_fw)%component(1)%type(1)%identifier%description(1))
       wall_ids%description_ggd(i_fw)%component(1)%type(1)%identifier%description = "A single layer representing the first wall &
-                                                                    + divertor surfaces discretized with linear thin triangles"
+          + divertor surfaces discretized with linear thin triangles"
+      wall_ids%description_ggd(i_fw)%component(1)%time = time_SI
     else   
       if ( associated(wall_ids%description_ggd(i_fw)%grid_ggd)) then
         call ids_deallocate_struct(wall_ids%description_ggd(i_fw)%grid_ggd(grid_ind), .false.)
+        deallocate( wall_ids%description_ggd(i_fw)%component)
         deallocate(wall_ids%description_ggd(i_fw)%grid_ggd)    
       end if                                                     
     endif
