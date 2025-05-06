@@ -198,6 +198,7 @@ contains
             do m=1,n_vertex_max
   
               proj_factor = HH(m,n) * sim%fields%element_list%element(particles(j)%i_elm)%size(m,n) * particles(j)%weight
+  
 
               ! PCS for REs
               v_Ppar  = proj_factor * gamma_m * v_par**2 * MU_ZERO
@@ -206,6 +207,12 @@ contains
               v_jPhi  = - proj_factor * real(particles(j)%q, 8) * EL_CHG * cylindrical_velocity(3) * particles(j)%x(1) * MU_ZERO
               
               v_n     = proj_factor
+
+              if (m==1 .and. n==1 .and. j==1 .and. k==100) then
+                write(*,*) "proj_factor", proj_factor
+                write(*,*) "v_Ppar", v_Ppar
+                write(*,*) "v_Pperp", v_Pperp
+              endif
   
               do i_tor = 1,n_tor
                 feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
@@ -231,10 +238,15 @@ contains
 
     !> rep specific projections
     if (sim%groups(group_num)%coupling_scheme == 'rep') then
-      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / real(nstep_particles,8) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) / real(nstep_particles,8) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) / real(nstep_particles,8) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
     endif
+
+    write(*,*) "mom_par_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin))
+    write(*,*) "mom_perp_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin))
+    write(*,*) "j_phi_sum: ", sum(jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin))
+
 
     jorek_feedback%rhs_gather_time = 0.d0
     deallocate(feedback_rhs)
