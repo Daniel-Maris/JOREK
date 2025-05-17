@@ -1396,7 +1396,8 @@ module vacuum_response
     
     use phys_module, only: nout
     use constants
-    use mpi_mod    
+    use mpi_mod  
+    use mod_import_restart, only: rst_file_ind_fmt  
 
     implicit none
     
@@ -1414,7 +1415,7 @@ module vacuum_response
     real*8              :: Iw_net_tor 
     integer             :: filehandle = 60, i, maxcurr_pos
     logical             :: Iphi_max, Ipol_max, jphi_lin, jpol_lin
-    character(len=18)   :: filename
+    character(len=20)   :: filename, tmp_name
     real*8, allocatable :: tripot_w(:), dtripot_w(:)
     integer :: ierr
 
@@ -1430,7 +1431,8 @@ module vacuum_response
       jpol_lin = .false.    
       
       ! --- VTK file header
-      write(filename,'(A,I5.5,A)') 'wallcurr.',index,'.vtk'
+      write(tmp_name,rst_file_ind_fmt(1)) 'wallcurr.',index
+      write(filename,'(A,A)') trim(tmp_name),'.vtk'
       open(filehandle, file=filename, status='replace', action='write')
       140 format(a)
       141 format(a,i8,a)

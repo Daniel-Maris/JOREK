@@ -26,6 +26,7 @@ module mod_phase_space_project
   use mpi_mod
   use mod_project_particles
   use hdf5
+  use mod_import_restart, only: rst_file_ind_fmt
   implicit none
 
   private
@@ -371,7 +372,9 @@ subroutine output_phase_project(this,ino,output_grids_in)
 
     ! HDF5 file creation
     call h5open_f(ierrhdf5)
-    write(filename,"(A,i5.5,A)") trim(this%basename) ,ino, ".h5"
+    write(tmp_name,rst_file_ind_fmt(1)) trim(this%basename) ,ino
+    write(filename,"(A,A)") trim(tmp_name), ".h5"
+
     call H5Fcreate_f(filename,H5F_ACC_TRUNC_F, file_id, ierrhdf5)
     if(output_grids)then
       call h5gcreate_f(file_id, "grids", group_id_grid, ierrhdf5)
