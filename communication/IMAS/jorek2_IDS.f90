@@ -216,7 +216,7 @@ program jorek2_IDS
       i_fmt = restart_file_exists(i_step)  ! -1 if it does not exist, otherwise index for restart file digit format
       if (i_fmt < 0) cycle
       write(file_name,rst_file_ind_fmt(i_fmt)) 'jorek', i_step
-      write(name_proj,rst_file_ind_fmt(i_fmt)) 'projections', i_step, '.h5'
+      write(name_proj,rst_file_ind_fmt(i_fmt)) 'projections', i_step
     endif
 
     ! --- Import restart file
@@ -285,7 +285,7 @@ program jorek2_IDS
 
     ! --- Fill and export a radiation IDS
     if (export_radiation) then
-      call import_hdf5_restart_aux(aux_node_list, name_proj, rst_format, ierr)
+      call import_hdf5_restart_aux(aux_node_list, trim(name_proj) // '.h5', rst_format, ierr)
       if (ierr /= 0) then
         write(*,*) ' Could not open projections file where radiation is stored'
         stop
