@@ -48,6 +48,7 @@ function usage () {
   echo "  -zip                        Compress the .dat files using gzip"
   echo "  -tool                       Using jorek2_poincare or poincare? [default:jorek2_poincare]"
   echo "  -input_poinc                Input file for jorek2_poincare / poincare [default:stpts / pncr]"
+  echo "  -5digits                    Use old 5-digit restart file index (instead of 6)"
   echo ""
   echo "  binary                      executable (jorek2poincare)"
   echo "  infile                      Input file of the corresponding JOREK run"
@@ -109,7 +110,12 @@ function do_convert () {
   cd ${tmpdir[$ithread]}
 
   stepnum=${file##*/} # Remove directory from filename
-  stepnum=${stepnum:5:5}
+  if [ "$use_5digits" == "yes" ]; then
+    stepnum=${stepnum:5:5}
+  else
+    stepnum=${stepnum:5:6}
+  fi
+
   if [ "$poinc_tool" == "poincare" ]; then
     targetFile0="$targetDir/poincare.$stepnum.h5" # Target filename with same number as source
   else
@@ -187,9 +193,10 @@ SCRIPTDIR=`dirname $0`; SCRIPTDIR=`readlink -f $SCRIPTDIR`
 # --- Process command line parameters
 nthreads="1"
 customdir=""
-selected_steps="0-99999"
+selected_steps="0-999999"
 input_poinc="stpts"
 poinc_tool="jorek2_poincare"
+use_5digits="no"          # use old restart file index format with 5 digits
 select_arguments=""
 while [ $# -gt 1 ]; do
   if [ "$1" == "-j" ]; then
@@ -199,7 +206,7 @@ while [ $# -gt 1 ]; do
     selected_steps="$2"
     shift 2
   elif [ "$1" == "-donly" ]; then
-    selected_steps="0-$2-99999"
+    selected_steps="0-$2-999999"
     shift 2
   elif ( [ "$1" == "-time" ] || [ "$1" == "-dtime" ] ) ; then
     select_arguments="$select_arguments $1 $2"
@@ -222,6 +229,9 @@ while [ $# -gt 1 ]; do
   elif [ "$1" == "-tool" ]; then
     poinc_tool="$2"
     shift 2
+  elif [ "$1" == "-5digits" ]; then
+    use_5digits="yes"
+    shift
   elif [ "$1" == "-h" ] || [ "$1" = "--help" ]; then
     usage
     exit 0
@@ -246,7 +256,11 @@ if [ ! -z "$select_arguments" ] && [[ "$select_arguments" != *"time"* ]]; then
   echo "WARNING: -l and -ms parameters will be ignored, if -(d)time is not set."
   select_arguments=""
 fi
-regexp_steps="^[0-9]{1,5}(-[0-9]{1,5}){0,2}(,[0-9]{1,5}(-[0-9]{1,5}){0,2})*$"
+if [ "$use_5digits" == "yes" ]; then
+  regexp_steps="^[0-9]{1,5}(-[0-9]{1,5}){0,2}(,[0-9]{1,5}(-[0-9]{1,5}){0,2})*$"
+else
+  regexp_steps="^[0-9]{1,6}(-[0-9]{1,6}){0,2}(,[0-9]{1,6}(-[0-9]{1,6}){0,2})*$"
+fi
 if [[ ! "$selected_steps" =~ $regexp_steps   ]]; then
   echo "ERROR: -(d)only-parameter given in wrong format."
   usage
@@ -324,7 +338,11 @@ fi
 
 # --- Select files for conversion
 if [ -z "$select_arguments" ]; then
-  files=`ls $sourceDir/jorek?????.${RST_TYPE} 2> /dev/null`
+  if [ "$use_5digits" == "yes" ]; then
+    files=`ls $sourceDir/jorek?????.${RST_TYPE} 2> /dev/null`
+  else
+    files=`ls $sourceDir/jorek??????.${RST_TYPE} 2> /dev/null`
+  fi
 else
   files=`${SCRIPTDIR}/select_restart_files.sh $select_arguments`
   if [ "${files:0:5}" == "ERROR" ] ; then
@@ -367,7 +385,11 @@ else
   file_selected_restarts="selected_restart_files.txt"
   
   rm -f $file_available_restarts $file_selected_restarts
-  ls -1 $sourceDir/jorek?????.${RST_TYPE} > $file_available_restarts
+  if [ "$use_5digits" == "yes" ]; then
+    ls -1 $sourceDir/jorek?????.${RST_TYPE} > $file_available_restarts
+  else
+    ls -1 $sourceDir/jorek??????.${RST_TYPE} > $file_available_restarts
+  fi
   
   step_ranges=`echo $selected_steps | tr ',' ' '`
   for step_range in $step_ranges; do
@@ -382,6 +404,11 @@ else
 
     for i in `seq $istart $istep $iend`; do
       padnumber=`printf "%05d" $i`
+      if [ "$use_5digits" == "yes" ]; then
+        padnumber=`printf "%05d" $i`
+      else
+        padnumber=`printf "%06d" $i`
+      fi
       echo $padnumber >> $file_selected_restarts
     done
   done
