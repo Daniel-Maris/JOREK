@@ -1050,7 +1050,7 @@ module exec_commands
 
     integer, intent(in) :: min_step, max_step
     character(len=2)    :: prefix
-    character(len=12)   :: init_string, end_string
+    character(len=20)   :: init_string, end_string
 
     if ( loop_mode .eq. LOOP_S_MODE )  then 
       prefix='_s'
@@ -1061,9 +1061,9 @@ module exec_commands
     if ( min_step /= max_step ) then
       write(init_string, rst_file_ind_fmt(1)) prefix, min_step
       write(end_string,  rst_file_ind_fmt(1)) '..', max_step
-      write(step_range_string,'(a,a)') init_string, end_string
+      write(step_range_string,'(a,a)') trim(init_string), trim(end_string)
     else
-      write(step_range_string,rst_file_ind_fmt(1)) prefix, min_step
+      write(step_range_string,rst_file_ind_fmt(1)) trim(prefix), min_step
     end if
 
   end function step_range_string
@@ -2927,7 +2927,7 @@ module exec_commands
     real*8, dimension(n_gauss,n_gauss) :: x_g,   x_s,   x_t,   x_ss,   x_tt,   x_st
     real*8, dimension(n_gauss,n_gauss) :: y_g,   y_s,   y_t,   y_ss,   y_tt,   y_st
     integer :: dim0, dim1, dim2, only_itor
-    character(len=64)       :: file_name, label 
+    character(len=64)       :: file_name, label, tmp_name1, tmp_name2 
     integer   :: required,provided,StatInfo
 #ifdef USE_FFTW
     real*8     :: in_fft(1:n_plane)
@@ -3497,9 +3497,9 @@ module exec_commands
     write(*,*) ''
     write(*,*) '  Writing non-zero terms to vtk...'
   
-    write (file_name,'(a,a)') trim(DIR), 'RHS.'
-    write (file_name,rst_file_ind_fmt(1)) file_name, index_start
-    write (file_name,'(a,a)') file_name, '.vtk'
+    write (tmp_name1,'(a,a)') trim(DIR), 'RHS.'
+    write (tmp_name2,rst_file_ind_fmt(1)) trim(tmp_name1), index_start
+    write (file_name,'(a,a)') trim(tmp_name2), '.vtk'
     call write_vtk(file_name,xyz,ien,9,scalar_names,scalars)
   
     write(*,*) '  Finished writing vtk'

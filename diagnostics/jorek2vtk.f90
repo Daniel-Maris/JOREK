@@ -112,6 +112,7 @@ logical               :: include_radiation
 real*8                :: Arad_bg, Brad_bg, Crad_bg, frad_bg
 real*8                :: Te_eV, ne_SI, Lrad_imp, r_imp_bg
 real*8                :: Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksi_ion_norm, LradDcont_T
+real*8                :: LradDcont_corr, dLradDcont_dT_corr
 real*8                :: LradDrays_T, coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss
 real*8                :: r0_real8, rn0_real8, lnA, r0_tmp
 real*8                :: T0_corr, r0_corr, rn0_corr, ne_JOREK, T_or_Te, T_or_Te_corr, T_or_Te_0 
@@ -1422,17 +1423,17 @@ enddo  ! n_elements
       endif
 
       if ( with_TiTe ) then
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) !< add scalars(i,var_rho) as last optional parameter for density dependence
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) !< add scalars(i,var_rho) as last optional parameter for density dependence
       else
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) 
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) 
       endif
 
       call coulomb_log_ei(T_or_Te, T_or_Te_corr, rho, corr_neg_dens1(rho), 0.0, 0.0, 0.0, lnA)
       call resistivity(eta, T_or_Te, T_or_Te_corr, T_max_eta, T_or_Te_0, 1.d0, lnA, eta_Sp)           
 
-      scalars(i,ineu(1)) = ksiion * r0_real8 * scalars(i,var_rhon) * Sion_T
+      scalars(i,ineu(1)) = ksi_ion_norm * r0_real8 * scalars(i,var_rhon) * Sion_T
       scalars(i,ineu(2)) = r0_real8 * scalars(i,var_rhon) * LradDrays_T
       scalars(i,ineu(3)) = LradDcont_T * r0_real8**2.d0
 #ifdef fullmhd
@@ -1654,12 +1655,12 @@ enddo  ! n_elements
 
       if ( with_TiTe ) then
         T_real8 = scalars(i,var_Te)
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
       else
         T_real8 = scalars(i,var_T)
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
       endif
 
       r0_corr   = corr_neg_dens(r0_real8)
@@ -1830,11 +1831,11 @@ if (SI_units) then
       rn0_real8 = scalars(i,var_rhon)/central_density
 
       if ( with_TiTe ) then
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. )  ! T, rho and rhon should be in JOREK unit here
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. )  ! T, rho and rhon should be in JOREK unit here
       else
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. ) 
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. ) 
       endif
 
       eta_Sp = 1.65d-9*17*(1.d-3*Te_corr_eV)**(-1.5d0)
@@ -1844,7 +1845,7 @@ if (SI_units) then
 
       scalars(i,ineu(2)) = r0_tmp* 1.d20 * scalars(i,var_rhon) * 1.d20 * LradDrays_T/ coef_rad_1
 
-      scalars(i,ineu(3)) = LradDcont_T * (r0_tmp*1.d20)**2.d0 / coef_rad_1
+      scalars(i,ineu(3)) = LradDcont_T * (r0_tmp*1.d20)**2.d0 / coef_rad_1  !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 
       scalars(i,ineu(4)) = eta_Sp * (1.d6*scalars(i,var_zj))**2.d0
 #endif /* WITH_Neutrals but not WITH_Impurities */

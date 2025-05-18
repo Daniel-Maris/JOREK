@@ -54,7 +54,7 @@ module mod_impurity
           case('N')
             adas_suffix = '96_n'	  
           case default
-            write(*,*) "Unrecognized species, terminating."
+            write(*,*) "Unrecognized species", trim(imp_type(i)), ", terminating."
             adas_suffix = 'none'
             deallocate(imp_cor)
             deallocate(imp_adas)
@@ -75,6 +75,8 @@ module mod_impurity
     if (nstep .gt. 0) call tr_allocate(xtime_radiation,1,nstep,"xtime_radiation")
     if (allocated(xtime_rad_power)) call tr_deallocate(xtime_rad_power,"xtime_rad_power",CAT_GRID)
     if (nstep .gt. 0) call tr_allocate(xtime_rad_power,1,nstep,"xtime_rad_power")
+    if (allocated(xtime_rad_cooling_power)) call tr_deallocate(xtime_rad_cooling_power,"xtime_rad_cooling_power",CAT_GRID)
+    if (nstep .gt. 0) call tr_allocate(xtime_rad_cooling_power,1,nstep,"xtime_rad_cooling_power")
     if (allocated(xtime_E_ion)) call tr_deallocate(xtime_E_ion,"xtime_E_ion",CAT_GRID)
     if (nstep .gt. 0) call tr_allocate(xtime_E_ion,1,nstep,"xtime_E_ion")
     if (allocated(xtime_E_ion_power)) call tr_deallocate(xtime_E_ion_power,"xtime_E_ion_power",CAT_GRID)
