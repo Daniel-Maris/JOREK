@@ -8,6 +8,7 @@ use basis_at_gaussian
 implicit none
 private
 public particle_group, particle_sim, configure_particle_groups
+public group_num_from_id, config_num_from_id
 
 !> A group of particles, implemented as an allocatable array.
 !> It must contain particles of the same species (charge number).
@@ -22,8 +23,6 @@ type :: particle_group
   character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
  
   ! ================ for neutrals and impurities =============
-  logical            :: use_kin_sputtering       !< switch on sputtering for group 
-  real*8             :: n_reflect_ratio          !< ratio of the n_particles to use in reflection events
   logical            :: use_kin_ionisation       !< switch on ionisation for group         
   logical            :: use_kin_puffing          !< switch on particle puffing for group
   logical            :: use_kin_radiation        !< switch on line radiation for group
@@ -70,7 +69,7 @@ contains
 subroutine configure_particle_groups(sim)
   use phys_module, only: n_part_groups, part_group_configs, type_part_group_config
   use phys_module, only: part_groups_in_use
-  use mod_particle_group_id, only: matching_part_config_indices
+  use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
 
   implicit none
   class(particle_sim), intent(inout)       :: sim
@@ -87,10 +86,8 @@ subroutine configure_particle_groups(sim)
     sim%groups(i)%id = config%id
   
     ! === ncs and ics options
-    sim%groups(i)%use_kin_sputtering     =  config%use_kin_sputtering
     sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
     sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
-    sim%groups(i)%n_reflect_ratio        =  config%n_reflect_ratio 
     sim%groups(i)%use_kin_radiation      =  config%use_kin_radiation 
 
     ! --- ncs only
@@ -312,4 +309,53 @@ n_particles,n_active_particles,active_particle_id,n_p_type,p_type)
     enddo
   endif
 end subroutine find_active_particles_groups
+
+!> returns the group_num which satisfies sim%groups(group_num)%id = id
+function group_num_from_id(sim,id) result(group_num)
+  implicit none
+
+  type(particle_sim), intent(in) :: sim
+  character(len=3),   intent(in) :: id !< particle group %id
+  integer :: group_num !< the number sim%groups(group_num)
+  integer :: i
+
+  group_num = -1
+
+  do i=1,size(sim%groups,1)
+    if(sim%groups(i)%id == id) then ! matching id is found
+      group_num = i
+      return
+    end if
+  end do
+
+  ! if at the end the matching id is not found, then the input id is not actually a valid used id in the sim
+  if(sim%my_id == 0) write(*,"(3A)") "ERROR: id ",id," not found among sim%groups(:)%id (group_num_from_id)"
+
+end function group_num_from_id
+
+!> returns the group_num which satisfies part_group_configs(config_num)%id = id
+!> note that this particle group does not necessarily have to be in use!
+function config_num_from_id(id) result(config_num)
+  use phys_module, only: part_group_configs
+  
+  implicit none
+  
+  character(len=3),   intent(in) :: id !< particle group %id
+  integer :: config_num !< the number part_group_configs(config_num)%id
+  integer :: i
+
+  config_num = -1
+
+  do i=1,size(part_group_configs,1)
+    if(part_group_configs(i)%id == id) then ! matching id is found
+      config_num = i
+      return
+    end if
+  end do
+
+  ! if at the end the matching id is not found, then the input id is not actually a valid used id in the sim
+  write(*,"(3A)") "ERROR: id ",id," not found among part_group_configs(:)%id (config_num_from_id)"
+
+end function config_num_from_id
+
 end module mod_particle_sim

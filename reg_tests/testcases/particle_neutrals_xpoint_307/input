@@ -144,7 +144,6 @@
   part_group_configs(1)%use_kin_puffing        = .t.
   part_group_configs(1)%use_kin_cx             = .t.
   part_group_configs(1)%use_kin_ionisation     = .t.
-  part_group_configs(1)%use_kin_sputtering     = .t.
   part_group_configs(1)%use_kin_recombination  = .t.
   part_group_configs(1)%use_kin_radiation = .t.
   part_group_configs(1)%atom_data_suffix = '12_h'
@@ -153,6 +152,12 @@
   part_group_configs(1)%puff_ctrl(1)%rates = 46.d21, 70.d21
   part_group_configs(1)%puff_ctrl(1)%supers_num_puff = 20
 
+  part_group_configs(1)%wall_act_configs(1)%type="reflection"
+
+  fluid_configs(1)%Z=-2
+  fluid_configs(1)%wall_act_configs(1)%type="wall recomb"
+  fluid_configs(1)%wall_act_configs(1)%target_group_id="P01"
+  fluid_configs(1)%wall_act_configs(1)%supers_num_wall=5
 
  /
  

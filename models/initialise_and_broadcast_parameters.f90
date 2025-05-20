@@ -37,6 +37,7 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
       ! --- Determine the coupling variables used, their index, and n_aux_var
       call determine_coupling_variables() 
 
+      n_fluid_groups = count(fluid_configs%Z /= -999)
     endif
   endif
 
