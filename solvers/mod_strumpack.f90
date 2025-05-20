@@ -184,6 +184,11 @@ module mod_strumpack
       integer(kind=int_all), dimension(:), pointer :: myelm
       logical :: upd, dflag, eql
       type(c_ptr) :: irn_c, jcn_c, val_c, dist_c
+
+      upd = spss%analyzed
+      dflag = a_mat%row_distributed
+      eql = spss%equilibrium
+
       call MPI_COMM_RANK(spss%comm, rank, ierr)
       call MPI_COMM_SIZE(spss%comm, n_cpu, ierr)
       if (eql .or. spss%projection) then
@@ -194,10 +199,6 @@ module mod_strumpack
         call MPI_Bcast(a_mat%block_size, 1, MPI_INTEGER, 0, spss%comm, ierr)
         call MPI_Bcast(a_mat%row_distributed, 1, MPI_INTEGER, 0, spss%comm, ierr)
       endif
-
-      upd = spss%analyzed
-      dflag = a_mat%row_distributed
-      eql = spss%equilibrium
       
       allocate(distr(n_cpu+1))
 

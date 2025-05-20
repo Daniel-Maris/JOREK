@@ -80,6 +80,7 @@ module mod_solve_sparse_projection
 #endif
       endif
 
+      solver%solve_only = .true.
       solver%step_success = .true.
 
     elseif (solver%iterative) then

@@ -805,8 +805,14 @@ subroutine project_only(this, sim)
     this%rhs_vec%val(1:this%rhs_vec%n) = this%rhs_vec%val(1:this%rhs_vec%n) - this%scaling_integral_weights * this%integral_weights(:)
   endif
 
+
+  call ieee_get_halting_mode(IEEE_USUAL, halt)
+  call ieee_set_halting_mode(IEEE_USUAL, [.false., .false., .false.])
+
   ! Compute the solution of Ax=B (B = RHSes)
   call solve_sparse_projection_system(this%a_mat, this%rhs_vec, this%solver)
+
+  call ieee_get_halting_mode(IEEE_USUAL, halt)
   
   ! collect the solution of all the toroidal harmonics (ntor+1)/2 to my_id=0
   if (this%my_id_n .eq. 0) then
@@ -1163,7 +1169,7 @@ integer    :: i, j, k, l, m, in, im, ilarge, index_large_i, index_large_k, inode
 integer    :: nz_AA, n_AA, nz_bnd, i_elm, index_ij, index_kl, im_index, in_index, index1
 integer    :: ms, mt, mp, my_id, my_id_n, my_id_master, ierr, MPI_COMM_MUMPS
 logical    :: apply_dirichlet_condition
-logical    :: halt(size(IEEE_USUAL,1)), do_facto
+logical    :: do_facto
 
 type (type_SP_MATRIX) :: a_mat
 
