@@ -3878,7 +3878,6 @@ do i=1,n_vertex_max
                                           + v * BigR * rho * rn0_corr * LradDrays_T                                  * xjac * theta * tstep &
                                           + v * BigR * rho * (2.d0*r0_corr+(alpha_e-1.)*rimp0_corr)*LradDcont_corr   * xjac * theta * tstep &
                                           + (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * T0                      * xjac * theta * tstep & 
-                                          - v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T                       * xjac * theta * tstep & 
                                           + v * BigR * rho * frad_bg                                                 * xjac * theta * tstep &
                                           + v * BigR * rho * rimp0_corr * Lrad                                       * xjac * theta * tstep &
                                           ! New term from Z_eff
