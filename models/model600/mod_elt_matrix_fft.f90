@@ -2731,6 +2731,7 @@ do i=1,n_vertex_max
                     amat_k(var_vpar,var_psi) = - 0.5d0 * r0 * vpar0**2 * BB2_psi * F0 / BigR * v_p                                          * xjac * theta * tstep &
                                                - visco_par_par * F0**2 / (BigR * BB2**2) * BB2_psi * Bgrad_vpar * Bgrad_rho_k_star          * xjac * theta * tstep &
                                                + visco_par_par * F0**2 / (BigR * BB2)          * Bgrad_vpar_psi * Bgrad_rho_k_star          * xjac * theta * tstep  
+                    amat(var_vpar,var_u) = 0.d0         
                     
                     !---------------------------------------- NEO
                     if ( NEO ) then
