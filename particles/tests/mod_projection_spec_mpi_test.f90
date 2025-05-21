@@ -422,8 +422,8 @@ hyper_filter,parallel_filter,apply_dirichlet,node_list,element_list,mumps_data,i
   real*8,intent(in)    :: Rbegin_loc,Rend_loc,Zbegin_loc,Zend_loc
   real*8,intent(in)    :: local_filter,hyper_filter,parallel_filter
   logical,intent(in)   :: apply_dirichlet
-  type(DMUMPS_STRUC),intent(inout) :: mumps_data
-  type (type_SP_MATRIX) :: a_mat
+  type(DMUMPS_STRUC),intent(inout) :: mumps_data    !< Object used by mumps for solving linear systems (the matrix wil be copied inside of this)
+  type (type_SP_MATRIX)            :: a_mat         !< Projection matrix using our datastructures
   integer :: mpi_comm_n,mpi_comm_master
   real*8  :: area,volume
   real*8,dimension(:),allocatable :: integral_weights

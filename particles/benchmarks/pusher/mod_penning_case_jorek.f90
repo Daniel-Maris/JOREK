@@ -32,14 +32,14 @@ rank_in, master_in, ifail_out)
 
   real*8              :: area, volume
   real*8, allocatable :: integral_weights(:)
-  type(DMUMPS_STRUC)  :: p
   integer             :: i, k, index
   real*8              :: t_norm, qom, B0, Phi0
   integer             :: mpi_comm_n, mpi_comm_master, i_tor_local, n_tor_local, ierr
   logical             :: apply_dirichlet
   integer             :: rank,master,ifail
 
-  type (type_SP_MATRIX) :: a_mat
+  type (type_SP_MATRIX) :: a_mat !< Projection matrix using our datastructures
+  type(DMUMPS_STRUC)    :: p     !< Object used by mumps for solving linear systems (the matrix wil be copied inside of this)
 
   !> Note that we have to cheat a little bit here:
   !> We need F0 nonzero for the electric potential, but we need F0 = 0 to not have

@@ -124,9 +124,9 @@ type, extends(io_action) :: projection
   integer :: n_dof             ! the number of unknowns for (n=0)
 
   !> Ihor's Backend Datastructures
-  type (type_SP_MATRIX) :: a_mat !< matrix to solve
-  type (type_RHS)       :: rhs_vec
-  type (type_SP_SOLVER) :: solver
+  type (type_SP_MATRIX) :: a_mat    !< sparse matrix to solve for the projection
+  type (type_RHS)       :: rhs_vec  !< rhs of the projection
+  type (type_SP_SOLVER) :: solver   !< solver struct
 
   integer :: system_size !< size of the system to solve, previously a_mat%ng, but if we distribute the matrix, it is being overwritten by the number of local rows owned by the process
 
@@ -1171,7 +1171,7 @@ integer    :: ms, mt, mp, my_id, my_id_n, my_id_master, ierr, MPI_COMM_MUMPS
 logical    :: apply_dirichlet_condition
 logical    :: do_facto
 
-type (type_SP_MATRIX) :: a_mat
+type (type_SP_MATRIX) :: a_mat  !< Projection matrix
 
 ! We need a separate communicator to be able to run multiple MUMPSes
 call MPI_Comm_dup(this_mpi_comm_n, MPI_COMM_MUMPS, ierr)
@@ -1559,7 +1559,7 @@ logical    :: halt(size(IEEE_USUAL,1)), do_facto
 logical    :: apply_dirichlet_condition, apply_zonal
 real*8, dimension(n_vertex_max,n_degrees) :: basisfunction_volume
 
-type (type_SP_MATRIX) :: a_mat
+type (type_SP_MATRIX) :: a_mat  !< Projection matrix
 
 ! We need a separate communicator to be able to run multiple MUMPSes
 call MPI_Comm_dup(this_mpi_comm_n, MPI_COMM_MUMPS, ierr)

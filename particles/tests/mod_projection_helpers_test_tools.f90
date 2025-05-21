@@ -622,8 +622,8 @@ end subroutine broadcast_dmumps_project_struct
 subroutine map_matrix_to_MUMPS_datastructure(a_mat, mumps_par)
   use, intrinsic :: ieee_exceptions
   implicit none
-  type (type_SP_MATRIX), intent(in)      :: a_mat
-  type (DMUMPS_STRUC)  , intent(inout)   :: mumps_par
+  type (type_SP_MATRIX), intent(in)      :: a_mat       !< Projection matrix using our datastructures
+  type (DMUMPS_STRUC)  , intent(inout)   :: mumps_par   !< Object used by mumps for solving linear systems (the matrix wil be copied inside of this)
   logical :: halt(size(IEEE_USUAL,1)), found_nan
   integer :: my_id_n, ierr
 

@@ -243,8 +243,8 @@ subroutine project_f(node_list, element_list, f, filter, filter_hyper, integral)
   real*8, optional, intent(in)           :: filter, filter_hyper !< smoothing and hyper-smoothing
   real*8, optional, intent(out)          :: integral !< The integral of the projected function, from the weights
   real*8, dimension(:), allocatable      :: this_integral_weights
-  type(DMUMPS_STRUC)                     :: p
-  type (type_SP_MATRIX)                  :: a_mat
+  type (type_SP_MATRIX)                  :: a_mat   !< Projection matrix using our datastructures
+  type(DMUMPS_STRUC)                     :: p       !< Object used by mumps for solving linear systems (the matrix wil be copied inside of this)
   integer :: i, k, index, i_tor_local, n_tor_local, mpi_comm_n, mpi_comm_master, ierr
   real*8  :: my_filter, my_filter_hyper, area, volume
 
