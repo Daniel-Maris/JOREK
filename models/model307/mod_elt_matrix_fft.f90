@@ -1017,7 +1017,6 @@ do i=1,n_vertex_max
                                     * (T0_ps0_x * ps0_y - T0_ps0_y * ps0_x)               * xjac * tstep  &
 
             - v * BigR * r0_corr * r0_corr  * LradDcont_corr                       * xjac * tstep  & !< includes gamma-1
-            + v * BigR * r0_corr * r0_corr  * (ksi_ion_norm*Srec_T)                   * xjac * tstep  & !< correction term for LradDcont_T
             - (gamma-1.d0)* v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T     * xjac * tstep  & ! 
                   
                        - TG_num6 * 0.25d0 * BigR**3 * T0 * (r0_x * u0_y - r0_y * u0_x)         &
@@ -1570,7 +1569,6 @@ do i=1,n_vertex_max
                             + v * rho * GAMMA * T0_corr * F0 / BigR * vpar0_p                 * xjac * theta * tstep &
 
               + v * BigR * rho * 2d0 * r0_corr * LradDcont_corr                * xjac * theta * tstep &
-              - v * BigR * rho * 2d0 * r0_corr * Srec_T*ksi_ion_norm           * xjac * theta * tstep &
               + (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * T0            * xjac * theta * tstep & !
               
                          + TG_num6 * 0.25d0 * BigR**2 * T0_corr* (rho_x * u0_y - rho_y * u0_x)      &
