@@ -2295,7 +2295,6 @@ module vacuum_response
   !> Initialize the currents in the resistive wall and the external coil currents.
   subroutine init_wall_currents(my_id, resistive_wall)
     
-    use nodes_elements, only: bnd_node_list, node_list
     use phys_module, only: index_now, index_start, nstep
     use mpi_mod
     
