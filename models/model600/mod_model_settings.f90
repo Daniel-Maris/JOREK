@@ -78,7 +78,7 @@ integer,  parameter :: n_terms_psi  = 5
 integer,  parameter :: n_terms_u    = 11
 integer,  parameter :: n_terms_zj   = 1
 integer,  parameter :: n_terms_w    = 1
-integer,  parameter :: n_terms_rho  = 12
+integer,  parameter :: n_terms_rho  = 13
 integer,  parameter :: n_terms_T    = 26
 integer,  parameter :: n_terms_Te   = 19
 integer,  parameter :: n_terms_Ti   = 14
@@ -114,18 +114,19 @@ character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                               (/ 'w_Eq__DeltaStar_u      '/)  !  1:
 
  character*36, dimension(n_terms_rho),  parameter :: rho_term_names=  &
-                                              (/ 'rho_Eq__ext_dens_source  ', &  !  1:
-                                                 'rho_Eq__perp_convection  ', &  !  2: 
-                                                 'rho_Eq__divergence_v     ', &  !  3: 
-                                                 'rho_Eq__parallel_diffus  ', &  !  4:
-                                                 'rho_Eq__perp_diffusion   ', &  !  5:
-                                                 'rho_Eq__parallel_convect ', &  !  6:
-                                                 'rho_Eq__diamag_term      ', &  !  7:
-                                                 'rho_Eq__ionization_source', &  !  8:
-                                                 'rho_Eq__recombination    ', &  !  9:
-                                                 'rho_Eq__zeta_time_evol   ', &  ! 10:
-                                                 'rho_Eq__Dperp_num_term   ', &  ! 11:
-                                                 'rho_Eq__tg_num_term      '/)   ! 12:
+                                              (/ 'rho_Eq__ext_density_source', &  !  1:
+                                                 'rho_Eq__perp_convection   ', &  !  2: 
+                                                 'rho_Eq__divergence_v      ', &  !  3: 
+                                                 'rho_Eq__parallel_diffus   ', &  !  4:
+                                                 'rho_Eq__perp_diffusion    ', &  !  5:
+                                                 'rho_Eq__parallel_convect  ', &  !  6:
+                                                 'rho_Eq__diamag_term       ', &  !  7:
+                                                 'rho_Eq__ionization_source ', &  !  8:
+                                                 'rho_Eq__recombination     ', &  !  9:
+                                                 'rho_Eq__zeta_time_evol    ', &  ! 10:
+                                                 'rho_Eq__Dperp_num_term    ', &  ! 11:
+                                                 'rho_Eq__tg_num_term       ', &  ! 12:
+                                                 'rho_Eq__aux_density_source'/)   ! 13:
 
 character*36, dimension(n_terms_T),     parameter :: T_term_names=  &
                                               (/ 'T_Eq__ext_heat_source        ', &  !  1:
@@ -190,8 +191,8 @@ character*36, dimension(n_terms_Te),    parameter :: Te_term_names=  &
                                                  'Te_Eq__backg_imp_radiat', &  ! 15:
                                                  'Te_Eq__main_imp_radiat ', &  ! 16:
                                                  'Te_Eq__imp_ionization  ', &  ! 17:
-                                                 'Te_Eq__power_teleported', &  ! 19:
-                                                 'Te_Eq__implicit_heating'/)   ! 20:
+                                                 'Te_Eq__power_teleported', &  ! 18:
+                                                 'Te_Eq__implicit_heating'/)   ! 19:
 
 
 character*36, dimension(n_terms_vpar),  parameter :: vpar_term_names=  &
