@@ -244,12 +244,6 @@ else
   max_terms_loop = 1
 endif
 
-if (.not. present(aux_nodes)) then
-  do i=1,4
-    aux_nodes(i)%values(:,:,:) = 0.d0
-  enddo
-endif
-
 ELM_p = 0.d0
 ELM_n = 0.d0
 ELM_k = 0.d0

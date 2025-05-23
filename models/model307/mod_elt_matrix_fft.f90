@@ -157,13 +157,6 @@ real*8, dimension(n_plane,n_aux_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_a
 
 real*8, dimension(n_tor,n_plane) :: HHZ, HHZ_p, HHZ_pp
 
-
-if (.not. present(aux_nodes)) then
-  do i=1,4
-    aux_nodes(i)%values(:,:,:) = 0.d0
-  enddo
-endif
-
 ELM_p = 0.d0
 ELM_n = 0.d0
 ELM_k = 0.d0
