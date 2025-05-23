@@ -1231,12 +1231,15 @@ do i=1,n_vertex_max
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
             
             call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
+             
+            !> following terms are handled on the kinetic side (mod_particle_evolution.f90)
+            LradDrays_T   = 0.d0
+            dLradDrays_dT = 0.d0
 
             if (.not. with_TiTe) then
               ! --- Transform derivatives on Te to derivatives in total T
               dSion_dT           = dSion_dT      / 2.d0
               dSrec_dT           = dSrec_dT      / 2.d0
-              dLradDrays_dT      = dLradDrays_dT / 2.d0
               dLradDcont_dT      = dLradDcont_dT / 2.d0
               dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
             endif
