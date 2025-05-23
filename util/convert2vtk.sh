@@ -197,7 +197,6 @@ SCRIPTDIR=`dirname $0`; SCRIPTDIR=`readlink -f $SCRIPTDIR`
 
 # --- Process command line parameters
 nthreads="1"
-selected_steps="0-999999"
 select_arguments=""
 customdir=""
 nsub=""
@@ -221,6 +220,19 @@ include_psi_norm=".true." # include normalized flux
 RphiZ_coords=".false."    # use (R,0,Z) xyz coordinates instead of (R,Z,0)
 use_5digits="no"          # use old restart file index format with 5 digits
 
+# First pass: detect -5digits early
+for arg in "$@"; do
+  if [ "$arg" == "-5digits" ]; then
+    use_5digits="yes"
+  fi
+done
+
+if [ "$use_5digits" == "yes" ]; then
+  selected_steps="0-99999"
+else
+  selected_steps="0-999999"
+fi
+
 while [ $# -gt 1 ]; do
   if [ "$1" == "-j" ]; then
     nthreads="$2"
@@ -232,7 +244,11 @@ while [ $# -gt 1 ]; do
     selected_steps="$2"
     shift 2
   elif [ "$1" == "-donly" ]; then
-    selected_steps="0-$2-999999"
+    if [ "$use_5digits" == "yes" ]; then
+      selected_steps="0-$2-99999"
+    else
+      selected_steps="0-$2-999999"
+    fi
     shift 2
   elif ( [ "$1" == "-time" ] || [ "$1" == "-dtime" ] ) ; then
     select_arguments="$select_arguments $1 $2"
@@ -495,10 +511,11 @@ fi
 
 # --- Select files for conversion
 if [ -z "$select_arguments" ]; then
+  file_available_restarts="available_restart_files.txt"
   if [ "$use_5digits" == "yes" ]; then
-    files=`ls $sourceDir/jorek?????.${RST_TYPE} 2> /dev/null`
+    ls -1 $sourceDir/jorek?????.${RST_TYPE} > $file_available_restarts
   else
-    files=`ls $sourceDir/jorek??????.${RST_TYPE} 2> /dev/null`
+    ls -1 $sourceDir/jorek??????.${RST_TYPE} > $file_available_restarts
   fi
 else
   files=`${SCRIPTDIR}/select_restart_files.sh $select_arguments`
@@ -599,20 +616,11 @@ for i in `seq $nthreads`; do
 done
 
 # --- Create a list of available selected files ---------------------------------
-if [ $selected_steps == "0-99999" ]; then
-  selected_available_files=$files
+if [[ "$selected_steps" == "0-99999" || "$selected_steps" == "0-999999" ]]; then
+  selected_available_files=$file_available_restarts
 else
-
-  file_available_restarts="available_restart_files.txt"
   file_selected_restarts="selected_restart_files.txt"
-  
-  rm -f $file_available_restarts $file_selected_restarts
-  if [ "$use_5digits" == "yes" ]; then
-    ls -1 $sourceDir/jorek?????.${RST_TYPE} > $file_available_restarts
-  else
-    ls -1 $sourceDir/jorek??????.${RST_TYPE} > $file_available_restarts
-  fi
-  
+  rm -f $file_selected_restarts
   step_ranges=`echo $selected_steps | tr ',' ' '`
   for step_range in $step_ranges; do
     step_numbers=(`echo $step_range | tr '-' ' '`) # split step_range, e.g., 1-3 -> 1 3
@@ -625,7 +633,6 @@ else
     fi
 
     for i in `seq $istart $istep $iend`; do
-      padnumber=`printf "%05d" $i`
       if [ "$use_5digits" == "yes" ]; then
         padnumber=`printf "%05d" $i`
       else
@@ -634,23 +641,26 @@ else
       echo $padnumber >> $file_selected_restarts
     done
   done
- 
-  selected_available_files=`grep -f $file_selected_restarts $file_available_restarts`
-  rm -f $file_available_restarts $file_selected_restarts
+
+  selected_available_files='selected_available_files.txt'
+
+  grep -f $file_selected_restarts $file_available_restarts > $selected_available_files
+  rm -f $file_selected_restarts
 fi
 # ------------------------------------------------------------------------------
 
 
 # --- Parallel file conversion
 echo ""
-for file in $selected_available_files; do
+while IFS= read -r file; do
   if [ -f "$ERROR_STOP_FILE" ]; then cleanup; fi
   ithread=`get_available_thread`
   if [ ! -f "$ERROR_STOP_FILE" ]; then
     mark_running $ithread
     do_convert $file $ithread $include_projections $proj_basename &
   fi
-done
+done < $selected_available_files
+rm -f $file_available_restarts $selected_available_files
 
 
 
