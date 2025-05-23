@@ -180,6 +180,12 @@ if (my_id .eq. 0) then
   else
     read(5,in1)
   endif
+
+  if ( ( n_tor .eq. 1 ) .and. freeboundary .and. (.not. freeboundary_equil) ) then
+    write(*,*) 'WARNING: Setting freeboundary to false as n_tor = 0 and no freeboundary equilibrium'
+    freeboundary= .false.
+  end if
+
   
   if ( old_deuterium_atomic ) then
     write(*,*) 'WARNING: You use the old fit of deuterium atomic coefficients that is known to be'

@@ -153,6 +153,12 @@ if (my_id .eq. 0) then
     read(5,in1)
   end if
 
+  if ( ( n_tor .eq. 1 ) .and. freeboundary .and. (.not. freeboundary_equil) ) then
+    write(*,*) 'WARNING: Setting freeboundary to false as n_tor = 0 and no freeboundary equilibrium'
+    freeboundary= .false.
+  end if
+
+  
   !==============================R_Z_psi_bnd==========================
   if ( (n_boundary.ne.0) .and. (R_Z_psi_bnd_file /= 'none') ) then
     ! --- Open the file.
