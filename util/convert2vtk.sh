@@ -500,7 +500,7 @@ fi
 
 
 # ---- Detect restart file type
-. ${SCRIPTDIR}/detect_rst_type.sh
+. ${SCRIPTDIR}/detect_rst_type.sh -d5 $use_5digits
 if [ "$RST_TYPE" != "h5" ] && [ "$RST_TYPE" != "rst" ]; then
   echo "ERROR: RST_TYPE not detected properly: $RST_TYPE"
   usage
