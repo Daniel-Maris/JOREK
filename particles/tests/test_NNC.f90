@@ -10,6 +10,7 @@ program test_NNC
   use basis_at_gaussian, only: initialise_basis
   use mod_particle_collision
   use mod_particle_sim
+  use mod_particle_io, only: write_simulation_hdf5
   use phys_module
   use mod_atomic_elements
   use mod_particle_types
@@ -37,22 +38,22 @@ program test_NNC
   !< rho_1, rho_2, T, p_ii (p_RR, p_ZZ, p_\phi\phi), 1 empty
 
   !parameters of the grid
-  real*8, parameter :: R_0 = 100.d0, Z_0 = 0.d0, length = 0.1d0
-  integer, parameter :: n = 10 !100 ! number of nodes in r, z directions
+  real*8, parameter :: R_0 = 200.d0, Z_0 = 0.d0, length = 0.05d0
+  integer, parameter :: n = 6 !10!2!100 ! number of nodes in r, z directions
 
   !variables
   integer :: i, i_elm, i_step, nstep_proj
   integer :: seed, i_rng, n_stream
   real*8 :: s, t, phi, R, Z
   real*8 :: RN(8), weight, T_av !< [K] average intial temperature of gas
-  character(len=100) :: i_step_char
+  character(len=100) :: i_step_char, filename
   real*8 :: last_time
   !$ real*8 :: w(2), mmm(3)
   
   !distribution w_i(R,t) diagnostic
   real*8, allocatable :: w_iRt(:,:,:)  !< weights per species as a function of R and t, dim(species,R_bins,0:nstep) 
   real*8, allocatable :: t_arr(:)      !< timesteps, dim(0:nstep)
-  integer, parameter  :: R_bins = n*10 !< number of bins along R for the w_i(R,t) diagnostic
+  integer, parameter  :: R_bins = 200 !< number of bins along R for the w_i(R,t) diagnostic
 
   !conservation
   real*8 :: conserv_obj(6)
@@ -95,6 +96,8 @@ program test_NNC
     call plot_grid(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'initial')
   end if
 
+  open(unit=13, file='p.csv', status='replace')
+
   ! Set up particle group characteristics
   sim%groups(1)%Z    = -2 !< for deuterium 1
   sim%groups(1)%mass = atomic_weights(-2) !< atomic mass units
@@ -119,7 +122,7 @@ program test_NNC
   select type (p => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)  
     !$omp parallel do default(none)  &
-    !$omp shared(sim, p, rng, T_Av, weight)       &
+    !$omp shared(sim, p, rng, T_av, weight)       &
     !$omp private(i_rng, RN, R, Z, s, t, i_elm)
     do i=1,size(p)
       !$ i_rng = omp_get_thread_num()+1
@@ -127,7 +130,7 @@ program test_NNC
 
       p(i)%q      = 0 !< for neutrals
       p(i)%weight = weight
-      p(i)%t_birth = 0.d0
+      p(i)%t_birth = 0.d0 !< for tracking collision times
       
       s = RN(1)
       t = RN(2)
@@ -147,6 +150,9 @@ program test_NNC
       end if
     end do
     !$omp end parallel do
+
+    !setting the MSD particle
+    p(1)%x = [R_0,Z_0,0.d0]
   end select
 
   !projections for feedback purposes
@@ -176,9 +182,13 @@ program test_NNC
   conserv_obj(:) = 0.d0
   call conservation_checks(sim,conserv_obj)
 
+  i_step=0
+  ! write(filename,"(A,I2.2)") "i_step_",i_step
+  ! call write_simulation_hdf5(sim,filename)
   ! -------------------------------------- main loop
   do i_step=1,nstep
     write(i_step_char,*) "i_step=",i_step
+    write(*,*) "DBG sim%time",sim%time
     call log_block(sim%my_id, trim(i_step_char), last_time)
 
     sim%time = sim%time + tstep_particles*nstep_particles
@@ -189,6 +199,8 @@ program test_NNC
     call push_particle(sim, rng, projections)
 
     call conservation_checks(sim,conserv_obj)
+
+    call global_av_T(sim)
 
     if(mod(i_step,nout_projection)==0) then
       call log_block(sim%my_id, "Diagnostics", last_time)
@@ -201,17 +213,36 @@ program test_NNC
     call log_block(sim%my_id, "Neutral self collision", last_time)
     call neutral_self_collision(sim,rng,tstep_particles*nstep_particles)
 
+    ! ! printout sim%particles
+    ! select type (pa => sim%groups(1)%particles)
+    ! type is (particle_kinetic_leapfrog)
+    !   do i=1,size(pa,1)
+    !     write(*,"(A,I10,7es20.10)") "DBG: pa(i) i,%x,%v,t_birth",i,pa(i)%x,pa(i)%v,pa(i)%t_birth
+    !   end do
+    ! end select
+
     ! if(mod(i_step,5000)==0) then
     !   call log_block(sim%my_id, "")
     !   call reset_part_labels(sim)
     ! end if
     ! call conservation_checks(sim,conserv_obj)
 
+    ! write(filename,"(A,I2.2)") "i_step_",i_step
+    ! call write_simulation_hdf5(sim,filename)  
+
+    select type (pa => sim%groups(1)%particles)
+    type is (particle_kinetic_leapfrog)  
+    do i=1,1
+      write(13,"(2I10, 8es20.10)") i, i_step, sim%time, pa(i)%t_birth, pa(i)%x, pa(i)%v
+      write(*,"(2I10, 8es20.10)")  i, i_step, sim%time, pa(i)%t_birth, pa(i)%x, pa(i)%v
+    end do
+    end select
   end do
 
   ! --- end
   call log_block(sim%my_id, "End of sim", last_time)
   call write_diag_output(sim%my_id,w_iRt,t_arr)
+  close(13)
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
   !$ if (sim%my_id .eq. 0) write(*,"(A,3es13.3,A)") "test_NNC done in (min/mean/max) ", mmm, " s"
@@ -284,8 +315,8 @@ contains
               do m=1,n_order+1  ! order of the polynomial
                 qty = 0.d0
                 factor = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight / nstep_particles
-                qty(particle_tmp%i_life) = factor ! species density (qty(1) = n_1, qty(2) = n_2)
-                qty(3)   = factor * mass * norm2(particle_tmp%v)**2 / (3*EL_CHG) ! T (E = 1/2 m v^2 = 3/2 k_B T, k_B T / e = m v^2 / (3 e))
+                qty(particle_tmp%i_life) = factor ! species density [m^-3] (qty(1) = n_1, qty(2) = n_2)
+                qty(3)   = factor * mass * dot_product(particle_tmp%v,particle_tmp%v) / (3*EL_CHG) ! T [eV] (E = 1/2 m v^2 = 3/2 k_B T, k_B T / e = m v^2 / (3 e))
                 qty(4:6) = factor * mass * particle_tmp%v * particle_tmp%v ! directional pressure P_ii = dp_i/dt /A = mv_i^2 dt A n /dt /A = mv_i^2 n
                 qty(7)   = factor ! total species density
                 qty(8)   = particle_tmp%weight !< to normalise later on
@@ -335,7 +366,7 @@ contains
           do i_elm=1,sim%fields%element_list%n_elements
             do i_tor=1,n_tor
               w = proj(m,l,i_elm,i_tor,1)+proj(m,l,i_elm,i_tor,2)
-              proj(m,l,i_elm,i_tor,3) = proj(m,l,i_elm,i_tor,3)/max(proj(m,l,i_elm,i_tor,8),1.d0) !< divide by total weight
+              proj(m,l,i_elm,i_tor,3) = proj(m,l,i_elm,i_tor,3)/max(proj(m,l,i_elm,i_tor,8),1.d0)/sim%n_cpu !< divide by total weight
             enddo
           enddo
         enddo
@@ -406,7 +437,7 @@ contains
           ! !$omp end critical  
           cycle
         end if
-          R = p(i)%x(1)
+        R = p(i)%x(1)
         iR = nint(((R - (R_0 - length)) / (2*length)) * R_bins + 0.5d0)
         if(iR < 1) then
           !$omp critical
@@ -451,7 +482,7 @@ contains
       do i=1,2
         do iR=1,R_bins
           do it=0,nstep_proj
-            write(10,"(3I5, es20.10)") i, iR, it, w_iRt_tot(i,iR,it)
+            write(10,"(3I10, es20.10)") i, iR, it, w_iRt_tot(i,iR,it)
           end do
         end do
       end do
@@ -530,6 +561,32 @@ contains
   
     endif !(sim%my_id .eq. 0)
   end subroutine conservation_checks
+
+  !> calculates and prints the global average temperature (in eV)
+  subroutine global_av_T(sim)
+    implicit none
+    type(particle_sim), intent(inout)  :: sim
+
+    real*8 :: T_av_measured, T_av_measured_red
+    integer :: ierr
+    
+    T_av_measured = 0
+    select type (p => sim%groups(1)%particles)
+    type is (particle_kinetic_leapfrog)  
+      !$omp parallel do default(none)  &
+      !$omp shared(p,sim) reduction(+:T_av_measured)
+      do i=1,size(p)
+        T_av_measured = T_av_measured + (sim%groups(1)%mass * ATOMIC_MASS_UNIT) * dot_product(p(i)%v,p(i)%v) / (3*EL_CHG)
+      end do
+      !$omp end parallel do
+      T_av_measured = T_av_measured/size(p)
+    end select
+    call MPI_REDUCE(T_av_measured, T_av_measured_red,       1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+    if(sim%my_id==0) then
+      T_av_measured_red = T_av_measured_red/sim%n_cpu
+      write(*,"(A,es15.5)") "Average measured temperature (eV)",T_av_measured_red
+    end if
+  end subroutine global_av_T
 
   subroutine reset_part_labels(sim)
     implicit none
