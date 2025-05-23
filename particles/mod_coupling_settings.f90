@@ -88,14 +88,6 @@ subroutine check_compatibility_ncs(group_num)
     write(*,*) "  Please recompile with with_TiTe=.false."
     stop
   endif
-
-    !> currently ncs particles require vpar
-  if (.not. with_Vpar) then
-    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently kinetic neutrals must be ran with parallel velocity,"
-    write(*,*) "  Please recompile with with_vpar=.true."
-    stop
-  endif
   
 end subroutine check_compatibility_ncs
 
@@ -132,14 +124,6 @@ subroutine check_compatibility_ics(group_num)
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
     write(*,*) "  Currently kinetic impurities are not compatible with two temperature models, "
     write(*,*) "  Please recompile with with_TiTe=.false."
-    stop
-  endif
-
-    !> currently ics particles require vpar
-  if (.not. with_Vpar) then
-    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently kinetic impurities must be ran with parallel velocity, " 
-    write(*,*) "  Please recompile with with_vpar=.true."
     stop
   endif
 
