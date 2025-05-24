@@ -157,7 +157,7 @@ if (my_id .eq. 0) then
   endif
 
   if ( ( n_tor .eq. 1 ) .and. freeboundary .and. (.not. freeboundary_equil) ) then
-    write(*,*) 'WARNING: Setting freeboundary to false as n_tor = 0 and no freeboundary equilibrium'
+    write(*,*) 'WARNING: The parameter freeboundary is automatically changed to .false. since n_tor==1 and freeboundary_equil is .false.'
     freeboundary= .false.
   end if
 
