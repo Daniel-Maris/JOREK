@@ -438,7 +438,7 @@ while IFS= read -r file; do
   ithread=`get_available_thread`
   if [ ! -f "$ERROR_STOP_FILE" ]; then
     mark_running $ithread
-    do_convert $file $ithread $include_projections $proj_basename &
+    do_convert $file $ithread &
   fi
 done < $selected_available_files
 rm -f $file_available_restarts $selected_available_files
