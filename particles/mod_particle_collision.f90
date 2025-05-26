@@ -38,15 +38,13 @@ subroutine neutral_self_collision(sim, rng, dt)
 
   real*8,                        intent(in)    :: dt !< timestep over which the collisions must be calculated
 
-  type(particle_kinetic_leapfrog), dimension(:),     allocatable :: pa_subbin !< array of particles in this collisional subbin
+  type(particle_kinetic_leapfrog), dimension(:),     allocatable :: pa_bin !< array of particles in this collisional bin
   type(indices_in_elm),            dimension(:),     allocatable :: sorted_ind_arr !< object containing all particle indices as arrays per element number
   type(indices_in_elm),            dimension(:,:,:), allocatable :: i_pa_bin !< object containing all this element's particle indices as arrays per bin (s bin,t bin, phi bin)
   
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: n_elm
-  integer :: i_pa_group, i_phi, is, it, ns, nt, n_pa_bin, n_pa_subbin, aim_pa_per_subbin, i_pair
-  integer :: i_subbin !< the bin index of the first particle in this subbin (so if this is the second subbin for aim_per_pa=50, i_subbin=51, etc)
-  real*8, parameter :: subbin_factor = 2 !< factor by which a collisional bin is allowed to be larger than aim_pa_per_bin before splitting into subbins
+  integer :: i_pa_group, i_phi, is, it, ns, nt, n_pa_bin, i_pair
   integer :: i,j, i_elm, i_loc, i_global
   
   real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = N_test w_g \sigma_T v_r dt / V_c
@@ -202,9 +200,9 @@ subroutine neutral_self_collision(sim, rng, dt)
 #endif
       !$omp schedule(runtime)                                                                      &
       !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
-      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, i_subbin, n_pa_subbin, pa_subbin, w2_phi, V_c,  &
+      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa_bin, w2_phi, V_c,  &
       !$omp paired, i_pair, i_pa1, i_pa2, RZPhi, d2, RZPhi_try, d2_try, w1, w2, w_s, w_g, v_r, m1, m2,  &
-      !$omp sigma_T, P_try, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin, aim_pa_per_subbin) &
+      !$omp sigma_T, P_try, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin) &
       !$omp reduction(+:t_mask, t_rest, t_elm, t_priv_tot, global_diag) reduction(max:max_n_pa, P_max)
       do i_elm=1,n_elm
         t_priv=0
@@ -362,7 +360,7 @@ subroutine neutral_self_collision(sim, rng, dt)
               if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
               if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
               
-              ! detemine quantities relevant to all subbins: V_c and w2_phi
+              ! detemine quantities relevant to bin: V_c and w2_phi
               call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
               ls = sqrt(R_s**2 + Z_s**2)/real(ns)
               lt = sqrt(R_t**2 + Z_t**2)/real(nt)
@@ -375,176 +373,143 @@ subroutine neutral_self_collision(sim, rng, dt)
                 w2_phi = ((ls+lt)/(2.d0*PI/real(n_period*n_phi)))**2
               end if
 
-              ! If many particles are in exactly the same location, they will all be in the same bin, meaning the nearest neighbour approach is very slow, 
-              ! thus subbins are used to spread these highly localised particles into several sub bins for computation sake
-              if(n_pa_bin > ceiling(subbin_factor*aim_pa_per_bin)) then !much more particles than expected in this bin, so use subbinning
-                aim_pa_per_subbin = aim_pa_per_bin
-              else !only one subbin, effectively skipping subbin implementation
-                aim_pa_per_subbin = n_pa_bin
-              end if
-
               call cpu_time(t_priv(24))
               t_priv_tot(24) = t_priv_tot(24) + t_priv(24) - t_priv(7)
 
-              do i_subbin=1,n_pa_bin,aim_pa_per_subbin
-                call cpu_time(t_priv(23))
+              allocate(paired(n_pa_bin))
+              paired(:) = .false.
 
-                !last subbin of size <= aim_pa_per_subbin
-                if(i_subbin + aim_pa_per_subbin < n_pa_bin) then
-                  n_pa_subbin = aim_pa_per_subbin
-                else
-                  n_pa_subbin = n_pa_bin - i_subbin + 1
+              !make a local copy of the particles in this bin
+              allocate(pa_bin(n_pa_bin))
+              do i=1,n_pa_bin
+                global_diag(12) = global_diag(12) + 1
+
+                call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i)),pa_bin(i)) !copy from MPI pa array to bin arr
+              end do
+              
+              call cpu_time(t_priv(9))
+              t_priv_tot(9) = t_priv_tot(9) + t_priv(9)-t_priv(8)
+
+              do i_pair = 1,n_pa_bin/2 !< dummy variable for loop, for odd n_pa_bin, there are (n_pa_bin-1)/2 pairs possible, so integer division here gives the intended result
+                call cpu_time(t_priv(12))
+              
+                global_diag(13) = global_diag(13) + 1
+
+                ! Find first unpaired particle
+                do i=i_pair,n_pa_bin !start looking from i_pair, as all i<i_pair is definitely already used
+                  if(paired(i)) cycle
+                  i_pa1 = i
+                  paired(i) = .true.
+                  exit
+                end do
+                
+                call cpu_time(t_priv(13))
+                t_priv_tot(13) = t_priv_tot(13) + t_priv(13)-t_priv(12)
+
+                !> Find weighted near neighbour pa_bin(i_pa2) to pa_bin(i_pa1) by looping through all unpaired particles in bin
+                RZPhi=pa_bin(i_pa1)%x
+                d2 = 1.d99
+                i_pa2 = -1
+                do i=i_pair+1,n_pa_bin ! All particles up and until i_pair are already paired
+                  if(paired(i)) cycle !< skip particles that have been paired already
+                  RZPhi_try = pa_bin(i)%x 
+                  !> find lowest squared distance rather than real distance
+                  d2_try = (RZPHI(1) - RZPhi_try(1))**2 + (RZPHI(2) - RZPhi_try(2))**2 + w2_phi*(RZPHI(3) - RZPhi_try(3))**2
+                  if(d2_try .lt. d2) then
+                    d2=d2_try
+                    i_pa2=i
+                  end if
+                end do !loop for nearest neighbour
+                paired(i_pa2) = .true.
+
+                global_diag(14) = global_diag(14) + 1
+                
+                call cpu_time(t_priv(14))
+                t_priv_tot(14) = t_priv_tot(14) + t_priv(14)-t_priv(13)
+
+                ! calculate P for this collision pair
+                w1 = pa_bin(i_pa1)%weight
+                w2 = pa_bin(i_pa2)%weight
+                w_g = max(w1, w2)
+                w_s = min(w1, w2)
+                v_r = norm2(pa_bin(i_pa1)%v - pa_bin(i_pa2)%v)
+                m1 = sim%groups(i_pa_group)%mass
+                m2 = sim%groups(i_pa_group)%mass
+                sigma_T = calc_sigma_T(v_r, m1, m2)
+
+                call cpu_time(t_priv(15))
+                t_priv_tot(15) = t_priv_tot(15) + t_priv(15)-t_priv(14)
+                
+                ! the factor n_pa_bin / (2*int(n_pa_bin/2)) corrects for unpaired particle if n_pa_bin is odd
+                ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_cpu
+                P_try = w_g * n_pa_bin * sim%n_cpu * (n_pa_bin / (2*int(n_pa_bin/2))) * sigma_T * v_r * dt / V_c 
+                
+                if (P_try > 1.d0) then
+                  !$omp critical
+                  write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try > 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
+                  !$omp end critical
                 end if
 
-                global_diag(10) = global_diag(10) + n_pa_subbin
-
-                if(n_pa_subbin .le. 1) cycle !< can't collide 1 particle
-
-                global_diag(11) = global_diag(11) + n_pa_subbin
-
-                call cpu_time(t_priv(8))
-                t_priv_tot(8) = t_priv_tot(8) + t_priv(8)-t_priv(23)
-
-                allocate(paired(n_pa_subbin))
-                paired(:) = .false.
-
-                !make a local copy of the particles in this subbin
-                allocate(pa_subbin(n_pa_subbin))
-                do i=1,n_pa_subbin
-                  global_diag(12) = global_diag(12) + 1
-
-                  call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1)),pa_subbin(i)) !copy from MPI pa array to subbin arr
-                  ! write(*,"(A,6I10,12es20.10)") "DBG copy is,it,i_phi,i_subbin,i_sub,i_glob,pa(i_glob)%x,pa_subbin(i_sub)%x,pa(i_glob)%v,pa_subbin(i_sub)%v",is,it,i_phi,i_subbin,i,i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1),pa(i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1))%x,pa_subbin(i)%x,pa(i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1))%v,pa_subbin(i)%v
-                end do
+                !diagnostics
+                global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
+                global_diag(i_P_av)     = global_diag(i_P_av)     + P_try
+                global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
+                if (P_try > P_max(1)) P_max(1) = P_try
+                if (P_try/n_pa_bin > P_max(2)) P_max(2) = P_try/n_pa_bin
                 
-                call cpu_time(t_priv(9))
-                t_priv_tot(9) = t_priv_tot(9) + t_priv(9)-t_priv(8)
+                !generate random number
+                call rng(i_rng)%next(RN)
 
-                do i_pair = 1,n_pa_subbin/2 !< dummy variable for loop, for odd n_pa_bin, there are (n_pa_bin-1)/2 pairs possible, so integer division here gives the intended result
-                  call cpu_time(t_priv(12))
-                
-                  global_diag(13) = global_diag(13) + 1
+                call cpu_time(t_priv(16))
+                t_priv_tot(16) = t_priv_tot(16) + t_priv(16)-t_priv(15)
 
-                  ! Find first unpaired particle
-                  do i=i_pair,n_pa_subbin !start looking from i_pair, as all i<i_pair is definitely already used
-                    if(paired(i)) cycle
-                    i_pa1 = i
-                    paired(i) = .true.
-                    exit
-                  end do
+                if (RN(1) .le. P_try) then ! do binary collision
+
+                  Theta = PI - 2*asin(RN(2))
+                  alpha = TWOPI*RN(3)
+
+                  ! updates velocities of colliding part of super particles
+                  call binary_elastic_collision(m1,m2,pa_bin(i_pa1)%v,pa_bin(i_pa2)%v,Theta,alpha,v1f,v2f)
+
+                  !correct new velocities for non-colliding component in heaviest particle
+                  if(w1 .gt. w2) then
+                    pa_bin(i_pa1)%v = (w_s/w1) * v1f + (1-w_s/w1) * pa_bin(i_pa1)%v
+                    pa_bin(i_pa2)%v = v2f
+                  else
+                    pa_bin(i_pa1)%v = v1f
+                    pa_bin(i_pa2)%v = (w_s/w2) * v2f + (1-w_s/w2) * pa_bin(i_pa2)%v
+                  end if 
+
+                  global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
+
+                  !calculating the average collision time tau of colliding particles
+                  global_diag(i_n_col) = global_diag(i_n_col) + 2
+                  global_diag(i_tau) = global_diag(i_tau) + (sim%time - pa_bin(i_pa1)%t_birth) + (sim%time - pa_bin(i_pa2)%t_birth)
                   
-                  call cpu_time(t_priv(13))
-                  t_priv_tot(13) = t_priv_tot(13) + t_priv(13)-t_priv(12)
+                  pa_bin(i_pa1)%t_birth = sim%time
+                  pa_bin(i_pa2)%t_birth = sim%time
+                end if !collision happens
 
-                  !> Find weighted near neighbour pa_subbin(i_pa2) to pa_subbin(i_pa1) by looping through all unpaired particles in bin
-                  RZPhi=pa_subbin(i_pa1)%x
-                  d2 = 1.d99
-                  i_pa2 = -1
-                  do i=i_pair+1,n_pa_subbin ! All particles up and until i_pair are already paired
-                    if(paired(i)) cycle !< skip particles that have been paired already
-                    RZPhi_try = pa_subbin(i)%x 
-                    !> find lowest squared distance rather than real distance
-                    d2_try = (RZPHI(1) - RZPhi_try(1))**2 + (RZPHI(2) - RZPhi_try(2))**2 + w2_phi*(RZPHI(3) - RZPhi_try(3))**2
-                    if(d2_try .lt. d2) then
-                      d2=d2_try
-                      i_pa2=i
-                    end if
-                  end do !loop for nearest neighbour
-                  paired(i_pa2) = .true.
+                call cpu_time(t_priv(17))
+                t_priv_tot(17) = t_priv_tot(17) + t_priv(17)-t_priv(16)
+              
+              end do !loop over i_pair
 
-                  global_diag(14) = global_diag(14) + 1
-                  
-                  call cpu_time(t_priv(14))
-                  t_priv_tot(14) = t_priv_tot(14) + t_priv(14)-t_priv(13)
+              call cpu_time(t_priv(10))
+              t_priv_tot(10) = t_priv_tot(10) + t_priv(10)-t_priv(9)
 
-                  ! calculate P for this collision pair
-                  w1 = pa_subbin(i_pa1)%weight
-                  w2 = pa_subbin(i_pa2)%weight
-                  w_g = max(w1, w2)
-                  w_s = min(w1, w2)
-                  v_r = norm2(pa_subbin(i_pa1)%v - pa_subbin(i_pa2)%v)
-                  m1 = sim%groups(i_pa_group)%mass
-                  m2 = sim%groups(i_pa_group)%mass
-                  sigma_T = calc_sigma_T(v_r, m1, m2)
+              ! copy back into MPI pa array
+              do i=1,n_pa_bin
+                call copy_particle_kinetic_leapfrog(pa_bin(i), pa(i_pa_bin(is,it,i_phi)%pa_ind(i))) 
+              end do
 
-                  call cpu_time(t_priv(15))
-                  t_priv_tot(15) = t_priv_tot(15) + t_priv(15)-t_priv(14)
-                  
-                  ! the factor n_pa_bin / (2*int(n_pa_bin/2)) corrects for unpaired particle if n_pa_bin is odd
-                  ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_cpu
-                  P_try = w_g * n_pa_bin * sim%n_cpu * (n_pa_subbin / (2*int(n_pa_subbin/2))) * sigma_T * v_r * dt / V_c 
-                  
-                  if (P_try > 1.d0) then
-                    !$omp critical
-                    write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try > 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
-                    !$omp end critical
-                  end if
+              deallocate(pa_bin)
+              
+              deallocate(paired)
 
-                  !diagnostics
-                  global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
-                  global_diag(i_P_av)     = global_diag(i_P_av)     + P_try
-                  global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
-                  if (P_try > P_max(1)) P_max(1) = P_try
-                  if (P_try/n_pa_bin > P_max(2)) P_max(2) = P_try/n_pa_bin
-                  
-                  !generate random number
-                  call rng(i_rng)%next(RN)
-
-                  call cpu_time(t_priv(16))
-                  t_priv_tot(16) = t_priv_tot(16) + t_priv(16)-t_priv(15)
-
-                  if (RN(1) .le. P_try) then ! do binary collision
-
-                    ! write(*,*) "DBG 1 i_pa,x,v: ",i_pa1,pa_subbin(i_pa1)%x,pa_subbin(i_pa1)%v
-
-                    Theta = PI - 2*asin(RN(2))
-                    alpha = TWOPI*RN(3)
-
-                    ! updates velocities of colliding part of super particles
-                    call binary_elastic_collision(m1,m2,pa_subbin(i_pa1)%v,pa_subbin(i_pa2)%v,Theta,alpha,v1f,v2f)
-
-                    !correct new velocities for non-colliding component in heaviest particle
-                    if(w1 .gt. w2) then
-                      pa_subbin(i_pa1)%v = (w_s/w1) * v1f + (1-w_s/w1) * pa_subbin(i_pa1)%v
-                      pa_subbin(i_pa2)%v = v2f
-                    else
-                      pa_subbin(i_pa1)%v = v1f
-                      pa_subbin(i_pa2)%v = (w_s/w2) * v2f + (1-w_s/w2) * pa_subbin(i_pa2)%v
-                    end if 
-
-                    global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
-
-                    !calculating the average collision time tau of colliding particles
-                    global_diag(i_n_col) = global_diag(i_n_col) + 2
-                    global_diag(i_tau) = global_diag(i_tau) + (sim%time - pa_subbin(i_pa1)%t_birth) + (sim%time - pa_subbin(i_pa2)%t_birth)
-                    
-                    pa_subbin(i_pa1)%t_birth = sim%time
-                    pa_subbin(i_pa2)%t_birth = sim%time
-                  end if !collision happens
-
-                  call cpu_time(t_priv(17))
-                  t_priv_tot(17) = t_priv_tot(17) + t_priv(17)-t_priv(16)
-                
-                end do !loop over i_pair
-
-                call cpu_time(t_priv(10))
-                t_priv_tot(10) = t_priv_tot(10) + t_priv(10)-t_priv(9)
-  
-                ! copy back into MPI pa array
-                do i=1,n_pa_subbin
-                  call copy_particle_kinetic_leapfrog(pa_subbin(i), pa(i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1))) 
-                  ! write(*,"(A,6I10,12es20.10)") "DBG paste is,it,i_phi,i_subbin,i_sub,i_glob,pa(i_glob)%x,pa_subbin(i_sub)%x,pa(i_glob)%v,pa_subbin(i_sub)%v",is,it,i_phi,i_subbin,i,i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1),pa(i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1))%x,pa_subbin(i)%x,pa(i_pa_bin(is,it,i_phi)%pa_ind(i_subbin+i-1))%v,pa_subbin(i)%v
-                end do
-  
-                deallocate(pa_subbin)
-                
-                deallocate(paired)
-  
-                call cpu_time(t_priv(11))
-                t_priv_tot(11) = t_priv_tot(11) + t_priv(11)-t_priv(10)
-                t_priv_tot(23) = t_priv_tot(23) + t_priv(11)-t_priv(23) 
-
-              end do !loop over i_subbin
+              call cpu_time(t_priv(11))
+              t_priv_tot(11) = t_priv_tot(11) + t_priv(11)-t_priv(10)
+              t_priv_tot(23) = t_priv_tot(23) + t_priv(11)-t_priv(23) 
             
             call cpu_time(t_priv(25))
             t_priv_tot(25) = t_priv_tot(25) + t_priv(25) - t_priv(24)
