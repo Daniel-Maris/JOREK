@@ -112,13 +112,13 @@ function do_convert () {
   targetFile="$stepnum.vtk" # Target filename with same number as source
   targetFile="$targetDir/$targetFile" # Target filename with full path
   exist='true'
-  pattern='false'
   for copyfile in $copyfiles; do
       cp $startDir/$copyfile .
   done
   filenames=$(grep "comp_name" CARIDDI_plot.nml | sed 's/!.*//' | awk -F "'" '{ for(i=2; i<NF; i+=2) print $i }')
   for f in $filenames
   do
+      pattern='false'
       targetFile1="$stepnum.vtk"
       f=$(echo $f | sed 's/,//')
       a=${f//\'/}
@@ -169,8 +169,8 @@ function do_convert () {
       rm -f ${targetFile}.gz
       gzip $targetFile
     fi
+    echo "$stepnum finished"
   fi
-  echo "$stepnum finished"
   unmark_running $ithread
 }
 
