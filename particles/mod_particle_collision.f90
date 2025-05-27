@@ -387,8 +387,8 @@ subroutine neutral_self_collision(sim, rng, dt)
                 t_priv_tot(15) = t_priv_tot(15) + t_priv(15)-t_priv(14)
                 
                 ! the factor n_pa_bin / (2*int(n_pa_bin/2)) corrects for unpaired particle if n_pa_bin is odd
-                ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_cpu
-                P_try = w_g * n_pa_bin * sim%n_cpu * (n_pa_bin / (2*int(n_pa_bin/2))) * sigma_T * v_r * dt / V_c 
+                ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
+                P_try = w_g * n_pa_bin * sim%n_mpi * (n_pa_bin / (2*int(n_pa_bin/2))) * sigma_T * v_r * dt / V_c 
                 
                 if (P_try > 1.d0) then
                   !$omp critical

@@ -8,6 +8,7 @@ program test_NNC
   use mod_interp
   use mod_parameters, only: n_degrees
   use basis_at_gaussian, only: initialise_basis
+  use mod_particle_allocation, only: allocate_particles_for_sim
   use mod_particle_collision
   use mod_particle_sim
   use mod_particle_io, only: write_simulation_hdf5
@@ -23,12 +24,12 @@ program test_NNC
   use mod_event, only: mpi_minmeanmax, count_action, with, event, new_event_ptr
   use mod_log_params
   use mod_project_particles
+  use particle_tracer, only: sim
 
   !$ use omp_lib
 
   implicit none
 
-  type(particle_sim)                         :: sim
   type(pcg32_rng), dimension(:), allocatable :: rng
   type(count_action)                         :: counter
   type(projection), target                   :: projections
@@ -64,7 +65,7 @@ program test_NNC
   !$ w(1) = last_time
 
   ! Start up MPI, jorek
-  call sim%initialize(num_groups=1)
+  call sim%initialize()
 
   ! --- Write out all parameters defined in parameters and the namelist input file.
   call log_parameters(sim%my_id)
@@ -105,20 +106,20 @@ program test_NNC
   !sim%groups(1)%ad   = read_adf11(sim%my_id,'12_h')
 
   ! setting up particles per MPI node
-  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(n_particles/sim%n_cpu) ))
+  allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(part_group_configs(1)%n_particles/sim%n_mpi) ))
 
   ! --- Setting up random numbers
   seed = random_seed()
   n_stream = 1
   !$ n_stream = omp_get_max_threads()
-  write(*,*) "id, n_cpu, n_stream",sim%my_id, sim%n_cpu, n_stream
+  write(*,*) "id, n_mpi, n_stream",sim%my_id, sim%n_mpi, n_stream
   allocate(rng(n_stream))
   do i=1,n_stream
     call rng(i)%initialize(1, seed, n_stream, i)
   end do
 
   ! --- setting up initial particle array
-  weight = particlesource/(n_particles)
+  weight = particlesource/(sim%groups(1)%n_particles) !< abusing particlesource to mean total weight of all particles in the sim for easy input iterations
   T_av=1*EL_CHG/K_BOLTZ
   select type (p => sim%groups(1)%particles)
   type is (particle_kinetic_leapfrog)  
@@ -364,7 +365,7 @@ contains
           do i_elm=1,sim%fields%element_list%n_elements
             do i_tor=1,n_tor
               w = proj(m,l,i_elm,i_tor,1)+proj(m,l,i_elm,i_tor,2)
-              proj(m,l,i_elm,i_tor,3) = proj(m,l,i_elm,i_tor,3)/max(proj(m,l,i_elm,i_tor,8),1.d0)/sim%n_cpu !< divide by total weight
+              proj(m,l,i_elm,i_tor,3) = proj(m,l,i_elm,i_tor,3)/max(proj(m,l,i_elm,i_tor,8),1.d0)/sim%n_mpi !< divide by total weight
             enddo
           enddo
         enddo
@@ -581,7 +582,7 @@ contains
     end select
     call MPI_REDUCE(T_av_measured, T_av_measured_red,       1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     if(sim%my_id==0) then
-      T_av_measured_red = T_av_measured_red/sim%n_cpu
+      T_av_measured_red = T_av_measured_red/sim%n_mpi
       write(*,"(A,es15.5)") "Average measured temperature (eV)",T_av_measured_red
     end if
   end subroutine global_av_T
