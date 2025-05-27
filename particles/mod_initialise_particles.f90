@@ -89,7 +89,8 @@ contains
 !> variables after collecting with transform, within Rbound, Zbound and Phibound
 !> if present. See [[test_rejection_sampling]] for examples.
 subroutine initialise_particles(particles, node_list, element_list, &
-  rng, variables, transform, f, Rbound, Zbound, Phibound)
+  rng, variables, transform, f, Rbound, Zbound, Phibound, &
+  rng_n_streams_round_off_in)
   use mpi
   use mod_sampling
   use mod_random_seed
@@ -108,6 +109,7 @@ subroutine initialise_particles(particles, node_list, element_list, &
   !< (particle weight proportional to transform(P) at that point.) If omitted take f=0.
   real*8, dimension(2), intent(in), optional        :: Rbound, Zbound, Phibound !< Between which coordinates to sample (RZPhi).
   !< if omitted, determine automatically from node_list
+  logical, intent(in), optional                     :: rng_n_streams_round_off_in !< round-off the rng n_streams at 2**ceil
 
   ! Internal variables
   real*8  :: R, Z, phi, s, t, DUMMY_REAL
@@ -118,8 +120,9 @@ subroutine initialise_particles(particles, node_list, element_list, &
   real*8  :: t0, t1, ostart, oend
   integer :: seq, n_streams, n_threads, i_thread
   integer :: n_geom, n_mhd
-  integer :: my_id, n_cpu
+  integer :: my_id, n_mpi
   integer :: seed
+  logical :: rng_n_streams_round_off
   real*8, dimension(:), allocatable :: P
   class(type_rng), allocatable, dimension(:) :: rngs ! The RNGs for all the threads
   integer, dimension(:), allocatable :: i_to_find
@@ -129,7 +132,9 @@ subroutine initialise_particles(particles, node_list, element_list, &
   oend   = 0.d0
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ifail)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
+  rng_n_streams_round_off = .false.
+  if(present(rng_n_streams_round_off_in)) rng_n_streams_round_off = rng_n_streams_round_off_in
   if (present(variables)) then
     if (.not. present(transform)) then
       write(*,*) "ERROR: if variables are present in set_particle_position_rejection_sampling transform must also be present"
@@ -180,11 +185,12 @@ subroutine initialise_particles(particles, node_list, element_list, &
   n_threads = 1
 !$ n_threads = omp_get_max_threads()
   allocate(rngs(0:n_threads-1), source=rng)
-  n_streams = n_cpu*n_threads ! Works only for homogeneous environments!
+  n_streams = n_mpi*n_threads ! Works only for homogeneous environments!
 
   do i_thread=0,n_threads-1
     seq = my_id*n_threads + i_thread + 1
-    call rngs(i_thread)%initialize(7, seed, n_streams, seq, ifail)
+    call rngs(i_thread)%initialize(7, seed, n_streams, seq, &
+    ifail, round_off_n_streams_in=rng_n_streams_round_off)
     if (ifail .ne. 0) call MPI_ABORT(MPI_COMM_WORLD, -1, ifail)
   end do
 
@@ -284,42 +290,44 @@ end subroutine initialise_particles
 !> gdf. Both the gdf and the gdf sampling routines must be provided as inputs.
 !> Check examples/test_initialisation_phase_space.f90 for an example of its usage.
 !> Inputs:
-!>   n_variables:            (integer) dimensionality of the phase space
-!>   particles:              (particle_base)(n_particles) particle array to be initialised
-!>   fields:                 (fields_base) jorek MHD fields data structure
-!>   rng_base:               (type_rng) type of random number generator to be used
-!>   pdf:                    (real_f) particle probability density function
-!>   weight_f:               (real_f) method computing the particle weight
-!>   gdf:                    (real_f) probability density function used for sampling 
-!>                           the particle coordinates
-!>   gdf_sampler:            (real_arr_inout_s) method for generating samples of
-!>                           particle coordinates from the gdf probability density
-!>   sup_pdf:                (real8) pdf upper extremum
-!>   sup_gdf:                (real8) gdf upper extremum
-!>   sample_to_particle:     (part_inout_s) method use for transforming a sample in
-!>                           sample coordinates in particle coordinates
-!>   mass:                   (real8) particle mass
-!>   time:                   (real8) physical time at which particles are initialised
-!>   phase_bounds:           (real8)(n_variables,2) minima (first column) and maxima 
-!>                           (second column) of the sampling phase space interval
-!>   n_real_pdf_param_in:    (integer) number of real parameters of the pdf
-!>   real_pdf_param_in:      (real8)(n_real_pdf_param_in) pdf real parameters
-!>   n_int_pdf_param_in:     (integer) number of integer parameters of the pdf
-!>   int_pdf_param_in:       (integer)(n_int_pdf_param_in) pdf integer parameters
-!>   n_real_weight_param_in: (integer) number of real parameters of the weight
-!>   real_weight_param_in:   (real8)(n_real_weight_param_in) weight real parameters
-!>   n_int_weight_param_in:  (integer) number of integer parameters of the weight
-!>   int_weight_param_in:    (integer)(n_int_weight_param_in) weight integer parameters
-!>   n_real_gdf_param_in:    (integer) number of real parameters of the gdf
-!>   real_gdf_param_in:      (real8)(n_real_gdf_param_in) gdf real parameters
-!>   n_int_gdf_param_in:     (integer) number of integer parameters of the gdf
-!>   int_gdf_param_in:       (integer)(n_int_gdf_param_in) gdf integer parameters
-!>   n_real_samp_to_part_in: (real8) size of the real parameter array of the
-!>                           sample to particle method
-!>   real_samp_to_part_in:   (real8) intger parameter array od the sample to particle method
-!>   n_int_samp_to_part_in:  (integer) size of the integer parameter array of the
-!>                           sample to particle method
-!>   int_samp_to_part_in:    (integer) intger parameter array od the sample to particle method
+!>   n_variables:                (integer) dimensionality of the phase space
+!>   particles:                  (particle_base)(n_particles) particle array to be initialised
+!>   fields:                     (fields_base) jorek MHD fields data structure
+!>   rng_base:                   (type_rng) type of random number generator to be used
+!>   pdf:                        (real_f) particle probability density function
+!>   weight_f:                   (real_f) method computing the particle weight
+!>   gdf:                        (real_f) probability density function used for sampling 
+!>                               the particle coordinates
+!>   gdf_sampler:                (real_arr_inout_s) method for generating samples of
+!>                               particle coordinates from the gdf probability density
+!>   sup_pdf:                    (real8) pdf upper extremum
+!>   sup_gdf:                    (real8) gdf upper extremum
+!>   sample_to_particle:         (part_inout_s) method use for transforming a sample in
+!>                               sample coordinates in particle coordinates
+!>   mass:                       (real8) particle mass
+!>   time:                       (real8) physical time at which particles are initialised
+!>   phase_bounds:               (real8)(n_variables,2) minima (first column) and maxima 
+!>                               (second column) of the sampling phase space interval
+!>   n_real_pdf_param_in:        (integer) number of real parameters of the pdf
+!>   real_pdf_param_in:          (real8)(n_real_pdf_param_in) pdf real parameters
+!>   n_int_pdf_param_in:         (integer) number of integer parameters of the pdf
+!>   int_pdf_param_in:           (integer)(n_int_pdf_param_in) pdf integer parameters
+!>   n_real_weight_param_in:     (integer) number of real parameters of the weight
+!>   real_weight_param_in:       (real8)(n_real_weight_param_in) weight real parameters
+!>   n_int_weight_param_in:      (integer) number of integer parameters of the weight
+!>   int_weight_param_in:        (integer)(n_int_weight_param_in) weight integer parameters
+!>   n_real_gdf_param_in:        (integer) number of real parameters of the gdf
+!>   real_gdf_param_in:          (real8)(n_real_gdf_param_in) gdf real parameters
+!>   n_int_gdf_param_in:         (integer) number of integer parameters of the gdf
+!>   int_gdf_param_in:           (integer)(n_int_gdf_param_in) gdf integer parameters
+!>   n_real_samp_to_part_in:     (real8) size of the real parameter array of the
+!>                               sample to particle method
+!>   real_samp_to_part_in:       (real8) intger parameter array od the sample to particle method
+!>   n_int_samp_to_part_in:      (integer) size of the integer parameter array of the
+!>                               sample to particle method
+!>   int_samp_to_part_in:        (integer) intger parameter array od the sample to particle method
+!>   rng_n_streams_round_off_in: (logical) round-off the rng n_streams at 2**ceil
+
 !> Outputs:
 !>   particles:              (particle_base)(n_particles) initialised particle array
 subroutine initialise_particles_in_phase_space(n_variables, particles, fields, rng_base, pdf, &
@@ -328,7 +336,7 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
   n_real_weight_param_in, real_weight_param_in, n_int_weight_param_in, int_weight_param_in, &
   n_real_gdf_param_in, real_gdf_param_in, n_int_gdf_param_in, int_gdf_param_in, &
   n_real_samp_to_part_param_in,real_samp_to_part_param_in,n_int_samp_to_part_param_in, &
-  int_samp_to_part_param_in)
+  int_samp_to_part_param_in,rng_n_streams_round_off_in)
   use mod_fields,                only: fields_base
   use mod_random_seed,           only: random_seed
   use mod_particle_types,        only: particle_base
@@ -358,10 +366,11 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
   real*8,dimension(n_variables,2),intent(in)           :: phase_bounds
   real*8,dimension(:),allocatable,intent(in),optional  :: real_pdf_param_in,real_weight_param_in
   real*8,dimension(:),allocatable,intent(in),optional  :: real_gdf_param_in,real_samp_to_part_param_in
+  logical,                        intent(in),optional  :: rng_n_streams_round_off_in !< round-off the rng n_streams at 2**ceil
 
   !> internal variables
   class(type_rng),dimension(:),allocatable :: rngs 
-  integer                                  :: t0,t1,my_id,n_cpu,n_threads,thread_id,ifail
+  integer                                  :: t0,t1,my_id,n_mpi,n_threads,thread_id,ifail
   integer                                  :: ii,jj,n_particles,i_elm
   integer                                  :: n_real_pdf_param,n_int_pdf_param
   integer                                  :: n_real_weight_param,n_int_weight_param
@@ -369,6 +378,7 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
   integer                                  :: n_real_samp_to_part_param,n_int_samp_to_part_param
   integer,dimension(:),allocatable         :: int_pdf_param,int_weight_param,int_gdf_param
   integer,dimension(:),allocatable         :: int_samp_to_part_param
+  logical                                  :: rng_n_streams_round_off
   real*8                                   :: weight,one_over_sup_pdf,one_over_sup_gdf
   real*8,dimension(2)                      :: st
   real*8,dimension(:),allocatable          :: variables,real_pdf_param,real_weight_param
@@ -376,15 +386,17 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
 
   !> extract id and size of the MPI Communicator
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ifail)
-
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
+  rng_n_streams_round_off = .false.
+  if(present(rng_n_streams_round_off_in)) rng_n_streams_round_off = rng_n_streams_round_off_in
   !> initialize random number generator
   n_threads = 1
 !$ n_threads = omp_get_max_threads()
   allocate(variables(n_variables+1))
   allocate(rngs(n_threads),source=rng_base)
   do ii=1,n_threads
-    call rngs(ii)%initialize(n_variables+1, random_seed(), n_cpu*n_threads, my_id*n_threads+ii,ifail)
+    call rngs(ii)%initialize(n_variables+1, random_seed(), n_mpi*n_threads, &
+    my_id*n_threads+ii,ifail,round_off_n_streams_in=rng_n_streams_round_off)
     if (ifail.ne.0) call MPI_ABORT(MPI_COMM_WORLD, -1, ifail)
   end do
 
@@ -588,7 +600,7 @@ end function rejection_funct_gpdf
 !> Set Psi_transform to transform from [0,1] to your desired range
 subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_maxwell, &
   Theta_transform, Psi_transform, alpha, E_max, include_vpar, uniform_space, &
-  uniform_space_rej_f, uniform_space_rej_vars, cor, charge)
+  uniform_space_rej_f, uniform_space_rej_vars, cor, charge, rng_n_streams_round_off_in)
   use mod_rng
   use mod_fields
   use mod_random_seed
@@ -619,6 +631,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
   type(coronal),         intent(in), optional       :: cor !< Coronal equilibrium datatype for this particle. If unset, do not alter q
   integer,               intent(in), optional       :: charge !< Use this if cor is not present
   real*8,                intent(in), optional       :: T_Maxwell !< constant Maxwellian temperature [eV]
+  logical,               intent(in), optional       :: rng_n_streams_round_off_in !< round-off the rng n_streams at 2**ceil
 
   ! Internal variables
   type(particle_gc)      :: particle
@@ -640,7 +653,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
   real*8  :: R_s, R_t, Z_s, Z_t, R_i, Z_i, xjac
   real*8  :: s, t, u_init_max, temp, u
   real*8  :: psi_axis, R_axis, Z_axis, s_axis, t_axis
-  integer :: i_elm, i, j, k, ifail, my_id, n_cpu, ierr, n_mhd, n_geom
+  integer :: i_elm, i, j, k, ifail, my_id, n_mpi, ierr, n_mhd, n_geom
   real*8, dimension(fields%element_list%n_elements,2)    :: psi_minmax_list
   real*8, allocatable, dimension(:,:)             :: rans
   class(particle_base), dimension(:), allocatable :: particles_tmp
@@ -649,8 +662,11 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
   real*8  :: Rbox(2), Zbox(2), DUMMY_R, DUMMY_Z
   integer :: blocksize, prev_blocksize, particles_to_do_local, particles_done_local
   integer :: to_find, n_tries_now, n_found
-  logical :: all_done, init_uniform_space, my_include_vpar
+  logical :: all_done, init_uniform_space, my_include_vpar, rng_n_streams_round_off
   real*8  :: my_alpha
+
+  rng_n_streams_round_off = .false.
+  if(present(rng_n_streams_round_off_in)) rng_n_streams_round_off = rng_n_streams_round_off_in
 
   init_uniform_space = .false.
   if (present(uniform_space) .and. uniform_space) then
@@ -700,7 +716,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
 
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr)
 
   if (.not. init_uniform_space) then
     psimin= 1d10
@@ -724,7 +740,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
 
   ! Preparatory work: setup RNG
   allocate(rng,source=rng_base)
-  call rng%initialize(8, random_seed(), 1, 1, ifail)
+  call rng%initialize(8, random_seed(), 1, 1, ifail, round_off_n_streams_in=rng_n_streams_round_off)
 
   ! Preparatory work: get R_axis, Z_axis
   call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
@@ -746,13 +762,13 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
 
     ! Calculate starting-point for this block
     ! random numbers are generated in blocks per mpi process
-    ! blocks are grouped in a superblock of block*n_cpu size
+    ! blocks are grouped in a superblock of block*n_mpi size
     ! blocks must be equal size
     ! we communicate a blocksize here, and keep a running index of the previous starting points
     ! make this the biggest of n_tries_now
     call MPI_AllReduce(n_tries_now, blocksize, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
 
-    call rng%jump_ahead((n_cpu-my_id-1)*prev_blocksize + my_id*blocksize)
+    call rng%jump_ahead((n_mpi-my_id-1)*prev_blocksize + my_id*blocksize)
 
     prev_blocksize = blocksize
 
@@ -1020,7 +1036,8 @@ end subroutine initialise_particles_H_mu_psi
 !! multiple marker particles per guiding centre particle.
 subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, mass, T_maxwell, &
   Theta_transform, Psi_transform, alpha, E_max, include_vpar, uniform_space, &
-  uniform_space_rej_f, uniform_space_rej_vars, cor, charge, n_phi_planes_in,n_gyro_orbit_in)
+  uniform_space_rej_f, uniform_space_rej_vars, cor, charge, n_phi_planes_in, &
+  n_gyro_orbit_in, rng_n_streams_round_off_in)
   use mod_rng
   use mod_fields
   use mod_random_seed
@@ -1053,6 +1070,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   real*8,                intent(in), optional       :: T_Maxwell !< constant Maxwellian temperature [eV]
   integer,               intent(in), optional       :: n_phi_planes_in !Amount of phi planes
   integer,               intent(in), optional       :: n_gyro_orbit_in !Amount of phi planes
+  logical,               intent(in), optional       :: rng_n_streams_round_off_in !< round-off the rng n_streams at 2**ceil
 
   ! Internal variables
   type(particle_gc) :: particle
@@ -1073,7 +1091,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   real*8  :: R_s, R_t, Z_s, Z_t, R_i, Z_i, xjac
   real*8  :: s, t, u_init_max, temp, u, v2, v_par
   real*8  :: psi_axis, R_axis, Z_axis, s_axis, t_axis
-  integer :: i_elm, i, j, k, ifail, my_id, n_cpu, ierr, n_mhd, n_geom
+  integer :: i_elm, i, j, k, ifail, my_id, n_mpi, ierr, n_mhd, n_geom
   real*8, dimension(fields%element_list%n_elements,2)    :: psi_minmax_list
   real*8, allocatable, dimension(:,:)             :: rans
   class(particle_base), dimension(:), allocatable :: particles_tmp
@@ -1083,9 +1101,12 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   integer :: blocksize, prev_blocksize, particles_to_do_local, particles_done_local, blocksize_tmp
   integer :: to_find, n_tries_now, n_found
   logical :: all_done, init_uniform_space, my_include_vpar
-  logical :: init_phiplanes, init_gyro_orbit
+  logical :: init_phiplanes, init_gyro_orbit, rng_n_streams_round_off
   real*8  :: my_alpha
   integer :: n_phi_planes,i_phi_planes, n_gyro_orbit, i_gyro_temp, i_gyro_orbit
+
+  rng_n_streams_round_off = .false.
+  if(present(rng_n_streams_round_off_in)) rng_n_streams_round_off = rng_n_streams_round_off_in
 
   init_uniform_space = .false.
   if (present(uniform_space) .and. uniform_space) then
@@ -1152,7 +1173,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   end if
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr)
 
   if (.not. init_uniform_space) then
     psimin= 1d10
@@ -1176,7 +1197,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
 
   ! Preparatory work: setup RNG
   allocate(rng,source=rng_base)
-  call rng%initialize(8, random_seed(), 1, 1, ifail)
+  call rng%initialize(8, random_seed(), 1, 1, ifail, round_off_n_streams_in=rng_n_streams_round_off)
 
   ! Preparatory work: get R_axis, Z_axis
   call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
@@ -1199,13 +1220,13 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
 
     ! Calculate starting-point for this block
     ! random numbers are generated in blocks per mpi process
-    ! blocks are grouped in a superblock of block*n_cpu size
+    ! blocks are grouped in a superblock of block*n_mpi size
     ! blocks must be equal size
     ! we communicate a blocksize here, and keep a running index of the previous starting points
     ! make this the biggest of n_tries_now
     call MPI_AllReduce(n_tries_now, blocksize, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
 
-    call rng%jump_ahead((n_cpu-my_id-1)*prev_blocksize + my_id*blocksize)
+    call rng%jump_ahead((n_mpi-my_id-1)*prev_blocksize + my_id*blocksize)
 
     prev_blocksize = blocksize
 
@@ -1841,7 +1862,7 @@ subroutine set_velocity_from_T(particles, mass, node_list, element_list, cor, v_
   logical, intent(in), optional                     :: v_par !< Include the parallel velocity if present and true
 
   class(type_rng), allocatable :: my_rng
-  integer :: i, ifail, seed, my_id, n_cpu
+  integer :: i, ifail, seed, my_id, n_mpi
   real*8, dimension(4) :: P, P_s, P_t, P_phi
   real*8 :: v_out(3)
   real*8 :: R, R_s, R_t, Z, Z_s, Z_t, Psi, Psi_R, Psi_Z, B(3)
@@ -1854,7 +1875,7 @@ subroutine set_velocity_from_T(particles, mass, node_list, element_list, cor, v_
 
 ! Calculate a single random seed and communicate it over MPI
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ifail)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
   if (my_id .eq. 0) seed = random_seed()
   call MPI_Bcast(seed, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ifail)
 

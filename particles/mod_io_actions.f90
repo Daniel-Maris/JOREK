@@ -99,10 +99,15 @@ subroutine do_read_action(this, sim, ev)
   class(read_action), intent(inout) :: this
   type(particle_sim), intent(inout) :: sim
   type(event), intent(inout), optional :: ev
-  if (len_trim(this%filename) .eq. 0) this%filename = trim(this%get_filename(this%time))
-  call read_simulation_hdf5(sim, trim(this%filename), &
-  use_hdf5_access_properties=this%use_hdf5_access_properties, &
-  mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
+  if (len_trim(this%filename) .eq. 0) then
+    call read_simulation_hdf5(sim, trim(this%get_filename(sim%time)), &
+    use_hdf5_access_properties=this%use_hdf5_access_properties, &
+    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
+  else
+    call read_simulation_hdf5(sim, trim(this%filename), &
+    use_hdf5_access_properties=this%use_hdf5_access_properties, &
+    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io, test_in=this%test)
+  endif
 end subroutine do_read_action
 
 !> Constructor for write_action
@@ -145,11 +150,19 @@ subroutine do_write_action(this, sim, ev)
   class(write_action), intent(inout) :: this
   type(particle_sim), intent(inout)  :: sim
   type(event), intent(inout), optional :: ev
-  if (len_trim(this%filename) .eq. 0) this%filename = trim(this%get_filename(sim%time))
-  call write_simulation_hdf5(sim, trim(this%filename), file_access_in=this%file_access, &
-  use_native_hdf5_mpio_in=this%use_native_hdf5_mpio,&
-  use_hdf5_access_properties=this%use_hdf5_access_properties, &
-  collective_mpio_in=this%mpio_collective, &
-  mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
+  if (len_trim(this%filename) .eq. 0) then
+    call write_simulation_hdf5(sim, trim(this%get_filename(sim%time)),&
+    file_access_in=this%file_access,&
+    use_native_hdf5_mpio_in=this%use_native_hdf5_mpio,&
+    use_hdf5_access_properties=this%use_hdf5_access_properties,&
+    collective_mpio_in=this%mpio_collective,&
+    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
+  else
+    call write_simulation_hdf5(sim,trim(this%filename),file_access_in=this%file_access,&
+    use_native_hdf5_mpio_in=this%use_native_hdf5_mpio,&
+    use_hdf5_access_properties=this%use_hdf5_access_properties,&
+    collective_mpio_in=this%mpio_collective,&
+    mpi_comm_in=this%mpi_comm_io, mpi_info_in=this%mpi_info_io)
+  endif
 end subroutine do_write_action
 end module mod_io_actions

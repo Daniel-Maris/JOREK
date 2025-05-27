@@ -6,9 +6,10 @@
 subroutine preset_parameters
   
   use phys_module
-  
   implicit none
-  
+
+  integer :: i, j ! for iterations
+
   time_evol_scheme = 'Crank-Nicholson'
   
   n_tor_fft_thresh = 2
@@ -223,6 +224,7 @@ subroutine preset_parameters
 
   rect_grid_vac_psi = 0.d0
   
+  maintain_profiles = .false.
   ZK_perp(1:5)   = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   ZK_i_perp(1:5) = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   ZK_e_perp(1:5) = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
@@ -551,6 +553,7 @@ subroutine preset_parameters
   pellet_density_bg = 5.958d8
   use_pellet        = .false.
   
+  tstep_rst   = 0.d0
   t_now       = 0.d0
   t_start     = 0.d0
   index_start = 0
@@ -794,6 +797,7 @@ subroutine preset_parameters
   spi_shard_file(:) = 'none'
   spi_plume_file(:) = 'none'
   spi_plume_hdf5  = .false.
+  spi_abl_mag_reduction  = .false.
   spi_tor_rot     = .false.
   spi_num_vol     = .true.
   using_spi       = .false.
@@ -838,7 +842,6 @@ subroutine preset_parameters
   Sigma = 0.d0
 
 !===================== particle input values
-n_particles        = 0
 nstep_particles    = 0
 nsubstep_particles = 1
 tstep_particles    = 1d-9
@@ -849,28 +852,93 @@ filter_perp_n0     = 0.d0
 filter_hyper_n0    = 1.d-10
 filter_par_n0      = 0.d0
 restart_particles  = .false.
-use_ncs            = .false.
-use_ccs            = .false.
-use_pcs            = .false.
-use_pcs_full       = .false.
-use_kn_ionisation     = .true.
-use_kn_sputtering     = .false.
-use_kn_cx             = .true.
 use_marker         = .false.
-use_kn_recombination = .true.
-use_kn_puffing       = .false.
-use_kn_line_radiation= .true.
+apply_dirichlet_proj = .false.
 
-n_puff        = 0
-puff_rate     = 0.d0
-r_valve       = 0.d0
-R_valve_loc   = 0.d0
-Z_valve       = 0.d0
-R_valve_loc2  = 0.d0
-Z_valve2      = 0.d0
+!--------------- valves -------------------------
+valves(:)%type = 'none'
+valves(:)%r_valve = -1.d0
+valves(:)%R_valve_loc = -1.d0
+valves(:)%Z_valve_loc = -1.d0
+valves(:)%phi = -1.d0
+do i=1, n_valves_max
+  valves(i)%poly_R = 0.d0
+  valves(i)%poly_Z = 0.d0
+enddo
+
+! -------------- particle groups ---------------
+n_part_groups = 0
+part_groups_in_use(:) = 'non'
+
+part_group_configs(:)%Z                 = 1
+part_group_configs(:)%mass              = 0.d0
+part_group_configs(:)%coupling_scheme   = 'non'
+part_group_configs(:)%n_particles       = 0.d0
+part_group_configs(:)%type              = 'none'
+part_group_configs(:)%id                = 'non'
+
+!----- specific to ics and ncs 
+part_group_configs(:)%atom_data_suffix      = ''
+part_group_configs(:)%use_kin_puffing        = .false.
+part_group_configs(:)%use_kin_radiation      = .false.
+part_group_configs(:)%use_kin_ionisation     = .false.
+! --- ncs only
+part_group_configs(:)%use_kin_recombination  = .false.
+part_group_configs(:)%use_kin_cx             = .false.
+! --- ics only
+part_group_configs(:)%use_kin_bg_collisions  = .false.
+part_group_configs(:)%ics_group_idx          = -1
+
+do i=1, n_part_groups_max
+  do j=1, n_valves_max
+    part_group_configs(i)%puff_ctrl(j)%supers_num_puff    = -1
+    part_group_configs(i)%puff_ctrl(j)%supers_weight_puff = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%supers_ratio_puff  = -1.d0   
+    !< if none of these three above options are set, the supers_ratio_puff method
+    !< will be used, with its default value being set by supers_ratio_puff_default in mod_particle_puffing.f90
+    !< which overrides the default value of supers_ratio_puff set here
+    part_group_configs(i)%puff_ctrl(j)%times = -1.d0
+    part_group_configs(i)%puff_ctrl(j)%rates = -1.d0
+  enddo
+enddo
+
+do i=1, n_part_groups_max
+  do j=1, n_part_groups_max
+    part_group_configs(i)%wall_act_configs(j)%type            = "none"
+    part_group_configs(i)%wall_act_configs(j)%target_group_id = "non"
+    part_group_configs(i)%wall_act_configs(j)%weight_factor   = 1.d0
+
+    part_group_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
+    part_group_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
+    part_group_configs(i)%wall_act_configs(j)%supers_ratio_wall  = -1.d0   
+    !< if none of these three above options are set, the supers_ratio_wall method
+    !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
+  enddo
+enddo
+
+! --- fluid groups
+n_fluid_groups = 0
+
+fluid_configs(:)%Z = -999
+fluid_configs(:)%density_fraction = -1.d99
+fluid_configs(1)%density_fraction = 1.d0 !< the first one should have default 1, if more then one fluid is used, the user should specify the distribution
+
+do i=1, n_fluid_groups_max
+  do j=1, n_part_groups_max
+    fluid_configs(i)%wall_act_configs(j)%type            = "none"
+    fluid_configs(i)%wall_act_configs(j)%target_group_id = "non"
+    fluid_configs(i)%wall_act_configs(j)%weight_factor   = 1.d0
+
+    fluid_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
+    fluid_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
+    fluid_configs(i)%wall_act_configs(j)%supers_ratio_wall  = -1.d0
+  enddo
+enddo
+!-----------------------------------------------
 
 use_manual_random_seed = .false.
 manual_seed = 498932990          !< chosen arbitarily
-
+use_fixed_rng_value = .false.
+fixed_rng_value = 0.5
 
 end subroutine preset_parameters

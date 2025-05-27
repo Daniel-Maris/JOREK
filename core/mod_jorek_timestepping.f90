@@ -24,7 +24,7 @@ type, extends(action) :: jorek_timestep_action
   integer                                       :: istep !< index in timestep size array from namelist (not jorek timestep number!)
     !< MPI settings
   integer                                       :: my_id = 0
-  integer                                       :: n_cpu = 1  
+  integer                                       :: n_mpi = 1  
 
   logical                                       :: setup_done = .false. !< have we set up the solvers etc?
 #ifdef USE_FFTW
@@ -112,7 +112,7 @@ subroutine setup_solvers(this, sim)
   integer :: inode, ierr, i, block_size, n_masters
 
   write(*,*) 'setting up the solvers'
-  call tr_meminit(sim%my_id, sim%n_cpu)
+  call tr_meminit(sim%my_id, sim%n_mpi)
   call tr_resetfile()
 
   ! Initialize clock
@@ -144,7 +144,7 @@ subroutine setup_solvers(this, sim)
   call log_parameters(sim%my_id)
 
   ! Warn on doing stupid stuff
-  call sanity_checks(sim%my_id, sim%n_cpu, 7, 7) ! #### the 7, 7 is just a dummy that needs to be removed later on; the sanity_checks should anyway not be part of setup_solvers in the end (to be addressed in a separate pull request) @TODO
+  call sanity_checks(sim%my_id, sim%n_mpi, 7, 7) ! #### the 7, 7 is just a dummy that needs to be removed later on; the sanity_checks should anyway not be part of setup_solvers in the end (to be addressed in a separate pull request) @TODO
 
   ! Initialise the boundary element and node list
   if (sim%my_id .eq. 0) then
@@ -199,9 +199,9 @@ subroutine setup_solvers(this, sim)
 #endif
 
   !***********************************************************************
-  !*              distribute nodes and elements over cpu's               *
+  !*              distribute nodes and elements over mpi's               *
   !***********************************************************************
-  index_size  = sim%n_cpu
+  index_size  = sim%n_mpi
   id_elements = sim%my_id
 
   call tr_allocatep(this%local_elms,1,sim%fields%element_list%n_elements,"local_elms",CAT_FEM)
@@ -210,7 +210,7 @@ subroutine setup_solvers(this, sim)
   this%a_mat%comm = MPI_COMM_WORLD
   
   this%mhd_sim%my_id         = sim%my_id
-  this%mhd_sim%n_cpu         = sim%n_cpu
+  this%mhd_sim%n_mpi         = sim%n_mpi
   this%mhd_sim%freeboundary  = freeboundary
   this%mhd_sim%restart       = restart
 
@@ -223,7 +223,7 @@ subroutine setup_solvers(this, sim)
     
   this%mhd_sim%sr_n_tor      = sr%n_tor  
   
-  call distribute_nodes_elements(id_elements, this%mhd_sim%n_cpu, index_size, this%mhd_sim%node_list, this%mhd_sim%element_list, .false., this%mhd_sim%local_elms, & 
+  call distribute_nodes_elements(id_elements, this%mhd_sim%n_mpi, index_size, this%mhd_sim%node_list, this%mhd_sim%element_list, .false., this%mhd_sim%local_elms, & 
                                    this%mhd_sim%n_local_elms, this%mhd_sim%restart, this%mhd_sim%freeboundary, this%a_mat)
 
   call update_deltas(this%mhd_sim%node_list,this%deltas)
@@ -385,7 +385,18 @@ subroutine do_jorek_timestep(this, sim, ev)
   call clck_time(t0)
   if (this%solver%step_success) then  
 
-    ! TODO add if use_pellet
+    if (use_pellet) then
+      pellet_volume = total_pellet_volume
+      call update_pellet(sim%my_id, sim%fields%node_list, sim%fields%element_list)
+
+      if (sim%my_id == 0) then
+        xtime_pellet_R(index_now)         = pellet_R
+        xtime_pellet_Z(index_now)         = pellet_Z
+        xtime_pellet_psi(index_now)       = pellet_psi
+        xtime_pellet_particles(index_now) = pellet_particles
+        xtime_phys_ablation(index_now)    = phys_ablation
+      endif
+    endif
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
     if (using_spi) then

@@ -50,7 +50,7 @@ program test_import_realistic
   write(*,*) "Starting test of importing a realistic distribution function..."
   call sim%initialize(num_groups=1)
   rho_part    = 1.195d19*2.d0
-  n_particles_local = int(n_particles/sim%n_cpu)
+  n_particles_local = int(n_particles/sim%n_mpi)
   timesteps         = tstep_particles
   ! Read JOREK fields
   fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))

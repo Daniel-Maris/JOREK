@@ -237,7 +237,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
 #else
   read(21) element_list%element(1:element_list%n_elements)
 #endif
-  read(21) tstep,eta_rst,visco_rst,visco_par_rst
+  read(21) tstep_rst,eta_rst,visco_rst,visco_par_rst
   read(21) index_start
   read(21) t_start
   
@@ -569,6 +569,10 @@ endif
       call tr_deallocate(xtime_rad_power,"xtime_rad_power",CAT_UNKNOWN)
     call tr_allocate(xtime_rad_power,1,index_start+nstep,"xtime_rad_power",CAT_UNKNOWN)
     read(21)  xtime_rad_power(1:index_start)
+    if (allocated(xtime_rad_cooling_power)) &
+      call tr_deallocate(xtime_rad_cooling_power,"xtime_rad_cooling_power",CAT_UNKNOWN)
+    call tr_allocate(xtime_rad_cooling_power,1,index_start+nstep,"xtime_rad_cooling_power",CAT_UNKNOWN)
+    read(21)  xtime_rad_cooling_power(1:index_start)
     if (allocated(xtime_E_ion)) &
       call tr_deallocate(xtime_E_ion,"xtime_E_ion",CAT_UNKNOWN)
     call tr_allocate(xtime_E_ion,1,index_start+nstep,"xtime_E_ion",CAT_UNKNOWN)
@@ -1041,6 +1045,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   call HDF5_integer_reading(file_id,jorek_model_tmp,"jorek_model")
   call HDF5_integer_reading(file_id,n_var_tmp,"n_var")
+  if (n_aux_var == 0) call HDF5_integer_reading(file_id,n_aux_var,"n_aux_var") ! for diagnostic purposes
+  
   import_3xx_4xx = .false.
   if ( (jorek_model >= 400) .and. (jorek_model <= 499) .and. (jorek_model_tmp >= 300) .and. (jorek_model_tmp <= 399) ) then
     import_3xx_4xx = .true. ! Import a JOREK model 3XX restart file into a 4XX binary
@@ -1128,12 +1134,16 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   aux_values_read = .false.
   if(present(aux_node_list)) then
+
+    ! --- initialising aux_node_list
+    call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
+
+    ! --- checking if aux_values are saved
     call h5lexists_f(file_id,'aux_values',flag_exists,err_exists)
     if(flag_exists .and. err_exists == 0) then
       aux_values_read = .true.
-      call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
-
     endif
+
   endif
 
   ! -> Allocate temporary arrays 
@@ -1141,7 +1151,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call tr_allocate(t_values,1,node_list%n_nodes,1,      n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "node_list%values",CAT_UNKNOWN)
   call tr_allocate(t_deltas,1,node_list%n_nodes,1,      n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "node_list%deltas",CAT_UNKNOWN)
   if(aux_values_read) then
-    call tr_allocate(t_aux_values,1,aux_node_list%n_nodes,1,n_tor_tmp,1,n_degrees_tmp,1,n_var_tmp, "aux_node_list%values",CAT_UNKNOWN)
+    call tr_allocate(t_aux_values,1,aux_node_list%n_nodes,1,n_tor_tmp,1,n_degrees_tmp,1,n_aux_var, "aux_node_list%values",CAT_UNKNOWN)
   endif
    
 #if STELLARATOR_MODEL
@@ -1280,10 +1290,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         do j=1,n_degrees_tmp 
           if (mode_tmp(m) .eq. mode(k)) then
             if ((m .eq. 1) .and. (k.eq.1)) then
-              aux_node_list%node(i)%values(k,j,1:n_var_tmp)   = t_aux_values(i,m,j,1:n_var_tmp)
+              aux_node_list%node(i)%values(k,j,1:n_aux_var)   = t_aux_values(i,m,j,1:n_aux_var)
             else
-              aux_node_list%node(i)%values(k-1,j,1:n_var_tmp) = t_aux_values(i,m-1,j,1:n_var_tmp)
-              aux_node_list%node(i)%values(k,j,1:n_var_tmp)   = t_aux_values(i,m,j,1:n_var_tmp) 
+              aux_node_list%node(i)%values(k-1,j,1:n_aux_var) = t_aux_values(i,m-1,j,1:n_aux_var)
+              aux_node_list%node(i)%values(k,j,1:n_aux_var)   = t_aux_values(i,m,j,1:n_aux_var) 
             end if
           end if
         enddo
@@ -1378,7 +1388,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     element_list%element(i)%nref                    = t_nref(i)
   end do
    
-  call HDF5_real_reading(file_id,tstep,'tstep')
+  call HDF5_real_reading(file_id,tstep_rst,'tstep')
   call HDF5_real_reading(file_id,eta_rst,'eta')
   call HDF5_real_reading(file_id,visco_rst,'visco')
   call HDF5_real_reading(file_id,visco_par_rst,'visco_par')
@@ -1858,6 +1868,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
       call tr_deallocate(xtime_rad_power,"xtime_rad_power",CAT_UNKNOWN)
     call tr_allocate(xtime_rad_power,1,index_start+nstep,"xtime_rad_power",CAT_UNKNOWN)
     call HDF5_array1D_reading(file_id,xtime_rad_power,"xtime_rad_power")
+    if (allocated(xtime_rad_cooling_power)) &
+    call tr_deallocate(xtime_rad_cooling_power,"xtime_rad_cooling_power",CAT_UNKNOWN)
+  call tr_allocate(xtime_rad_cooling_power,1,index_start+nstep,"xtime_rad_cooling_power",CAT_UNKNOWN)
+  call HDF5_array1D_reading(file_id,xtime_rad_cooling_power,"xtime_rad_cooling_power")
     if (allocated(xtime_E_ion)) &
       call tr_deallocate(xtime_E_ion,"xtime_E_ion",CAT_UNKNOWN)
     call tr_allocate(xtime_E_ion,1,index_start+nstep,"xtime_E_ion",CAT_UNKNOWN)

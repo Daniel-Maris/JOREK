@@ -4,7 +4,7 @@ implicit none
 contains
 
 #include "corr_neg_include.f90"
-subroutine integrate_recombination(my_id ,n_cpu, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
+subroutine integrate_recombination(my_id ,n_mpi, rec_rate_local, rec_v_R, rec_v_Z, rec_v_phi,volume_check, energy_neutrals, energy_radiation)
 !---------------------------------------------------------------
 !
 !---------------------------------------------------------------
@@ -27,7 +27,7 @@ implicit none
 type (type_element)      :: element
 type (type_node)         :: nodes(n_vertex_max)
 
-integer    :: n_cpu, my_id
+integer    :: n_mpi, my_id
 real*8, dimension(:,:), allocatable, intent(out) :: rec_rate_local , rec_v_R, rec_v_Z, rec_v_phi 
 real*8, dimension(:,:), allocatable, optional, intent(out) :: volume_check, energy_neutrals, energy_radiation    
 
@@ -38,7 +38,7 @@ real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_g, eq_s, eq_t
 ! real*8     :: eq_g(n_var,n_gauss,n_gauss), eq_s(n_var,n_gauss,n_gauss), eq_t(n_var,n_gauss,n_gauss)
 real*8     :: density_eq(n_gauss,n_gauss), eq_g1(n_var,n_gauss,n_gauss), Fprofile(n_gauss,n_gauss)
 
-integer    :: i, j, k, in, ms, mt,mp, iv, inode, ife,ielm, n_elements !,n_cpu
+integer    :: i, j, k, in, ms, mt,mp, iv, inode, ife,ielm, n_elements !,n_mpi
 real*8     :: xjac, BigR, wst,delta_phi
 real*8     :: ps0_x, ps0_y, u0_x, u0_y, r0, T0,vpar0
 real*8     :: T0_corr, r0_corr
@@ -47,8 +47,8 @@ real*8     :: T0_corr, r0_corr
 !real*8, intent(in)    :: Te0, ne0                        ! Electron temperature in JOREK units
 real*8  :: Sion_T , dSion_dT           ! Normalized ionization coefficient and its temperature derivative
 real*8  :: Srec_T , dSrec_dT           ! Normalized recombination coefficient and its temperature derivative
-real*8 :: LradDcont_T, dLradDcont_dT 
-real*8  :: ksi_ion_norm
+real*8  :: LradDcont_T, dLradDcont_dT 
+real*8  :: LradDcont_corr, dLradDcont_dT_corr
 
 !real*8     :: Sum_rec(n_gauss,n_gauss)
 integer    :: missing, loc_rec_elms
@@ -56,19 +56,19 @@ integer, dimension(:), allocatable :: local_rec_elements
 !define mpi local elements
 
 ! local_rec_elements tells every MPI process how many elements he gets.
-allocate(local_rec_elements(n_cpu))
+allocate(local_rec_elements(n_mpi))
 n_elements = element_list%n_elements
-missing = mod(n_elements,n_cpu) !< tells us if n_elements can be evenly shared over all MPI processes
+missing = mod(n_elements,n_mpi) !< tells us if n_elements can be evenly shared over all MPI processes
 
 !> give all MPI processes the same amount of elements.
 !> distribute the "missing" elements over the first MPI processes until we have all elements covered.
-do i=1,n_cpu 
-    local_rec_elements(i) = floor(n_elements/real(n_cpu,8))
+do i=1,n_mpi 
+    local_rec_elements(i) = floor(n_elements/real(n_mpi,8))
     if (missing .gt. 0) then
         missing = missing - 1
         local_rec_elements(i) = local_rec_elements(i) +1	
 	endif
-enddo !n_cpu
+enddo !n_mpi
 !write(*,*) "length local rec list", local_rec_elements(my_id+1)
 
 
@@ -96,35 +96,34 @@ energy_neutrals(:,:)  = 0.d0
 energy_radiation(:,:) = 0.d0
 
 delta_phi     = 2.d0 * PI / real(n_plane,8) / real(n_period,8)
-ksi_ion_norm = central_density * 1.d20 * ksi_ion
 !HZ_p,n_plane,n_gauss,n_order,n_vertex_max,TWOPI
 !$omp parallel do default(none)                                              &
 !$omp schedule(static, 100)                                               &
-!$omp   shared(local_rec_elements,my_id,n_cpu, volume_check,energy_neutrals, energy_radiation ,              &
+!$omp   shared(local_rec_elements,my_id,n_mpi, volume_check,energy_neutrals, energy_radiation ,              &
 !$omp          rec_rate_local,rec_v_R,rec_v_Z,rec_v_phi,                  &
 !$omp          element_list,node_list, H, H_s, H_t, HZ,                   & 
-!$omp          tstep,F0, delta_phi, ksi_ion_norm, gamma                                                      &
+!$omp          tstep,F0, delta_phi, gamma                                                      &
 !$omp          )                                                          &
 !$omp   private(ife,ielm,iv,i,j,k,ms,mt,mp,in,                            &
 !$omp           inode,nodes,element,                                      &
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, xjac, eq_g, eq_s, eq_t,     &
 !$omp           wst, BigR, r0, T0,  ps0_x,ps0_y ,u0_x,u0_y,vpar0,         &
 !$omp           r0_corr, T0_corr, Sion_T, dSion_dT, Srec_T, dSrec_dT,      &
-!$omp           LradDcont_T, dLradDcont_dT                                &
+!$omp           LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDCont_dT_corr  &
 !$omp           ) 
 !> loop over all local recombination elements
 do ife =1,  local_rec_elements(my_id+1) !element_list%n_elements !n_local_rec_elms
 
   !> real element number
   !  Note: By intention, we split the element order over the MPI processes 
-  ! e.g. if n_cpu =4 and n_elements = 18 ,then my_id = 0 gets ielm 1,5,9,13,17. my_id = 1 gets ielm 2,6,10,14,18
+  ! e.g. if n_mpi =4 and n_elements = 18 ,then my_id = 0 gets ielm 1,5,9,13,17. my_id = 1 gets ielm 2,6,10,14,18
   ! my_id = 3 gets ielm 3,7,11,15. my_id = 4 gets ielm 4,8,12,16.
   ! because we give the first MPI processes the most work.
   ! The recombination rate is localized in the plasma. So neighboring elements have similar rates.
   ! So to share the load (for the high recombination areas) over the MPI processes, 
   ! we distribute elements close to each other over different MPI processes.
   !if you want to change this, you should probably also change local_rec_elements, and the use of ielm in do_1particle_recombination
-  ielm    = (my_id+1) + n_cpu*(ife - 1) !< this splits nearby elements over different nodes
+  ielm    = (my_id+1) + n_mpi*(ife - 1) !< this splits nearby elements over different nodes
   element = element_list%element(ielm)
 
   do iv = 1, n_vertex_max
@@ -201,13 +200,12 @@ enddo
 		  
         vpar0    = eq_g(mp,7,ms,mt)
 		
-		!> Calculate 
-		call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT)  
+		    !> Calculate 
+		    call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
         ! --- Transform derivatives on Te to derivatives in total T	
- !         	dSion_dT      = dSion_dT      / 2.d0	
-			dSrec_dT      = dSrec_dT      / 2.d0	
- !         	dLradDrays_dT = dLradDrays_dT / 2.d0	
-			dLradDcont_dT = dLradDcont_dT / 2.d0
+			  dSrec_dT           = dSrec_dT      / 2.d0	
+			  dLradDcont_dT      = dLradDcont_dT / 2.d0
+        dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
 		
 		!>TO DO: add Te Ti possibility
 		 
@@ -230,8 +228,8 @@ enddo
 		rec_v_phi(ife,mp)        = rec_v_phi(ife,mp)     + (Srec_T * r0_corr * r0_corr) * (+ F0*vpar0/BigR)                  *BigR *xjac *tstep * delta_phi *wst !rho_rec*v_phi
 		!> volume check. 
 		volume_check(ife,mp)     = volume_check(ife,mp)  + (1.d0)                                                            *BigR *xjac        * delta_phi *wst
-        energy_neutrals(ife,mp)  = energy_neutrals(ife,mp)+ (gamma-1.d0) * 0.5d0 *T0 * r0_corr * r0_corr  * Srec_T           *BigR *xjac *tstep * delta_phi *wst 
-		energy_radiation(ife,mp) = energy_radiation(ife,mp)+ r0_corr * r0_corr  * (LradDcont_T -ksi_ion_norm*Srec_T)               *BigR *xjac *tstep * delta_phi *wst       
+    energy_neutrals(ife,mp)  = energy_neutrals(ife,mp)+ (gamma-1.d0) * 0.5d0 *T0 * r0_corr * r0_corr  * Srec_T           *BigR *xjac *tstep * delta_phi *wst 
+		energy_radiation(ife,mp) = energy_radiation(ife,mp)+ r0_corr * r0_corr  * LradDcont_corr                             *BigR *xjac *tstep * delta_phi *wst       
 
 	  enddo !mt
     enddo !ms

@@ -11,6 +11,8 @@ module mod_integrals3D
   use basis_at_gaussian
   use tr_module
   use phys_module
+  use mod_coupling_settings
+  use coupling_variables
   use mod_interp
   use convert_character
   use mpi_mod
@@ -76,7 +78,7 @@ real*8  :: eq_g(n_plane,0:n_var,n_gauss,n_gauss), eq_s(n_plane,0:n_var,n_gauss,n
 real*8  :: eq_t(n_plane,0:n_var,n_gauss,n_gauss), eq_p(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_ss(n_plane,0:n_var,n_gauss,n_gauss), eq_tt(n_plane,0:n_var,n_gauss,n_gauss), eq_st(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_sp(n_plane,0:n_var,n_gauss,n_gauss), eq_tp(n_plane,0:n_var,n_gauss,n_gauss)
-real*8, dimension(n_plane,n_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p 
+real*8, dimension(n_plane,n_aux_var,n_gauss,n_gauss) :: eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p 
 real*8  :: eq_spp(n_plane,0:n_var,n_gauss,n_gauss), eq_tpp(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: eq_s_3d(n_plane,0:n_var,n_gauss,n_gauss), eq_t_3d(n_plane,0:n_var,n_gauss,n_gauss)
 real*8  :: wgauss_copy(n_gauss)
@@ -97,7 +99,7 @@ real*8  :: dn_dpsi,dn_dz,dn_dpsi2,dn_dz2,dn_dpsi_dz,dn_dpsi3,dn_dpsi_dz2, dn_dps
 real*8  :: dT_dpsi,dT_dz,dT_dpsi2,dT_dz2,dT_dpsi_dz,dT_dpsi3,dT_dpsi_dz2, dT_dpsi2_dz
 
 integer :: i, j, k, in, ms, mt, mp, iv, inode, ife, n_elements, i_elm_axis, i_elm_xpoint(2), ifail
-integer :: ierr, n_cpu, my_id, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
+integer :: ierr, n_mpi, my_id, ife_delta, ife_min, ife_max, omp_nthreads, omp_tid
 integer :: k_vertex, k_dof, k_node, k_dir, k_dir_perp, m_bndelem, dir_perp(2), mv1, m_elm
 integer :: iexpr
 real*8  :: R_c, Z_c, vec_inside(2), grad_t(2)
@@ -164,11 +166,11 @@ real*8  :: viscopar_flux, viscopar_f, vpar_s, vpar_t, vpar_x, vpar_y, li3_tot, l
 real*8  :: varmin(n_var), varmax(n_var), V_min(n_var), V_max(n_var)
 
 !> for use_ncs
-real*8  :: aux_rho0, aux_T0, aux_Vpar0
+real*8  :: aux_rho0, aux_E0, aux_mom_par0
 real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
 !Ionisation recombination for aux/use_ncs purposes. 
-real*8  :: Nion, Nrec, plasmaneutral, Prec, Prb !Also needed for use_ncs
-real*8  ::  local_Nion, local_Nrec, local_pn, local_Prec, local_Prb  !Also needed for use_ncs
+real*8  :: Nion, Nrec, plasmaneutral, Prec, Prb, Prb_cooling !Also needed for use_ncs
+real*8  :: local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, local_Prb_cooling  !Also needed for use_ncs
 real*8  :: local_aux_mom_par_int ,local_aux_mom_par_ext, local_aux_mom_par_tot  ! coupled parallel momentum
 real*8  :: aux_mom_par_int ,aux_mom_par_ext, aux_mom_par_tot  ! coupled parallel momentum
 !> For model500 + use_ncs
@@ -179,6 +181,9 @@ real*8     :: Sion_T_ncs, dSion_dT_ncs
 real*8     :: Srec_T_ncs, dSrec_dT_ncs                                ! Recombination rate and its derivative wrt. temperature
 !   -Radiation from injected gas/impurities
 real*8     :: LradDcont_T_ncs, dLradDcont_dT_ncs                      ! Continuum (Brem.) radiation rate and its derivative wrt. T
+real*8     :: LradDcont_corr_ncs, dLradDcont_dT_corr_ncs              ! LradDcont_T_ncs corrected for potential extra counting of dielectronic cascade energy loss
+                                                                      ! (see mod_atomic_coeff_deuterium for more details)
+
 !end for use_ncs
 real*8  :: R_curr_cent, Z_curr_cent, Zcurr_tmp, R2curr_tmp, R2curr
 real*8  :: heating_impl_in, heating_impl_out, H_impl_int, H_impl_ext,heating_impl_tot
@@ -196,9 +201,9 @@ real*8  :: source_bg, source_imp, source_bg_drift, source_imp_drift
 real*8  :: source_bg_arr(n_inj_max), source_imp_arr(n_inj_max), source_bg_drift_arr(n_inj_max), source_imp_drift_arr(n_inj_max) 
 #endif
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
-real*8  :: local_radiation, local_radiation_bg, local_E_ion, total_radiation, total_radiation_bg, total_E_ion, local_P_ei, total_P_ei
+real*8  :: local_radiation, local_radiation_cooling, local_radiation_bg, local_E_ion, total_radiation, total_radiation_cooling, total_radiation_bg, total_E_ion, local_P_ei, total_P_ei
 real*8  :: local_P_ion, total_P_ion
-real*8  :: local_radiation_phi(n_plane), total_radiation_phi(n_plane)
+real*8  :: local_radiation_phi(n_plane), local_radiation_cooling_phi(n_plane), total_radiation_phi(n_plane), total_radiation_cooling_phi(n_plane)
 real*8  :: ne_SI, Te_eV, Te_corr_eV, Ti_eV
 
 ! SPI-related variables
@@ -251,6 +256,8 @@ real*8     :: Srec_T, dSrec_dT                                ! Recombination ra
 !   -Radiation from injected gas/impurities
 real*8     :: LradDrays_T, dLradDrays_dT                      ! Line (/rays) radiation rate and its derivative wrt. temperature
 real*8     :: LradDcont_T, dLradDcont_dT                      ! Continuum (Brem.) radiation rate and its derivative wrt. T
+real*8     :: LradDcont_corr, dLradDcont_dT_corr              ! LradDcont_T corrected for potential extra counting of dielectronic cascade energy loss
+                                                              ! (see mod_atomic_coeff_deuterium for more details)
 !   -Radiation from background impurities
 real*8     :: Arad_bg, Brad_bg, Crad_bg                       ! Retain hard-coded fitting for argon
 real*8     :: coef_prad_si                                    ! Prad,SI = coef_prad_si * Prad,jorek
@@ -265,10 +272,10 @@ real*8     :: frad_bg, Lrad_imp                               ! Retain hard-code
 real*8     :: SAW_tot, saw_energy_tot, saw_ene_dens, BB2_zero
 
 #ifndef NOMPIVERSION
-call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr) ! number of MPI procs
-n_cpu = max(n_cpu,1)
+call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr) ! number of MPI procs
+n_mpi = max(n_mpi,1)
 #else
-n_cpu = 1
+n_mpi = 1
 #endif
 
 if (my_id .eq. 0) then
@@ -276,7 +283,7 @@ if (my_id .eq. 0) then
   write(*,*) '* Integrals  (3D)                     *'
   write(*,*) '***************************************'
   !write(*,*) ' n_plane : ',n_plane
-  !write(*,*) ' n_cpu   : ',n_cpu
+  !write(*,*) ' n_mpi   : ',n_mpi
 endif
 
 
@@ -370,15 +377,19 @@ local_Nion = 0.d0
 local_Nrec = 0.d0
 local_pn   = 0.d0
 local_Prec = 0.d0
-local_Prb = 0.d0
+local_Prb  = 0.d0        ! Radiation power (as would be measured by a bolometer, i.e. uses LradDCont_T)
+local_Prb_cooling = 0.d0 ! Radiative cooling power (radiative energy lost from the plasma, i.e. uses LradDcont_corr)
 local_aux_mom_par_int = 0.d0 
 local_aux_mom_par_ext = 0.d0 
 local_aux_mom_par_tot = 0.d0 
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
-local_radiation       = 0.d0
-local_radiation_bg    = 0.d0
-local_radiation_phi   = 0.d0
+local_radiation             = 0.d0 ! Radiation power (as would be measured by a bolometer, i.e. uses LradDCont_T)
+local_radiation_cooling     = 0.d0 ! Radiative cooling power (radiative energy lost from the plasma, i.e. uses LradDcont_corr)
+local_radiation_bg          = 0.d0
+local_radiation_phi         = 0.d0 ! see local_radiation
+local_radiation_cooling_phi = 0.d0 ! see local_radiation_cooling
+
 local_E_ion           = 0.d0
 local_P_ei            = 0.d0
 local_P_ion           = 0.d0
@@ -410,7 +421,7 @@ psi_axis   = ES%psi_axis;        R_axis = ES%R_axis;        Z_axis = ES%Z_axis
 psi_xpoint = ES%psi_xpoint;    R_xpoint = ES%R_xpoint;    Z_xpoint = ES%Z_xpoint 
 psi_bnd    = ES%psi_bnd
 
-ife_delta = ceiling(float(element_list%n_elements) / n_cpu)
+ife_delta = ceiling(float(element_list%n_elements) / n_mpi)
 ife_min   =      my_id     * ife_delta + 1
 ife_max   = min((my_id +1) * ife_delta, element_list%n_elements)
 
@@ -436,8 +447,9 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,       &
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
-!$omp          use_ncs, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb,                              &
-!$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot,                             &
+!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, local_Prb_cooling,  &
+!$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
+!$omp          rho_idx_kin, E_idx_kin, mom_par_idx_kin,                                                       &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
@@ -446,7 +458,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          ns_phi, ns_radius, ns_deltaphi, ns_delta_minor_rad, ns_tor_norm, spi_tor_rot, local_E_ion,     &
 !$omp          t_now, A_Dmv, K_Dmv, V_Dmv, P_Dmv, t_ns, L_tube, JET_MGI,ASDEX_MGI, local_P_ion,               &
 !$omp          local_radiation, local_radiation_phi, imp_cor, imp_adas, imp_type, local_P_ei,                 &
-!$omp          n_adas, nimp_bg, local_radiation_bg,                                                           &
+!$omp          n_adas, nimp_bg, local_radiation_cooling, local_radiation_cooling_phi, local_radiation_bg,     &
 #endif
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
 !$omp          use_imp_adas,                                                                                  &
@@ -474,7 +486,8 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           AR0, AR0_p, AR0_s, AR0_t, AR0_sp, AR0_tp, AR0_Rp, AZ0, AZ0_p, AZ0_s, AZ0_t, AZ0_sp, AZ0_tp,   &
 !$omp           AZ0_Zp, A30, A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,  &
 !$omp           Srec_T_ncs, dSrec_dT_ncs, ksi_ion_norm, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs,       &
-!$omp           dSion_dT_ncs, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_T0, aux_Vpar0, &
+!$omp           LradDcont_corr_ncs, dLradDcont_dT_corr_ncs,                                                   &
+!$omp           dSion_dT_ncs, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_E0, aux_mom_par0, &
 !$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
 !$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
@@ -501,6 +514,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           Sion_T, dSion_dT, Srec_T, dSrec_dT, source_neutral,                                           &
 !$omp           source_neutral_drift, source_neutral_arr, source_neutral_drift_arr,                           &
 !$omp           LradDrays_T, LradDcont_T, dLradDrays_dT, dLradDcont_dT,                                       &
+!$omp           LradDcont_corr, dLradDcont_dT_corr,                                                           &
 !$omp           Arad_bg, Brad_bg, Crad_bg,                                                                    &
 !$omp           coef_prad_si,                                                                                 &
 #endif
@@ -544,7 +558,7 @@ do ife = ife_min, ife_max
   enddo
 
 eq_aux_g = 0.d0; eq_aux_s = 0.d0; eq_aux_t = 0.d0; eq_aux_p = 0.d0;  
-aux_rho0  = 0.d0; aux_T0    = 0.d0; aux_Vpar0 = 0.d0
+aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
 aux_P0    = 0.d0; aux_P0_s  = 0.d0; aux_P0_t  = 0.d0; aux_P0_p  = 0.d0
 aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_pcs = 0.d0
   
@@ -621,13 +635,6 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
                 eq_st(mp,k,ms,mt) = eq_st(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_st(i,j,ms,mt)* HZ(in,mp)
                 eq_spp(mp,k,ms,mt) = eq_spp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)*HZ_pp(in,mp)
                 eq_tpp(mp,k,ms,mt) = eq_tpp(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt)*HZ_pp(in,mp)
-
-                if (present(aux_node_list)) then
-                  eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
-                  eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
-                  eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
-                  eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
-                endif ! present(aux_node_list)
                 
                 if ( in == 1 ) cycle ! Record only the non-axisymmetric components
                 eq_s_3d(mp,k,ms,mt) = eq_s_3d(mp,k,ms,mt) + nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt)* HZ(in,mp)
@@ -635,6 +642,18 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
              
               enddo !n_tor
             enddo !n_var
+
+            if (present(aux_node_list)) then
+              do k=1,n_aux_var
+                do in=1,n_tor
+                  eq_aux_g(mp,k,ms,mt) =  eq_aux_g(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ(in,mp)
+                  eq_aux_s(mp,k,ms,mt) =  eq_aux_s(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_s(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_t(mp,k,ms,mt) =  eq_aux_t(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H_t(i,j,ms,mt) * HZ(in,mp)
+                  eq_aux_p(mp,k,ms,mt) =  eq_aux_p(mp,k,ms,mt) + aux_nodes(i)%values(in,j,k) * element%size(i,j) * H(i,j,ms,mt)   * HZ_p(in,mp)
+                enddo
+              enddo
+            endif ! present(aux_node_list)
+
 	        enddo !mt n_gauss
         enddo !ms n_gauss
       enddo !mp nplane
@@ -725,10 +744,10 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
         vpar_s  = eq_s(mp,var_Vpar,ms,mt)
         vpar_t  = eq_t(mp,var_Vpar,ms,mt)
 
-        if (use_ncs) then
-                aux_rho0  = eq_aux_g(mp,1,ms,mt)
-                aux_T0    = eq_aux_g(mp,2,ms,mt)
-                aux_Vpar0 = eq_aux_g(mp,3,ms,mt)
+        if (use_ncs .or. use_ics) then
+                if (use_ncs) aux_rho0     = eq_aux_g(mp,rho_idx_kin,ms,mt)
+                aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
+                aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
         end if
 
 #if (defined WITH_Neutrals)
@@ -841,9 +860,10 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 !-------------------------------------------
 ! --- USE NCS, PARTICLE NEUTRAL AND IMPURITY COUPLE SCHEME
 ! ------------------------------------------
-        if(use_ncs) then 
+        if(use_ncs .or. use_ics) then 
           ksi_ion_norm = central_density * 1.d20 * ksi_ion
-          call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T_ncs, dSion_dT_ncs, Srec_T_ncs, dSrec_dT_ncs, LradDcont_T_ncs, dLradDcont_dT_ncs)
+          call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T_ncs, dSion_dT_ncs, Srec_T_ncs, dSrec_dT_ncs, &
+                                   LradDcont_T_ncs, dLradDcont_dT_ncs, LradDcont_corr_ncs, dLradDcont_dT_corr_ncs)
         
           !> coupled densities
           !>ionization
@@ -852,16 +872,18 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           local_Nrec = local_Nrec + (Srec_T_ncs * r0_corr * r0_corr)*BigR *xjac * delta_phi *wst ! rho_rec
           
           !> coupled energies
-          !>aux_T0 (plasma neutral interaction)
-          local_pn = local_pn + aux_T0 *BigR * xjac* delta_phi * wst !& !aux_T0
+          !>aux_E0 (plasma neutral interaction)
+          local_pn = local_pn + aux_E0 *BigR * xjac* delta_phi * wst !& !aux_E0
                       !+ (gamma-1.d0)* 0.5d0 *aux_rho0 *vpar0**2 * BB2 * BigR*xjac* delta_phi *wst &
-                      !- (gamma-1.d0)* aux_Vpar0 * vpar0 * BigR *xjac* delta_phi *wst
+                      !- (gamma-1.d0)* aux_mom_par0 * vpar0 * BigR *xjac* delta_phi *wst
           !>Lost to recombination (no Brehmstralung)
           local_Prec = local_Prec + r0_corr*r0_corr*(T0_corr*Srec_T_ncs)*BigR *xjac* delta_phi *wst
-          ! Power recombination and bremstrhalung combined
-          local_Prb = local_Prb + r0_corr*r0_corr*(LradDcont_T_ncs-ksi_ion_norm*Srec_T_ncs)*BigR *xjac* delta_phi *wst
+          ! Radiation power of recombination and bremsstrahlung combined
+          local_Prb         = local_Prb         + r0_corr*r0_corr *LradDcont_T_ncs    *BigR *xjac* delta_phi *wst
+          ! Radiative cooling power of recombination and bremsstrahlung combined
+          local_Prb_cooling = local_Prb_cooling + r0_corr*r0_corr *LradDcont_corr_ncs *BigR *xjac* delta_phi *wst
           !> aux_vpar = dot_product(SI momentum source,B). so we  divide by |B| to obtain the integral of the SI momentum
-          local_aux_mom_par_tot=local_aux_mom_par_tot+ aux_vpar0 /sqrt(BB2) * xjac * BigR * wst * delta_phi !< * sqrt(BB2)
+          local_aux_mom_par_tot=local_aux_mom_par_tot+ aux_mom_par0 /sqrt(BB2) * xjac * BigR * wst * delta_phi !< * sqrt(BB2)
 
         endif ! use_ncs  
  
@@ -872,11 +894,11 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 #if ( (defined WITH_Neutrals) && (! defined WITH_Impurities) )
         ! --- Get ionization, recombination and radiation coefficients for Deuterium 
 #ifdef WITH_TiTe
-        call atomic_coeff_deuterium  (   Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                            LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0, rn0, .true. ) 
+        call atomic_coeff_deuterium  (   Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                         LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0, rn0, .true. ) 
 #else
-        call atomic_coeff_deuterium(0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                            LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0, rn0, .true. ) 
+        call atomic_coeff_deuterium(0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                         LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0, rn0, .true. ) 
 #endif
      
         ! Get coefficient:  Prad,SI = coef_prad_si * Prad,jorek
@@ -909,12 +931,20 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
             frad_bg = frad_bg + nimp_bg(i_imp) * Lrad_imp
           end do
 
-          local_radiation_phi(mp) = local_radiation_phi(mp) + ( (r0_corr * rn0_corr  * LradDrays_T    &
-                                     + r0_corr ** 2 * LradDcont_T) * coef_prad_si                     & 
-                                     + ne_SI * frad_bg) * bigR * xjac * wst * delta_phi  
-          local_radiation         = local_radiation + ( (r0_corr * rn0_corr  * LradDrays_T            &
-                                     + r0_corr ** 2 * LradDcont_T) * coef_prad_si                     & 
-                                     + ne_SI * frad_bg) * bigR * xjac * wst * delta_phi 
+          local_radiation_phi(mp)         = local_radiation_phi(mp) + ( (r0_corr * rn0_corr  * LradDrays_T    &
+                                            + r0_corr ** 2 * LradDcont_T) * coef_prad_si                      & 
+                                            + ne_SI * frad_bg) * bigR * xjac * wst * delta_phi 
+          local_radiation_cooling_phi(mp) = local_radiation_cooling_phi(mp) + ( (r0_corr * rn0_corr  * LradDrays_T    &
+                                            + r0_corr ** 2 * LradDcont_corr) * coef_prad_si                           & 
+                                            + ne_SI * frad_bg) * bigR * xjac * wst * delta_phi                               
+                                     
+          local_radiation                 = local_radiation + ( (r0_corr * rn0_corr  * LradDrays_T            &
+                                            + r0_corr ** 2 * LradDcont_T) * coef_prad_si                      & 
+                                            + ne_SI * frad_bg) * bigR * xjac * wst * delta_phi 
+          local_radiation_cooling         = local_radiation_cooling + ( (r0_corr * rn0_corr  * LradDrays_T    &
+                                            + r0_corr ** 2 * LradDcont_corr) * coef_prad_si                   & 
+                                            + ne_SI * frad_bg) * bigR * xjac * wst * delta_phi 
+
           local_P_ion             = local_P_ion + ksi_ion_norm * r0_corr * rn0_corr * Sion_T * coef_prad_si &
                                    * bigR * xjac * wst * delta_phi
         else
@@ -925,12 +955,20 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
             frad_bg = (2./3.)*(1./(central_mass*MASS_PROTON))*((MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**(1.5d0))                &
                             *nimp_bg(1)*Arad_bg*exp(-((log(Te_corr_eV)-log(Brad_bg))**2.)/Crad_bg**2.)
                     
-            local_radiation_phi(mp) = local_radiation_phi(mp) + (r0_corr * rn0_corr  * LradDrays_T &
-                                       + r0_corr ** 2 * LradDcont_T + r0_corr * frad_bg) * coef_prad_si & 
-                                       * bigR * xjac * wst * delta_phi  
-            local_radiation         = local_radiation + (r0_corr * rn0_corr  * LradDrays_T &
-                                       + r0_corr ** 2 * LradDcont_T + r0_corr * frad_bg) * coef_prad_si & 
-                                       * bigR * xjac * wst * delta_phi 
+            local_radiation_phi(mp)         = local_radiation_phi(mp) + (r0_corr * rn0_corr  * LradDrays_T         &
+                                              + r0_corr ** 2 * LradDcont_T + r0_corr * frad_bg) * coef_prad_si     & 
+                                              * bigR * xjac * wst * delta_phi  
+            local_radiation_cooling_phi(mp) = local_radiation_cooling_phi(mp) + (r0_corr * rn0_corr  * LradDrays_T &
+                                              + r0_corr ** 2 * LradDcont_corr + r0_corr * frad_bg) * coef_prad_si  & 
+                                              * bigR * xjac * wst * delta_phi  
+
+            local_radiation                 = local_radiation + (r0_corr * rn0_corr  * LradDrays_T &
+                                              + r0_corr ** 2 * LradDcont_T + r0_corr * frad_bg) * coef_prad_si & 
+                                              * bigR * xjac * wst * delta_phi 
+            local_radiation_cooling         = local_radiation_cooling + (r0_corr * rn0_corr  * LradDrays_T &
+                                              + r0_corr ** 2 * LradDcont_corr + r0_corr * frad_bg) * coef_prad_si & 
+                                              * bigR * xjac * wst * delta_phi 
+
             local_P_ion             = local_P_ion + ksi_ion_norm * r0_corr * rn0_corr * Sion_T * coef_prad_si &
                                        * bigR * xjac * wst * delta_phi
           else
@@ -1456,8 +1494,8 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           VM_int = VM_int + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_int = J2_int + eta_T_ohm * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
 
-          if (use_ncs) then 
-            local_aux_mom_par_int=local_aux_mom_par_int+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
+          if (use_ncs .or. use_ics) then 
+            local_aux_mom_par_int=local_aux_mom_par_int+ aux_mom_par0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
           endif 
 
           
@@ -1511,8 +1549,8 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           VM_ext = VM_ext + (dpsidx**2+dpsidy**2)/BigR**2 * xjac * BigR * wst * delta_phi
           J2_ext = J2_ext + eta_T_ohm * (ZJ0/BigR)**2.d0 * xjac * BigR * wst * delta_phi
 
-          if (use_ncs) then 
-            local_aux_mom_par_ext=local_aux_mom_par_ext+ aux_vpar0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
+          if (use_ncs .or. use_ics) then 
+            local_aux_mom_par_ext=local_aux_mom_par_ext+ aux_mom_par0 /sqrt(BB2)* xjac * BigR * wst * delta_phi !*sqrt(BB2)
           endif  
          
 
@@ -1673,7 +1711,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 #endif
       Ti0_corr     =     corr_neg_temp(Ti0 * 2.d0) / 2.d0
       Te0_corr     =     corr_neg_temp(Te0 * 2.d0) / 2.d0
-      dTe0_corr_dT = dcorr_neg_temp_dT(Te0 * 2.d0) / 2.d0
+      dTe0_corr_dT =     dcorr_neg_temp_dT(Te0 * 2.d0)       
 
 #ifdef WITH_Vpar
       vpar0    = eq_g_1D(mp,var_vpar,ms)
@@ -2053,6 +2091,7 @@ call MPI_AllReduce(local_Nrec,Nrec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD
 call MPI_AllReduce(local_pn,plasmaneutral,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_Prec,Prec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_Prb,Prb,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_Prb_cooling,Prb_cooling,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_mom_par_int,mom_par_int,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_mom_par_ext,mom_par_ext,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_mom_par_tot,mom_par_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
@@ -2062,12 +2101,13 @@ call MPI_AllReduce(local_aux_mom_par_tot,aux_mom_par_tot,1,MPI_DOUBLE_PRECISION,
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 call MPI_AllReduce(local_radiation, total_radiation,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_radiation_cooling, total_radiation_cooling,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_radiation_bg, total_radiation_bg,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_E_ion, total_E_ion,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_P_ei, total_P_ei,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_P_ion, total_P_ion,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(local_radiation_phi, total_radiation_phi,n_plane,&
-                   MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_radiation_phi, total_radiation_phi,n_plane,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_radiation_cooling_phi, total_radiation_cooling_phi,n_plane,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 #endif /* (defined WITH_Neutrals) || (defined WITH_Impurities) */
 
 #else /* NOMPIVERSION */
@@ -2130,17 +2170,20 @@ Nrec                 = local_Nrec
 plasmaneutral        = local_pn
 Prec                 = local_Prec
 Prb                  = local_Prb
+Prb_cooling          = local_Prb_cooling
 aux_mom_par_int = local_aux_mom_par_int
 aux_mom_par_ext = local_aux_mom_par_ext
 aux_mom_par_tot = local_aux_mom_par_tot
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
-total_radiation      = local_radiation
-total_radiation_bg   = local_radiation_bg
-total_E_ion          = local_E_ion
-total_P_ei           = local_P_ei
-total_P_ion          = local_P_ion
-total_radiation_phi  = local_radiation_phi
+total_radiation             = local_radiation
+total_radiation_cooling     = local_radiation_cooling
+total_radiation_bg          = local_radiation_bg
+total_E_ion                 = local_E_ion
+total_P_ei                  = local_P_ei
+total_P_ion                 = local_P_ion
+total_radiation_phi         = local_radiation_phi
+total_radiation_cooling_phi = local_radiation_cooling_phi 
 #endif /* (defined WITH_Neutrals) || (defined WITH_Impurities) */
 #endif /* NOMPIVERSION */
 
@@ -2266,17 +2309,20 @@ Nrec                 = n_period * Nrec         * fact_part / t_norm2
 plasmaneutral        = n_period * plasmaneutral* fact_flux / (GAMMA-1.d0) 
 Prec                 = n_period * Prec         * fact_flux / (GAMMA-1.d0)
 Prb                  = n_period * Prb          * fact_flux / (GAMMA-1.d0)
+Prb_cooling          = n_period * Prb_cooling  * fact_flux / (GAMMA-1.d0)
 aux_mom_par_int      = n_period * aux_mom_par_int * rho_norm / t_norm
 aux_mom_par_ext      = n_period * aux_mom_par_ext * rho_norm / t_norm
 aux_mom_par_tot      = n_period * aux_mom_par_tot * rho_norm / t_norm
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
-total_radiation     = n_period * total_radiation
-total_radiation_bg  = n_period * total_radiation_bg
-total_radiation_phi = n_period * total_radiation_phi
-total_E_ion         = n_period * total_E_ion
-total_P_ei          = n_period * total_P_ei
-total_P_ion         = n_period * total_P_ion
+total_radiation             = n_period * total_radiation
+total_radiation_cooling     = n_period * total_radiation_cooling
+total_radiation_bg          = n_period * total_radiation_bg
+total_radiation_phi         = n_period * total_radiation_phi
+total_radiation_cooling_phi = n_period * total_radiation_cooling_phi
+total_E_ion                 = n_period * total_E_ion
+total_P_ei                  = n_period * total_P_ei
+total_P_ion                 = n_period * total_P_ion
 #endif
 
 ! --- Boundary integrals
@@ -2741,21 +2787,25 @@ if (my_id .eq. 0) then
                                  Ohm_tot/1.d6,heating_in/1d6+heating_out/1.d6 ,source_in+source_out
 
 
-  if (use_ncs) then
+  if (use_ncs .or. use_ics) then
     write(*,'(A)') '----------------------------------------'
     write(*,'(A)') ' Kinetic neutral integrals on fluid side                  '
     write(*,'(A,4es14.6,A)') ' Ion source (aux_rho0), Recomb loss                : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
-    write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_vpar0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
-    write(*,'(A,3es14.6,A)') ' Heat source (aux_T0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
-    write(*,'(A,4es14.6,A)') ' Prec, Prb                       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6, ' [MW]'
+    write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_mom_par0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
+    write(*,'(A,3es14.6,A)') ' Heat source (aux_E0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
+    write(*,'(A,5es14.6,A)') ' Prec, Prb, Prb_cooling       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6,Prb_cooling/1.d6,' [MW]'
     write(*,'(A)') '----------------------------------------'
-  endif !use_ncs  
+  endif !use_ncs .or. use_ics 
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
   write(*,'(A,4es14.6)')   ' Integrals_3D, MGI              : ', total_n_particles_inj, total_n_particles
   write(*,'(A,1e14.6,A)')  ' Radiation power (incl. backgr. imp) : ', total_radiation/1.d6, ' [MW]'
   write(*,'(A,1e14.6,A)')  ' Radiation power BACKGROUND     : ', total_radiation_bg/1.d6, ' [MW]'
   write(*,'(A,1e14.6,A)')  ' Radiation power SANITY         : ', sum(total_radiation_phi)/1.d6, ' [MW]'
+  write(*,'(A,1e14.6,A)')  ' Radiation cooling power        : ', total_radiation_cooling/1.d6, ' [MW]'
+  write(*,'(A,1e14.6,A)')  ' Radiation cooling power SANITY : ', sum(total_radiation_cooling_phi)/1.d6, ' [MW]'
+  
+
   if (with_neutrals) then
     write(*,'(A,1e14.6,A)') ' Ionization power              : ', total_P_ion/1.d6, ' [MW]'
   else if (with_impurities) then ! With CE assumption, it's easier to obtain the total ionization energy then get the ionization power by finite difference
@@ -2770,6 +2820,7 @@ if (my_id .eq. 0) then
   end if
   if (index_now > 0) then
   xtime_rad_power(index_now) = total_radiation
+  xtime_rad_cooling_power(index_now) = total_radiation_cooling
   end if
 
   if (output_prad_phi) then

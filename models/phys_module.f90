@@ -306,6 +306,9 @@ module phys_module
              ZK_i_perp_num_tanh, ZK_i_perp_num_tanh_psin, ZK_i_perp_num_tanh_sig,    &
              ZK_e_perp_num_tanh, ZK_e_perp_num_tanh_psin, ZK_e_perp_num_tanh_sig
   real*8  :: Dn_perp_num
+  logical :: maintain_profiles             !< Add artificial sources to maintain initial rho and T profiles
+                                           !! (diffusion acts on deviation from initial profiles)
+					   !! at present only implemented for stellarator model 183
 
   !> @name Shock-capturing terms
   logical :: use_sc  !< Use shock-capturing stabilization
@@ -335,6 +338,7 @@ module phys_module
   real*8  :: tstep_n(10)       		!< Alternative to tstep: Up to ten values may be given
   integer :: nstep             		!< Number of timesteps to perform
   integer :: nstep_n(10)       		!< Alternative to nstep: Up to ten values may be given
+  real*8  :: tstep_rst            !< tstep from restart file
   real*8  :: t_start           		!< Time value at the start of the code run (zero or from restart file)
   real*8  :: t_now             		!< Current time value in the simulation
   integer :: index_start       		!< Time step index at the beginning of the code run (zero or from restart file)
@@ -483,8 +487,9 @@ module phys_module
   real*8, allocatable  :: xtime_spi_ablation_bg(:,:)      !< The time history of SPI ablation for background species
   real*8, allocatable  :: xtime_spi_ablation_bg_rate(:,:) ! <The time history of SPI ablation rate for bg species
 
-  real*8, allocatable  :: xtime_radiation(:)    !< The time history of radiated energy in SI unit
-  real*8, allocatable  :: xtime_rad_power(:)    !< The time history of radiated power in SI unit
+  real*8, allocatable  :: xtime_radiation(:)         !< The time history of radiated energy in SI unit
+  real*8, allocatable  :: xtime_rad_power(:)         !< The time history of radiated power in SI unit
+  real*8, allocatable  :: xtime_rad_cooling_power(:) !< The time history of radiative power loss from plasma in SI unit
 
   real*8, allocatable  :: xtime_E_ion(:)        !< The time history of the ionization potential energy in SI unit
   real*8, allocatable  :: xtime_E_ion_power(:)  !< Time derivative of xtime_E_ion
@@ -503,6 +508,7 @@ module phys_module
   character(len=256) :: spi_shard_file(n_inj_max)!< The name of the shard size file
   character(len=256) :: spi_plume_file(n_inj_max)!< The name of the shard information datafile (array)
   logical            :: spi_plume_hdf5           !< if 'spi_plume_file' is in HDF5format?
+  logical            :: spi_abl_mag_reduction    !< Whether to use the magnetic reduction effect described in Eq.(27) of Nucl. Fusion 60 066027
 
   integer :: n_adas             !< Number of species to be traced by ADAS
 
@@ -933,39 +939,147 @@ module phys_module
   real*8  :: D_neutral
 
   !> @name Particles-related input parameters
-  integer :: n_aux_var = n_var   ! number of variables in aux_node_list (= n_var is temporary)
-  integer :: n_diag_var = n_var  ! number of variables in diag_node_list (= n_var is temporary)
-  logical :: restart_particles
-  logical :: use_ncs          !< use neutral particles
-  logical :: use_ccs          !< use current coupling scheme for fast particles
-  logical :: use_pcs          !< use pressure coupling scheme for fast particles
-  logical :: use_pcs_full     !< use full tensor pressure coupling scheme for fast particles
-  logical :: use_kn_cx        !< switch on sputtering         (in particle module)
-  logical :: use_marker       !< This flag determines whether to use marker particles to treat impurity (Placeholder)
-  logical :: use_kn_sputtering   !< switch on charge-exchange    (in particle module)
-  logical :: use_kn_ionisation   !< switch on ionisation         (in particle module)
-  logical :: use_kn_recombination !< switch on recombination         (in particle module)
-  logical :: use_kn_puffing       !< switch on particle puffing         (in particle module)
-  logical :: use_kn_line_radiation !< switch on line radiation         (in particle module)
-  real*8  :: n_particles      !< the number of particles (real on purpose)
-  real*8  :: tstep_particles  !< the time step for the particles
-  integer :: nstep_particles  !< the number of particle time steps
-  integer :: nsubstep_particles !< the number of particles substeps (without projection)
-  real*8  :: filter_perp      !< particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_hyper     !< particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_par       !< particle projection smoothing parameter, parallel direction
-  real*8  :: filter_perp_n0   !< particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_hyper_n0  !< particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_par_n0    !< particle projection smoothing parameter, parallel direction (n=0)
+  integer :: n_aux_var            !< number of variables in aux_node_list
+  integer :: n_diag_var = n_var   !< number of variables in diag_node_list (= n_var is temporary)
+  logical :: restart_particles    !< Load in previously simulated particles from a the part_restart.h5 restart file?
+  logical :: use_marker           !< This flag determines whether to use marker particles to treat impurity (Placeholder)
+  real*8  :: tstep_particles      !< the time step for the particles
+  integer :: nstep_particles      !< the number of particle time steps
+  integer :: nsubstep_particles   !< the number of particles substeps (without projection)
+  real*8  :: filter_perp          !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_hyper         !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_par           !< particle projection smoothing parameter, parallel direction
+  real*8  :: filter_perp_n0       !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_hyper_n0      !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
+  logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
 
-  real*8  :: puff_rate        !< physical atoms/sec puffed (shared over 2 places)
-  real*8  :: r_valve          !< radius of poloidal circular source
-  real*8  :: R_valve_loc      !< R position valve 1
-  real*8  :: Z_valve          !< Z position valve 1
-  real*8  :: R_valve_loc2     !< R position valve 2
-  real*8  :: Z_valve2         !< Z position valve 2
-  integer :: n_puff           !< superparticles used per puffing action per valve
+  ! -----------------------------------------------
+  ! --- Structures for particle valves 
+  ! -----------------------------------------------
+  !> @name Particle valve settings
+  integer, parameter :: n_valves_max = 20       !< maximum number of valves   
+
+  type :: type_valve
+    character(len=4)   :: type          !< four character code for the valve type ('circ', 'poly', or 'none')
+    real*8  :: phi                      !< toroidal angle of the valve 
+    ! --- specific to 'circ' type (circular valve) 
+    real*8  :: r_valve                  ! radius of poloidal circular valve 
+    real*8  :: R_valve_loc              ! R position of a circular valve 
+    real*8  :: Z_valve_loc              ! Z position of a circular valve
+    ! --- specific to 'poly' type (quadrangular valve)
+    real*8  :: poly_R(4)                ! R vertices of a quadrangular valve
+    real*8  :: poly_Z(4)                ! Z vertices of a quadrangular valve
+  end type type_valve
+  
+  type (type_valve), dimension(n_valves_max) :: valves 
+
+  ! ------------------------------------------------
+  ! --- Structures for puffing controls 
+  ! ------------------------------------------------
+  integer, parameter :: n_puff_segment_max = 20  !< length of the times and rates arrays in a puffing object
+  
+  ! the controller for the puffing of a particle group for a specified valve
+  type :: type_puff_ctrl
+    integer :: supers_num_puff            !< number of new superparticles initialised at each puff action
+    real*8  :: supers_weight_puff         !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action
+    real*8  :: supers_ratio_puff          !< fraction of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action
+    !< if none of these three above options are set, the supers_ratio_puff method
+    !< will be used, with its default value being set by supers_ratio_puff_default in mod_particle_puffing.f90
+
+    real*8  :: times(n_puff_segment_max)  !< array of time checkpoints (SI, in seconds) for which the puffing rate is specified (requires a defined puff_ctrl(i)%rates of the same length)   
+    real*8  :: rates(n_puff_segment_max)  !< array of specified puff rates (atoms/second) at given time checkpoints (requires a defined puff_ctrl(i)%times of the same length)
+  end type type_puff_ctrl
+  
+  ! ------------------------------------------------
+  ! --- Structures for settings wall_action
+  ! ------------------------------------------------
+  !> Contains settings to define one wall_action (see mod_particle_wall_interaction)
+  type :: type_wall_act_config
+    character(len=20) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
+    character(len=3)  :: target_group_id !< which particle group (as identified by its %id) this wall interaction affects
+    real*8            :: weight_factor   !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
     
+    ! settings for number of superparticles created when new super particles must be initialised
+    integer           :: supers_num_wall    !< number of new superparticles initialised at each puff action
+    real*8            :: supers_weight_wall !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action
+    real*8            :: supers_ratio_wall  !< fraction of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action
+    !< if none of these three above options are set, the supers_ratio_wall method
+    !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
+  end type type_wall_act_config
+
+  ! ------------------------------------------------
+  ! --- Structures for particle groups
+  ! ------------------------------------------------
+  !> @name Particle group settings
+  integer            :: n_part_groups                !< number of particle groups being used
+  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups     
+  
+  !> Contains configuration and settings relating to a particle group
+  type :: type_part_group_config
+    integer            :: Z                        !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
+    real*8             :: mass                     !< Mass of all the particles in the group
+    character(len=3)   :: coupling_scheme          !< three character code for the coupling scheme to use for the group
+    real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
+    character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
+    character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
+
+    ! --------------- for neutrals and impurities (ncs and ics coupling) particles ------------
+
+    character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead    
+    logical             :: use_kin_ionisation      !< switch on ionisation* for group 
+                                                   !  *for ics this also includes recombination as it switches on the changing of the particle's charge state               
+    logical             :: use_kin_puffing         !< switch on particle puffing for group    
+    logical             :: use_kin_radiation       !< switch on radiation for group (only line rad* for ncs, line rad + bremsstrahlung + recomb** for ics)
+                                                   !  *line radiation here refers to the radiation resultant from energy level changes of bound electrons 
+                                                   !  in neutrals/impurity ions due to collisions with the background plasma. Their spectra is discrete
+                                                   !  **recomb radiation results from the release of excess energy when a free electron is captured by an atom
+                                                   !  during recombination, and has a continous spectra
+    ! ---- neutrals (ncs) specific
+    logical             :: use_kin_cx              !< switch on charge-exchange for group 
+    logical             :: use_kin_recombination   !< switch on recombination from the plasma fluid to this kinetic neutrals group*
+                                                   !  *if 2+ ncs groups are present, how the fluid recombination is divided amongst the groups is not yet implemented
+                                                  
+
+    ! ---- impurities (ics) specific
+    logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
+    integer             :: ics_group_idx           !< internal index given to this specific impurities group, used to obtain the variable index of charge density
+                                                   !< projectons specific to this group, as we require a charge density projection for each impurities group for coupling
+                                             
+
+    !> --------------- puffing ----------------------
+
+    !> The index of the puff_ctrl array corresponds to the index of the valve the puffing will come from
+    !> i.e. puff_ctrl(1) will link the puff_ctrl to the valves(1)
+    type(type_puff_ctrl), dimension(n_valves_max) :: puff_ctrl 
+
+    !> --- the settings to define the wall_action objects for this particle group. Index is arbitrary
+    type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
+  end type type_part_group_config
+
+  !> @name Particle groups in use (used when changing groups on restart), fill with group ids
+  character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
+
+  type (type_part_group_config), dimension(n_part_groups_max) :: part_group_configs 
+
+  ! ------------------------------------------------
+  ! --- Structures for fluid groups
+  ! ------------------------------------------------
+  !> @name Fluid group settings, to give more information on the underlying fluid species simulated
+  integer            :: n_fluid_groups                !< number of fluid groups being used
+  integer, parameter :: n_fluid_groups_max = 10       !< maximum number of fluid groups    
+
+  !> currently only holds information for wall_action objects from the fluid side
+  type :: type_fluid_config
+    integer :: Z                !< Z of this fluid species (e.g. -2 for D)
+    real*8  :: density_fraction !< fraction of the plasma density of this specific fluid. The density fractions of all used fluid configs should add up to 1
+    type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
+  end type type_fluid_config
+
+  !> this makes it possible to e.g. simulate a DT fluid as a single MHD fluid 
+  !> but split out the flux to the wall partly to D and partly to T neutrals
+  type(type_fluid_config), dimension(n_fluid_groups_max) :: fluid_configs
+
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
   integer :: n_mode_families                          !< number of families
@@ -979,6 +1093,9 @@ module phys_module
   !> @name Manual setting of random seed (for testing)
   logical :: use_manual_random_seed                   !< whether the random seed should be manually set
   integer :: manual_seed                              !< the manually set seed value
+  logical :: use_fixed_rng_value                      !< forcibly set all rng outputs to return a specific value (set by fixed_rng_value, use this for debugging and testing only)
+  real*8  :: fixed_rng_value                          !< the value the fixed rng is set to when using use_fixed_rng_value
+
 
   contains
   
