@@ -92,18 +92,16 @@ subroutine neutral_self_collision(sim, rng, dt)
   real*8 :: v2f(3) !< final velocity of particle 2
   
   !global diagnostics
-  integer, parameter :: n_diag=16, i_w_col=1 , i_P_av=2, i_n_pairs=3, i_sigma_av=4, i_tau=15, i_n_col=16
+  integer, parameter :: n_diag=6, i_P_av=1, i_tau=2, i_sigma_av=3, i_n_pairs=4, i_n_col=5, i_w_col=6
   real*8 :: global_diag(n_diag) !< global diagnostics
   real*8 :: reduced_global_diag(n_diag) !< MPI reduced global_diag
   character(len=100) :: FMT !< writing format for diagnostics
-
-  !dbg
+  
   real*8 :: t(6)  !< cpu times (begin, end, diff)
   real*8 :: t_mask, t_rest, t_elm, t_priv(25), t_priv_tot(25)
   integer :: max_n_pa(2), max_n_pa_gl(2)
   real*8 :: P_max(2), P_max_global(2)
   integer :: ierr
-  integer :: dummy
   !$ real*8 :: w(2), mmm(3)
 
   ! --- start of code
@@ -118,8 +116,6 @@ subroutine neutral_self_collision(sim, rng, dt)
   i_rng = 1 !default if not using OMP
 
   global_diag(:)=0.d0
-
-  dummy = 0
 
   do i_pa_group = 1,size(sim%groups,1)
   
@@ -151,8 +147,6 @@ subroutine neutral_self_collision(sim, rng, dt)
         pa_in_elm_arr(i_elm) = pa_in_elm_arr(i_elm) + 1
       end do
       !$omp end parallel do
-
-      if(sim%my_id == 0) write(*,"(A, I14)") "DBG total counted particles ",sum(pa_in_elm_arr)
 
       !allocating sorted_ind_arr object
       if(.not. allocated(sorted_ind_arr)) allocate(sorted_ind_arr(n_elm))
@@ -203,7 +197,7 @@ subroutine neutral_self_collision(sim, rng, dt)
 #else
       !$omp parallel do default(none)                                                              &
       !$omp shared(sim, rng, dt,                                                                   &
-      !$omp n_elm, n_phi, i_pa_group, sorted_ind_arr, pa_in_elm_arr, dummy)                               &
+      !$omp n_elm, n_phi, i_pa_group, sorted_ind_arr, pa_in_elm_arr)                               &
 #endif
       !$omp schedule(runtime)                                                                      &
       !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
@@ -216,13 +210,6 @@ subroutine neutral_self_collision(sim, rng, dt)
         call cpu_time(t_priv(1))
         !$ i_rng = omp_get_thread_num()+1
         
-        !$omp critical
-          dummy = dummy + 1
-          ! !$ write(*,"(A,2I14,A,I14)") "DBG thread_num i_elm/tot",i_rng,i_elm,"/",n_elm
-        !$omp end critical
-
-        global_diag(5) = global_diag(5) + 1
-
         if(allocated(i_pa_elm)) deallocate(i_pa_elm)
         allocate(i_pa_elm(pa_in_elm_arr(i_elm)))
         i_pa_elm = sorted_ind_arr(i_elm)%pa_ind(:)
@@ -238,8 +225,6 @@ subroutine neutral_self_collision(sim, rng, dt)
         !> skip collisions if there are nearly no particles
         if(pa_in_elm .lt. 2*n_phi) cycle
         
-        global_diag(6) = global_diag(6) + 1
-
         call cpu_time(t_priv(4))
         t_priv_tot(4) = t_priv_tot(4) + t_priv(4)-t_priv(2)
 
@@ -279,10 +264,6 @@ subroutine neutral_self_collision(sim, rng, dt)
           ns = 1
           nt = 1
         end if
-
-        ! !$omp critical
-        !   write(*,"(A,7I14)") "DBG ",i_elm,ns,nt,n_phi,ns*nt*n_phi,ns*nt*n_phi*aim_pa_per_bin,pa_in_elm
-        ! !$omp end critical
 
         call cpu_time(t_priv(18))
         t_priv_tot(18) = t_priv_tot(18) + t_priv(18)-t_priv(4)
@@ -352,8 +333,6 @@ subroutine neutral_self_collision(sim, rng, dt)
 
         t_priv_tot(2) = t_priv_tot(2) + t_priv(6)-t_priv(22)
 
-        global_diag(7) = global_diag(7) + 1
-
         !loop through each collisional bin
         do i_phi=1,n_phi 
           do it=1,nt
@@ -362,8 +341,6 @@ subroutine neutral_self_collision(sim, rng, dt)
               
               n_pa_bin = n_pa_bin_arr(is,it,i_phi) ! shorthand notation
               
-              global_diag(9) = global_diag(9) + n_pa_bin 
-
               if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
               if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
               
@@ -382,8 +359,6 @@ subroutine neutral_self_collision(sim, rng, dt)
               do i_pair = 1,n_pa_bin/2 !< dummy variable for loop, for odd n_pa_bin, there are (n_pa_bin-1)/2 pairs possible, so integer division here gives the intended result
                 call cpu_time(t_priv(12))
               
-                global_diag(13) = global_diag(13) + 1
-
                 !generate random number for the pair
                 call rng(i_rng)%next(RN)
 
@@ -395,8 +370,6 @@ subroutine neutral_self_collision(sim, rng, dt)
                 call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1)),pa1) 
                 call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2)),pa2) 
 
-                global_diag(14) = global_diag(14) + 1
-                
                 call cpu_time(t_priv(14))
                 t_priv_tot(14) = t_priv_tot(14) + t_priv(14)-t_priv(13)
 
@@ -454,11 +427,7 @@ subroutine neutral_self_collision(sim, rng, dt)
 
                   !calculating the average collision time tau of colliding particles
                   global_diag(i_n_col) = global_diag(i_n_col) + 2
-                  global_diag(i_tau) = global_diag(i_tau) + (sim%time - pa1%t_birth) + (sim%time - pa2%t_birth)
                   
-                  pa1%t_birth = sim%time
-                  pa2%t_birth = sim%time
-
                   ! copy back into MPI pa array
                   call copy_particle_kinetic_leapfrog(pa1, pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1))) 
                   call copy_particle_kinetic_leapfrog(pa2, pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2))) 
@@ -491,8 +460,6 @@ subroutine neutral_self_collision(sim, rng, dt)
         end do
         deallocate(i_pa_bin)
         
-        global_diag(8) = global_diag(8) + 1
-
         call cpu_time(t_priv(3))
         t_rest = t_rest + t_priv(3) - t_priv(2)
         t_elm  = t_elm  + t_priv(3) - t_priv(1)
@@ -513,17 +480,16 @@ subroutine neutral_self_collision(sim, rng, dt)
 
   call MPI_REDUCE(P_max, P_max_global,       2, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(max_n_pa, max_n_pa_gl,     2, MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  if(sim%my_id .eq. 0) write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P_try/P_real) =",max_n_pa_gl,P_max_global
+  if(sim%my_id .eq. 0) write(*,"(A,2I8,3es15.5)") "max (pa in elm/pa in bin/P col/P real this pair/min tau) =",max_n_pa_gl,P_max_global,dt/P_max_global(1)
   
   call MPI_REDUCE(global_diag, reduced_global_diag, n_diag, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   if(sim%my_id .eq. 0) then
     !getting the averages by dividing the sum by number of pairs
     reduced_global_diag(i_P_av)     = reduced_global_diag(i_P_av)     / max(reduced_global_diag(i_n_pairs), 1.d-10)
     reduced_global_diag(i_sigma_av) = reduced_global_diag(i_sigma_av) / max(reduced_global_diag(i_n_pairs), 1.d-10)
-    reduced_global_diag(i_tau)      = reduced_global_diag(i_tau)      / max(reduced_global_diag(i_n_col),   1.d-10)
+    reduced_global_diag(i_tau)      = dt/reduced_global_diag(i_P_av)
     write(FMT,"(A,I2,A)") "(A,",n_diag,"es15.5)"  
-    write(*,trim(FMT)) "diagnostics (weight collided/P average/N pairs tested/sigma average) =",reduced_global_diag
-    write(*,"(A,I14)") "DBG: dummy",dummy
+    write(*,trim(FMT)) "diagnostics (P average/tau average/sigma average/pairs tried/pairs collided/weight collided) =",reduced_global_diag
   end if
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
@@ -597,11 +563,7 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
 
   !sanity
   real*8 :: dp(3), dE, tol
-  real*8 :: db(20) !< debug checks, should all be 0
-  logical,parameter :: debug=.false.
   
-  if (debug) db(:)=0.d0
-
   !this calculation follows the logic in Liebermann (2005), Principles of Plasma Discharges and Materials Processing, section 3.2, applied to 3D
 
   !go to 3D rest frame of particle 2
@@ -611,11 +573,11 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
 
   !calculate scattering angles of particles in scattering plane from CM frame scattering angle Theta
   theta_2 = -(PI-Theta)/2
-  theta_1 = atan(sin(Theta)/(m1/m2 + cos(Theta)))
+  theta_1 = atan(sin(Theta)/nonzero(m1/m2 + cos(Theta)))
 
   !calculate the velocities in scattering plane
   scalar_v1p = scalar_v1 * sqrt(1.d0/(1 + (m1/m2)*(sin(theta_1)/sin(theta_2))**2)) !< from energy balance, substituting scalar_v2p (see next line)
-  scalar_v2p = -(m1/m2) * (sin(theta_1) / sin(theta_2)) * scalar_v1p               !< from perpendicular momentum balance
+  scalar_v2p = -(m1/m2) * (sin(theta_1) / nonzero(sin(theta_2))) * scalar_v1p               !< from perpendicular momentum balance
 
   v2p = scalar_v2p*[cos(theta_2), sin(theta_2)]
   v1p = scalar_v1p*[cos(theta_1), sin(theta_1)]
@@ -625,21 +587,13 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   perp1 = cross_product(v_r,[1.d0,0.d0,0.d0]) !< cross product with R axis to get orthogonal vector
   perp2 = cross_product(v_r,perp1)            !< cross product with first perpendicular axis
   
-  v_r_hat = v_r  /norm2(v_r)   !< normalising to get orthonormal basis vectors
-  perp1   = perp1/norm2(perp1)
-  perp2   = perp2/norm2(perp2)
+  v_r_hat = v_r  /nonzero(norm2(v_r))   !< normalising to get orthonormal basis vectors
+  perp1   = perp1/nonzero(norm2(perp1))
+  perp2   = perp2/nonzero(norm2(perp2))
 
   !calculate the resulting velocity from parallel velocity component and perpendicular split up into the two perpendicular directions using alpha
   v1f = v1p(1)*v_r_hat + v1p(2)*cos(alpha)*perp1 + v1p(2)*sin(alpha)*perp2
   v2f = v2p(1)*v_r_hat + v2p(2)*cos(alpha)*perp1 + v2p(2)*sin(alpha)*perp2
-
-  if(debug) then
-    db(1)  = m1*scalar_v1**2 - m1*norm2(v1f)**2 - m2*norm2(v2f)**2
-    db(2) = norm2(v1p)**2 - norm2(v1f)**2
-    db(3) = norm2(v2p)**2 - norm2(v2f)**2
-    db(4) = m1*v1p(1) + m2*v2p(1) - m1*scalar_v1
-    db(5) = m1*v1p(2) + m2*v2p(2)
-  end if
 
   !transform back from rest frame of particle 2 to R,Z,phi frame
   v1f = v1f + v2i
@@ -652,22 +606,6 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   tol = 1.d-10
   if(abs(dp(1)) .gt. tol .or. abs(dp(1)) .gt. tol .or. abs(dp(1)) .gt. tol .or. abs(dE) .gt. tol) then
     write(*,*) "ERROR, momentum or energy not conserved in binary elastic collision (m1,m2,v1i,v2i,Theta,alpha,v1f,v2f,dp,dE)",m1,m2,v1i,v2i,Theta,alpha,v1f,v2f,dp,dE
-    write(*,*) "debug: (should all be 0)"
-    if(debug) then
-      db(6)  = m1*scalar_v1**2 - m1*scalar_v1p**2 - m2*scalar_v2p**2
-      db(7)  = m1*scalar_v1**2 - m1*norm2(v1p)**2 - m2*norm2(v2p)**2
-      db(8)  = norm2(v_r_hat) - 1.d0
-      db(9)  = norm2(perp1)   - 1.d0
-      db(10) = norm2(perp2)   - 1.d0
-      db(11) = dot_product(v_r_hat,perp1)
-      db(12) = dot_product(v_r_hat,perp2)
-      db(13) = dot_product(perp1,perp2)
-      db(14) = dp(1)
-      db(15) = dp(2)
-      db(16) = dp(3)
-      db(17) = dE
-      write(*,*) db
-    end if
   end if
   
 end subroutine binary_elastic_collision
@@ -751,6 +689,14 @@ function next(this, RN) result(i_drawn)
   ! draw the number from the draw location
   i_drawn = this%indices(draw_loc)
   
+  ! sanity check on drawn number
+  if(i_drawn < 1 .or. i_drawn > this%size) then
+    write(*,"(A,3I10,f10.5)") "ERROR in random draw. i_drawn/size/used/RN = ",i_drawn,this%size,this%used,RN
+    write(*,*) "this%indices=",this%indices
+    i_drawn=1
+    return
+  end if
+
   ! move the unused number (at index nth_draw) to the draw_loc
   this%indices(draw_loc)  = this%indices(nth_draw)
 
@@ -760,5 +706,17 @@ function next(this, RN) result(i_drawn)
   ! the draw is done
   this%used = this%used + 1
 end function next
+
+!> returns the input unless the input is 0, then returns 1.d-10 with the sign of the input (to avoid divide by 0 issues)
+pure function nonzero(in) result(out)
+  implicit none
+  real*8, intent(in) :: in
+  real*8 :: out
+
+  real*8, parameter :: tol = 1.d-10
+
+  out = in
+  if (abs(in) < tol) out = sign(tol, in)
+end function nonzero
 
 end module mod_particle_collision

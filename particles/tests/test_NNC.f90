@@ -38,7 +38,7 @@ program test_NNC
   !< rho_1, rho_2, T, p_ii (p_RR, p_ZZ, p_\phi\phi), 1 empty
 
   !parameters of the grid
-  real*8, parameter :: R_0 = 200.d0, Z_0 = 0.d0, length = 0.05d0
+  real*8, parameter :: R_0 = 200.d0, Z_0 = 0.d0, length = 1.d0
   integer, parameter :: n = 6 !10!2!100 ! number of nodes in r, z directions
 
   !variables
@@ -46,14 +46,14 @@ program test_NNC
   integer :: seed, i_rng, n_stream
   real*8 :: s, t, phi, R, Z
   real*8 :: RN(8), weight, T_av !< [K] average intial temperature of gas
-  character(len=100) :: i_step_char, filename
+  character(len=100) :: i_step_char, filename, MSD_file
   real*8 :: last_time
   !$ real*8 :: w(2), mmm(3)
   
   !distribution w_i(R,t) diagnostic
   real*8, allocatable :: w_iRt(:,:,:)  !< weights per species as a function of R and t, dim(species,R_bins,0:nstep) 
   real*8, allocatable :: t_arr(:)      !< timesteps, dim(0:nstep)
-  integer, parameter  :: R_bins = 200 !< number of bins along R for the w_i(R,t) diagnostic
+  integer, parameter  :: R_bins = 1000 !< number of bins along R for the w_i(R,t) diagnostic
 
   !conservation
   real*8 :: conserv_obj(6)
@@ -96,7 +96,8 @@ program test_NNC
     call plot_grid(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'initial')
   end if
 
-  open(unit=13, file='p.csv', status='replace')
+  write(MSD_file,"(A,I1,A)") 'p',sim%my_id,'.csv'
+  open(unit=13+sim%my_id, file=MSD_file, status='replace')
 
   ! Set up particle group characteristics
   sim%groups(1)%Z    = -2 !< for deuterium 1
@@ -130,7 +131,6 @@ program test_NNC
 
       p(i)%q      = 0 !< for neutrals
       p(i)%weight = weight
-      p(i)%t_birth = 0.d0 !< for tracking collision times
       
       s = RN(1)
       t = RN(2)
@@ -188,7 +188,6 @@ program test_NNC
   ! -------------------------------------- main loop
   do i_step=1,nstep
     write(i_step_char,*) "i_step=",i_step
-    write(*,*) "DBG sim%time",sim%time
     call log_block(sim%my_id, trim(i_step_char), last_time)
 
     sim%time = sim%time + tstep_particles*nstep_particles
@@ -217,7 +216,7 @@ program test_NNC
     ! select type (pa => sim%groups(1)%particles)
     ! type is (particle_kinetic_leapfrog)
     !   do i=1,size(pa,1)
-    !     write(*,"(A,I10,7es20.10)") "DBG: pa(i) i,%x,%v,t_birth",i,pa(i)%x,pa(i)%v,pa(i)%t_birth
+    !     write(*,"(A,I10,7es20.10)") "DBG: pa(i) i,%x,%v",i,pa(i)%x,pa(i)%v
     !   end do
     ! end select
 
@@ -233,8 +232,7 @@ program test_NNC
     select type (pa => sim%groups(1)%particles)
     type is (particle_kinetic_leapfrog)  
     do i=1,1
-      write(13,"(2I10, 8es20.10)") i, i_step, sim%time, pa(i)%t_birth, pa(i)%x, pa(i)%v
-      write(*,"(2I10, 8es20.10)")  i, i_step, sim%time, pa(i)%t_birth, pa(i)%x, pa(i)%v
+      write(13+sim%my_id,"(2I10, 8es20.10)") i, i_step, sim%time, pa(i)%x, pa(i)%v
     end do
     end select
   end do
@@ -242,7 +240,7 @@ program test_NNC
   ! --- end
   call log_block(sim%my_id, "End of sim", last_time)
   call write_diag_output(sim%my_id,w_iRt,t_arr)
-  close(13)
+  close(13+sim%my_id)
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
   !$ if (sim%my_id .eq. 0) write(*,"(A,3es13.3,A)") "test_NNC done in (min/mean/max) ", mmm, " s"
