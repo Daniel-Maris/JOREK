@@ -25,6 +25,7 @@ use mod_particle_sim
 use phys_module, only: n_aux_var, n_diag_var
 use mod_particle_types
 use mod_fields
+use mod_import_restart, only: rst_file_ind_fmt
 use mod_vtk
 use constants, only : el_chg, atomic_mass_unit
 use data_structure, only: type_SP_MATRIX, type_RHS
@@ -1028,7 +1029,7 @@ subroutine save_to_vtk(this, sim)
   type(particle_sim), intent(inout) :: sim
   integer :: i, ierr, n_proj
   real*8 :: t0, t1, ostart, oend
-  character(len=120) :: filename
+  character(len=120) :: filename, tmp_name
 
   this%extension = '.vtk'
   if (.not. allocated(this%vtk_grid)) then
@@ -1043,8 +1044,8 @@ subroutine save_to_vtk(this, sim)
       filename = this%filename
     end if
   else ! put file name with 'index_now'
-    write(filename,'(a,i5.5)') trim(this%basename), index_now
-    filename = trim(filename)//this%extension
+    write(tmp_name,rst_file_ind_fmt(1)) trim(this%basename), index_now
+    filename = trim(tmp_name)//this%extension
   end if
 
   call cpu_time(t0)
@@ -1079,7 +1080,7 @@ subroutine save_to_h5(this, sim)
   class(projection),  intent(inout)  :: this
   type(particle_sim), intent(inout)  :: sim
   integer :: my_id, ierr, n_proj
-  character(len=120) :: filename
+  character(len=120) :: filename, tmp_name
   real*8 :: t0, t1, ostart, oend
 
   this%extension = '.h5'
@@ -1091,8 +1092,8 @@ subroutine save_to_h5(this, sim)
       filename = this%filename
     end if
   else ! put file name with 'index_now'
-    write(filename,'(a,i5.5)') trim(this%basename), index_now
-    filename = trim(filename)//this%extension
+    write(tmp_name,rst_file_ind_fmt(1)) trim(this%basename), index_now
+    filename = trim(tmp_name)//this%extension
   end if
 
   call cpu_time(t0)
