@@ -104,8 +104,6 @@ function is_selected () {
 function do_convert () {
   file="$1"
   ithread="$2"
-  proj="$3"
-  proj_base="$4"
   
   cd ${tmpdir[$ithread]}
   
@@ -113,45 +111,34 @@ function do_convert () {
   stepnum=${stepnum:5:5}
   targetFile="$stepnum.vtk" # Target filename with same number as source
   targetFile="$targetDir/$targetFile" # Target filename with full path
-  exist=false
+  exist='true'
+  pattern='false'
   for copyfile in $copyfiles; do
       cp $startDir/$copyfile .
   done
-
-  filenames=$(grep "comp_name" CARIDDI_plot.nml | awk -F "'" '{ for(i=2; i<NF; i+=2) print $i }')
-  if [ -z "$filenames" ]; then
-      filenames='CARIDDI_all'
-  fi
+  filenames=$(grep "comp_name" CARIDDI_plot.nml | sed 's/!.*//' | awk -F "'" '{ for(i=2; i<NF; i+=2) print $i }')
   for f in $filenames
   do
       targetFile1="$stepnum.vtk"
       f=$(echo $f | sed 's/,//')
       a=${f//\'/}
-
-      for fi in ${targetDir}/${a}*.$targetFile1
+      for fi in ${targetDir}/*"$targetFile1" 
       do
-          if ( [ ! -e $fi ] || [ "$file" -nt "$fi" ] ) \
-	         &&  ( [ ! -z "$select_arguments" ] || [ `is_selected $stepnum` == "yes" ] ) ; then
-	      exist=true
+          if [[ ${fi##*/} == *"$a"* ]]; then
+              pattern='true'
+              if ( [ ! -e $fi ] || [ "$file" -nt "$fi" ] ) \
+	             &&  ( [ ! -z "$select_arguments" ] || [ `is_selected $stepnum` == "yes" ] ) ; then
+                  exist='false'
+              fi
           fi
       done
-      if [[ $exist == 'true' ]]
-      then
-         break
-      fi
   done
-
   # Convert only new, selected restart files
   #   If -only flag is used, $select_arguments is empty and selection of steps is carried out below via 'is_selected'.
   #   If -time flag is used, selection of steps has happened before by python and every incoming step is accepted here.
-  if [ "$exist" = true ] ; then
+  if ( [ "$exist" == 'false' ]  || [ "$pattern" == 'false' ] ); then
     rm -f jorek_restart.${RST_TYPE}
     ln -s $file jorek_restart.${RST_TYPE}
-
-    if [ "$proj" == ".true." ]; then 
-      rm -f ${proj_base}_restart.h5
-      ln -s "../../${proj_base}${stepnum}.h5" ${proj_base}_restart.h5
-    fi
 
     if [ -f CARIDDI_plot.nml ]; then
 	struct_path="${struct_path}/"
@@ -173,26 +160,10 @@ function do_convert () {
     else
       egrep -i "warning|restart time" ./log
     fi
-    filenames=$(grep "comp_name" CARIDDI_plot.nml | awk -F "'" '{ for(i=2; i<NF; i+=2) print $i }')
-    if [ -z "$filenames" ]; then
-        filenames='CARIDDI_all'
-    fi
-      for f in CARIDDI_comp*;
-      do
-          fi=$(echo $f | sed 's/CARIDDI_//')
-          mv $f $fi
-      done
 
-    for f in $filenames
-    do
-      targetFile="$stepnum.vtk"
-      f=$(echo $f | sed 's/,//')
-      a=${f//\'/}
-      for fi in ${a}*.vtk
-      do
-          finew=$(echo $fi | sed 's/.vtk//')
-          mv $fi $targetDir/${finew}.$targetFile
-      done
+    for fi in *vtk; do
+        name=$(echo $fi | sed 's/.vtk//')
+        mv $fi "$targetDir/$name.$targetFile1"
     done
     if [ "$zipfiles" == "yes" ]; then
       rm -f ${targetFile}.gz
@@ -315,7 +286,7 @@ fi
 
 
 # ---- Detect restart file type
-. ${SCRIPTDIR}/detect_rst_type.sh
+. ${SCRIPTDIR}/detect_rst_type.sh -d5 "no"
 if [ "$RST_TYPE" != "h5" ] && [ "$RST_TYPE" != "rst" ]; then
   echo "ERROR: RST_TYPE not detected properly: $RST_TYPE"
   usage
@@ -419,7 +390,7 @@ for file in $selected_available_files; do
   ithread=`get_available_thread`
   if [ ! -f "$ERROR_STOP_FILE" ]; then
     mark_running $ithread
-    do_convert $file $ithread $include_projections $proj_basename &
+    do_convert $file $ithread  &
   fi
 done
 
