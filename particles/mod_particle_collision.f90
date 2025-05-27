@@ -24,6 +24,16 @@ module mod_particle_collision
     integer, dimension(:), allocatable :: pa_ind
   end type
 
+  !> object to store an index array to randomly draw from the unused indices
+  type :: random_draw
+    integer :: size !< size of the index array
+    integer, dimension(:), allocatable :: indices !< indices list (used indices are at the front) (size)
+    integer :: used                               !< number of indices used
+  contains
+    procedure :: reset
+    procedure :: next
+  end type
+
 contains
 
 !> neutral-neutral collision within a species 
@@ -38,10 +48,12 @@ subroutine neutral_self_collision(sim, rng, dt)
 
   real*8,                        intent(in)    :: dt !< timestep over which the collisions must be calculated
 
-  type(particle_kinetic_leapfrog), dimension(:),     allocatable :: pa_bin !< array of particles in this collisional bin
+  type(particle_kinetic_leapfrog)                                :: pa1 !< first particle of the collisional pair
+  type(particle_kinetic_leapfrog)                                :: pa2 !< second particle of the collisional pair
   type(indices_in_elm),            dimension(:),     allocatable :: sorted_ind_arr !< object containing all particle indices as arrays per element number
   type(indices_in_elm),            dimension(:,:,:), allocatable :: i_pa_bin !< object containing all this element's particle indices as arrays per bin (s bin,t bin, phi bin)
-  
+  type(random_draw)                                              :: i_random !< particle index list (1 to n_pa_bin) to draw from to determine next random particle for pairing. Already used indices are at the front. (n_pa_bin)
+
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: n_elm
   integer :: i_pa_group, i_phi, is, it, ns, nt, n_pa_bin, i_pair
@@ -57,24 +69,19 @@ subroutine neutral_self_collision(sim, rng, dt)
   integer :: pa_in_elm !< number of particles in the element under consideration
   integer, parameter :: aim_pa_per_bin = 50 !< wanted amount of super particles in one collisional bin (element is split up to satisfy this)
   integer, dimension(:),       allocatable :: i_pa_elm     !< global particle indices of the particles in this element
-  !integer, dimension(:,:,:,:), allocatable :: i_pa_bin     !< global particle indices of the particles in this collisional bin (bin particle, s bin,t bin, phi bin)
   integer, dimension(:,:,:),   allocatable :: n_pa_bin_arr !< number of particles in each collisional bin of this element (s bin, t bin, phi bin)
   integer, dimension(:,:,:),   allocatable :: i_loc_bin    !< local index of particles in each collisional bin of this element (s bin, t bin, phi bin)
   logical, dimension(:),       allocatable :: paired       !< array to keep track of which particle is not paired yet
   integer, dimension(:),       allocatable :: pa_elm_arr   !< precalculated pa(:)%i_elm for faster masking over i_elm 
   integer, dimension(:),       allocatable :: pa_in_elm_arr !< number of particles in the element (n_elm)
   integer, dimension(:),       allocatable :: i_loc_arr !< local index in the element array of particle indices (n_elm)
-  
-  
+
   real*8 :: R, R_s, R_t, Z, Z_s, Z_t
   real*8 :: nst
   real*8 :: lt,ls !< [m] physical size of element / bin in s direction
   real*8 :: V_c !< [m^3] grid cell (collisional bin) volume 
-  real*8 :: RN(3) !< random numbers for chance to collide, impact parameter and scattering plane angle
+  real*8 :: RN(5) !< random numbers for particle 1, particle 2, chance to collide, impact parameter and scattering plane angle
   integer :: i_rng
-
-  !nearest neighbour
-  real*8  :: RZPhi(3), RZPhi_try(3), d2_try, d2, d, w2_phi !< squared weight to scale a distance in phi to a distance in R, Z
   integer :: i_pa1, i_pa2
   
   !elastic collision parameters
@@ -200,8 +207,8 @@ subroutine neutral_self_collision(sim, rng, dt)
 #endif
       !$omp schedule(runtime)                                                                      &
       !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
-      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa_bin, w2_phi, V_c,  &
-      !$omp paired, i_pair, i_pa1, i_pa2, RZPhi, d2, RZPhi_try, d2_try, w1, w2, w_s, w_g, v_r, m1, m2,  &
+      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c,  &
+      !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2,  &
       !$omp sigma_T, P_try, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin) &
       !$omp reduction(+:t_mask, t_rest, t_elm, t_priv_tot, global_diag) reduction(max:max_n_pa, P_max)
       do i_elm=1,n_elm
@@ -365,62 +372,28 @@ subroutine neutral_self_collision(sim, rng, dt)
               ls = sqrt(R_s**2 + Z_s**2)/real(ns)
               lt = sqrt(R_t**2 + Z_t**2)/real(nt)
               V_c = ls*lt*(2.d0*PI*R/real(n_period*n_phi))
-              
-              !determine weight of phi direction necessary for nearest neighbour calculation based on bin size
-              if(n_period .eq. 1 .and. n_phi .eq. 1) then !< axi symmetry
-                w2_phi = 0.d0
-              else
-                w2_phi = ((ls+lt)/(2.d0*PI/real(n_period*n_phi)))**2
-              end if
-
-              call cpu_time(t_priv(24))
-              t_priv_tot(24) = t_priv_tot(24) + t_priv(24) - t_priv(7)
-
-              allocate(paired(n_pa_bin))
-              paired(:) = .false.
-
-              !make a local copy of the particles in this bin
-              allocate(pa_bin(n_pa_bin))
-              do i=1,n_pa_bin
-                global_diag(12) = global_diag(12) + 1
-
-                call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i)),pa_bin(i)) !copy from MPI pa array to bin arr
-              end do
-              
+                            
               call cpu_time(t_priv(9))
               t_priv_tot(9) = t_priv_tot(9) + t_priv(9)-t_priv(8)
 
+              call i_random%reset(n_pa_bin)
+
+              ! loop over all collisional pairs
               do i_pair = 1,n_pa_bin/2 !< dummy variable for loop, for odd n_pa_bin, there are (n_pa_bin-1)/2 pairs possible, so integer division here gives the intended result
                 call cpu_time(t_priv(12))
               
                 global_diag(13) = global_diag(13) + 1
 
-                ! Find first unpaired particle
-                do i=i_pair,n_pa_bin !start looking from i_pair, as all i<i_pair is definitely already used
-                  if(paired(i)) cycle
-                  i_pa1 = i
-                  paired(i) = .true.
-                  exit
-                end do
-                
-                call cpu_time(t_priv(13))
-                t_priv_tot(13) = t_priv_tot(13) + t_priv(13)-t_priv(12)
+                !generate random number for the pair
+                call rng(i_rng)%next(RN)
 
-                !> Find weighted near neighbour pa_bin(i_pa2) to pa_bin(i_pa1) by looping through all unpaired particles in bin
-                RZPhi=pa_bin(i_pa1)%x
-                d2 = 1.d99
-                i_pa2 = -1
-                do i=i_pair+1,n_pa_bin ! All particles up and until i_pair are already paired
-                  if(paired(i)) cycle !< skip particles that have been paired already
-                  RZPhi_try = pa_bin(i)%x 
-                  !> find lowest squared distance rather than real distance
-                  d2_try = (RZPHI(1) - RZPhi_try(1))**2 + (RZPHI(2) - RZPhi_try(2))**2 + w2_phi*(RZPHI(3) - RZPhi_try(3))**2
-                  if(d2_try .lt. d2) then
-                    d2=d2_try
-                    i_pa2=i
-                  end if
-                end do !loop for nearest neighbour
-                paired(i_pa2) = .true.
+                !get random particle from the bin
+                i_pa1 = i_random%next(RN(1))
+                i_pa2 = i_random%next(RN(2))
+
+                !copy from MPI pa array
+                call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1)),pa1) 
+                call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2)),pa2) 
 
                 global_diag(14) = global_diag(14) + 1
                 
@@ -428,11 +401,11 @@ subroutine neutral_self_collision(sim, rng, dt)
                 t_priv_tot(14) = t_priv_tot(14) + t_priv(14)-t_priv(13)
 
                 ! calculate P for this collision pair
-                w1 = pa_bin(i_pa1)%weight
-                w2 = pa_bin(i_pa2)%weight
+                w1 = pa1%weight
+                w2 = pa2%weight
                 w_g = max(w1, w2)
                 w_s = min(w1, w2)
-                v_r = norm2(pa_bin(i_pa1)%v - pa_bin(i_pa2)%v)
+                v_r = norm2(pa1%v - pa2%v)
                 m1 = sim%groups(i_pa_group)%mass
                 m2 = sim%groups(i_pa_group)%mass
                 sigma_T = calc_sigma_T(v_r, m1, m2)
@@ -457,37 +430,39 @@ subroutine neutral_self_collision(sim, rng, dt)
                 if (P_try > P_max(1)) P_max(1) = P_try
                 if (P_try/n_pa_bin > P_max(2)) P_max(2) = P_try/n_pa_bin
                 
-                !generate random number
-                call rng(i_rng)%next(RN)
-
                 call cpu_time(t_priv(16))
                 t_priv_tot(16) = t_priv_tot(16) + t_priv(16)-t_priv(15)
 
-                if (RN(1) .le. P_try) then ! do binary collision
+                if (RN(3) .le. P_try) then ! do binary collision
 
-                  Theta = PI - 2*asin(RN(2))
-                  alpha = TWOPI*RN(3)
+                  Theta = PI - 2*asin(RN(4))
+                  alpha = TWOPI*RN(5)
 
                   ! updates velocities of colliding part of super particles
-                  call binary_elastic_collision(m1,m2,pa_bin(i_pa1)%v,pa_bin(i_pa2)%v,Theta,alpha,v1f,v2f)
+                  call binary_elastic_collision(m1,m2,pa1%v,pa2%v,Theta,alpha,v1f,v2f)
 
                   !correct new velocities for non-colliding component in heaviest particle
                   if(w1 .gt. w2) then
-                    pa_bin(i_pa1)%v = (w_s/w1) * v1f + (1-w_s/w1) * pa_bin(i_pa1)%v
-                    pa_bin(i_pa2)%v = v2f
+                    pa1%v = (w_s/w1) * v1f + (1-w_s/w1) * pa1%v
+                    pa2%v = v2f
                   else
-                    pa_bin(i_pa1)%v = v1f
-                    pa_bin(i_pa2)%v = (w_s/w2) * v2f + (1-w_s/w2) * pa_bin(i_pa2)%v
+                    pa1%v = v1f
+                    pa2%v = (w_s/w2) * v2f + (1-w_s/w2) * pa2%v
                   end if 
 
                   global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
 
                   !calculating the average collision time tau of colliding particles
                   global_diag(i_n_col) = global_diag(i_n_col) + 2
-                  global_diag(i_tau) = global_diag(i_tau) + (sim%time - pa_bin(i_pa1)%t_birth) + (sim%time - pa_bin(i_pa2)%t_birth)
+                  global_diag(i_tau) = global_diag(i_tau) + (sim%time - pa1%t_birth) + (sim%time - pa2%t_birth)
                   
-                  pa_bin(i_pa1)%t_birth = sim%time
-                  pa_bin(i_pa2)%t_birth = sim%time
+                  pa1%t_birth = sim%time
+                  pa2%t_birth = sim%time
+
+                  ! copy back into MPI pa array
+                  call copy_particle_kinetic_leapfrog(pa1, pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1))) 
+                  call copy_particle_kinetic_leapfrog(pa2, pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2))) 
+
                 end if !collision happens
 
                 call cpu_time(t_priv(17))
@@ -495,24 +470,11 @@ subroutine neutral_self_collision(sim, rng, dt)
               
               end do !loop over i_pair
 
-              call cpu_time(t_priv(10))
-              t_priv_tot(10) = t_priv_tot(10) + t_priv(10)-t_priv(9)
-
-              ! copy back into MPI pa array
-              do i=1,n_pa_bin
-                call copy_particle_kinetic_leapfrog(pa_bin(i), pa(i_pa_bin(is,it,i_phi)%pa_ind(i))) 
-              end do
-
-              deallocate(pa_bin)
-              
-              deallocate(paired)
-
               call cpu_time(t_priv(11))
               t_priv_tot(11) = t_priv_tot(11) + t_priv(11)-t_priv(10)
               t_priv_tot(23) = t_priv_tot(23) + t_priv(11)-t_priv(23) 
             
-            call cpu_time(t_priv(25))
-            t_priv_tot(25) = t_priv_tot(25) + t_priv(25) - t_priv(24)
+              t_priv_tot(25) = t_priv_tot(25) + t_priv(11) - t_priv(24)
 
             end do !is
           end do !it
@@ -728,5 +690,75 @@ pure function ith_bin(x_in,n) result(i)
 
   i = ceiling(x*n)
 end function ith_bin
+
+!> resets the random draw object to a clean new array
+subroutine reset(this,size)
+  implicit none
+
+  class(random_draw), intent(inout) :: this
+  integer,            intent(in)    :: size !< size of the new random draw array
+
+  integer :: i
+
+  if(size < 0) then
+    write(*,*) "ERROR in mod_particle collision, random_draw size < 0 : ", size
+    stop
+  end if
+
+  if (allocated(this%indices)) then
+    call dealloc_random_draw(this)
+  end if
+  allocate(this%indices(size))
+
+  this%size=size
+  this%used=0
+
+  do i=1,size
+    this%indices(i) = i
+  end do
+
+end subroutine reset
+
+subroutine dealloc_random_draw(this)
+  implicit none
+  class(random_draw), intent(inout) :: this
+  deallocate(this%indices)
+end subroutine
+
+!> draws a new unused random number from the indices list by moving unused indices to empty spots
+!> Example for this%size 5: start with this%indices=[1,2,3,4,5] and this%used=0
+!> this%indices | this%used | roll | roll result | draw_loc | outcome | 
+!> 12345        | 0         | 1d5  | 3           | 3        | 3       | put 1 at position 3
+!> -2145        | 1         | 1d4  | 2           | 3        | 1       | put 2 at position 3
+!> --245        | 2         | 1d3  | 3           | 5        | 5       | put 2 at position 5
+!> ---42        | 3         | 1d2  | 1           | 4        | 4       | nothing to be changed
+!> ----2        | 4         | 1d1  | 1           | 5        | 2       |
+function next(this, RN) result(i_drawn)
+  implicit none
+
+  class(random_draw), intent(inout) :: this
+  real*8,             intent(in)    :: RN !< random number to get the next random index
+  integer                           :: i_drawn
+
+  integer :: draw_loc !< which index this draw draws from
+  integer :: nth_draw !< the number of this draw (so number of previous draws (=this%used) + 1)
+
+  nth_draw = this%used + 1
+
+  ! determine the location in the index array to draw from
+  draw_loc = this%used + ceiling(RN * (this%size - this%used))
+  
+  ! draw the number from the draw location
+  i_drawn = this%indices(draw_loc)
+  
+  ! move the unused number (at index nth_draw) to the draw_loc
+  this%indices(draw_loc)  = this%indices(nth_draw)
+
+  ! set the used number to -1 to catch errors
+  this%indices(nth_draw) = -1
+    
+  ! the draw is done
+  this%used = this%used + 1
+end function next
 
 end module mod_particle_collision
