@@ -16,7 +16,16 @@ module mod_particle_collision
   implicit none
    
   private
-  public :: neutral_self_collision
+  public :: type_neutral_collision
+
+  !> action object, storing P_max values per element
+  type :: type_neutral_collision
+    real*8,          dimension(:), allocatable :: P_max_elm !< [chance] rescaling factor for collision probability for this element, based on a large estimate for the actual chance a given physical particle will collide in the element (n_elm)
+    type(pcg32_rng), dimension(:), allocatable :: rng       !< rng object for this action specifically
+  contains
+    procedure :: initialize
+    procedure :: do => neutral_self_collision
+  end type 
 
   !> an object containing the array of particle indices of particles in this element 
   !> s.t. an array of these objects can store all particle indices as array per element
@@ -40,11 +49,11 @@ contains
 !> nearest neighbour approach where each element has a number of subcells in the toroidal direction
 !> the number of subcells in the poloidal direction are done by dividing the element up in an s,t grid
 !> which is determined automatically by the amount of particles and the length of the element along s and t 
-subroutine neutral_self_collision(sim, rng, dt)
+subroutine neutral_self_collision(this, sim, dt)
   implicit none
 
+  class(type_neutral_collision),  intent(inout) :: this
   type(particle_sim),            intent(inout) :: sim
-  type(pcg32_rng), dimension(:), intent(inout) :: rng
 
   real*8,                        intent(in)    :: dt !< timestep over which the collisions must be calculated
 
@@ -59,7 +68,8 @@ subroutine neutral_self_collision(sim, rng, dt)
   integer :: i_pa_group, i_phi, is, it, ns, nt, n_pa_bin, i_pair
   integer :: i,j, i_elm, i_loc, i_global
   
-  real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = N_test w_g \sigma_T v_r dt / V_c
+  real*8 :: P_real  !< [chance] chance that this particle will collide (with anything) this timestep, P_real = N_test w_g \sigma_T v_r dt / V_c
+  real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = P_real / P_max_elm(i_elm)
   real*8 :: w2, w1  !< [physical particles] weight of super particle 1
   real*8 :: w_s     !< [physical particles] weight of smaller super particle in binary collision w_s = min(w1,w2)
   real*8 :: w_g     !< [physical particles] weight of greater super particle in binary collision w_g = max(w1, w2)
@@ -81,6 +91,8 @@ subroutine neutral_self_collision(sim, rng, dt)
   real*8 :: lt,ls !< [m] physical size of element / bin in s direction
   real*8 :: V_c !< [m^3] grid cell (collisional bin) volume 
   real*8 :: RN(5) !< random numbers for particle 1, particle 2, chance to collide, impact parameter and scattering plane angle
+  real*8 :: P_max_now !< for updating this%P_max_elm
+  integer :: N_try !< number of pairs to be tried for collisions (NTC method, N_try = n_pa_bin/2 * P_max_real)
   integer :: i_rng
   integer :: i_pa1, i_pa2
   
@@ -100,7 +112,7 @@ subroutine neutral_self_collision(sim, rng, dt)
   real*8 :: t(6)  !< cpu times (begin, end, diff)
   real*8 :: t_mask, t_rest, t_elm, t_priv(25), t_priv_tot(25)
   integer :: max_n_pa(2), max_n_pa_gl(2)
-  real*8 :: P_max(2), P_max_global(2)
+  real*8 :: P_max_mpi, P_max_global
   integer :: ierr
   !$ real*8 :: w(2), mmm(3)
 
@@ -185,7 +197,7 @@ subroutine neutral_self_collision(sim, rng, dt)
       t_rest = 0.d0
       t_elm  = 0.d0
       max_n_pa = 0
-      P_max = 0
+      P_max_mpi = 0
       ! Start loop over each finite element number
       if(use_manual_random_seed) then
         !$ call omp_set_schedule(omp_sched_static,1)
@@ -196,15 +208,15 @@ subroutine neutral_self_collision(sim, rng, dt)
       !$omp parallel do default(shared)                                                            &
 #else
       !$omp parallel do default(none)                                                              &
-      !$omp shared(sim, rng, dt,                                                                   &
+      !$omp shared(this, sim, dt,                                                                  &
       !$omp n_elm, n_phi, i_pa_group, sorted_ind_arr, pa_in_elm_arr)                               &
 #endif
       !$omp schedule(runtime)                                                                      &
       !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
-      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c,  &
+      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c, P_max_now,  &
       !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2,  &
-      !$omp sigma_T, P_try, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin) &
-      !$omp reduction(+:t_mask, t_rest, t_elm, t_priv_tot, global_diag) reduction(max:max_n_pa, P_max)
+      !$omp sigma_T, P_try, P_real, N_try, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin) &
+      !$omp reduction(+:t_mask, t_rest, t_elm, t_priv_tot, global_diag) reduction(max:max_n_pa, P_max_mpi)
       do i_elm=1,n_elm
         t_priv=0
         call cpu_time(t_priv(1))
@@ -333,6 +345,8 @@ subroutine neutral_self_collision(sim, rng, dt)
 
         t_priv_tot(2) = t_priv_tot(2) + t_priv(6)-t_priv(22)
 
+        P_max_now = 0.d0
+
         !loop through each collisional bin
         do i_phi=1,n_phi 
           do it=1,nt
@@ -344,7 +358,7 @@ subroutine neutral_self_collision(sim, rng, dt)
               if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
               if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
               
-              ! detemine quantities relevant to bin: V_c and w2_phi
+              ! detemine bin volume
               call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
               ls = sqrt(R_s**2 + Z_s**2)/real(ns)
               lt = sqrt(R_t**2 + Z_t**2)/real(nt)
@@ -353,14 +367,21 @@ subroutine neutral_self_collision(sim, rng, dt)
               call cpu_time(t_priv(9))
               t_priv_tot(9) = t_priv_tot(9) + t_priv(9)-t_priv(8)
 
+              ! prepare for drawing random particles
               call i_random%reset(n_pa_bin)
 
-              ! loop over all collisional pairs
-              do i_pair = 1,n_pa_bin/2 !< dummy variable for loop, for odd n_pa_bin, there are (n_pa_bin-1)/2 pairs possible, so integer division here gives the intended result
+              ! determine the number of pairs to be tried for collision
+              N_try = nint(0.5d0*n_pa_bin*this%P_max_elm(i_elm))
+              if(N_try < 1) N_try = 1
+
+              if(N_try > n_pa_bin/2) write(*,*) "ERROR: some particles will be used twice (N_try,n_pa_bin/2)",N_try,n_pa_bin/2
+
+              ! loop over to-be-tried collisional pairs for this bin
+              do i_pair = 1,N_try !< dummy variable for loop
                 call cpu_time(t_priv(12))
               
                 !generate random number for the pair
-                call rng(i_rng)%next(RN)
+                call this%rng(i_rng)%next(RN)
 
                 !get random particle from the bin
                 i_pa1 = i_random%next(RN(1))
@@ -386,23 +407,25 @@ subroutine neutral_self_collision(sim, rng, dt)
                 call cpu_time(t_priv(15))
                 t_priv_tot(15) = t_priv_tot(15) + t_priv(15)-t_priv(14)
                 
-                ! the factor n_pa_bin / (2*int(n_pa_bin/2)) corrects for unpaired particle if n_pa_bin is odd
                 ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
-                P_try = w_g * n_pa_bin * sim%n_mpi * (n_pa_bin / (2*int(n_pa_bin/2))) * sigma_T * v_r * dt / V_c 
+                P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c 
                 
+                if (P_real > P_max_now) P_max_now = P_real
+
+                !diagnostics
+                global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
+                global_diag(i_P_av)     = global_diag(i_P_av)     + P_real
+                global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
+                if (P_real > P_max_mpi) P_max_mpi = P_real
+                
+                P_try = P_real / this%P_max_elm(i_elm)
+
                 if (P_try > 1.d0) then
                   !$omp critical
                   write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try > 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
                   !$omp end critical
                 end if
 
-                !diagnostics
-                global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
-                global_diag(i_P_av)     = global_diag(i_P_av)     + P_try
-                global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
-                if (P_try > P_max(1)) P_max(1) = P_try
-                if (P_try/n_pa_bin > P_max(2)) P_max(2) = P_try/n_pa_bin
-                
                 call cpu_time(t_priv(16))
                 t_priv_tot(16) = t_priv_tot(16) + t_priv(16)-t_priv(15)
 
@@ -449,6 +472,13 @@ subroutine neutral_self_collision(sim, rng, dt)
           end do !it
         end do !i_phi toroidal bins
         
+        ! update maximum collision chance if necessary (with a margin of 20% to keep P<1 in the future)
+        if(1.2*P_max_now > this%P_max_elm(i_elm)) then ! update if the maximum chance now is bigger than previously
+          this%P_max_elm(i_elm) = 1.2*P_max_now
+        else if (10*P_max_now < this%P_max_elm(i_elm)) then ! if P_max_now is really small, we can carefully decrease P_max_elm to gain some speed in the future
+          this%P_max_elm(i_elm) = 0.9*this%P_max_elm(i_elm)
+        end if
+
         if(allocated(n_pa_bin_arr)) deallocate(n_pa_bin_arr)
         deallocate(i_loc_bin)
         do i_phi=1,n_phi
@@ -478,9 +508,9 @@ subroutine neutral_self_collision(sim, rng, dt)
   if(sim%my_id .eq. 0) write(*,"(A,30es15.5)") "NNC cpu times (s): (tot, t_mask, t_rest, t_elm, sort, t_priv_tot)", t(3), t_mask, t_rest, t_elm, t(6), t_priv_tot
   !< todo: OMP parallelisation does not seem to function properly time-wise either? Figure out why and if anything can be done
 
-  call MPI_REDUCE(P_max, P_max_global,       2, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(max_n_pa, max_n_pa_gl,     2, MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  if(sim%my_id .eq. 0) write(*,"(A,2I8,3es15.5)") "max (pa in elm/pa in bin/P col/P real this pair/min tau) =",max_n_pa_gl,P_max_global,dt/P_max_global(1)
+  call MPI_REDUCE(P_max_mpi, P_max_global, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(max_n_pa,  max_n_pa_gl,  2, MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+  if(sim%my_id .eq. 0) write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P col/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
   
   call MPI_REDUCE(global_diag, reduced_global_diag, n_diag, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
   if(sim%my_id .eq. 0) then
@@ -496,6 +526,34 @@ subroutine neutral_self_collision(sim, rng, dt)
   !$ if (sim%my_id .eq. 0) write(*,"(A,3f9.4,A)") "Neutral self collision complete in (min/mean/max) ", mmm, " s"
 
 end subroutine neutral_self_collision
+
+!> initializes the neutral collision object
+subroutine initialize(this, sim)
+  use mod_random_seed
+  implicit none  
+  class(type_neutral_collision), intent(inout) :: this
+  type(particle_sim),           intent(in)    :: sim
+
+  integer :: i, seed, i_rng, n_stream
+  
+  ! --- Setting up P_max_elm
+  if(allocated(this%P_max_elm)) deallocate(this%P_max_elm)
+  allocate(this%P_max_elm(sim%fields%element_list%n_elements))
+
+  ! initial guess of P_max (the chance that the highest collisional particle will collide this timestep)
+  ! is set to a small value to benefit from the NTC algorithm
+  this%P_max_elm(:) = 1.d-2
+
+  ! --- Setting up random numbers
+  seed = random_seed()
+  n_stream = 1
+  !$ n_stream = omp_get_max_threads()
+  write(*,*) "id, n_mpi, n_stream",sim%my_id, sim%n_mpi, n_stream
+  allocate(this%rng(n_stream))
+  do i=1,n_stream
+    call this%rng(i)%initialize(1, seed, n_stream, i)
+  end do
+end subroutine initialize
 
 !> calculates the elastic collisional cross section for D + D elastic collisions
 !> variable hard sphere based on [1] eq 4.63
@@ -682,6 +740,12 @@ function next(this, RN) result(i_drawn)
   integer :: nth_draw !< the number of this draw (so number of previous draws (=this%used) + 1)
 
   nth_draw = this%used + 1
+
+  ! check whether we have unused indices left
+  if(nth_draw > this%size) then
+    write(*,*) "ERROR in random draw, every number has already been drawn once, resetting draw"
+    call this%reset(this%size)
+  end if
 
   ! determine the location in the index array to draw from
   draw_loc = this%used + ceiling(RN * (this%size - this%used))
