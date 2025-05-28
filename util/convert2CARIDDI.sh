@@ -111,28 +111,35 @@ function do_convert () {
   stepnum=${stepnum:5:5}
   targetFile="$stepnum.vtk" # Target filename with same number as source
   targetFile="$targetDir/$targetFile" # Target filename with full path
+  targetFile1="$stepnum.vtk"
   exist='true'
+  pattern='false'
   for copyfile in $copyfiles; do
       cp $startDir/$copyfile .
   done
   filenames=$(grep "comp_name" CARIDDI_plot.nml | sed 's/!.*//' | awk -F "'" '{ for(i=2; i<NF; i+=2) print $i }')
-  for f in $filenames
+  if [ -z "$filenames" ]; then
+      filenames='CARIDDI_all'
+  fi
+  for fi in ${targetDir}/*"$targetFile1" 
   do
-      pattern='false'
-      targetFile1="$stepnum.vtk"
-      f=$(echo $f | sed 's/,//')
-      a=${f//\'/}
-      for fi in ${targetDir}/*"$targetFile1" 
+      [[ ! -e "$fi" ]] && continue  # skip if glob doesn't match anything
+      for f in $filenames
       do
-          if [[ ${fi##*/} == *"$a"* ]]; then
+          pattern='false'
+          f=${f//,/}         # remove commas
+          a=${f//\'/}        # remove single quotes
+          echo $f
+          if [[ ${fi##*/} =~ ^${a}(_[0-9]+)?\.[0-9]+\.vtk$ ]]; then
               pattern='true'
-              if ( [ ! -e $fi ] || [ "$file" -nt "$fi" ] ) \
-	             &&  ( [ ! -z "$select_arguments" ] || [ `is_selected $stepnum` == "yes" ] ) ; then
+              if  [ "$file" -nt "$fi" ]  \
+	              &&  ( [ ! -z "$select_arguments" ] || [ `is_selected $stepnum` == "yes" ] ) ; then
                   exist='false'
               fi
           fi
       done
   done
+
   # Convert only new, selected restart files
   #   If -only flag is used, $select_arguments is empty and selection of steps is carried out below via 'is_selected'.
   #   If -time flag is used, selection of steps has happened before by python and every incoming step is accepted here.
