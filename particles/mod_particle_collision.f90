@@ -109,8 +109,6 @@ subroutine neutral_self_collision(this, sim, dt)
   real*8 :: reduced_global_diag(n_diag) !< MPI reduced global_diag
   character(len=100) :: FMT !< writing format for diagnostics
   
-  real*8 :: t(6)  !< cpu times (begin, end, diff)
-  real*8 :: t_mask, t_rest, t_elm, t_priv(25), t_priv_tot(25)
   integer :: max_n_pa(2), max_n_pa_gl(2)
   real*8 :: P_max_mpi, P_max_global
   real*8 :: P_max_elm_max, P_max_elm_min !< min P_max_elm for logging purpose
@@ -122,9 +120,6 @@ subroutine neutral_self_collision(this, sim, dt)
 
   !$ w(1) = omp_get_wtime()
   
-  t = 0.d0
-  call cpu_time(t(1))
-
   n_elm = sim%fields%element_list%n_elements
   
   i_rng = 1 !default if not using OMP
@@ -140,9 +135,6 @@ subroutine neutral_self_collision(this, sim, dt)
       n_phi = n_plane
       
       ! --- sorting the particle indices into array by their element number
-      call cpu_time(t(4))
-      
-      ! allocate(pa_ind_arr(size(pa)))
       if(allocated(pa_elm_arr)) deallocate(pa_elm_arr)
       allocate(pa_elm_arr(size(pa)))
       if(.not. allocated(pa_in_elm_arr)) allocate(pa_in_elm_arr(n_elm))
@@ -190,14 +182,6 @@ subroutine neutral_self_collision(this, sim, dt)
       !$omp end parallel do
       deallocate(i_loc_arr)
 
-      call cpu_time(t(5))
-      t(6) = t(5) - t(1) !t(6) + t(5) - t(4)
-      
-      t_priv = 0.d0
-      t_priv_tot = 0.d0
-      t_mask = 0.d0
-      t_rest = 0.d0
-      t_elm  = 0.d0
       max_n_pa = 0
       P_max_mpi = 0
       ! Start loop over each finite element number
@@ -217,11 +201,9 @@ subroutine neutral_self_collision(this, sim, dt)
       !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
       !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c, P_max_now,  &
       !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2,  &
-      !$omp sigma_T, P_try, P_real, N_try, i_rng, RN, Theta, alpha, v1f, v2f, t_priv, i_loc, i_loc_bin) &
-      !$omp reduction(+:t_mask, t_rest, t_elm, t_priv_tot, global_diag) reduction(max:max_n_pa, P_max_mpi)
+      !$omp sigma_T, P_try, P_real, N_try, i_rng, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
+      !$omp reduction(+:global_diag) reduction(max:max_n_pa, P_max_mpi)
       do i_elm=1,n_elm
-        t_priv=0
-        call cpu_time(t_priv(1))
         !$ i_rng = omp_get_thread_num()+1
         
         if(allocated(i_pa_elm)) deallocate(i_pa_elm)
@@ -232,16 +214,9 @@ subroutine neutral_self_collision(this, sim, dt)
         
         max_n_pa(1) = pa_in_elm
 
-        call cpu_time(t_priv(2))
-        t_mask = t_mask + t_priv(2) - t_priv(1)
-        t_elm  = t_mask ! overwrite later if rest of loop is done
-        
         !> skip collisions if there are nearly no particles
         if(pa_in_elm .lt. 2*n_phi) cycle
         
-        call cpu_time(t_priv(4))
-        t_priv_tot(4) = t_priv_tot(4) + t_priv(4)-t_priv(2)
-
         !determine how many poloidal bins for this element. real to give the best approximation to ns, nt
         nst = pa_in_elm/real(aim_pa_per_bin * n_phi) !< number of bins in poloidal plane
 
@@ -279,23 +254,11 @@ subroutine neutral_self_collision(this, sim, dt)
           nt = 1
         end if
 
-        call cpu_time(t_priv(18))
-        t_priv_tot(18) = t_priv_tot(18) + t_priv(18)-t_priv(4)
-
         allocate(i_pa_bin(ns,nt,n_phi))
         allocate(n_pa_bin_arr(ns,nt,n_phi))
         
-        call cpu_time(t_priv(20))
-        t_priv_tot(20) = t_priv_tot(20) + t_priv(20)-t_priv(18)
-
         ! i_pa_bin = 0
         n_pa_bin_arr = 0
-
-        call cpu_time(t_priv(5))
-        t_priv_tot(5) = t_priv_tot(5) + t_priv(5)-t_priv(4)
-
-        t_priv_tot(19) = t_priv_tot(19) + t_priv(5)-t_priv(18)
-        t_priv_tot(1)  = t_priv_tot(1) + t_priv(5)-t_priv(20)
 
         !loop to get amount of particles per bin
         do i=1,pa_in_elm
@@ -310,9 +273,6 @@ subroutine neutral_self_collision(this, sim, dt)
           n_pa_bin_arr(is,it,i_phi) = n_pa_bin_arr(is,it,i_phi) + 1
         end do !i_pa_elm
 
-        call cpu_time(t_priv(21))
-        t_priv_tot(21) = t_priv_tot(21) + t_priv(21)-t_priv(5)
-
         !loop to allocate bin sizes in i_pa_bin
         do i_phi=1,n_phi
           do it=1,nt
@@ -321,9 +281,6 @@ subroutine neutral_self_collision(this, sim, dt)
             end do
           end do
         end do
-
-        call cpu_time(t_priv(22))
-        t_priv_tot(22) = t_priv_tot(22) + t_priv(22)-t_priv(21)
 
         !fill i_pa_bin
         allocate(i_loc_bin(ns,nt,n_phi))
@@ -342,19 +299,12 @@ subroutine neutral_self_collision(this, sim, dt)
           i_pa_bin(is,it,i_phi)%pa_ind(i_loc) = i_global
         end do !i_pa_elm
         
-        call cpu_time(t_priv(6))
-        t_priv_tot(6) = t_priv_tot(6) + t_priv(6)-t_priv(5)
-
-        t_priv_tot(2) = t_priv_tot(2) + t_priv(6)-t_priv(22)
-
         P_max_now = 0.d0
 
         !loop through each collisional bin
         do i_phi=1,n_phi 
           do it=1,nt
             do is=1,ns 
-              call cpu_time(t_priv(7))
-              
               n_pa_bin = n_pa_bin_arr(is,it,i_phi) ! shorthand notation
               
               if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
@@ -366,9 +316,6 @@ subroutine neutral_self_collision(this, sim, dt)
               lt = sqrt(R_t**2 + Z_t**2)/real(nt)
               V_c = ls*lt*(2.d0*PI*R/real(n_period*n_phi))
                             
-              call cpu_time(t_priv(9))
-              t_priv_tot(9) = t_priv_tot(9) + t_priv(9)-t_priv(7)
-
               ! prepare for drawing random particles
               call i_random%reset(n_pa_bin)
 
@@ -378,13 +325,8 @@ subroutine neutral_self_collision(this, sim, dt)
 
               if(N_try > n_pa_bin/2) write(*,*) "ERROR: some particles will be used twice (N_try,n_pa_bin/2)",N_try,n_pa_bin/2
 
-              call cpu_time(t_priv(10))
-              t_priv_tot(10) = t_priv_tot(10) + t_priv(10) - t_priv(7) 
-
               ! loop over to-be-tried collisional pairs for this bin
               do i_pair = 1,N_try !< dummy variable for loop
-                call cpu_time(t_priv(12))
-              
                 !generate random number for the pair
                 call this%rng(i_rng)%next(RN)
 
@@ -396,9 +338,6 @@ subroutine neutral_self_collision(this, sim, dt)
                 call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1)),pa1) 
                 call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2)),pa2) 
 
-                call cpu_time(t_priv(14))
-                t_priv_tot(14) = t_priv_tot(14) + t_priv(14)-t_priv(12)
-
                 ! calculate P for this collision pair
                 w1 = pa1%weight
                 w2 = pa2%weight
@@ -409,9 +348,6 @@ subroutine neutral_self_collision(this, sim, dt)
                 m2 = sim%groups(i_pa_group)%mass
                 sigma_T = calc_sigma_T(v_r, m1, m2)
 
-                call cpu_time(t_priv(15))
-                t_priv_tot(15) = t_priv_tot(15) + t_priv(15)-t_priv(14)
-                
                 ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
                 P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c 
                 
@@ -433,9 +369,6 @@ subroutine neutral_self_collision(this, sim, dt)
                     !$omp end critical
                   end if
                 end if
-
-                call cpu_time(t_priv(16))
-                t_priv_tot(16) = t_priv_tot(16) + t_priv(16)-t_priv(15)
 
                 if (RN(3) .le. P_try) then ! do binary collision
 
@@ -465,18 +398,7 @@ subroutine neutral_self_collision(this, sim, dt)
 
                 end if !collision happens
 
-                call cpu_time(t_priv(17))
-                t_priv_tot(17) = t_priv_tot(17) + t_priv(17)-t_priv(16)
-                t_priv_tot(12) = t_priv_tot(12) + t_priv(17)-t_priv(12)
-
-                call cpu_time(t_priv(23))
-                t_priv_tot(23) = t_priv_tot(23) + t_priv(23)-t_priv(17)
-
-              
               end do !loop over i_pair
-
-              call cpu_time(t_priv(11))
-              t_priv_tot(11) = t_priv_tot(11) + t_priv(11)-t_priv(10)
 
             end do !is
           end do !it
@@ -489,6 +411,7 @@ subroutine neutral_self_collision(this, sim, dt)
           this%P_max_elm(i_elm) = 0.9*this%P_max_elm(i_elm)
         end if
 
+        ! deallocation of private allocatables
         if(allocated(n_pa_bin_arr)) deallocate(n_pa_bin_arr)
         deallocate(i_loc_bin)
         do i_phi=1,n_phi
@@ -499,11 +422,7 @@ subroutine neutral_self_collision(this, sim, dt)
           end do
         end do
         deallocate(i_pa_bin)
-        
-        call cpu_time(t_priv(3))
-        t_rest = t_rest + t_priv(3) - t_priv(2)
-        t_elm  = t_elm  + t_priv(3) - t_priv(1)
-        t_priv_tot(3) = t_priv_tot(3) + t_priv(3) - t_priv(6)
+
       end do !i_elm
       !$omp end parallel do
         
@@ -513,11 +432,7 @@ subroutine neutral_self_collision(this, sim, dt)
     end select
 
   end do !i_particle_group
-  call cpu_time(t(2))
-  t(3) = t(2) - t(1) ! cpu time spent by program
-  if(sim%my_id .eq. 0) write(*,"(A,30es15.5)") "NNC cpu times (s): (tot, t_mask, t_rest, t_elm, sort, t_priv_tot)", t(3), t_mask, t_rest, t_elm, t(6), t_priv_tot
-  !< todo: OMP parallelisation does not seem to function properly time-wise either? Figure out why and if anything can be done
-
+  
   call MPI_REDUCE(P_max_mpi,     P_max_global,        1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(max_n_pa,      max_n_pa_gl,         2,      MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
   P_max_elm_min = minval(this%P_max_elm)
