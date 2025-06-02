@@ -443,15 +443,19 @@ contains
         R = p(i)%x(1)
         iR = nint(((R - (R_0 - length)) / (2*length)) * R_bins + 0.5d0)
         if(iR < 1) then
-          !$omp critical
-          write(*,*) "error in fill_w_iRt, iR < 1, iR/i/R=",iR,i,R
-          !$omp end critical  
+          if(iR < 0) then
+            !$omp critical
+            write(*,*) "error in fill_w_iRt, iR < 1, iR/i/R=",iR,i,R
+            !$omp end critical  
+          end if
           iR = 1
         end if
         if(iR > R_bins) then
-          !$omp critical
-          write(*,*) "error in fill_w_iRt, iR > R_bins, iR/i/R=",iR,i,R
-          !$omp end critical  
+          if(iR > R_bins + 1) then
+            !$omp critical
+            write(*,*) "error in fill_w_iRt, iR > R_bins, iR/i/R=",iR,i,R
+            !$omp end critical  
+          end if
           iR = R_bins
         end if
         

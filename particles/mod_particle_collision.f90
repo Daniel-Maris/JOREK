@@ -104,7 +104,7 @@ subroutine neutral_self_collision(this, sim, dt)
   real*8 :: v2f(3) !< final velocity of particle 2
   
   !global diagnostics
-  integer, parameter :: n_diag=6, i_P_av=1, i_tau=2, i_sigma_av=3, i_n_pairs=4, i_n_col=5, i_w_col=6
+  integer, parameter :: n_diag=7, i_P_av=1, i_tau=2, i_sigma_av=3, i_n_pairs=4, i_n_col=5, i_w_col=6, i_Pgt1=7
   real*8 :: global_diag(n_diag) !< global diagnostics
   real*8 :: reduced_global_diag(n_diag) !< MPI reduced global_diag
   character(len=100) :: FMT !< writing format for diagnostics
@@ -113,6 +113,8 @@ subroutine neutral_self_collision(this, sim, dt)
   real*8 :: t_mask, t_rest, t_elm, t_priv(25), t_priv_tot(25)
   integer :: max_n_pa(2), max_n_pa_gl(2)
   real*8 :: P_max_mpi, P_max_global
+  real*8 :: P_max_elm_max, P_max_elm_min !< min P_max_elm for logging purpose
+  real*8 :: P_max_elm_max_red, P_max_elm_min_red !< MPI reduced P_max_elm_min
   integer :: ierr
   !$ real*8 :: w(2), mmm(3)
 
@@ -365,16 +367,19 @@ subroutine neutral_self_collision(this, sim, dt)
               V_c = ls*lt*(2.d0*PI*R/real(n_period*n_phi))
                             
               call cpu_time(t_priv(9))
-              t_priv_tot(9) = t_priv_tot(9) + t_priv(9)-t_priv(8)
+              t_priv_tot(9) = t_priv_tot(9) + t_priv(9)-t_priv(7)
 
               ! prepare for drawing random particles
               call i_random%reset(n_pa_bin)
 
               ! determine the number of pairs to be tried for collision
               N_try = nint(0.5d0*n_pa_bin*this%P_max_elm(i_elm))
-              if(N_try < 1) N_try = 1
+              ! if N_try = 0 that's fine, it'll just skip the i_pair do loop
 
               if(N_try > n_pa_bin/2) write(*,*) "ERROR: some particles will be used twice (N_try,n_pa_bin/2)",N_try,n_pa_bin/2
+
+              call cpu_time(t_priv(10))
+              t_priv_tot(10) = t_priv_tot(10) + t_priv(10) - t_priv(7) 
 
               ! loop over to-be-tried collisional pairs for this bin
               do i_pair = 1,N_try !< dummy variable for loop
@@ -392,7 +397,7 @@ subroutine neutral_self_collision(this, sim, dt)
                 call copy_particle_kinetic_leapfrog(pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2)),pa2) 
 
                 call cpu_time(t_priv(14))
-                t_priv_tot(14) = t_priv_tot(14) + t_priv(14)-t_priv(13)
+                t_priv_tot(14) = t_priv_tot(14) + t_priv(14)-t_priv(12)
 
                 ! calculate P for this collision pair
                 w1 = pa1%weight
@@ -421,9 +426,12 @@ subroutine neutral_self_collision(this, sim, dt)
                 P_try = P_real / this%P_max_elm(i_elm)
 
                 if (P_try > 1.d0) then
-                  !$omp critical
-                  write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try > 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
-                  !$omp end critical
+                  global_diag(i_Pgt1) = global_diag(i_Pgt1) + 1
+                  if (P_try > 5.d0) then
+                    !$omp critical
+                    write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try >> 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
+                    !$omp end critical
+                  end if
                 end if
 
                 call cpu_time(t_priv(16))
@@ -459,14 +467,16 @@ subroutine neutral_self_collision(this, sim, dt)
 
                 call cpu_time(t_priv(17))
                 t_priv_tot(17) = t_priv_tot(17) + t_priv(17)-t_priv(16)
+                t_priv_tot(12) = t_priv_tot(12) + t_priv(17)-t_priv(12)
+
+                call cpu_time(t_priv(23))
+                t_priv_tot(23) = t_priv_tot(23) + t_priv(23)-t_priv(17)
+
               
               end do !loop over i_pair
 
               call cpu_time(t_priv(11))
               t_priv_tot(11) = t_priv_tot(11) + t_priv(11)-t_priv(10)
-              t_priv_tot(23) = t_priv_tot(23) + t_priv(11)-t_priv(23) 
-            
-              t_priv_tot(25) = t_priv_tot(25) + t_priv(11) - t_priv(24)
 
             end do !is
           end do !it
@@ -475,7 +485,7 @@ subroutine neutral_self_collision(this, sim, dt)
         ! update maximum collision chance if necessary (with a margin of 20% to keep P<1 in the future)
         if(1.2*P_max_now > this%P_max_elm(i_elm)) then ! update if the maximum chance now is bigger than previously
           this%P_max_elm(i_elm) = 1.2*P_max_now
-        else if (10*P_max_now < this%P_max_elm(i_elm)) then ! if P_max_now is really small, we can carefully decrease P_max_elm to gain some speed in the future
+        else if (5*P_max_now < this%P_max_elm(i_elm)) then ! if P_max_now is really small, we can carefully decrease P_max_elm to gain some speed in the future
           this%P_max_elm(i_elm) = 0.9*this%P_max_elm(i_elm)
         end if
 
@@ -508,18 +518,26 @@ subroutine neutral_self_collision(this, sim, dt)
   if(sim%my_id .eq. 0) write(*,"(A,30es15.5)") "NNC cpu times (s): (tot, t_mask, t_rest, t_elm, sort, t_priv_tot)", t(3), t_mask, t_rest, t_elm, t(6), t_priv_tot
   !< todo: OMP parallelisation does not seem to function properly time-wise either? Figure out why and if anything can be done
 
-  call MPI_REDUCE(P_max_mpi, P_max_global, 1, MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(max_n_pa,  max_n_pa_gl,  2, MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  if(sim%my_id .eq. 0) write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P col/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
+  call MPI_REDUCE(P_max_mpi,     P_max_global,        1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(max_n_pa,      max_n_pa_gl,         2,      MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+  P_max_elm_min = minval(this%P_max_elm)
+  P_max_elm_max = maxval(this%P_max_elm)
+  call MPI_REDUCE(P_max_elm_min, P_max_elm_min_red,   1,      MPI_DOUBLE_PRECISION, MPI_MIN, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(P_max_elm_max, P_max_elm_max_red,   1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
   
-  call MPI_REDUCE(global_diag, reduced_global_diag, n_diag, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  call MPI_REDUCE(global_diag,   reduced_global_diag, n_diag, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+  
   if(sim%my_id .eq. 0) then
+    write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P col/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
+    write(*,"(A,2es15.5)") "P_max_elm rescale values (min/max) ",P_max_elm_min_red,P_max_elm_max_red
+    if(reduced_global_diag(i_Pgt1) > 0.5) write(*,"(A,I10.0,A,I10.0,A)") "WARNING: P_try>1 for ",nint(reduced_global_diag(i_Pgt1))," out of ",nint(reduced_global_diag(i_n_pairs))," collision attempts during this timestep"
+
     !getting the averages by dividing the sum by number of pairs
     reduced_global_diag(i_P_av)     = reduced_global_diag(i_P_av)     / max(reduced_global_diag(i_n_pairs), 1.d-10)
     reduced_global_diag(i_sigma_av) = reduced_global_diag(i_sigma_av) / max(reduced_global_diag(i_n_pairs), 1.d-10)
     reduced_global_diag(i_tau)      = dt/reduced_global_diag(i_P_av)
     write(FMT,"(A,I2,A)") "(A,",n_diag,"es15.5)"  
-    write(*,trim(FMT)) "diagnostics (P average/tau average/sigma average/pairs tried/pairs collided/weight collided) =",reduced_global_diag
+    write(*,trim(FMT)) "diagnostics (P average/tau average/sigma average/pairs tried/pairs collided/weight collided/occurence P>1) =",reduced_global_diag
   end if
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
@@ -541,8 +559,8 @@ subroutine initialize(this, sim)
   allocate(this%P_max_elm(sim%fields%element_list%n_elements))
 
   ! initial guess of P_max (the chance that the highest collisional particle will collide this timestep)
-  ! is set to a small value to benefit from the NTC algorithm
-  this%P_max_elm(:) = 1.d-2
+  ! is set to a reasonable value to benefit from the NTC algorithm but not to generate too many errors in the beginning
+  this%P_max_elm(:) = 1.d-1
 
   ! --- Setting up random numbers
   seed = random_seed()
@@ -661,7 +679,7 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   dp = (m1*(v1f-v1i) + m2*(v2f-v2i))/max(1.d0,norm2(m1*v1i + m2*v2i)) !< relative change in momentum due to collision, should be 0, m is in amu
   dE = (m1*(norm2(v1f)**2-norm2(v1i)**2) + m2*(norm2(v2f)**2-norm2(v2i)**2)) / max(1.d0,m1*norm2(v1i)**2 + m2*norm2(v2i)**2) !< relative change in energy [J/(kg/amu)]
 
-  tol = 1.d-10
+  tol = 1.d-8
   if(abs(dp(1)) .gt. tol .or. abs(dp(1)) .gt. tol .or. abs(dp(1)) .gt. tol .or. abs(dE) .gt. tol) then
     write(*,*) "ERROR, momentum or energy not conserved in binary elastic collision (m1,m2,v1i,v2i,Theta,alpha,v1f,v2f,dp,dE)",m1,m2,v1i,v2i,Theta,alpha,v1f,v2f,dp,dE
   end if
@@ -743,7 +761,9 @@ function next(this, RN) result(i_drawn)
 
   ! check whether we have unused indices left
   if(nth_draw > this%size) then
-    write(*,*) "ERROR in random draw, every number has already been drawn once, resetting draw"
+    !$omp critical
+      write(*,*) "ERROR in random draw, every number has already been drawn once, resetting draw"
+    !$omp end critical
     call this%reset(this%size)
   end if
 
