@@ -166,7 +166,13 @@ contains
     n_lost = 0
     select type (particles => sim%groups(group_num)%particles)
     type is (particle_kinetic_relativistic)
+      if(use_manual_random_seed) then
+        !$ call omp_set_schedule(omp_sched_static,10)
+      else
+        !$ call omp_set_schedule(omp_sched_dynamic,10)
+      end if  
       !$omp parallel do default(none) &
+      !$omp schedule(runtime)         &
       !$omp private(j, k, m, n, HZ, HH, HH_s, HH_t, E, B, psi, U,  &
       !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, v_n, i_tor, ifail, &
       !$omp cylindrical_velocity, cylindrical_momentum, v_par, v_perp, gamma_m ) &
