@@ -956,6 +956,7 @@ module phys_module
   real*8  :: filter_hyper_n0      !< particle projection smoothing parameter, poloidal plane (n=0)
   real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
   logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
+  logical :: init_particles_only  !< only initialise particles, and produce part_restart files, do not run the simulation (only relevant when restart_particles=.f.)
 
   ! -----------------------------------------------
   ! --- Structures for particle valves 
@@ -1009,6 +1010,8 @@ module phys_module
     real*8             :: n_particles              !< number of super/marker particles allocated for the group (real*8 on purpose)
     character(len=50)  :: type                     !< type of particle for the group (e.g. particle_kinetic_leapfrog)
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
+    character(len=50)  :: init_function            !< name of the function to use for creating the initial distribution of in particles in the group
+    character(len=50)  :: init_pdf                 !< the pdf to be used by the init_function to sample the initial distribution of particles in the group 
 
     ! ================ for neutrals and impurities ('ncs' and 'ics' coupling schemes) particles ===============
 
@@ -1045,6 +1048,11 @@ module phys_module
     ! ================ for runaway electrons ('rep' coupling scheme) particles ===============
 
     real*8              :: num_re                  !< number of runaway electrons in the group
+    integer             :: q                       !< charge of the runaway electron superparticles in the group
+    real*8              :: re_energy               !< energy of the runaway electrons in the group
+    real*8              :: std_energy             
+    real*8              :: I_target
+    real*8              :: pitch
 
   end type type_part_group_config
 

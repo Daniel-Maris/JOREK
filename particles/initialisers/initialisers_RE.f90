@@ -2,37 +2,85 @@ module initialisers_RE
   use mod_particle_types
   use mod_particle_sim
   use mod_rng
-  use mod_initialise_particles
+  use particle_initialisers
   use constants, only: EL_CHG, ATOMIC_MASS_UNIT, SPEED_OF_LIGHT, MASS_ELECTRON, TWOPI
   use mod_pusher_tools, only: get_orthonormals
   use mod_coordinate_transforms, only: vector_cylindrical_to_cartesian
+  use mod_model_settings
+  use phys_module, only: CENTRAL_DENSITY, CENTRAL_MASS, MASS_PROTON, MU_ZERO
   implicit none
 
   contains
 
   ! Quick and rough function to sample markers based on RZ-coordinates
   pure function RZ_pdf(var) result(p)
+    real*8, intent(in)  :: var(2) ! var(1)=j
+    real*8              :: p
+    real*8              :: minor_r
+    real*8              :: R_ax, Z_ax
+
+    R_ax = 10.d0
+    Z_ax = 0.d0
+
+    minor_r = sqrt((var(1)-Z_ax)**2 + (var(2)-R_ax)**2)
+
+    p = 1 / (1 + minor_r)**2
+  end function RZ_pdf
+
+
+  ! Quick and rough function to sample markers based on poloidal flux
+pure function psi_pdf(var) result(p)
+  real*8, intent(in)  :: var(1) ! var(1)=j
+  real*8              :: p
+  real*8              :: psimin, psimax
+
+  psimax = -0.2027
+  psimin = -2.016d-9
+
+  p = ((var(1)-psimin) / (psimax - psimin))**2
+
+end function psi_pdf
+
+pure function analytical_pdf(var) result(p)
   real*8, intent(in)  :: var(2) ! var(1)=j
   real*8              :: p
   real*8              :: minor_r
+  real*8              :: nu
   real*8              :: R_ax, Z_ax
 
-  R_ax = 10.d0
+  R_ax = 6.2d0
   Z_ax = 0.d0
+  nu = 2.d0
 
   minor_r = sqrt((var(1)-Z_ax)**2 + (var(2)-R_ax)**2)
 
-  p = 1 / (1 + minor_r)**2
+  p = (1.d0 - minor_r**2/4.d0)**nu
 
-  end function RZ_pdf
+end function analytical_pdf
+
+! Quick and rough function to sample markers proportionally to toroidal current density
+pure function current_pdf(var) result(p)
+  real*8, intent(in)  :: var(2) ! var(2)=j, var(1) = R
+  !real*8, intent(in)  :: var(1) ! var(1)=j
+  real*8              :: p
+  real*8              :: jzmin, jzmax 
+
+  jzmax = 3.0 / 10.0 !1.173 / 10
+  jzmin = 0.0001239 / 11.0 !0.0003166 / 11
+
+  p = (var(2)/var(1)-jzmin)/(jzmax-jzmin)
+
+end function current_pdf
     
-  subroutine basic_initialization(sim, rng, energy, pitch, std_energy)
+  subroutine basic_initialization(sim, group_num, rng, init_pdf, energy, pitch, std_energy)
     use phys_module, only: tstep_particles
     use mod_kinetic_relativistic
     use mod_sampling, only: boxmueller_transform
 
     type(particle_sim),                   intent(inout) :: sim
+    integer,                              intent(in)    :: group_num
     class(type_rng),                      intent(in)    :: rng
+    character(len=50),                    intent(in)    :: init_pdf
     real*8,                               intent(in)    :: energy, pitch ! Kinetic energy in units of eV and pitch
     real*8,               optional,       intent(in)    :: std_energy
     real*8,               allocatable                   :: p_tot(:), p_par(:), p_perp(:)
@@ -46,18 +94,25 @@ module initialisers_RE
 
     R_bound = [1.9d0, 3.3d0]
     Z_bound = [-1.d0, 0.8d0]
-    ! Initialise every particle
-    !call initialise_particles(sim%groups(1)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[var_psi], transform=psi_pdf)
-    call initialise_particles(sim%groups(1)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-2,-1], transform=RZ_pdf)
-    !call initialise_particles(sim%groups(1)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-1,var_zj], transform=current_pdf) 
-    !call initialise_particles(sim%groups(1)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-2,-1], transform=analytical_pdf)
-    !call initialise_particles(sim%groups(1)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-1, 9], transform=normalized_nre_pdf, normalize=.false.) ! i_var = 7 for JET case, 9 for ITER case
-    ! call initialise_particles(sim%groups(1)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-1, 7], transform=new_nre_pdf, normalize=.true., Rbound=R_bound, Zbound=Z_bound) ! i_var = 7 for JET case, 9 for ITER case
 
-    !call initialise_particles(sim%groups(1)%particles, sim%fields%node_list, sim%fields%element_list, rng, normalize=.false.) ! i_var = 7 for JET case, 9 for ITER case
-    !call weigh_with_interp_f(sim%fields%node_list, sim%fields%element_list, sim%groups(1)%particles, [-2, -1], RZ_pdf)
+    select case (trim(init_pdf))
+      case ("psi")
+        call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[var_psi], transform=psi_pdf)
+      case ("RZ")
+        call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-2,-1], transform=RZ_pdf)
+      case ("current")
+        call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-1,var_zj], transform=current_pdf) 
+      case ("analytical")
+        call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-2,-1], transform=analytical_pdf)
+      case default
+        if (sim%my_id == 0) then
+          write(*,*) "ERROR: ", trim(init_pdf), " is not a valid pdf/transform functio for "
+          write(*,*) "  for group '", sim%groups(group_num)%id, "' when using the 'basic_initialization' function" 
+          endif
+        stop 1
+    end select
 
-    num_part = size(sim%groups(1)%particles,1) 
+    num_part = size(sim%groups(group_num)%particles,1) 
 
     allocate(p_tot(num_part))
     allocate(p_par(num_part))
@@ -87,7 +142,7 @@ module initialisers_RE
     p_perp              = (1-pitch) * p_tot
 
     ! Set particle momentum
-    select type (particles => sim%groups(1)%particles)
+    select type (particles => sim%groups(group_num)%particles)
     type is (particle_kinetic_relativistic)
       !$omp parallel do default(none) &
       !$omp private(E, B, psi, U, B_cart, B_norm, e1, e2, gyro_angle, j) &

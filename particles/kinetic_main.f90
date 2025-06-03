@@ -39,7 +39,7 @@ use mod_atomic_coeff_deuterium, only: ad_deuterium
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
 use mod_coupling_settings, only: use_kin_recomb_global
-use initialisers_RE
+use mod_initialise_particles
 use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -48,7 +48,7 @@ use phys_module, only: n_part_groups, n_aux_var, n_valves_max
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: apply_dirichlet_proj, part_group_configs
+use phys_module, only: apply_dirichlet_proj, part_group_configs, init_particles_only
 use phys_module, only: use_manual_random_seed, manual_seed
 !$ use omp_lib
 
@@ -120,37 +120,19 @@ else
 
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
-  ! Set initial particle properties and adjust weights accordingly
-  weight              = part_group_configs(1)%num_re / part_group_configs(1)%n_particles
-  I_target            = 0.7467798d6
-  energy              = 20.d6 !20.d6 + 0.511d6 !1.d6 !5.d6 !50.d6 !4.d6 !20.d6 !60.d6 !50.d6 !1.d6 !8.d6 !100.d6 !1.d6
-  std_energy          = 0.05d6
-  pitch               = 0.99
-  n_particles_local = int(part_group_configs(1)%n_particles/sim%n_mpi)
+  call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
 
-
-  ! Allocate and initialise gyro-orbit particles
-  allocate(particle_kinetic_relativistic::sim%groups(1)%particles(n_particles_local))
-
-  
-  select type (particles => sim%groups(1)%particles)
-  type is (particle_kinetic_relativistic)
-    particles(:)%q      = -1
-    particles(:)%weight = weight
-  end select
-
-  write(*,*) "starting basic initialization"
-  call basic_initialization(sim, pcg32_rng(), energy, pitch, std_energy)
-  write(*,*) "finished basic initialization, exporting 1"
+  call initialise_particles_for_sim(sim) !< initialise the particle positions for groups requiring it (e.g. REs)
 
   call write_simulation_hdf5(sim, 'part_restart_init1.h5')
   ! call initialise_markers_over_time(sim, 1.d-5, 1000000) 
   ! call write_simulation_hdf5(sim, 'part_restart_init2.h5')
 
-  call sim%finalize
-  stop
+  if (init_particles_only) then
+    call sim%finalize
+    stop
+  endif
 
-  ! call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
   
 endif ! (restart_particles)
 
