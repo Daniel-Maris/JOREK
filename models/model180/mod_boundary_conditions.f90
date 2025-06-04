@@ -189,6 +189,7 @@ contains
     real*8  :: theta_points, phi_points, x_points, y_points, z_points, s_points
     integer :: N_tht, mp, ms, ielm, i, j, j2, n, m, nn, mm, in, ind1, ind2, info
     integer :: number_of_points, i_tht, j_gauss, k_plane, np
+    integer :: ierr
 
     type(type_bnd_element) :: bnd_element
     type(type_node)        :: node
@@ -297,6 +298,8 @@ contains
          write(*,*) "Could not find fields_xyz.dat file"
          write(*,*) "please run jorek2_fields_xyz_stel.f90 with genereated xyz.dat file to create fields_xyz.dat file"
          write(*,*) "run model 180 again afterwards"
+         call MPI_Abort(MPI_COMM_WORLD, 3, ierr)
+         stop
       endif
 
       open(69, file="Bpn_theta_phi.dat", action="write")
