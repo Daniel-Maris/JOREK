@@ -294,10 +294,7 @@ do while (.not. sim%stop_now)
   jorek_feedback%rhs = 0.d0
 
   do group_num=1, n_part_groups
-    ! call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
-    if (sim%groups(group_num)%coupling_scheme == "rep") then
-      call evolve_REs(sim, group_num, jorek_feedback, rng, tstep_part_adj)  
-    endif
+    call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  
 
   ! --- Update the fluid
