@@ -1005,6 +1005,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'filter_hyper_n0,      ',filter_hyper_n0   
   write(*,REAL_FMT) 'filter_par_n0,        ',filter_par_n0   
   write(*,LOGI_FMT) 'apply_dirichlet_proj, ',apply_dirichlet_proj     
+  write(*,LOGI_FMT) 'init_particles_only,  ',init_particles_only     
+
 
   
   if (n_part_groups > 0) then !< particles settings
@@ -1050,6 +1052,10 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       write(*,CHAR_FMT) 'coupling_scheme,        ',sim%groups(group_num)%coupling_scheme
       write(*,REAL_FMT) 'n_particles,            ',sim%groups(group_num)%n_particles
       write(*,CHAR_FMT) 'type,                   ',trim(part_group_configs(group_num)%type)
+      write(*,CHAR_FMT) 'init_function           ',trim(part_group_configs(group_num)%init_function)
+      if (trim(part_group_configs(group_num)%init_function) /= 'none') then
+        write(*,CHAR_FMT) 'init_pdf                ',trim(part_group_configs(group_num)%init_pdf)
+      endif
 
       ! ncs and ics -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs' .or. sim%groups(group_num)%coupling_scheme .eq. 'ics') then     
@@ -1100,6 +1106,11 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       ! rep (runaway electrons, only pressure coupling for now) -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'rep') then
         write(*,REAL_FMT) 'n_re,                   ',part_group_configs(group_num)%num_re
+        write(*,INTG_FMT) 'q,                      ',part_group_configs(group_num)%q
+        write(*,REAL_FMT) 're_energy,              ',part_group_configs(group_num)%re_energy
+        write(*,REAL_FMT) 'std_energy,             ',part_group_configs(group_num)%std_energy
+        write(*,REAL_FMT) 'I_target,               ',part_group_configs(group_num)%I_target
+        write(*,REAL_FMT) 'pitch,                  ',part_group_configs(group_num)%pitch
       endif     
 
     enddo ! n_part_groups

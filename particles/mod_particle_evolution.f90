@@ -72,11 +72,17 @@ contains
     !> gathers feedback rhs per particle per tstep_part_adj and pushes particle
     !> this is where coupling specific physics such as ionisation, charge exchange... etc happens
 
-    if (part_group%coupling_scheme == 'ncs') then
-      call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj)
-    else if (part_group%coupling_scheme == 'ics') then
-      call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
-    endif
+    select case (part_group%coupling_scheme)
+      case ('ncs')
+        call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj)
+      case ('ics')
+        call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
+      case ('rep')
+        call evolve_REs(sim, group_num, feedback_rhs, rng, tstep_part_adj)
+      case default
+        write(*,*) "ERROR: Unknown coupling scheme: '", part_group%coupling_scheme, "' found for group '", part_group%id, "'"
+        stop 1
+    end select
     
     ! ================================= CONSTRUCT PROJECTION RHS =======================================
     !> enter gathered rhs into jorek_feedback
@@ -99,6 +105,14 @@ contains
       endif
     endif
 
+    !> rep specific projections
+    if (part_group%coupling_scheme == 'rep') then
+      feedback_rhs = feedback_rhs / real(nstep_particles,8) 
+      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
+    endif
+
     jorek_feedback%rhs_gather_time = 0.d0
     deallocate(feedback_rhs)
     
@@ -106,7 +120,7 @@ contains
     
   end subroutine evolve_particle_group
 
-  subroutine evolve_REs(sim, group_num, jorek_feedback, rng, tstep_part_adj)
+  subroutine evolve_REs(sim, group_num, feedback_rhs, rng, tstep_part_adj)
     use mod_project_particles
     use mod_random_seed
     use mod_interp, only: mode_moivre
@@ -117,15 +131,11 @@ contains
     implicit none
     class(particle_sim), target, intent(inout)                :: sim
     integer, intent(in)                                       :: group_num
-    type(projection), target, intent(inout)                   :: jorek_feedback
+    real*8,allocatable,          intent(inout)                :: feedback_rhs(:,:,:,:,:)
     type(count_action)                                        :: counter
     type(pcg32_rng), dimension(:), allocatable, intent(inout) :: rng
     real*8, intent(in)                                        :: tstep_part_adj
     
-    real*8,allocatable :: feedback_rhs(:,:,:,:,:)
-    real*8,allocatable :: feedback_rhs_inv(:,:,:,:,:) 
-    type (type_node_list),         pointer :: feedback_nodelist
-    type (type_element_list),      pointer :: feedback_element_list
     character(len=3) :: cs
 
     !> RE specific variables
@@ -141,38 +151,23 @@ contains
     n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
     rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 
-    !> ================================ INITIALISATION =======================================
-    if (sim%my_id .eq. 0) write(*,*) '---------- Evolving particle group: ', sim%groups(group_num)%id, " ----------"
-
-    !> Set up storage of feedback
-    jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + nstep_particles * tstep_part_adj 
-    allocate(feedback_rhs,source=jorek_feedback%rhs)
-    feedback_nodelist => jorek_feedback%node_list
-    feedback_element_list => jorek_feedback%element_list
-    feedback_rhs       = 0.d0
-
-    !> set up of inv storage (from RE implementation)
-    allocate(feedback_rhs_inv(n_aux_var,n_tor,sim%fields%element_list%n_elements,n_vertex_max,n_degrees))
-    feedback_rhs_inv    = 0.d0
-    
-    !> count number of particles in system
-    call with(sim, counter)
-    
-    !> ================================ COUPLING SPECIFIC LOOPS =======================================
-    !> gathers feedback rhs per particle per tstep_part_adj and pushes particle
-    !> this is where coupling specific physics such as ionisation, charge exchange... etc happens
-
     ! Loop over all particle groups
     n_lost = 0
     select type (particles => sim%groups(group_num)%particles)
     type is (particle_kinetic_relativistic)
+      if(use_manual_random_seed) then
+        !$ call omp_set_schedule(omp_sched_static,10)
+      else
+        !$ call omp_set_schedule(omp_sched_dynamic,10)
+      end if  
       !$omp parallel do default(none) &
+      !$omp schedule(runtime)         &
       !$omp private(j, k, m, n, HZ, HH, HH_s, HH_t, E, B, psi, U,  &
       !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, v_n, i_tor, ifail, &
       !$omp cylindrical_velocity, cylindrical_momentum, v_par, v_perp, gamma_m ) &
       !$omp shared (nstep_particles, tstep_part_adj, sim, group_num, rho_norm, &
       !$omp mom_par_idx_kin, mom_perp_idx_kin, j_phi_idx_kin) &
-      !$omp reduction(+:feedback_rhs_inv)
+      !$omp reduction(+:feedback_rhs)
   
       do j=1,size(particles,1)
         do k=1,nstep_particles
@@ -215,9 +210,15 @@ contains
               endif
   
               do i_tor = 1,n_tor
-                feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
-                feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Pperp
-                feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_jPhi
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) + HZ(i_tor)*v_Ppar
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_perp_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) + HZ(i_tor)*v_Pperp
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) + HZ(i_tor)*v_jPhi
+
+                !> inverse implementation from Hannes (TODO: reverse data structure of the projections generally)
+                ! feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
+                ! feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Pperp
+                ! feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_jPhi
+
               enddo
             enddo
           enddo
@@ -231,28 +232,26 @@ contains
   
     end select
 
-    ! ================================= CONSTRUCT PROJECTION RHS =======================================
-    !> enter gathered rhs into jorek_feedback
-    feedback_rhs_inv  = feedback_rhs_inv / real(nstep_particles,8)
-    feedback_rhs      = reshape(feedback_rhs_inv, (/n_degrees, n_vertex_max, sim%fields%element_list%n_elements, n_tor, n_aux_var/), order=(/5,4,3,2,1/))
+    ! ! ================================= CONSTRUCT PROJECTION RHS =======================================
+    ! !> enter gathered rhs into jorek_feedback
+    ! feedback_rhs_inv  = feedback_rhs_inv / real(nstep_particles,8)
+    ! feedback_rhs      = reshape(feedback_rhs_inv, (/n_degrees, n_vertex_max, sim%fields%element_list%n_elements, n_tor, n_aux_var/), order=(/5,4,3,2,1/))
 
-    !> rep specific projections
-    if (sim%groups(group_num)%coupling_scheme == 'rep') then
-      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
-    endif
+    ! !> rep specific projections
+    ! if (sim%groups(group_num)%coupling_scheme == 'rep') then
+    !   jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) !* TWOPI
+    !   jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) !* TWOPI
+    !   jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
+    ! endif
 
-    write(*,*) "mom_par_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin))
-    write(*,*) "mom_perp_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin))
-    write(*,*) "j_phi_sum: ", sum(jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin))
+    ! write(*,*) "mom_par_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin))
+    ! write(*,*) "mom_perp_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin))
+    ! write(*,*) "j_phi_sum: ", sum(jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin))
 
 
-    jorek_feedback%rhs_gather_time = 0.d0
-    deallocate(feedback_rhs)
-    deallocate(feedback_rhs_inv) 
-    
-    if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', sim%groups(group_num)%id, " ----------"
+    ! jorek_feedback%rhs_gather_time = 0.d0
+    ! deallocate(feedback_rhs)
+    ! deallocate(feedback_rhs_inv) 
     
   end subroutine evolve_REs
 
