@@ -124,7 +124,7 @@ else
 
   call initialise_particles_for_sim(sim) !< initialise the particle positions for groups requiring it (e.g. REs)
 
-  call write_simulation_hdf5(sim, 'part_restart_init1.h5')
+  call write_simulation_hdf5(sim, 'part_restart_init.h5')
   ! call initialise_markers_over_time(sim, 1.d-5, 1000000) 
   ! call write_simulation_hdf5(sim, 'part_restart_init2.h5')
 
@@ -257,27 +257,27 @@ do while (.not. sim%stop_now)
   !> The sputtering modules actually contains 3 different effects: sputtering (plasma to W, which is not used in this example), 
   !> kinetic particle reflection off the wall, and wall recombination of the plasma into kinetic neutrals (i.e. recycling)
   !> Do this call before recombination and puffing. Otherwise to-be-reflected particles can be overwritten.
-  ! if (sputter_counter > 0) then
-  !   call write_to_outputfile(sim%my_id, "Sputtering")
-  !   do i=1, sputter_counter    
-  !     call with(sim, sputter_events(i))
-  !   enddo
-  ! endif
+  if (sputter_counter > 0) then
+    call write_to_outputfile(sim%my_id, "Sputtering")
+    do i=1, sputter_counter    
+      call with(sim, sputter_events(i))
+    enddo
+  endif
 
-  ! if (recomb_counter > 0) then
-  !   call write_to_outputfile(sim%my_id, "Recombination")
-  !   do i=1, recomb_counter
-  !     call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
-  !   enddo
-  ! endif
+  if (recomb_counter > 0) then
+    call write_to_outputfile(sim%my_id, "Recombination")
+    do i=1, recomb_counter
+      call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
+    enddo
+  endif
     
-  ! if (puff_counter > 0) then 
-  !   call write_to_outputfile(sim%my_id, "Puffing")
-  !   if (sim%my_id == 0) write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
-  !   do i=1, puff_counter
-  !     call puff_actions(i)%do(sim)
-  !   enddo
-  ! endif
+  if (puff_counter > 0) then 
+    call write_to_outputfile(sim%my_id, "Puffing")
+    if (sim%my_id == 0) write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
+    do i=1, puff_counter
+      call puff_actions(i)%do(sim)
+    enddo
+  endif
 
   ! --- Interactions that happen on the particle timesteps
   
