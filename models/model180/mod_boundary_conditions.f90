@@ -253,8 +253,8 @@ contains
     ! The Jacobian for dtheta*dchi -> dtheta*dphi is dchi/dphi
     Amat = 0.d0; RHS = 0.d0
     if (extended_boundary) then
-      ! write out points in .nml file for xyz points
-      open(66,file='xyz.nml',action='write')
+      ! write out points in .dat file for xyz points
+      open(66,file='xyz.dat',action='write')
       number_of_points = n_gauss*n_plane*N_tht
  
       write(66,*), number_of_points
@@ -272,8 +272,8 @@ contains
         end do
       end do
  
-      write(*,*) "xyz.nml file is created"
-      write(*,*) "if the integration points changed, please re-run jorek2_fields_xyz_stel with this new xyz.nml file"
+      write(*,*) "xyz.dat file is created"
+      write(*,*) "if the integration points changed, please re-run jorek2_fields_xyz_stel with this new xyz.dat file"
       write(*,*) "run model 180 again afterwards"
       close(66)
 
@@ -295,7 +295,7 @@ contains
         close(26)
       else
          write(*,*) "Could not find fields_xyz.dat file"
-         write(*,*) "please run jorek2_fields_xyz_stel.f90 with genereated xyz.nml file to create fields_xyz.dat file"
+         write(*,*) "please run jorek2_fields_xyz_stel.f90 with genereated xyz.dat file to create fields_xyz.dat file"
          write(*,*) "run model 180 again afterwards"
       endif
 

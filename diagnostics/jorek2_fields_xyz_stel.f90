@@ -3,7 +3,7 @@
 !! computation of expensive volume integrals in the plasma, so run it
 !! in paralllel with several MPI processes for large cases. 
 !! As input you must provide the points in cartesian coordinates in the file
-!! xyz.nml in the format
+!! xyz.dat in the format
 !! 
 !!   n (number_of_points)
 !!   x_1       y_1       z_1  
@@ -115,9 +115,9 @@ program jorek2_fields_xyz_stel
   ! --------------------------------------------------------------
   ! ------------------  Read input points  -----------------------
   ! --------------------------------------------------------------
-  open(26,file='xyz.nml',action='read',iostat=ierr)
+  open(26,file='xyz.dat',action='read',iostat=ierr)
   if (ierr/=0) then
-    write(*,*) 'Could not read xyz.nml'
+    write(*,*) 'Could not read xyz.dat'
     stop
   endif
   read(26,*) np 
