@@ -245,12 +245,6 @@ else
   max_terms_loop = 1
 endif
 
-if (.not. present(aux_nodes)) then
-  do i=1,4
-    aux_nodes(i)%values(:,:,:) = 0.d0
-  enddo
-endif
-
 ELM_p = 0.d0
 ELM_n = 0.d0
 ELM_k = 0.d0
@@ -1250,12 +1244,15 @@ do i=1,n_vertex_max
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
             
             call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
+             
+            !> following terms are handled on the kinetic side (mod_particle_evolution.f90)
+            LradDrays_T   = 0.d0
+            dLradDrays_dT = 0.d0
 
             if (.not. with_TiTe) then
               ! --- Transform derivatives on Te to derivatives in total T
               dSion_dT           = dSion_dT      / 2.d0
               dSrec_dT           = dSrec_dT      / 2.d0
-              dLradDrays_dT      = dLradDrays_dT / 2.d0
               dLradDcont_dT      = dLradDcont_dT / 2.d0
               dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
             endif
@@ -2542,11 +2539,11 @@ do i=1,n_vertex_max
                                            - BigR**2 * (v_s * rimp0 * alpha_imp_tri * T * T0_t - v_t * rimp0 * alpha_imp_tri * T * T0_s) * theta * tstep
                     endif
                     amat(var_u,var_rhoimp) = -(1.d0 - delta_n_convection) * BigR**3 * (&
-                              +(alpha_e * rn0 * rhoimp * Sion_T)                          * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep) &
-                              -((-2.d0*alpha_e*rimp0 +(alpha_e-1.)*r0) * rhoimp * Srec_T) * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep &
-                              - BigR**2 * (v_s * rhoimp_t * alpha_i * Ti0 - v_t * rhoimp_s * alpha_i * Ti0)                  * theta * tstep &
-                              - BigR**2 * (v_s * rhoimp * alpha_i * Ti0_t - v_t * rhoimp * alpha_i * Ti0_s)                  * theta * tstep &
-                              - BigR**2 * (v_s * rhoimp_t * alpha_e * Te0     - v_t * rhoimp_s * alpha_e * Te0)              * theta * tstep &
+                              +(alpha_e * rn0 * rhoimp * Sion_T)                          * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep  &
+                              -((-2.d0*alpha_e*rimp0 +(alpha_e-1.)*r0) * rhoimp * Srec_T) * (v_x * u0_x + v_y * u0_y) * xjac * theta * tstep) &
+                              - BigR**2 * (v_s * rhoimp_t * alpha_i * Ti0 - v_t * rhoimp_s * alpha_i * Ti0)                  * theta * tstep  &
+                              - BigR**2 * (v_s * rhoimp * alpha_i * Ti0_t - v_t * rhoimp * alpha_i * Ti0_s)                  * theta * tstep  &
+                              - BigR**2 * (v_s * rhoimp_t * alpha_e * Te0     - v_t * rhoimp_s * alpha_e * Te0)              * theta * tstep  &
                               - BigR**2 * (v_s * rhoimp * alpha_e_bis * Te0_t - v_t * rhoimp * alpha_e_bis * Te0_s)          * theta * tstep
                   endif
 
@@ -2780,6 +2777,7 @@ do i=1,n_vertex_max
                     amat_k(var_vpar,var_psi) = - 0.5d0 * r0 * vpar0**2 * BB2_psi * F0 / BigR * v_p                                          * xjac * theta * tstep &
                                                - visco_par_par * F0**2 / (BigR * BB2**2) * BB2_psi * Bgrad_vpar * Bgrad_rho_k_star          * xjac * theta * tstep &
                                                + visco_par_par * F0**2 / (BigR * BB2)          * Bgrad_vpar_psi * Bgrad_rho_k_star          * xjac * theta * tstep  
+                    amat(var_vpar,var_u) = 0.d0         
                     
                     !---------------------------------------- NEO
                     if ( NEO ) then
@@ -3942,7 +3940,6 @@ do i=1,n_vertex_max
                                           + v * BigR * rho * rn0_corr * LradDrays_T                                  * xjac * theta * tstep &
                                           + v * BigR * rho * (2.d0*r0_corr+(alpha_e-1.)*rimp0_corr)*LradDcont_corr   * xjac * theta * tstep &
                                           + (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * T0                      * xjac * theta * tstep & 
-                                          - v * 0.5d0 *T0 * BigR * r0_corr * r0_corr  * Srec_T                       * xjac * theta * tstep & 
                                           + v * BigR * rho * frad_bg                                                 * xjac * theta * tstep &
                                           + v * BigR * rho * rimp0_corr * Lrad                                       * xjac * theta * tstep &
                                           ! New term from Z_eff

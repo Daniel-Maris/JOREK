@@ -1,9 +1,9 @@
 !> The equivalent of jorek2_main.f90 for kinetic simulations
 !>
 !> OpenADAS is used for atomic physics
-!> Plasma and neutral wall interaction are based on SDTRIM coefficients. 
-!> External files y_DD.dat and ye_DD.dat are used to determine wall recombination of plasma into atomic neutral deuterium. 
-!> These are based on interaction with a W wall
+!> The wall interaction rates are based on external files with Eckstein coefficients such as 
+!> y_DD.dat (for yield of a D -> D reaction, which would be wall recombination) and 
+!> ye_DD.dat (for the resulting energy of the same reaction).
 !>
 !> To use a particle restart file: use restart_particles=.t. in the input file.
 !>
@@ -30,11 +30,11 @@ use mod_random_seed
 use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
-use mod_particle_sputtering, only: particle_sputter, sample_fluid_particle_energy
+use mod_particle_wall_interaction
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
-use mod_edge_elements
+use mod_edge_elements, only: edge_elements
 use mod_atomic_coeff_deuterium, only: ad_deuterium 
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
@@ -50,12 +50,16 @@ use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: apply_dirichlet_proj, part_group_configs, init_particles_only
 use phys_module, only: use_manual_random_seed, manual_seed
+
+use mod_particle_group_id, only: matching_part_config_indices
+
+use mod_pcg32_rng, only: pcg32_rng
+use mod_rng, only: type_rng, setup_shared_rngs
 !$ use omp_lib
 
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(particle_sputter)                            :: sputter_source
 type(event)                                       :: gas_puff_event, gas_puff2_event
 type(event), target                               :: project_jorek_feedback, jorek_stepper_event
 type(pcg32_rng), dimension(:), allocatable        :: rng
@@ -63,7 +67,7 @@ type(count_action)                                :: counter
 type(projection), target                          :: jorek_feedback
 type(jorek_timestep_action), target               :: jorek_stepper
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
-type(edge_elements)                               :: sputter_edge
+type(edge_elements)                               :: edge_elm_template
 type(particle_puffing)                            :: gas_puff, gas_puff2
 
 real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
@@ -71,17 +75,20 @@ real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amoun
 !$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
-integer   :: i, j, istep, group_num, valve_num
+integer   :: i, j, istep, group_num, config_num, valve_num
 integer   :: seed, i_rng, n_stream
 
-!> For keeping track of groups requiring specific physics (e.g. sputtering, recombination, puffing...)
-integer   :: sputter_counter = 0
+!> For keeping track of groups requiring specific physics (e.g. wall actions, recombination, puffing...)
+integer   :: n_wall_act_groups = 0
 integer   :: recomb_counter  = 0
 integer   :: puff_counter    = 0
 
-integer,     dimension(:), allocatable :: recomb_groups
-type(event),  dimension(:), allocatable :: sputter_events ! can also be not allocatable and have size n_part_groups_max
+integer,                dimension(:), allocatable :: recomb_groups
 type(particle_puffing), dimension(:), allocatable :: puff_actions   
+type(wall_act_group),   dimension(:), allocatable :: wall_act_groups
+
+!tmp
+class(type_rng), dimension(:), allocatable :: wall_rng
 
 ! ![D] temporary variables for RE
 real*8 :: weight, energy, std_energy, pitch, I_target
@@ -165,29 +172,27 @@ n_norm    = CENTRAL_DENSITY * 1.d20                              ! (number) dens
 rho_norm  = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
 t_norm    = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek 
 
-! --- Setting up edge domains for sputtering
+! --- Setting up wall actions
+! edge domains for wall actions
 call find_edge_domains(node_list,element_list, edge_domains)!, discont_corner=.true.)
 if (sim%my_id .eq. 0) write(*,*) "n_domains = ", size(edge_domains,1)
-call sputter_edge%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
+call edge_elm_template%prepare(node_list, element_list, edge_domains, nsub=6, nsub_toroidal=1)!,wall_albedo=wall_albedo)
+
+! getting the wall actions from the input
+wall_act_groups =  wall_actions_from_config(sim, edge_elm_template)
+n_wall_act_groups = size(wall_act_groups,1)
 
 ! --- Setting up particle events
-allocate(sputter_events(n_part_groups), recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
+allocate(recomb_groups(n_part_groups), puff_actions(n_part_groups*n_valves_max)) 
 
 do group_num=1, n_part_groups
-
-  ! sputtering
-  if (sim%groups(group_num)%use_kin_sputtering) then
-    sputter_counter = sputter_counter + 1 ! increase the number of groups that requires sputtering
-    n_reflect = ceiling(sim%groups(group_num)%n_particles * sim%groups(group_num)%n_reflect_ratio)
-    sputter_source = initialise_sputtering(sputter_edge, group_num, n_reflect)
-    sputter_events(sputter_counter) = event(sputter_source)
-  endif
-
+  config_num = matching_part_config_indices(group_num)
+  
   ! puffing
   if (sim%groups(group_num)%use_kin_puffing) then
     do valve_num=1, n_valves_max
       !> check for the puff_ctrl objects that have been set
-      if ((part_group_configs(group_num)%puff_ctrl(valve_num)%rates(1) > 0) .OR. (part_group_configs(group_num)%puff_ctrl(valve_num)%times(1) >= 0)) then
+      if ((part_group_configs(config_num)%puff_ctrl(valve_num)%rates(1) > 0) .OR. (part_group_configs(config_num)%puff_ctrl(valve_num)%times(1) >= 0)) then
         puff_counter = puff_counter + 1   ! increase the number of puffing events required per fluid time step
         puff_actions(puff_counter) = particle_puffing(sim, group_num, valve_num, seed=seed)  
       endif
@@ -253,19 +258,17 @@ do while (.not. sim%stop_now)
 
 
   ! --- Interactions that happen on the fluid timestep (creating kinetic particles)
-  
-  !> The sputtering modules actually contains 3 different effects: sputtering (plasma to W, which is not used in this example), 
-  !> kinetic particle reflection off the wall, and wall recombination of the plasma into kinetic neutrals (i.e. recycling)
-  !> Do this call before recombination and puffing. Otherwise to-be-reflected particles can be overwritten.
-  if (sputter_counter > 0) then
-    call write_to_outputfile(sim%my_id, "Sputtering")
-    do i=1, sputter_counter    
-      call with(sim, sputter_events(i))
+
+  if (n_wall_act_groups > 0) then
+    ! here only do the wall actions that create particles
+    call write_to_outputfile(sim%my_id, "Particle creating wall_actions")
+    do i=1, n_wall_act_groups
+      call wall_act_groups(i)%do(sim,.false.)
     enddo
   endif
 
   if (recomb_counter > 0) then
-    call write_to_outputfile(sim%my_id, "Recombination")
+    call write_to_outputfile(sim%my_id, "Volume recombination") !< as opposed to wall recombination which is part of wall_actions
     do i=1, recomb_counter
       call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
     enddo
@@ -296,6 +299,17 @@ do while (.not. sim%stop_now)
   do group_num=1, n_part_groups
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  
+
+  ! --- Handling the particles that left the domain
+
+  ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
+  ! which might lead to bad behaviour in other code than the wall_actions
+  if (n_wall_act_groups > 0) then
+    call write_to_outputfile(sim%my_id, "Particle particle wall_actions")
+    do i=1, n_wall_act_groups
+      call wall_act_groups(i)%do(sim,.true.)
+    enddo
+  endif
 
   ! --- Update the fluid
   
@@ -332,7 +346,7 @@ call write_to_outputfile(sim%my_id, "End of simulation")
   
 call write_simulation_hdf5(sim, 'part_restart.h5')
 
-deallocate(sputter_events, recomb_groups)
+deallocate(recomb_groups)
 
 call sim%finalize()
 
@@ -356,23 +370,6 @@ subroutine write_to_outputfile(id,what)
 
 end subroutine
 
-function initialise_sputtering(sputter_edge, target_group, n_reflect) result(sputter_source)
-  use mod_edge_domain
-  use mod_edge_elements
-
-  type(edge_elements), intent(in)     :: sputter_edge
-  integer, intent(in)                 :: target_group
-  integer, intent(in)                 :: n_reflect
-  type(particle_sputter)              :: sputter_source
-
-  ! target group, number of particles per mpi task, densities, Zs, basename
-  sputter_source = particle_sputter(sputter_edge, target_group, n_reflect)
-  sputter_source%use_Yn_func = .false.
-  sputter_source%n_save = nout !10 ! or nout
-  sputter_source%albedo_for_neutrals = 1.d0
-  sputter_source%sputtered_particle_weight_threshold = 1.d0
-
-end function
 
 pure function f_adapted(n, P, grad_P) result(f)
   integer, intent(in) :: n

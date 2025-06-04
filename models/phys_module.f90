@@ -994,6 +994,23 @@ module phys_module
     real*8  :: times(n_puff_segment_max)  !< array of time checkpoints (SI, in seconds) for which the puffing rate is specified (requires a defined puff_ctrl(i)%rates of the same length)   
     real*8  :: rates(n_puff_segment_max)  !< array of specified puff rates (atoms/second) at given time checkpoints (requires a defined puff_ctrl(i)%times of the same length)
   end type type_puff_ctrl
+
+  ! ------------------------------------------------
+  ! --- Structures for settings wall_action
+  ! ------------------------------------------------
+  !> Contains settings to define one wall_action (see mod_particle_wall_interaction)
+  type :: type_wall_act_config
+    character(len=20) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
+    character(len=3)  :: target_group_id !< which particle group (as identified by its %id) this wall interaction affects
+    real*8            :: weight_factor   !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
+    
+    ! settings for number of superparticles created when new super particles must be initialised
+    integer           :: supers_num_wall    !< number of new superparticles initialised at each puff action
+    real*8            :: supers_weight_wall !< aimed weight (no. real particles per superparticle) of the new superparticles initialised at each puff action
+    real*8            :: supers_ratio_wall  !< fraction of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action
+    !< if none of these three above options are set, the supers_ratio_wall method
+    !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
+  end type type_wall_act_config
   
   ! ------------------------------------------------
   ! --- Structures for particle groups
@@ -1016,11 +1033,9 @@ module phys_module
     ! ================ for neutrals and impurities ('ncs' and 'ics' coupling schemes) particles ===============
 
     character(len=8)    :: atom_data_suffix        !< suffix of ADAS data, temporary and should be replaced by relative path instead    
-    logical             :: use_kin_sputtering      !< switch on sputtering for group (only relevant for neutrals)
     logical             :: use_kin_ionisation      !< switch on ionisation* for group 
                                                    !  *for ics this also includes recombination as it switches on the changing of the particle's charge state               
     logical             :: use_kin_puffing         !< switch on particle puffing for group    
-    real*8              :: n_reflect_ratio         !< ratio of the n_particles to use in reflection events    
     logical             :: use_kin_radiation       !< switch on radiation for group (only line rad* for ncs, line rad + bremsstrahlung + recomb** for ics)
                                                    !  *line radiation here refers to the radiation resultant from energy level changes of bound electrons 
                                                    !  in neutrals/impurity ions due to collisions with the background plasma. Their spectra is discrete
@@ -1044,6 +1059,8 @@ module phys_module
     !> i.e. puff_ctrl(1) will link the puff_ctrl to the valves(1)
     type(type_puff_ctrl), dimension(n_valves_max) :: puff_ctrl 
 
+    !> --- the settings to define the wall_action objects for this particle group. Index is arbitrary
+    type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
 
     ! ================ for runaway electrons ('rep' coupling scheme) particles ===============
 
@@ -1060,6 +1077,24 @@ module phys_module
   character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
 
   type (type_part_group_config), dimension(n_part_groups_max) :: part_group_configs 
+
+  ! ------------------------------------------------
+  ! --- Structures for fluid groups
+  ! ------------------------------------------------
+  !> @name Fluid group settings, to give more information on the underlying fluid species simulated
+  integer            :: n_fluid_groups                !< number of fluid groups being used
+  integer, parameter :: n_fluid_groups_max = 10       !< maximum number of fluid groups    
+
+  !> currently only holds information for wall_action objects from the fluid side
+  type :: type_fluid_config
+    integer :: Z                !< Z of this fluid species (e.g. -2 for D)
+    real*8  :: density_fraction !< fraction of the plasma density of this specific fluid. The density fractions of all used fluid configs should add up to 1
+    type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
+  end type type_fluid_config
+
+  !> this makes it possible to e.g. simulate a DT fluid as a single MHD fluid 
+  !> but split out the flux to the wall partly to D and partly to T neutrals
+  type(type_fluid_config), dimension(n_fluid_groups_max) :: fluid_configs
 
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families

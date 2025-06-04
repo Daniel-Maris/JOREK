@@ -2793,7 +2793,7 @@ if (my_id .eq. 0) then
     write(*,'(A,4es14.6,A)') ' Ion source (aux_rho0), Recomb loss                : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
     write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_mom_par0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
     write(*,'(A,3es14.6,A)') ' Heat source (aux_E0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
-    write(*,'(A,4es14.6,A)') ' Prec, Prb, Prb_cooling       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6,Prb_cooling/1.d6,' [MW]'
+    write(*,'(A,5es14.6,A)') ' Prec, Prb, Prb_cooling       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6,Prb_cooling/1.d6,' [MW]'
     write(*,'(A)') '----------------------------------------'
   endif !use_ncs .or. use_ics 
 
