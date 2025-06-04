@@ -203,16 +203,10 @@ contains
               
               v_n     = proj_factor
 
-              if (m==1 .and. n==1 .and. j==1 .and. k==100) then
-                write(*,*) "proj_factor", proj_factor
-                write(*,*) "v_Ppar", v_Ppar
-                write(*,*) "v_Pperp", v_Pperp
-              endif
-  
               do i_tor = 1,n_tor
                 feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) + HZ(i_tor)*v_Ppar
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_perp_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) + HZ(i_tor)*v_Pperp
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) + HZ(i_tor)*v_jPhi
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_perp_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_perp_idx_kin) + HZ(i_tor)*v_Pperp
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) + HZ(i_tor)*v_jPhi
 
                 !> inverse implementation from Hannes (TODO: reverse data structure of the projections generally)
                 ! feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
@@ -231,27 +225,6 @@ contains
       !$omp end parallel do 
   
     end select
-
-    ! ! ================================= CONSTRUCT PROJECTION RHS =======================================
-    ! !> enter gathered rhs into jorek_feedback
-    ! feedback_rhs_inv  = feedback_rhs_inv / real(nstep_particles,8)
-    ! feedback_rhs      = reshape(feedback_rhs_inv, (/n_degrees, n_vertex_max, sim%fields%element_list%n_elements, n_tor, n_aux_var/), order=(/5,4,3,2,1/))
-
-    ! !> rep specific projections
-    ! if (sim%groups(group_num)%coupling_scheme == 'rep') then
-    !   jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) !* TWOPI
-    !   jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) !* TWOPI
-    !   jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
-    ! endif
-
-    ! write(*,*) "mom_par_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin))
-    ! write(*,*) "mom_perp_sum: ", sum(jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin))
-    ! write(*,*) "j_phi_sum: ", sum(jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin))
-
-
-    ! jorek_feedback%rhs_gather_time = 0.d0
-    ! deallocate(feedback_rhs)
-    ! deallocate(feedback_rhs_inv) 
     
   end subroutine evolve_REs
 
@@ -286,7 +259,7 @@ contains
     !> Coupling --------------------------------------
     real*8    :: density_source, mom_par_source, energy_source
     real*8    :: density_fb, mom_par_fb, E_fb, imp_q_fb, imp_density_fb, imp_P_rad_fb, extra_proj 
-    real*8    :: v_temp(3), T_eV, B_norm(3)
+    real*8    :: v_temp(3), B_norm(3)
     real*8    :: vvector(3), ran_norm(4)
 
     logical   :: limits, limits_coll
@@ -309,12 +282,12 @@ contains
 
     real*8    :: n_norm, rho_norm, t_norm, v_norm, E_norm, M_norm
     real*8    :: t, E(3), B(3), psi, U,n_i, n_e, T_e, grad_T_e(3), rz_old(2), st_old(2)
-    real*8    :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, R, Z
+    real*8    :: Z_g, R_s, R_t, Z_s, Z_t, xjac, R, Z
     real*8    :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
 
     integer   :: i, j, k, l, m, n, i_elm_old, i_elm, q_old 
     integer   :: seed, i_rng, n_stream, ierr, nthreads
-    integer   :: i_tor, index_lm, i_elm_temp
+    integer   :: i_tor, i_elm_temp
     integer   :: n_particles, ifail 
     integer   :: imp_q_idx_temp
 
@@ -341,7 +314,7 @@ contains
     !$omp parallel do default(none)                                                                       &
 #endif
     !$omp schedule(runtime)                                                                               &
-    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                         &
+    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                            &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
@@ -350,9 +323,9 @@ contains
     !$omp ionize_rate, ionize_prob, ionize_ran, ionize_ran_imp, ionize_source, ionize_energy,             &
     !$omp cx_rate, cx_prob, cx_source, cx_energy, cx_ran,                                                 &
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
-    !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,                  &
+    !$omp R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, ifail,                                 &
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
-    !$omp density_source, mom_par_source, energy_source, v_temp, T_eV,                                    &
+    !$omp density_source, mom_par_source, energy_source, v_temp,                                          &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll,                                                &
     !$omp vvector, ran_norm, imp_q_idx_temp)                                                              &
@@ -452,9 +425,6 @@ contains
     
             call rng(i_rng)%next(cx_ran)
             if (cx_ran(1) .le. CX_prob) then
-              ! sample boltzman, randomize velocity
-              T_eV = T_e * K_BOLTZ / EL_CHG !< T_eV = electron T in [eV]
-  
               !> ----- NEW CX PARTICLE ---------
               !Box-Mueller sample velocities with st.dev=1
               ran_norm = boxmueller_transform(cx_ran(2:5))
@@ -496,7 +466,6 @@ contains
                 
           do l=1,n_vertex_max
             do m=1,n_order+1
-              index_lm = (l-1)*(n_order+1) + m
   
               density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source     * t_norm / rho_norm
               mom_par_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
@@ -603,8 +572,6 @@ contains
           do l=1,n_vertex_max
             do m=1,n_order+1
   
-              index_lm = (l-1)*(n_order+1) + m
-
               mom_par_fb     = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
               E_fb           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source  * t_norm / E_norm
               imp_q_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q /real(nstep_particles,8)
