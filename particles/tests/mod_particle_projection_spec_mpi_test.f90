@@ -77,7 +77,7 @@ end subroutine teardown
 subroutine test_particle_projection_square_10_10_pcg32
   use constants,                         only: TWOPI
   use mod_pcg32_rng,                     only: pcg32_rng
-  use mod_project_particles,             only: proj_one
+  use mod_rhs_projections,               only: proj_one
   use mod_projection_helpers_test_tools, only: f_1,default_square_grid
   implicit none
   real*8,parameter              :: expect_mean=1.d0
@@ -425,7 +425,7 @@ apply_dirichlet_in,write_particle_in,n_fields_write_in)
       trim(adjustl(group_string))//trim(fname)//'.h5',n_fields=n_fields_write,time=test_time)
     endif
   enddo
-  deallocate(sim%groups); call project%close_mumps();
+  deallocate(sim%groups); call project%close_projection();
 end subroutine project_n
 
 !> Create RHS by integrating f and with monte carlo methods and
@@ -513,7 +513,7 @@ n_tor_local_in,i_tor_local_in,smoothing_in,apply_dirichlet_in)
   call assert_equals(mean_expect,maxval(abs(rhs_f-my_rhs)),tol,message//' |integrated-MC rhs|_inf n='//&
   trim(adjustl(n_particles_string)))
   call MPI_Barrier(MPI_COMM_WORLD,ifail)
-  deallocate(rhs_f); deallocate(my_rhs);! call project%close_mumps() !< cleanup
+  deallocate(rhs_f); deallocate(my_rhs);! call project%close_projection() !< cleanup
 end subroutine rhs_convergence
 
 !> ------------------------------------------------
