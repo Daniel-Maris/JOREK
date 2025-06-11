@@ -108,8 +108,8 @@ contains
     !> rep specific projections
     if (part_group%coupling_scheme == 'rep') then
       feedback_rhs = feedback_rhs / real(nstep_particles,8) 
-      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_perp_idx_kin) + feedback_rhs(:,:,:,:,mom_perp_idx_kin) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,P_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,P_par_idx_kin) + feedback_rhs(:,:,:,:,P_par_idx_kin) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin) + feedback_rhs(:,:,:,:,P_perp_idx_kin) !* TWOPI
       jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
     endif
 
@@ -166,7 +166,7 @@ contains
       !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, v_n, i_tor, ifail, &
       !$omp cylindrical_velocity, cylindrical_momentum, v_par, v_perp, gamma_m ) &
       !$omp shared (nstep_particles, tstep_part_adj, sim, group_num, rho_norm, &
-      !$omp mom_par_idx_kin, mom_perp_idx_kin, j_phi_idx_kin) &
+      !$omp P_par_idx_kin, P_perp_idx_kin, j_phi_idx_kin) &
       !$omp reduction(+:feedback_rhs)
   
       do j=1,size(particles,1)
@@ -204,13 +204,13 @@ contains
               v_n     = proj_factor
 
               do i_tor = 1,n_tor
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_par_idx_kin) + HZ(i_tor)*v_Ppar
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_perp_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,mom_perp_idx_kin) + HZ(i_tor)*v_Pperp
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) + HZ(i_tor)*v_Ppar
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_perp_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_perp_idx_kin) + HZ(i_tor)*v_Pperp
                 feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) + HZ(i_tor)*v_jPhi
 
                 !> inverse implementation from Hannes (TODO: reverse data structure of the projections generally)
-                ! feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
-                ! feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(mom_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Pperp
+                ! feedback_rhs_inv(P_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(P_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
+                ! feedback_rhs_inv(P_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(P_perp_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Pperp
                 ! feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(j_Phi_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_jPhi
 
               enddo

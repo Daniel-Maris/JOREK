@@ -28,8 +28,8 @@ module coupling_variables
 
   ! REP (Pressure coupling scheme for runaway electrons)
   character(len=var_name_len), dimension(3) :: rep_var_names = [character(len=var_name_len) :: &
-    "mom_par",  & !> parallel momentum
-    "mom_perp", & !> perpendicular momentum
+    "P_par",    & !> parallel component of dynamic pressure tensor
+    "P_perp",   & !> perpendicular component of dynamic pressure tensor
     "j_Phi"     & !> Phi compoment of current  
   ]
 
@@ -39,7 +39,8 @@ module coupling_variables
   integer :: rho_idx_kin      = 0
   integer :: mom_par_idx_kin  = 0
   integer :: E_idx_kin        = 0
-  integer :: mom_perp_idx_kin = 0
+  integer :: P_par_idx_kin    = 0
+  integer :: P_perp_idx_kin   = 0
   integer :: j_Phi_idx_kin    = 0
 
   !> index of coupling variables specific to each impurity group

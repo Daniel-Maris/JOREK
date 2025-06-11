@@ -195,8 +195,10 @@ subroutine determine_coupling_variables()
         mom_par_idx_kin = final_var_idx
       case ("E")
         E_idx_kin = final_var_idx
-      case ("mom_perp")
-        mom_perp_idx_kin = final_var_idx
+      case ("P_par")
+        P_par_idx_kin  = final_var_idx
+      case ("P_perp")
+        P_perp_idx_kin = final_var_idx
       case ("j_Phi")
         j_Phi_idx_kin = final_var_idx
       case ("imp_q")

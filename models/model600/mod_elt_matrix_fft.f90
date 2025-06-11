@@ -208,7 +208,7 @@ real*8     :: visco_fact_old, visco_fact_new
 
 ! --- Fluid-kinetic coupling variables
 real*8     :: aux_rho0, aux_E0, aux_mom_par0
-real*8     :: aux_mom_par_re, aux_mom_perp_re, aux_jre, aux_jre_ind
+real*8     :: aux_P_par_re, aux_P_perp_re, aux_jre, aux_jre_ind
 
 #define DIM1 n_plane
 #define DIM2 1:n_vertex_max*n_var*n_degrees
@@ -327,7 +327,7 @@ eq_zTe          = 0.d0
 eq_zT           = 0.d0
 
 aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
-aux_mom_par_re = 0.d0; aux_mom_perp_re = 0.d0; aux_jre = 0.d0; aux_jre_ind = 0.d0
+aux_P_par_re = 0.d0; aux_P_perp_re = 0.d0; aux_jre = 0.d0; aux_jre_ind = 0.d0
 
 amu_neo_prof   = 0.d0
 aki_neo_prof   = 0.d0
@@ -701,17 +701,10 @@ do i=1,n_vertex_max
 
           !> kinetic runaway electrons 
           if (use_rep) then !> kinetic RE pressure coupling scheme
-            aux_mom_par_re    = ( - x_t(ms,mt) * eq_aux_s(mp,mom_par_idx_kin,ms,mt) + x_s(ms,mt) * eq_aux_t(mp,mom_par_idx_kin,ms,mt) ) / xjac
-            aux_mom_perp_re   = ( - x_t(ms,mt) * eq_aux_s(mp,mom_perp_idx_kin,ms,mt) + x_s(ms,mt) * eq_aux_t(mp,mom_perp_idx_kin,ms,mt) ) / xjac
+            aux_P_par_re      = ( - x_t(ms,mt) * eq_aux_s(mp,P_par_idx_kin,ms,mt) + x_s(ms,mt) * eq_aux_t(mp,P_par_idx_kin,ms,mt) ) / xjac
+            aux_P_perp_re     = ( - x_t(ms,mt) * eq_aux_s(mp,P_perp_idx_kin,ms,mt) + x_s(ms,mt) * eq_aux_t(mp,P_perp_idx_kin,ms,mt) ) / xjac
             aux_jre           = eq_aux_g(mp,j_Phi_idx_kin,ms,mt)
             aux_jre_ind       = aux_jre
-
-            ! if (i==1 .and. j==1 .and. ms==1 .and. mt==1) then 
-            !   write(*,*) 'aux_jre_ind', aux_jre_ind
-            !   write(*,*) 'aux_mom_par_re', aux_mom_par_re
-            !   write(*,*) 'aux_mom_perp_re', aux_mom_perp_re
-            ! endif
-
           endif
 
           if (with_neutrals) then
@@ -1462,8 +1455,8 @@ do i=1,n_vertex_max
                              + BigR**2 * vpar0 * (r0_x * ps0_y - r0_y * ps0_x)    * (v_x * u0_x + v_y * u0_y) * xjac * tstep &
                            ) * factor(var_u,10)                                                                              &
 
-                        ! -------------------------------------- from kinetic coupling -------------------------------------------------
-                           - v * (aux_mom_par_re + aux_mom_perp_re) * BigR              * xjac * tstep * factor(var_u,12)
+                        ! --------------------------------------   from kinetic coupling -------------------------------------------------
+                           - v * (aux_P_par_re + aux_P_perp_re) *   BigR              * xjac * tstep * factor(var_u,12)
                         ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
 
             

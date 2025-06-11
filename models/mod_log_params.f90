@@ -1108,10 +1108,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       ! rep (runaway electrons, only pressure coupling for now) -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'rep') then
         write(*,REAL_FMT) 'n_re,                   ',part_group_configs(group_num)%num_re
-        write(*,INTG_FMT) 'q,                      ',part_group_configs(group_num)%q
         write(*,REAL_FMT) 're_energy,              ',part_group_configs(group_num)%re_energy
         write(*,REAL_FMT) 'std_energy,             ',part_group_configs(group_num)%std_energy
-        write(*,REAL_FMT) 'I_target,               ',part_group_configs(group_num)%I_target
         write(*,REAL_FMT) 'pitch,                  ',part_group_configs(group_num)%pitch
       endif     
 

@@ -90,8 +90,6 @@ type(wall_act_group),   dimension(:), allocatable :: wall_act_groups
 !tmp
 class(type_rng), dimension(:), allocatable :: wall_rng
 
-! ![D] temporary variables for RE
-real*8 :: weight, energy, std_energy, pitch, I_target
 integer :: n_particles_local
 
 !***********************************************************************

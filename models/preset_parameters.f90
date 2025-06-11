@@ -898,10 +898,8 @@ part_group_configs(:)%ics_group_idx          = -1
 
 !----- specific to ics and ncs 
 part_group_configs(:)%num_re                 = 0.d0
-part_group_configs(:)%q                      = 0
 part_group_configs(:)%re_energy              = 0.d0
 part_group_configs(:)%std_energy             = 0.d0
-part_group_configs(:)%I_target               = 0.d0
 part_group_configs(:)%pitch                  = 0.d0
 
 do i=1, n_part_groups_max

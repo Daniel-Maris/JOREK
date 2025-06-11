@@ -106,7 +106,7 @@ end function current_pdf
         call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-2,-1], transform=analytical_pdf)
       case default
         if (sim%my_id == 0) then
-          write(*,*) "ERROR: ", trim(init_pdf), " is not a valid pdf/transform functio for "
+          write(*,*) "ERROR: ", trim(init_pdf), " is not a valid pdf/transform function for "
           write(*,*) "  for group '", sim%groups(group_num)%id, "' when using the 'basic_initialization' function" 
           endif
         stop 1
@@ -139,7 +139,7 @@ end function current_pdf
     end if
 
     p_par               = pitch * p_tot
-    p_perp              = (1-pitch) * p_tot
+    p_perp              = sqrt(p_tot**2 - p_par**2)
 
     ! Set particle momentum
     select type (particles => sim%groups(group_num)%particles)

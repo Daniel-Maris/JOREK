@@ -113,7 +113,7 @@ subroutine configure_particle_groups(sim)
     ! === rep options
     if (sim%groups(i)%coupling_scheme == 'rep') then
       sim%groups(i)%av_weight  =  config%num_re / config%n_particles
-      sim%groups(i)%q          =  config%q
+      sim%groups(i)%q          =  -1 !< default charge of the runaway electrons
     endif
 
   enddo 
