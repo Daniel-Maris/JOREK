@@ -425,7 +425,7 @@ apply_dirichlet_in,write_particle_in,n_fields_write_in)
       trim(adjustl(group_string))//trim(fname)//'.h5',n_fields=n_fields_write,time=test_time)
     endif
   enddo
-  deallocate(sim%groups); call project%close_mumps();
+  deallocate(sim%groups); call project%close_projection()
 end subroutine project_n
 
 !> Create RHS by integrating f and with monte carlo methods and
