@@ -69,10 +69,6 @@ end function current_pdf
     Z_bound = [-1.d0, 0.8d0]
 
     select case (trim(init_pdf))
-      case ("psi")
-        call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[var_psi], transform=psi_pdf)
-      case ("RZ")
-        call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-2,-1], transform=RZ_pdf)
       case ("current")
         call initialise_particles(sim%groups(group_num)%particles, sim%fields%node_list, sim%fields%element_list, rng, variables=[-1,var_zj], transform=current_pdf) 
       case ("analytical")
