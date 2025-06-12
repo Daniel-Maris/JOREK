@@ -7,8 +7,6 @@ module mod_projection_type
   use data_structure, only: type_node_list, type_element_list
   use mod_io_actions, only: io_action
 
-  public write_particle_distribution_to_vtk, write_particle_distribution_to_h5 !< public for testing reasons, please don't use directly
-
   !> Action to project all particle distributions and save them to vtk.
   !> You must use the (new_)projection() constructor to set this up.
   !> At construction time the matrix is solved.

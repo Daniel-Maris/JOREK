@@ -34,6 +34,7 @@ use mod_uncoupled_projection, only: assemble_system, project_only
 implicit none
 private
 public projection, new_projection, sample_rhs
+public write_particle_distribution_to_vtk, write_particle_distribution_to_h5 !< public for testing reasons, please don't use directly
 
 type, extends(t_projection) :: projection
   contains
