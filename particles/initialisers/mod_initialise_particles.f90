@@ -1,8 +1,11 @@
-!> master module which handles the initialisation of particles in particle groups
-!> for the simulation. 
+!> Master module which handles the creation of the initial distribution of
+!> superparticles for specific particle groups the for kinetic simulations.
+!> This module mainly handles the interface between the initialisers and the simulation
+!> The function of the specific initialiser subroutines are contained in the 
+!> "initialisers_*.f90" files
 module mod_initialise_particles
   use initialisers_RE
-  use particle_initialisers
+  use initialisers_base
   use phys_module, only: part_group_configs, type_part_group_config, n_part_groups
   use mod_particle_group_id, only: matching_part_config_indices
   
@@ -20,14 +23,10 @@ module mod_initialise_particles
       !> initialisation of runaway electrons
       if (trim(part_group_configs(j)%coupling_scheme) == 'rep') then
         if (sim%my_id == 0) write(*,*) "----- Initialising particles for group '", part_group_configs(j)%id, "' with coupling scheme '", part_group_configs(j)%coupling_scheme, "' -----"
-        
 
         call initialise_group_RE(sim, i)
       endif
-
-
     enddo
-
 
   end subroutine initialise_particles_for_sim
 
