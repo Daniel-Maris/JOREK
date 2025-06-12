@@ -40,8 +40,8 @@ program test_NNC
   !< rho_1, rho_2, T, p_ii (p_RR, p_ZZ, p_\phi\phi), 1 empty
 
   !parameters of the grid
-  real*8, parameter :: R_0 = 200.d0, Z_0 = 0.d0, length = 1.d0
-  integer, parameter :: n = 6 !10!2!100 ! number of nodes in r, z directions
+  real*8, parameter :: R_0 = 100.d0, Z_0 = 0.d0, length = 1.d0
+  integer, parameter :: n = 11 !101!6!10!2!100 ! number of nodes in r, z directions
 
   !variables
   integer :: i, i_elm, i_step, nstep_proj
@@ -56,6 +56,9 @@ program test_NNC
   real*8, allocatable :: w_iRt(:,:,:)  !< weights per species as a function of R and t, dim(species,R_bins,0:nstep) 
   real*8, allocatable :: t_arr(:)      !< timesteps, dim(0:nstep)
   integer, parameter  :: R_bins = 1000 !< number of bins along R for the w_i(R,t) diagnostic
+
+  integer, parameter  :: N_test_pa = 1000 !< max number of test particles for MSD determination 
+  logical, dimension(N_test_pa) :: start_near_wall !< whether the MSD test particles start near the wall or not
 
   !conservation
   real*8 :: conserv_obj(6)
@@ -148,6 +151,20 @@ program test_NNC
       RN(5:8) = boxmueller_transform(RN(5:8))
       p(i)%v      = 0.d0 + sqrt(T_av*K_BOLTZ/(sim%groups(1)%mass * ATOMIC_MASS_UNIT))*RN(5:7)
 
+      ! checking influence of non-Gaussian initial velocity distribution
+      ! if(mod(i,9) == 0) then
+      !   p(i)%v = p(i)%v * 3 !sqrt(2.d0)
+      ! else
+      !   p(i)%v = 0
+      ! end if
+
+      ! checking influence of variable weights
+      ! if(mod(i,10) == 0) then
+      !   p(i)%weight = p(i)%weight * 9 !sqrt(2.d0)
+      ! else
+      !   p(i)%weight = p(i)%weight / 9.d0
+      ! end if
+
       if(R < R_0) then
         p(i)%i_life = 1
       else
@@ -156,8 +173,12 @@ program test_NNC
     end do
     !$omp end parallel do
 
-    !setting the MSD particle
-    p(1)%x = [R_0,Z_0,0.d0]
+    ! determining which particles are far away from boundary to use for MSD
+    start_near_wall = .false.
+    do i=1,N_test_pa
+      if(abs(p(i)%x(1) - R_0) > 0.9 * length) start_near_wall(i) = .true.
+      if(abs(p(i)%x(2) - Z_0) > 0.9 * length) start_near_wall(i) = .true.
+    end do
   end select
 
   !projections for feedback purposes
@@ -212,6 +233,15 @@ program test_NNC
       call fill_w_iRt(sim,w_iRt,t_arr,i_step)
       call with(sim, project_diagnostics)
       ! call conservation_checks(sim,conserv_obj)
+
+      ! writing MSD particles information to file
+      select type (pa => sim%groups(1)%particles)
+      type is (particle_kinetic_leapfrog)  
+      do i=1,N_test_pa
+        if(start_near_wall(i)) cycle
+        write(13+sim%my_id,"(2I10, 7es20.10)") i, i_step, sim%time, pa(i)%x, pa(i)%v
+      end do
+      end select
     end if
 
     call log_block(sim%my_id, "Neutral self collision", last_time)
@@ -233,13 +263,6 @@ program test_NNC
 
     ! write(filename,"(A,I2.2)") "i_step_",i_step
     ! call write_simulation_hdf5(sim,filename)  
-
-    select type (pa => sim%groups(1)%particles)
-    type is (particle_kinetic_leapfrog)  
-    do i=1,1
-      write(13+sim%my_id,"(2I10, 8es20.10)") i, i_step, sim%time, pa(i)%x, pa(i)%v
-    end do
-    end select
   end do
 
   ! --- end
