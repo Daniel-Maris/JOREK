@@ -1,8 +1,10 @@
+!> module containing initialization and pdf (probability distribution function) generation
+!> subroutines specifically useful for runaway electrons
 module initialisers_RE
   use mod_particle_types
   use mod_particle_sim
   use mod_rng
-  use particle_initialisers
+  use initialisers_base
   use constants, only: EL_CHG, ATOMIC_MASS_UNIT, SPEED_OF_LIGHT, MASS_ELECTRON, TWOPI
   use mod_pusher_tools, only: get_orthonormals
   use mod_coordinate_transforms, only: vector_cylindrical_to_cartesian
@@ -11,35 +13,6 @@ module initialisers_RE
   implicit none
 
   contains
-
-  ! Quick and rough function to sample markers based on RZ-coordinates
-  pure function RZ_pdf(var) result(p)
-    real*8, intent(in)  :: var(2) ! var(1)=j
-    real*8              :: p
-    real*8              :: minor_r
-    real*8              :: R_ax, Z_ax
-
-    R_ax = 10.d0
-    Z_ax = 0.d0
-
-    minor_r = sqrt((var(1)-Z_ax)**2 + (var(2)-R_ax)**2)
-
-    p = 1 / (1 + minor_r)**2
-  end function RZ_pdf
-
-
-  ! Quick and rough function to sample markers based on poloidal flux
-pure function psi_pdf(var) result(p)
-  real*8, intent(in)  :: var(1) ! var(1)=j
-  real*8              :: p
-  real*8              :: psimin, psimax
-
-  psimax = -0.2027
-  psimin = -2.016d-9
-
-  p = ((var(1)-psimin) / (psimax - psimin))**2
-
-end function psi_pdf
 
 pure function analytical_pdf(var) result(p)
   real*8, intent(in)  :: var(2) ! var(1)=j
