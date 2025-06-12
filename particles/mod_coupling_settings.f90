@@ -7,7 +7,7 @@ use coupling_variables
 
 implicit none
 private
-public  :: use_ncs, use_ics, use_rep, use_kin_recomb_global, n_ics
+public  :: use_ncs, use_ics, use_rep, use_epp, use_epc, use_epf, use_kin_recomb_global, n_ics
 public  :: check_compatibility_and_determine_coupling_schemes, determine_coupling_variables
 
 ! the variables below are global variables determined by scanning over particle groups, 
@@ -15,6 +15,9 @@ public  :: check_compatibility_and_determine_coupling_schemes, determine_couplin
 logical :: use_ncs               = .false. !< use kinetic neutral particles 
 logical :: use_ics               = .false. !< use kinetic impurity particles
 logical :: use_rep               = .false. !< use pressure coupling scheme for runaway electrons
+logical :: use_epc               = .false. !< use current coupling scheme for energetic particles                          [PLACEHOLDER, NOT YET IMPLEMENTED]
+logical :: use_epp               = .false. !< use pressure coupling scheme for energetic particles                         [PLACEHOLDER, NOT YET IMPLEMENTED]
+logical :: use_epf               = .false. !< use full anisotropic pressure tensor coupling scheme for energetic particles [PLACEHOLDER, NOT YET IMPLEMENTED]
 logical :: use_kin_recomb_global = .false. !< whether recombination is required (has effect on both fluid and kinetic side)
 integer :: n_ics                 = 0       !< number of ics groups in the simulation
 contains
@@ -182,7 +185,7 @@ subroutine determine_coupling_variables()
     enddo
   endif
 
-  !> additional coupling schemes will be added here in future PRs (e.g. use_pcs, use_pcf)  
+  !> additional coupling schemes will be added here in future PRs (e.g. use_epp, use_epf)  
     
   !> assign indices to the coupling variables and determine n_aux_var
   write(*,*) "===== Indices of coupling variables ====="
