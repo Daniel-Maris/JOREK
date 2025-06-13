@@ -104,7 +104,17 @@ subroutine neutral_self_collision(this, sim, dt)
   real*8 :: v2f(3) !< final velocity of particle 2
   
   !global diagnostics
-  integer, parameter :: n_diag=10, i_P_av=1, i_tau=2, i_sigma_av=3, i_n_pairs=4, i_n_col=5, i_w_col=6, i_Pgt1=7, i_V=8, i_d_av=9, i_angle_av=10
+  integer, parameter :: n_diag=10     !< number of global diagnostics
+  integer, parameter :: i_P_av=1      !< index of average collisions chance (=sum(P)/n_pairs)
+  integer, parameter :: i_tau=2       !< index of average collision time (=dt/P_av)
+  integer, parameter :: i_sigma_av=3  !< index of average collision cross section (=sum(sigma)/n_pairs)
+  integer, parameter :: i_n_pairs=4   !< index of number of pairs (=sum(N_try))
+  integer, parameter :: i_n_col=5     !< index of number of collided pairs
+  integer, parameter :: i_w_col=6     !< index of sum of collided weight
+  integer, parameter :: i_Pgt1=7      !< index of pairs with P > 1
+  integer, parameter :: i_V=8         !< index of total volume of all cells (=sum(V_c), should be equal to domain volume if all elements have colliding particles)
+  integer, parameter :: i_d_av=9      !< index of average VHS diameter (=sum(d)/n_pairs)
+  integer, parameter :: i_angle_av=10 !< index of average collisional angle fraction (=(sum(angle)/n_col)/(PI/2)). If this is 1, it is a random walk (so MFP = v*tau), if this is 0 the MFP is infinite, and if it is >!, then MFP < v*tau (with limit 0 for fraction 2?)  
   real*8 :: global_diag(n_diag) !< global diagnostics
   real*8 :: reduced_global_diag(n_diag) !< MPI reduced global_diag
   character(len=100) :: FMT !< writing format for diagnostics
@@ -330,7 +340,7 @@ subroutine neutral_self_collision(this, sim, dt)
                 write(*,*) "ERROR: some particles will be used twice (N_try,n_pa_bin/2)",N_try,n_pa_bin/2
                 !$omp end critical
               end if
-              
+
               ! loop over to-be-tried collisional pairs for this bin
               do i_pair = 1,N_try !< dummy variable for loop
                 !generate random number for the pair
@@ -465,7 +475,7 @@ subroutine neutral_self_collision(this, sim, dt)
     reduced_global_diag(i_tau)      = dt/nonzero(reduced_global_diag(i_P_av))
     reduced_global_diag(i_V)        = reduced_global_diag(i_V)        / sim%n_mpi
     write(FMT,"(A,I2,A)") "(A,",n_diag,"es15.5)"  
-    write(*,trim(FMT)) "diagnostics (P av/tau av/sigma av/pairs tried/pairs coll/weight coll/# P>1/sum V_c/d av/av mom loss frac) =",reduced_global_diag
+    write(*,trim(FMT)) "diagnostics (P av/tau av/sigma av/pairs tried/pairs coll/weight coll/# P>1/sum V_c/d av/av angle frac) =",reduced_global_diag
   end if
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
@@ -731,7 +741,7 @@ pure function nonzero(in) result(out)
   if (abs(in) < tol) out = sign(tol, in)
 end function nonzero
 
-! find the angle between two vectors [0,pi]
+!> find the angle between two vectors [0,pi]
 pure function angle(v1,v2) result(alpha)
   implicit none
 
