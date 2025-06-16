@@ -31,6 +31,7 @@ use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 use mod_particle_wall_interaction
+use mod_particle_collision, only: neutral_self_collision
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
@@ -82,9 +83,10 @@ integer   :: n_wall_act_groups = 0
 integer   :: recomb_counter  = 0
 integer   :: puff_counter    = 0
 
-integer,                dimension(:), allocatable :: recomb_groups
-type(particle_puffing), dimension(:), allocatable :: puff_actions   
-type(wall_act_group),   dimension(:), allocatable :: wall_act_groups
+integer,                      dimension(:), allocatable :: recomb_groups
+type(particle_puffing),       dimension(:), allocatable :: puff_actions   
+type(wall_act_group),         dimension(:), allocatable :: wall_act_groups
+type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 
 !tmp
 class(type_rng), dimension(:), allocatable :: wall_rng

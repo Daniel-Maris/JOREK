@@ -885,6 +885,7 @@ part_group_configs(:)%use_kin_ionisation     = .false.
 ! --- ncs only
 part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_cx             = .false.
+part_group_configs(:)%use_kin_neutral_coll   = .false.
 ! --- ics only
 part_group_configs(:)%use_kin_bg_collisions  = .false.
 part_group_configs(:)%ics_group_idx          = -1

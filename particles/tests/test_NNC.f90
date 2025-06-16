@@ -34,7 +34,7 @@ program test_NNC
   type(count_action)                         :: counter
   type(projection), target                   :: projections
   type(event), target                        :: project_diagnostics
-  type(type_neutral_collision)               :: neutral_collision
+  type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 
   integer, parameter :: n_diag=8 !< how many diagnostic fields to project
   !< p_ii (p_RR, p_ZZ, p_\phi\phi), T, rho, rho_1, rho_2, normalisation for T (in theory, but it is probably wrong)
@@ -123,7 +123,7 @@ program test_NNC
   end do
 
   ! --- initialize the neutral collision action
-  call neutral_collision%initialize(sim)
+  neutral_collisions = neutral_collisions_from_config(sim)
 
   ! --- setting up initial particle array
   weight = particlesource/(sim%groups(1)%n_particles) !< abusing particlesource to mean total weight of all particles in the sim for easy input iterations
@@ -245,7 +245,7 @@ program test_NNC
     end if
 
     call log_block(sim%my_id, "Neutral self collision", last_time)
-    call neutral_collision%do(sim,tstep_particles*nstep_particles,projections%node_list, projections%element_list)
+    call neutral_collisions(1)%do(sim,tstep_particles*nstep_particles,projections%node_list, projections%element_list)
 
     ! ! printout sim%particles
     ! select type (pa => sim%groups(1)%particles)

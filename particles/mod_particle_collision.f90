@@ -17,12 +17,14 @@ module mod_particle_collision
   implicit none
    
   private
-  public :: type_neutral_collision, nonzero
+  public :: type_neutral_collision, neutral_collisions_from_config, nonzero
 
   !> action object, storing P_max values per element
   type :: type_neutral_collision
+    integer                                    :: group_num !< which group number this collision is about
     real*8,          dimension(:), allocatable :: P_max_elm !< [chance] rescaling factor for collision probability for this element, based on a large estimate for the actual chance a given physical particle will collide in the element (n_elm)
     type(pcg32_rng), dimension(:), allocatable :: rng       !< rng object for this action specifically
+    logical :: constructed=.false. !< whether initialization finished
   contains
     procedure :: initialize
     procedure :: do => neutral_self_collision
@@ -67,7 +69,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: n_elm
-  integer :: i_pa_group, i_phi, is, it, ns, nt, n_pa_bin, i_pair
+  integer :: i_phi, is, it, ns, nt, n_pa_bin, i_pair
   integer :: i,j, i_elm, i_loc, i_global
   integer,parameter :: i_neutral_n=5 !< index in aux list of neutral density
 
@@ -138,348 +140,349 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 
   !$ w(1) = omp_get_wtime()
   
+  if(.not. this%constructed) then
+    if(sim%my_id==0) write(*,*) "ERROR: something went wrong in the initialization of this neutral_collision object as it did not finish. Aborting"
+    stop
+  end if
+
   n_elm = sim%fields%element_list%n_elements
   
   i_rng = 1 !default if not using OMP
 
   global_diag(:)=0.d0
 
-  do i_pa_group = 1,size(sim%groups,1)
-  
-    select type (pa => sim%groups(i_pa_group)%particles)
-    type is (particle_kinetic_leapfrog)
-      
-      !allocate here so that different groups can have different resolutions in the future
-      n_phi = n_plane
-      
-      ! --- sorting the particle indices into array by their element number
-      if(allocated(pa_elm_arr)) deallocate(pa_elm_arr)
-      allocate(pa_elm_arr(size(pa)))
-      if(.not. allocated(pa_in_elm_arr)) allocate(pa_in_elm_arr(n_elm))
-      pa_elm_arr = 0
-      pa_in_elm_arr = 0
-      
-      !$omp parallel do default(none)  &
-      !$omp shared(pa,pa_elm_arr)      &
-      !$omp private(i_elm)             &
-      !$omp reduction(+:pa_in_elm_arr)
-      do i=1,size(pa)
-        i_elm = pa(i)%i_elm
-        if(i_elm < 1) cycle
-        pa_elm_arr(i) = i_elm
-        !$omp atomic update
-        pa_in_elm_arr(i_elm) = pa_in_elm_arr(i_elm) + 1
-      end do
-      !$omp end parallel do
+  select type (pa => sim%groups(this%group_num)%particles)
+  type is (particle_kinetic_leapfrog)
+    
+    !allocate here so that different groups can have different resolutions in the future
+    n_phi = n_plane
+    
+    ! --- sorting the particle indices into array by their element number
+    if(allocated(pa_elm_arr)) deallocate(pa_elm_arr)
+    allocate(pa_elm_arr(size(pa)))
+    if(.not. allocated(pa_in_elm_arr)) allocate(pa_in_elm_arr(n_elm))
+    pa_elm_arr = 0
+    pa_in_elm_arr = 0
+    
+    !$omp parallel do default(none)  &
+    !$omp shared(pa,pa_elm_arr)      &
+    !$omp private(i_elm)             &
+    !$omp reduction(+:pa_in_elm_arr)
+    do i=1,size(pa)
+      i_elm = pa(i)%i_elm
+      if(i_elm < 1) cycle
+      pa_elm_arr(i) = i_elm
+      !$omp atomic update
+      pa_in_elm_arr(i_elm) = pa_in_elm_arr(i_elm) + 1
+    end do
+    !$omp end parallel do
 
-      !allocating sorted_ind_arr object
-      if(.not. allocated(sorted_ind_arr)) allocate(sorted_ind_arr(n_elm))
-      !$omp parallel do default(none) &
-      !$omp shared(pa_in_elm_arr, sorted_ind_arr)
-      do i=1,size(sorted_ind_arr)
-        if(allocated(sorted_ind_arr(i)%pa_ind)) deallocate(sorted_ind_arr(i)%pa_ind) ! this can be done here as we know size(sorted_ind_arr)=n_elm is fixed
-        allocate(sorted_ind_arr(i)%pa_ind(pa_in_elm_arr(i)))
-      end do
-      !$omp end parallel do
+    !allocating sorted_ind_arr object
+    if(.not. allocated(sorted_ind_arr)) allocate(sorted_ind_arr(n_elm))
+    !$omp parallel do default(none) &
+    !$omp shared(pa_in_elm_arr, sorted_ind_arr)
+    do i=1,size(sorted_ind_arr)
+      if(allocated(sorted_ind_arr(i)%pa_ind)) deallocate(sorted_ind_arr(i)%pa_ind) ! this can be done here as we know size(sorted_ind_arr)=n_elm is fixed
+      allocate(sorted_ind_arr(i)%pa_ind(pa_in_elm_arr(i)))
+    end do
+    !$omp end parallel do
 
-      !filling sorted_ind_arr object
-      allocate(i_loc_arr(n_elm))
-      i_loc_arr = 1
-      !$omp parallel do default(none)                     &
-      !$omp shared(pa_elm_arr, i_loc_arr, sorted_ind_arr) &
-      !$omp private(i_elm, i_loc)
-      do i=1,size(pa_elm_arr)
-        i_elm = pa_elm_arr(i)
-        if(i_elm < 1) cycle
-        !$omp atomic capture
-        i_loc = i_loc_arr(i_elm)
-        i_loc_arr(i_elm) = i_loc_arr(i_elm) + 1
-        !$omp end atomic
-        sorted_ind_arr(i_elm)%pa_ind(i_loc) = i
-      end do
-      !$omp end parallel do
-      deallocate(i_loc_arr)
+    !filling sorted_ind_arr object
+    allocate(i_loc_arr(n_elm))
+    i_loc_arr = 1
+    !$omp parallel do default(none)                     &
+    !$omp shared(pa_elm_arr, i_loc_arr, sorted_ind_arr) &
+    !$omp private(i_elm, i_loc)
+    do i=1,size(pa_elm_arr)
+      i_elm = pa_elm_arr(i)
+      if(i_elm < 1) cycle
+      !$omp atomic capture
+      i_loc = i_loc_arr(i_elm)
+      i_loc_arr(i_elm) = i_loc_arr(i_elm) + 1
+      !$omp end atomic
+      sorted_ind_arr(i_elm)%pa_ind(i_loc) = i
+    end do
+    !$omp end parallel do
+    deallocate(i_loc_arr)
 
-      max_n_pa = 0
-      P_max_mpi = 0
-      ! Start loop over each finite element number
-      if(use_manual_random_seed) then
-        !$ call omp_set_schedule(omp_sched_static,1)
-      else
-        !$ call omp_set_schedule(omp_sched_dynamic,1)
-      end if
+    max_n_pa = 0
+    P_max_mpi = 0
+    ! Start loop over each finite element number
+    if(use_manual_random_seed) then
+      !$ call omp_set_schedule(omp_sched_static,1)
+    else
+      !$ call omp_set_schedule(omp_sched_dynamic,1)
+    end if
 #ifdef __GFORTRAN__
-      !$omp parallel do default(shared)                                                            &
+    !$omp parallel do default(shared)                                                            &
 #else
-      !$omp parallel do default(none)                                                              &
-      !$omp shared(this, sim, dt, nodes, elements,                                                  &
-      !$omp n_elm, n_phi, i_pa_group, sorted_ind_arr, pa_in_elm_arr)                               &
+    !$omp parallel do default(none)                                                              &
+    !$omp shared(this, sim, dt, nodes, elements,                                                  &
+    !$omp n_elm, n_phi, sorted_ind_arr, pa_in_elm_arr)                               &
 #endif
-      !$omp schedule(runtime)                                                                      &
-      !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
-      !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c, P_max_now,  &
-      !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2, E_i, v1i, v2i, v_g, P, n_loc, &
-      !$omp sigma_T, P_try, P_real, N_try, i_rng, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
-      !$omp reduction(+:global_diag) reduction(max:max_n_pa, P_max_mpi)
-      do i_elm=1,n_elm
-        !$ i_rng = omp_get_thread_num()+1
-        
-        if(allocated(i_pa_elm)) deallocate(i_pa_elm)
-        allocate(i_pa_elm(pa_in_elm_arr(i_elm)))
-        i_pa_elm = sorted_ind_arr(i_elm)%pa_ind(:)
-        
-        pa_in_elm = size(i_pa_elm,1)        
-        
-        if(pa_in_elm > max_n_pa(1)) max_n_pa(1) = pa_in_elm
+    !$omp schedule(runtime)                                                                      &
+    !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
+    !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c, P_max_now,  &
+    !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2, E_i, v1i, v2i, v_g, P, n_loc, &
+    !$omp sigma_T, P_try, P_real, N_try, i_rng, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
+    !$omp reduction(+:global_diag) reduction(max:max_n_pa, P_max_mpi)
+    do i_elm=1,n_elm
+      !$ i_rng = omp_get_thread_num()+1
+      
+      if(allocated(i_pa_elm)) deallocate(i_pa_elm)
+      allocate(i_pa_elm(pa_in_elm_arr(i_elm)))
+      i_pa_elm = sorted_ind_arr(i_elm)%pa_ind(:)
+      
+      pa_in_elm = size(i_pa_elm,1)        
+      
+      if(pa_in_elm > max_n_pa(1)) max_n_pa(1) = pa_in_elm
 
-        !> skip collisions if there are nearly no particles
-        if(pa_in_elm .lt. 2*n_phi) cycle
+      !> skip collisions if there are nearly no particles
+      if(pa_in_elm .lt. 2*n_phi) cycle
+      
+      !determine how many poloidal bins for this element. real to give the best approximation to ns, nt
+      nst = pa_in_elm/real(aim_pa_per_bin * n_phi) !< number of bins in poloidal plane
+
+      if(nst .gt. 1.d0) then        
+        !determine how to distribute the poloidal bins based on what size the element is along the s and t coordinates
+        call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,0.5d0,0.5d0,R,R_s,R_t,Z,Z_s,Z_t)
+        ls = sqrt(R_s**2 + Z_s**2)
+        lt = sqrt(R_t**2 + Z_t**2)
         
-        !determine how many poloidal bins for this element. real to give the best approximation to ns, nt
-        nst = pa_in_elm/real(aim_pa_per_bin * n_phi) !< number of bins in poloidal plane
+        !aim for ns*nt = nst together with (ls/lt)nt = ns and (ls/lt)ns = nt
+        ns = nint(sqrt(nst*ls/lt))
+        nt = nint(sqrt(nst*lt/ls))
 
-        if(nst .gt. 1.d0) then        
-          !determine how to distribute the poloidal bins based on what size the element is along the s and t coordinates
-          call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,0.5d0,0.5d0,R,R_s,R_t,Z,Z_s,Z_t)
-          ls = sqrt(R_s**2 + Z_s**2)
-          lt = sqrt(R_t**2 + Z_t**2)
-          
-          !aim for ns*nt = nst together with (ls/lt)nt = ns and (ls/lt)ns = nt
-          ns = nint(sqrt(nst*ls/lt))
-          nt = nint(sqrt(nst*lt/ls))
-
-          !if ns = nt = 1 while nst != 1, set the biggest side to nst
-          if(ns .le. 1 .and. nt .le. 1) then
-            if (ls < lt) then
-              ns = 1
-              nt = floor(nst)
-            else 
-              nt = 1
-              ns = floor(nst)
-            end if
-          end if
-          !if the element is very elongated, make sure there's always at least one bin in both directions
-          if(ns .le. 1) then
+        !if ns = nt = 1 while nst != 1, set the biggest side to nst
+        if(ns .le. 1 .and. nt .le. 1) then
+          if (ls < lt) then
             ns = 1
             nt = floor(nst)
-          end if
-          if(nt .le. 1) then
+          else 
             nt = 1
             ns = floor(nst)
           end if
-        else 
-          ns = 1
-          nt = 1
         end if
+        !if the element is very elongated, make sure there's always at least one bin in both directions
+        if(ns .le. 1) then
+          ns = 1
+          nt = floor(nst)
+        end if
+        if(nt .le. 1) then
+          nt = 1
+          ns = floor(nst)
+        end if
+      else 
+        ns = 1
+        nt = 1
+      end if
 
-        allocate(i_pa_bin(ns,nt,n_phi))
-        allocate(n_pa_bin_arr(ns,nt,n_phi))
+      allocate(i_pa_bin(ns,nt,n_phi))
+      allocate(n_pa_bin_arr(ns,nt,n_phi))
+      
+      ! i_pa_bin = 0
+      n_pa_bin_arr = 0
+
+      !loop to get amount of particles per bin
+      do i=1,pa_in_elm
+        i_global = i_pa_elm(i)
+        is = ith_bin(pa(i_global)%st(1),ns)
+        it = ith_bin(pa(i_global)%st(2),nt)
         
-        ! i_pa_bin = 0
-        n_pa_bin_arr = 0
+        i_phi = ceiling(pa(i_global)%x(3)/ (2.d0 * PI / float(n_period*n_phi)))
+        if (i_phi .gt. n_phi) i_phi = mod(i_phi,n_phi)
+        if (i_phi .lt. 1)     i_phi = mod(i_phi,n_phi) + n_phi
+        
+        n_pa_bin_arr(is,it,i_phi) = n_pa_bin_arr(is,it,i_phi) + 1
+      end do !i_pa_elm
 
-        !loop to get amount of particles per bin
-        do i=1,pa_in_elm
-          i_global = i_pa_elm(i)
-          is = ith_bin(pa(i_global)%st(1),ns)
-          it = ith_bin(pa(i_global)%st(2),nt)
-          
-          i_phi = ceiling(pa(i_global)%x(3)/ (2.d0 * PI / float(n_period*n_phi)))
-          if (i_phi .gt. n_phi) i_phi = mod(i_phi,n_phi)
-          if (i_phi .lt. 1)     i_phi = mod(i_phi,n_phi) + n_phi
-          
-          n_pa_bin_arr(is,it,i_phi) = n_pa_bin_arr(is,it,i_phi) + 1
-        end do !i_pa_elm
-
-        !loop to allocate bin sizes in i_pa_bin
-        do i_phi=1,n_phi
-          do it=1,nt
-            do is=1,ns
-              allocate(i_pa_bin(is,it,i_phi)%pa_ind(n_pa_bin_arr(is,it,i_phi)))
-            end do
+      !loop to allocate bin sizes in i_pa_bin
+      do i_phi=1,n_phi
+        do it=1,nt
+          do is=1,ns
+            allocate(i_pa_bin(is,it,i_phi)%pa_ind(n_pa_bin_arr(is,it,i_phi)))
           end do
         end do
+      end do
 
-        !fill i_pa_bin
-        allocate(i_loc_bin(ns,nt,n_phi))
-        i_loc_bin = 1
-        do i=1,pa_in_elm
-          i_global = i_pa_elm(i)
-          is = ith_bin(pa(i_global)%st(1),ns)
-          it = ith_bin(pa(i_global)%st(2),nt)
-          
-          i_phi = ceiling(pa(i_global)%x(3)/ (2.d0 * PI / float(n_period*n_phi)))
-          if (i_phi .gt. n_phi) i_phi = mod(i_phi,n_phi)
-          if (i_phi .lt. 1)     i_phi = mod(i_phi,n_phi) + n_phi
-          
-          i_loc = i_loc_bin(is,it,i_phi)
-          i_loc_bin(is,it,i_phi) = i_loc_bin(is,it,i_phi) + 1
-          i_pa_bin(is,it,i_phi)%pa_ind(i_loc) = i_global
-        end do !i_pa_elm
+      !fill i_pa_bin
+      allocate(i_loc_bin(ns,nt,n_phi))
+      i_loc_bin = 1
+      do i=1,pa_in_elm
+        i_global = i_pa_elm(i)
+        is = ith_bin(pa(i_global)%st(1),ns)
+        it = ith_bin(pa(i_global)%st(2),nt)
         
-        P_max_now = 0.d0
+        i_phi = ceiling(pa(i_global)%x(3)/ (2.d0 * PI / float(n_period*n_phi)))
+        if (i_phi .gt. n_phi) i_phi = mod(i_phi,n_phi)
+        if (i_phi .lt. 1)     i_phi = mod(i_phi,n_phi) + n_phi
+        
+        i_loc = i_loc_bin(is,it,i_phi)
+        i_loc_bin(is,it,i_phi) = i_loc_bin(is,it,i_phi) + 1
+        i_pa_bin(is,it,i_phi)%pa_ind(i_loc) = i_global
+      end do !i_pa_elm
+      
+      P_max_now = 0.d0
 
-        !loop through each collisional bin
-        do i_phi=1,n_phi 
-          do it=1,nt
-            do is=1,ns 
-              n_pa_bin = n_pa_bin_arr(is,it,i_phi) ! shorthand notation
-              
-              if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
-              if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
-              
-              ! detemine bin volume
-              call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
-              ls = sqrt(R_s**2 + Z_s**2)/real(ns)
-              lt = sqrt(R_t**2 + Z_t**2)/real(nt)
-              V_c = ls*lt*(2.d0*PI*R/real(n_period*n_phi))
+      !loop through each collisional bin
+      do i_phi=1,n_phi 
+        do it=1,nt
+          do is=1,ns 
+            n_pa_bin = n_pa_bin_arr(is,it,i_phi) ! shorthand notation
+            
+            if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
+            if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
+            
+            ! detemine bin volume
+            call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
+            ls = sqrt(R_s**2 + Z_s**2)/real(ns)
+            lt = sqrt(R_t**2 + Z_t**2)/real(nt)
+            V_c = ls*lt*(2.d0*PI*R/real(n_period*n_phi))
 
-              global_diag(i_V) = global_diag(i_V) + V_c !< sanity check on the total volume
-              
-              ! prepare for drawing random particles
-              call i_random%reset(n_pa_bin)
+            global_diag(i_V) = global_diag(i_V) + V_c !< sanity check on the total volume
+            
+            ! prepare for drawing random particles
+            call i_random%reset(n_pa_bin)
 
-              ! determine the number of pairs to be tried for collision
-              N_try = nint(0.5d0*n_pa_bin*this%P_max_elm(i_elm))
-              if(N_try < 1) N_try = 1 ! to make sure that for low collisional chance the number of collisions are not rounded off to 0
+            ! determine the number of pairs to be tried for collision
+            N_try = nint(0.5d0*n_pa_bin*this%P_max_elm(i_elm))
+            if(N_try < 1) N_try = 1 ! to make sure that for low collisional chance the number of collisions are not rounded off to 0
+            
+            if(N_try > n_pa_bin/2) then
+              !$omp critical
+              write(*,*) "ERROR: some particles will be used twice (N_try,n_pa_bin/2)",N_try,n_pa_bin/2
+              !$omp end critical
+            end if
+
+            ! loop over to-be-tried collisional pairs for this bin
+            do i_pair = 1,N_try !< dummy variable for loop
+              !generate random number for the pair
+              call this%rng(i_rng)%next(RN)
+
+              !get random particle from the bin
+              i_pa1 = i_random%next(RN(1))
+              i_pa2 = i_random%next(RN(2))
+
+              !copy from MPI pa array (with generic assignment =)
+              pa1 = pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1))
+              pa2 = pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2))
+
+              ! calculate P for this collision pair
+              w1 = pa1%weight
+              w2 = pa2%weight
+              w_g = max(w1, w2)
+              w_s = min(w1, w2)
+              v1i = pa1%v
+              v2i = pa2%v
+              v_r = norm2(v1i - v2i)
+              m1 = sim%groups(this%group_num)%mass
+              m2 = sim%groups(this%group_num)%mass
+              sigma_T = calc_sigma_T(v_r, m1, m2)
+              call interp_0(nodes, elements, pa1%i_elm, [i_neutral_n], 1, pa1%st(1), pa1%st(2), pa1%x(3), P)
+              n_loc = P(1)
+
+              ! when splitting up the heavier particle:
+              ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
+              !P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c 
+
+              ! because we are not splitting up the heavier particle:
+              P_real = n_loc * sigma_T * v_r * dt
+
+              if (P_real > P_max_now) P_max_now = P_real
+
+              !diagnostics
+              global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
+              global_diag(i_d_av)     = global_diag(i_d_av)     + sqrt(sigma_T/PI)
+              global_diag(i_P_av)     = global_diag(i_P_av)     + P_real
+              global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
+              if (P_real > P_max_mpi) P_max_mpi = P_real
               
-              if(N_try > n_pa_bin/2) then
+              ! rescale with N_try/(0.5*n_pa_bin) rather than with this%P_max_elm(i_elm) directly to correct for integer effects of N_try
+              P_try = P_real * (0.5d0*n_pa_bin)/N_try
+
+              if (P_try > 1.d0) then
+                global_diag(i_Pgt1) = global_diag(i_Pgt1) + 1
+                if (P_try > 5.d0) then
+                  !$omp critical
+                  write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try >> 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
+                  !$omp end critical
+                end if
+              else if (P_try < 0.d0) then
                 !$omp critical
-                write(*,*) "ERROR: some particles will be used twice (N_try,n_pa_bin/2)",N_try,n_pa_bin/2
+                write(*,"(A,2es15.5)") "ERROR in NNC: P_try < 1 (P,n_loc)",P_try, n_loc
                 !$omp end critical
               end if
 
-              ! loop over to-be-tried collisional pairs for this bin
-              do i_pair = 1,N_try !< dummy variable for loop
-                !generate random number for the pair
-                call this%rng(i_rng)%next(RN)
+              if (RN(3) .le. P_try) then ! do binary collision
 
-                !get random particle from the bin
-                i_pa1 = i_random%next(RN(1))
-                i_pa2 = i_random%next(RN(2))
+                E_i = w1*m1*dot_product(v1i,v1i) + w2*m2*dot_product(v2i,v2i)
 
-                !copy from MPI pa array (with generic assignment =)
-                pa1 = pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1))
-                pa2 = pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2))
+                Theta = PI - 2*asin(RN(4))
+                alpha = TWOPI*RN(5)
 
-                ! calculate P for this collision pair
-                w1 = pa1%weight
-                w2 = pa2%weight
-                w_g = max(w1, w2)
-                w_s = min(w1, w2)
-                v1i = pa1%v
-                v2i = pa2%v
-                v_r = norm2(v1i - v2i)
-                m1 = sim%groups(i_pa_group)%mass
-                m2 = sim%groups(i_pa_group)%mass
-                sigma_T = calc_sigma_T(v_r, m1, m2)
-                call interp_0(nodes, elements, pa1%i_elm, [i_neutral_n], 1, pa1%st(1), pa1%st(2), pa1%x(3), P)
-                n_loc = P(1)
+                ! updates velocities of colliding part of super particles
+                call binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
 
-                ! when splitting up the heavier particle:
-                ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
-                !P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c 
-
-                ! because we are not splitting up the heavier particle:
-                P_real = n_loc * sigma_T * v_r * dt
-
-                if (P_real > P_max_now) P_max_now = P_real
-
-                !diagnostics
-                global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
-                global_diag(i_d_av)     = global_diag(i_d_av)     + sqrt(sigma_T/PI)
-                global_diag(i_P_av)     = global_diag(i_P_av)     + P_real
-                global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
-                if (P_real > P_max_mpi) P_max_mpi = P_real
+                global_diag(i_angle_av) = global_diag(i_angle_av) + angle(v1i,v1f) + angle(v2i,v2f)
                 
-                ! rescale with N_try/(0.5*n_pa_bin) rather than with this%P_max_elm(i_elm) directly to correct for integer effects of N_try
-                P_try = P_real * (0.5d0*n_pa_bin)/N_try
+                !Correct new velocities for non-colliding component in heaviest particle
+                !Because the heavier particle is not explicitly split up into colliding and non-colliding parts, we cannot conserve momentum and energy simultaneously.
+                !It is chosen to conserve energy because neutral momentum also changes at the wall.
+                !The fully colliding particle keeps its resulting velocity (as that represents a single underlying species),
+                !while the partially colliding particle gets new velocity direction as if it was the same weight as the lower weight particle, 
+                !and the magnitude is determined from energy conservation according to 
+                !E_i = ws ms vsf^2 + wg mg vg^2 --> vg = sqrt((E_i - ws ms vsf^2)/(wg mg)) (where s means smaller weight and g greater weight)
+                if(w1 .gt. w2) then
+                  pa2%v = v2f
+                  v_g = sqrt((E_i - w_s*m2*dot_product(v2f,v2f))/(w_g*m1)) ! energy conserving new velocity
+                  pa1%v = v_g * v1f / norm2(v1f)
+                else
+                  pa1%v = v1f
+                  v_g = sqrt((E_i - w_s*m1*dot_product(v1f,v1f))/(w_g*m2))
+                  pa2%v = v_g * v2f / norm2(v2f)
+                end if 
 
-                if (P_try > 1.d0) then
-                  global_diag(i_Pgt1) = global_diag(i_Pgt1) + 1
-                  if (P_try > 5.d0) then
-                    !$omp critical
-                    write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try >> 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
-                    !$omp end critical
-                  end if
-                else if (P_try < 0.d0) then
-                  !$omp critical
-                  write(*,"(A,2es15.5)") "ERROR in NNC: P_try < 1 (P,n_loc)",P_try, n_loc
-                  !$omp end critical
-                end if
+                global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
+                global_diag(i_n_col) = global_diag(i_n_col) + 2
+                
+                ! copy back into MPI pa array (with generic assignment =)
+                pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1)) = pa1
+                pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2)) = pa2
 
-                if (RN(3) .le. P_try) then ! do binary collision
+              end if !collision happens
 
-                  E_i = w1*m1*dot_product(v1i,v1i) + w2*m2*dot_product(v2i,v2i)
+            end do !loop over i_pair
 
-                  Theta = PI - 2*asin(RN(4))
-                  alpha = TWOPI*RN(5)
+          end do !is
+        end do !it
+      end do !i_phi toroidal bins
+      
+      ! update maximum collision chance if necessary (with a margin of 20% to keep P<1 in the future)
+      if(1.2*P_max_now > this%P_max_elm(i_elm)) then ! update if the maximum chance now is bigger than previously
+        this%P_max_elm(i_elm) = 1.2*P_max_now
+      else if (5*P_max_now < this%P_max_elm(i_elm)) then ! if P_max_now is really small, we can carefully decrease P_max_elm to gain some speed in the future
+        this%P_max_elm(i_elm) = 0.9*this%P_max_elm(i_elm)
+      end if
 
-                  ! updates velocities of colliding part of super particles
-                  call binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
-
-                  global_diag(i_angle_av) = global_diag(i_angle_av) + angle(v1i,v1f) + angle(v2i,v2f)
-                  
-                  !Correct new velocities for non-colliding component in heaviest particle
-                  !Because the heavier particle is not explicitly split up into colliding and non-colliding parts, we cannot conserve momentum and energy simultaneously.
-                  !It is chosen to conserve energy because neutral momentum also changes at the wall.
-                  !The fully colliding particle keeps its resulting velocity (as that represents a single underlying species),
-                  !while the partially colliding particle gets new velocity direction as if it was the same weight as the lower weight particle, 
-                  !and the magnitude is determined from energy conservation according to 
-                  !E_i = ws ms vsf^2 + wg mg vg^2 --> vg = sqrt((E_i - ws ms vsf^2)/(wg mg)) (where s means smaller weight and g greater weight)
-                  if(w1 .gt. w2) then
-                    pa2%v = v2f
-                    v_g = sqrt((E_i - w_s*m2*dot_product(v2f,v2f))/(w_g*m1)) ! energy conserving new velocity
-                    pa1%v = v_g * v1f / norm2(v1f)
-                  else
-                    pa1%v = v1f
-                    v_g = sqrt((E_i - w_s*m1*dot_product(v1f,v1f))/(w_g*m2))
-                    pa2%v = v_g * v2f / norm2(v2f)
-                  end if 
-
-                  global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
-                  global_diag(i_n_col) = global_diag(i_n_col) + 2
-                  
-                  ! copy back into MPI pa array (with generic assignment =)
-                  pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa1)) = pa1
-                  pa(i_pa_bin(is,it,i_phi)%pa_ind(i_pa2)) = pa2
-
-                end if !collision happens
-
-              end do !loop over i_pair
-
-            end do !is
-          end do !it
-        end do !i_phi toroidal bins
-        
-        ! update maximum collision chance if necessary (with a margin of 20% to keep P<1 in the future)
-        if(1.2*P_max_now > this%P_max_elm(i_elm)) then ! update if the maximum chance now is bigger than previously
-          this%P_max_elm(i_elm) = 1.2*P_max_now
-        else if (5*P_max_now < this%P_max_elm(i_elm)) then ! if P_max_now is really small, we can carefully decrease P_max_elm to gain some speed in the future
-          this%P_max_elm(i_elm) = 0.9*this%P_max_elm(i_elm)
-        end if
-
-        ! deallocation of private allocatables
-        if(allocated(n_pa_bin_arr)) deallocate(n_pa_bin_arr)
-        deallocate(i_loc_bin)
-        do i_phi=1,n_phi
-          do it=1,nt
-            do is=1,ns
-              deallocate(i_pa_bin(is,it,i_phi)%pa_ind)
-            end do
+      ! deallocation of private allocatables
+      if(allocated(n_pa_bin_arr)) deallocate(n_pa_bin_arr)
+      deallocate(i_loc_bin)
+      do i_phi=1,n_phi
+        do it=1,nt
+          do is=1,ns
+            deallocate(i_pa_bin(is,it,i_phi)%pa_ind)
           end do
         end do
-        deallocate(i_pa_bin)
+      end do
+      deallocate(i_pa_bin)
 
-      end do !i_elm
-      !$omp end parallel do
-        
-    class default
-      write(*,*) "neutral-neutral self collisions not implemented for this type, group=", i
-      call exit(13)
-    end select
-
-  end do !i_particle_group
+    end do !i_elm
+    !$omp end parallel do
+      
+  class default
+    write(*,*) "neutral-neutral self collisions not implemented for this type, group=", i
+    call exit(13)
+  end select
   
   call MPI_REDUCE(P_max_mpi,     P_max_global,        1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
   call MPI_REDUCE(max_n_pa,      max_n_pa_gl,         2,      MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
@@ -512,11 +515,12 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 end subroutine neutral_self_collision
 
 !> initializes the neutral collision object
-subroutine initialize(this, sim)
+subroutine initialize(this, sim, group_num)
   use mod_random_seed
   implicit none  
   class(type_neutral_collision), intent(inout) :: this
-  type(particle_sim),           intent(in)    :: sim
+  type(particle_sim),            intent(in)    :: sim
+  integer,                       intent(in)    :: group_num
 
   integer :: i, seed, i_rng, n_stream
   
@@ -537,7 +541,62 @@ subroutine initialize(this, sim)
   do i=1,n_stream
     call this%rng(i)%initialize(1, seed, n_stream, i)
   end do
+
+  !setting up group_num
+  this%group_num = group_num
+
+  this%constructed = .true.
 end subroutine initialize
+
+!> determines the neutral collision actions from the config and returns the array of neutral collisions objects
+function neutral_collisions_from_config(sim) result(neutral_collisions)
+  use phys_module, only: part_group_configs, n_part_groups_max 
+  use mod_particle_sim, only: group_num_from_id
+  
+  implicit none
+
+  type(particle_sim), intent(in)                           :: sim
+  class(type_neutral_collision), allocatable, dimension(:) :: neutral_collisions !< array of neutral collisions objects 
+
+
+  integer :: i, group_num, n_coll_objs, i_coll_obj
+  character(len=3) :: id
+
+  !determine number of collision objects
+  n_coll_objs = 0
+  do i=1, n_part_groups_max
+    id = part_group_configs(i)%id
+    if(id == "non") cycle
+    if(.not. part_group_configs(i)%use_kin_neutral_coll) cycle
+    n_coll_objs = n_coll_objs+1
+  end do
+
+  allocate(neutral_collisions(n_coll_objs))
+
+  !check input and generate collision objects
+  i_coll_obj=0
+  do i=1, n_part_groups_max
+    id = part_group_configs(i)%id
+    if(id == "non") cycle
+    if(.not. part_group_configs(i)%use_kin_neutral_coll) cycle
+    i_coll_obj = i_coll_obj + 1
+
+    if(part_group_configs(i)%coupling_scheme /= "ncs") then
+      if(sim%my_id == 0) write(*,"(A,I2,A,I2,3A)") "ERROR: neutral collisions can only be used for neutral particle groups, but part_group_configs(",i,")%use_kin_neutral_coll=.true. while part_group_configs(",i,")%coupling_scheme=",part_group_configs(i)%coupling_scheme," rather than ncs. Aborting."
+      stop 
+    end if
+    
+    group_num = group_num_from_id(sim, id)
+    call neutral_collisions(i_coll_obj)%initialize(sim,group_num)
+  end do
+
+  !sanity check
+  if(i_coll_obj /= n_coll_objs) then
+    if(sim%my_id == 0) write(*,"(A,2I5)") "ERROR in neutral collisions setup: number of objects to be made is inconsistent?",i_coll_obj,n_coll_objs
+    stop 
+  end if
+  
+end function neutral_collisions_from_config
 
 !> calculates the elastic collisional cross section for D + D elastic collisions
 !> variable hard sphere based on [1] eq 4.63
