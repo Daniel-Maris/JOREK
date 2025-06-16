@@ -7,16 +7,17 @@ module mod_particle_collision
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_particle_sim
   use phys_module, only: tstep, n_period, use_manual_random_seed,n_plane !< we need the intrinsic fortran gamma function so have to use only
-  use mod_interp
+  use mod_interp, only: interp_RZ, interp_0
   use mod_event, only: mpi_minmeanmax
   use mpi
+  use nodes_elements
   
   !$ use omp_lib
 
   implicit none
    
   private
-  public :: type_neutral_collision
+  public :: type_neutral_collision, nonzero
 
   !> action object, storing P_max values per element
   type :: type_neutral_collision
@@ -49,12 +50,13 @@ contains
 !> nearest neighbour approach where each element has a number of subcells in the toroidal direction
 !> the number of subcells in the poloidal direction are done by dividing the element up in an s,t grid
 !> which is determined automatically by the amount of particles and the length of the element along s and t 
-subroutine neutral_self_collision(this, sim, dt)
+subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   implicit none
 
-  class(type_neutral_collision),  intent(inout) :: this
+  class(type_neutral_collision), intent(inout) :: this
   type(particle_sim),            intent(inout) :: sim
-
+  type (type_node_list),         intent(in)    :: nodes    !< aux node list to sample neutral density from
+  type (type_element_list),      intent(in)    :: elements !< element list (necessary to sample neutral density from)
   real*8,                        intent(in)    :: dt !< timestep over which the collisions must be calculated
 
   type(particle_kinetic_leapfrog)                                :: pa1 !< first particle of the collisional pair
@@ -67,7 +69,8 @@ subroutine neutral_self_collision(this, sim, dt)
   integer :: n_elm
   integer :: i_pa_group, i_phi, is, it, ns, nt, n_pa_bin, i_pair
   integer :: i,j, i_elm, i_loc, i_global
-  
+  integer,parameter :: i_neutral_n=5 !< index in aux list of neutral density
+
   real*8 :: P_real  !< [chance] chance that this particle will collide (with anything) this timestep, P_real = N_test w_g \sigma_T v_r dt / V_c
   real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = P_real / P_max_elm(i_elm)
   real*8 :: w2, w1  !< [physical particles] weight of super particle 1
@@ -75,6 +78,9 @@ subroutine neutral_self_collision(this, sim, dt)
   real*8 :: w_g     !< [physical particles] weight of greater super particle in binary collision w_g = max(w1, w2)
   real*8 :: v_r     !< [m/s] scalar relative velocity of collisional pair
   real*8 :: sigma_T !< [m^2] total collisional cross section of the collision pair
+  real*8 :: n_loc   !< [m^-3] local density for determining P_real
+  real*8 :: E_i     !< [J*amu/kg] initial energy before collision (=w1 m1 v1i^2 + w2 m2 v2i^2)
+  real*8 :: v_g     !< [m/s] scalar velocity of larger weight particle after the collision (used to conserve energy for variable weights)
 
   integer :: pa_in_elm !< number of particles in the element under consideration
   integer, parameter :: aim_pa_per_bin = 50 !< wanted amount of super particles in one collisional bin (element is split up to satisfy this). Bigger means better statistics of particle density, but also loss of locality. Much smaller than 50 (like 2-10 or so) is not advised because the momenta of the particles in the bin might get correlated over time
@@ -86,7 +92,7 @@ subroutine neutral_self_collision(this, sim, dt)
   integer, dimension(:),       allocatable :: pa_in_elm_arr !< number of particles in the element (n_elm)
   integer, dimension(:),       allocatable :: i_loc_arr !< local index in the element array of particle indices (n_elm)
 
-  real*8 :: R, R_s, R_t, Z, Z_s, Z_t
+  real*8 :: R, R_s, R_t, Z, Z_s, Z_t, P(1)
   real*8 :: nst
   real*8 :: lt,ls !< [m] physical size of element / bin in s direction
   real*8 :: V_c !< [m^3] grid cell (collisional bin) volume 
@@ -100,8 +106,10 @@ subroutine neutral_self_collision(this, sim, dt)
   real*8 :: alpha  !< scattering plane angle to Z-axis around *v1*
   real*8 :: Theta  !< scattering angle in normal coordinates
   real*8 :: m2, m1 !< mass of particle 1
-  real*8 :: v1f(3) !< final velocity of particle 1
-  real*8 :: v2f(3) !< final velocity of particle 2
+  real*8 :: v1i(3) !< initial velocity of particle 1
+  real*8 :: v2i(3) !< initial velocity of particle 2
+  real*8 :: v1f(3) !< final   velocity of particle 1
+  real*8 :: v2f(3) !< final   velocity of particle 2
   
   !global diagnostics
   integer, parameter :: n_diag=10     !< number of global diagnostics
@@ -204,13 +212,13 @@ subroutine neutral_self_collision(this, sim, dt)
       !$omp parallel do default(shared)                                                            &
 #else
       !$omp parallel do default(none)                                                              &
-      !$omp shared(this, sim, dt,                                                                  &
+      !$omp shared(this, sim, dt, nodes, elements,                                                  &
       !$omp n_elm, n_phi, i_pa_group, sorted_ind_arr, pa_in_elm_arr)                               &
 #endif
       !$omp schedule(runtime)                                                                      &
       !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
       !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c, P_max_now,  &
-      !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2,  &
+      !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2, E_i, v1i, v2i, v_g, P, n_loc, &
       !$omp sigma_T, P_try, P_real, N_try, i_rng, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
       !$omp reduction(+:global_diag) reduction(max:max_n_pa, P_max_mpi)
       do i_elm=1,n_elm
@@ -359,14 +367,22 @@ subroutine neutral_self_collision(this, sim, dt)
                 w2 = pa2%weight
                 w_g = max(w1, w2)
                 w_s = min(w1, w2)
-                v_r = norm2(pa1%v - pa2%v)
+                v1i = pa1%v
+                v2i = pa2%v
+                v_r = norm2(v1i - v2i)
                 m1 = sim%groups(i_pa_group)%mass
                 m2 = sim%groups(i_pa_group)%mass
                 sigma_T = calc_sigma_T(v_r, m1, m2)
+                call interp_0(nodes, elements, pa1%i_elm, [i_neutral_n], 1, pa1%st(1), pa1%st(2), pa1%x(3), P)
+                n_loc = P(1)
 
+                ! when splitting up the heavier particle:
                 ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
-                P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c 
-                
+                !P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c 
+
+                ! because we are not splitting up the heavier particle:
+                P_real = n_loc * sigma_T * v_r * dt
+
                 if (P_real > P_max_now) P_max_now = P_real
 
                 !diagnostics
@@ -386,30 +402,42 @@ subroutine neutral_self_collision(this, sim, dt)
                     write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try >> 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
                     !$omp end critical
                   end if
+                else if (P_try < 0.d0) then
+                  !$omp critical
+                  write(*,"(A,2es15.5)") "ERROR in NNC: P_try < 1 (P,n_loc)",P_try, n_loc
+                  !$omp end critical
                 end if
 
                 if (RN(3) .le. P_try) then ! do binary collision
+
+                  E_i = w1*m1*dot_product(v1i,v1i) + w2*m2*dot_product(v2i,v2i)
 
                   Theta = PI - 2*asin(RN(4))
                   alpha = TWOPI*RN(5)
 
                   ! updates velocities of colliding part of super particles
-                  call binary_elastic_collision(m1,m2,pa1%v,pa2%v,Theta,alpha,v1f,v2f)
+                  call binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
 
-                  global_diag(i_angle_av) = global_diag(i_angle_av) + angle(pa1%v,v1f) + angle(pa2%v,v2f)
+                  global_diag(i_angle_av) = global_diag(i_angle_av) + angle(v1i,v1f) + angle(v2i,v2f)
                   
-                  !correct new velocities for non-colliding component in heaviest particle
+                  !Correct new velocities for non-colliding component in heaviest particle
+                  !Because the heavier particle is not explicitly split up into colliding and non-colliding parts, we cannot conserve momentum and energy simultaneously.
+                  !It is chosen to conserve energy because neutral momentum also changes at the wall.
+                  !The fully colliding particle keeps its resulting velocity (as that represents a single underlying species),
+                  !while the partially colliding particle gets new velocity direction as if it was the same weight as the lower weight particle, 
+                  !and the magnitude is determined from energy conservation according to 
+                  !E_i = ws ms vsf^2 + wg mg vg^2 --> vg = sqrt((E_i - ws ms vsf^2)/(wg mg)) (where s means smaller weight and g greater weight)
                   if(w1 .gt. w2) then
-                    pa1%v = (w_s/w1) * v1f + (1-w_s/w1) * pa1%v
                     pa2%v = v2f
+                    v_g = sqrt((E_i - w_s*m2*dot_product(v2f,v2f))/(w_g*m1)) ! energy conserving new velocity
+                    pa1%v = v_g * v1f / norm2(v1f)
                   else
                     pa1%v = v1f
-                    pa2%v = (w_s/w2) * v2f + (1-w_s/w2) * pa2%v
+                    v_g = sqrt((E_i - w_s*m1*dot_product(v1f,v1f))/(w_g*m2))
+                    pa2%v = v_g * v2f / norm2(v2f)
                   end if 
 
                   global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
-
-                  !calculating the average collision time tau of colliding particles
                   global_diag(i_n_col) = global_diag(i_n_col) + 2
                   
                   ! copy back into MPI pa array (with generic assignment =)
@@ -703,11 +731,20 @@ function next(this, RN) result(i_drawn)
       write(*,*) "ERROR in random draw, every number has already been drawn once, resetting draw"
     !$omp end critical
     call this%reset(this%size)
+    nth_draw = 1 !< because it was just reset, this is again the first draw
   end if
 
   ! determine the location in the index array to draw from
   draw_loc = this%used + ceiling(RN * (this%size - this%used))
   
+  !sanity check on draw_loc
+  if(draw_loc < 1 .or. draw_loc > this%size) then
+    write(*,"(A,3I10,f10.5)") "ERROR in random draw. draw_loc/size/used/RN = ",draw_loc,this%size,this%used,RN
+    write(*,*) "this%indices=",this%indices
+    i_drawn=1
+    return
+  end if
+
   ! draw the number from the draw location
   i_drawn = this%indices(draw_loc)
   

@@ -37,11 +37,11 @@ program test_NNC
   type(type_neutral_collision)               :: neutral_collision
 
   integer, parameter :: n_diag=8 !< how many diagnostic fields to project
-  !< rho_1, rho_2, T, p_ii (p_RR, p_ZZ, p_\phi\phi), 1 empty
+  !< p_ii (p_RR, p_ZZ, p_\phi\phi), T, rho, rho_1, rho_2, normalisation for T (in theory, but it is probably wrong)
 
   !parameters of the grid
   real*8, parameter :: R_0 = 100.d0, Z_0 = 0.d0, length = 1.d0
-  integer, parameter :: n = 11 !101!6!10!2!100 ! number of nodes in r, z directions
+  integer, parameter :: n = 11 !4!11!101!6!10!2!100 ! number of nodes in r, z directions
 
   !variables
   integer :: i, i_elm, i_step, nstep_proj
@@ -159,11 +159,11 @@ program test_NNC
       ! end if
 
       ! checking influence of variable weights
-      ! if(mod(i,10) == 0) then
-      !   p(i)%weight = p(i)%weight * 9 !sqrt(2.d0)
-      ! else
-      !   p(i)%weight = p(i)%weight / 9.d0
-      ! end if
+      if(mod(i,10) == 0) then
+        p(i)%weight = p(i)%weight * 9 !sqrt(2.d0)
+      else
+        p(i)%weight = p(i)%weight / 9.d0
+      end if
 
       if(R < R_0) then
         p(i)%i_life = 1
@@ -227,7 +227,7 @@ program test_NNC
 
     call global_av_T(sim)
 
-    if(mod(i_step,nout_projection)==0) then
+    if(mod(i_step,nout_projection)==0 .or. i_step==1) then
       call log_block(sim%my_id, "Diagnostics", last_time)
       call with(sim, counter)
       call fill_w_iRt(sim,w_iRt,t_arr,i_step)
@@ -245,7 +245,7 @@ program test_NNC
     end if
 
     call log_block(sim%my_id, "Neutral self collision", last_time)
-    call neutral_collision%do(sim,tstep_particles*nstep_particles)
+    call neutral_collision%do(sim,tstep_particles*nstep_particles,projections%node_list, projections%element_list)
 
     ! ! printout sim%particles
     ! select type (pa => sim%groups(1)%particles)
@@ -341,10 +341,10 @@ contains
               do m=1,n_order+1  ! order of the polynomial
                 qty = 0.d0
                 factor = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight / nstep_particles
-                qty(particle_tmp%i_life) = factor ! species density [m^-3] (qty(1) = n_1, qty(2) = n_2)
-                qty(3)   = factor * mass * dot_product(particle_tmp%v,particle_tmp%v) / (3*EL_CHG) ! T [eV] (E = 1/2 m v^2 = 3/2 k_B T, k_B T / e = m v^2 / (3 e))
-                qty(4:6) = factor * mass * particle_tmp%v * particle_tmp%v ! directional pressure P_ii = dp_i/dt /A = mv_i^2 dt A n /dt /A = mv_i^2 n
-                qty(7)   = factor ! total species density
+                qty(1:3) = factor * mass * particle_tmp%v * particle_tmp%v ! directional pressure P_ii = dp_i/dt /A = mv_i^2 dt A n /dt /A = mv_i^2 n
+                qty(4)   = factor * mass * dot_product(particle_tmp%v,particle_tmp%v) / (3*EL_CHG) ! T [eV] (E = 1/2 m v^2 = 3/2 k_B T, k_B T / e = m v^2 / (3 e))
+                qty(5)   = factor ! total species density
+                qty(5+particle_tmp%i_life) = factor ! species density [m^-3] (qty(6) = n_1, qty(7) = n_2)
                 qty(8)   = particle_tmp%weight !< to normalise later on
                 
                 do i_tor=1,n_tor ! toroidal harmonic
@@ -391,8 +391,8 @@ contains
         do m=1,n_order+1
           do i_elm=1,sim%fields%element_list%n_elements
             do i_tor=1,n_tor
-              w = proj(m,l,i_elm,i_tor,1)+proj(m,l,i_elm,i_tor,2)
-              proj(m,l,i_elm,i_tor,3) = proj(m,l,i_elm,i_tor,3)/max(proj(m,l,i_elm,i_tor,8),1.d0)/sim%n_mpi !< divide by total weight
+              w = proj(m,l,i_elm,i_tor,5)
+              proj(m,l,i_elm,i_tor,4) = proj(m,l,i_elm,i_tor,4)/nonzero(proj(m,l,i_elm,i_tor,8))/sim%n_mpi !< divide by total weight
             enddo
           enddo
         enddo
@@ -597,19 +597,21 @@ contains
     implicit none
     type(particle_sim), intent(inout)  :: sim
 
-    real*8 :: T_av_measured, T_av_measured_red
+    real*8 :: T_av_measured, T_av_measured_red, w_tot
     integer :: ierr
     
     T_av_measured = 0
+    w_tot = 0
     select type (p => sim%groups(1)%particles)
     type is (particle_kinetic_leapfrog)  
       !$omp parallel do default(none)  &
-      !$omp shared(p,sim) reduction(+:T_av_measured)
+      !$omp shared(p,sim) reduction(+:T_av_measured, w_tot)
       do i=1,size(p)
-        T_av_measured = T_av_measured + (sim%groups(1)%mass * ATOMIC_MASS_UNIT) * dot_product(p(i)%v,p(i)%v) / (3*EL_CHG)
+        T_av_measured = T_av_measured + p(i)%weight * (sim%groups(1)%mass * ATOMIC_MASS_UNIT) * dot_product(p(i)%v,p(i)%v) / (3*EL_CHG)
+        w_tot = w_tot + p(i)%weight
       end do
       !$omp end parallel do
-      T_av_measured = T_av_measured/size(p)
+      T_av_measured = T_av_measured/w_tot
     end select
     call MPI_REDUCE(T_av_measured, T_av_measured_red,       1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     if(sim%my_id==0) then
