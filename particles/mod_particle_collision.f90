@@ -24,6 +24,7 @@ module mod_particle_collision
     integer                                    :: group_num !< which group number this collision is about
     real*8,          dimension(:), allocatable :: P_max_elm !< [chance] rescaling factor for collision probability for this element, based on a large estimate for the actual chance a given physical particle will collide in the element (n_elm)
     type(pcg32_rng), dimension(:), allocatable :: rng       !< rng object for this action specifically
+    real*8,          dimension(3)              :: dTw       !< the d_ref, T_ref and omega of the variable hard sphere model for this neutral species
     logical :: constructed=.false. !< whether initialization finished
   contains
     procedure :: initialize
@@ -140,8 +141,10 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 
   !$ w(1) = omp_get_wtime()
   
+  if(sim%my_id == 0) write(*,"(3A)") "--- self collisions of species ",sim%groups(this%group_num)%id," ---"
+
   if(.not. this%constructed) then
-    if(sim%my_id==0) write(*,*) "ERROR: something went wrong in the initialization of this neutral_collision object as it did not finish. Aborting"
+    if(sim%my_id==0) write(*,"(A)") "ERROR: something went wrong in the initialization of this neutral_collision object as it did not finish. Aborting"
     stop
   end if
 
@@ -377,7 +380,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
               v_r = norm2(v1i - v2i)
               m1 = sim%groups(this%group_num)%mass
               m2 = sim%groups(this%group_num)%mass
-              sigma_T = calc_sigma_T(v_r, m1, m2)
+              sigma_T = calc_sigma_T(v_r, m1, m2, this%dtW)
               call interp_0(nodes, elements, pa1%i_elm, [i_neutral_n], 1, pa1%st(1), pa1%st(2), pa1%x(3), P)
               n_loc = P(1)
 
@@ -515,12 +518,13 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 end subroutine neutral_self_collision
 
 !> initializes the neutral collision object
-subroutine initialize(this, sim, group_num)
+subroutine initialize(this, sim, group_num, dTw)
   use mod_random_seed
   implicit none  
   class(type_neutral_collision), intent(inout) :: this
   type(particle_sim),            intent(in)    :: sim
   integer,                       intent(in)    :: group_num
+  real*8,                        intent(in)    :: dtW(3)
 
   integer :: i, seed, i_rng, n_stream
   
@@ -542,8 +546,9 @@ subroutine initialize(this, sim, group_num)
     call this%rng(i)%initialize(1, seed, n_stream, i)
   end do
 
-  !setting up group_num
+  !setting up variables
   this%group_num = group_num
+  this%dTw = dtW
 
   this%constructed = .true.
 end subroutine initialize
@@ -567,7 +572,13 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
   do i=1, n_part_groups_max
     id = part_group_configs(i)%id
     if(id == "non") cycle
-    if(.not. part_group_configs(i)%use_kin_neutral_coll) cycle
+    if(.not. part_group_configs(i)%use_kin_neutral_coll) then
+      if(any(abs(part_group_configs(i)%neutral_coll_dTw(:) + 1.d99)/1.d99 > 1.d-10)) then ! dTw was changed while use_kin_neutral_coll=.false.
+        if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.false. but part_group_configs(",i,")%neutral_coll_dTw has been set. If you want to use neutral collisions you need to set part_group_configs(",i,")%use_kin_neutral_coll=.true and define the three parameters of part_group_configs(",i,")%neutral_coll_dTw. Aborting."
+        stop
+      end if  
+      cycle
+    end if
     n_coll_objs = n_coll_objs+1
   end do
 
@@ -586,8 +597,16 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
       stop 
     end if
     
+    !check sanity of VHS input dTw
+    if(any(abs(part_group_configs(i)%neutral_coll_dTw(:) + 1.d99)/1.d99 < 1.d-10)) then ! it still has the default value
+      if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.true. but not all parameters in part_group_configs(",i,")%neutral_coll_dTw have been defined. Please set the reference collisional diameter, temperature and viscosity index part_group_configs(",i,")%neutral_coll_dTw. Aborting."
+      stop
+    else if(any(part_group_configs(i)%neutral_coll_dTw(:) < 0)) then
+      if(sim%my_id == 0) write(*,"(A,I2,A,2es14.4,A)") "ERROR: negative values in part_group_configs(",i,")%neutral_coll_dTw=",part_group_configs(i)%neutral_coll_dTw," Please check your input. Aborting."
+      stop
+    end if
     group_num = group_num_from_id(sim, id)
-    call neutral_collisions(i_coll_obj)%initialize(sim,group_num)
+    call neutral_collisions(i_coll_obj)%initialize(sim,group_num,part_group_configs(i)%neutral_coll_dTw)
   end do
 
   !sanity check
@@ -601,7 +620,7 @@ end function neutral_collisions_from_config
 !> calculates the elastic collisional cross section for D + D elastic collisions
 !> variable hard sphere based on [1] eq 4.63
 !> [1]: Bird, G. A.. (1994). Molecular Gas Dynamics and the Direct Simulation of Gas Flows.
-function calc_sigma_T(v_r, m1, m2) result(sigma_T)
+function calc_sigma_T(v_r, m1, m2, dTw) result(sigma_T)
   
   use constants, only: PI, K_BOLTZ
   
@@ -610,6 +629,7 @@ function calc_sigma_T(v_r, m1, m2) result(sigma_T)
   real*8, intent(in)  :: v_r     !< relative velocity [m/s]
   real*8, intent(in)  :: m1      !< mass of first particle [AMU]
   real*8, intent(in)  :: m2      !< mass of second particle [AMU]
+  real*8, intent(in)  :: dTw(3)  !< d_ref, T_ref and omega
 
   real*8              :: sigma_T !< total collisional cross section sigma_T
 
@@ -627,9 +647,9 @@ function calc_sigma_T(v_r, m1, m2) result(sigma_T)
   end if
 
   ! setting local variables
-  d_ref = 2*1.2d-10*0.8 !1.2Å vdWaals radius for H, but that should be nearly equal to D. For H2 d_ref=2.92d-10 m according to [1] appendix A, and He d_ref=2.33d-10 while r_vdWaals = 1.40d-10m for He. So factor 0.8 is to handwavingly convert from r_vdWaals to d_ref
-  T_ref = 273
-  omega = 0.68 !Varoutis 2017 paper 
+  d_ref = dTw(1)
+  T_ref = dTw(2)
+  omega = dTw(3)
   m_r   = m1*m2/(m1+m2)
   m_r   = m_r * ATOMIC_MASS_UNIT
 

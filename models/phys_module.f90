@@ -1041,6 +1041,7 @@ module phys_module
                                                    !  *if 2+ ncs groups are present, how the fluid recombination is divided amongst the groups is not yet implemented
     logical             :: use_kin_neutral_coll    !< switch on neutral self-collisions*
                                                    !  *cross collisions between different neutrals species is not yet supported                                              
+    real*8              :: neutral_coll_dTw(3)     !< the reference diameter d_ref [m], reference temperatrue T_ref [K] and viscosity index omega [-] of the variable hard sphere model for this neutral species                          
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma

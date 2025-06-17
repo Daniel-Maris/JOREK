@@ -31,7 +31,7 @@ use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 use mod_particle_wall_interaction
-use mod_particle_collision, only: neutral_self_collision
+use mod_particle_collision, only: neutral_collisions_from_config, type_neutral_collision
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
@@ -192,6 +192,9 @@ do group_num=1, n_part_groups
 
 enddo ! n_part_groups
 
+! neutral collisions
+neutral_collisions = neutral_collisions_from_config(sim)
+
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0=filter_par_n0,            &
@@ -311,6 +314,14 @@ do while (.not. sim%stop_now)
   
 
   ! -- Finalising the fluid timestep
+
+  !neutral self collisions, which need the projected neutral density
+  if (size(neutral_collisions) > 0) then
+    call write_to_outputfile(sim%my_id, "Neutral self collisions")
+    do i=1, size(neutral_collisions)
+      call neutral_collisions(i)%do(sim,tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
+    enddo
+  endif
   
   !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
   if ( mod(istep,500) .eq. 0 ) then
