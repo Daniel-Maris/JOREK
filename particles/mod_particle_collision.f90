@@ -115,7 +115,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   real*8 :: v2f(3) !< final   velocity of particle 2
   
   !global diagnostics
-  integer, parameter :: n_diag=10     !< number of global diagnostics
+  integer, parameter :: n_diag=11     !< number of global diagnostics
   integer, parameter :: i_P_av=1      !< index of average collisions chance (=sum(P)/n_pairs)
   integer, parameter :: i_tau=2       !< index of average collision time (=dt/P_av)
   integer, parameter :: i_sigma_av=3  !< index of average collision cross section (=sum(sigma)/n_pairs)
@@ -123,9 +123,10 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   integer, parameter :: i_n_col=5     !< index of number of collided pairs
   integer, parameter :: i_w_col=6     !< index of sum of collided weight
   integer, parameter :: i_Pgt1=7      !< index of pairs with P > 1
-  integer, parameter :: i_V=8         !< index of total volume of all cells (=sum(V_c), should be equal to domain volume if all elements have colliding particles)
-  integer, parameter :: i_d_av=9      !< index of average VHS diameter (=sum(d)/n_pairs)
-  integer, parameter :: i_angle_av=10 !< index of average collisional angle fraction (=(sum(angle)/n_col)/(PI/2)). If this is 1, it is a random walk (so MFP = v*tau), if this is 0 the MFP is infinite, and if it is >!, then MFP < v*tau (with limit 0 for fraction 2?)  
+  integer, parameter :: i_Pst1=8      !< index of pairs with P < 0
+  integer, parameter :: i_V=9         !< index of total volume of all cells (=sum(V_c), should be equal to domain volume if all elements have colliding particles)
+  integer, parameter :: i_d_av=10     !< index of average VHS diameter (=sum(d)/n_pairs)
+  integer, parameter :: i_angle_av=11 !< index of average collisional angle fraction (=(sum(angle)/n_col)/(PI/2)). If this is 1, it is a random walk (so MFP = v*tau), if this is 0 the MFP is infinite, and if it is >!, then MFP < v*tau (with limit 0 for fraction 2?)  
   real*8 :: global_diag(n_diag) !< global diagnostics
   real*8 :: reduced_global_diag(n_diag) !< MPI reduced global_diag
   character(len=100) :: FMT !< writing format for diagnostics
@@ -350,12 +351,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
             ! determine the number of pairs to be tried for collision
             N_try = nint(0.5d0*n_pa_bin*this%P_max_elm(i_elm))
             if(N_try < 1) N_try = 1 ! to make sure that for low collisional chance the number of collisions are not rounded off to 0
-            
-            if(N_try > n_pa_bin/2) then
-              !$omp critical
-              write(*,*) "ERROR: some particles will be used twice (N_try,n_pa_bin/2)",N_try,n_pa_bin/2
-              !$omp end critical
-            end if
+            ! if (N_try > n_pa_bin/2) some particles will be used twice. This is known (and warned for) beforehand because P_max_elm is known
 
             ! loop over to-be-tried collisional pairs for this bin
             do i_pair = 1,N_try !< dummy variable for loop
@@ -405,15 +401,8 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 
               if (P_try > 1.d0) then
                 global_diag(i_Pgt1) = global_diag(i_Pgt1) + 1
-                if (P_try > 5.d0) then
-                  !$omp critical
-                  write(*,"(A,es15.5,I10,6es15.5)") "ERROR in NNC: P_try >> 1 (P,N_test,sigma,v_r,dt,V_c,w1,w2)",P_try, n_pa_bin, sigma_T, v_r, dt, V_c, w1, w2
-                  !$omp end critical
-                end if
               else if (P_try < 0.d0) then
-                !$omp critical
-                write(*,"(A,2es15.5)") "ERROR in NNC: P_try < 1 (P,n_loc)",P_try, n_loc
-                !$omp end critical
+                global_diag(i_Pst1) = global_diag(i_Pst1) + 1
               end if
 
               if (RN(3) .le. P_try) then ! do binary collision
@@ -499,6 +488,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   if(sim%my_id .eq. 0) then
     write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P col/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
     write(*,"(A,2es15.5)") "P_max_elm rescale values (min/max) ",P_max_elm_min_red,P_max_elm_max_red
+    if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles have been tried more than once for collisions"
     if(reduced_global_diag(i_Pgt1) > 0.5) write(*,"(A,I10.0,A,I10.0,A)") "WARNING: P_try>1 for ",nint(reduced_global_diag(i_Pgt1))," out of ",nint(reduced_global_diag(i_n_pairs))," collision attempts during this timestep"
 
     !getting the averages by dividing the sum by number of pairs
@@ -509,7 +499,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     reduced_global_diag(i_tau)      = dt/nonzero(reduced_global_diag(i_P_av))
     reduced_global_diag(i_V)        = reduced_global_diag(i_V)        / sim%n_mpi
     write(FMT,"(A,I2,A)") "(A,",n_diag,"es15.5)"  
-    write(*,trim(FMT)) "diagnostics (P av/tau av/sigma av/pairs tried/pairs coll/weight coll/# P>1/sum V_c/d av/av angle frac) =",reduced_global_diag
+    write(*,trim(FMT)) "diagnostics (P av/tau av/sigma av/pairs tried/pairs coll/weight coll/#P>1/#P<0/sum V_c/d av/av angle frac) =",reduced_global_diag
   end if
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
@@ -806,9 +796,6 @@ function next(this, RN) result(i_drawn)
 
   ! check whether we have unused indices left
   if(nth_draw > this%size) then
-    !$omp critical
-      write(*,*) "ERROR in random draw, every number has already been drawn once, resetting draw"
-    !$omp end critical
     call this%reset(this%size)
     nth_draw = 1 !< because it was just reset, this is again the first draw
   end if
