@@ -1,4 +1,4 @@
-subroutine find_RZ(node_list,element_list,R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail)
+subroutine find_RZ(node_list,element_list,R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail,phi_find,checked_elms)
 !-------------------------------------------------------------------------
 !< Find all elements for which minmax is correct and run find_RZ_single on those.
 !< Return the first result.
@@ -13,12 +13,29 @@ use mod_element_rtree, only: elements_containing_point
 #endif
 implicit none
 
+interface
+  subroutine find_RZ_single(node_list,element_list,i_elm,R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail, phi_find)
+    use data_structure
+    use mod_parameters
+    integer, intent(in) :: i_elm
+    real*8, intent(in) :: R_find, Z_find
+    real*8, intent(in), optional :: phi_find
+    real*8, intent(out) :: R_out, Z_out, s_out, t_out
+    integer, intent(out) :: ielm_out, ifail
+    type (type_node_list), intent(in) :: node_list
+    type (type_element_list), intent(in) :: element_list
+  end subroutine
+end interface
+
 type (type_node_list), intent(in)    :: node_list
 type (type_element_list), intent(in) :: element_list
 real*8, intent(in)     :: R_find, Z_find
 real*8, intent(out)    :: R_out,Z_out,s_out,t_out
 integer, intent(inout) :: ielm_out
 integer, intent(out)   :: ifail
+
+integer, intent(out), optional :: checked_elms
+real*8, intent(in),   optional :: phi_find
 
 integer :: k
 integer, dimension(:), allocatable :: i_elms
@@ -29,13 +46,16 @@ call elements_containing_point_no_tree(R_find, Z_find, i_elms)
 #elif USE_QUADTREE
 call elements_containing_point_quadtree(R_find, Z_find, i_elms)
 #else
-call elements_containing_point(R_find, Z_find, i_elms)
+call elements_containing_point(R_find, Z_find, i_elms, phi_find)
 #endif
 
 ! then loop through all
 do k=1,size(i_elms)
-  call find_RZ_single(node_list,element_list,i_elms(k),R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail)
-  if (ifail .eq. 0) exit
+  call find_RZ_single(node_list,element_list,i_elms(k),R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail, phi_find)
+  if (ifail .eq. 0) then 
+    checked_elms = k
+    exit
+  endif
 enddo
 
 if (ielm_out .eq. 0) ifail = 99
@@ -43,7 +63,7 @@ if (ifail .eq. 999) ielm_out = 0 ! Otherwise testing ielm=0 on output does not
 ! work anymore (and we don't always check ifail)
 end subroutine find_RZ
 
-subroutine find_RZ_single(node_list,element_list,i_elm,R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail)
+subroutine find_RZ_single(node_list,element_list,i_elm,R_find,Z_find,R_out,Z_out,ielm_out,s_out,t_out,ifail, phi_find)
 !-------------------------------------------------------------------------
 !< solves two non-linear equations using Newtons method (from numerical recipes)
 !< LU decomposition replaced by explicit solution of 2x2 matrix.
@@ -62,6 +82,9 @@ type (type_node_list), intent(in)    :: node_list
 type (type_element_list), intent(in) :: element_list
 integer, intent(in)    :: i_elm
 real*8, intent(in)     :: R_find, Z_find
+
+real*8, intent(in), optional :: phi_find
+
 real*8, intent(out)    :: R_out,Z_out,s_out,t_out
 integer, intent(out)   :: ielm_out
 integer, intent(out)   :: ifail
@@ -75,7 +98,12 @@ real*8  :: x(2), FVEC(2), FJAC(2,2), p(2), phi
 ntrial = 20
 tolx = 1.d-8
 tolf = 1.d-15
-phi = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
+if (present(phi_find)) then 
+phi = phi_find
+else 
+phi = 2.d0*pi*float(i_plane_rtree - 1)/float(n_coord_period*n_plane)
+endif
+
 
 ielm_out = i_elm ! Since we only test a single element
 
