@@ -14,6 +14,15 @@ integer, parameter :: ND = 2
 #endif
 
 interface
+  subroutine RZ_minmax(node_list, element_list, i_elm, Rmin, Rmax, Zmin, Zmax, i_plane_query_in)
+    use data_structure, only: type_node_list, type_element_list
+    implicit none
+    type(type_node_list), intent(in)    :: node_list
+    type(type_element_list), intent(in) :: element_list
+    integer, intent(in)                 :: i_elm
+    real*8 , intent(out)                :: Rmin, Rmax, Zmin, Zmax
+    integer, intent(in), optional       :: i_plane_query_in
+  end subroutine RZ_minmax
   !> Name is element_rtree to match filename `element_rtree.cpp`.
   !> `void PopulateTree(int nelm, double minx[], double miny[], double maxx[], double maxy[])`
   subroutine element_rtree(n, n_plane, min, max) bind(C,name="PopulateTree")
@@ -37,7 +46,7 @@ interface
 end interface
 
 interface populate_element_rtree
-#if defined(STELLARATOR_MODEL)
+#if STELLARATOR_MODEL
   ! If STELLARATOR_MODEL is defined during compilation, use the 3D version.
   module procedure populate_element_rtree_3D
 #else
@@ -64,15 +73,15 @@ subroutine populate_element_rtree_2D(node_list, element_list)
   allocate(min_bb(n*ND), max_bb(n*ND))
   do i=1,n
     call RZ_minmax(node_list, element_list, i, rmin, rmax, zmin, zmax)
-    max_bb(i * ND + 1) = real(rmax, kind=C_DOUBLE)
-    max_bb(i * ND + 2) = real(zmax, kind=C_DOUBLE)
+    max_bb((i - 1) * ND + 1) = real(rmax, kind=C_DOUBLE)
+    max_bb((i - 1) * ND + 2) = real(zmax, kind=C_DOUBLE)
 
-    min_bb(i * ND + 1) = real(rmin, kind=C_DOUBLE)
-    min_bb(i * ND + 2) = real(zmin, kind=C_DOUBLE)
+    min_bb((i - 1) * ND + 1) = real(rmin, kind=C_DOUBLE)
+    min_bb((i - 1) * ND + 2) = real(zmin, kind=C_DOUBLE)
   end do
   write(*,*) "Initializing RTree"
   ! this cleans out the tree before insertion
-  call element_rtree(int(n, C_INT), int(n_plane, C_INT), min_bb, max_bb)
+  call element_rtree(int(n, C_INT), int(1, C_INT), min_bb, max_bb)
   rtree_initialized = .true.
 end subroutine populate_element_rtree_2D
 
@@ -97,11 +106,11 @@ subroutine populate_element_rtree_3D(node_list, element_list)
   
       max_bb(index + 1) = real(max(rmax, rmax_old), kind=C_DOUBLE)
       max_bb(index + 2) = real(max(zmax, zmax_old), kind=C_DOUBLE)
-      max_bb(index + 3) = real(real(mp - 1,8) * 2.d0 * PI / n_plane / n_period, kind=C_DOUBLE)
+      max_bb(index + 3) = real(real(mp - 1,8) * 2.d0 * PI / real(n_plane * n_coord_period,8), kind=C_DOUBLE)
 
       min_bb(index + 1) = real(min(rmin, rmin_old), kind=C_DOUBLE)
       min_bb(index + 2) = real(min(zmin, zmin_old), kind=C_DOUBLE)
-      min_bb(index + 3) = real(real(mp - 2,8) * 2.d0 * PI / n_plane / n_period, kind=C_DOUBLE)
+      min_bb(index + 3) = real(real(mp - 2,8) * 2.d0 * PI / real(n_plane * n_coord_period,8), kind=C_DOUBLE)
 
       rmin_old = rmin ; rmax_old = rmax ; zmin_old = zmin ; zmax_old = zmax
     end do
@@ -152,25 +161,13 @@ subroutine nearby_elements(node_list, element_list, i_elm, i_nearby)
 end subroutine nearby_elements
 
 !> Find elements that could probably contain this point.
-subroutine elements_containing_point(R, Z, i_elms, phi_in)
-  use phys_module, only: i_plane_rtree
-  use constants, only: PI
-  real*8, intent(in)                              :: R, Z
-  real*8, intent(in), optional                    :: phi_in
+subroutine elements_containing_point(R, Z, phi, i_elms)
+  real*8, intent(in)                              :: R, Z, phi
   integer, dimension(:), allocatable, intent(out) :: i_elms
 
   real(C_DOUBLE), dimension(ND) :: min_bb, max_bb
   integer(C_INT) :: num_elements
   integer(C_int), dimension(:), allocatable :: i_nearby_C
-
-  real*8 :: phi
-
-  if (present(phi_in)) then 
-  phi = phi_in
-  else 
-  phi = 2.d0*PI*float(i_plane_rtree - 1)/float(n_coord_period*n_plane)
-  endif
-
 
   if (R .ne. R .or. Z .ne. Z .or. phi .ne. phi) then
     write(*,*) "Warning: NaN supplied for R or Z in elements_containing_point, returning 0 elements"
