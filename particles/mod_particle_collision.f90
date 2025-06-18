@@ -64,7 +64,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 
   type(particle_kinetic_leapfrog)                                :: pa1 !< first particle of the collisional pair
   type(particle_kinetic_leapfrog)                                :: pa2 !< second particle of the collisional pair
-  type(indices_in_elm),            dimension(:),     allocatable :: sorted_ind_arr !< object containing all particle indices as arrays per element number
+  type(indices_in_elm),            dimension(:),     allocatable :: sorted_ind_arr !< object containing all particle indices as arrays per element number (n_elm)
   type(indices_in_elm),            dimension(:,:,:), allocatable :: i_pa_bin !< object containing all this element's particle indices as arrays per bin (s bin,t bin, phi bin)
   type(random_draw)                                              :: i_random !< particle index list (1 to n_pa_bin) to draw from to determine next random particle for pairing. Already used indices are at the front. (n_pa_bin)
 
@@ -87,13 +87,15 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 
   integer :: pa_in_elm !< number of particles in the element under consideration
   integer, parameter :: aim_pa_per_bin = 50 !< wanted amount of super particles in one collisional bin (element is split up to satisfy this). Bigger means better statistics of particle density, but also loss of locality. Much smaller than 50 (like 2-10 or so) is not advised because the momenta of the particles in the bin might get correlated over time
-  integer, dimension(:),       allocatable :: i_pa_elm     !< global particle indices of the particles in this element
+  integer, dimension(:),       allocatable :: i_pa_elm     !< global particle indices of the particles in this element (pa_in_elm)
   integer, dimension(:,:,:),   allocatable :: n_pa_bin_arr !< number of particles in each collisional bin of this element (s bin, t bin, phi bin)
   integer, dimension(:,:,:),   allocatable :: i_loc_bin    !< local index of particles in each collisional bin of this element (s bin, t bin, phi bin)
-  logical, dimension(:),       allocatable :: paired       !< array to keep track of which particle is not paired yet
-  integer, dimension(:),       allocatable :: pa_elm_arr   !< precalculated pa(:)%i_elm for faster masking over i_elm 
+  logical, dimension(:),       allocatable :: paired       !< array to keep track of which particle is not paired yet (pa_in_bin)
+  integer, dimension(:),       allocatable :: pa_elm_arr   !< precalculated pa(:)%i_elm for faster masking over i_elm  (n_pa)
   integer, dimension(:),       allocatable :: pa_in_elm_arr !< number of particles in the element (n_elm)
-  integer, dimension(:),       allocatable :: i_loc_arr !< local index in the element array of particle indices (n_elm)
+  integer, dimension(:,:),     allocatable :: pa_in_thread_arr !< number of particles in the thread for this element (n_elm, n_thread)
+  integer, dimension(:,:),     allocatable :: offset_thread_arr !< offset of this thread's contribution to sorted_ind_arr for this element (n_elm, n_thread)
+  integer, dimension(:,:),     allocatable :: i_loc_thread_arr !< ith particle index insertion into sorted_ind_arr for this element by this thread (n_elm, n_thread)
 
   real*8 :: R, R_s, R_t, Z, Z_s, Z_t, P(1)
   real*8 :: nst
@@ -102,7 +104,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   real*8 :: RN(5) !< random numbers for particle 1, particle 2, chance to collide, impact parameter and scattering plane angle
   real*8 :: P_max_now !< for updating this%P_max_elm
   integer :: N_try !< number of pairs to be tried for collisions (NTC method, N_try = n_pa_bin/2 * P_max_real)
-  integer :: i_rng
+  integer :: i_thread, n_thread
   integer :: i_pa1, i_pa2
   
   !elastic collision parameters
@@ -149,65 +151,93 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     stop
   end if
 
-  n_elm = sim%fields%element_list%n_elements
-  
-  i_rng = 1 !default if not using OMP
-
-  global_diag(:)=0.d0
-
   select type (pa => sim%groups(this%group_num)%particles)
   type is (particle_kinetic_leapfrog)
+  
+    n_elm = sim%fields%element_list%n_elements
     
-    !allocate here so that different groups can have different resolutions in the future
+    i_thread = 1 !default if not using OMP
+    n_thread = 1
+    !$ n_thread = omp_get_max_threads()
+    
+    global_diag(:)=0.d0
+
     n_phi = n_plane
     
     ! --- sorting the particle indices into array by their element number
+    ! the goal is to deterministically sort the particle indices into arrays per element
     if(allocated(pa_elm_arr)) deallocate(pa_elm_arr)
     allocate(pa_elm_arr(size(pa)))
-    if(.not. allocated(pa_in_elm_arr)) allocate(pa_in_elm_arr(n_elm))
     pa_elm_arr = 0
+    if(.not. allocated(pa_in_elm_arr)) allocate(pa_in_elm_arr(n_elm))
     pa_in_elm_arr = 0
+    if(allocated(pa_in_thread_arr)) deallocate(pa_in_thread_arr)
+    allocate(pa_in_thread_arr(n_elm,n_thread))
+    pa_in_thread_arr = 0
     
+    !find out how many particles per element and thread
     !$omp parallel do default(none)  &
-    !$omp shared(pa,pa_elm_arr)      &
-    !$omp private(i_elm)             &
-    !$omp reduction(+:pa_in_elm_arr)
+    !$omp shared(pa,pa_elm_arr,pa_in_thread_arr)      &
+    !$omp private(i_elm, i_thread)   &
+    !$omp schedule(static,100)
     do i=1,size(pa)
+      !$ i_thread = omp_get_thread_num()+1
       i_elm = pa(i)%i_elm
       if(i_elm < 1) cycle
       pa_elm_arr(i) = i_elm
-      !$omp atomic update
-      pa_in_elm_arr(i_elm) = pa_in_elm_arr(i_elm) + 1
+      pa_in_thread_arr(i_elm,i_thread) = pa_in_thread_arr(i_elm,i_thread) + 1
+    end do
+    !$omp end parallel do
+
+    !find out how many particles per element total, and getting the offset of each thread 
+    !so that each thread writes to its own part of the sorted_ind_arr(i_elm)%pa_ind(:) array later on
+    if(allocated(offset_thread_arr)) deallocate(offset_thread_arr)
+    allocate(offset_thread_arr(n_elm,n_thread))
+    !$omp parallel do default(none)  &
+    !$omp shared(pa_in_elm_arr,pa_in_thread_arr,offset_thread_arr,n_thread,n_elm) &
+    !$omp private(i_thread)
+    do i_elm=1,n_elm
+      pa_in_elm_arr(i_elm) = sum(pa_in_thread_arr(i_elm,:))
+      
+      !the offset must be the sum over the particles in that element of lower thread numbers, we can determine this iteratively from the previous offset
+      offset_thread_arr(i_elm,1) = 0
+      do i_thread=2,n_thread
+        offset_thread_arr(i_elm,i_thread) = offset_thread_arr(i_elm,i_thread - 1) + pa_in_thread_arr(i_elm,i_thread - 1)
+      end do
     end do
     !$omp end parallel do
 
     !allocating sorted_ind_arr object
     if(.not. allocated(sorted_ind_arr)) allocate(sorted_ind_arr(n_elm))
     !$omp parallel do default(none) &
-    !$omp shared(pa_in_elm_arr, sorted_ind_arr)
-    do i=1,size(sorted_ind_arr)
-      if(allocated(sorted_ind_arr(i)%pa_ind)) deallocate(sorted_ind_arr(i)%pa_ind) ! this can be done here as we know size(sorted_ind_arr)=n_elm is fixed
-      allocate(sorted_ind_arr(i)%pa_ind(pa_in_elm_arr(i)))
+    !$omp shared(pa_in_elm_arr, sorted_ind_arr, n_elm)
+    do i_elm=1,n_elm
+      if(allocated(sorted_ind_arr(i_elm)%pa_ind)) deallocate(sorted_ind_arr(i_elm)%pa_ind) ! this can be done here as we know size(sorted_ind_arr)=n_elm is fixed
+      allocate(sorted_ind_arr(i_elm)%pa_ind(pa_in_elm_arr(i_elm)))
     end do
     !$omp end parallel do
 
     !filling sorted_ind_arr object
-    allocate(i_loc_arr(n_elm))
-    i_loc_arr = 1
+    if(allocated(i_loc_thread_arr)) deallocate(i_loc_thread_arr)
+    allocate(i_loc_thread_arr(n_elm,n_thread))
+    i_loc_thread_arr = 1
     !$omp parallel do default(none)                     &
-    !$omp shared(pa_elm_arr, i_loc_arr, sorted_ind_arr) &
-    !$omp private(i_elm, i_loc)
+    !$omp shared(pa_elm_arr, offset_thread_arr, i_loc_thread_arr, sorted_ind_arr) &
+    !$omp private(i_elm, i_loc, i_thread) &
+    !$omp schedule(static,100)
     do i=1,size(pa_elm_arr)
+      !$ i_thread = omp_get_thread_num()+1
       i_elm = pa_elm_arr(i)
       if(i_elm < 1) cycle
-      !$omp atomic capture
-      i_loc = i_loc_arr(i_elm)
-      i_loc_arr(i_elm) = i_loc_arr(i_elm) + 1
-      !$omp end atomic
+      !for the first particle in i_thread=1, offset=0, 
+      i_loc = offset_thread_arr(i_elm,i_thread) + i_loc_thread_arr(i_elm,i_thread) 
+      i_loc_thread_arr(i_elm,i_thread) = i_loc_thread_arr(i_elm,i_thread) + 1
       sorted_ind_arr(i_elm)%pa_ind(i_loc) = i
     end do
     !$omp end parallel do
-    deallocate(i_loc_arr)
+    deallocate(i_loc_thread_arr)
+    deallocate(offset_thread_arr)
+    deallocate(pa_elm_arr)
 
     max_n_pa = 0
     P_max_mpi = 0
@@ -228,10 +258,10 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     !$omp private(i_pa_elm, pa_in_elm, i, i_global, i_phi, it, is, nst, ns, nt, R, R_s, R_t, Z, Z_s, Z_t,  &
     !$omp ls, lt, i_pa_bin, n_pa_bin_arr, n_pa_bin, pa1, pa2, V_c, P_max_now,  &
     !$omp i_random, i_pair, i_pa1, i_pa2, w1, w2, w_s, w_g, v_r, m1, m2, E_i, v1i, v2i, v_g, P, n_loc, &
-    !$omp sigma_T, P_try, P_real, N_try, i_rng, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
+    !$omp sigma_T, P_try, P_real, N_try, i_thread, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
     !$omp reduction(+:global_diag) reduction(max:max_n_pa, P_max_mpi)
     do i_elm=1,n_elm
-      !$ i_rng = omp_get_thread_num()+1
+      !$ i_thread = omp_get_thread_num()+1
       
       if(allocated(i_pa_elm)) deallocate(i_pa_elm)
       allocate(i_pa_elm(pa_in_elm_arr(i_elm)))
@@ -356,7 +386,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
             ! loop over to-be-tried collisional pairs for this bin
             do i_pair = 1,N_try !< dummy variable for loop
               !generate random number for the pair
-              call this%rng(i_rng)%next(RN)
+              call this%rng(i_thread)%next(RN)
 
               !get random particle from the bin
               i_pa1 = i_random%next(RN(1))
@@ -470,40 +500,40 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 
     end do !i_elm
     !$omp end parallel do
-      
+    
+    call MPI_REDUCE(P_max_mpi,     P_max_global,        1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+    call MPI_REDUCE(max_n_pa,      max_n_pa_gl,         2,      MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+    P_max_elm_min = minval(this%P_max_elm)
+    P_max_elm_max = maxval(this%P_max_elm)
+    call MPI_REDUCE(P_max_elm_min, P_max_elm_min_red,   1,      MPI_DOUBLE_PRECISION, MPI_MIN, 0, MPI_COMM_WORLD, ierr)
+    call MPI_REDUCE(P_max_elm_max, P_max_elm_max_red,   1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+    
+    call MPI_REDUCE(global_diag,   reduced_global_diag, n_diag, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+    
+    if(sim%my_id .eq. 0) then
+      write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P col/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
+      write(*,"(A,2es15.5)") "P_max_elm rescale values (min/max) ",P_max_elm_min_red,P_max_elm_max_red
+      if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles have been tried more than once for collisions"
+      if(reduced_global_diag(i_Pgt1) > 0.5) write(*,"(A,I10.0,A,I10.0,A)") "WARNING: P_try>1 for ",nint(reduced_global_diag(i_Pgt1))," out of ",nint(reduced_global_diag(i_n_pairs))," collision attempts during this timestep"
+  
+      !getting the averages by dividing the sum by number of pairs
+      reduced_global_diag(i_P_av)     = reduced_global_diag(i_P_av)     / nonzero(reduced_global_diag(i_n_pairs))
+      reduced_global_diag(i_sigma_av) = reduced_global_diag(i_sigma_av) / nonzero(reduced_global_diag(i_n_pairs))
+      reduced_global_diag(i_d_av)     = reduced_global_diag(i_d_av)     / nonzero(reduced_global_diag(i_n_pairs))
+      reduced_global_diag(i_angle_av) = reduced_global_diag(i_angle_av) / (nonzero(reduced_global_diag(i_n_col)) * (PI/2))
+      reduced_global_diag(i_tau)      = dt/nonzero(reduced_global_diag(i_P_av))
+      reduced_global_diag(i_V)        = reduced_global_diag(i_V)        / sim%n_mpi
+      write(FMT,"(A,I2,A)") "(A,",n_diag,"es15.5)"  
+      write(*,trim(FMT)) "diagnostics (P av/tau av/sigma av/pairs tried/pairs coll/weight coll/#P>1/#P<0/sum V_c/d av/av angle frac) =",reduced_global_diag
+    end if
+    !$ w(2) = omp_get_wtime()
+    !$ mmm = mpi_minmeanmax(w(2)-w(1))
+    !$ if (sim%my_id .eq. 0) write(*,"(A,3f9.4,A)") "Neutral self collision complete in (min/mean/max) ", mmm, " s"
+
   class default
     write(*,*) "neutral-neutral self collisions not implemented for this type, group=", i
     call exit(13)
   end select
-  
-  call MPI_REDUCE(P_max_mpi,     P_max_global,        1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(max_n_pa,      max_n_pa_gl,         2,      MPI_INTEGER,          MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  P_max_elm_min = minval(this%P_max_elm)
-  P_max_elm_max = maxval(this%P_max_elm)
-  call MPI_REDUCE(P_max_elm_min, P_max_elm_min_red,   1,      MPI_DOUBLE_PRECISION, MPI_MIN, 0, MPI_COMM_WORLD, ierr)
-  call MPI_REDUCE(P_max_elm_max, P_max_elm_max_red,   1,      MPI_DOUBLE_PRECISION, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-  
-  call MPI_REDUCE(global_diag,   reduced_global_diag, n_diag, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-  
-  if(sim%my_id .eq. 0) then
-    write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P col/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
-    write(*,"(A,2es15.5)") "P_max_elm rescale values (min/max) ",P_max_elm_min_red,P_max_elm_max_red
-    if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles have been tried more than once for collisions"
-    if(reduced_global_diag(i_Pgt1) > 0.5) write(*,"(A,I10.0,A,I10.0,A)") "WARNING: P_try>1 for ",nint(reduced_global_diag(i_Pgt1))," out of ",nint(reduced_global_diag(i_n_pairs))," collision attempts during this timestep"
-
-    !getting the averages by dividing the sum by number of pairs
-    reduced_global_diag(i_P_av)     = reduced_global_diag(i_P_av)     / nonzero(reduced_global_diag(i_n_pairs))
-    reduced_global_diag(i_sigma_av) = reduced_global_diag(i_sigma_av) / nonzero(reduced_global_diag(i_n_pairs))
-    reduced_global_diag(i_d_av)     = reduced_global_diag(i_d_av)     / nonzero(reduced_global_diag(i_n_pairs))
-    reduced_global_diag(i_angle_av) = reduced_global_diag(i_angle_av) / (nonzero(reduced_global_diag(i_n_col)) * (PI/2))
-    reduced_global_diag(i_tau)      = dt/nonzero(reduced_global_diag(i_P_av))
-    reduced_global_diag(i_V)        = reduced_global_diag(i_V)        / sim%n_mpi
-    write(FMT,"(A,I2,A)") "(A,",n_diag,"es15.5)"  
-    write(*,trim(FMT)) "diagnostics (P av/tau av/sigma av/pairs tried/pairs coll/weight coll/#P>1/#P<0/sum V_c/d av/av angle frac) =",reduced_global_diag
-  end if
-  !$ w(2) = omp_get_wtime()
-  !$ mmm = mpi_minmeanmax(w(2)-w(1))
-  !$ if (sim%my_id .eq. 0) write(*,"(A,3f9.4,A)") "Neutral self collision complete in (min/mean/max) ", mmm, " s"
 
 end subroutine neutral_self_collision
 
@@ -516,7 +546,7 @@ subroutine initialize(this, sim, group_num, dTw)
   integer,                       intent(in)    :: group_num
   real*8,                        intent(in)    :: dtW(3)
 
-  integer :: i, seed, i_rng, n_stream
+  integer :: i, seed, n_thread
   
   ! --- Setting up P_max_elm
   if(allocated(this%P_max_elm)) deallocate(this%P_max_elm)
@@ -528,12 +558,12 @@ subroutine initialize(this, sim, group_num, dTw)
 
   ! --- Setting up random numbers
   seed = random_seed()
-  n_stream = 1
-  !$ n_stream = omp_get_max_threads()
-  write(*,*) "id, n_mpi, n_stream",sim%my_id, sim%n_mpi, n_stream
-  allocate(this%rng(n_stream))
-  do i=1,n_stream
-    call this%rng(i)%initialize(1, seed, n_stream, i)
+  n_thread = 1
+  !$ n_thread = omp_get_max_threads()
+  write(*,*) "id, n_mpi, n_thread",sim%my_id, sim%n_mpi, n_thread
+  allocate(this%rng(n_thread))
+  do i=1,n_thread
+    call this%rng(i)%initialize(1, seed, n_thread, i)
   end do
 
   !setting up variables
