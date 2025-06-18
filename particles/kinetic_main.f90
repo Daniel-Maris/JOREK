@@ -31,7 +31,7 @@ use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 use mod_particle_wall_interaction
-use mod_particle_collision, only: neutral_collisions_from_config, type_neutral_collision
+use mod_neutral_collision, only: neutral_collisions_from_config, type_neutral_collision
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain

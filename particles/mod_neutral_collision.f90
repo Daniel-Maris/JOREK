@@ -1,6 +1,9 @@
 !> Module for neutral-neutral collisions
-!> Nearest neighbour approach
-module mod_particle_collision
+!> Currently only self collisions are implemented, which can be switched on from the input
+!> Sources cited in this file: 
+!> [1]: Bird, G. A. (1994). Molecular Gas Dynamics and the Direct Simulation of Gas Flows.
+!> [2]: Liebermann (2005). Principles of Plasma Discharges and Materials Processing.
+module mod_neutral_collision
   use mod_edge_elements
   use mod_particle_types
   use constants
@@ -49,32 +52,60 @@ module mod_particle_collision
 
 contains
 
-!> neutral-neutral collision within a species 
-!> nearest neighbour approach where each element has a number of subcells in the toroidal direction
-!> the number of subcells in the poloidal direction are done by dividing the element up in an s,t grid
-!> which is determined automatically by the amount of particles and the length of the element along s and t 
+!> Neutral-neutral collision within a species 
+!> Uses a direct binary collisions approach where each all particles are sorted into collisional bins
+!> Each element is divided equally in the toroidal direction (based on n_plane). The division of the 
+!> element into bins in the poloidal direction is done by dividing the element up in an s,t grid
+!> which is determined automatically by the amount of particles and the length of the element along s and t.
+!> Within a collisional bin, superparticles are paired up randomly, and their real collision chance is determined from
+!> P=n sigma v_r dt, with n the sampled background density of the species, sigma the cross section of the collision (which is
+!> a function of v_r as the variable hard sphere model is used), v_r the relative velocity between the two particles and dt
+!> the timestep. This real collisional chance (which approximates the chance that a physical particle would collide during this 
+!> timestep) is then rescaled by the maximum real collisional chance of this element of the previous timestep, while the amount
+!> of pairs to be tried for collision is lowered to compensate for this. This means fewer particles need to be tried for
+!> collisions while retaining the correct collisional frequency, thus saving on computational time. This method is called the
+!> no time counter (NTC) method (see: [1] sections 11.2-11.4).
+!> Since we are using variable weights and we don't split the heavier particle into a colliding and non-colliding part
+!> (which would create a new particle for every colliding pair), it is impossible to conserve both momentum and energy.
+!> It is chosen to conserve energy and keep the large angle scattering behaviour also for the heavier particle to ensure
+!> the correct diffusive behaviour.
 subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   implicit none
 
   class(type_neutral_collision), intent(inout) :: this
   type(particle_sim),            intent(inout) :: sim
-  type (type_node_list),         intent(in)    :: nodes    !< aux node list to sample neutral density from
+  type (type_node_list),         intent(in)    :: nodes    !< aux node list to sample neutral density from (neutral density is assumed to be at index 5)
   type (type_element_list),      intent(in)    :: elements !< element list (necessary to sample neutral density from)
-  real*8,                        intent(in)    :: dt !< timestep over which the collisions must be calculated
+  real*8,                        intent(in)    :: dt       !< timestep over which the collisions must be calculated
 
-  type(particle_kinetic_leapfrog)                                :: pa1 !< first particle of the collisional pair
-  type(particle_kinetic_leapfrog)                                :: pa2 !< second particle of the collisional pair
+  type(particle_kinetic_leapfrog)                                :: pa1            !< first particle of the collisional pair
+  type(particle_kinetic_leapfrog)                                :: pa2            !< second particle of the collisional pair
   type(indices_in_elm),            dimension(:),     allocatable :: sorted_ind_arr !< object containing all particle indices as arrays per element number (n_elm)
-  type(indices_in_elm),            dimension(:,:,:), allocatable :: i_pa_bin !< object containing all this element's particle indices as arrays per bin (s bin,t bin, phi bin)
-  type(random_draw)                                              :: i_random !< particle index list (1 to n_pa_bin) to draw from to determine next random particle for pairing. Already used indices are at the front. (n_pa_bin)
+  type(indices_in_elm),            dimension(:,:,:), allocatable :: i_pa_bin       !< object containing all this element's particle indices as arrays per bin (s bin,t bin, phi bin)
+  type(random_draw)                                              :: i_random       !< particle index list (1 to n_pa_bin) to draw from to determine next random particle for pairing. Already used indices are at the front. (n_pa_bin)
+
+  integer, parameter :: i_neutral_n=5 !< index in aux nodes list of neutral density
+  integer, parameter :: aim_pa_per_bin = 50 !< wanted amount of super particles in one collisional bin (element is split up to satisfy this). Bigger means better statistics of particle density, but also loss of locality. Much smaller than 50 (like 2-10 or so) is not advised because the momenta of the particles in the bin might get correlated over time
+  
+  integer, dimension(:),       allocatable :: i_pa_elm      !< global particle indices of the particles in this element (pa_in_elm)
+  integer, dimension(:,:,:),   allocatable :: n_pa_bin_arr  !< number of particles in each collisional bin of this element (s bin, t bin, phi bin)
+  integer, dimension(:,:,:),   allocatable :: i_loc_bin     !< local index of particles in each collisional bin of this element (s bin, t bin, phi bin)
+  logical, dimension(:),       allocatable :: paired        !< array to keep track of which particle is not paired yet (pa_in_bin)
+  
+  ! arrays used for determining sorted_ind_arr
+  integer, dimension(:),       allocatable :: pa_in_elm_arr     !< number of particles in the element (n_elm)
+  integer, dimension(:),       allocatable :: pa_elm_arr        !< precalculated pa(:)%i_elm for faster masking over i_elm  (n_pa)
+  integer, dimension(:,:),     allocatable :: pa_in_thread_arr  !< number of particles in the thread for this element (n_elm, n_thread)
+  integer, dimension(:,:),     allocatable :: offset_thread_arr !< offset of this thread's contribution to sorted_ind_arr for this element (n_elm, n_thread)
+  integer, dimension(:,:),     allocatable :: i_loc_thread_arr  !< ith particle index insertion into sorted_ind_arr for this element by this thread (n_elm, n_thread)
 
   integer :: n_phi !< number of toroidal bins to do collisions in
-  integer :: n_elm
-  integer :: i_phi, is, it, ns, nt, n_pa_bin, i_pair
-  integer :: i,j, i_elm, i_loc, i_global
-  integer,parameter :: i_neutral_n=5 !< index in aux list of neutral density
+  integer :: i, j, i_elm, i_loc, i_global, i_phi, is, it, ns, nt, i_pair, n_elm
+  integer :: pa_in_elm !< number of particles in the element under consideration
+  integer :: n_pa_bin  !< number of particles in this collisional bin
+  integer :: i_thread, n_thread
 
-  real*8 :: P_real  !< [chance] chance that this particle will collide (with anything) this timestep, P_real = N_test w_g \sigma_T v_r dt / V_c
+  real*8 :: P_real  !< [chance] chance that this particle will collide (with anything) this timestep, P_real = n \sigma_T v_r dt
   real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = P_real / P_max_elm(i_elm)
   real*8 :: w2, w1  !< [physical particles] weight of super particle 1
   real*8 :: w_s     !< [physical particles] weight of smaller super particle in binary collision w_s = min(w1,w2)
@@ -85,26 +116,13 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   real*8 :: E_i     !< [J*amu/kg] initial energy before collision (=w1 m1 v1i^2 + w2 m2 v2i^2)
   real*8 :: v_g     !< [m/s] scalar velocity of larger weight particle after the collision (used to conserve energy for variable weights)
 
-  integer :: pa_in_elm !< number of particles in the element under consideration
-  integer, parameter :: aim_pa_per_bin = 50 !< wanted amount of super particles in one collisional bin (element is split up to satisfy this). Bigger means better statistics of particle density, but also loss of locality. Much smaller than 50 (like 2-10 or so) is not advised because the momenta of the particles in the bin might get correlated over time
-  integer, dimension(:),       allocatable :: i_pa_elm     !< global particle indices of the particles in this element (pa_in_elm)
-  integer, dimension(:,:,:),   allocatable :: n_pa_bin_arr !< number of particles in each collisional bin of this element (s bin, t bin, phi bin)
-  integer, dimension(:,:,:),   allocatable :: i_loc_bin    !< local index of particles in each collisional bin of this element (s bin, t bin, phi bin)
-  logical, dimension(:),       allocatable :: paired       !< array to keep track of which particle is not paired yet (pa_in_bin)
-  integer, dimension(:),       allocatable :: pa_elm_arr   !< precalculated pa(:)%i_elm for faster masking over i_elm  (n_pa)
-  integer, dimension(:),       allocatable :: pa_in_elm_arr !< number of particles in the element (n_elm)
-  integer, dimension(:,:),     allocatable :: pa_in_thread_arr !< number of particles in the thread for this element (n_elm, n_thread)
-  integer, dimension(:,:),     allocatable :: offset_thread_arr !< offset of this thread's contribution to sorted_ind_arr for this element (n_elm, n_thread)
-  integer, dimension(:,:),     allocatable :: i_loc_thread_arr !< ith particle index insertion into sorted_ind_arr for this element by this thread (n_elm, n_thread)
-
   real*8 :: R, R_s, R_t, Z, Z_s, Z_t, P(1)
   real*8 :: nst
-  real*8 :: lt,ls !< [m] physical size of element / bin in s direction
-  real*8 :: V_c !< [m^3] grid cell (collisional bin) volume 
-  real*8 :: RN(5) !< random numbers for particle 1, particle 2, chance to collide, impact parameter and scattering plane angle
+  real*8 :: lt,ls     !< [m] physical size of element / bin in s direction
+  real*8 :: V_c       !< [m^3] grid cell (collisional bin) volume 
+  real*8 :: RN(5)     !< random numbers for particle 1, particle 2, chance to collide, impact parameter and scattering plane angle
   real*8 :: P_max_now !< for updating this%P_max_elm
-  integer :: N_try !< number of pairs to be tried for collisions (NTC method, N_try = n_pa_bin/2 * P_max_real)
-  integer :: i_thread, n_thread
+  integer :: N_try    !< number of pairs to be tried for collisions (NTC method, N_try = n_pa_bin/2 * P_max_real)
   integer :: i_pa1, i_pa2
   
   !elastic collision parameters
@@ -162,9 +180,12 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     
     global_diag(:)=0.d0
 
+    ! for now it is assumed that having n_plane toroidal bins is enough locality in the toroidal direction. 
+    ! If it turns out that is not the case, it might make sense to have this as a lower limit and let the amount of toroidal bins scale with the amount of particles in the elements
+    ! (just as the number of s and t bins scale as such)
     n_phi = n_plane
     
-    ! --- sorting the particle indices into array by their element number
+    ! --- sorting the particle indices into arrays by their element number
     ! the goal is to deterministically sort the particle indices into arrays per element
     if(allocated(pa_elm_arr)) deallocate(pa_elm_arr)
     allocate(pa_elm_arr(size(pa)))
@@ -274,7 +295,8 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
       !> skip collisions if there are nearly no particles
       if(pa_in_elm .lt. 2*n_phi) cycle
       
-      !determine how many poloidal bins for this element. real to give the best approximation to ns, nt
+      ! --- determine how to split up this bin poloidally
+      ! nst is real to give the best approximation to ns, nt
       nst = pa_in_elm/real(aim_pa_per_bin * n_phi) !< number of bins in poloidal plane
 
       if(nst .gt. 1.d0) then        
@@ -311,10 +333,10 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
         nt = 1
       end if
 
+      ! --- distribute the particles in the element over the toroidal and poloidal collisional bins based on their s, t and phi coordinates
       allocate(i_pa_bin(ns,nt,n_phi))
       allocate(n_pa_bin_arr(ns,nt,n_phi))
       
-      ! i_pa_bin = 0
       n_pa_bin_arr = 0
 
       !loop to get amount of particles per bin
@@ -355,19 +377,19 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
         i_loc_bin(is,it,i_phi) = i_loc_bin(is,it,i_phi) + 1
         i_pa_bin(is,it,i_phi)%pa_ind(i_loc) = i_global
       end do !i_pa_elm
+      deallocate(i_loc_bin)
       
+      ! --- loop through each collisional bin
       P_max_now = 0.d0
-
-      !loop through each collisional bin
       do i_phi=1,n_phi 
         do it=1,nt
           do is=1,ns 
-            n_pa_bin = n_pa_bin_arr(is,it,i_phi) ! shorthand notation
+            n_pa_bin = n_pa_bin_arr(is,it,i_phi) ! n_pa_bin is the shorthand notation
             
             if(n_pa_bin > max_n_pa(2)) max_n_pa(2) = n_pa_bin
             if(n_pa_bin .le. 1) cycle !< can't collide 0 or 1 particles
             
-            ! detemine bin volume
+            ! detemine bin volume (this would be necessary when the heavier particle would be split up, now it is only present as a sanity check)
             call interp_RZ(sim%fields%node_list,sim%fields%element_list,i_elm,(real(is)+0.5d0)/real(ns),(real(it)+0.5d0)/real(nt),R,R_s,R_t,Z,Z_s,Z_t)
             ls = sqrt(R_s**2 + Z_s**2)/real(ns)
             lt = sqrt(R_t**2 + Z_t**2)/real(nt)
@@ -410,9 +432,8 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
               call interp_0(nodes, elements, pa1%i_elm, [i_neutral_n], 1, pa1%st(1), pa1%st(2), pa1%x(3), P)
               n_loc = P(1)
 
-              ! when splitting up the heavier particle:
-              ! we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
-              !P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c 
+              ! the following is the required collisional chance when splitting up the heavier particle:
+              !P_real = w_g * n_pa_bin * sim%n_mpi * sigma_T * v_r * dt / V_c ! in this scenario we should technically take all particles in the collisional bin across all MPI's, but we approximate that with n_pa_bin*sim%n_mpi
 
               ! because we are not splitting up the heavier particle:
               P_real = n_loc * sigma_T * v_r * dt
@@ -482,13 +503,12 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
       ! update maximum collision chance if necessary (with a margin of 20% to keep P<1 in the future)
       if(1.2*P_max_now > this%P_max_elm(i_elm)) then ! update if the maximum chance now is bigger than previously
         this%P_max_elm(i_elm) = 1.2*P_max_now
-      else if (5*P_max_now < this%P_max_elm(i_elm)) then ! if P_max_now is really small, we can carefully decrease P_max_elm to gain some speed in the future
-        this%P_max_elm(i_elm) = 0.9*this%P_max_elm(i_elm)
+      else if (2*P_max_now < this%P_max_elm(i_elm)) then ! if P_max_now is significantly smaller than before, we can carefully decrease P_max_elm to gain some speed in the future
+        this%P_max_elm(i_elm) = 0.98*this%P_max_elm(i_elm)
       end if
 
       ! deallocation of private allocatables
-      if(allocated(n_pa_bin_arr)) deallocate(n_pa_bin_arr)
-      deallocate(i_loc_bin)
+      deallocate(n_pa_bin_arr)
       do i_phi=1,n_phi
         do it=1,nt
           do is=1,ns
@@ -511,7 +531,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     call MPI_REDUCE(global_diag,   reduced_global_diag, n_diag, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     
     if(sim%my_id .eq. 0) then
-      write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P col/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
+      write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P_real/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
       write(*,"(A,2es15.5)") "P_max_elm rescale values (min/max) ",P_max_elm_min_red,P_max_elm_max_red
       if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles have been tried more than once for collisions"
       if(reduced_global_diag(i_Pgt1) > 0.5) write(*,"(A,I10.0,A,I10.0,A)") "WARNING: P_try>1 for ",nint(reduced_global_diag(i_Pgt1))," out of ",nint(reduced_global_diag(i_n_pairs))," collision attempts during this timestep"
@@ -524,7 +544,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
       reduced_global_diag(i_tau)      = dt/nonzero(reduced_global_diag(i_P_av))
       reduced_global_diag(i_V)        = reduced_global_diag(i_V)        / sim%n_mpi
       write(FMT,"(A,I2,A)") "(A,",n_diag,"es15.5)"  
-      write(*,trim(FMT)) "diagnostics (P av/tau av/sigma av/pairs tried/pairs coll/weight coll/#P>1/#P<0/sum V_c/d av/av angle frac) =",reduced_global_diag
+      write(*,trim(FMT)) "diagnostics (P_real av/tau av/sigma av/pairs tried/pairs coll/weight coll/#P_try>1/#P_try<0/sum V_c/d av/av angle frac) =",reduced_global_diag
     end if
     !$ w(2) = omp_get_wtime()
     !$ mmm = mpi_minmeanmax(w(2)-w(1))
@@ -639,7 +659,6 @@ end function neutral_collisions_from_config
 
 !> calculates the elastic collisional cross section for D + D elastic collisions
 !> variable hard sphere based on [1] eq 4.63
-!> [1]: Bird, G. A.. (1994). Molecular Gas Dynamics and the Direct Simulation of Gas Flows.
 function calc_sigma_T(v_r, m1, m2, dTw) result(sigma_T)
   
   use constants, only: PI, K_BOLTZ
@@ -662,7 +681,6 @@ function calc_sigma_T(v_r, m1, m2, dTw) result(sigma_T)
 
   if (abs(v_r) .lt. 1.d-12) then
     sigma_T = 0.d0
-    ! write(*,*) "NNC sigma_T(v_r=0) is set to 0"
     return
   end if
 
@@ -679,7 +697,7 @@ function calc_sigma_T(v_r, m1, m2, dTw) result(sigma_T)
 end function calc_sigma_T
 
 !> Calculates the resulting velocity vectors after a binary elastic collision 
-!> Uses CM scattering angle Theta and angle of the scattering plane alpha
+!> Uses centre of mass scattering angle Theta and angle of the scattering plane alpha
 subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   use constants, only: PI
   use mod_math_operators, only: cross_product
@@ -705,7 +723,7 @@ subroutine binary_elastic_collision(m1,m2,v1i,v2i,Theta,alpha,v1f,v2f)
   !sanity
   real*8 :: dp(3), dE, tol
   
-  !this calculation follows the logic in Liebermann (2005), Principles of Plasma Discharges and Materials Processing, section 3.2, applied to 3D
+  !this calculation follows the logic in [2], section 3.2, applied to 3D
 
   !go to 3D rest frame of particle 2
   v_r = v1i - v2i
@@ -886,4 +904,4 @@ pure function angle(v1,v2) result(alpha)
 
 end function angle
 
-end module mod_particle_collision
+end module mod_neutral_collision

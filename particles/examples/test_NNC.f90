@@ -1,4 +1,6 @@
 !> Benchmark program to test the neutral neutral collisions
+!> this is basically a gas box experiment where two fluids mix, from which the effective diffusion coefficient can be reconstructed
+!> this can then be compared to the diffusion coefficient expected from theory to verify that the code works properly
 program test_NNC
 
   use data_structure
@@ -9,7 +11,7 @@ program test_NNC
   use mod_parameters, only: n_degrees
   use basis_at_gaussian, only: initialise_basis
   use mod_particle_allocation, only: allocate_particles_for_sim
-  use mod_particle_collision
+  use mod_neutral_collision
   use mod_particle_sim
   use mod_particle_io, only: write_simulation_hdf5
   use phys_module
