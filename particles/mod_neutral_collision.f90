@@ -4,7 +4,6 @@
 !> [1]: Bird, G. A. (1994). Molecular Gas Dynamics and the Direct Simulation of Gas Flows.
 !> [2]: Liebermann (2005). Principles of Plasma Discharges and Materials Processing.
 module mod_neutral_collision
-  use mod_edge_elements
   use mod_particle_types
   use constants
   use mod_pcg32_rng,   only: pcg32_rng
@@ -197,8 +196,13 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     pa_in_thread_arr = 0
     
     !find out how many particles per element and thread
+#ifdef __GFORTRAN__
+    !$omp parallel do default(none)  &
+    !$omp shared(sim,pa_elm_arr,pa_in_thread_arr)      &
+#else
     !$omp parallel do default(none)  &
     !$omp shared(pa,pa_elm_arr,pa_in_thread_arr)      &
+#endif
     !$omp private(i_elm, i_thread)   &
     !$omp schedule(static,100)
     do i=1,size(pa)

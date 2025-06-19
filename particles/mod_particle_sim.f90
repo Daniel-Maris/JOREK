@@ -94,7 +94,8 @@ subroutine configure_particle_groups(sim)
     ! --- ncs only
     sim%groups(i)%use_kin_cx             =  config%use_kin_cx
     sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
-    sim%groups(i)%use_kin_neutral_coll   =  config%use_kin_neutral_coll       
+    sim%groups(i)%use_kin_neutral_coll   =  config%use_kin_neutral_coll
+
     ! --- ics only
     sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
     sim%groups(i)%ics_group_idx          =  config%ics_group_idx
