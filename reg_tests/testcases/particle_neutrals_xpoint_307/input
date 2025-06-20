@@ -1,37 +1,25 @@
 &in1
 
-  restart=.f. !for kinetic_neutrals, restart=.f. as otherwise the fluid stepper would reload the already loaded restart file
+  restart=.t.
   regrid  = .f.
   refinement=.false.
 
-  restart_particles=.f.
+  restart_particles=.t.
 
   tstep_n=10.
-  nstep_n=1
+  nstep_n=10
 
   nout = 1
 
   use_manual_random_seed = .true.
   manual_seed = 498932990
 
-  use_fixed_rng_value = .true.
-
-  use_ncs = .true.
-  use_pcs = .f.
-  use_ccs = .f.
-  use_kn_puffing = .t.
-  use_kn_sputtering = .t.
-
   deuterium_adas    = .true.
 
-  n_particles        = 1e4 
   tstep_particles    = 5.d-7
   filter_perp_n0     = 0.d0 
   filter_hyper_n0    = 1.d-10
   filter_par_n0      = 0.d0
-
-  puff_rate = 70.d21
-  n_puff=20
 
   time_evol_scheme= 'Gears'
   use_mumps_eq  = .true.
@@ -142,5 +130,36 @@
   gmres_4 = 1.d0
   gmres_max_iter = 200
   gmres_tol = 1.d-8
+
+  ! --- valves
+  valves(1)%type = 'poly'
+  valves(1)%poly_R = 3.86d0, 3.9d0, 3.86d0, 3.9d0
+  valves(1)%poly_Z = 0.1d0,  0.1d0,  0.0d0, 0.0d0
+
+  ! ----  particle groups
+  part_group_configs(1)%Z = -2
+  part_group_configs(1)%mass = 2.01410178
+  part_group_configs(1)%coupling_scheme = 'ncs'
+  part_group_configs(1)%n_particles     = 1e4
+  part_group_configs(1)%type            = 'particle_kinetic_leapfrog'
+
+  part_group_configs(1)%use_kin_puffing        = .t.
+  part_group_configs(1)%use_kin_cx             = .t.
+  part_group_configs(1)%use_kin_ionisation     = .t.
+  part_group_configs(1)%use_kin_recombination  = .t.
+  part_group_configs(1)%use_kin_radiation = .t.
+  part_group_configs(1)%atom_data_suffix = '12_h'
+
+  part_group_configs(1)%puff_ctrl(1)%times = 0.00722, 0.00726     
+  part_group_configs(1)%puff_ctrl(1)%rates = 46.d21, 70.d21
+  part_group_configs(1)%puff_ctrl(1)%supers_num_puff = 20
+
+  part_group_configs(1)%wall_act_configs(1)%type="reflection"
+
+  fluid_configs(1)%Z=-2
+  fluid_configs(1)%wall_act_configs(1)%type="wall recomb"
+  fluid_configs(1)%wall_act_configs(1)%target_group_id="P01"
+  fluid_configs(1)%wall_act_configs(1)%supers_num_wall=5
+
  /
  

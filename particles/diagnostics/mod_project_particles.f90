@@ -22,7 +22,6 @@ module mod_project_particles
 use mod_io_actions
 use data_structure
 use mod_particle_sim
-use phys_module, only: n_aux_var, n_diag_var
 use mod_particle_types
 use mod_fields
 use mod_import_restart, only: rst_file_ind_fmt
@@ -67,6 +66,7 @@ end interface proj_f
 type, extends(io_action) :: projection
   type(type_node_list),    pointer :: node_list !< node lists to save particle projections in
   type(type_element_list), pointer :: element_list
+  integer :: n_proj                     !< number of projected variables
 
   real*8 :: filter                      !< Smoothing factor used for this projection (Laplacian, poloidal plane)
   real*8 :: filter_hyper                !< hyper-smoothing factor used for this projection (double Laplacian, poloidal plane)
@@ -119,7 +119,7 @@ type, extends(io_action) :: projection
   integer :: my_id_n           ! mpi id with comm_n
   integer :: mpi_group_world
   integer :: mpi_group_master
-  integer :: n_cpu, m_cpu      ! n_cpu : the total number of cores, m_cpu the number of cores per harmonic
+  integer :: n_mpi, m_mpi      ! n_mpi : the total number of cores, m_mpi the number of cores per harmonic
   integer :: n_tor_local       ! 1 or 2 : (1) or (cos,sin)
   integer :: i_tor_local       ! the starting index in the array of toroidal hamonics (as in HZ)
   integer :: n_dof             ! the number of unknowns for (n=0)
@@ -465,32 +465,32 @@ function new_projection(node_list, element_list,                                
   call MPI_Comm_dup(MPI_COMM_WORLD, new%mpi_comm_world, ierr)
 
   call MPI_COMM_RANK(new%mpi_comm_world, new%my_id, ierr)
-  call MPI_COMM_SIZE(new%mpi_comm_world, new%n_cpu, ierr)
+  call MPI_COMM_SIZE(new%mpi_comm_world, new%n_mpi, ierr)
 
   n_masters = (n_tor+1)/2
-  if (MOD(new%n_cpu, n_masters) == 0) then
-    new%m_cpu = new%n_cpu / (n_masters)
+  if (MOD(new%n_mpi, n_masters) == 0) then
+    new%m_mpi = new%n_mpi / (n_masters)
   else
-    new%m_cpu = (new%n_cpu - MOD(new%n_cpu, n_masters))/n_masters +1
+    new%m_mpi = (new%n_mpi - MOD(new%n_mpi, n_masters))/n_masters +1
   end if
 
   if (allocated(i_tor)) call tr_deallocate(i_tor,"i_tor",CAT_UNKNOWN)
-  call tr_allocate(i_tor,1,new%n_cpu,"i_tor",CAT_UNKNOWN)
+  call tr_allocate(i_tor,1,new%n_mpi,"i_tor",CAT_UNKNOWN)
 
-  do i=1,new%n_cpu
-    i_tor(i) = ((i-1) - MOD(i-1, new%m_cpu))/ new%m_cpu  + 1
+  do i=1,new%n_mpi
+    i_tor(i) = ((i-1) - MOD(i-1, new%m_mpi))/ new%m_mpi  + 1
   enddo
 
   call MPI_COMM_SPLIT(new%mpi_comm_world,i_tor(new%my_id+1),new%my_id,new%mpi_comm_n,ierr)
   
   do i=1,n_masters
-    i_rank(i) = (i-1) * new%m_cpu
+    i_rank(i) = (i-1) * new%m_mpi
   enddo
 
   call MPI_COMM_GROUP(new%mpi_comm_world,new%mpi_group_world,ierr)
   call MPI_GROUP_INCL(new%mpi_group_world,n_masters,i_rank,new%mpi_group_master,ierr)
   call MPI_COMM_CREATE(new%mpi_comm_world,new%mpi_group_master,new%mpi_comm_master,ierr)
-  call MPI_COMM_RANK(new%mpi_comm_n, new%my_id_n, ierr) ! id of this cpu in local comm
+  call MPI_COMM_RANK(new%mpi_comm_n, new%my_id_n, ierr) ! id of this mpi in local comm
   
   if (i_tor(new%my_id+1) .eq. 1) then
     new%n_tor_local = 1
@@ -500,8 +500,9 @@ function new_projection(node_list, element_list,                                
     new%i_tor_local = 2*i_tor(new%my_id+1) - 2       ! i_tor_local is the (starting) index in HZ
   endif
 
+  !< size of the node_list will be adjusted to fit rhs_f and rhs at the time of projection
   allocate(new%node_list,    source=node_list)
-  call make_deep_copy_node_list(node_list, new%node_list)
+  call make_deep_copy_node_list(node_list, new%node_list) 
 
   do inode = 1, new%node_list%n_nodes
     new%node_list%node(inode)%values = 0.d0
@@ -527,7 +528,7 @@ function new_projection(node_list, element_list,                                
 
   new%do_zonal = .false.
   if (present(do_zonal)) new%do_zonal = do_zonal
-  new%apply_dirichlet = .true.
+  new%apply_dirichlet = .false.
   if (present(do_dirichlet)) new%apply_dirichlet = do_dirichlet
 
   if (present(to_vtk)) then
@@ -666,6 +667,7 @@ end subroutine project
 !> Gather all of the rhs-es into a single matrix and feed it to mumps, and then
 !> broadcast the result
 subroutine project_only(this, sim)
+  use phys_module, only: n_aux_var
   use mpi_mod
   use mod_event
   use, intrinsic :: ieee_exceptions
@@ -701,6 +703,11 @@ subroutine project_only(this, sim)
   else 
     n_rhs_f = size(this%rhs_f,5)
   end if
+
+  ! reinitialise the storage node_list to ensure all projections fit
+  do i=1, this%node_list%n_nodes
+    call init_node(this%node_list%node(i), n_rhs_f+n_rhs)
+  enddo
 
   n_tor_local = this%n_tor_local
   i_tor_local = this%i_tor_local
@@ -793,7 +800,7 @@ subroutine project_only(this, sim)
   call MPI_Reduce(my_rhs(:,1),this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, 0, this%mpi_comm_world, ierr)
 
   do in=2, n_tor, 2
-    id_master_in_world = in/2 * this%m_cpu
+    id_master_in_world = in/2 * this%m_mpi
     index_n = in/2 + 1
     call MPI_Reduce(my_rhs(:,index_n),this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, id_master_in_world, this%mpi_comm_world, ierr)
   enddo
@@ -822,8 +829,8 @@ subroutine project_only(this, sim)
   
     allocate(y_tmp(n_loc_n*(n_tor+1)))            ! allocate only on my_id=0???
 
-    allocate(recv_counts(this%n_cpu/this%m_cpu))
-    allocate(recv_disp(this%n_cpu/this%m_cpu))
+    allocate(recv_counts(this%n_mpi/this%m_mpi))
+    allocate(recv_disp(this%n_mpi/this%m_mpi))
     
     y_tmp = 0.d0
 
@@ -847,7 +854,7 @@ subroutine project_only(this, sim)
   ! Write the solution to the node_list
   if (this%my_id .eq. 0) then
 
-    do i_var=1,min(n_rhs+n_rhs_f, n_aux_var)
+    do i_var=1, n_rhs+n_rhs_f
   
       found_nan = .false.
       
@@ -858,10 +865,10 @@ subroutine project_only(this, sim)
           index = this%node_list%node(i)%index(k)
 
           if (this%do_zonal) then
-             this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1)) + y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
-             this%node_list%node(i)%values(1,k,2)     = y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
+              this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1)) + y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
+              this%node_list%node(i)%values(1,k,2)     = y_tmp(2*(index-1) + 2 + 2*this%n_dof*(i_var-1))
           else
-             this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1))
+              this%node_list%node(i)%values(1,k,i_var) = y_tmp(2*(index-1) + 1 + 2*this%n_dof*(i_var-1))
           endif
 
           offset = 2*this%n_dof * this%rhs_vec%nrhs
@@ -891,7 +898,7 @@ subroutine project_only(this, sim)
 
   call MPI_BARRIER(this%mpi_comm_world, ierr)
 
-  call broadcast_nodes(this%my_id, this%node_list)
+  call broadcast_nodes(this%my_id, this%node_list, n_aux_var)
 
 #ifdef DEBUG
     call cpu_time(t1)
@@ -934,15 +941,7 @@ subroutine sample_rhs(this, sim)
   
   if (.not. allocated(this%f)) allocate(this%f(0))
 
-  if (allocated(this%rhs)) then
-    n_sample = min(size(this%f),n_aux_var-min(size(this%rhs,5),n_aux_var))  ! because we have only n_var storage for now
-  else
-    n_sample = min(size(this%f),n_aux_var)  ! because we have only n_var storage for now
-  end if
-
-  if (n_sample .lt. size(this%f) .and. sim%my_id .eq. 0) then
-    write(*,*) 'WARNING: ignoring proj_f after ', n_sample, ' due to lack of output space'
-  end if
+  n_sample = size(this%f)
 
   if (.not. allocated(this%rhs_f)) then
     if (.not. associated(this%element_list)) then
@@ -995,11 +994,11 @@ subroutine sample_rhs(this, sim)
             
       do i=1,n_vertex_max
         do j=1,n_degrees
-       
+        
           v = HH(i,j) * this%element_list%element(sim%groups(i_group)%particles(m)%i_elm)%size(i,j)
 
           v = v * this%f(i_f)%f(sim, i_group, sim%groups(i_group)%particles(m)) * sim%groups(i_group)%particles(m)%weight
-       
+        
           do i_tor = 1, n_tor
 
             my_rhs(j,i,sim%groups(i_group)%particles(m)%i_elm,i_tor,1) = &
@@ -1014,7 +1013,7 @@ subroutine sample_rhs(this, sim)
     !$omp end parallel do
     this%rhs_f(:,:,:,:,i_f) = my_rhs(:,:,:,:,1)
   enddo
- 
+  
   deallocate(my_rhs)
 
 end subroutine sample_rhs
@@ -1057,7 +1056,7 @@ subroutine save_to_vtk(this, sim)
     if (allocated(this%rhs)) n_proj = n_proj + size(this%rhs,5)
 
     call write_particle_distribution_to_vtk(this%node_list, this%element_list, &
-      trim(filename), this%vtk_grid%nsub, min(n_proj,n_aux_var), this%vtk_grid%xyz, this%vtk_grid%ien)
+      trim(filename), this%vtk_grid%nsub, n_proj, this%vtk_grid%xyz, this%vtk_grid%ien)
       
     write(*,*) "Written projection to ", trim(filename)
   end if
@@ -1104,7 +1103,7 @@ subroutine save_to_h5(this, sim)
     n_proj = size(this%f)
     if (allocated(this%rhs)) n_proj = n_proj + size(this%rhs,5)
     call write_particle_distribution_to_h5(this%node_list, this%element_list, &
-      trim(filename), min(n_proj,n_aux_var), sim%time)
+      trim(filename), n_proj, sim%time)
 
     write(*,*) "Written projection to ", trim(filename)
   end if
@@ -1959,7 +1958,7 @@ character*(*), intent(in)           :: filename
 integer, intent(in) :: n_fields !< number of different particle groups to output
 real*8, intent(in) :: time
 
- 
+  
 #include "version.h"
 ! --- Local variables
 integer :: i
@@ -1987,8 +1986,8 @@ call tr_allocate(t_neighbours,1,element_list%n_elements,1,n_vertex_max,"neighbou
 call tr_allocate(t_size,      1,element_list%n_elements,1,n_vertex_max,1,n_degrees,"size",CAT_UNKNOWN)
 
 do i=1,node_list%n_nodes
-   t_x(i,:,:,:)      = node_list%node(i)%x
-   t_values(i,:,:,:) = node_list%node(i)%values(:,:,1:n_fields)
+    t_x(i,:,:,:)      = node_list%node(i)%x
+    t_values(i,:,:,:) = node_list%node(i)%values(:,:,1:n_fields)
 end do
 
 do i=1,element_list%n_elements
@@ -2026,16 +2025,16 @@ call HDF5_integer_saving(file_id,element_list%n_elements,'n_elements'//char(0))
 call HDF5_integer_saving(file_id,node_list%n_dof,'n_dof'//char(0))
 
 call HDF5_array4D_saving(file_id,t_x, &
-     node_list%n_nodes,n_coord_tor,n_degrees,n_dim,'x'//char(0))
+      node_list%n_nodes,n_coord_tor,n_degrees,n_dim,'x'//char(0))
 call HDF5_array4D_saving(file_id,t_values, &
-     node_list%n_nodes,n_tor,n_degrees,n_fields,'values'//char(0))
+      node_list%n_nodes,n_tor,n_degrees,n_fields,'values'//char(0))
 
 call HDF5_array2D_saving_int(file_id,t_vertex, &
-     element_list%n_elements,n_vertex_max,'vertex'//char(0))
+      element_list%n_elements,n_vertex_max,'vertex'//char(0))
 call HDF5_array2D_saving_int(file_id,t_neighbours, &
-     element_list%n_elements,n_vertex_max,'neighbours'//char(0))
+      element_list%n_elements,n_vertex_max,'neighbours'//char(0))
 call HDF5_array3D_saving(file_id,t_size, &
-     element_list%n_elements,n_vertex_max,n_degrees,'size'//char(0))
+      element_list%n_elements,n_vertex_max,n_degrees,'size'//char(0))
 call HDF5_real_saving(file_id,time,'t_now'//char(0))
 
 ! -> close file

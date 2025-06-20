@@ -7,17 +7,37 @@ use mod_coronal
 use basis_at_gaussian
 implicit none
 private
-public particle_group, particle_sim
+public particle_group, particle_sim, configure_particle_groups
+public group_num_from_id, config_num_from_id
 
 !> A group of particles, implemented as an allocatable array.
 !> It must contain particles of the same species (charge number).
 type :: particle_group
-  integer :: Z !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
-  real*8  :: mass !< Mass of all the particles in the group
-  type(ADF11_all) :: ad !< OPEN-ADAS datafiles for this species
-  type(coronal) :: cor !< (coronal) equilibrium pre-calculation
+  integer            :: Z                                          !< Atomic number of al particles in the group (-1 for electrons, 0 for fieldline-following)
+  real*8             :: mass                                       !< Mass of all the particles in the group
+  type(ADF11_all)    :: ad                                         !< OPEN-ADAS datafiles for this species
+  type(coronal)      :: cor                                        !< (coronal) equilibrium pre-calculation
+  real*8             :: dt                                         !< timestep (if fixed for all particles in this group)
+  character(len=3)   :: coupling_scheme                            !< coupling scheme to use for the group
+  real*8             :: n_particles                                !< number of super/marker particles in group
+  character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
+ 
+  ! ================ for neutrals and impurities =============
+  logical            :: use_kin_ionisation       !< switch on ionisation for group         
+  logical            :: use_kin_puffing          !< switch on particle puffing for group
+  logical            :: use_kin_radiation        !< switch on line radiation for group
+
+  ! --- neutrals only
+  logical            :: use_kin_cx               !< switch on charge-exchange for group  
+  logical            :: use_kin_recombination    !< switch on recombination for group       
+
+  ! --- impurities only
+  logical            :: use_kin_bg_collisions    !< switch only collisions with the background plasma
+  integer            :: ics_group_idx            !< internal index given to this specific impurities group
+
+
   class(particle_base), dimension(:), allocatable :: particles
-  real*8 :: dt !< timestep (if fixed for all particles in this group)
+
 end type particle_group
 
 !> Particle simulation type, containing all variables pertaining to a simulation.
@@ -30,7 +50,7 @@ type :: particle_sim
   type(particle_group), dimension(:), allocatable :: groups
   !< MPI settings
   integer :: my_id = 0
-  integer :: n_cpu = 1 ! if not initialized, act as if there is no mpi
+  integer :: n_mpi = 1 ! if not initialized, act as if there is no mpi
   real*8  :: wtime_start !< Clock time at the start of the program
 contains
   procedure,pass(sim) :: finalize
@@ -44,16 +64,59 @@ contains
 end type particle_sim
 
 contains
+
+!> Loads the information from a type_part_group_config type to a particle_group type
+subroutine configure_particle_groups(sim)
+  use phys_module, only: n_part_groups, part_group_configs, type_part_group_config
+  use phys_module, only: part_groups_in_use
+  use mod_particle_group_id, only: matching_part_config_indices, matching_sim_groups_indices
+
+  implicit none
+  class(particle_sim), intent(inout)       :: sim
+  integer                                  :: i,j
+  type(type_part_group_config)             :: config
+
+  do i=1, n_part_groups ! loop over groups defined in part_groups_in_use
+    config = part_group_configs(matching_part_config_indices(i))
+
+    sim%groups(i)%Z = config%Z
+    sim%groups(i)%mass = config%mass
+    sim%groups(i)%coupling_scheme = config%coupling_scheme
+    sim%groups(i)%n_particles = config%n_particles
+    sim%groups(i)%id = config%id
+  
+    ! === ncs and ics options
+    sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
+    sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
+    sim%groups(i)%use_kin_radiation      =  config%use_kin_radiation 
+
+    ! --- ncs only
+    sim%groups(i)%use_kin_cx             =  config%use_kin_cx
+    sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
+
+    ! --- ics only
+    sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
+    sim%groups(i)%ics_group_idx          =  config%ics_group_idx
+    
+    if (len_trim(config%atom_data_suffix) > 0) then
+      sim%groups(i)%ad =  read_adf11(sim%my_id, trim(part_group_configs(i)%atom_data_suffix))
+    else
+      if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
+    endif
+  enddo 
+
+end subroutine configure_particle_groups
+
 !> Actions to perform when setting up a simulation
 !> inputs:
 !>   sim:             (particle_sim) the particle simulation
 !>   num_groups:      (integer) number of particle groups
 !>   skip_jorek2help: (logical)(optional) call jorek2help if present
 !>   my_id:           (integer)(optional) mpi rank
-!>   n_cpu:           (integer)(optional) number of mpi tasks in the commworld
+!>   n_mpi:           (integer)(optional) number of mpi tasks in the commworld
 !> outputs:
 !>   sim: (particle_sim) the particle simulation
-subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_in)
+subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_group_config)
   use mod_mpi_tools,     only: init_mpi_threads
   use mod_mpi_tools,     only: get_mpi_wtime
   use mod_parameters,    only: n_tor, n_period
@@ -61,23 +124,21 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
   use basis_at_gaussian, only: initialise_basis
   use mod_chi,           only: init_chi_basis
   use data_structure,    only: init_threads, nbthreads
+  use phys_module,       only: n_part_groups, n_part_groups_max
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
-  integer, intent(in)                :: num_groups
-  logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in
-  integer,intent(in),optional        :: my_id,n_cpu
+  logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in,skip_group_config
+  integer,intent(in),optional        :: my_id,n_mpi
   logical                            :: do_jorek_init
-  integer                            :: ierr, i_tor,nthreads
+  integer                            :: ierr, i_tor,nthreads, group_num
 
   !> initialise the mpi comm world with threads if required
-  if(present(my_id).and.present(n_cpu)) then
-    sim%my_id = my_id; sim%n_cpu = n_cpu;
+  if(present(my_id).and.present(n_mpi)) then
+    sim%my_id = my_id; sim%n_mpi = n_mpi;
     sim%wtime_start = get_mpi_wtime()
   else
-    call init_mpi_threads(sim%my_id,sim%n_cpu,ierr,sim%wtime_start)
+    call init_mpi_threads(sim%my_id,sim%n_mpi,ierr,sim%wtime_start)
   endif
-  !> allocate the simulation particle groups
-  call sim%allocate_groups(num_groups)
 
  !> check if the initialisation of JOREK should be performed or not
   do_jorek_init = .true.
@@ -87,17 +148,14 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
     call init_threads()
 
     if (present(skip_jorek2help)) then
-      if (sim%my_id .eq. 0 .and. .not. skip_jorek2help) call jorek2help(sim%n_cpu, nbthreads)
+      if (sim%my_id .eq. 0 .and. .not. skip_jorek2help) call jorek2help(sim%n_mpi, nbthreads)
     end if
 
     ! Initialise mode numbers
     call det_modes()
 
-    ! Initialise parameters
-    call initialise_and_broadcast_parameters(sim%my_id, "__NO_FILENAME__")
-
-    ! Broadcast physics parameters
-    call broadcast_phys(sim%my_id)
+    ! Initialise and broadcast parameters 
+    call initialise_and_broadcast_parameters(sim%my_id, "__NO_FILENAME__", .true.)
 
     ! Set up normalisation factors
     call sim%set_t_norm()
@@ -108,6 +166,17 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
     ! --- Initialize basis functions for the Dommaschk potentials
     if (domm) call init_chi_basis()
   endif
+
+  ! Allocating groups
+  call sim%allocate_groups(n_part_groups)
+
+  ! configure particle groups with their characteristics
+  if (.not. present(skip_group_config)) then 
+    call configure_particle_groups(sim)
+  else
+    if (.not. skip_group_config) call configure_particle_groups(sim)
+  endif
+
 end subroutine
 
 !> Actions to perform when stopping the simulation.
@@ -240,4 +309,53 @@ n_particles,n_active_particles,active_particle_id,n_p_type,p_type)
     enddo
   endif
 end subroutine find_active_particles_groups
+
+!> returns the group_num which satisfies sim%groups(group_num)%id = id
+function group_num_from_id(sim,id) result(group_num)
+  implicit none
+
+  type(particle_sim), intent(in) :: sim
+  character(len=3),   intent(in) :: id !< particle group %id
+  integer :: group_num !< the number sim%groups(group_num)
+  integer :: i
+
+  group_num = -1
+
+  do i=1,size(sim%groups,1)
+    if(sim%groups(i)%id == id) then ! matching id is found
+      group_num = i
+      return
+    end if
+  end do
+
+  ! if at the end the matching id is not found, then the input id is not actually a valid used id in the sim
+  if(sim%my_id == 0) write(*,"(3A)") "ERROR: id ",id," not found among sim%groups(:)%id (group_num_from_id)"
+
+end function group_num_from_id
+
+!> returns the group_num which satisfies part_group_configs(config_num)%id = id
+!> note that this particle group does not necessarily have to be in use!
+function config_num_from_id(id) result(config_num)
+  use phys_module, only: part_group_configs
+  
+  implicit none
+  
+  character(len=3),   intent(in) :: id !< particle group %id
+  integer :: config_num !< the number part_group_configs(config_num)%id
+  integer :: i
+
+  config_num = -1
+
+  do i=1,size(part_group_configs,1)
+    if(part_group_configs(i)%id == id) then ! matching id is found
+      config_num = i
+      return
+    end if
+  end do
+
+  ! if at the end the matching id is not found, then the input id is not actually a valid used id in the sim
+  write(*,"(3A)") "ERROR: id ",id," not found among part_group_configs(:)%id (config_num_from_id)"
+
+end function config_num_from_id
+
 end module mod_particle_sim
