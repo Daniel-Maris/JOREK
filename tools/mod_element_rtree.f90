@@ -3,9 +3,10 @@ module mod_element_rtree
 use iso_c_binding
 use data_structure
 implicit none
-public populate_element_rtree, nearby_elements, elements_containing_point, rtree_initialized
+public populate_element_rtree, nearby_elements, elements_containing_point, rtree_initialized, tree_slices
 
 logical :: rtree_initialized = .false.
+integer, parameter :: tree_slices = n_plane
 
 #if STELLARATOR_MODEL
 integer, parameter :: ND = 3
@@ -25,9 +26,9 @@ interface
   end subroutine RZ_minmax
   !> Name is element_rtree to match filename `element_rtree.cpp`.
   !> `void PopulateTree(int nelm, double minx[], double miny[], double maxx[], double maxy[])`
-  subroutine element_rtree(n, n_plane, min, max) bind(C,name="PopulateTree")
+  subroutine element_rtree(n, tree_slices, min, max) bind(C,name="PopulateTree")
     import C_DOUBLE, C_INT
-    integer(C_INT), intent(in), value :: n, n_plane
+    integer(C_INT), intent(in), value :: n, tree_slices
     real(C_DOUBLE), intent(in), dimension(*)  :: min, max
   end subroutine element_rtree
   !> `int NumElementsInRect(double minx, double miny, double maxx, double maxy)`
@@ -88,36 +89,43 @@ end subroutine populate_element_rtree_2D
 !> Only one call to this routine can be made simultaneously! It uses a static
 subroutine populate_element_rtree_3D(node_list, element_list)
   use constants, only: PI
-  type(type_node_list), intent(in)    :: node_list
+
+  type(type_node_list),    intent(in) :: node_list
   type(type_element_list), intent(in) :: element_list
+
   real(C_DOUBLE), dimension(:), allocatable :: min_bb, max_bb
-  real*8 :: rmin, rmax, zmin, zmax, rmin_old, rmax_old, zmin_old, zmax_old
+
+  real*8  :: rmin, rmax, zmin, zmax, rmin_old, rmax_old, zmin_old, zmax_old
   integer :: i, n, mp, mp_old, index
+  real*8  :: arbitrary_HZ_coord(n_coord_tor,tree_slices)
+
   n = element_list%n_elements
 
-  allocate(min_bb(n*n_plane*ND), max_bb(n*n_plane*ND))
+  arbitrary_HZ_coord = get_arbitrary_HZ_coord(tree_slices)
+
+  allocate(min_bb(n*tree_slices*ND), max_bb(n*tree_slices*ND))
 
   do i=1,n
-    call RZ_minmax(node_list, element_list, i, rmin_old, rmax_old, zmin_old, zmax_old, 1)
-    do mp=2,n_plane+1
-      call RZ_minmax(node_list, element_list, i, rmin, rmax, zmin, zmax, mp)
+    call RZP_minmax(node_list, element_list, i, rmin_old, rmax_old, zmin_old, zmax_old, arbitrary_HZ_coord, 1)
+    do mp=2,tree_slices+1
+      call RZP_minmax(node_list, element_list, i, rmin, rmax, zmin, zmax, arbitrary_HZ_coord, mp)
 
-      index = ((i - 1) * n_plane + (mp - 2)) * ND
+      index = ((i - 1) * tree_slices + (mp - 2)) * ND
   
       max_bb(index + 1) = real(max(rmax, rmax_old), kind=C_DOUBLE)
       max_bb(index + 2) = real(max(zmax, zmax_old), kind=C_DOUBLE)
-      max_bb(index + 3) = real(real(mp - 1,8) * 2.d0 * PI / real(n_plane * n_coord_period,8), kind=C_DOUBLE)
+      max_bb(index + 3) = real(real(mp - 1,8) * 2.d0 * PI / real(tree_slices * n_coord_period,8), kind=C_DOUBLE)
 
       min_bb(index + 1) = real(min(rmin, rmin_old), kind=C_DOUBLE)
       min_bb(index + 2) = real(min(zmin, zmin_old), kind=C_DOUBLE)
-      min_bb(index + 3) = real(real(mp - 2,8) * 2.d0 * PI / real(n_plane * n_coord_period,8), kind=C_DOUBLE)
+      min_bb(index + 3) = real(real(mp - 2,8) * 2.d0 * PI / real(tree_slices * n_coord_period,8), kind=C_DOUBLE)
 
       rmin_old = rmin ; rmax_old = rmax ; zmin_old = zmin ; zmax_old = zmax
     end do
   enddo
   write(*,*) "Initializing RTree"
   ! this cleans out the tree before insertion
-  call element_rtree(int(n, C_INT), int(n_plane, C_INT), min_bb, max_bb)
+  call element_rtree(int(n, C_INT), int(tree_slices, C_INT), min_bb, max_bb)
   rtree_initialized = .true.
 end subroutine populate_element_rtree_3D
 
@@ -127,7 +135,6 @@ end subroutine populate_element_rtree_3D
 !> this box, except element i
 subroutine nearby_elements(node_list, element_list, i_elm, i_nearby)
   use constants, only: PI
-  use mod_parameters, only: n_period, n_plane
   type(type_node_list), intent(in)    :: node_list
   type(type_element_list), intent(in) :: element_list
   integer, intent(in)                 :: i_elm
@@ -213,5 +220,33 @@ pure function get_vertex_pos_in_rtree_plane(x) result(pos)
     pos(i) = sum(x(1:n_coord_tor,i)*HZ_coord(1:n_coord_tor, i_plane_rtree))
   end do
 end function get_vertex_pos_in_rtree_plane
+
+!> calculates the basis functions at the Gaussian points
+pure function get_arbitrary_HZ_coord(tree_slices_requested) result(arbitrary_HZ_coord)
+  use constants, only: PI
+  use phys_module, only: n_coord_tor, n_coord_period, mode_coord
+
+  implicit none
+
+  integer, intent(in) :: tree_slices_requested
+
+  ! --- local variables
+  integer :: k,i
+  real*8  :: phi
+  real*8 :: arbitrary_HZ_coord (n_coord_tor,tree_slices_requested)
+
+  do k=1,tree_slices_requested
+
+    phi = 2.d0*PI*float(k-1)/float(tree_slices_requested) / float(n_coord_period)
+
+    arbitrary_HZ_coord(1,k)   = 1.d0
+
+    do i=1,(n_coord_tor-1)/2
+      arbitrary_HZ_coord(2*i,k)      = + cos(mode_coord(2*i)  *phi)
+      arbitrary_HZ_coord(2*i+1,k)    = - sin(mode_coord(2*i+1)*phi)
+    enddo
+  enddo
+end function get_arbitrary_HZ_coord
+
 
 end module mod_element_rtree

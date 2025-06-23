@@ -2,7 +2,7 @@ subroutine find_RZ(node_list,element_list,R_find,Z_find,R_out,Z_out,ielm_out,s_o
   use data_structure, only: type_node_list, type_element_list
   use phys_module, only: i_plane_rtree
   use constants, only: PI
-  use mod_parameters, only: n_coord_period, n_plane
+  use mod_parameters, only: n_period, n_plane
 
   implicit none 
 
@@ -16,7 +16,7 @@ subroutine find_RZ(node_list,element_list,R_find,Z_find,R_out,Z_out,ielm_out,s_o
   real*8 :: phi
   integer :: checked_elms
 
-  phi = 2.d0*pi*float(i_plane_rtree - 1)/float(n_coord_period*n_plane)
+  phi = 2.d0*pi*float(i_plane_rtree - 1)/float(n_period*n_plane)
 
   call find_RZ_general(node_list,element_list,R_find,Z_find,phi,R_out,Z_out,ielm_out,s_out,t_out,ifail,checked_elms)
 end subroutine find_RZ
