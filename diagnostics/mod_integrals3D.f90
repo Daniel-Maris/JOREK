@@ -1669,7 +1669,7 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
       call interp_RZP(node_list,element_list,m_elm,sg,tg,phi,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp,Z,Z_s,Z_t,Z_phi,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
       
       if ((abs(x_g_1d(mp,ms) - R) .gt. 1d-6) .or. (abs(y_g_1d(mp,ms) - Z) .gt. 1d-6)) then
-        write(*,'(A,i3,4e16.8)') 'INTEGRALS3D : SOMETHING IS VERY WRONG ALONG THE BOUNDARY : ', m_elm, mv1, x_g_1d(mp,ms), R, y_g_1d(mp,ms), Z
+        write(*,'(A,2i3,4e16.8)') 'INTEGRALS3D : SOMETHING IS VERY WRONG ALONG THE BOUNDARY : ', m_elm, mv1, x_g_1d(mp,ms), R, y_g_1d(mp,ms), Z
       endif
 
       BigR   = R
