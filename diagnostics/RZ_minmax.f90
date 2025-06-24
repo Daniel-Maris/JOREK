@@ -5,18 +5,6 @@ subroutine RZ_minmax(node_list,element_list,i_elm,Rmin,Rmax,Zmin,Zmax)
 
   implicit none
 
-  ! interface
-  !   subroutine RZ_minmax_general (node_list,element_list,i_elm,Rmin,Rmax,Zmin,Zmax,HZ_coord_used,i_slice_query)
-  !     use data_structure
-
-  !     type (type_node_list), intent(in)    :: node_list
-  !     type (type_element_list), intent(in) :: element_list
-  !     integer, intent(in) :: i_elm, i_slice_query
-  !     real*8,  intent(in) :: HZ_coord_used(:,:)
-  !     real*8, intent(out) :: Rmin, Rmax, Zmin, Zmax
-  !   end subroutine RZ_minmax_general
-  ! end interface
-
   type (type_node_list), intent(in)    :: node_list
   type (type_element_list), intent(in) :: element_list
   integer, intent(in) :: i_elm
@@ -32,18 +20,6 @@ subroutine RZP_minmax(node_list,element_list,i_elm,Rmin,Rmax,Zmin,Zmax,HZ_coord_
   use mod_parameters, only: n_coord_tor
 
   implicit none
-
-  ! interface
-  !   subroutine RZ_minmax_general (node_list,element_list,i_elm,Rmin,Rmax,Zmin,Zmax,HZ_coord_used,i_slice_query)
-  !     use data_structure
-
-  !     type (type_node_list), intent(in)    :: node_list
-  !     type (type_element_list), intent(in) :: element_list
-  !     integer, intent(in) :: i_elm, i_slice_query
-  !     real*8,  intent(in) :: HZ_coord_used(:,:)
-  !     real*8, intent(out) :: Rmin, Rmax, Zmin, Zmax
-  !   end subroutine RZ_minmax_general
-  ! end interface
 
   type (type_node_list), intent(in)    :: node_list
   type (type_element_list), intent(in) :: element_list

@@ -59,19 +59,6 @@ use mod_element_rtree, only: elements_containing_point
 
 implicit none
 
-! interface
-!   subroutine find_RZ_single(node_list,element_list,i_elm,R_find,Z_find,phi_find,R_out,Z_out,ielm_out,s_out,t_out,ifail)
-!     use data_structure
-!     use mod_parameters
-!     integer, intent(in)  :: i_elm
-!     real*8, intent(in)   :: R_find, Z_find, phi_find
-!     real*8, intent(out)  :: R_out, Z_out, s_out, t_out
-!     integer, intent(out) :: ielm_out, ifail
-!     type (type_node_list), intent(in) :: node_list
-!     type (type_element_list), intent(in) :: element_list
-!   end subroutine
-! end interface
-
 type (type_node_list), intent(in)    :: node_list
 type (type_element_list), intent(in) :: element_list
 real*8, intent(in)     :: R_find, Z_find, phi_find
