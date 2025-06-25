@@ -129,12 +129,16 @@ if (arg.l):
     
 t = []
 dat = []
+sqrt_mu0_rho0 = 1e3
 
 for line in fid:
     line = ' '.join(line.split()).split()
+    print(line)
     if (len(line)==0): continue
     if ("@"+varname+"_xlabel:"==line[0]):
         xlbl = str(' '.join(line[1:]))
+    if ("@sqrt_mu0_rho0:"==line[0]):
+        sqrt_mu0_rho0 *= float(line[1])
     if ("@"+varname+"_ylabel:"==line[0]):
         ylbl = str(' '.join(line[1:]))        
     if ("@n_"+varname+":"==line[0]):
@@ -143,7 +147,7 @@ for line in fid:
         if ("%" in line[1]):
             lbl = line
         else:
-            t.append(float(line[1]))
+            t.append(float(line[1])*sqrt_mu0_rho0)
             dat.append([float(line[i]) for i in range(2,len(line))])
 
 fid.close()

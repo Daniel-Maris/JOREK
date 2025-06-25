@@ -88,6 +88,7 @@ type(wall_act_group),   dimension(:), allocatable :: wall_act_groups
 
 !tmp
 class(type_rng), dimension(:), allocatable :: wall_rng
+character(len=50) :: s
 
 !***********************************************************************
 !*                            initialisation                            *
@@ -283,6 +284,11 @@ do while (.not. sim%stop_now)
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  
 
+
+    ! Writing some conservation checks to the ouput file
+  !call write_to_outputfile(sim%my_id, "Conservation checks after particle evolv")
+  !call conservation_checks(sim)
+
   ! --- Handling the particles that left the domain
 
   ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
@@ -311,10 +317,17 @@ do while (.not. sim%stop_now)
   ! -- Finalising the fluid timestep
   
   !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
-  if ( mod(istep,500) .eq. 0 ) then
-    call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
-    call write_simulation_hdf5(sim, 'interim_part_restart.h5')
-  endif
+  !if ( mod(istep,500) .eq. 0 ) then
+  !  call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
+  !  call write_simulation_hdf5(sim, 'interim_part_restart.h5')
+  !endif
+
+  if ( mod(index_now,10) == 0 ) then
+    call write_to_outputfile(sim%my_id, "Writing part_restart.h5")
+    write(s,'(a,i5.5,a)') 'part_restart_', index_now, '.h5'
+    call write_simulation_hdf5(sim, trim(s))
+  end if
+
 
   ! Writing some conservation checks to the ouput file
   call write_to_outputfile(sim%my_id, "Conservation checks")

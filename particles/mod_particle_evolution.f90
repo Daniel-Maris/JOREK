@@ -414,7 +414,7 @@ contains
                 call rng(i_rng)%next(ran2(:,l))
               end do
 
-              call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/norm2(B)/sim%t_norm, v_b) !P(1)*B/norm2(B)/sim%t_norm
+              call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/sim%t_norm, v_b) !P(1)*B/norm2(B)/sim%t_norm
   
               do l=1,n_coll
                 call rng(i_rng)%next(ran)

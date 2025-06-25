@@ -181,7 +181,7 @@ do i=1, n_local_elms !=== do elements
 
     inode = element_list%element(ielm)%vertex(iv)
 
-    if (node_list%node(inode)%boundary .eq. 0) cycle 
+    if (node_list%node(inode)%boundary .eq. 0) cycle
 
     do idir=1, 2        ! check the two directions
 
@@ -200,6 +200,7 @@ do i=1, n_local_elms !=== do elements
       inode3 = element_list%element(ielm)%vertex(iv3)
 
       if (node_list%node(inode2)%boundary .eq. 0) cycle
+
 
       if ((iv*iv2 .eq. 2) .or. (iv*iv2 .eq. 12)) then
         s_constant_boundary = .false.
@@ -312,7 +313,6 @@ do i=1, n_local_elms !=== do elements
             apply_cs = .true.
           endif
           !---------------------------------------------------------------------------------------------------                      
-
           if (  ( (k == var_psi     ) .and. bcs(bnd_type)%dirichlet%psi     )  .or.  &
                 ( (k == var_u       ) .and. bcs(bnd_type)%dirichlet%u       )  .or.  &
                 ( (k == var_zj      ) .and. bcs(bnd_type)%dirichlet%zj      )  .or.  &
@@ -347,7 +347,6 @@ do i=1, n_local_elms !=== do elements
                        zbig, index_min, index_max, a_mat)
               enddo
             enddo
-            
 
           endif
           

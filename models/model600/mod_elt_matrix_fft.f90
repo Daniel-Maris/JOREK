@@ -1079,7 +1079,9 @@ do i=1,n_vertex_max
           endif
 
           ! --- Particle diffusivities
-          D_prof         = get_dperp (psi_norm)
+          !D_prof         = get_dperp (psi_norm)
+          D_prof = (1+tanh((y_g(ms,mt)-(Z_xpoint(1)-0.02))/0.01))/2*get_dperp(psi_norm) &
+                  + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)-0.02))/0.01))/2)*4.d-6 ! below Xpoint
           D_par_local     = D_par
           D_par_local_imp = D_par_imp
           D_perp_num_psin = D_perp_num +                                                  &
@@ -1126,7 +1128,11 @@ do i=1,n_vertex_max
                                  ZK_e_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_e_perp_num_tanh_psin)/ZK_e_perp_num_tanh_sig))
           else
-            ZK_prof = get_zkperp(psi_norm)
+            !ZK_prof = get_zkperp(psi_norm)*max(r0,1.d-2)
+            !ZK_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.05))/0.01))/2)*get_zkperp(psi_norm)*max(r0,1.d-2) & ! above xpoint
+            !        + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.05))/0.01))/2)*9.d-7                              ! below Xpoint
+            ZK_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.05))/0.01))/2)*get_zkperp(psi_norm)*max(r0,1.d-2) & ! above xpoint
+                     + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.05))/0.01))/2)*0.1*get_zkperp(psi_norm)*max(r0,1.d-2) ! below Xpoint
             ZK_perp_num_psin = ZK_perp_num +                                                  &
                                ZK_perp_num_tanh * 0.5d0*(1.d0-                                &
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))

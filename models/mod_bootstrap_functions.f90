@@ -209,7 +209,9 @@ subroutine bootstrap_current(R, Z,                           &
     distance = 0.05 * distance_xpoint_axis
     Jb = Jb * (0.5d0 - 0.5d0 * tanh( -(distance_xpoint - distance)/0.01d0 ) )
   endif
-  
+
+  if (psi_norm .gt. 0.995 )  Jb = 0.
+
 return
 end subroutine bootstrap_current
 

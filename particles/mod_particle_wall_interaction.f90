@@ -1172,6 +1172,12 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   
   ! pre-update weight of simulated particle according to weight factor for correct incoming diagnostics
   particle%weight = this%weight_factor * particle%weight 
+  if(present(E_in)) then
+    if (E_in .ne. E_in) then
+      write(*,*) "E_in is nan"
+    end if
+  end if
+
 
   ! set the incoming particle energy
   if(present(E_in)) then
@@ -1180,6 +1186,11 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
     ! calculate the energy associated with the velocity of the particle (in eV)
     E = 0.5d0*sim%groups(this%target_group)%mass*ATOMIC_MASS_UNIT*dot_product(particle%v, particle%v)/EL_CHG !< must be in eV
   end if
+
+  if (E .ne. E) then
+    write(*,*) "E is nan, after incoming particle energy"
+  end if
+
 
   ! determine the type, this can be different from this%type if single_self_interaction is called from within fluid2part
   if(present(type_in)) then
@@ -1214,11 +1225,18 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   !   !!$omp end critical
   ! end if
 
+  if (E .ne. E) then
+    write(*,*) "E is nan, before potential drop"
+  end if
+
   ! Update the particle energy from the potential drop in the sheath
   call sim%fields%calc_NeTe(sim%time, particle%i_elm, particle%st, particle%x(3), n_e, T_e)
   T_eV = T_e*K_BOLTZ/EL_CHG
   E = E + simple_potential_drop(int(particle%q,4),T_eV)
 
+  if (E .ne. E) then
+    write(*,*) "E is nan, before diagnostics"
+  end if
   ! store this particle's contribution to incoming particle, heatflux and flux onto the wall
   diagnostics(i_wall_part_in) = diagnostics(i_wall_part_in) + 1
   diagnostics(i_wall_flux_in) = diagnostics(i_wall_flux_in) + particle%weight
