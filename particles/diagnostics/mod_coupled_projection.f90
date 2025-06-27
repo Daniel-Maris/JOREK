@@ -133,6 +133,12 @@ contains
       enddo
     enddo
 
+    if (this%my_id .eq. 0) then
+      call MPI_Reduce(MPI_IN_PLACE,    this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, 0, this%mpi_comm_world, ierr)
+    else
+      call MPI_Reduce(this%rhs_vec%val,this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, 0, this%mpi_comm_world, ierr)
+    endif
+
     if (allocated(this%rhs)) this%rhs = 0.d0
     if (allocated(this%rhs_f)) this%rhs_f = 0.d0
 
