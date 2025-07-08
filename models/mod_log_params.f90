@@ -1067,6 +1067,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         if (sim%groups(group_num)%coupling_scheme .eq. 'ncs') then
           write(*,LOGI_FMT) 'use_kin_cx,             ',sim%groups(group_num)%use_kin_cx
           write(*,LOGI_FMT) 'use_kin_recombination,  ',sim%groups(group_num)%use_kin_recombination
+          write(*,LOGI_FMT) 'use_kin_neutral_coll,   ',sim%groups(group_num)%use_kin_neutral_coll
+          if(sim%groups(group_num)%use_kin_neutral_coll) write(*,REAL_FMT) 'neutral_coll_dTw,       ',part_group_configs(group_num)%neutral_coll_dTw
         endif
 
         ! ics specific
