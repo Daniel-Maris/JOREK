@@ -489,7 +489,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
                   pa2%v = v_g * v2f / norm2(v2f)
                 end if 
 
-                global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
+                global_diag(i_w_col) = global_diag(i_w_col) + w1 + w2
                 global_diag(i_n_col) = global_diag(i_n_col) + 2
                 
                 ! copy back into MPI pa array (with generic assignment =)
