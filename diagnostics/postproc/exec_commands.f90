@@ -156,6 +156,8 @@ module exec_commands
           call expressions_four(command, ierr)
         case ( 'fluxsurfaces' )
           call fluxsurfaces(command, ierr)
+        case ( 'fluxsurfaces_wperturb' )
+          call fluxsurfaces_wperturb(command, ierr)
         case ( 'fluxsurface' )
           call fluxsurface(command, ierr)
         case ( 'for' )
@@ -242,7 +244,7 @@ module exec_commands
       select case ( trim(command%args(0)) )
         case ( 'expressions', 'expressions_int', 'mark_coords', 'int2d', 'int3d','energy3d','midplane',       &
           'average', 'point', 'pol_line', 'int_along_pol_line', 'tor_line', 'equil_params',        &
-          'qprofile', 'q_at_psin', 'fluxsurfaces', 'fluxsurface', 'separatrix', 'set', 'four2d',   &
+          'qprofile', 'q_at_psin', 'fluxsurfaces', 'fluxsurfaces_wperturb', 'fluxsurface', 'separatrix', 'set', 'four2d',   &
           'gourdon', 'jorek-units', 'jnorm_bnd_curr', 'si-units', 'grid', 'grid_diagnostics',      &
           'rectangle', 'rectangular_torus', 'energy_spectrum', 'average_h5', 'I_halo_TPF',         &
           'spi-state', 'shards', 'zeroD_quantities', 'boundary_quantities', 'find_q_surface',      &
@@ -2776,7 +2778,211 @@ module exec_commands
     if ( allocated(surface_list%flux_surfaces) ) deallocate(surface_list%flux_surfaces)
     
   end subroutine fluxsurfaces
+ 
+  !> Output the flux surfaces with non-axisymmetric perturbations.
+  recursive subroutine fluxsurfaces_wperturb(command, ierr)
   
+    ! --- Routine parameters
+    type(type_command), intent(in)  :: command     !< Command to be executed
+    integer,            intent(out) :: ierr        !< Error flag
+    
+    
+    ! --- Local variables
+    integer                  :: i, j, i_elm, npts, ip, nplot, i_file, i_tor_file
+    integer                  :: i_tor, i_plane
+    type (type_surface_list) :: surface_list
+    character(len=1024)      :: filename, filename_itor, comment
+    type(t_expr_list)        :: tmp_expr_list
+    real*8                   :: psi_min, psi_max, psi_min2, psi_max2, ss1, dss1, ss2, dss2, tt1,   &
+      dtt1, tt2, dtt2, u, si, dsi, ti, dti, R, R_s, R_t, R_st, R_ss, R_tt, Z, Z_s, Z_t, Z_st, Z_ss,&
+      Z_tt
+    real*8                   :: radial_range(2)
+
+    real*8                   :: Ps0, Ps0_s, Ps0_t, Ps0_st, Ps0_ss, Ps0_tt, Ps0_x, Ps0_y
+    real*8                   :: U0,  U0_s,  U0_t,  U0_st,  U0_ss,  U0_tt,  U0_x,  U0_y
+    real*8                   :: ZN0, ZN0_s, ZN0_t, ZN0_st, ZN0_ss, ZN0_tt, ZN0_x, ZN0_y
+    real*8                   :: T0,  T0_s,  T0_t,  T0_st,  T0_ss,  T0_tt,  T0_x,  T0_y
+    real*8                   :: Ti0, Ti0_s, Ti0_t, Ti0_st, Ti0_ss, Ti0_tt, Ti0_x, Ti0_y
+    real*8                   :: Te0, Te0_s, Te0_t, Te0_st, Te0_ss, Te0_tt, Te0_x, Te0_y
+    real*8                   :: V0,  V0_s,  V0_t,  V0_st,  V0_ss,  V0_tt
+    real*8                   :: Psi, Psi_s, Psi_t, Psi_st, Psi_ss, Psi_tt
+    real*8                   :: UU,  UU_s,  UU_t,  UU_st,  UU_ss,  UU_tt
+    real*8                   :: zj,  zj_s,  zj_t,  zj_st,  zj_ss,  zj_tt
+    real*8                   :: rho, rho_s, rho_t, rho_st, rho_ss, rho_tt
+    real*8                   :: T,   T_s,   T_t,   T_st,   T_ss,   T_tt
+    real*8                   :: Psi_sum, U_sum, zj_sum, rho_sum, T_sum
+    real*8                   :: xjac, psi_norm, psi_abs, Btheta, Er, V_ExB, Vstar_i, Vtheta_i
+    logical                  :: without_n0_mode
+
+    ierr = 0
+    i_plane = 1
+    without_n0_mode = .false.
+    
+    ! --- Some checks
+    call check_args(command%n_args,ierr,0);  if ( ierr /= 0 ) return
+    call check_step_imported(ierr);          if ( ierr /= 0 ) return
+    
+    npts            = get_int_setting('surfaces', ierr)
+    radial_range(1) = get_float_setting('rad_range_min', ierr)
+    radial_range(2) = get_float_setting('rad_range_max', ierr)
+
+    
+    write(filename,'(4a)') trim(DIR), 'fluxsurfaces_wperturb', &
+                           trim(step_range_string(index_start,index_start)),  &
+                           '.dat'
+    
+    ! --- Find minimum and maximum psi values
+    psi_min=+1.d99
+    psi_max=-1.d99
+    do i_elm = 1, element_list%n_elements
+      call psi_minmax(node_list, element_list, i_elm, psi_min2, psi_max2)
+      psi_min = min(psi_min,psi_min2)
+      psi_max = max(psi_max,psi_max2)
+    end do
+    psi_min = psi_min + 0.74*(psi_max-psi_min)
+    psi_max = psi_max - 0.8*(psi_max-psi_min)
+
+    if ( radial_range(1) .ne. 0.001 ) then
+      psi_min = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * radial_range(1)
+    endif
+    if ( radial_range(2) .ne. 0.999 ) then
+      psi_max = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * radial_range(2)
+    endif
+
+    ! --- Find flux surfaces
+    surface_list%n_psi = npts
+    allocate( surface_list%psi_values(npts) )
+    do i = 1, npts
+      surface_list%psi_values(i) = psi_min + (psi_max-psi_min) * real(i-1)/real(npts-1)
+    end do
+    call find_flux_surfaces(0,xpoint, xcase, node_list, element_list, surface_list)
+    
+    ! --- Write out flux surfaces
+    nplot  = 5
+    i_file = 111
+    call open_ascii_file(ierr, i_file, filename, .false.)
+
+    do i = 1, npts
+      
+      ! --- Loop over all segments of this flux surface
+      do j=1,surface_list%flux_surfaces(i)%n_pieces
+        
+        ! --- Bezier element, in which the current flux surface segment is located
+        i_elm = surface_list%flux_surfaces(i)%elm(j)
+        ss1  = surface_list%flux_surfaces(i)%s(1,j)
+        dss1 = surface_list%flux_surfaces(i)%s(2,j)
+        ss2  = surface_list%flux_surfaces(i)%s(3,j)
+        dss2 = surface_list%flux_surfaces(i)%s(4,j)
+        
+        tt1  = surface_list%flux_surfaces(i)%t(1,j)
+        dtt1 = surface_list%flux_surfaces(i)%t(2,j)
+        tt2  = surface_list%flux_surfaces(i)%t(3,j)
+        dtt2 = surface_list%flux_surfaces(i)%t(4,j)
+        
+        ! --- Loop over nplot points in a flux surface segment
+        do ip = 1, nplot
+          u = -1. + 2.*float(ip-1)/float(nplot-1)
+          
+          ! --- Determine s and t values of the current point inside element i_elm
+          call CUB1D(ss1, dss1, ss2, dss2, u, si, dsi)
+          call CUB1D(tt1, dtt1, tt2, dtt2, u, ti, dti)
+          
+          ! --- Determine (R,Z)-coordinates of the current point on the current flux surface
+          call interp_RZ(node_list, element_list, i_elm,              si,ti,R,  R_s,  R_t,  R_st,  R_ss,  R_tt, &
+            Z, Z_s, Z_t, Z_st, Z_ss, Z_tt)
+
+          psi_norm = get_psi_n(  surface_list%psi_values(i), Z  )
+          xjac     = R_s * Z_t - R_t * Z_s
+
+          ! --- Determine the i_tor components of the Psi value for the current point on the current flux surface
+          !                                                     i_tor
+          Psi_sum = 0.
+          U_sum   = 0.
+          zj_sum  = 0.
+          rho_sum = 0.
+          T_sum   = 0.
+          do i_tor = 1,n_tor
+            if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) then  ! Do not include the n=0 mode
+              call interp (node_list, element_list, i_elm,var_psi,i_tor,si,ti,Ps0,Ps0_s,Ps0_t,Ps0_st,Ps0_ss,Ps0_tt)
+              call interp (node_list, element_list, i_elm,var_u,  i_tor,si,ti,U0, U0_s, U0_t, U0_st, U0_ss, U0_tt)
+              call interp (node_list, element_list, i_elm,var_rho,i_tor,si,ti,ZN0,ZN0_s,ZN0_t,ZN0_st,ZN0_ss,ZN0_tt)
+              if (with_Vpar) then
+                call interp (node_list, element_list, i_elm,var_Vpar,i_tor,si,ti,V0, V0_s, V0_t, V0_st, V0_ss, V0_tt)
+              else
+                V0=0; V0_s=0; V0_t=0; V0_st=0; V0_ss=0; V0_tt=0
+              end if
+              if (with_TiTe) then
+                call interp (node_list, element_list, i_elm,var_T,  i_tor,si,ti,Ti0, Ti0_s, Ti0_t, Ti0_st, Ti0_ss, Ti0_tt)
+                call interp (node_list, element_list, i_elm,var_T,  i_tor,si,ti,Te0, Te0_s, Te0_t, Te0_st, Te0_ss, Te0_tt)
+                T0   = Ti0   + Te0
+                T0_s = Ti0_s + Te0_s
+                T0_t = Ti0_t + Te0_t
+              else
+                call interp (node_list, element_list, i_elm,var_T,  i_tor,si,ti,T0, T0_s, T0_t, T0_st, T0_ss, T0_tt)
+                Te0    = T0  /2.d0;     Ti0    = T0  /2.d0
+                Te0_s  = T0_s/2.d0;     Ti0_s  = T0_s/2.d0
+                Te0_t  = T0_t/2.d0;     Ti0_t  = T0_t/2.d0
+              end if
+
+
+              Ps0_x  = (   Z_t * Ps0_s - Z_s * Ps0_t ) / xjac
+              Ps0_y  = ( - R_t * Ps0_s + R_s * Ps0_t ) / xjac
+
+              U0_x   = (   Z_t * U0_s  - Z_s * U0_t ) / xjac
+              U0_y   = ( - R_t * U0_s  + R_s * U0_t ) / xjac
+
+              T0_x   = (   Z_t * T0_s  - Z_s * T0_t ) / xjac
+              T0_y   = ( - R_t * T0_s  + R_s * T0_t ) / xjac
+
+              Te0_x  = (   Z_t * Te0_s - Z_s * Te0_t ) / xjac ; Ti0_x  = (   Z_t * Ti0_s - Z_s * Ti0_t ) / xjac 
+              Te0_y  = ( - R_t * Te0_s + R_s * Te0_t ) / xjac ; Ti0_y  = ( - R_t * Ti0_s + R_s * Ti0_t ) / xjac 
+              cycle
+            end if
+            call interp (node_list, element_list, i_elm,var_psi,i_tor,si,ti,Psi,Psi_s,Psi_t,Psi_st,Psi_ss,Psi_tt)
+            call interp (node_list, element_list, i_elm,var_u,  i_tor,si,ti,UU, UU_s, UU_t, UU_st, UU_ss, UU_tt)
+            call interp (node_list, element_list, i_elm,var_zj, i_tor,si,ti,zj, zj_s, zj_t, zj_st, zj_ss, zj_tt)
+            call interp (node_list, element_list, i_elm,var_rho,i_tor,si,ti,rho,rho_s,rho_t,rho_st,rho_ss,rho_tt)
+            call interp (node_list, element_list, i_elm,var_T,  i_tor,si,ti,T,  T_s,  T_t,  T_st,  T_ss,  T_tt)
+
+            Psi_sum = Psi_sum + Psi * HZ(i_tor,i_plane)
+            U_sum   = U_sum   + UU  * HZ(i_tor,i_plane)
+            zj_sum  = zj_sum  + zj  * HZ(i_tor,i_plane)
+            rho_sum = rho_sum + rho * HZ(i_tor,i_plane)
+            T_sum   = T_sum   + T   * HZ(i_tor,i_plane)
+          end do
+
+          psi_abs = sqrt(Ps0_x*Ps0_x + Ps0_y * Ps0_y)
+          Btheta  = (psi_abs/R)
+          Er      = 0.
+          V_ExB   = 0.
+          Vstar_i = 0.
+          Vtheta_i= 0.
+          if ( (psi_abs .gt. 1.d-6) .and. (abs(Btheta) .gt. 1.d-6) ) then
+            Er      = -(U0_x * Ps0_x + U0_y * Ps0_y)/psi_abs         ! radial electric field
+            V_ExB   = -(U0_x * Ps0_x + U0_y * Ps0_y )/Btheta
+            Vstar_i = - 1./Btheta * tauIC/ZN0 * ( (T0_x*ZN0 + ZN0_x*T0) * Ps0_x + (T0_y*ZN0 + ZN0_y*T0) * Ps0_y )
+
+            Vtheta_i= V_ExB + V0*Btheta + Vstar_i
+          end if
+            
+          ! --- Write out the (R,Z)-coordinates
+          write(i_file,'(11ES16.7)') R, Z, psi_norm, Psi_sum, U_sum, zj_sum, rho_sum, T_sum, V_ExB, Vstar_i, Vtheta_i
+        end do
+        
+        write(i_file,*)
+        write(i_file,*)
+      
+      end do
+      
+    end do
+    
+    close(i_file)
+    
+    ! --- Clean up.
+    if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)
+    if ( allocated(surface_list%flux_surfaces) ) deallocate(surface_list%flux_surfaces)
+    
+  end subroutine fluxsurfaces_wperturb 
 
   !> Output the flux surface.
   subroutine fluxsurface(command, ierr)

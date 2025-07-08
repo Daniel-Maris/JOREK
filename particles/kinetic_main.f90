@@ -322,7 +322,7 @@ do while (.not. sim%stop_now)
   !  call write_simulation_hdf5(sim, 'interim_part_restart.h5')
   !endif
 
-  if ( mod(index_now,10) == 0 ) then
+  if ( mod(index_now,50) == 0 ) then
     call write_to_outputfile(sim%my_id, "Writing part_restart.h5")
     write(s,'(a,i5.5,a)') 'part_restart_', index_now, '.h5'
     call write_simulation_hdf5(sim, trim(s))

@@ -117,7 +117,7 @@ real*8                :: r0_real8, rn0_real8, lnA
 real*8                :: T0_corr, r0_corr, rn0_corr, ne_JOREK, T_or_Te, T_or_Te_corr, T_or_Te_0 
 integer               :: i_imp, offset_bgimp, i_bg     ! Loop for more than one background impurity
 integer               :: i_proj
-integer               :: i_psin, i_test, iimp(6), i_ne, ineu(7), ibg_tot, i_pellet(2), i_flux(8), i_neo(10), i_boot(2), i_gvec, i_vac(3), i_saw
+integer               :: i_psin(3), i_test, iimp(6), i_ne, ineu(7), ibg_tot, i_pellet(2), i_flux(8), i_neo(10), i_boot(2), i_gvec, i_vac(3), i_saw
 integer               :: i_full(11), i_vec_B, i_vec_V, i_vec_E, i_vec_Jpol, i_vec_gvec(2), i_vec_vac(2)
 integer, allocatable  :: iibg(:), iproj(:)
 character*36          :: imp_label, proj_label
@@ -356,8 +356,11 @@ if (use_pellet) then
 endif
 
 if (include_psi_norm) then
-  call add_vtk_entry('psi_norm    ', 'psi_norm    ',    i_psin, n_scalars, si_units, scalar_names)
+  call add_vtk_entry('psi_norm    ', 'psi_norm    ',    i_psin(1), n_scalars, si_units, scalar_names)
+  call add_vtk_entry('D_perp      ', 'D_perp      ',    i_psin(2), n_scalars, si_units, scalar_names)
+  call add_vtk_entry('ZK_perp     ', 'ZK_perp     ',    i_psin(3), n_scalars, si_units, scalar_names)
 endif
+
 
 if (include_gvec_field) then
   call add_vtk_entry('pressure    ', 'pressure    ',   i_gvec, n_scalars, si_units, scalar_names)
@@ -374,7 +377,7 @@ endif
 allocate(iibg(n_adas),iproj(n_var))
 
 if (include_projections) then
-  do i = 1, n_var
+  do i = 1, n_var+1
     write(proj_label, '(a4,i2.2)') 'aux_', i
     call add_vtk_entry(proj_label, proj_label, iproj(i), n_scalars, si_units, scalar_names) 
   end do
@@ -717,7 +720,7 @@ do i=1,element_list%n_elements
         enddo
 
         if (include_projections) then
-          do i_proj=1,n_var
+          do i_proj=1,n_var+1
             call interp(aux_node_list,element_list,i,i_proj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,iproj(i_proj)) = P * HZ(i_tor,i_plane)
           end do
@@ -983,7 +986,7 @@ do i=1,element_list%n_elements
 
         grad_psi = sqrt(A3_R**2 + A3_Z**2)
 
-        D_prof  = get_dperp (psi_norm)
+        D_prof  = get_dperp(psi_norm)
         ZK_prof = get_zkperp(psi_norm)
 
         call coulomb_log_ei(T_or_Te, T_or_Te_corr, rho, corr_neg_dens1(rho), 0.0, 0.0, 0.0, lnA)
@@ -1025,7 +1028,9 @@ do i=1,element_list%n_elements
         endif ! include_fluxes
 
         if (include_psi_norm) then
-          scalars(inode,i_psin) = psi_norm
+          scalars(inode,i_psin(1)) = psi_norm
+          scalars(inode,i_psin(2)) = D_prof
+          scalars(inode,i_psin(3)) = ZK_prof
         endif
 
         if (include_magnetic_field) then
@@ -1072,7 +1077,7 @@ do i=1,element_list%n_elements
           enddo
 
           if (include_projections) then
-            do i_proj=1,n_var
+            do i_proj=1,n_var+1
               call interp(aux_node_list,element_list,i,i_proj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
               scalars(inode,iproj(i_proj)) = scalars(inode,iproj(i_proj)) + P * HZ(i_tor,i_plane)
             end do
@@ -1227,8 +1232,14 @@ do i=1,element_list%n_elements
 
         v_perp  = R * sqrt(u_x*u_x + u_y * u_y)
         Btot    = sqrt(F0**2 + ps_x**2 + ps_y**2) / BigR
-        D_prof  = get_dperp (psi_norm)
-        ZK_prof = get_zkperp(psi_norm)
+        !D_prof  = get_dperp (psi_norm)
+        !D_prof = (1+tanh((Z-(ES%Z_xpoint(1)-0.02))/0.01))/2*get_dperp(psi_norm) &
+        !          + (1-(1+tanh((Z-(ES%Z_xpoint(1)-0.02))/0.01))/2)*4.d-6
+        D_prof  = max(get_dperp (psi_norm),(5.6965d-7)*0.1*0.5*(1-tanh((Z-(ES%Z_xpoint(1)+0.15))/0.01)))
+
+        ZK_prof = (1+tanh((Z-(ES%Z_xpoint(1)+0.05))/0.03))/2*(get_zkperp(psi_norm)*8.d-8)*max(scalars(inode,5),1.d-2) &
+                    + (1-(1+tanh((Z-(ES%Z_xpoint(1)+0.05))/0.03))/2)*10*get_zkperp(psi_norm)*max(scalars(inode,5),0.18)
+
 
         ZKpar_T = ZK_par * ((max( scalars(inode,6), T_min ))/T_0)**2.5
 
@@ -1306,7 +1317,9 @@ do i=1,element_list%n_elements
         endif
         
         if (include_psi_norm) then
-           scalars(inode,i_psin) = psi_norm
+           scalars(inode,i_psin(1)) = psi_norm
+           scalars(inode,i_psin(2)) = D_prof
+           scalars(inode,i_psin(3)) = ZK_prof
         endif
 
         if (use_pellet) then

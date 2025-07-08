@@ -36,8 +36,8 @@ subroutine conservation_checks(sim)
 #ifdef __GFORTRAN__
       !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
-      !$omp parallel do default(none) &
-      !$omp shared(sim, particles) &
+      !$omp parallel do default(shared)  &
+      !!$omp shared(sim, particles) &
 #endif
       !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
       !$omp private(j, E, B, psi, U, B_norm)

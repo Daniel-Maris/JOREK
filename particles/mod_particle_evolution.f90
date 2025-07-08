@@ -95,6 +95,7 @@ contains
         jorek_feedback%rhs(:,:,:,:,imp_q_idx) = jorek_feedback%rhs(:,:,:,:,imp_q_idx) + feedback_rhs(:,:,:,:,imp_q_idx)
         jorek_feedback%rhs(:,:,:,:,6) = jorek_feedback%rhs(:,:,:,:,6) + feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
         jorek_feedback%rhs(:,:,:,:,7) = jorek_feedback%rhs(:,:,:,:,7) + feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
+        jorek_feedback%rhs(:,:,:,:,8) = jorek_feedback%rhs(:,:,:,:,8) + feedback_rhs(:,:,:,:,8)   !< extra projection (impurity rad)
       endif
     endif
 
@@ -133,7 +134,7 @@ contains
 
     !> Coupling --------------------------------------
     real*8    :: density_source, mom_par_source, energy_source
-    real*8    :: density_fb, mom_par_fb, E_fb, imp_q_fb, imp_density_fb, imp_P_rad_fb, extra_proj 
+    real*8    :: density_fb, mom_par_fb, E_fb, imp_q_fb, imp_density_fb, imp_P_rad_fb, extra_proj, imp_P_line_rad_fb 
     real*8    :: v_temp(3), T_eV, B_norm(3)
     real*8    :: vvector(3), ran_norm(4)
 
@@ -200,7 +201,7 @@ contains
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
     !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,                  &
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
-    !$omp density_source, mom_par_source, energy_source, v_temp, T_eV,                                    &
+    !$omp density_source, mom_par_source, energy_source, v_temp, T_eV, imp_P_line_rad_fb,                                   &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll,                                                &
     !$omp vvector, ran_norm, imp_q_idx_temp)                                                              &
@@ -331,7 +332,13 @@ contains
           mom_par_source = ionize_source * dot_product(B, particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &	
                 + CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
           energy_source  = ionize_source * ionize_energy + cx_source * cx_energy - line_rad_energy
-                  
+        
+          if (energy_source < -2.d0*particle_tmp%weight*T_e*K_BOLTZ) then
+            !write(*,*) "Warning: energy_source too high setting it to new value energy_source/new/T_e", energy_source, &
+            !      -2.d0*particle_tmp%weight*T_e*K_BOLTZ, T_e
+            energy_source = -2.d0*particle_tmp%weight*T_e*K_BOLTZ
+          endif  
+                   
           particle_tmp%v = v_temp 
           n_lost_ion = n_lost_ion + ionize_source	!< local sum #particles lost due to ionisation
           p_lost_ion = p_lost_ion + ionize_source * ionize_energy
@@ -366,7 +373,7 @@ contains
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
           limits_coll = T_e > 0.d0 !< limits for collisions
-
+          line_rad_energy = 0.0
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call rng(i_rng)%next(ionize_ran_imp)
@@ -388,6 +395,7 @@ contains
             call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
             binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q+1) * EL_CHG ! should this be q or q_old?
             radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
+            line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
           endif ! RADIATION
           
           !> COLLISIONS WITH THE BACKGROUND PLASMA (Neoclassical collisions)
@@ -435,10 +443,12 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          energy_source  = ionize_energy + radiation_energy
+          energy_source  = ionize_energy + radiation_energy !&
+            !- 0.5d0 * particle_tmp%weight * (dot_product(particle_tmp%v, particle_tmp%v) - dot_product(v_temp, v_temp)) * &
+            !sim%groups(group_num)%mass * ATOMIC_MASS_UNIT
           mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
 
-          particle_tmp%v = v_temp 
+          particle_tmp%v = v_temp ! remove this line? 
           n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
           p_lost_plt = p_lost_plt + radiation_energy
@@ -458,13 +468,14 @@ contains
               imp_q_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q /real(nstep_particles,8)
               imp_density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight /real(nstep_particles,8)
               imp_P_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * radiation_energy / tstep_part_adj
-              
+              imp_P_line_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * line_rad_energy / tstep_part_adj   
               do i_tor=1,n_tor
                 feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * imp_q_fb ! impurity charge density
                 feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * imp_P_rad_fb             ! impurity radiated power [to be moved to diag feedback]
                 feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * imp_density_fb           ! impurity density [to be moved to diag feedback]
+                feedback_rhs(m,l,i_elm_old,i_tor,8) = feedback_rhs(m,l,i_elm_old,i_tor,8) + HZ(i_tor) * imp_P_line_rad_fb
               enddo
             enddo
           enddo
