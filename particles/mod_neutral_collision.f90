@@ -447,7 +447,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
               !diagnostics
               global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
               global_diag(i_d_av)     = global_diag(i_d_av)     + sqrt(sigma_T/PI)
-              global_diag(i_P_av)     = global_diag(i_P_av)     + P_real
+              global_diag(i_P_av)     = global_diag(i_P_av)     + max(P_real,0.d0) ! we want to count negative P_real as 0 for the average collision chance
               global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
               if (P_real > P_max_mpi) P_max_mpi = P_real
               
@@ -537,7 +537,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     if(sim%my_id .eq. 0) then
       write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P_real/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
       write(*,"(A,2es15.5)") "P_max_elm rescale values (min/max) ",P_max_elm_min_red,P_max_elm_max_red
-      if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles have been tried more than once for collisions"
+      if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles will be tried more than once for collisions"
       if(reduced_global_diag(i_Pgt1) > 0.5) write(*,"(A,I10.0,A,I10.0,A)") "WARNING: P_try>1 for ",nint(reduced_global_diag(i_Pgt1))," out of ",nint(reduced_global_diag(i_n_pairs))," collision attempts during this timestep"
   
       !getting the averages by dividing the sum by number of pairs
@@ -618,7 +618,7 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
     if(id == "non") cycle
     if(.not. part_group_configs(i)%use_kin_neutral_coll) then
       if(any(abs(part_group_configs(i)%neutral_coll_dTw(:) + 1.d99)/1.d99 > 1.d-10)) then ! dTw was changed while use_kin_neutral_coll=.false.
-        if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.false. but part_group_configs(",i,")%neutral_coll_dTw has been set. If you want to use neutral collisions you need to set part_group_configs(",i,")%use_kin_neutral_coll=.true and define the three parameters of part_group_configs(",i,")%neutral_coll_dTw. Aborting."
+        if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.false. but part_group_configs(",i,")%neutral_coll_dTw has been set. If you want to use neutral collisions you need to set part_group_configs(",i,")%use_kin_neutral_coll=.true and define the three parameters of part_group_configs(",i,")%neutral_coll_dTw. Aborting."
         stop
       end if  
       cycle
@@ -646,7 +646,7 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
       if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.true. but not all parameters in part_group_configs(",i,")%neutral_coll_dTw have been defined. Please set the reference collisional diameter, temperature and viscosity index part_group_configs(",i,")%neutral_coll_dTw. Aborting."
       stop
     else if(any(part_group_configs(i)%neutral_coll_dTw(:) < 0)) then
-      if(sim%my_id == 0) write(*,"(A,I2,A,2es14.4,A)") "ERROR: negative values in part_group_configs(",i,")%neutral_coll_dTw=",part_group_configs(i)%neutral_coll_dTw," Please check your input. Aborting."
+      if(sim%my_id == 0) write(*,"(A,I2,A,3es14.4,A)") "ERROR: negative values in part_group_configs(",i,")%neutral_coll_dTw=",part_group_configs(i)%neutral_coll_dTw," Please check your input. Aborting."
       stop
     end if
     group_num = group_num_from_id(sim, id)
