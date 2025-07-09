@@ -31,6 +31,7 @@ implicit none
 ! The particle remains between +- 3 in Z and 8 and 13 in R for these parameters. set this in an input file
 
 ! Local variables
+logical :: verbose = .false.
 integer :: i,ielm_out,ifail,j,i_elm_old
 real*8  :: R,Z
 real*8  :: s,t
@@ -95,7 +96,6 @@ write(*,*) "INFO: Exporting grid to jorek_restart.h5"
 rst_hdf5 = 1
 call export_restart(sim%fields%node_list,sim%fields%element_list,'jorek_restart')
 
-! interpret tstep_n as [s] instead of jorek units
 do i=1,size(tstep_n)
   if (tstep_n(i) .le. 0 .or. tstep_n(i) .ne. tstep_n(i) .or. tstep_n(i) .eq. 1) cycle
   nstep_n(i) = floor(time_end  / (t_norm*tstep_n(i)) ) ! Override nstep_n
@@ -110,7 +110,7 @@ do i=1,size(tstep_n)
     rz_old    = particle%x(1:2)
     st_old    = particle%st
     i_elm_old = particle%i_elm
-    write(*,"(A,g16.8,g16.8,g16.8)") 'PARTICLE ', cylindrical_to_cartesian(particle%x)
+    if (verbose) write(*,"(A,g16.8,g16.8,g16.8)") 'PARTICLE ', cylindrical_to_cartesian(particle%x)
     call boris_push_cylindrical(particle, real(mass,8), E, B, tstep_n(i)*t_norm)
     call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, rz_old(1), rz_old(2), st_old(1), st_old(2), i_elm_old, &
         particle%x(1), particle%x(2), particle%st(1), particle%st(2), particle%i_elm, ifail)
