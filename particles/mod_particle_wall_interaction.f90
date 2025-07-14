@@ -444,7 +444,8 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
   integer, dimension(n_part_groups_max,3) :: group_scheme_namelist_idx=-1 !< index of where the group create scheme was set in the namelist (part_group_configs (1) or fluid_configs (2), config_num, wall_act_num)
   integer :: n_sputter_groups=0 !< how many "fluid sputter to one" groups to make
   logical :: new_target !< whether the sputter target was already encountered before and written into sputter_target_ids (.false.), or not (.true.)
-  integer, parameter :: idx_part2self=1,idx_other=2,idx_offset=2
+  integer :: idx_part2self,idx_other
+  integer :: idx_offset !< how many non sputter groups there are
 
   if(sim%my_id == 0) write(*,*) "determining wall_actions from the namelist configs"
 
@@ -544,20 +545,33 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
   ! --- setting up the wall_act_groups
   ! determining the number of wall_act_groups to set up
   n_groups = 0
-  if(n_part2self > 0) n_groups = n_groups + 1
-  if(n_other > 0) n_groups = n_groups + 1
+  idx_part2self = -1
+  idx_other = -1
+  if(n_part2self > 0) then
+    n_groups = n_groups + 1
+    idx_part2self = n_groups
+  end if
+  if(n_other > 0) then 
+    n_groups = n_groups + 1
+    idx_other = n_groups
+  end if
+  idx_offset = n_groups
   n_groups = n_groups + n_sputter_groups
 
   ! allocating and setting wall_act_groups settings
   allocate(wall_act_groups(n_groups))
   if(size(wall_act_groups,1) == 0) return ! avoid allocation issues below
-  allocate(wall_act_groups(idx_part2self)%wall_actions(n_part2self))
-  allocate(wall_act_groups(idx_other)%wall_actions(n_other))
   
   wall_act_groups(:)%contains_part2part = .false.
-  wall_act_groups(idx_part2self)%group_type = "part2self"
-  wall_act_groups(idx_part2self)%contains_part2part = .true.
-  wall_act_groups(idx_other)%group_type = "other"
+  if (n_part2self > 0) then
+    allocate(wall_act_groups(idx_part2self)%wall_actions(n_part2self))
+    wall_act_groups(idx_part2self)%group_type = "part2self"
+    wall_act_groups(idx_part2self)%contains_part2part = .true.
+  end if
+  if(n_other > 0) then
+    allocate(wall_act_groups(idx_other)%wall_actions(n_other))
+    wall_act_groups(idx_other)%group_type = "other"
+  end if
   
   do k=1,n_sputter_groups ! for the sputter groups
     i=k+idx_offset
