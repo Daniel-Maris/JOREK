@@ -674,7 +674,7 @@ contains
     do_init=.false.
     if(present(init)) do_init = init 
 
-    if(do_init == .true.) then
+    if(do_init) then
       write(MSD_file,"(A,I1,A)") 'p',sim%my_id,'.csv'
       open(unit=13+sim%my_id, file=MSD_file, status='replace')    
       
