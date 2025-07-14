@@ -11,6 +11,7 @@ module mod_neutral_collision
   use phys_module, only: tstep, n_period, use_manual_random_seed,n_plane !< we need the intrinsic fortran gamma function so have to use only
   use mod_interp, only: interp_RZ, interp_0
   use mod_event, only: mpi_minmeanmax
+  use mod_particle_sorting
   use mpi
   use nodes_elements
   
@@ -32,12 +33,6 @@ module mod_neutral_collision
     procedure :: initialize
     procedure :: do => neutral_self_collision
   end type 
-
-  !> an object containing the array of particle indices of particles in this element 
-  !> s.t. an array of these objects can store all particle indices as array per element
-  type :: indices_in_elm
-    integer, dimension(:), allocatable :: pa_ind
-  end type
 
   !> object to store an index array to randomly draw from the unused indices
   type :: random_draw
@@ -93,16 +88,12 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   
   ! arrays used for determining sorted_ind_arr
   integer, dimension(:),       allocatable :: pa_in_elm_arr     !< number of particles in the element (n_elm)
-  integer, dimension(:),       allocatable :: pa_elm_arr        !< precalculated pa(:)%i_elm for faster masking over i_elm  (n_pa)
-  integer, dimension(:,:),     allocatable :: pa_in_thread_arr  !< number of particles in the thread for this element (n_elm, n_thread)
-  integer, dimension(:,:),     allocatable :: offset_thread_arr !< offset of this thread's contribution to sorted_ind_arr for this element (n_elm, n_thread)
-  integer, dimension(:,:),     allocatable :: i_loc_thread_arr  !< ith particle index insertion into sorted_ind_arr for this element by this thread (n_elm, n_thread)
 
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: i, j, i_elm, i_loc, i_global, i_phi, is, it, ns, nt, i_pair, n_elm
   integer :: pa_in_elm !< number of particles in the element under consideration
   integer :: n_pa_bin  !< number of particles in this collisional bin
-  integer :: i_thread, n_thread
+  integer :: i_thread
 
   real*8 :: P_real  !< [chance] chance that this particle will collide (with anything) this timestep, P_real = n \sigma_T v_r dt
   real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = P_real / P_max_elm(i_elm)
@@ -173,10 +164,6 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   
     n_elm = sim%fields%element_list%n_elements
     
-    i_thread = 1 !default if not using OMP
-    n_thread = 1
-    !$ n_thread = omp_get_max_threads()
-    
     global_diag(:)=0.d0
 
     ! for now it is assumed that having n_plane toroidal bins is enough locality in the toroidal direction. 
@@ -184,85 +171,8 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     ! (just as the number of s and t bins scale as such)
     n_phi = n_plane
     
-    ! --- sorting the particle indices into arrays by their element number
-    ! the goal is to deterministically sort the particle indices into arrays per element
-    if(allocated(pa_elm_arr)) deallocate(pa_elm_arr)
-    allocate(pa_elm_arr(size(pa)))
-    pa_elm_arr = 0
-    if(.not. allocated(pa_in_elm_arr)) allocate(pa_in_elm_arr(n_elm))
-    pa_in_elm_arr = 0
-    if(allocated(pa_in_thread_arr)) deallocate(pa_in_thread_arr)
-    allocate(pa_in_thread_arr(n_elm,n_thread))
-    pa_in_thread_arr = 0
-    
-    !find out how many particles per element and thread
-#ifdef __GFORTRAN__
-    !$omp parallel do default(none)  &
-    !$omp shared(sim,pa_elm_arr,pa_in_thread_arr)      &
-#else
-    !$omp parallel do default(none)  &
-    !$omp shared(pa,pa_elm_arr,pa_in_thread_arr)      &
-#endif
-    !$omp private(i_elm, i_thread)   &
-    !$omp schedule(static,100)
-    do i=1,size(pa)
-      !$ i_thread = omp_get_thread_num()+1
-      i_elm = pa(i)%i_elm
-      if(i_elm < 1) cycle
-      pa_elm_arr(i) = i_elm
-      pa_in_thread_arr(i_elm,i_thread) = pa_in_thread_arr(i_elm,i_thread) + 1
-    end do
-    !$omp end parallel do
-
-    !find out how many particles per element total, and getting the offset of each thread 
-    !so that each thread writes to its own part of the sorted_ind_arr(i_elm)%pa_ind(:) array later on
-    if(allocated(offset_thread_arr)) deallocate(offset_thread_arr)
-    allocate(offset_thread_arr(n_elm,n_thread))
-    !$omp parallel do default(none)  &
-    !$omp shared(pa_in_elm_arr,pa_in_thread_arr,offset_thread_arr,n_thread,n_elm) &
-    !$omp private(i_thread)
-    do i_elm=1,n_elm
-      pa_in_elm_arr(i_elm) = sum(pa_in_thread_arr(i_elm,:))
-      
-      !the offset must be the sum over the particles in that element of lower thread numbers, we can determine this iteratively from the previous offset
-      offset_thread_arr(i_elm,1) = 0
-      do i_thread=2,n_thread
-        offset_thread_arr(i_elm,i_thread) = offset_thread_arr(i_elm,i_thread - 1) + pa_in_thread_arr(i_elm,i_thread - 1)
-      end do
-    end do
-    !$omp end parallel do
-
-    !allocating sorted_ind_arr object
-    if(.not. allocated(sorted_ind_arr)) allocate(sorted_ind_arr(n_elm))
-    !$omp parallel do default(none) &
-    !$omp shared(pa_in_elm_arr, sorted_ind_arr, n_elm)
-    do i_elm=1,n_elm
-      if(allocated(sorted_ind_arr(i_elm)%pa_ind)) deallocate(sorted_ind_arr(i_elm)%pa_ind) ! this can be done here as we know size(sorted_ind_arr)=n_elm is fixed
-      allocate(sorted_ind_arr(i_elm)%pa_ind(pa_in_elm_arr(i_elm)))
-    end do
-    !$omp end parallel do
-
-    !filling sorted_ind_arr object
-    if(allocated(i_loc_thread_arr)) deallocate(i_loc_thread_arr)
-    allocate(i_loc_thread_arr(n_elm,n_thread))
-    i_loc_thread_arr = 1
-    !$omp parallel do default(none)                     &
-    !$omp shared(pa_elm_arr, offset_thread_arr, i_loc_thread_arr, sorted_ind_arr) &
-    !$omp private(i_elm, i_loc, i_thread) &
-    !$omp schedule(static,100)
-    do i=1,size(pa_elm_arr)
-      !$ i_thread = omp_get_thread_num()+1
-      i_elm = pa_elm_arr(i)
-      if(i_elm < 1) cycle
-      !for the first particle in i_thread=1, offset=0, 
-      i_loc = offset_thread_arr(i_elm,i_thread) + i_loc_thread_arr(i_elm,i_thread) 
-      i_loc_thread_arr(i_elm,i_thread) = i_loc_thread_arr(i_elm,i_thread) + 1
-      sorted_ind_arr(i_elm)%pa_ind(i_loc) = i
-    end do
-    !$omp end parallel do
-    deallocate(i_loc_thread_arr)
-    deallocate(offset_thread_arr)
-    deallocate(pa_elm_arr)
+    ! sorting the particle indices into arrays by their element number
+    call sort_particles_in_elm(sim%groups(this%group_num)%particles,n_elm,sorted_ind_arr,pa_in_elm_arr)
 
     max_n_pa = 0
     P_max_mpi = 0
@@ -286,6 +196,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     !$omp sigma_T, P_try, P_real, N_try, i_thread, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
     !$omp reduction(+:global_diag) reduction(max:max_n_pa, P_max_mpi)
     do i_elm=1,n_elm
+      i_thread = 1 !default if not using OMP
       !$ i_thread = omp_get_thread_num()+1
       
       if(allocated(i_pa_elm)) deallocate(i_pa_elm)
