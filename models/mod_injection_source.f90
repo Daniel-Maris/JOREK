@@ -328,6 +328,12 @@ module mod_injection_source
 
       do i_inj = 1,n_inj
 
+        if (present(source_background_drift_arr) .or. present(source_impurity_drift_arr)) then
+          if (drift_distance(i_inj) /= 0.d0 .and. i_main_imp/=0) then ! For non-pure D SPI
+            write(*,*) 'WARNING: Do you really want to put <plasmoid teleportation> to non-pure D SPI?'
+          end if
+        end if
+
         do i = 1,n_spi(i_inj)
           spi_i = n_spi_begin + i - 1
 
