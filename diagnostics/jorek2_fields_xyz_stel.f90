@@ -147,7 +147,7 @@ program jorek2_fields_xyz_stel
   allocate(bx_p(np), by_p(np), bz_p(np))
 
   ! Read JOREK equilibrium restart file
-  istep = 1
+  istep = 0
   write(file_in,'(A5,i5.5)') 'jorek', istep
   if ( my_id == 0 ) then
     call import_restart(node_list, element_list, file_in, rst_format, ierr)
