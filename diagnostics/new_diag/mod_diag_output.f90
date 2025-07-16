@@ -344,7 +344,7 @@ module mod_diag_output
         write(*,*) ierr
         return
       end if
-      if ( present(append) .and. (append) .and. present(blanks) .and. (blanks) ) then
+      if ( (present(append) .and. (append)) .and. (present(blanks) .and. (blanks)) ) then
         write(i_file,*)
         write(i_file,*)
       end if
