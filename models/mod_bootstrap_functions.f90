@@ -492,9 +492,11 @@ subroutine bootstrap_get_averaged_j_spline(my_id, node_list, element_list, psi_a
 
     ! --- Simulation could be setup with a flux-aligned or polar limiting grid. If so,
     ! --- should only acquire surfaces up to the limiter boundary, i.e. psi_n = 1.0
+    ! --- However, should avoid the boundary itself as some values appear to be undefined
+    ! --- so take psi_n = 0.9995, i.e. just within the grid boundary.
     ! --- If an x-point is found in this conditional block, we must be simulating a
     ! --- polar grid beyond the LCFS. Therefore, acquire surfaces up to psi_n = 1.2.
-    psi_n_bnd_factor = 1.0
+    psi_n_bnd_factor = 0.9995
     if (xpoint) psi_n_bnd_factor = 1.2
 
     ! --- Call the routine
@@ -714,9 +716,11 @@ subroutine bootstrap_get_q_and_ft_splines(my_id, node_list, element_list, psi_ax
 
     ! --- Simulation could be setup with a flux-aligned or polar limiting grid. If so,
     ! --- should only acquire surfaces up to the limiter boundary, i.e. psi_n = 1.0
+    ! --- However, should avoid the boundary itself as some values appear to be undefined
+    ! --- so take psi_n = 0.9995, i.e. just within the grid boundary.
     ! --- If an x-point is found in this conditional block, we must be simulating a
     ! --- polar grid beyond the LCFS. Therefore, acquire surfaces up to psi_n = 1.2.
-    psi_n_bnd_factor = 1.0
+    psi_n_bnd_factor = 0.9995
     if (xpoint) psi_n_bnd_factor = 1.2
 
     ! --- Call the routine
