@@ -397,7 +397,7 @@ subroutine bootstrap_get_averaged_j_spline(my_id, node_list, element_list, psi_a
   ! --- Internal parameters
   type (type_surface_list) :: flux_list, sep_list
   integer                  :: i, k, ig, i_surf, i_piece, n_psi, i_elm
-  real*8                   :: psi_bnd, psi_bnd2
+  real*8                   :: psi_bnd, psi_bnd2, psi_n_bnd_factor
   real*8                   :: sigmas(17)
   integer                  :: n_grids(12)
   real*8                   :: rr, s, t, ds, dt, xjac, dl, sum_dl
@@ -490,9 +490,16 @@ subroutine bootstrap_get_averaged_j_spline(my_id, node_list, element_list, psi_a
     flux_list%n_psi = n_psi
     call tr_allocate(flux_list%psi_values,1,flux_list%n_psi,"flux_list%psi_values",CAT_GRID)
 
+    ! --- Simulation could be setup with a flux-aligned or polar limiting grid. If so,
+    ! --- should only acquire surfaces up to the limiter boundary, i.e. psi_n = 1.0
+    ! --- If an x-point is found in this conditional block, we must be simulating a
+    ! --- polar grid beyond the LCFS. Therefore, acquire surfaces up to psi_n = 1.2.
+    psi_n_bnd_factor = 1.0
+    if (xpoint) psi_n_bnd_factor = 1.2
+
     ! --- Call the routine
     do i=1,flux_list%n_psi
-      flux_list%psi_values(i) = psi_axis + 1.2*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
+      flux_list%psi_values(i) = psi_axis + psi_n_bnd_factor*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
     enddo
     call find_flux_surfaces(my_id,xpoint,xcase,node_list,element_list,flux_list)
 
@@ -619,7 +626,7 @@ subroutine bootstrap_get_q_and_ft_splines(my_id, node_list, element_list, psi_ax
   real*8                   :: hh2(n_spline), ft_int(n_spline)
   integer                  :: n_int
   real*8                   :: lambda_ft, dlambda_ft, OneMinusLh
-  real*8                   :: psi_n
+  real*8                   :: psi_n, psi_n_bnd_factor
   real*8                   :: psi_xpoint_tmp(2)
 
 
@@ -705,9 +712,16 @@ subroutine bootstrap_get_q_and_ft_splines(my_id, node_list, element_list, psi_ax
     flux_list%n_psi = n_psi
     call tr_allocate(flux_list%psi_values,1,flux_list%n_psi,"flux_list%psi_values",CAT_GRID)
 
+    ! --- Simulation could be setup with a flux-aligned or polar limiting grid. If so,
+    ! --- should only acquire surfaces up to the limiter boundary, i.e. psi_n = 1.0
+    ! --- If an x-point is found in this conditional block, we must be simulating a
+    ! --- polar grid beyond the LCFS. Therefore, acquire surfaces up to psi_n = 1.2.
+    psi_n_bnd_factor = 1.0
+    if (xpoint) psi_n_bnd_factor = 1.2
+
     ! --- Call the routine
     do i=1,flux_list%n_psi
-      flux_list%psi_values(i) = psi_axis + 1.2*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
+      flux_list%psi_values(i) = psi_axis + psi_n_bnd_factor*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
     enddo
     call find_flux_surfaces(my_id,xpoint,xcase,node_list,element_list,flux_list)
 
