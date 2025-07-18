@@ -254,7 +254,9 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
 #endif
 
   n_e_temp = central_density * P(1) * 1d20
-  if present(n_e_raw) then n_e_raw = n_e_temp
+  if (present(n_e_raw)) then
+    n_e_raw = n_e_temp
+  end if
   n_e = max(n_e_temp, 1d16)                           ! plasma density [1/m^3], capped against negative
 
   T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
@@ -262,7 +264,9 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
   T_norm = T_norm*2.d0 ! P(1) contains the electron temperature, reverse previous correction
 #endif
   T_e_temp = P(2)*T_norm
-  if present(T_e_raw) then T_e_raw = T_e_temp
+  if (present(T_e_raw)) then
+    T_e_raw = T_e_temp
+  end if
   T_e = max(T_e_raw, 1.d0) ! temperature capped against going negative
 
   if (present(grad_T_e)) then
