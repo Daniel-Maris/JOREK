@@ -139,6 +139,7 @@ contains
     real*8    :: vvector(3), ran_norm(4)
 
     logical   :: limits, limits_coll
+    real*8    :: T_e_raw, n_e_raw
     real*8    :: ionize_rate, ionize_energy, ionize_source, ionize_prob
     real*8    :: cx_rate, cx_energy,  cx_source, cx_prob
     real*8    :: PLT, PRB, Srec, line_rad_energy
@@ -190,7 +191,7 @@ contains
     !$omp parallel do default(none)                                                                       &
 #endif
     !$omp schedule(runtime)                                                                               &
-    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                         &
+    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                            &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
@@ -201,10 +202,10 @@ contains
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
     !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,                  &
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
-    !$omp density_source, mom_par_source, energy_source, v_temp, T_eV, imp_P_line_rad_fb,                                   &
+    !$omp density_source, mom_par_source, energy_source, v_temp, T_eV, imp_P_line_rad_fb,                 &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll,                                                &
-    !$omp vvector, ran_norm, imp_q_idx_temp)                                                              &
+    !$omp vvector, ran_norm, imp_q_idx_temp, T_e_raw, n_e_raw)                                            &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
       particle_tmp = sim%groups(group_num)%particles(j)
@@ -232,7 +233,7 @@ contains
         v_temp    = particle_tmp%v
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
-        call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, grad_T_e)
+        call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
 
         !> loop over impurities groups and calculate their contribution to electron density
         imp_charge_density = 0.d0
@@ -247,7 +248,7 @@ contains
         !> adjust n_e based on impurity charge
         n_e = n_i + max(0.d0, imp_charge_density)
         
-        limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
+        limits = n_e_raw .le. 1e14 .or. T_e_raw * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
         
         !> check that particle weight is non negative
         if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
@@ -331,13 +332,7 @@ contains
           density_source = ionize_source * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !< mass source in SI
           mom_par_source = ionize_source * dot_product(B, particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &	
                 + CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
-          energy_source  = ionize_source * ionize_energy + cx_source * cx_energy - line_rad_energy
-        
-          if (energy_source < -2.d0*particle_tmp%weight*T_e*K_BOLTZ) then
-            !write(*,*) "Warning: energy_source too high setting it to new value energy_source/new/T_e", energy_source, &
-            !      -2.d0*particle_tmp%weight*T_e*K_BOLTZ, T_e
-            energy_source = -2.d0*particle_tmp%weight*T_e*K_BOLTZ
-          endif  
+          energy_source  = ionize_source * ionize_energy + cx_source * cx_energy - line_rad_energy  
                    
           particle_tmp%v = v_temp 
           n_lost_ion = n_lost_ion + ionize_source	!< local sum #particles lost due to ionisation
@@ -372,7 +367,7 @@ contains
         ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
-          limits_coll = T_e > 0.d0 !< limits for collisions
+          limits_coll = T_e_raw < 0.d0 !< limits for collisions
           line_rad_energy = 0.0
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
@@ -407,7 +402,8 @@ contains
               q_b = 1
               m_b = 2.d0
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
-              q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+              !q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+              q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, 1.)
 
               !> Calculate coulomb logarithm and limit it to reasonable values
               coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)
@@ -443,12 +439,12 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          energy_source  = ionize_energy + radiation_energy !&
-            !- 0.5d0 * particle_tmp%weight * (dot_product(particle_tmp%v, particle_tmp%v) - dot_product(v_temp, v_temp)) * &
-            !sim%groups(group_num)%mass * ATOMIC_MASS_UNIT
+          energy_source  = ionize_energy + radiation_energy &
+            - 0.5d0 * particle_tmp%weight * (dot_product(particle_tmp%v, particle_tmp%v) - dot_product(v_temp, v_temp)) * &
+            sim%groups(group_num)%mass * ATOMIC_MASS_UNIT
           mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
 
-          particle_tmp%v = v_temp ! remove this line? 
+          !particle_tmp%v = v_temp ! remove this line? 
           n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
           p_lost_plt = p_lost_plt + radiation_energy

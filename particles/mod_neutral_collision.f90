@@ -200,8 +200,8 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     !$omp parallel do default(none)  &
     !$omp shared(sim,pa_elm_arr,pa_in_thread_arr)      &
 #else
-    !$omp parallel do default(none)  &
-    !$omp shared(pa,pa_elm_arr,pa_in_thread_arr)      &
+    !$omp parallel do default(shared)  &
+    !$omp shared(pa_elm_arr,pa_in_thread_arr)      &
 #endif
     !$omp private(i_elm, i_thread)   &
     !$omp schedule(static,100)

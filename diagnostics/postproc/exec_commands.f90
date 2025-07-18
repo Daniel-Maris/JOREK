@@ -2779,6 +2779,7 @@ module exec_commands
     
   end subroutine fluxsurfaces
  
+
   !> Output the flux surfaces with non-axisymmetric perturbations.
   recursive subroutine fluxsurfaces_wperturb(command, ierr)
   
@@ -2798,6 +2799,7 @@ module exec_commands
       Z_tt
     real*8                   :: radial_range(2)
 
+    real*8                   :: P1, P4, P5, P6, P7,P_s,P_t,P_st,P_ss,P_tt
     real*8                   :: Ps0, Ps0_s, Ps0_t, Ps0_st, Ps0_ss, Ps0_tt, Ps0_x, Ps0_y
     real*8                   :: U0,  U0_s,  U0_t,  U0_st,  U0_ss,  U0_tt,  U0_x,  U0_y
     real*8                   :: ZN0, ZN0_s, ZN0_t, ZN0_st, ZN0_ss, ZN0_tt, ZN0_x, ZN0_y
@@ -2810,7 +2812,7 @@ module exec_commands
     real*8                   :: zj,  zj_s,  zj_t,  zj_st,  zj_ss,  zj_tt
     real*8                   :: rho, rho_s, rho_t, rho_st, rho_ss, rho_tt
     real*8                   :: T,   T_s,   T_t,   T_st,   T_ss,   T_tt
-    real*8                   :: Psi_sum, U_sum, zj_sum, rho_sum, T_sum
+    real*8                   :: Psi_sum, U_sum, zj_sum, rho_sum, T_sum, V0_sum, aux_1, aux_4, aux_5, aux_6, aux_7
     real*8                   :: xjac, psi_norm, psi_abs, Btheta, Er, V_ExB, Vstar_i, Vtheta_i
     logical                  :: without_n0_mode
 
@@ -2839,21 +2841,31 @@ module exec_commands
       psi_min = min(psi_min,psi_min2)
       psi_max = max(psi_max,psi_max2)
     end do
-    psi_min = psi_min + 0.74*(psi_max-psi_min)
-    psi_max = psi_max - 0.8*(psi_max-psi_min)
+    !!psi_min = psi_min + 0.7*(psi_max-psi_min) ! start from 0.944
+    !!psi_max = psi_max - 0.9*(psi_max-psi_min) ! end at 1.015
 
+    psi_min = psi_min + 0.73*(psi_max-psi_min) ! start from 0.984
+    psi_max = psi_max - 0.93*(psi_max-psi_min) ! end at 1.02
+    write(*,*) "psi_min", psi_min
+    write(*,*) "psi_max", psi_max
+    write(*,*) "DEBUG"
     if ( radial_range(1) .ne. 0.001 ) then
       psi_min = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * radial_range(1)
     endif
     if ( radial_range(2) .ne. 0.999 ) then
       psi_max = ES%psi_axis + (ES%psi_bnd - ES%psi_axis) * radial_range(2)
     endif
+    write(*,*) "psi_min", psi_min
+    write(*,*) "psi_max", psi_max
+
 
     ! --- Find flux surfaces
     surface_list%n_psi = npts
+    write(*,*) "AAAA"
     allocate( surface_list%psi_values(npts) )
     do i = 1, npts
       surface_list%psi_values(i) = psi_min + (psi_max-psi_min) * real(i-1)/real(npts-1)
+      write(*,*) "psivalues", surface_list%psi_values(i)
     end do
     call find_flux_surfaces(0,xpoint, xcase, node_list, element_list, surface_list)
     
@@ -2901,6 +2913,12 @@ module exec_commands
           zj_sum  = 0.
           rho_sum = 0.
           T_sum   = 0.
+	  V0_sum  = 0.
+	  aux_4   = 0.
+	  aux_6   = 0.
+	  aux_5   = 0.
+	  aux_7   = 0.
+	  aux_1   = 0.
           do i_tor = 1,n_tor
             if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) then  ! Do not include the n=0 mode
               call interp (node_list, element_list, i_elm,var_psi,i_tor,si,ti,Ps0,Ps0_s,Ps0_t,Ps0_st,Ps0_ss,Ps0_tt)
@@ -2943,12 +2961,24 @@ module exec_commands
             call interp (node_list, element_list, i_elm,var_zj, i_tor,si,ti,zj, zj_s, zj_t, zj_st, zj_ss, zj_tt)
             call interp (node_list, element_list, i_elm,var_rho,i_tor,si,ti,rho,rho_s,rho_t,rho_st,rho_ss,rho_tt)
             call interp (node_list, element_list, i_elm,var_T,  i_tor,si,ti,T,  T_s,  T_t,  T_st,  T_ss,  T_tt)
+	    call interp (node_list,element_list,i_elm,var_Vpar,i_tor,si,ti,V0,V0_s,V0_t,V0_st,V0_ss,V0_tt)
+	    call interp (aux_node_list,element_list,i_elm,4,i_tor,si,ti,P4,P_s,P_t,P_st,P_ss,P_tt)
+	    call interp (aux_node_list,element_list,i_elm,6,i_tor,si,ti,P6,P_s,P_t,P_st,P_ss,P_tt)
+	    call interp (aux_node_list,element_list,i_elm,5,i_tor,si,ti,P5,P_s,P_t,P_st,P_ss,P_tt)
+	    call interp (aux_node_list,element_list,i_elm,7,i_tor,si,ti,P7,P_s,P_t,P_st,P_ss,P_tt)
+	    call interp (aux_node_list,element_list,i_elm,1,i_tor,si,ti,P1,P_s,P_t,P_st,P_ss,P_tt)
 
             Psi_sum = Psi_sum + Psi * HZ(i_tor,i_plane)
             U_sum   = U_sum   + UU  * HZ(i_tor,i_plane)
             zj_sum  = zj_sum  + zj  * HZ(i_tor,i_plane)
             rho_sum = rho_sum + rho * HZ(i_tor,i_plane)
             T_sum   = T_sum   + T   * HZ(i_tor,i_plane)
+	    V0_sum  = V0_sum  + V0  * HZ(i_tor,i_plane)
+	    aux_4 = aux_4 + P4 * HZ(i_tor,i_plane)
+	    aux_6 = aux_6 + P6 * HZ(i_tor,i_plane)
+	    aux_5 = aux_5 + P5 * HZ(i_tor,i_plane)
+	    aux_7 = aux_7 + P7 * HZ(i_tor,i_plane)
+	    aux_1 = aux_1 + P1 * HZ(i_tor,i_plane)
           end do
 
           psi_abs = sqrt(Ps0_x*Ps0_x + Ps0_y * Ps0_y)
@@ -2966,7 +2996,7 @@ module exec_commands
           end if
             
           ! --- Write out the (R,Z)-coordinates
-          write(i_file,'(11ES16.7)') R, Z, psi_norm, Psi_sum, U_sum, zj_sum, rho_sum, T_sum, V_ExB, Vstar_i, Vtheta_i
+          write(i_file,'(14ES16.7)') R, Z, psi_norm, Psi_sum, U_sum, zj_sum, rho_sum, T_sum, V0_sum, aux_4, aux_6, aux_5, aux_7, aux_1
         end do
         
         write(i_file,*)
@@ -2982,7 +3012,7 @@ module exec_commands
     if ( allocated(surface_list%psi_values)    ) deallocate(surface_list%psi_values)
     if ( allocated(surface_list%flux_surfaces) ) deallocate(surface_list%flux_surfaces)
     
-  end subroutine fluxsurfaces_wperturb 
+  end subroutine fluxsurfaces_wperturb
 
   !> Output the flux surface.
   subroutine fluxsurface(command, ierr)

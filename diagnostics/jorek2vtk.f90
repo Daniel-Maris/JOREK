@@ -1235,10 +1235,16 @@ do i=1,element_list%n_elements
         !D_prof  = get_dperp (psi_norm)
         !D_prof = (1+tanh((Z-(ES%Z_xpoint(1)-0.02))/0.01))/2*get_dperp(psi_norm) &
         !          + (1-(1+tanh((Z-(ES%Z_xpoint(1)-0.02))/0.01))/2)*4.d-6
-        D_prof  = max(get_dperp (psi_norm),(5.6965d-7)*0.1*0.5*(1-tanh((Z-(ES%Z_xpoint(1)+0.15))/0.01)))
+        !D_prof  = max(get_dperp (psi_norm),(5.6965d-7)*0.1*0.5*(1-tanh((Z-(ES%Z_xpoint(1)+0.15))/0.01)))
+        !D_prof  = max(get_dperp(psi_norm),2*get_dperp(psi_norm)*0.5*(1-tanh((Z-(ES%Z_xpoint(1)+0.15))/0.01)))
+        D_prof = ((1+tanh((Z-(ES%Z_xpoint(1)+0.1))/0.03))/2)*get_dperp(psi_norm) &
+                  + (1-(1+tanh((Z-(ES%Z_xpoint(1)+0.1))/0.03))/2)*2*get_dperp(psi_norm) ! below Xpoint
 
-        ZK_prof = (1+tanh((Z-(ES%Z_xpoint(1)+0.05))/0.03))/2*(get_zkperp(psi_norm)*8.d-8)*max(scalars(inode,5),1.d-2) &
-                    + (1-(1+tanh((Z-(ES%Z_xpoint(1)+0.05))/0.03))/2)*10*get_zkperp(psi_norm)*max(scalars(inode,5),0.18)
+        !ZK_prof = (1+tanh((Z-(ES%Z_xpoint(1)+0.05))/0.03))/2*(get_zkperp(psi_norm)*8.d-8)*max(scalars(inode,5),1.d-2) &
+        !            + (1-(1+tanh((Z-(ES%Z_xpoint(1)+0.05))/0.03))/2)*10*get_zkperp(psi_norm)*max(scalars(inode,5),0.18)
+        !ZK_prof = get_zkperp(psi_norm) * max(scalars(inode,5),1.d-2)*(2*0.5*(1-tanh((Z-(ES%Z_xpoint(1)+0.15))/0.01)))
+        ZK_prof = ((1+tanh((Z-(ES%Z_xpoint(1)+0.1))/0.03))/2)*(get_zkperp(psi_norm))*max(scalars(inode,5),1.d-2) & ! above xpoint
+                     + (1-(1+tanh((Z-(ES%Z_xpoint(1)+0.1))/0.03))/2)*2*get_zkperp(psi_norm)*min(max(scalars(inode,5),0.18),1.) ! below Xpoint
 
 
         ZKpar_T = ZK_par * ((max( scalars(inode,6), T_min ))/T_0)**2.5

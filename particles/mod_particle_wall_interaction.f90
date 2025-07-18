@@ -1214,9 +1214,9 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   ! the angle calculation should be revisited. Before using theta != 0 the
   ! surface roughness should be estimated, as this gives a distribution of
   ! impact angles as well
-  theta = 0.d0 
+  !theta = 0.d0 
   !> old theta 
-  ! theta = acos(dot_product(-vector_normal,particle%v)/norm2(particle%v))*180.d0/PI !< acos gives results in radians
+  theta = acos(dot_product(-vector_normal,particle%v)/norm2(particle%v))*180.d0/PI !< acos gives results in radians
   ! ! theta must be in degrees as the theta_star is also in degrees
   ! if (abs(theta) .gt. 91) then
   !   ! This is like an assert, it cannot really happen... but it does
