@@ -228,19 +228,22 @@ pure subroutine calc_F_profile(fields,i_elm,s,t,phi,Fprof)
 
 end subroutine calc_F_profile
 
-pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, grad_T_e)
+pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_raw, grad_T_e)
   use phys_module, only: central_density
   use constants
   class(fields_base), intent(in)                    :: fields
   integer, intent(in)                               :: i_elm
   real*8, intent(in)                                :: time, st(2), phi
-  real*8, intent(out)                               :: n_e !< electron density [m^-3]
-  real*8, intent(out)                               :: T_e !< electron temperature [K]
-  real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of electron temperature [K/m]
+  real*8, intent(out)                               :: n_e !< corrected electron density [m^-3]
+  real*8, intent(out)                               :: T_e !< corrected electron temperature [K]
+  real*8, intent(out), optional                     :: n_e_raw !< electron density [m^-3] without corrections
+  real*8, intent(out), optional                     :: T_e_raw !< electron temperature [K] without corrections
+  real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of corrected electron temperature [K/m]
 
   real*8, dimension(2) :: P, P_s, P_t, P_phi, P_time
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
   real*8 :: T_norm !< temperature normalisation
+  real*8 :: n_e_temp, T_e_temp
 
 #if (JOREK_MODEL == 400)
 ! electron temperature
@@ -250,12 +253,17 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, grad_T_e)
   call fields%interp_PRZ(time,i_elm,[5,6],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 #endif
 
-  n_e = max(central_density * P(1) * 1d20,1d16)                           ! plasma density [1/m^3], capped against negative
+  n_e_temp = central_density * P(1) * 1d20
+  if present(n_e_raw) then n_e_raw = n_e_temp
+  n_e = max(n_e_temp, 1d16)                           ! plasma density [1/m^3], capped against negative
+
   T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
 #if (JOREK_MODEL == 400)
   T_norm = T_norm*2.d0 ! P(1) contains the electron temperature, reverse previous correction
 #endif
-  T_e = max(P(2)*T_norm, 1.d0) ! temperature capped against going negative
+  T_e_temp = P(2)*T_norm
+  if present(T_e_raw) then T_e_raw = T_e_temp
+  T_e = max(T_e_raw, 1.d0) ! temperature capped against going negative
 
   if (present(grad_T_e)) then
 
