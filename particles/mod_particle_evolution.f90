@@ -249,7 +249,6 @@ contains
         n_e = n_i + max(0.d0, imp_charge_density)
         
         limits = n_e_raw .le. 1e14 .or. T_e_raw * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
-        
         !> check that particle weight is non negative
         if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
         
@@ -367,7 +366,7 @@ contains
         ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
-          limits_coll = T_e_raw < 0.d0 !< limits for collisions
+          limits_coll = T_e_raw < 1.d0 !< limits for collisions
           line_rad_energy = 0.0
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
