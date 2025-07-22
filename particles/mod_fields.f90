@@ -316,7 +316,7 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw
   end if
   T_i = max(T_i_temp, 1.d0) ! temperature capped against going negative
 
-  T_e_temp = P(23)*T_norm
+  T_e_temp = P(3)*T_norm
   if (present(T_e_raw)) then
     T_e_raw = T_e_temp
   end if
