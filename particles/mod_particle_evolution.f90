@@ -401,8 +401,9 @@ contains
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
               q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
 
-              !> Alternatively, use collisionality dependent heat flux
-              !> for more information see S. Q. Korving et al 2024
+              !> Alternatively, use collisionality dependent heat flux density
+              !> for more information see PhD thesis of S. Q. Korving
+              !> and Y. Homma et al 2020
               !q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, 1.) !EL_CHG/K_BOLTZ
 
               !> Calculate coulomb logarithm and limit it to reasonable values
