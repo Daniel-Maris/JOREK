@@ -144,7 +144,7 @@ contains
     real*8    :: vvector(3), ran_norm(4)
 
     logical   :: limits, limits_coll
-    real*8    :: T_e_raw, n_e_raw
+    real*8    :: T_e_raw, T_i_raw,  n_e_raw
     real*8    :: ionize_rate, ionize_energy, ionize_source, ionize_prob
     real*8    :: cx_rate, cx_energy,  cx_source, cx_prob
     real*8    :: PLT, PRB, Srec, line_rad_energy
@@ -164,7 +164,7 @@ contains
     type(particle_kinetic_leapfrog) :: particle_tmp
 
     real*8    :: n_norm, rho_norm, t_norm, v_norm, E_norm, M_norm
-    real*8    :: t, E(3), B(3), psi, U,n_i, n_e, T_e, grad_T_e(3), rz_old(2), st_old(2)
+    real*8    :: t, E(3), B(3), psi, U,n_i, n_e, T_e, T_i, grad_T_e(3), rz_old(2), st_old(2)
     real*8    :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, R, Z
     real*8    :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
 
@@ -202,7 +202,7 @@ contains
     !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                            &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
     !$omp private(particle_tmp, i_rng, i, j, k, l, m, t, E, B, psi, U, rz_old, st_old,                    &
-    !$omp i_elm_old, i_elm, n_i, n_e, T_e,imp_charge_density, PLT, PRB, Srec, grad_T_e, q_old,            &
+    !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, grad_T_e, q_old,      &
     !$omp ionize_rate, ionize_prob, ionize_ran, ionize_ran_imp, ionize_source, ionize_energy,             &
     !$omp cx_rate, cx_prob, cx_source, cx_energy, cx_ran,                                                 &
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
@@ -211,7 +211,7 @@ contains
     !$omp density_source, mom_par_source, energy_source, v_temp, T_eV, imp_P_line_rad_fb,                 &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, energy_source_Te, energy_source_Ti,            &
-    !$omp vvector, ran_norm, imp_q_idx_temp, T_e_raw, n_e_raw, delta_E_kin_coll)                          &
+    !$omp vvector, ran_norm, imp_q_idx_temp, T_e_raw, T_i_raw, n_e_raw, delta_E_kin_coll)                 &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
       particle_tmp = sim%groups(group_num)%particles(j)
@@ -239,8 +239,15 @@ contains
         v_temp    = particle_tmp%v
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
+        
+#if (with_TiTe)
+        call sim%fields%calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_e)
+        limits_coll = T_i_raw < 1.d0 !< limits for collisionssq
+#else
         ! Note to self: if with_TiTe this will get Te
         call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
+        limits_coll = T_e_raw < 1.d0 !< limits for collisions
+#endif
 
         !> loop over impurities groups and calculate their contribution to electron density
         imp_charge_density = 0.d0
@@ -387,7 +394,6 @@ contains
         ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
-          limits_coll = T_e_raw < 1.d0 !< limits for collisions
           line_rad_energy = 0.0
           delta_E_kin_coll = 0.0
           !> IONISATION & RECOMBINATION (Impurities)
@@ -415,15 +421,21 @@ contains
           endif ! RADIATION
           
           !> COLLISIONS WITH THE BACKGROUND PLASMA (Neoclassical collisions)
+          ! Note to self: I think this should use background Ti
           if (sim%groups(group_num)%use_kin_bg_collisions .and. .not. limits_coll) then
             if (particle_tmp%q .gt. 0) then
               ! Calculate collisions
+#if (with_TiTe)
+              kTb = T_i*K_BOLTZ
+#else
               kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
+#endif
               n_b = n_e
               ! Assumes deuterium background
               q_b = 1
               m_b = 2.d0
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
+              ! grad_T_e is actually grad_T_e, I'm just lazy to rewrite it
               q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
               !q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, 1.)
 
@@ -464,6 +476,7 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
+! Note to self: I'm pretty sure about this part, except for ionization
 #if (with_TiTe)
           energy_source_Te = ionize_energy + radiation_energy
           energy_source_Ti = -delta_E_kin_coll
