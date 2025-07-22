@@ -208,6 +208,7 @@ real*8     :: visco_fact_old, visco_fact_new
 
 ! --- Fluid-kinetic coupling variables
 real*8     :: aux_rho0, aux_E0, aux_mom_par0
+real*8     :: aux_E0_Ti, aux_E0_Te
 
 #define DIM1 n_plane
 #define DIM2 1:n_vertex_max*n_var*n_degrees
@@ -325,7 +326,9 @@ eq_zTi          = 0.d0
 eq_zTe          = 0.d0
 eq_zT           = 0.d0
 
-aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
+aux_rho0  = 0.d0
+aux_E0    = 0.d0; aux_E0_Ti = 0.d0; aux_E0_Te = 0.d0
+aux_mom_par0 = 0.d0
 
 amu_neo_prof   = 0.d0
 aki_neo_prof   = 0.d0
@@ -690,9 +693,14 @@ do i=1,n_vertex_max
 
           !> kinetics extension
           if (use_ncs .or. use_ics) then
-            if (use_ncs) aux_rho0 = eq_aux_g(mp,rho_idx_kin,ms,mt)
-            aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
-            aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
+              if (use_ncs) aux_rho0 = eq_aux_g(mp,rho_idx_kin,ms,mt)
+              if (with_TiTe) then
+                aux_E0_Te = eq_aux_g(mp,E_idx_kin,ms,mt)/2
+                aux_E0_Ti = eq_aux_g(mp,E_idx_kin,ms,mt)/2
+              else
+                aux_E0 = eq_aux_g(mp,E_idx_kin,ms,mt)
+              end if
+              aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if
 
           if (with_neutrals) then
@@ -1667,7 +1675,13 @@ do i=1,n_vertex_max
                          ! heating  source for small temperatures
                          +implicit_heat_source*(gamma-1.d0)*v &
                                   *(0.5d0*Tie_min_neg*(1 + exp( (min(Ti0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Ti0,Tie_min_neg))    &
-                                  *xjac*tstep*BigR * factor(var_Ti,13)   
+                                  *xjac*tstep*BigR * factor(var_Ti,13)  &
+                        ! --------------------------------------- from kinetic coupling -------------------------------------------------
+                         + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,24) &
+                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,25) &
+                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,26)
+                        ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
+
  
               if (with_impurities) then
                 rhs_ij(var_Ti) = rhs_ij(var_Ti) + &
@@ -1740,7 +1754,12 @@ do i=1,n_vertex_max
                          ! implicit heating source
                          +implicit_heat_source*(gamma-1.d0)*v                                                                      & 
                             * (0.5d0*Tie_min_neg*(1+exp( (min(Te0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Te0,Tie_min_neg))    &
-                                                                                           * xjac*tstep*BigR  * factor(var_Te,19)  
+                                                                                           * xjac*tstep*BigR  * factor(var_Te,19) &
+                        ! --------------------------------------- from kinetic coupling -------------------------------------------------
+                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,24) &
+                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,25) &
+                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Te,26)
+                        ! --------------------------------- end of terms from kinetic coupling ------------------------------------------ 
 
               if (with_impurities) then
                 rhs_ij(var_Te) = rhs_ij(var_Te) + &
