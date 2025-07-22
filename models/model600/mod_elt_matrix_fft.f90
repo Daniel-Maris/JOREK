@@ -3264,6 +3264,11 @@ do i=1,n_vertex_max
     
                                 + v * (r0 + rimp0*alpha_i) * GAMMA * Ti0 * (vpar_s * ps0_t - vpar_t * ps0_s)   * theta * tstep &
 
+                      ! --------------------------------- from kinetic coupling -------------------------------------------------
+                                - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
+                      ! ----------------------------end of terms from kinetic coupling ------------------------------------------
+
                       !===================== Additional terms from friction terms============
                                 - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * ((r0+rimp0*alpha_e)*rn0*Sion_T)             * xjac * theta * tstep &
                                 - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * (source_bg_drift + source_imp_drift)        * xjac * theta * tstep &
@@ -3309,7 +3314,7 @@ do i=1,n_vertex_max
                                           - v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 &
                                               * (rimp0*dalpha_e_dT*rn0*Sion_T)    * Te * xjac * theta * tstep &
                                           - v * BigR * ((GAMMA - 1.)/2.) * vv2 &
-                                              * (rimp0*dalpha_e_dT*rn0*Sion_T)    * Te * xjac * theta * tstep 
+                                              * (rimp0*dalpha_e_dT*rn0*Sion_T)    * Te * xjac * theta * tstep
                     !==============================End of friction terms=================
 
                     if (with_neutrals) then
@@ -3679,7 +3684,11 @@ do i=1,n_vertex_max
                                       * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep &
                                   + tgnum_Te * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
                                       * (r0+alpha_e_bis*rimp0) * (Te0_x * ps0_y - Te0_y * ps0_x + F0 / BigR * Te0_p)                             &
-                                      * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep 
+                                      * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep &
+                    ! --------------------------------- from kinetic coupling -------------------------------------------------
+                                  - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                  + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep
+                    ! ----------------------------end of terms from kinetic coupling ------------------------------------------
     
                       amat_k(var_Te,var_vpar) =  &
                             + tgnum_Te * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
@@ -3692,6 +3701,7 @@ do i=1,n_vertex_max
                       amat_n(var_Te,var_vpar) = + v * (r0 + rimp0 * alpha_e) * GAMMA * Te0 * F0 / BigR * vpar_p * xjac * theta * tstep &
                             + (GAMMA-1.) * v * E_ion * rimp0 * F0 / BigR * vpar_p                      * xjac * theta * tstep &
                             + (GAMMA-1.) * v * E_ion_bg * (r0-rimp0) * F0 / BigR * vpar_p              * xjac * theta * tstep
+
                     end if ! (with_vpar)
                     if (with_neutrals) then
                       amat(var_Te,var_rhon) = + v * BigR * (r0 + rimp0 * alpha_e) * rhon * ksi_ion_norm * Sion_T * xjac * theta * tstep &
