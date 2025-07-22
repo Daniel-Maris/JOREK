@@ -4,7 +4,7 @@ module mod_model_settings
 implicit none
 
 logical, parameter :: with_vpar       = .true.
-logical, parameter :: with_TiTe       = .false.
+logical, parameter :: with_TiTe       = .true.
 logical, parameter :: with_neutrals   = .false. 
 logical, parameter :: with_impurities = .false.
 logical, parameter :: with_refluid    = .false. ! not yet possible to switch
@@ -158,41 +158,48 @@ character*36, dimension(n_terms_T),     parameter :: T_term_names=  &
 
 
 character*36, dimension(n_terms_Ti),    parameter :: Ti_term_names=  &
-                                              (/ 'Ti_Eq__ext_heat_source ', &  !  1:
-                                                 'Ti_Eq__Vperp.grad_Pi   ', &  !  2: 
-                                                 'Ti_Eq__gamma_Pi_div_V  ', &  !  3:
-                                                 'Ti_Eq__Vpar.grad_Pi    ', &  !  4:
-                                                 'Ti_Eq__parallel_conduct', &  !  5:
-                                                 'Ti_Eq__perp_conduction ', &  !  6:
-                                                 'Ti_Eq__ZK_perp_num_term', &  !  7:
-                                                 'Ti_Eq__tg_num_terms    ', &  !  8:
-                                                 'Ti_Eq__zeta_timevol    ', &  !  9:
-                                                 'Ti_Eq__neutral_friction', &  ! 10:
-                                                 'Ti_Eq__TiTe_energy_exch', &  ! 11:
-                                                 'Ti_Eq__viscopar_heating', &  ! 12:
-                                                 'Ti_Eq__implicit_heating', &  ! 13:
-                                                 'Ti_Eq__visco_heating   '/)   ! 14:
+                                              (/ 'Ti_Eq__ext_heat_source        ', &  !  1:
+                                                 'Ti_Eq__Vperp.grad_Pi          ', &  !  2: 
+                                                 'Ti_Eq__gamma_Pi_div_V         ', &  !  3:
+                                                 'Ti_Eq__Vpar.grad_Pi           ', &  !  4:
+                                                 'Ti_Eq__parallel_conduct       ', &  !  5:
+                                                 'Ti_Eq__perp_conduction        ', &  !  6:
+                                                 'Ti_Eq__ZK_perp_num_term       ', &  !  7:
+                                                 'Ti_Eq__tg_num_terms           ', &  !  8:
+                                                 'Ti_Eq__zeta_timevol           ', &  !  9:
+                                                 'Ti_Eq__neutral_friction       ', &  ! 10:
+                                                 'Ti_Eq__TiTe_energy_exch       ', &  ! 11:
+                                                 'Ti_Eq__viscopar_heating       ', &  ! 12:
+                                                 'Ti_Eq__implicit_heating       ', &  ! 13:
+                                                 'Ti_Eq__visco_heating          ', &  ! 14:
+                                                 'Ti_Eq__aux_energy_source      ', &  ! 15:  
+                                                 'Ti_Eq__aux_particle_source    ', &  ! 16: 
+                                                 'Ti_Eq__aux_par_momentum_source'/)   ! 17: 
+                                                 
 
 character*36, dimension(n_terms_Te),    parameter :: Te_term_names=  &
-                                              (/ 'Te_Eq__ext_heat_source ', &  !  1:
-                                                 'Te_Eq__Vperp.grad_Pe   ', &  !  2: 
-                                                 'Te_Eq__gamma_Pe_div_V  ', &  !  3:
-                                                 'Te_Eq__Vpar.grad_Pe    ', &  !  4:
-                                                 'Te_Eq__parallel_conduct', &  !  5:
-                                                 'Te_Eq__perp_conduction ', &  !  6:
-                                                 'Te_Eq__ZK_perp_num_term', &  !  7:
-                                                 'Te_Eq__tg_num_terms    ', &  !  8:
-                                                 'Te_Eq__ohmic_heating   ', &  !  9:
-                                                 'Te_Eq__zeta_timevol_ter', &  ! 10:
-                                                 'Ti_Eq__TiTe_energy_exch', &  ! 11:
-                                                 'Te_Eq__ionization_sink ', &  ! 12:
-                                                 'Te_Eq__line_radiation  ', &  ! 13:
-                                                 'Te_Eq__Brems_radiation ', &  ! 14:
-                                                 'Te_Eq__backg_imp_radiat', &  ! 15:
-                                                 'Te_Eq__main_imp_radiat ', &  ! 16:
-                                                 'Te_Eq__imp_ionization  ', &  ! 17:
-                                                 'Te_Eq__power_teleported', &  ! 18:
-                                                 'Te_Eq__implicit_heating'/)   ! 19:
+                                              (/ 'Te_Eq__ext_heat_source        ', &  !  1:
+                                                 'Te_Eq__Vperp.grad_Pe          ', &  !  2: 
+                                                 'Te_Eq__gamma_Pe_div_V         ', &  !  3:
+                                                 'Te_Eq__Vpar.grad_Pe           ', &  !  4:
+                                                 'Te_Eq__parallel_conduct       ', &  !  5:
+                                                 'Te_Eq__perp_conduction        ', &  !  6:
+                                                 'Te_Eq__ZK_perp_num_term       ', &  !  7:
+                                                 'Te_Eq__tg_num_terms           ', &  !  8:
+                                                 'Te_Eq__ohmic_heating          ', &  !  9:
+                                                 'Te_Eq__zeta_timevol_ter       ', &  ! 10:
+                                                 'Ti_Eq__TiTe_energy_exch       ', &  ! 11:
+                                                 'Te_Eq__ionization_sink        ', &  ! 12:
+                                                 'Te_Eq__line_radiation         ', &  ! 13:
+                                                 'Te_Eq__Brems_radiation        ', &  ! 14:
+                                                 'Te_Eq__backg_imp_radiat       ', &  ! 15:
+                                                 'Te_Eq__main_imp_radiat        ', &  ! 16:
+                                                 'Te_Eq__imp_ionization         ', &  ! 17:
+                                                 'Te_Eq__power_teleported       ', &  ! 18:
+                                                 'Te_Eq__implicit_heating       ', &  ! 19:
+                                                 'Te_Eq__aux_energy_source      ', &  ! 20:  
+                                                 'Te_Eq__aux_particle_source    ', &  ! 21: 
+                                                 'Te_Eq__aux_par_momentum_source'/)   ! 22: 
 
 
 character*36, dimension(n_terms_vpar),  parameter :: vpar_term_names=  &

@@ -1677,9 +1677,9 @@ do i=1,n_vertex_max
                                   *(0.5d0*Tie_min_neg*(1 + exp( (min(Ti0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Ti0,Tie_min_neg))    &
                                   *xjac*tstep*BigR * factor(var_Ti,13)  &
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
-                         + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,24) &
-                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,25) &
-                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,26)
+                         + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,15) &
+                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,16) &
+                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,17)
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
 
  
@@ -1756,9 +1756,9 @@ do i=1,n_vertex_max
                             * (0.5d0*Tie_min_neg*(1+exp( (min(Te0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Te0,Tie_min_neg))    &
                                                                                            * xjac*tstep*BigR  * factor(var_Te,19) &
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
-                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,24) &
-                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,25) &
-                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Te,26)
+                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20) &
+                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,21) &
+                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Te,22)
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------ 
 
               if (with_impurities) then
