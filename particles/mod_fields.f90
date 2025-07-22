@@ -277,6 +277,62 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
   end if
 end subroutine calc_NeTe
 
+pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_e)
+  use phys_module, only: central_density
+  use constants
+  class(fields_base), intent(in)                    :: fields
+  integer, intent(in)                               :: i_elm
+  real*8, intent(in)                                :: time, st(2), phi
+  real*8, intent(out)                               :: n_e !< corrected electron density [m^-3]
+  real*8, intent(out)                               :: T_i !< corrected ion temperature [K]
+  real*8, intent(out)                               :: T_e !< corrected electron temperature [K]
+  real*8, intent(out), optional                     :: n_e_raw !< electron density without correction [m^-3]
+  real*8, intent(out), optional                     :: T_i_raw !< ion temperature without correction [K]
+  real*8, intent(out), optional                     :: T_e_raw !< electron temperature without correction [K]
+  real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of corrected electron temperature [K/m]
+
+  real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
+  real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
+  real*8 :: T_norm !< temperature normalisation
+  real*8 :: n_e_temp, T_i_temp, T_e_temp
+
+  ! assume with_TiTe, with_vpar
+  ! var_rho=5
+  ! var_Ti=6
+  ! var_Te=7
+  call fields%interp_PRZ(time,i_elm,[5,6,7],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
+
+  n_e_temp = central_density * P(1) * 1d20
+  if (present(n_e_raw)) then
+    n_e_raw = n_e_temp
+  end if
+  n_e = max(n_e_temp, 1d16)                           ! plasma density [1/m^3], capped against negative
+
+  T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
+
+  T_i_temp = P(2)*T_norm
+  if (present(T_i_raw)) then
+    T_i_raw = T_i_temp
+  end if
+  T_i = max(T_i_temp, 1.d0) ! temperature capped against going negative
+
+  T_e_temp = P(23)*T_norm
+  if (present(T_e_raw)) then
+    T_e_raw = T_e_temp
+  end if
+  T_e = max(T_e_temp, 1.d0) ! temperature capped against going negative
+
+  ! TODO: do we need sep. ion and electron versions of this?
+  if (present(grad_T_e)) then
+
+    xjac = R_s * Z_t - R_t * Z_s
+    grad_T_e = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
+                     (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
+                     P_phi(2)/R]
+  end if
+end subroutine calc_NeTiTe
+
+
 pure subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
   use phys_module, only: central_density, central_mass
   use constants
