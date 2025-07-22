@@ -1133,7 +1133,7 @@ do i=1,n_vertex_max
             !ZK_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zkperp(psi_norm)*max(r0,1.d-2) & ! above xpoint
             !        + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*1.d-7                              ! below Xpoint
             ZK_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*(get_zkperp(psi_norm))*max(r0,1.d-2) & ! above xpoint
-                     + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*2*get_zkperp(psi_norm)*min(max(r0,0.18),1.) ! below Xpoint
+                     + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zkperp(psi_norm)*min(max(r0,0.18),1.) ! below Xpoint
             !ZK_prof = get_zkperp(psi_norm) * max(r0,1.d-2)*(20*0.5*(1-tanh((y_g(ms,mt)-(Z_xpoint(1)+0.15))/0.01)))
             ZK_perp_num_psin = ZK_perp_num +                                                  &
                                ZK_perp_num_tanh * 0.5d0*(1.d0-                                &

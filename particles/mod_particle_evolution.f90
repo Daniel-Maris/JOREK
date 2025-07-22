@@ -153,6 +153,7 @@ contains
     real*8    :: ran(6), ran2(6,n_coll), q(3), m_b
     real*8    :: coulomb_log, kTb, n_b, v_b(3,n_coll) 
     real*8, dimension(1) :: P, P_s, P_t, P_phi, P_time
+    real*8    :: delta_E_kin_coll
 
     !> System variables ------------------------------
     type(particle_kinetic_leapfrog) :: particle_tmp
@@ -205,7 +206,7 @@ contains
     !$omp density_source, mom_par_source, energy_source, v_temp, T_eV, imp_P_line_rad_fb,                 &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll,                                                &
-    !$omp vvector, ran_norm, imp_q_idx_temp, T_e_raw, n_e_raw)                                            &
+    !$omp vvector, ran_norm, imp_q_idx_temp, T_e_raw, n_e_raw, delta_E_kin_coll)                          &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
       particle_tmp = sim%groups(group_num)%particles(j)
@@ -368,6 +369,7 @@ contains
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
           limits_coll = T_e_raw < 1.d0 !< limits for collisions
           line_rad_energy = 0.0
+          delta_E_kin_coll = 0.0
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call rng(i_rng)%next(ionize_ran_imp)
@@ -398,11 +400,12 @@ contains
               ! Calculate collisions
               kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
               n_b = n_e
+              ! Assumes deuterium background
               q_b = 1
               m_b = 2.d0
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
-              !q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
-              q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, 1.)
+              q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+              !q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, 1.)
 
               !> Calculate coulomb logarithm and limit it to reasonable values
               coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)
@@ -425,6 +428,9 @@ contains
                     q_b, m_b, v_b(:,l), n_b, coulomb_log, tstep_part_adj/real(n_coll,8))
               end do
             end if
+            !> Kinetic energy change due to collisions between background and impurity
+            delta_E_kin_coll = 0.5d0 * particle_tmp%weight * (dot_product(particle_tmp%v, particle_tmp%v) - dot_product(v_temp, v_temp)) * &
+              sim%groups(group_num)%mass * ATOMIC_MASS_UNIT
           endif ! COLLISIONS
           
           !> check that the particle energy sources are valid
@@ -438,9 +444,7 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          energy_source  = ionize_energy + radiation_energy &
-            - 0.5d0 * particle_tmp%weight * (dot_product(particle_tmp%v, particle_tmp%v) - dot_product(v_temp, v_temp)) * &
-            sim%groups(group_num)%mass * ATOMIC_MASS_UNIT
+          energy_source  = ionize_energy + radiation_energy - delta_E_kin_coll
           mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
 
           !particle_tmp%v = v_temp ! remove this line? 
