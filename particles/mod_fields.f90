@@ -267,7 +267,7 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
   if (present(T_e_raw)) then
     T_e_raw = T_e_temp
   end if
-  T_e = max(T_e_raw, 1.d0) ! temperature capped against going negative
+  T_e = max(T_e_temp, 1.d0) ! temperature capped against going negative
 
   if (present(grad_T_e)) then
 
