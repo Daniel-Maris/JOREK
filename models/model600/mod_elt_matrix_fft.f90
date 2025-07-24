@@ -695,8 +695,8 @@ do i=1,n_vertex_max
           if (use_ncs .or. use_ics) then
               if (use_ncs) aux_rho0 = eq_aux_g(mp,rho_idx_kin,ms,mt)
               if (with_TiTe) then
-                aux_E0_Te = eq_aux_g(mp,E_idx_kin,ms,mt)/2
-                aux_E0_Ti = eq_aux_g(mp,E_idx_kin,ms,mt)/2
+                aux_E0_Te = eq_aux_g(mp,E_Te_idx_kin,ms,mt)
+                aux_E0_Ti = eq_aux_g(mp,E_Ti_idx_kin,ms,mt)
               else
                 aux_E0 = eq_aux_g(mp,E_idx_kin,ms,mt)
               end if
@@ -1756,9 +1756,10 @@ do i=1,n_vertex_max
                             * (0.5d0*Tie_min_neg*(1+exp( (min(Te0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Te0,Tie_min_neg))    &
                                                                                            * xjac*tstep*BigR  * factor(var_Te,19) &
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
-                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20) &
-                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,21) &
-                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Te,22)
+                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20) 
+                         !+ (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,21) &
+                         !- (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Te,22)
+                         ! last two terms only for ions?
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------ 
 
               if (with_impurities) then
