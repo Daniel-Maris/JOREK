@@ -81,12 +81,9 @@ subroutine check_compatibility_ncs(group_num)
     stop
   endif
 
-  !> currently ncs particles are not compatible with two temperature
+  !> two-temperature model is not in production yet
   if (with_TiTe) then
-    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently kinetic neutrals are not compatible with two temperature models, "
-    write(*,*) "  Please recompile with with_TiTe=.false."
-    stop
+    write(*,*) "EXPERIMENTAL: using kinetic neutrals/impurities with two-temperature model (with_TiTe = .true.)"
   endif
   
 end subroutine check_compatibility_ncs
@@ -119,13 +116,11 @@ subroutine check_compatibility_ics(group_num)
     stop
   endif
 
-  !> currently ics particles are not compatible with two temperature
+  !> two-temperature model is not in production yet
   if (with_TiTe) then
-    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently kinetic impurities are not compatible with two temperature models, "
-    write(*,*) "  Please recompile with with_TiTe=.false."
-    stop
+    write(*,*) "EXPERIMENTAL: using kinetic neutrals/impurities with two-temperature model (with_TiTe = .true.)"
   endif
+  
 
 end subroutine check_compatibility_ics
 
@@ -199,8 +194,15 @@ subroutine determine_coupling_variables()
         rho_idx_kin = final_var_idx
       case ("mom_par")
         mom_par_idx_kin = final_var_idx
+#if (with_TiTe)
+      case ("E_Te")
+        E_Te_idx_kin = final_var_idx
+      case ("E_Ti")
+        E_Ti_idx_kin = final_var_idx
+#else
       case ("E")
         E_idx_kin = final_var_idx
+#endif
       case ("q")
         q_idx_kin = final_var_idx
       case ("j_R")
@@ -210,7 +212,7 @@ subroutine determine_coupling_variables()
       case ("j_Phi")
         j_Phi_idx_kin = final_var_idx
       case ("imp_q")
-        continue       !< do nothing as already handled above in use_ics loop
+        continue
       case default
         write(*,*) "Error: no match found for coupling variable: ", coupling_vars(i),", please check coupling_variables.f90 and recompile"
         stop
