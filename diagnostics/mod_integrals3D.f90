@@ -494,7 +494,7 @@ Tie_min_neg = 0.5*T_min_neg
 #ifdef WITH_TiTe
 !$omp          E_Te_idx_kin, E_Ti_idx_kin, aux_E0_Ti, aux_E0_Te,                                               &
 #else
-!$omp          E_idx_kdiagn in, aux_E0,                                                                             &
+!$omp          E_idx_kin, aux_E0,                                                                             &
 #endif
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                                    &
