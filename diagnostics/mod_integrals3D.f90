@@ -167,6 +167,7 @@ real*8  :: varmin(n_var), varmax(n_var), V_min(n_var), V_max(n_var)
 
 !> for use_ncs
 real*8  :: aux_rho0, aux_E0, aux_mom_par0
+real*8  :: aux_E0_Ti, aux_E0_Te
 real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
 !Ionisation recombination for aux/use_ncs purposes. 
 real*8  :: Nion, Nrec, plasmaneutral, Prec, Prb, Prb_cooling !Also needed for use_ncs
@@ -449,7 +450,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
 !$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, local_Prb_cooling,  &
 !$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
-!$omp          rho_idx_kin, E_idx_kin, mom_par_idx_kin,                                                       &
+!$omp          rho_idx_kin, mom_par_idx_kin,                                                       &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
@@ -490,6 +491,11 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           dSion_dT_ncs, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_E0, aux_mom_par0, &
 !$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
 !$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
+#ifdef WITH_TiTe
+!$omp          E_Te_idx_kin, E_Ti_idx_kin, aux_E0_Ti, aux_E0_Te,                                               &
+#else
+!$omp          E_idx_kdiagn in, aux_E0,                                                                             &
+#endif
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                                    &
 !$omp           spi_R_tmp, spi_Z_tmp, spi_phi_tmp, ns_radius_tmp,                                             &
@@ -559,6 +565,7 @@ do ife = ife_min, ife_max
 
 eq_aux_g = 0.d0; eq_aux_s = 0.d0; eq_aux_t = 0.d0; eq_aux_p = 0.d0;  
 aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
+aux_E0_Ti = 0.d0; aux_E0_Te = 0.d0
 aux_P0    = 0.d0; aux_P0_s  = 0.d0; aux_P0_t  = 0.d0; aux_P0_p  = 0.d0
 aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_pcs = 0.d0
   
@@ -746,7 +753,12 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 
         if (use_ncs .or. use_ics) then
                 if (use_ncs) aux_rho0     = eq_aux_g(mp,rho_idx_kin,ms,mt)
+#ifdef WITH_TiTe
+                aux_E0_Te = eq_aux_g(mp,E_Te_idx_kin,ms,mt)
+                aux_E0_Ti = eq_aux_g(mp,E_Ti_idx_kin,ms,mt)
+#else
                 aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
+#endif
                 aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
         end if
 
@@ -873,9 +885,14 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           
           !> coupled energies
           !>aux_E0 (plasma neutral interaction)
+#ifdef WITH_TiTe
+          !> THIS IS JUST A WORKAROUND FOR NOW BECAUSE I'M LAZY
+          local_pn = local_pn + aux_E0_Te + aux_E0_Ti *BigR * xjac* delta_phi * wst
+#else
           local_pn = local_pn + aux_E0 *BigR * xjac* delta_phi * wst !& !aux_E0
                       !+ (gamma-1.d0)* 0.5d0 *aux_rho0 *vpar0**2 * BB2 * BigR*xjac* delta_phi *wst &
                       !- (gamma-1.d0)* aux_mom_par0 * vpar0 * BigR *xjac* delta_phi *wst
+#endif
           !>Lost to recombination (no Brehmstralung)
           local_Prec = local_Prec + r0_corr*r0_corr*(T0_corr*Srec_T_ncs)*BigR *xjac* delta_phi *wst
           ! Radiation power of recombination and bremsstrahlung combined

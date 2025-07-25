@@ -13,32 +13,32 @@ module coupling_variables
   character(len=var_name_len), dimension(n_aux_var_max) :: coupling_vars
 
   ! NCS
-#if (with_TiTe)
-  character(len=var_name_len), dimension(4) :: ncs_var_names = [character(len=var_name_len) :: &
-    "rho",      & !> density
-    "mom_par",  & !> parallel momentum
-    "E_Te",     & !> electron energy
-    "E_Ti"        !> ion energy
-  ]
+#ifdef WITH_TiTe
+    character(len=var_name_len), dimension(4) :: ncs_var_names = [character(len=var_name_len) :: &
+      "rho",      & !> density
+      "mom_par",  & !> parallel momentum
+      "E_Te",     & !> electron energy
+      "E_Ti"      & !> ion energy
+    ]
 #else
-  character(len=var_name_len), dimension(3) :: ncs_var_names = [character(len=var_name_len) :: &
-    "rho",      & !> density
-    "mom_par",  & !> parallel momentum
-    "E"           !> total energy
-  ]
+    character(len=var_name_len), dimension(3) :: ncs_var_names = [character(len=var_name_len) :: &
+      "rho",      & !> density
+      "mom_par",  & !> parallel momentum
+      "E"         & !> total energy
+    ]
 #endif
 
-#if (with_TiTe)
-  character(len=var_name_len), dimension(3) :: ics_var_names = [character(len=var_name_len) :: &
-    "mom_par",  & !> parallel momentum
-    "E_Te",     & !> electron energy
-    "E_Ti"        !> ion energy
-  ]
+#ifdef WITH_TiTe
+    character(len=var_name_len), dimension(3) :: ics_var_names = [character(len=var_name_len) :: &
+      "mom_par",  & !> parallel momentum
+      "E_Te",     & !> electron energy
+      "E_Ti"      & !> ion energy
+    ]
 #else
-  character(len=var_name_len), dimension(2) :: ics_var_names = [character(len=var_name_len) :: &
-    "mom_par",  & !> parallel momentum
-    "E"           !> total energy
-  ]
+    character(len=var_name_len), dimension(2) :: ics_var_names = [character(len=var_name_len) :: &
+      "mom_par",  & !> parallel momentum
+      "E"         & !> total energy
+    ]
 #endif
 
   ! CCS
@@ -54,11 +54,11 @@ module coupling_variables
   !> variables indices
   integer :: rho_idx_kin      = 0
   integer :: mom_par_idx_kin  = 0
-#if (with_TiTe)
-  integer :: E_Te_idx_kin     = 0 
-  integer :: E_Ti_idx_kin     = 0 
+#ifdef WITH_TiTe
+    integer :: E_Te_idx_kin   = 0
+    integer :: E_Ti_idx_kin   = 0 
 #else
-  integer :: E_idx_kin        = 0
+    integer :: E_idx_kin      = 0
 #endif
   integer :: q_idx_kin        = 0
   integer :: j_R_idx_kin      = 0

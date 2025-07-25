@@ -1,6 +1,7 @@
 !> this module contains the functionality related to performing physics on particles that needs to happen each particle step
 !> the main functionality is all contained in evolve_particle_group, so below for more explanation
 module mod_particle_evolution
+    use mod_model_settings
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
     use phys_module, only: nstep_particles, use_manual_random_seed
@@ -12,6 +13,7 @@ module mod_particle_evolution
     use mod_basisfunctions
     use mod_particle_types, only: copy_particle_kinetic_leapfrog
     use mod_sampling, only: boxmueller_transform,sample_chi_squared_3
+
     !$ use omp_lib
 
     implicit none
@@ -82,7 +84,7 @@ contains
     if (part_group%coupling_scheme == 'ncs' .or. part_group%coupling_scheme == 'ics') then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
       jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-#if (with_TiTe)
+#ifdef WITH_TiTe
       jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) + feedback_rhs(:,:,:,:,E_Te_idx_kin) / jorek_feedback%rhs_gather_time
       jorek_feedback%rhs(:,:,:,:,E_Ti_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_Ti_idx_kin) + feedback_rhs(:,:,:,:,E_Ti_idx_kin) / jorek_feedback%rhs_gather_time
 #else
@@ -139,7 +141,8 @@ contains
     !> Coupling --------------------------------------
     real*8    :: density_source, mom_par_source, energy_source
     real*8    :: energy_source_Te, energy_source_Ti
-    real*8    :: density_fb, mom_par_fb, E_fb, imp_q_fb, imp_density_fb, imp_P_rad_fb, extra_proj, imp_P_line_rad_fb 
+    real*8    :: density_fb, mom_par_fb, E_fb, imp_q_fb, imp_density_fb, imp_P_rad_fb, extra_proj, imp_P_line_rad_fb
+    real*8    :: E_fb_Te, E_fb_Ti
     real*8    :: v_temp(3), T_eV, B_norm(3)
     real*8    :: vvector(3), ran_norm(4)
 
@@ -199,7 +202,13 @@ contains
     !$omp schedule(runtime)                                                                               &
     !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
-    !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                            &
+    !$omp rho_idx_kin, mom_par_idx_kin,                                                                   &
+#ifdef WITH_TiTe
+    !$omp E_Te_idx_kin, E_Ti_idx_kin,                                                                     &
+#else
+    !$omp E_idx_kin,                                                                                      &
+#endif
+    !$omp imp_q_idx, ics_indices_kin,                                                                     &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
     !$omp private(particle_tmp, i_rng, i, j, k, l, m, t, E, B, psi, U, rz_old, st_old,                    &
     !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, grad_T_e, q_old,      &
@@ -209,7 +218,7 @@ contains
     !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,                  &
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
     !$omp density_source, mom_par_source, energy_source, v_temp, T_eV, imp_P_line_rad_fb,                 &
-    !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
+    !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q, E_fb_Te, E_fb_Ti,                             &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, energy_source_Te, energy_source_Ti,            &
     !$omp vvector, ran_norm, imp_q_idx_temp, T_e_raw, T_i_raw, n_e_raw, delta_E_kin_coll)                 &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
@@ -240,13 +249,13 @@ contains
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
         
-#if (with_TiTe)
-        call sim%fields%calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_e)
-        limits_coll = T_i_raw < 1.d0 !< limits for collisionssq
+#ifdef WITH_TiTe
+          call sim%fields%calc_NeTiTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3),n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_e)
+          limits_coll = T_i_raw < 1.d0 !< limits for collisionssq
 #else
-        ! Note to self: if with_TiTe this will get Te
-        call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
-        limits_coll = T_e_raw < 1.d0 !< limits for collisions
+          ! Note to self: if with_TiTe this will get Te
+          call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
+          limits_coll = T_e_raw < 1.d0 !< limits for collisions
 #endif
 
         !> loop over impurities groups and calculate their contribution to electron density
@@ -345,7 +354,7 @@ contains
           density_source = ionize_source * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !< mass source in SI
           mom_par_source = ionize_source * dot_product(B, particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &	
                 + CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
-#if (with_TiTe)
+#ifdef WITH_TiTe
           energy_source_Te = ionize_source * ionize_energy - line_rad_energy
           energy_source_Ti = cx_source * cx_energy
 #else
@@ -367,7 +376,7 @@ contains
   
               density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source     * t_norm / rho_norm
               mom_par_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
-#if (with_TiTe)
+#ifdef WITH_TiTe
               E_fb_Te       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Te       * t_norm / E_norm
               E_fb_Ti       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Ti       * t_norm / E_norm
 #else
@@ -377,7 +386,7 @@ contains
   
               do i_tor=1,n_tor
                 feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * density_fb
-#if (with_TiTe)
+#ifdef WITH_TiTe
                 feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
                 feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
 #else
@@ -425,7 +434,7 @@ contains
           if (sim%groups(group_num)%use_kin_bg_collisions .and. .not. limits_coll) then
             if (particle_tmp%q .gt. 0) then
               ! Calculate collisions
-#if (with_TiTe)
+#ifdef WITH_TiTe
               kTb = T_i*K_BOLTZ
 #else
               kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
@@ -476,8 +485,8 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-! Note to self: I'm pretty sure about this part, except for ionization
-#if (with_TiTe)
+          ! Note to self: I'm pretty sure about this part, except for ionization
+#ifdef WITH_TiTe
           energy_source_Te = ionize_energy + radiation_energy
           energy_source_Ti = -delta_E_kin_coll
 #else
@@ -501,7 +510,7 @@ contains
               index_lm = (l-1)*(n_order+1) + m
 
               mom_par_fb     = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
-#if (with_TiTe)
+#ifdef WITH_TiTe
               E_fb_Te           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Te  * t_norm / E_norm
               E_fb_Ti           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Ti  * t_norm / E_norm
 #else
@@ -512,7 +521,7 @@ contains
               imp_P_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * radiation_energy / tstep_part_adj
               imp_P_line_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * line_rad_energy / tstep_part_adj   
               do i_tor=1,n_tor
-#if (with_TiTe)
+#ifdef WITH_TiTe
                 feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
                 feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
 #else

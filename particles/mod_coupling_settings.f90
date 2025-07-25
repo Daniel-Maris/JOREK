@@ -5,6 +5,8 @@ use phys_module, only: n_part_groups, n_part_groups_max, part_group_configs
 use phys_module, only: n_aux_var, n_diag_var
 use coupling_variables
 
+use coupling_variables, only: E_Te_idx_kin, E_Ti_idx_kin
+
 implicit none
 private
 public  :: use_ncs, use_ics, use_ccs, use_pcs, use_pcf, use_kin_recomb_global, n_ics
@@ -194,7 +196,7 @@ subroutine determine_coupling_variables()
         rho_idx_kin = final_var_idx
       case ("mom_par")
         mom_par_idx_kin = final_var_idx
-#if (with_TiTe)
+#ifdef WITH_TiTe
       case ("E_Te")
         E_Te_idx_kin = final_var_idx
       case ("E_Ti")
