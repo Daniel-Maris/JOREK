@@ -366,7 +366,7 @@ contains
         ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
-          limits_coll = T_e_raw < 0.d0 !< limits for collisions
+          limits_coll = T_e_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions
 
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
