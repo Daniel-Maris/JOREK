@@ -83,8 +83,8 @@ contains
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
       jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 #if (with_TiTe)
-      jorek_feedback%rhs(:,:,:,:,E_idx_kin_Te) = jorek_feedback%rhs(:,:,:,:,E_idx_kin_Te) + feedback_rhs(:,:,:,:,E_idx_kin_Te) / jorek_feedback%rhs_gather_time
-      jorek_feedback%rhs(:,:,:,:,E_idx_kin_Ti) = jorek_feedback%rhs(:,:,:,:,E_idx_kin_Ti) + feedback_rhs(:,:,:,:,E_idx_kin_Ti) / jorek_feedback%rhs_gather_time
+      jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) + feedback_rhs(:,:,:,:,E_Te_idx_kin) / jorek_feedback%rhs_gather_time
+      jorek_feedback%rhs(:,:,:,:,E_Ti_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_Ti_idx_kin) + feedback_rhs(:,:,:,:,E_Ti_idx_kin) / jorek_feedback%rhs_gather_time
 #else
       jorek_feedback%rhs(:,:,:,:,E_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_idx_kin) + feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 #endif
@@ -378,8 +378,8 @@ contains
               do i_tor=1,n_tor
                 feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * density_fb
 #if (with_TiTe)
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Te) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Te) + HZ(i_tor) * E_fb_Te
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Ti) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Ti) + HZ(i_tor) * E_fb_Ti
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
 #else
                 feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
 #endif
@@ -513,8 +513,8 @@ contains
               imp_P_line_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * line_rad_energy / tstep_part_adj   
               do i_tor=1,n_tor
 #if (with_TiTe)
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Te) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Te) + HZ(i_tor) * E_fb_Te
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Ti) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin_Ti) + HZ(i_tor) * E_fb_Ti
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
 #else
                 feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
 #endif
