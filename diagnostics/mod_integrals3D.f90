@@ -170,8 +170,8 @@ real*8  :: aux_rho0, aux_E0, aux_mom_par0
 real*8  :: aux_E0_Ti, aux_E0_Te
 real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
 !Ionisation recombination for aux/use_ncs purposes. 
-real*8  :: Nion, Nrec, plasmaneutral, Prec, Prb, Prb_cooling !Also needed for use_ncs
-real*8  :: local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, local_Prb_cooling  !Also needed for use_ncs
+real*8  :: Nion, Nrec, plasmaneutral, plasmaneutral_e, plasmaneutral_i, Prec, Prb, Prb_cooling !Also needed for use_ncs
+real*8  :: local_Nion, local_Nrec, local_pn, local_pn_e, local_pn_i, local_Prec, local_Prb, local_Prb_cooling  !Also needed for use_ncs
 real*8  :: local_aux_mom_par_int ,local_aux_mom_par_ext, local_aux_mom_par_tot  ! coupled parallel momentum
 real*8  :: aux_mom_par_int ,aux_mom_par_ext, aux_mom_par_tot  ! coupled parallel momentum
 !> For model500 + use_ncs
@@ -376,7 +376,7 @@ local_n_particles     = 0.d0
 
 local_Nion = 0.d0
 local_Nrec = 0.d0
-local_pn   = 0.d0
+local_pn   = 0.d0; local_pn_e   = 0.d0; local_pn_i   = 0.d0
 local_Prec = 0.d0
 local_Prb  = 0.d0        ! Radiation power (as would be measured by a bolometer, i.e. uses LradDCont_T)
 local_Prb_cooling = 0.d0 ! Radiative cooling power (radiative energy lost from the plasma, i.e. uses LradDcont_corr)
@@ -448,7 +448,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,       &
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
-!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_pn, local_Prec, local_Prb, local_Prb_cooling,  &
+!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_Prec, local_Prb, local_Prb_cooling,  &
 !$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
 !$omp          rho_idx_kin, mom_par_idx_kin,                                                       &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
@@ -492,9 +492,10 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
 !$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
 #ifdef WITH_TiTe
-!$omp          E_Te_idx_kin, E_Ti_idx_kin, aux_E0_Ti, aux_E0_Te,                                               &
+!$omp          E_Te_idx_kin, E_Ti_idx_kin, aux_E0_Ti, aux_E0_Te,                                              &
+!$omp                local_pn_e, local_pn_i,                                                                  &
 #else
-!$omp          E_idx_kin, aux_E0,                                                                             &
+!$omp          E_idx_kin, aux_E0, local_pn                                                                            &
 #endif
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                                    &
@@ -887,7 +888,8 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           !>aux_E0 (plasma neutral interaction)
 #ifdef WITH_TiTe
           !> THIS IS JUST A WORKAROUND FOR NOW BECAUSE I'M LAZY
-          local_pn = local_pn + aux_E0_Te + aux_E0_Ti *BigR * xjac* delta_phi * wst
+          local_pn_e = local_pn_e + aux_E0_Te *BigR * xjac* delta_phi * wst
+          local_pn_i = local_pn_i + aux_E0_Ti *BigR * xjac* delta_phi * wst
 #else
           local_pn = local_pn + aux_E0 *BigR * xjac* delta_phi * wst !& !aux_E0
                       !+ (gamma-1.d0)* 0.5d0 *aux_rho0 *vpar0**2 * BB2 * BigR*xjac* delta_phi *wst &
@@ -2105,7 +2107,12 @@ call MPI_AllReduce(momentum_y,Py,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,i
 
 call MPI_AllReduce(local_Nion,Nion,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_Nrec,Nrec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+#ifdef WITH_TiTe
+call MPI_AllReduce(local_pn_e,plasmaneutral_e,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_pn_e,plasmaneutral_i,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+#else
 call MPI_AllReduce(local_pn,plasmaneutral,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+#endif
 call MPI_AllReduce(local_Prec,Prec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_Prb,Prb,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(local_Prb_cooling,Prb_cooling,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
@@ -2184,7 +2191,12 @@ mom_par_ext = local_mom_par_ext
 mom_par_tot = local_mom_par_tot
 Nion                 = local_Nion
 Nrec                 = local_Nrec
+#ifdef WITH_TiTe
+plasmaneutral_e        = local_pn_e
+plasmaneutral_i        = local_pn_i
+#else
 plasmaneutral        = local_pn
+#endif
 Prec                 = local_Prec
 Prb                  = local_Prb
 Prb_cooling          = local_Prb_cooling
@@ -2323,7 +2335,12 @@ mom_par_tot      = n_period * mom_par_tot * rho_norm / t_norm
 
 Nion                 = n_period * Nion         * fact_part / t_norm2
 Nrec                 = n_period * Nrec         * fact_part / t_norm2
-plasmaneutral        = n_period * plasmaneutral* fact_flux / (GAMMA-1.d0) 
+#ifdef WITH_TiTe
+plasmaneutral_e        = n_period * plasmaneutral_e* fact_flux / (GAMMA-1.d0)
+plasmaneutral_i        = n_period * plasmaneutral_i* fact_flux / (GAMMA-1.d0)
+#else
+plasmaneutral        = n_period * plasmaneutral* fact_flux / (GAMMA-1.d0)
+#endif
 Prec                 = n_period * Prec         * fact_flux / (GAMMA-1.d0)
 Prb                  = n_period * Prb          * fact_flux / (GAMMA-1.d0)
 Prb_cooling          = n_period * Prb_cooling  * fact_flux / (GAMMA-1.d0)
@@ -2809,7 +2826,12 @@ if (my_id .eq. 0) then
     write(*,'(A)') ' Kinetic neutral integrals on fluid side                  '
     write(*,'(A,4es14.6,A)') ' Ion source (aux_rho0), Recomb loss                : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
     write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_mom_par0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
+  #ifdef WITH_TiTe
+    write(*,'(A,3es14.6,A)') ' Heat source electrons (aux_E0_Te)         : ',xt,xt*t_norm, plasmaneutral_e/1.d6, ' [MW]'
+    write(*,'(A,3es14.6,A)') ' Heat source ions (aux_E0_Ti)         : ',xt,xt*t_norm, plasmaneutral_i/1.d6, ' [MW]'
+  #else
     write(*,'(A,3es14.6,A)') ' Heat source (aux_E0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
+  #endif
     write(*,'(A,5es14.6,A)') ' Prec, Prb, Prb_cooling       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6,Prb_cooling/1.d6,' [MW]'
     write(*,'(A)') '----------------------------------------'
   endif !use_ncs .or. use_ics 
