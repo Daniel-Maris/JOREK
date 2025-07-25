@@ -83,6 +83,17 @@ contains
     !> enter gathered rhs into jorek_feedback
     if (part_group%coupling_scheme == 'ncs' .or. part_group%coupling_scheme == 'ics') then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
+      write(*,*) 'SANITY CHECK:'
+      write(*,*) 'mom_par_idx_kin', mom_par_idx_kin
+#ifdef WITH_TiTe
+      write(*,*) 'E_Te_idx_kin', E_Te_idx_kin
+      write(*,*) 'E_Ti_idx_kin', E_Ti_idx_kin
+#else
+      write(*,*) 'E_idx_kin', E_idx_kin
+#endif
+      write(*,*) 'rho_idx_kin', rho_idx_kin
+      write(*,*) 'imp_q_idx', imp_q_idx
+
       jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 #ifdef WITH_TiTe
       jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) + feedback_rhs(:,:,:,:,E_Te_idx_kin) / jorek_feedback%rhs_gather_time
@@ -93,15 +104,15 @@ contains
       !> ncs specific projections
       if (part_group%coupling_scheme == 'ncs') then
         jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-        jorek_feedback%rhs(:,:,:,:,5) = jorek_feedback%rhs(:,:,:,:,5) + feedback_rhs(:,:,:,:,5)   !< extra diagnostic projection 
+        jorek_feedback%rhs(:,:,:,:,6) = jorek_feedback%rhs(:,:,:,:,6) + feedback_rhs(:,:,:,:,6)   !< extra diagnostic projection 
       endif
 
       !> ics specific projections
       if (part_group%coupling_scheme == 'ics') then
         jorek_feedback%rhs(:,:,:,:,imp_q_idx) = jorek_feedback%rhs(:,:,:,:,imp_q_idx) + feedback_rhs(:,:,:,:,imp_q_idx)
-        jorek_feedback%rhs(:,:,:,:,6) = jorek_feedback%rhs(:,:,:,:,6) + feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
-        jorek_feedback%rhs(:,:,:,:,7) = jorek_feedback%rhs(:,:,:,:,7) + feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
-        jorek_feedback%rhs(:,:,:,:,8) = jorek_feedback%rhs(:,:,:,:,8) + feedback_rhs(:,:,:,:,8)   !< extra projection (impurity rad)
+        jorek_feedback%rhs(:,:,:,:,7) = jorek_feedback%rhs(:,:,:,:,7) + feedback_rhs(:,:,:,:,7)   !< extra projection (impurity radiated power)
+        jorek_feedback%rhs(:,:,:,:,8) = jorek_feedback%rhs(:,:,:,:,8) + feedback_rhs(:,:,:,:,8)   !< extra projection (impurity density)
+        jorek_feedback%rhs(:,:,:,:,9) = jorek_feedback%rhs(:,:,:,:,9) + feedback_rhs(:,:,:,:,9)   !< extra projection (impurity rad)
       endif
     endif
 
@@ -393,7 +404,7 @@ contains
                 feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
 #endif
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj
+                feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * extra_proj
               enddo
             enddo
           enddo
@@ -529,9 +540,9 @@ contains
 #endif
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * imp_q_fb ! impurity charge density
-                feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * imp_P_rad_fb             ! impurity radiated power [to be moved to diag feedback]
-                feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * imp_density_fb           ! impurity density [to be moved to diag feedback]
-                feedback_rhs(m,l,i_elm_old,i_tor,8) = feedback_rhs(m,l,i_elm_old,i_tor,8) + HZ(i_tor) * imp_P_line_rad_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * imp_P_rad_fb             ! impurity radiated power [to be moved to diag feedback]
+                feedback_rhs(m,l,i_elm_old,i_tor,8) = feedback_rhs(m,l,i_elm_old,i_tor,8) + HZ(i_tor) * imp_density_fb           ! impurity density [to be moved to diag feedback]
+                feedback_rhs(m,l,i_elm_old,i_tor,9) = feedback_rhs(m,l,i_elm_old,i_tor,9) + HZ(i_tor) * imp_P_line_rad_fb
               enddo
             enddo
           enddo
