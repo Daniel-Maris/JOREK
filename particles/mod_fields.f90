@@ -301,7 +301,7 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw
   ! var_rho=5
   ! var_Ti=6
   ! var_Te=7
-  call fields%interp_PRZ(time,i_elm,[5,6,7],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
+  call fields%interp_PRZ(time,i_elm,[5,6,8],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 
   n_e_temp = central_density * P(1) * 1d20
   if (present(n_e_raw)) then
