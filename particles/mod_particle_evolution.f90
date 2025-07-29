@@ -151,6 +151,7 @@ contains
     real*8    :: ran(6), ran2(6,n_coll), q(3), m_b
     real*8    :: coulomb_log, kTb, n_b, v_b(3,n_coll) 
     real*8, dimension(1) :: P, P_s, P_t, P_phi, P_time
+    real*8    :: delta_E_kin_coll
 
     !> System variables ------------------------------
     type(particle_kinetic_leapfrog) :: particle_tmp
@@ -202,7 +203,7 @@ contains
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
     !$omp density_source, mom_par_source, energy_source, v_temp, T_eV,                                    &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
-    !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll,                                                &
+    !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, delta_E_kin_coll,                              &
     !$omp vvector, ran_norm, imp_q_idx_temp)                                                              &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
@@ -221,6 +222,7 @@ contains
         radiation_energy = 0.d0
         cx_source = 0.d0
         cx_energy = 0.d0
+        delta_E_kin_coll = 0.d0
 
         !> calculate local fields
         call sim%fields%calc_EBpsiU(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), E, B, psi, U)
@@ -422,6 +424,9 @@ contains
                     q_b, m_b, v_b(:,l), n_b, coulomb_log, tstep_part_adj/real(n_coll,8))
               end do
             end if
+            !> Kinetic energy change due to collisions between background- and impurity ions
+            delta_E_kin_coll = 0.5d0 * particle_tmp%weight * (dot_product(particle_tmp%v, particle_tmp%v) - dot_product(v_temp, v_temp)) * &
+              sim%groups(group_num)%mass * ATOMIC_MASS_UNIT
           endif ! COLLISIONS
           
           !> check that the particle energy sources are valid
@@ -435,10 +440,9 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          energy_source  = ionize_energy + radiation_energy
+          energy_source  = ionize_energy + radiation_energy - delta_E_kin_coll
           mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
-
-          particle_tmp%v = v_temp 
+ 
           n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
           p_lost_plt = p_lost_plt + radiation_energy
