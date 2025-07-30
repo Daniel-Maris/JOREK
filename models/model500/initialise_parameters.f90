@@ -81,6 +81,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 bc_natural_open,                                    &
                 NEO, neo_file, aki_neo_const, amu_neo_const,        &
                 use_mumps_eq, use_pastix_eq, use_strumpack_eq,      &
+                use_mumps_prj, use_pastix_prj, use_strumpack_prj,   &
                 use_mumps, mumps_ordering,                          &
                 use_BLR_compression, epsilon_BLR, just_in_time_BLR, &
                 use_pastix, use_murge, use_murge_element, use_wsmp, &
@@ -122,7 +123,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 spi_Vel_Rref,spi_Vel_Zref, using_spi, n_spi, n_inj, &
                 spi_Vel_RxZref, spi_quantity, spi_abl_model,        &
                 ns_radius_ratio, ns_radius_min, spi_angle,          &
-                spi_L_inj, spi_L_inj_diff,                          &
+                spi_L_inj, spi_L_inj_diff, spi_abl_mag_reduction,   &
                 drift_distance, energy_teleported,                  &
                 K_Dmv, A_Dmv, L_tube, V_Dmv, P_Dmv,                 &
                 spi_Vel_diff, t_ns, JET_MGI, ASDEX_MGI,             &
@@ -154,6 +155,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 CARIDDI_mode, use_newton, maxNewton, gamma_Newton,  &
                 alpha_Newton, vacuum_min, strumpack_matching,       &
                 export_aux_node_list, xpoint_search_tries,          &
+                use_manual_random_seed, manual_seed,                &
+                use_fixed_rng_value, fixed_rng_value,               &            
                 bgf_rpolar, bgf_tht
 
 if (my_id .eq. 0) then
@@ -178,6 +181,12 @@ if (my_id .eq. 0) then
   else
     read(5,in1)
   endif
+
+  if ( ( n_tor .eq. 1 ) .and. freeboundary .and. (.not. freeboundary_equil) ) then
+    write(*,*) 'WARNING: The parameter freeboundary is automatically changed to .false. since n_tor==1 and freeboundary_equil is .false.'
+    freeboundary= .false.
+  end if
+
   
   if ( old_deuterium_atomic ) then
     write(*,*) 'WARNING: You use the old fit of deuterium atomic coefficients that is known to be'
@@ -227,6 +236,7 @@ if (my_id .eq. 0) then
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
 
   else
     tstep_n    = 0.d0

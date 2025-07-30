@@ -224,6 +224,7 @@ subroutine preset_parameters
 
   rect_grid_vac_psi = 0.d0
   
+  maintain_profiles = .false.
   ZK_perp(1:5)   = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   ZK_i_perp(1:5) = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   ZK_e_perp(1:5) = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
@@ -266,8 +267,8 @@ subroutine preset_parameters
   ne_SI_min          = 1.d18
   Te_eV_min          = 5.
   rn0_min            = 1.d-8
-  T_min              = 1.0d-20
-  rho_min            = 1.0d-20
+  T_min              = 1.0d-20  !-1.0d20
+  rho_min            = 1.0d-20  !-1.0d20
   T_min_neg          = -1.d12 !< only used if T_min_neg>0 , 2.01d-5*central_density*Tmin_ev (cd = 1, 20 eV)
   T_min_ZKpar        = -1.d12 
   Ti_min_ZKpar       = -1.d12 
@@ -640,14 +641,18 @@ subroutine preset_parameters
   current_prof_initialized = .false.
   
   use_mumps          = .false.              ! Use MUMPS solver
-  use_pastix         = .true.               ! Use PASTIX solver
-  use_strumpack      = .false.              ! Use STRUMPACK solver  
+  use_pastix         = .false.              ! Use PASTIX solver
+  use_strumpack      = .true.               ! Use STRUMPACK solver  
   use_wsmp           = .false.              ! Use WSMP solver (use with care, still in development!)
   
   use_mumps_eq       = .false.              ! Use MUMPS equilibrium solver
   use_pastix_eq      = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_eq   = .false.              ! Use STRUMPACK equilibrium olver  
   
+  use_mumps_prj      = .true.               ! Use MUMPS equilibrium solver
+  use_pastix_prj     = .false.              ! Use PASTIX equilibrium solver
+  use_strumpack_prj  = .false.              ! Use STRUMPACK equilibrium olver  
+
   refinement         = .false.              ! enable mesh refinement
   force_central_node = .true.               ! force all nodes in the grid center to have the same values in flux surface aligned grids
   fix_axis_nodes     = .false.              ! Fix t-derivative and cross st-derivative on axis to avoid noise
@@ -754,6 +759,7 @@ subroutine preset_parameters
   D_neutral_p = 1.d-5
   delta_n_convection = 0
   nimp_bg = 0.
+
   n_adas = 1
   adas_dir = ' '
   imp_type = ' '
@@ -794,6 +800,7 @@ subroutine preset_parameters
   spi_shard_file(:) = 'none'
   spi_plume_file(:) = 'none'
   spi_plume_hdf5  = .false.
+  spi_abl_mag_reduction  = .false.
   spi_tor_rot     = .false.
   spi_num_vol     = .true.
   using_spi       = .false.
@@ -853,9 +860,25 @@ use_ncs            = .false.
 use_ccs            = .false.
 use_pcs            = .false.
 use_pcs_full       = .false.
-use_ionisation     = .true.
-use_sputtering     = .false.
-use_cx             = .true.
+use_kn_ionisation     = .true.
+use_kn_sputtering     = .false.
+use_kn_cx             = .true.
 use_marker         = .false.
+use_kn_recombination = .true.
+use_kn_puffing       = .false.
+use_kn_line_radiation= .true.
+
+n_puff        = 0
+puff_rate     = 0.d0
+r_valve       = 0.d0
+R_valve_loc   = 0.d0
+Z_valve       = 0.d0
+R_valve_loc2  = 0.d0
+Z_valve2      = 0.d0
+
+use_manual_random_seed = .false.
+manual_seed = 498932990          !< chosen arbitarily
+use_fixed_rng_value = .false.
+fixed_rng_value = 0.5
 
 end subroutine preset_parameters

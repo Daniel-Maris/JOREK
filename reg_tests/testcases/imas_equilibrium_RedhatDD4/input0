@@ -1,7 +1,4 @@
 &in1
- use_pastix    = .f.
- use_mumps     = .f.
- use_strumpack = .t.
 
  n_tor_fft_thresh = 2
 
@@ -9,6 +6,22 @@
  tstep_n   = 5. 
  nstep_n   = 0 
  
+ bc_natural_open = .t.
+ bootstrap       = .f.
+ tauIC           = 1.d-3
+ NEO             = .f.
+ aki_neo_const   = -1.e+0
+ amu_neo_const   = +1.e-5
+ tgnum_psi       = 0.2d0
+ tgnum_T         = 0.2d0
+ tgnum_u         = 0.2d0
+ tgnum_w         = 0.2d0
+ tgnum_vpar      = 0.2d0
+ tgnum_rho       = 0.2d0
+ tgnum_zj        = 0.2d0
+  
+ min_sheath_angle     = 0.d0
+
  nout = 20
 
  fbnd(1)   = 2.
@@ -20,7 +33,8 @@
  tria_l = 0.
  quad_u = -0.
  quad_l = -0.4
-
+ R_geo = 3.0
+ Z_geo = 0.
 
  xampl  = +0.22
  xsig   = 0.6
@@ -35,8 +49,6 @@
  Z_begin = -0.1
  Z_end   = 0.1
 
- R_geo = 3.0
- Z_geo = 0.
 
  F0    = 3.0
 
@@ -47,16 +59,21 @@
  n_radial = 41
  n_pol    = 64
 
- n_flux   = 20
- n_tht    = 32
+ n_flux   = 0 !20
+ n_tht    = 0 !32
  n_open   = 8
  n_leg    = 8
  n_private = 5
 
  eta   = 2.d-6
+ eta_ohmic = 1.d-7
  visco = 4.d-6
  visco_par = 1.d-4
+ 
+ visco_old_setup = .true.
 
+ visco_num = 1.d-11
+ visco_par_num = 1.d-11
  eta_num = 3.d-10
 
  D_par     = 0.d0
@@ -66,7 +83,7 @@
  D_perp(4) = 0.01d0
  D_perp(5) = 0.92d0
 
- ZK_par     = 10.d0
+ ZK_par     = 100.d0
  ZK_perp(1) = 1.d-5
  ZK_perp(2) = 0.85d0
  ZK_perp(3) = 0.d0
@@ -84,8 +101,17 @@
  FF_coef(7)  = 0.90d0
  FF_coef(8)  = 0.07d0
 
- heatsource     = 1.d-7
- particlesource = 5.d-6
+ heatsource                = 1.d-7
+ particlesource            = 5.d-6
+ edgeparticlesource        = 1.d-7
+ edgeparticlesource_psin   = 1.d0
+ edgeparticlesource_sig    = 0.03d0
+ particlesource_gauss      = 1.d-7
+ particlesource_gauss_psin = 0.d0
+ particlesource_gauss_sig  = 0.1d0
+ heatsource_gauss        = 1.d-8
+ heatsource_gauss_psin   = 0.d0
+ heatsource_gauss_sig    = 0.1d0
 
  T_0 = 1.5d-2
  T_1 = 3.d-4

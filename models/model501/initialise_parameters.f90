@@ -79,6 +79,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 bc_natural_open,                                    &
                 NEO, neo_file, aki_neo_const, amu_neo_const,        &
                 use_mumps_eq, use_pastix_eq, use_strumpack_eq,      &
+                use_mumps_prj, use_pastix_prj, use_strumpack_prj,   &
                 use_mumps, mumps_ordering,                          &
                 use_BLR_compression, epsilon_BLR, just_in_time_BLR, &
                 use_pastix, use_wsmp, n_tor_fft_thresh,             &
@@ -119,7 +120,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 spi_Vel_RxZref, spi_quantity, spi_abl_model,        &
                 spi_quantity_bg, pellet_density_bg,                 &
                 ns_radius_ratio, ns_radius_min, spi_angle,          &
-                spi_L_inj, spi_L_inj_diff,                          &
+                spi_L_inj, spi_L_inj_diff, spi_abl_mag_reduction,   &
                 drift_distance, energy_teleported,                  &
                 K_Dmv, A_Dmv, L_tube, V_Dmv, P_Dmv,                 &
                 spi_Vel_diff, t_ns, JET_MGI, ASDEX_MGI,             &
@@ -154,6 +155,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 T_min_ZKpar,                                        &
                 use_newton, maxNewton, gamma_Newton, alpha_Newton,  &
                 vacuum_min, strumpack_matching, xpoint_search_tries,&
+                use_manual_random_seed, manual_seed,                &
+                use_fixed_rng_value, fixed_rng_value,               &            
                 export_aux_node_list, bgf_rpolar, bgf_tht
 
 if (my_id .eq. 0) then
@@ -179,6 +182,12 @@ if (my_id .eq. 0) then
     read(5,in1)
   endif
 
+  if ( ( n_tor .eq. 1 ) .and. freeboundary .and. (.not. freeboundary_equil) ) then
+    write(*,*) 'WARNING: The parameter freeboundary is automatically changed to .false. since n_tor==1 and freeboundary_equil is .false.'
+    freeboundary= .false.
+  end if
+
+  
   ! --- Calculate normalisation factor for MGI source (related to its toroidal shape)
   ns_tor_norm = ns_deltaphi * PI**0.5 * ERF(PI/ns_deltaphi)
 
@@ -221,6 +230,7 @@ if (my_id .eq. 0) then
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
 
   else
     tstep_n    = 0.d0

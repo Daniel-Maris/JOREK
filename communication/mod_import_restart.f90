@@ -1,6 +1,9 @@
 !> Routines to import a restart file written out by a routine in [[export_restart]].
 module mod_import_restart
 implicit none
+
+character(len=20), parameter :: rst_file_ind_fmt(2) = (/'(a,i6.6)', '(a,i5.5)'/)
+
 contains
 !> Imports a restart file written out by the routine export_restart.
 
@@ -29,6 +32,9 @@ subroutine import_restart(node_list, element_list, filename, format_rst, ierr, n
   type (type_bnd_element_list)           :: bnd_elm_list    
   type (type_bnd_node_list)              :: bnd_node_list 
 
+  ! Initialise basis functions before element tree is populated
+  call initialise_basis()
+  
   if ( rst_hdf5 == 0 ) then
     write(*,*) " Restart from BINARY file " // trim(filename) // '.rst'
     if(present(aux_node_list)) then 
@@ -126,6 +132,7 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
 
+
   error = 0
 
   write(*,*) 'Importing restart file "', trim(filename), '".'
@@ -175,8 +182,9 @@ subroutine import_binary_restart(node_list, element_list, filename, format_rst, 
   read(21) node_list%n_nodes,element_list%n_elements
   read(21) node_list%n_dof
 
+  call init_node_list(node_list, node_list%n_nodes, node_list%n_dof, n_var)
+
   do i=1,node_list%n_nodes
-     
     read(21) node_list%node(i)%x
     read(21) values_tmp
     read(21) deltas_tmp
@@ -564,6 +572,10 @@ endif
       call tr_deallocate(xtime_rad_power,"xtime_rad_power",CAT_UNKNOWN)
     call tr_allocate(xtime_rad_power,1,index_start+nstep,"xtime_rad_power",CAT_UNKNOWN)
     read(21)  xtime_rad_power(1:index_start)
+    if (allocated(xtime_rad_cooling_power)) &
+      call tr_deallocate(xtime_rad_cooling_power,"xtime_rad_cooling_power",CAT_UNKNOWN)
+    call tr_allocate(xtime_rad_cooling_power,1,index_start+nstep,"xtime_rad_cooling_power",CAT_UNKNOWN)
+    read(21)  xtime_rad_cooling_power(1:index_start)
     if (allocated(xtime_E_ion)) &
       call tr_deallocate(xtime_E_ion,"xtime_E_ion",CAT_UNKNOWN)
     call tr_allocate(xtime_E_ion,1,index_start+nstep,"xtime_E_ion",CAT_UNKNOWN)
@@ -769,9 +781,10 @@ endif
       endif
 
       allocate(node_list_perturbation, element_list_perturbation)
-      
+
       read(21) node_list_perturbation%n_nodes,element_list_perturbation%n_elements
       read(21) node_list_perturbation%n_dof
+      call init_node_list(node_list_perturbation, node_list_perturbation%n_nodes, node_list_perturbation%n_dof, n_var)
 
       do i=1,node_list_perturbation%n_nodes
 
@@ -920,7 +933,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
   ! --- Local variables
   integer              :: i, j, m, k, n_tor_tmp, n_coord_tor_tmp, jorek_model_tmp, n_var_tmp, n_order_tmp, n_period_tmp, rst_hdf5_version_tmp
-  integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp
+  integer              :: n_plane_tmp, n_vertex_max_tmp, n_nodes_max_tmp, n_elements_max_tmp,n_boundary_max_tmp, n_nodes_tmp, n_dof_tmp
   integer              :: n_pieces_max_tmp, n_degrees_tmp, nref_max_tmp, n_ref_list_tmp, n_new_modes
   real*8               :: growth_mag, growth_kin, amplitude
   integer, allocatable :: mode_tmp(:), new_mode(:)
@@ -1000,10 +1013,11 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   
   no_pert = .false.
   if ( present(no_perturbations) ) no_pert = no_perturbations
-  
-  !
+
 #endif
   error = 0
+
+  
 #ifdef USE_HDF5
 
   ! ->  Reading HDF5 file
@@ -1111,17 +1125,21 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   endif
     
   !write(*,'(2(A,i5))') ' Importing ',n_tor_tmp,' harmonics with n_period=', n_period_tmp 
-
-  call HDF5_integer_reading(file_id,node_list%n_nodes,"n_nodes")
+  call HDF5_integer_reading(file_id,n_nodes_tmp,"n_nodes")
+  call HDF5_integer_reading(file_id,n_dof_tmp,"n_dof")
   call HDF5_integer_reading(file_id,element_list%n_elements,"n_elements")
-  call HDF5_integer_reading(file_id,node_list%n_dof,"n_dof")
+
+  ! initialise and allocate node_list
+  call init_node_list(node_list, n_nodes_tmp, n_dof_tmp, n_var)
+
 
   aux_values_read = .false.
   if(present(aux_node_list)) then
     call h5lexists_f(file_id,'aux_values',flag_exists,err_exists)
     if(flag_exists .and. err_exists == 0) then
-       aux_values_read = .true.
-       allocate(aux_node_list,source=node_list)
+      aux_values_read = .true.
+      call init_node_list(aux_node_list, n_nodes_tmp, n_dof_tmp, n_aux_var)
+
     endif
   endif
 
@@ -1214,6 +1232,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_array1D_reading     (file_id,t_ref_mu,      'ref_mu')
   call HDF5_array1D_reading_char(file_id,t_constrained, 'constrained')
 
+
   ! --- Detect new modes that need to be initialized to noise level
   if (allocated(new_mode))   call tr_deallocate(new_mode,"new_mode",CAT_UNKNOWN)
   allocate(new_mode(n_tor))
@@ -1237,7 +1256,6 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     do j=1,n_degrees_tmp
       node_list%node(i)%x(:,j,:)  = t_x(i,:,j,:) 
     enddo
-
     node_list%node(i)%values = 0.d0 
     node_list%node(i)%deltas = 0.d0 
 
@@ -1246,6 +1264,9 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         do j=1,n_degrees_tmp 
           if (mode_tmp(m) .eq. mode(k)) then
             if ((m .eq. 1) .and. (k.eq.1)) then
+
+                
+
               node_list%node(i)%values(k,j,1:n_var_tmp)   = t_values(i,m,j,1:n_var_tmp)
               node_list%node(i)%deltas(k,j,1:n_var_tmp)   = t_deltas(i,m,j,1:n_var_tmp)
             else
@@ -1369,6 +1390,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call HDF5_real_reading(file_id,visco_rst,'visco')
   call HDF5_real_reading(file_id,visco_par_rst,'visco_par')
   call HDF5_integer_reading(file_id,index_start,'index_now')
+  index_now = index_start
   call HDF5_real_reading(file_id,t_start,'t_now')
   call HDF5_char_reading(file_id,t_current_prof_initialized,'current_prof_initialized')
   if (t_current_prof_initialized .eq. 'T') then
@@ -1377,6 +1399,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     current_prof_initialized = .false.
   end if
   
+
   if (index_start .ge. 1) then
 
     if (allocated(xtime)) call tr_deallocate(xtime,"xtime",CAT_UNKNOWN)
@@ -1842,6 +1865,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
       call tr_deallocate(xtime_rad_power,"xtime_rad_power",CAT_UNKNOWN)
     call tr_allocate(xtime_rad_power,1,index_start+nstep,"xtime_rad_power",CAT_UNKNOWN)
     call HDF5_array1D_reading(file_id,xtime_rad_power,"xtime_rad_power")
+    if (allocated(xtime_rad_cooling_power)) &
+    call tr_deallocate(xtime_rad_cooling_power,"xtime_rad_cooling_power",CAT_UNKNOWN)
+  call tr_allocate(xtime_rad_cooling_power,1,index_start+nstep,"xtime_rad_cooling_power",CAT_UNKNOWN)
+  call HDF5_array1D_reading(file_id,xtime_rad_cooling_power,"xtime_rad_cooling_power")
     if (allocated(xtime_E_ion)) &
       call tr_deallocate(xtime_E_ion,"xtime_E_ion",CAT_UNKNOWN)
     call tr_allocate(xtime_E_ion,1,index_start+nstep,"xtime_E_ion",CAT_UNKNOWN)
@@ -2222,6 +2249,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   call populate_element_rtree(node_list, element_list)
 
   equil_initialized = .true.
+  write(*,*) ' restart complete '
+
+
+  
 
   return
 end subroutine import_hdf5_restart
@@ -2347,6 +2378,7 @@ subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
 
   call HDF5_integer_reading(file_id,aux_node_list%n_nodes,"n_nodes")
   call HDF5_integer_reading(file_id,aux_node_list%n_dof,"n_dof")
+  call init_node_list(aux_node_list, aux_node_list%n_nodes, aux_node_list%n_dof, n_aux_var)
 
   call tr_allocate(t_x, 1,aux_node_list%n_nodes,1,n_coord_tor_tmp,1,n_order+1,1,n_dim_tmp, "aux_node_list%x",     CAT_UNKNOWN)
   call tr_allocate(t_values,1,aux_node_list%n_nodes,1, n_tor_tmp,1,n_order+1,1,n_var_tmp, "aux_node_list%values",CAT_UNKNOWN)
@@ -2410,5 +2442,43 @@ subroutine import_hdf5_restart_aux(aux_node_list, filename, format_rst, error)
 #endif
   return
 end subroutine import_hdf5_restart_aux
+
+
+
+
+
+
+!< Checks if a restart file exists in the current directory
+!< Returns -1 if not found, and the digit format index if found (1 for 6 digits), (2 for 5 digits)
+integer function restart_file_exists(i_step)
+
+  use phys_module, only : rst_hdf5
+
+  implicit none
+
+  integer, intent(in) :: i_step
+  integer             :: i_fmt
+  character(len=64)   :: file_name, extension
+  logical             :: file_exists
+
+  restart_file_exists = -1
+
+  ! Determine the file extension
+  extension = '.rst'
+  if (rst_hdf5 .ne. 0) extension = '.h5'
+
+  ! Check each possible format
+  do i_fmt = 1, size(rst_file_ind_fmt)
+    write(file_name, rst_file_ind_fmt(i_fmt)) 'jorek', i_step
+    inquire(file=trim(file_name) // extension, exist=file_exists)
+
+    if (file_exists) then
+      restart_file_exists = i_fmt
+      return
+    end if
+  end do
+
+end function restart_file_exists
+
 
 end module mod_import_restart

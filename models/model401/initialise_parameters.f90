@@ -126,7 +126,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 spi_Vel_diff, t_ns, JET_MGI, ASDEX_MGI,             &
                 delta_n_convection, nimp_bg, output_prad_phi,       &
                 RMP_on, RMP_har_cos,RMP_har_sin, spi_shard_file,    &
-                spi_plume_file, spi_plume_hdf5,                     &
+                spi_plume_file, spi_plume_hdf5, spi_abl_mag_reduction, &
                 RMP_growth_rate, RMP_ramp_up_time,                  &
                 RMP_psi_cos_file, RMP_psi_sin_file,                 &
                 amix, amix_freeb, equil_accuracy,                   &
@@ -148,6 +148,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 CARIDDI_mode, use_newton, maxNewton, gamma_Newton,  &
                 alpha_Newton, vacuum_min, strumpack_matching,       &
                 export_aux_node_list, xpoint_search_tries,          &
+                use_manual_random_seed, manual_seed,                &
+                use_fixed_rng_value, fixed_rng_value,               &            
                 bgf_rpolar, bgf_tht
 
 if (my_id .eq. 0) then
@@ -173,6 +175,11 @@ if (my_id .eq. 0) then
     read(5,in1)
   endif
 
+  if ( ( n_tor .eq. 1 ) .and. freeboundary .and. (.not. freeboundary_equil) ) then
+    write(*,*) 'WARNING: The parameter freeboundary is automatically changed to .false. since n_tor==1 and freeboundary_equil is .false.'
+    freeboundary= .false.
+  end if
+  
   ! --- Calculate normalisation factor for MGI source (related to its toroidal shape)
   ns_tor_norm = ns_deltaphi * PI**0.5 * ERF(PI/ns_deltaphi)
 
@@ -205,6 +212,7 @@ if (my_id .eq. 0) then
 
   if (sum(nstep_n) .gt. 0) then
     nstep = sum(nstep_n)
+    tstep = tstep_n(1)
   else
     tstep_n    = 0.d0
     tstep_n(1) = tstep

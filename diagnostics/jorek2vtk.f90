@@ -111,7 +111,8 @@ real*8                :: angle, source_volume, local_density, local_temperature,
 logical               :: include_radiation
 real*8                :: Arad_bg, Brad_bg, Crad_bg, frad_bg
 real*8                :: Te_eV, ne_SI, Lrad_imp, r_imp_bg
-real*8                :: Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksiion, LradDcont_T
+real*8                :: Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksi_ion_norm, LradDcont_T
+real*8                :: LradDcont_corr, dLradDcont_dT_corr
 real*8                :: LradDrays_T, coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss
 real*8                :: r0_real8, rn0_real8, lnA
 real*8                :: T0_corr, r0_corr, rn0_corr, ne_JOREK, T_or_Te, T_or_Te_corr, T_or_Te_0 
@@ -190,6 +191,7 @@ write(*,*) '***************************************'
 call flush_it(6)
 
 allocate(node_list)
+allocate(aux_node_list) 
 allocate(element_list)
 allocate(bnd_elm_list)
 allocate(bnd_node_list)
@@ -201,7 +203,7 @@ call initialise_parameters(my_id, "__NO_FILENAME__")
 ! --- Preset parameters
 nsub                   = 5       ! Number of subdivisions of the cubic finite elements into linear pieces
 i_tor                  = -1      ! If i_tor > 0, only this mode will be included in the vtk file...
-i_plane                = 1       ! ... otherwise, all modes will be summed up at the toroidal plane i_plane
+i_plane                = -1       ! ... otherwise, all modes will be summed up at the toroidal plane i_plane
 without_n0_mode        = .false. ! If true, do not include the n=0 mode (i_tor=1)
 SI_units               = .false. ! when true, write variables in SI units
 include_fluxes         = .false. ! include energy and density fluxes (or not)
@@ -467,8 +469,6 @@ if (include_vacuum_field) then
 endif
 ! --- end adding vectors
 
-
-
 do k_tor=1, n_tor
   mode(k_tor) = + int(k_tor / 2) * n_period
 enddo
@@ -476,10 +476,9 @@ do k_tor=1, n_coord_tor
   mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
 enddo
 
+call initialise_basis                              ! define the basis functions at the Gaussian points
 
 call import_restart(node_list,  element_list, 'jorek_restart', rst_format, ierr, .true., aux_node_list=aux_node_list)
-
-call initialise_basis                              ! define the basis functions at the Gaussian points
 
 call init_chi_basis
 
@@ -510,30 +509,21 @@ endif
 grad_psi = 0.d0
 
 ! --- You may choose to print your poloidal snapshot at a different toroidal angle
-toroidal_angle = (i_plane - 1) * 2 * PI / n_plane / n_period ! 2*PI / 6
-if (toroidal_angle .ne. 0.d0) then
-  do k_tor=1, n_tor
-    mode(k_tor) = + int(k_tor / 2) * n_period
-  enddo
-  HZ(1,i_plane)   = 1.d0
-  do i=1,(n_tor-1)/2
-    HZ(2*i,i_plane)      = cos(mode(2*i)   * toroidal_angle )
-    HZ(2*i+1,i_plane)    = sin(mode(2*i+1) * toroidal_angle )
-  enddo
-  
-  do k_tor=1, n_coord_tor
-    mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
-  enddo
-  HZ_coord(1,i_plane)   = 1.d0
-  do i=1,(n_coord_tor-1)/2
-    HZ_coord(2*i,i_plane)      = + cos(mode_coord(2*i)   * toroidal_angle )
-    HZ_coord_p(2*i,i_plane)          = - float(mode_coord(2*i))      * sin(mode_coord(2*i)  *toroidal_angle)
-    HZ_coord_pp(2*i,i_plane)         = - float(mode_coord(2*i))**2   * cos(mode_coord(2*i)  *toroidal_angle)
-    HZ_coord(2*i+1,i_plane)    = - sin(mode_coord(2*i+1) * toroidal_angle )
-    HZ_coord_p(2*i+1,i_plane)        = - float(mode_coord(2*i+1))    * cos(mode_coord(2*i+1)*toroidal_angle)
-    HZ_coord_pp(2*i+1,i_plane)       = + float(mode_coord(2*i+1))**2 * sin(mode_coord(2*i+1)*toroidal_angle)
-  enddo
-endif
+if ( i_tor .ge. 1 .and. i_plane .eq. -1) then
+   HZ = 1.d0
+   if (  (i_tor .gt. 1) .and. (mod(i_tor,2) .eq. 0)) then !cos
+      HZ_p(i_tor,1)   = 0.d0
+      HZ_pp(i_tor,1)  = -float(mode(2*i_tor))**2
+   else if (i_tor .gt. 1) then !sin
+      HZ_p(i_tor,1) =  0.d0
+      HZ_pp(i+1,1) =   -float(mode(2*i_tor))**2
+   end if
+   i_plane=1
+  write(*,*)  'WARNING: You set i_tor but not i_plane, so a vtk file of the mode structure will be produced, ignoring the toroidal position. For old behavior set i_plane=1)'
+else
+  if (i_plane .eq. -1) i_plane=1
+  toroidal_angle = (i_plane - 1) * 2 * PI / n_plane / n_period ! 2*PI / 6
+end if
 
 do i=1,element_list%n_elements
 
@@ -1405,23 +1395,23 @@ enddo  ! n_elements
       coef_ion_1 = (MU_ZERO*central_mass*MASS_PROTON)**(0.5d0)*0.2917d-13*(central_density*1.d20)**(1.5d0)
       S_ion_puiss = 3.9d-1
 
-      ksiion = ksi_ion * central_density * 1.d20
+      ksi_ion_norm = ksi_ion * central_density * 1.d20
       rn0_real8 = scalars(i,var_rhon)
 
       if ( with_TiTe ) then
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) !< add scalars(i,var_rho) as last optional parameter for density dependence
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) !< add scalars(i,var_rho) as last optional parameter for density dependence
       else
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) 
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) 
       endif
 
       call coulomb_log_ei(T_or_Te, T_or_Te_corr, rho, corr_neg_dens1(rho), 0.0, 0.0, 0.0, lnA)
       call resistivity(eta, T_or_Te, T_or_Te_corr, T_max_eta, T_or_Te_0, 1.d0, lnA, eta_Sp)           
 
-      scalars(i,ineu(1)) = ksiion * scalars(i,var_rho) * scalars(i,var_rhon) * Sion_T
+      scalars(i,ineu(1)) = ksi_ion_norm * scalars(i,var_rho) * scalars(i,var_rhon) * Sion_T
       scalars(i,ineu(2)) = scalars(i,var_rho) * scalars(i,var_rhon) * LradDrays_T
-      scalars(i,ineu(3)) = LradDcont_T * scalars(i,var_rho)**2.d0
+      scalars(i,ineu(3)) = LradDcont_T * scalars(i,var_rho)**2.d0                           !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 #ifdef fullmhd
       scalars(i,ineu(4)) = 0.d0   ! NEEDS BE CALCULATED FOR FULL MHD ELESEWHERE! 
 #else /* not fullmhd */ 
@@ -1633,12 +1623,12 @@ enddo  ! n_elements
 
       if ( with_TiTe ) then
         T_real8 = scalars(i,var_Te)
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
       else
         T_real8 = scalars(i,var_T)
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
       endif
 
       r0_corr   = corr_neg_dens(r0_real8)
@@ -1799,25 +1789,25 @@ if (SI_units) then
       coef_ion_1 = (MU_ZERO*central_mass*MASS_PROTON)**(0.5d0)*(central_density*1.d20)**(1.5d0)
       coef_rad_1 = (gamma-1.d0)*MU_ZERO**1.5d0*(central_mass*MASS_PROTON)**0.5d0*(central_density*1.d20)**2.5d0
 
-      ksiion = ksi_ion * central_density * 1.d20
+      ksi_ion_norm = ksi_ion * central_density * 1.d20
       rn0_real8 = scalars(i,8)/central_density
 
       if ( with_TiTe ) then
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. )  ! T, rho and rhon should be in JOREK unit here
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. )  ! T, rho and rhon should be in JOREK unit here
       else
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. ) 
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. ) 
       endif
 
       eta_Sp = 1.65d-9*17*(1.d-3*Te_corr_eV)**(-1.5d0)
   
-      scalars(i,ineu(1)) = ksiion* (1.5d0)/(MU_zero*central_density*1.d20)      &
+      scalars(i,ineu(1)) = ksi_ion_norm* (1.5d0)/(MU_zero*central_density*1.d20)      &
                                           * scalars(i,var_rho) * 1.d20 * scalars(i,var_rhon) * 1.d20 * Sion_T / coef_ion_1
 
       scalars(i,ineu(2)) = scalars(i,var_rho)* 1.d20 * scalars(i,var_rhon) * 1.d20 * LradDrays_T/ coef_rad_1
 
-      scalars(i,ineu(3)) = LradDcont_T * (scalars(i,var_rho)*1.d20)**2.d0 / coef_rad_1
+      scalars(i,ineu(3)) = LradDcont_T * (scalars(i,var_rho)*1.d20)**2.d0 / coef_rad_1  !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 
       scalars(i,ineu(4)) = eta_Sp * (1.d6*scalars(i,var_zj))**2.d0
 #endif /* WITH_Neutrals but not WITH_Impurities */
