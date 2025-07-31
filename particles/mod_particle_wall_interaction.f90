@@ -1,4 +1,6 @@
 !> Module for particle to particle and fluid to particle interactions at the wall.
+!> Documentation on the wiki can be found at 
+!> https://jorek.eu/wiki/doku.php?id=particles:wall_actions
 !> 
 !> The main object is the wall_action, in which the wall_action%type is a string
 !> determining the type of interaction. Examples of wall_actions are a plasma fluid 
