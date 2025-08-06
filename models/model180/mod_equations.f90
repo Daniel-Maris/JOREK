@@ -97,7 +97,7 @@ module mod_equations
     ! Integration by parts to avoid first order derivatives in curl of B
     rhs_semianalytic(var_zj)  = (-dx(v*heaviside)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R)   &
                               +   dy(v*heaviside)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R)   &
-                              -   dp(v*heaviside)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R  
+                              -   dp(v*heaviside)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R)
 !                              +   v*heaviside*dy(chi)*B0p_gvec/R)
 !   This term shouldn't be here (results are bad if it is and it's not in the original IBP), but I'm not too sure why?
     rhs_semianalytic(var_zj) = Dexpand(deepcopy(rhs_semianalytic(var_zj)))
