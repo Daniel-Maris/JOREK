@@ -397,7 +397,7 @@ contains
             if (particle_tmp%q .gt. 0) then
               ! Calculate collisions
               kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
-              n_b = n_e
+              n_b = n_i
               q_b = 1
               m_b = 2.d0
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
