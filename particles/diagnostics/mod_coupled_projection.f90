@@ -570,7 +570,7 @@ contains
         enddo
         ELM = 0.5d0 * ELM
         deallocate(ELM_term1)
-        if (filter_parallel .gt. 0.d0) deallocate(ELM_term1)
+        if (filter_parallel .gt. 0.d0) deallocate(ELM_term2)
       endif
 
       ! Save contribution of this element in MUMPS format
