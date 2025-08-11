@@ -1,5 +1,5 @@
 &in1
-  !example input for the test_NNC program, which tests the neutral neutral collisions algorithm in a gas box setting
+  !example input for the test_neutral_neutral_collision program, which tests the neutral neutral collisions algorithm in a gas box setting
   !with this input, clear mixing can be seen between the two species
 
   restart = .f.
@@ -24,11 +24,11 @@
   part_group_configs(1)%n_particles     = 1e6
   part_group_configs(1)%type            = 'particle_kinetic_leapfrog'
   part_group_configs(1)%use_kin_neutral_coll = .t.
-  part_group_configs(1)%neutral_coll_dTw = 1.92d-10, 273, 0.68 ! input parameters for the VHS which are explained in the documentation
+  part_group_configs(1)%neutral_coll_dTw = 2.d-10, 273, 0.68 ! input parameters for the VHS which are explained in the documentation
   
   nout_projection = 10 ! each nout_projection collisional timesteps, diagnostic output is produced (vtk projections, weight per species and radial position, and MSD particle position)
 
-  !test_NNC is deterministic so if you want perfectly reproduceable results, you could use:
+  !test_neutral_neutral_collision is deterministic so if you want perfectly reproduceable results, you could use:
   !use_manual_random_seed = .t.
  /
  
