@@ -204,7 +204,7 @@ contains
     call MPI_Reduce(my_rhs(:,1),this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, 0, this%mpi_comm_world, ierr)
 
     do in=2, n_tor, 2
-      id_master_in_world = in/2 * this%m_cpu
+      id_master_in_world = in/2 * this%m_mpi
       index_n = in/2 + 1
       call MPI_Reduce(my_rhs(:,index_n),this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, id_master_in_world, this%mpi_comm_world, ierr)
     enddo
@@ -233,8 +233,8 @@ contains
     
       allocate(y_tmp(n_loc_n*(n_tor+1)))            ! allocate only on my_id=0???
 
-      allocate(recv_counts(this%n_cpu/this%m_cpu))
-      allocate(recv_disp(this%n_cpu/this%m_cpu))
+      allocate(recv_counts(this%n_mpi/this%m_mpi))
+      allocate(recv_disp(this%n_mpi/this%m_mpi))
       
       y_tmp = 0.d0
 

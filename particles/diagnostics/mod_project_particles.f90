@@ -87,7 +87,7 @@ function new_projection(node_list, element_list,                                
   call MPI_Comm_dup(MPI_COMM_WORLD, new%mpi_comm_world, ierr)
 
   call MPI_COMM_RANK(new%mpi_comm_world, new%my_id, ierr)
-  call MPI_COMM_SIZE(new%mpi_comm_world, new%n_cpu, ierr)
+  call MPI_COMM_SIZE(new%mpi_comm_world, new%n_mpi, ierr)
 #if !STELLARATOR_MODEL 
   ! in the tokamak case, we solve each uncoupled system indipendently and we therefore need indipendent communicators
   n_masters = (n_tor+1)/2
