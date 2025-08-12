@@ -53,6 +53,7 @@ contains
     use mod_particle_sim, only: particle_sim
     use mod_parameters, only: n_tor, n_vertex_max, n_degrees
     use phys_module, only: n_aux_var
+    use data_structure, only: init_node
 
     use mpi_mod
     use mod_event
