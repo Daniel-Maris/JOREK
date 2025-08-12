@@ -53,6 +53,7 @@ contains
     use mod_particle_sim, only: particle_sim
     use mod_parameters, only: n_tor, n_vertex_max, n_degrees
     use phys_module, only: n_aux_var
+    use data_structure, only: init_node
 
     use mpi_mod
     use mod_event
@@ -159,8 +160,7 @@ contains
     ! Write the solution to the node_list
     if (this%my_id .eq. 0) then
 
-        if (allocated(this%rhs)) then
-    n_sample = min(size(this%f),n_aux_var-min(size(this%rhs,5),n_aux_var))  ! because w=1,n_rhs+n_rhs_f
+      do i_var=1,n_rhs+n_rhs_f
     
         found_nan = .false.
         
