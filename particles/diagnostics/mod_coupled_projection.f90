@@ -160,8 +160,7 @@ contains
     ! Write the solution to the node_list
     if (this%my_id .eq. 0) then
 
-        if (allocated(this%rhs)) then
-    n_sample = min(size(this%f),n_aux_var-min(size(this%rhs,5),n_aux_var))  ! because w=1,n_rhs+n_rhs_f
+      do i_var=1,n_rhs+n_rhs_f
     
         found_nan = .false.
         
