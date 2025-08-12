@@ -376,7 +376,7 @@ contains
             particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ionize_ran_imp(1:2)),1)
             
             if (particle_tmp%q .gt. q_old) then
-              binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q +1) * EL_CHG ! should this be q or q_old?
+              binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG
               ionize_energy     =  - binding_energy * particle_tmp%weight
               !< including binding energy will make ionize_energy negative, so it becomes a sink for the plasma
             endif
@@ -387,7 +387,7 @@ contains
             call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
             call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
             call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
-            binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q+1) * EL_CHG ! should this be q or q_old?
+            binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG
             radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
           endif ! RADIATION
           
