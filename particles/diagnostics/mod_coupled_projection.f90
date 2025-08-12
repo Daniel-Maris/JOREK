@@ -91,6 +91,11 @@ contains
       n_rhs_f = size(this%rhs_f,5)
     end if
 
+    ! reinitialise the storage node_list to ensure all projections fit
+    do i=1, this%node_list%n_nodes
+      call init_node(this%node_list%node(i), n_rhs_f+n_rhs)
+    enddo
+
     this%rhs_vec%nrhs = (n_rhs + n_rhs_f)
     this%rhs_vec%n = this%system_size
 
@@ -154,7 +159,8 @@ contains
     ! Write the solution to the node_list
     if (this%my_id .eq. 0) then
 
-      do i_var=1,min(n_rhs+n_rhs_f, n_aux_var)
+        if (allocated(this%rhs)) then
+    n_sample = min(size(this%f),n_aux_var-min(size(this%rhs,5),n_aux_var))  ! because w=1,n_rhs+n_rhs_f
     
         found_nan = .false.
         
