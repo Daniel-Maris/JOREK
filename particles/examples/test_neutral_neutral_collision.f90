@@ -1,8 +1,8 @@
-!> Benchmark program to test the neutral neutral collisions
+!> Benchmark program to test the neutral neutral collisions 
 !> this is basically a gas box experiment where two fluids mix, from which the effective diffusion coefficient can be reconstructed
 !> this can then be compared to the diffusion coefficient expected from theory to verify that the neutral neutral collisions code works properly
-!> 
-!> Known issue: the temperature projection is incorrect, but I don't know how to do it correctly
+!> For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions 
+!> and the reference document in the "How the code works" section
 program test_NNC
 
   use data_structure
@@ -40,8 +40,8 @@ program test_NNC
   type(event), target                        :: project_diagnostics
   type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 
-  integer, parameter :: n_diag=8 !< how many diagnostic fields to project
-  !< p_ii (p_RR, p_ZZ, p_\phi\phi), T, rho, rho_1, rho_2, normalisation for T (in theory, but it is probably wrong)
+  integer, parameter :: n_diag=6 !< how many diagnostic fields to project
+  !< p_ii (p_RR, p_ZZ, p_\phi\phi), n_1, n (=n_1+n_2), n_2
 
   !parameters of the grid
   real*8, parameter :: R_0 = 100.d0, Z_0 = 0.d0, length = 1.d0
@@ -341,11 +341,10 @@ contains
               do m=1,n_order+1  ! order of the polynomial
                 qty = 0.d0
                 factor = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight / nstep_particles
-                qty(1:3) = factor * mass * particle_tmp%v * particle_tmp%v ! directional pressure P_ii = dp_i/dt /A = mv_i^2 dt A n /dt /A = mv_i^2 n
-                qty(4)   = factor * mass * dot_product(particle_tmp%v,particle_tmp%v) / (3*EL_CHG) ! T [eV] (E = 1/2 m v^2 = 3/2 k_B T, k_B T / e = m v^2 / (3 e))
-                qty(5)   = factor ! total species density
-                qty(5+particle_tmp%i_life) = factor ! species density [m^-3] (qty(6) = n_1, qty(7) = n_2)
-                qty(8)   = particle_tmp%weight !< to normalise later on
+                qty(1:3)                            = factor * mass * particle_tmp%v * particle_tmp%v ! directional pressure P_ii = dp_i/dt /A = mv_i^2 dt A n /dt /A = mv_i^2 n
+                if(particle_tmp%i_life == 1) qty(4) = factor                                          ! n_1 species density [m^-3]
+                qty(5)                              = factor                                          ! n=n_1+n_2 total species density [m^-3]
+                if(particle_tmp%i_life == 2) qty(6) = factor                                          ! n_2 species density [m^-3]
                 
                 do i_tor=1,n_tor ! toroidal harmonic
                   do k=1,n_diag  ! diagnostic quantity
@@ -385,18 +384,6 @@ contains
 
       end do ! loop over particles
       !$omp end parallel do
-
-      ! rescaling the projections using the total weight at the location
-      do l=1,n_vertex_max
-        do m=1,n_order+1
-          do i_elm=1,sim%fields%element_list%n_elements
-            do i_tor=1,n_tor
-              w = proj(m,l,i_elm,i_tor,5)
-              proj(m,l,i_elm,i_tor,4) = proj(m,l,i_elm,i_tor,4)/nonzero(proj(m,l,i_elm,i_tor,8))/sim%n_mpi !< divide by total weight
-            enddo
-          enddo
-        enddo
-      enddo
 
       projections%rhs = proj
 
