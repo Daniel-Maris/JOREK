@@ -3,6 +3,8 @@
 !> Sources cited in this file: 
 !> [1]: Bird, G. A. (1994). Molecular Gas Dynamics and the Direct Simulation of Gas Flows.
 !> [2]: Liebermann (2005). Principles of Plasma Discharges and Materials Processing.
+!>
+!> For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
 module mod_neutral_collision
   use mod_particle_types
   use constants
@@ -63,6 +65,8 @@ contains
 !> (which would create a new particle for every colliding pair), it is impossible to conserve both momentum and energy.
 !> It is chosen to conserve energy and keep the large angle scattering behaviour also for the heavier particle to ensure
 !> the correct diffusive behaviour.
+!>
+!> For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
 subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   implicit none
 
