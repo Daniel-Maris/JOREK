@@ -19,7 +19,7 @@ integer :: ierr,err,i
 ! --- Namelist with input parameters.
 namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rst_hdf5, rst_hdf5_version, keep_current_prof,      &
-                eta, visco, visco_par,                              &
+                init_current_prof, eta, visco, visco_par,           &
                 restart, rst_format, regrid, bootstrap, write_ps,   &
                 force_horizontal_Xline,                             &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
@@ -76,7 +76,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 use_BLR_compression, epsilon_BLR, just_in_time_BLR, &
                 use_pastix, use_murge, use_murge_element, use_wsmp, &
                 refinement, force_central_node,    &
-                fix_axis_nodes,                                     &
+                fix_axis_nodes, treat_axis,                         &
                 grid_to_wall, use_strumpack,                        &
                 adaptive_time, equil, bench_without_plot,           &
                 eta_T_dependent, visco_T_dependent,                 &
