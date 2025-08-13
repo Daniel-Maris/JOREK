@@ -34,7 +34,7 @@ integer    :: i, j, ms, mt, mp, k, l, index_ij, index_kl, index, xcase2
 integer    :: in, im, ij, kl, i_var, j_var
 real*8     :: wst, prefactor, xjac, xjac_x, xjac_y, x_p_x, x_p_y, y_p_x, y_p_y, BigR, phi
 real*8     :: R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint(2), Z_xpoint(2)
-real*8     :: psi_norm, psi_norm_R, psi_norm_Z, psi_norm_p, reta, zeta, theta
+real*8     :: s_norm_s, psi_norm, psi_norm_R, psi_norm_Z, psi_norm_p, reta, zeta, theta
 real*8     :: v_px, v_py, u_px, u_py
 real*8     :: BR_R, BR_z, BR_p, Bz_R, Bz_z, Bz_p, Bp_R, Bp_z, Bp_p
 
@@ -46,7 +46,7 @@ integer    :: n_tor_local
 
 real*8, dimension(n_plane,n_gauss,n_gauss) :: x_g, x_s, x_t, x_p, x_ss, x_st, x_tt, x_sp, x_tp, x_pp
 real*8, dimension(n_plane,n_gauss,n_gauss) :: y_g, y_s, y_t, y_p, y_ss, y_st, y_tt, y_sp, y_tp, y_pp
-real*8, dimension(n_gauss, n_gauss)        :: s_norm, s_norm_s, s_norm_t
+real*8, dimension(n_gauss, n_gauss)        :: s_norm
 
 real*8, dimension(:,:,:,:) , pointer :: eq_g, eq_s, eq_t
 real*8, dimension(:,:,:,:) , pointer :: eq_st, eq_ss, eq_tt
@@ -82,6 +82,8 @@ theta = time_evol_theta
 ! change zeta for variable dt
 zeta  = time_evol_zeta * 2.0d0 * tstep / (tstep + tstep_prev)
 
+s_norm_s = 1.d0/float(n_flux-1)
+
 !---------------------------------------------------- value of (x,y) and derivatives on Gaussian points
 x_g  = 0.d0; x_s   = 0.d0; x_t   = 0.d0; x_p = 0.d0; x_st  = 0.d0; x_ss  = 0.d0; x_tt  = 0.d0; x_sp = 0.d0; x_tp = 0.d0; x_pp = 0.d0;
 y_g  = 0.d0; y_s   = 0.d0; y_t   = 0.d0; y_p = 0.d0; y_st  = 0.d0; y_ss  = 0.d0; y_tt  = 0.d0; y_sp = 0.d0; y_tp = 0.d0; y_pp = 0.d0;
@@ -90,7 +92,7 @@ eq_p = 0.d0; eq_pp = 0.d0; eq_sp = 0.d0; eq_tp = 0.d0
 
 eq = 0.d0
 press_gvec = 0.d0; B_gvec = 0.d0; B_gvec_s(:,:,:,:) = 0.d0; B_gvec_t(:,:,:,:) = 0.d0; B_gvec_p(:,:,:,:) = 0.d0
-s_norm = 0.d0; s_norm_s = 0.d0; s_norm_t = 0.d0
+s_norm = 0.d0
 
 do i=1,n_vertex_max
  do j=1,n_order+1
@@ -100,8 +102,6 @@ do i=1,n_vertex_max
 
        press_gvec(ms,mt) = press_gvec(ms,mt) + nodes(i)%pressure(j)*element%size(i,j)*H(i,j,ms,mt)
        s_norm(ms,mt)     = s_norm(ms,mt)     + nodes(i)%r_tor_eq(j)*element%size(i,j)*H(i,j,ms,mt)
-       s_norm_s(ms,mt)   = s_norm_s(ms,mt)   + nodes(i)%r_tor_eq(j)*element%size(i,j)*H_s(i,j,ms,mt)
-       s_norm_t(ms,mt)   = s_norm_s(ms,mt)   + nodes(i)%r_tor_eq(j)*element%size(i,j)*H_t(i,j,ms,mt)
 
        do mp=1,n_plane
          do in=1,n_coord_tor
@@ -256,17 +256,13 @@ do ms=1, n_gauss
      eq(var_B0p_gvec,0,0,1,1) = Bp_p
 
      psi_norm = s_norm(ms,mt)
-     psi_norm_R = (y_t(mp,ms,mt)*s_norm_s(ms,mt)  - y_s(mp,ms,mt)*s_norm_t(ms,mt))/xjac
-     psi_norm_Z = (-x_t(mp,ms,mt)*s_norm_s(ms,mt) + x_s(mp,ms,mt)*s_norm_t(ms,mt))/xjac
+     psi_norm_R = y_t(mp,ms,mt)*s_norm_s/xjac
+     psi_norm_Z = -x_t(mp,ms,mt)*s_norm_s/xjac
      psi_norm_p = -x_p(mp,ms,mt)*psi_norm_R       - y_p(mp,ms,mt)*psi_norm_Z
      eq(var_heaviside,0,0,0,1) = 0.5-0.5*tanh((psi_norm-j_cutoff_rcoord)/j_cutoff_sig)
-!     eq(var_heaviside,1,0,0,1) = -(0.5d0/j_cutoff_sig)*(1.0d0/cosh(((psi_norm-j_cutoff_rcoord)/j_cutoff_sig)**2))*psi_norm_R
-!     eq(var_heaviside,0,1,0,1) = -(0.5d0/j_cutoff_sig)*(1.0d0/cosh(((psi_norm-j_cutoff_rcoord)/j_cutoff_sig)**2))*psi_norm_Z
-!     eq(var_heaviside,0,0,1,1) = -(0.5d0/j_cutoff_sig)*(1.0d0/cosh(((psi_norm-j_cutoff_rcoord)/j_cutoff_sig)**2))*psi_norm_p 
      eq(var_heaviside,1,0,0,1) = -psi_norm_R/(2*j_cutoff_sig * (cosh((psi_norm-j_cutoff_rcoord)/j_cutoff_sig)**2))
      eq(var_heaviside,0,1,0,1) = -psi_norm_Z/(2*j_cutoff_sig * (cosh((psi_norm-j_cutoff_rcoord)/j_cutoff_sig)**2))
      eq(var_heaviside,0,0,1,1) = -psi_norm_p/(2*j_cutoff_sig * (cosh((psi_norm-j_cutoff_rcoord)/j_cutoff_sig)**2))
-     ! For some reason these gave me slightly different results despite being (on the surface) the same
 
 
      ! The Psi in the equations differs by a factor of F0 from the normal JOREK Psi

@@ -64,8 +64,6 @@ module mod_equations
 
   integer, parameter :: n_aux = 4
 
-  type(const), private :: F0
-
   type(algexpr), private :: ea_Bv2x, ea_Bv2y, ea_Bv2p
 
   type(type_thread_eq), dimension(:), allocatable, target :: thread_eq
@@ -73,11 +71,7 @@ module mod_equations
   contains
 
   subroutine init_equations()
-    use phys_module, only: IF0 => F0, extended_boundary
-
     implicit none
-
-    F0     = const(value =    IF0,      token = "F0")
  
     !###################################################################################################
     !#  Auxiliary vacuum magnetic field                                                                #
@@ -98,21 +92,7 @@ module mod_equations
     rhs_semianalytic(var_zj)  = (-dx(v*heaviside)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R)   &
                               +   dy(v*heaviside)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R)   &
                               -   dp(v*heaviside)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R)
-!                              +   v*heaviside*dy(chi)*B0p_gvec/R)
-!   This term shouldn't be here (results are bad if it is and it's not in the original IBP), but I'm not too sure why?
     rhs_semianalytic(var_zj) = Dexpand(deepcopy(rhs_semianalytic(var_zj)))
-
-!    ! old version of rhs: integration by parts to avoid first order derivatives in curl of B
-!    if (.not. extended_boundary) then
-!        rhs_semianalytic(var_zj)  = (-dx(v)*(dy(chi)*B0p_gvec - dp(chi)*B0y_gvec/R)   &
-!                                  +  dy(v)*(dx(chi)*B0p_gvec - dp(chi)*B0x_gvec/R)   &
-!                                  -  dp(v)*(dx(chi)*B0y_gvec - dy(chi)*B0x_gvec)/R)
-!    ! current version of rhs: curl of B is used to cut off currents near the boundary
-!    else
-!        rhs_semianalytic(var_zj) = (-v) * (dx(chi)   * (dy(B0p_gvec) - dp(B0y_gvec)/R)                   &
-!                                        +  dy(chi)   * (-(B0p_gvec + R*dx(B0p_gvec))/R + dp(B0x_gvec)/R) &
-!                                        +  dp(chi)/R * (dx(B0y_gvec) - dy(B0x_gvec))) * heaviside
-!    end if
 
     amat_semianalytic( var_zj,  var_zj) = v*Bv2*zj
     
