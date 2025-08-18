@@ -22,6 +22,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 rst_hdf5, rst_hdf5_version, keep_current_prof,      &
                 eta, visco, visco_par,                              &
                 restart, rst_format, regrid, bootstrap, write_ps,   &
+                bootstrap_psin_cutoff,                              &
                 regrid_from_rz,                                     &
                 force_horizontal_Xline, fix_axis_nodes,             &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
@@ -180,6 +181,12 @@ if (my_id .eq. 0) then
   else
     read(5,in1)
   endif
+
+  if ( ( n_tor .eq. 1 ) .and. freeboundary .and. (.not. freeboundary_equil) ) then
+    write(*,*) 'WARNING: The parameter freeboundary is automatically changed to .false. since n_tor==1 and freeboundary_equil is .false.'
+    freeboundary= .false.
+  end if
+
   
   if ( old_deuterium_atomic ) then
     write(*,*) 'WARNING: You use the old fit of deuterium atomic coefficients that is known to be'
