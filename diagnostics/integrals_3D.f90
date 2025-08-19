@@ -405,7 +405,7 @@ do ife = ife_min, ife_max
 
         source_neutral       = max(0.,source_neutral)
 
-        local_n_particles_inj = local_n_particles_inj + 0.5d0 * central_density * 1.d20 * source_neutral * bigR * xjac * wst * delta_phi / sqrt(MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)
+        local_n_particles_inj = local_n_particles_inj + 0.5d0 * central_density * 1.d20 * source_neutral * bigR * xjac * wst * delta_phi / sqrt(MU_ZERO*central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)
         local_n_particles     = local_n_particles     + central_density * 1.d20 * rn0 * bigR * xjac * wst * delta_phi
 
 #endif
