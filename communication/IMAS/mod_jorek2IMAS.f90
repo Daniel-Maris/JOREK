@@ -143,7 +143,7 @@ module mod_jorek2IMAS
     endif
 
     ! --- Normalization factors for IMAS
-    rho0               = central_density * 1.d20 * central_mass * mass_proton
+    rho0               = central_density * 1.d20 * central_mass * ATOMIC_MASS_UNIT
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
     sqrt_mu0_over_rho0 = sqrt( mu_zero / rho0 )
   
@@ -848,7 +848,7 @@ module mod_jorek2IMAS
     ! --- Set times
     allocate( spi%time(n_slice) )
     spi%time(i_slice) = time_SI 
-    rho0              = central_density * 1.d20 * central_mass * mass_proton
+    rho0              = central_density * 1.d20 * central_mass * ATOMIC_MASS_UNIT
     sqrt_mu0_rho0     = sqrt( mu_zero * rho0 )
 
     ! --- Loop over injectors
@@ -1060,7 +1060,7 @@ module mod_jorek2IMAS
     endif
  
     ! --- Normalization factors for IMAS
-    rho0               = central_density * 1.d20 * central_mass * mass_proton
+    rho0               = central_density * 1.d20 * central_mass * ATOMIC_MASS_UNIT
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
     sqrt_mu0_over_rho0 = sqrt( mu_zero / rho0 )
 
@@ -1137,7 +1137,7 @@ module mod_jorek2IMAS
     allocate( plasma_profiles_ids%time(n_slice) )
 
     ! --- Normalization factors for IMAS
-    rho0               = central_density * 1.d20 * central_mass * mass_proton
+    rho0               = central_density * 1.d20 * central_mass * ATOMIC_MASS_UNIT
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
     
     plasma_profiles_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HOMOGENEOUS     
@@ -1418,7 +1418,7 @@ module mod_jorek2IMAS
     allocate( equilibrium_ids%time(n_slice) )
 
     ! --- Normalization factors for IMAS
-    rho0               = central_density * 1.d20 * central_mass * mass_proton
+    rho0               = central_density * 1.d20 * central_mass * ATOMIC_MASS_UNIT
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
     
     equilibrium_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HOMOGENEOUS    
