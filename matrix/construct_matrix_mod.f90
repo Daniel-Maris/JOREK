@@ -162,9 +162,15 @@ contains
           
 
         ! --- Build matrix elements for boundary
+#if JOREK_MODEL == 183
         call boundary_matrix_open(vertex, direction, element, nodes, & 
                                   xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, &
                                   thread_struct(omp_tid)%ELM, thread_struct(omp_tid)%RHS, i_tor_min, i_tor_max, ielm)
+#else
+        call boundary_matrix_open(vertex, direction, element, nodes, &
+                                  xpoint2, xcase2, R_axis, Z_axis, psi_axis, psi_bnd, R_xpoint, Z_xpoint, &
+                                  thread_struct(omp_tid)%ELM, thread_struct(omp_tid)%RHS, i_tor_min, i_tor_max)
+#endif
        
       enddo
     endif
