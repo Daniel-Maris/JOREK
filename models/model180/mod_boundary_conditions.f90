@@ -158,7 +158,7 @@ contains
   end subroutine boundary_conditions
 
   
-  subroutine solve_Psi_boundary_eqn(node_list, boundary_list)
+  subroutine solve_Psi_boundary_eqn(node_list, boundary_list, ierr)
   !---------------------------------------------------------------------------------------------------------------------------------
   ! The Psi boundary equation is solved using the Fourier-Galerkin method here
   !
@@ -298,8 +298,8 @@ contains
          write(*,*) "Could not find fields_xyz.dat file"
          write(*,*) "please run jorek2_fields_xyz_stel.f90 with genereated xyz.dat file to create fields_xyz.dat file"
          write(*,*) "run model 180 again afterwards"
-         call MPI_Abort(MPI_COMM_WORLD, 3, ierr)
-         stop
+         ierr = 3
+         return
       endif
 
       open(69, file="Bpn_theta_phi.dat", action="write")
