@@ -354,7 +354,7 @@ module mod_diag_output
     end if
     
   end subroutine open_ascii_file
-  .and. * .a
+  !.and. * .a
   
   
   

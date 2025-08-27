@@ -289,19 +289,17 @@ do while (.not. sim%stop_now)
     call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
   enddo  
 
-
-    ! Writing some conservation checks to the ouput file
-  !call write_to_outputfile(sim%my_id, "Conservation checks after particle evolv")
-  !call conservation_checks(sim)
-
   ! --- Handling the particles that left the domain
+  
+  ! DEBUG
+  !jorek_feedback%rhs = 0.d0
 
   ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
   ! which might lead to bad behaviour in other code than the wall_actions
   if (n_wall_act_groups > 0) then
     call write_to_outputfile(sim%my_id, "Particle particle wall_actions")
     do i=1, n_wall_act_groups
-      call wall_act_groups(i)%do(sim,.true.)
+      call wall_act_groups(i)%do(sim, .true.)
     enddo
   endif
 
@@ -311,6 +309,8 @@ do while (.not. sim%stop_now)
   !> Also writes the projection.vtk file which contains the interaction terms (particle, energy and momentum exchange to the fluid) and neutral density
   call write_to_outputfile(sim%my_id, "Projecting feedback from particles to fluid FE grid")
   call with(sim, project_jorek_feedback)
+
+
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
   !> feedback of the particles as sources and sinks in the MHD equations 

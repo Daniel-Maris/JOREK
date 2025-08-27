@@ -41,6 +41,17 @@ module coupling_variables
     ]
 #endif
 
+!character(len=var_name_len), dimension(6), parameter :: diagnostic_var_names = [character(len=var_name_len) :: &
+!  "neutral_dens",     &  !> neutral density
+!  "imp_P_rad",        &  !> sum impurity radiation
+!  "imp_line_rad",     &  !> impurity line radation
+!  "imp_density",      &  !> impurity density, all charge states
+!  "neutral_line_rad", &  !> neutral line radiation
+!  "neutral_ionize",   &  !> neutral ionization energy
+!  "neutral_dens_source"  !> mass density source due to neutral ionization
+!]
+
+
   ! CCS
   character(len=var_name_len), dimension(4) :: ccs_var_names = [character(len=var_name_len) :: &
     "q",        & !> charge density

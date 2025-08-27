@@ -69,7 +69,7 @@ endif
 ifeq ($(COMPILER_FAMILY), intel)
   COMPILER_MAJOR_VERSION=$(shell $(FC) -V 2>&1 | grep -o "Version [0-9]*" | cut -d' ' -f 2)
   COMPILER_MAJOR_VERSION_ID=$(shell $(FC) -V 2>&1 | grep -o "Version [0-9]*.*" | cut -d'.' -f 2)
-  FFLAGS += -align
+  FFLAGS += -align -fpscomp logicals
   ifeq ($(shell test $(COMPILER_MAJOR_VERSION) -ge 15; echo $$?),0)
     FLAGS += -qopenmp
   else
@@ -98,6 +98,7 @@ ifeq ($(COMPILER_FAMILY), intel)
     FFLAGS += -fpe0
     FFLAGS += -check all,noarg_temp_created
     FFLAGS += -check bounds
+    FFLAGS += -diag-disable=5480
     FFLAGS += -check uninit
     FFLAGS += -init=snan
     FFLAGS += -gen-interfaces -warn-interfaces

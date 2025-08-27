@@ -278,7 +278,7 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
   end if
 end subroutine calc_NeTe
 
-pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_e)
+pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_i)
   use phys_module, only: central_density
   use constants
   class(fields_base), intent(in)                    :: fields
@@ -290,7 +290,7 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw
   real*8, intent(out), optional                     :: n_e_raw !< electron density without correction [m^-3]
   real*8, intent(out), optional                     :: T_i_raw !< ion temperature without correction [K]
   real*8, intent(out), optional                     :: T_e_raw !< electron temperature without correction [K]
-  real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of corrected electron temperature [K/m]
+  real*8, intent(out), optional, dimension(3)       :: grad_T_i !< gradient of ion temperature [K/m]
 
   real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
@@ -301,7 +301,7 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw
   ! var_rho=5
   ! var_Ti=6
   ! var_Te=7
-  call fields%interp_PRZ(time,i_elm,[5,6,8],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
+  call fields%interp_PRZ(time,i_elm,[5,6,8],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 
   n_e_temp = central_density * P(1) * 1d20
   if (present(n_e_raw)) then
@@ -324,10 +324,10 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw
   T_e = max(T_e_temp, 1.d0) ! temperature capped against going negative
 
   ! TODO: do we need sep. ion and electron versions of this?
-  if (present(grad_T_e)) then
+  if (present(grad_T_i)) then
 
     xjac = R_s * Z_t - R_t * Z_s
-    grad_T_e = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
+    grad_T_i = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
                      (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
                      P_phi(2)/R]
   end if

@@ -3139,7 +3139,8 @@ module exec_commands
 
     type (type_element)                   :: element
     type (type_node)                      :: nodes(n_vertex_max)
-  
+    type (type_node)                      :: aux_nodes_local(n_vertex_max)
+
     type(t_pol_pos_list) :: pol_pos_list
     type(t_tor_pos_list) :: tor_pos_list
 
@@ -3244,6 +3245,7 @@ module exec_commands
     allocate( BSmat_tmp(n_basis, n_basis))
 
     call assign_term_names()
+    write(*,*) term_names
 
     ! --- Initialize clock
     call clck_init()
@@ -3332,7 +3334,6 @@ module exec_commands
     node_list%n_dof = index_total * n_tor * n_var
   
     allocate(rhs(max_terms,node_list%n_dof))
-  
     ! --- Create grid points and save them for the vtk
     nnos    = nsub*nsub*element_list%n_elements
     allocate(xyz(3,nnos))
@@ -3377,17 +3378,29 @@ module exec_commands
     ! --- Collect RHS terms ---
     ! -------------------------
 
-    rhs = 0.0d0 
-  
+    rhs = 0.0d0
+    write(*,*) 'n_var', n_var
+    write(*,*) 'max_terms', max_terms
+    do k_var=1, n_var
+
+      if (command%n_args == 1) then
+        if (k_var /= eq_index) cycle
+      endif
+
+      do i_term=1, max_terms
+        write(*,*) 'trim(term_names(k_var, i_term))', trim(term_names(k_var, i_term))
+      enddo
+    enddo
+    
     call clck_time_barrier(t0)
   
     write(*,*) '  Starting element loop with elm_matrix calls, this may take a while...'
   
     ! --- Declare shared and private variables for omp
     !$omp parallel default(none) &
-    !$omp   shared(element_list,node_list, ES, get_terms, BSmat, n_basis,              &
+    !$omp   shared(element_list,node_list, aux_node_list,ES, get_terms, BSmat, n_basis,              &
     !$omp          xpoint,xcase, rhs, my_id, test_struct,n_tor_fft_thresh)             &
-    !$omp   private(ife,iv,inode,element,nodes,i_order, info,                     &
+    !$omp   private(ife,iv,inode,element,nodes,i_order, info,aux_nodes_local,                     &
     !$omp           index_large_i,index_ij, index_node, BSmat_elm, rhs_term,           &
     !$omp           omp_nthreads,omp_tid, i_term, i,j,k,l,i_bs,j_bs,ftor,ipiv,BSmat_tmp  )
   
@@ -3409,6 +3422,11 @@ module exec_commands
       do iv = 1, n_vertex_max
         inode     = element%vertex(iv)
         nodes(iv) = node_list%node(inode)
+        ! Check if aux_node_list is allocated and associated before using it
+        if (allocated(aux_node_list%node)) then
+            write(*,*) 'DEBUG: aux_node_list is ALLOCATED.'
+           aux_nodes_local(iv) = aux_node_list%node(inode)
+        endif
       enddo
 
       call element_matrix_fft(element,nodes, xpoint, xcase, ES%R_axis, ES%Z_axis, ES%psi_axis, ES%psi_bnd,   &
@@ -3418,7 +3436,7 @@ module exec_commands
        test_struct(omp_tid)%eq_g, test_struct(omp_tid)%eq_s, test_struct(omp_tid)%eq_t,     &
        test_struct(omp_tid)%eq_p, test_struct(omp_tid)%eq_ss, test_struct(omp_tid)%eq_st,   &
        test_struct(omp_tid)%eq_tt, test_struct(omp_tid)%delta_g,                              &
-       test_struct(omp_tid)%delta_s, test_struct(omp_tid)%delta_t, 1, n_tor, nodes,         &
+       test_struct(omp_tid)%delta_s, test_struct(omp_tid)%delta_t, 1, n_tor, aux_nodes_local,         &
        test_struct(omp_tid)%ELM_pnn, get_terms=get_terms)
 
       do i_term=1, max_terms
@@ -3606,8 +3624,13 @@ module exec_commands
       endif
 
       do i_term=1, max_terms
-       
-        if (trim(term_names(k_var, i_term))=='') cycle
+
+      if (trim(term_names(k_var, i_term)) == '') then
+        write(*,*) 'Dropping term ', term_names(k_var, i_term)
+        cycle
+      else
+        write(*,*) 'Valid term ', term_names(k_var, i_term)
+      endif
 
         sum_rhs = 0.d0
  
@@ -3687,7 +3710,7 @@ module exec_commands
         enddo ! n_tor 
  
  
-        if (sum_rhs < 1.d-30) cycle
+        !if (sum_rhs < 1.d-30) cycle
  
         term_count = term_count + 1
   
@@ -3740,8 +3763,15 @@ module exec_commands
   
     write(*,*) '  Finished writing vtk'
    
-    deallocate(rhs, scalars, scalar_names, scalars_o, scalar_names_o, result, res2d)
+    !deallocate(rhs, scalars, scalar_names, scalars_o, scalar_names_o, result, res2d)
     !deallocate(test_struct) ! this causes crash even in develop
+    if (allocated(rhs))             deallocate(rhs)
+    if (allocated(scalars))         deallocate(scalars)
+    if (allocated(scalar_names))    deallocate(scalar_names)
+    if (allocated(scalars_o))       deallocate(scalars_o)
+    if (allocated(scalar_names_o))  deallocate(scalar_names_o)
+    if (allocated(result))          deallocate(result)
+    if (allocated(res2d))           deallocate(res2d)
 
 #ifdef USE_FFTW
     call dfftw_destroy_plan(fftw_plan)

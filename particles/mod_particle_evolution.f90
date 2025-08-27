@@ -83,16 +83,6 @@ contains
     !> enter gathered rhs into jorek_feedback
     if (part_group%coupling_scheme == 'ncs' .or. part_group%coupling_scheme == 'ics') then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-      write(*,*) 'SANITY CHECK:'
-      write(*,*) 'mom_par_idx_kin', mom_par_idx_kin
-#ifdef WITH_TiTe
-      write(*,*) 'E_Te_idx_kin', E_Te_idx_kin
-      write(*,*) 'E_Ti_idx_kin', E_Ti_idx_kin
-#else
-      write(*,*) 'E_idx_kin', E_idx_kin
-#endif
-      write(*,*) 'rho_idx_kin', rho_idx_kin
-      write(*,*) 'imp_q_idx', imp_q_idx
 
       jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
 #ifdef WITH_TiTe
@@ -178,7 +168,7 @@ contains
     type(particle_kinetic_leapfrog) :: particle_tmp
 
     real*8    :: n_norm, rho_norm, t_norm, v_norm, E_norm, M_norm
-    real*8    :: t, E(3), B(3), psi, U,n_i, n_e, T_e, T_i, grad_T_e(3), rz_old(2), st_old(2)
+    real*8    :: t, E(3), B(3), psi, U,n_i, n_e, T_e, T_i, grad_T_i(3), rz_old(2), st_old(2)
     real*8    :: R_g, Z_g, R_s, R_t, Z_s, Z_t, xjac, R, Z
     real*8    :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
 
@@ -215,14 +205,14 @@ contains
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin,                                                                   &
 #ifdef WITH_TiTe
-    !$omp E_Te_idx_kin, E_Ti_idx_kin,                                                                     &
+    !$omp E_Te_idx_kin, E_Ti_idx_kin, grad_T_i,                                                                   &
 #else
-    !$omp E_idx_kin,                                                                                      &
+    !$omp E_idx_kin, grad_T_e,                                                                                     &
 #endif
     !$omp imp_q_idx, ics_indices_kin,                                                                     &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
     !$omp private(particle_tmp, i_rng, i, j, k, l, m, t, E, B, psi, U, rz_old, st_old,                    &
-    !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, grad_T_e, q_old,      &
+    !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, q_old,      &
     !$omp ionize_rate, ionize_prob, ionize_ran, ionize_ran_imp, ionize_source, ionize_energy,             &
     !$omp cx_rate, cx_prob, cx_source, cx_energy, cx_ran,                                                 &
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
@@ -261,12 +251,12 @@ contains
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
         
 #ifdef WITH_TiTe
-          call sim%fields%calc_NeTiTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3),n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_e)
-          limits_coll = T_i_raw < 1.d0 !< limits for collisionssq
+          call sim%fields%calc_NeTiTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3),n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_i)
+          limits_coll = T_i_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions
 #else
           ! Note to self: if with_TiTe this will get Te
-          call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
-          limits_coll = T_e_raw < 1.d0 !< limits for collisions
+          call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_i)
+          limits_coll = T_e_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions
 #endif
 
         !> loop over impurities groups and calculate their contribution to electron density
@@ -299,6 +289,7 @@ contains
             line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
           endif ! RADIATION
           
+          ! DO WITH TI
           !> IONISATION (Neutrals)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call sim%groups(group_num)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ionize_rate) ! [m^3/s]
@@ -322,27 +313,32 @@ contains
               particle_tmp%weight = particle_tmp%weight * (1.d0 - ionize_prob)
             endif 
     
-            kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT /2.d0
-            ionize_energy     = kinetic_energy - H_binding_energy
+            kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT /2.d0 ! ion
+            ionize_energy     = kinetic_energy - H_binding_energy ! electron
             !<including binding energy will make ionize_energy negative, so it becomes a sink for the plasma
           endif ! IONISATION
-            
+          
+          ! DO WITH TI
           !> CHARGE EXCHANGE
           ! It is assumed that we will have a exchange between hydrogen isotopes
           if (sim%groups(group_num)%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
             call sim%groups(group_num)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
+            !write(*,*) 'cx_rate', cx_rate
             CX_prob = 1.d0 - exp(-cx_rate * n_e * tstep_part_adj)
     
             call rng(i_rng)%next(cx_ran)
             if (cx_ran(1) .le. CX_prob) then
               ! sample boltzman, randomize velocity
-              T_eV = T_e * K_BOLTZ / EL_CHG !< T_eV = electron T in [eV]
   
               !> ----- NEW CX PARTICLE ---------
               !Box-Mueller sample velocities with st.dev=1
               ran_norm = boxmueller_transform(cx_ran(2:5))
               !>v_temp = sqrt(kT/m) * ran_norm
+#ifdef WITH_TiTe
+              v_temp = sqrt(T_i * K_BOLTZ/(sim%groups(group_num)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
+#else
               v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(group_num)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
+#endif
               !>add bulk fluid flow
               v_temp = v_temp + vvector 
 
@@ -366,8 +362,8 @@ contains
           mom_par_source = ionize_source * dot_product(B, particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &	
                 + CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
 #ifdef WITH_TiTe
-          energy_source_Te = ionize_source * ionize_energy - line_rad_energy
-          energy_source_Ti = cx_source * cx_energy
+          energy_source_Te = -ionize_source * H_binding_energy - line_rad_energy
+          energy_source_Ti = ionize_source * kinetic_energy + cx_source * cx_energy
 #else
           energy_source  = ionize_source * ionize_energy + cx_source * cx_energy - line_rad_energy
 #endif
@@ -376,6 +372,16 @@ contains
           p_lost_ion = p_lost_ion + ionize_source * ionize_energy
           p_lost_plt = p_lost_plt + line_rad_energy
           p_lost_cx  = p_lost_cx + cx_source * cx_energy
+
+          ! Sanity check
+          if (i_elm_old <= 0 .or. i_elm_old > size(sim%fields%element_list%element)) then
+            !$omp critical
+            write(*,*) 'CRITICAL ERROR on MPI rank ', sim%my_id, ' Thread ', omp_get_thread_num()
+            write(*,*) 'Attempting to project feedback from an invalid element index!', i_elm_old
+            write(*,*) 'Particle j=', j, 'Substep k=', k
+            !$omp end critical
+            cycle
+          endif
 
           !> Calculate the projection of the ion source in real-time
           call basisfunctions(particle_tmp%st(1), particle_tmp%st(2), HH, HH_s, HH_t)
@@ -414,8 +420,8 @@ contains
         ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
-          line_rad_energy = 0.0
-          delta_E_kin_coll = 0.0
+          line_rad_energy = 0.d0
+          delta_E_kin_coll = 0.d0
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call rng(i_rng)%next(ionize_ran_imp)
@@ -456,7 +462,7 @@ contains
               m_b = 2.d0
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
               ! grad_T_e is actually grad_T_e, I'm just lazy to rewrite it
-              q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+              q = q_homma2013(kTb, grad_T_i*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
               !q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, 1.)
 
               !> Calculate coulomb logarithm and limit it to reasonable values

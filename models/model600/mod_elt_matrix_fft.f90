@@ -255,6 +255,12 @@ RHS_k = 0.d0
 ELM   = 0.d0
 RHS   = 0.d0
 
+!write(*,*) "n_aux_var", n_aux_var
+!write(*,*) "E_Te_idx_kin", E_Te_idx_kin
+!write(*,*) "E_Ti_idx_kin", E_Ti_idx_kin
+!write(*,*) "E_idx_kin", E_idx_kin
+!write(*,*) "mom_par_idx_kin", mom_par_idx_kin
+
 epsil=1.d-3
 
 ! --- Decide whether or not use the conservative form of the momentum equation
@@ -1087,9 +1093,9 @@ do i=1,n_vertex_max
           endif
 
           ! --- Particle diffusivities
-          !D_prof         = get_dperp (psi_norm)
-          D_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_dperp(psi_norm) &
-                  + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*2*get_dperp(psi_norm) ! below Xpoint
+          D_prof         = get_dperp (psi_norm)
+          !D_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_dperp(psi_norm) &
+          !        + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*2*get_dperp(psi_norm) ! below Xpoint
           !D_prof  = max(get_dperp(psi_norm),2*get_dperp(psi_norm)*0.5*(1-tanh((y_g(ms,mt)-(Z_xpoint(1)+0.15))/0.01)))
           D_par_local     = D_par
           D_par_local_imp = D_par_imp
@@ -1128,8 +1134,12 @@ do i=1,n_vertex_max
 
           ! --- Perpendicular heat diffusivities
           if ( with_TiTe ) then
-            ZKi_prof = get_zk_iperp(psi_norm)
-            ZKe_prof = get_zk_eperp(psi_norm)
+            ZKi_prof = get_zk_iperp(psi_norm)*max(r0,1.d-2)
+            ZKe_prof = get_zk_eperp(psi_norm)*max(r0,1.d-2)
+            !ZKi_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*(get_zk_iperp(psi_norm))*max(r0,1.d-2) & ! above xpoint
+            !         + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zk_eperp(psi_norm)*min(max(r0,0.18),1.) ! below Xpoint
+            !ZKe_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*(get_zkperp(psi_norm))*max(r0,1.d-2) & ! above xpoint
+            !         + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zkperp(psi_norm)*min(max(r0,0.18),1.) ! below Xpoint
             ZK_i_perp_num_psin = ZK_i_perp_num +                                                  &
                                  ZK_i_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_i_perp_num_tanh_psin)/ZK_i_perp_num_tanh_sig))
@@ -1508,7 +1518,7 @@ do i=1,n_vertex_max
                                                     * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep                                             * factor(var_rho,12)&
                        - tgnum_rho * 0.25d0 / BigR * vpar0**2                                                                                                           &
                                  * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                                                                                     &
-                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep                                          * factor(var_rho,12)&
+                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep * factor(var_rho,12) &
 
                       ! -------------------------------------- from kinetic coupling -------------------------------------------------
                        + v * BigR * aux_rho0                                                                                         * xjac * tstep * factor(var_rho,13) 
@@ -1569,7 +1579,12 @@ do i=1,n_vertex_max
                                    - v *((r0+alpha_e*rimp0) * rn0 * Sion_T) * vpar0 * BB2 * BigR                * xjac * tstep * factor(var_vpar,7)&
                                    + v *((r0+alpha_e*rimp0) * (r0-rimp0) * Srec_T) * vpar0 * BB2 * BigR         * xjac * tstep * factor(var_vpar,8)&
                                    ) &
-                                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_star           * xjac * tstep * factor(var_vpar,9)
+                                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_star           * xjac * tstep *factor(var_vpar,9)&
+
+                                ! -------------------------------------- from kinetic coupling -------------------------------------------------
+                                 - v * aux_rho0 * vpar0 * BB2 * BigR * (1.d0 - fact_conservative_u)                     * xjac * tstep * factor(var_vpar,11) &
+                                 + v * BigR * aux_mom_par0                                                              * xjac * tstep * factor(var_vpar,12) 
+                                ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
                                 
                     
               if (normalized_velocity_profile) then
@@ -1598,12 +1613,7 @@ do i=1,n_vertex_max
                            * (                                          + F0 / BigR * v_p)  * xjac * tstep * tstep * factor(var_vpar,6)&
 
             !===============================End of new TG_num terms============================
-                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_k_star             * xjac * tstep * factor(var_vpar,9)& 
-
-            ! -------------------------------------- from kinetic coupling -------------------------------------------------
-              - v * aux_rho0 * vpar0 * BB2 * BigR * (1.d0 - fact_conservative_u)                     * xjac * tstep * factor(var_vpar,11) &
-              + v * BigR * aux_mom_par0                                                              * xjac * tstep * factor(var_vpar,12) 
-            ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
+                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_k_star             * xjac * tstep * factor(var_vpar,9) 
 
             end if ! (with_vpar)
             
@@ -1675,11 +1685,12 @@ do i=1,n_vertex_max
                          ! heating  source for small temperatures
                          +implicit_heat_source*(gamma-1.d0)*v &
                                   *(0.5d0*Tie_min_neg*(1 + exp( (min(Ti0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Ti0,Tie_min_neg))    &
-                                  *xjac*tstep*BigR * factor(var_Ti,13)  &
+                                  *xjac*tstep*BigR * factor(var_Ti,13)&  
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
                          + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,15) &
                          + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,16) &
                          - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,17)
+                         !-(gamma-1.) * v * 0.5d0 * Ti0 * BigR * r0_corr * r0_corr * Srec_T                  * xjac * tstep * factor(var_T,23) & 
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
 
  
@@ -1754,7 +1765,7 @@ do i=1,n_vertex_max
                          ! implicit heating source
                          +implicit_heat_source*(gamma-1.d0)*v                                                                      & 
                             * (0.5d0*Tie_min_neg*(1+exp( (min(Te0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Te0,Tie_min_neg))    &
-                                                                                           * xjac*tstep*BigR  * factor(var_Te,19) &
+                                                                                           * xjac*tstep*BigR  * factor(var_Te,19)& 
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
                          + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20) 
                          !+ (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,21) &
@@ -1892,7 +1903,7 @@ do i=1,n_vertex_max
                              + zeta * v * T0      * delta_g(mp,var_rho,ms,mt) * BigR            * xjac * factor(var_T,10)                     &
                              +implicit_heat_source*(gamma-1.d0)*v &
                              * (0.5d0*T_min_neg*(1 + exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) )) -min(T0,T_min_neg)) &
-                             *                                                                                 xjac*tstep*BigR  * factor(var_T,20) &
+                             *                                                                                 xjac*tstep*BigR  *factor(var_T,20)& 
 
                             ! --------------------------------------- from kinetic coupling -------------------------------------------------
                              + v * BigR * aux_E0                                                                         * xjac * tstep * factor(var_T,24) &
@@ -2916,7 +2927,7 @@ do i=1,n_vertex_max
                                *(1.d0 - fact_conservative_u) &
 
                             ! --------------------------------------------------- from kinetic coupling -------------------------------------------------
-                            + v*aux_rho0*vpar*BB2 * BigR * xjac * theta * tstep * (1.d0 - fact_conservative_u) &
+                            - v*aux_rho0*vpar*BB2 * BigR * xjac * theta * tstep * (1.d0 - fact_conservative_u) &
                             ! ---------------------------------------------end of terms from kinetic coupling ------------------------------------------
 
   
@@ -3266,8 +3277,8 @@ do i=1,n_vertex_max
                                 + v * (r0 + rimp0*alpha_i) * GAMMA * Ti0 * (vpar_s * ps0_t - vpar_t * ps0_s)   * theta * tstep &
 
                       ! --------------------------------- from kinetic coupling -------------------------------------------------
-                                - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                                + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
+                                + (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                - (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
                       ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
                       !===================== Additional terms from friction terms============
@@ -3685,10 +3696,10 @@ do i=1,n_vertex_max
                                       * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep &
                                   + tgnum_Te * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
                                       * (r0+alpha_e_bis*rimp0) * (Te0_x * ps0_y - Te0_y * ps0_x + F0 / BigR * Te0_p)                             &
-                                      * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep &
+                                      * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep  
                     ! --------------------------------- from kinetic coupling -------------------------------------------------
-                                  - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                                  + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep
+                    !              - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                    !              + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep
                     ! ----------------------------end of terms from kinetic coupling ------------------------------------------
     
                       amat_k(var_Te,var_vpar) =  &
@@ -4119,8 +4130,8 @@ do i=1,n_vertex_max
                                              + v * (r0 + rimp0 * alpha_imp) * GAMMA * T0 * (vpar_s * ps0_t - vpar_t * ps0_s)     * theta * tstep &
 
                                             ! --------------------------------- from kinetic coupling -------------------------------------------------
-                                             - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                                             + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & 
+                                             + (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                             - (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & 
                                             ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
 
