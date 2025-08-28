@@ -81,7 +81,7 @@ integer,  parameter :: n_terms_w    = 1
 integer,  parameter :: n_terms_rho  = 13
 integer,  parameter :: n_terms_T    = 26
 integer,  parameter :: n_terms_Te   = 22
-integer,  parameter :: n_terms_Ti   = 17
+integer,  parameter :: n_terms_Ti   = 18
 integer,  parameter :: n_terms_vpar = 12
 integer,  parameter :: n_terms_rhon = 7
 integer,  parameter :: n_terms_rhoimp = 10
@@ -174,7 +174,8 @@ character*36, dimension(n_terms_Ti),    parameter :: Ti_term_names=  &
                                                  'Ti_Eq__visco_heating          ', &  ! 14:
                                                  'Ti_Eq__aux_energy_source      ', &  ! 15:  
                                                  'Ti_Eq__aux_particle_source    ', &  ! 16: 
-                                                 'Ti_Eq__aux_par_momentum_source'/)   ! 17: 
+                                                 'Ti_Eq__aux_par_momentum_source', &  ! 17:
+                                                 'Ti_Eq__recomb_thermal_loss'/)       ! 18:
                                                  
 
 character*36, dimension(n_terms_Te),    parameter :: Te_term_names=  &

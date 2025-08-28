@@ -701,10 +701,10 @@ do i=1,n_vertex_max
           if (use_ncs .or. use_ics) then
               if (use_ncs) aux_rho0 = eq_aux_g(mp,rho_idx_kin,ms,mt)
 #ifdef WITH_TiTe
-              aux_E0_Te = eq_aux_g(mp,E_Te_idx_kin,ms,mt)
-              aux_E0_Ti = eq_aux_g(mp,E_Ti_idx_kin,ms,mt)
+                aux_E0_Te = eq_aux_g(mp,E_Te_idx_kin,ms,mt)
+                aux_E0_Ti = eq_aux_g(mp,E_Ti_idx_kin,ms,mt)
 #else
-              aux_E0 = eq_aux_g(mp,E_idx_kin,ms,mt)
+                aux_E0 = eq_aux_g(mp,E_idx_kin,ms,mt)
 #endif
               aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if
@@ -1249,9 +1249,12 @@ do i=1,n_vertex_max
             source_neutral_drift = max(0.,source_neutral_drift)
 
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
-            
-            call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
-             
+            if (with_TiTe) then
+              call rec_rate_to_kinetic(r0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
+            else
+              call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
+            endif
+
             !> following terms are handled on the kinetic side (mod_particle_evolution.f90)
             LradDrays_T   = 0.d0
             dLradDrays_dT = 0.d0
@@ -1689,8 +1692,8 @@ do i=1,n_vertex_max
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
                          + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,15) &
                          + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,16) &
-                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,17)
-                         !-(gamma-1.) * v * 0.5d0 * Ti0 * BigR * r0_corr * r0_corr * Srec_T                  * xjac * tstep * factor(var_T,23) & 
+                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,17) &
+                         - (gamma-1.d0)* v * 0.5d0 *Ti0 * BigR * r0_corr * r0_corr  * Srec_T     * xjac * tstep * factor(var_Ti,18) 
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
 
  
@@ -1767,7 +1770,7 @@ do i=1,n_vertex_max
                             * (0.5d0*Tie_min_neg*(1+exp( (min(Te0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Te0,Tie_min_neg))    &
                                                                                            * xjac*tstep*BigR  * factor(var_Te,19)& 
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
-                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20) 
+                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20)
                          !+ (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,21) &
                          !- (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Te,22)
                          ! last two terms only for ions?
@@ -3171,6 +3174,8 @@ do i=1,n_vertex_max
                               - v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 * (rho*rn0*Sion_T) * xjac * theta * tstep &
                               - v * BigR * ((GAMMA - 1.)/2.) * vv2            * (rho*rn0*Sion_T) * xjac * theta * tstep &
                              !==============================End of friction terms=================
+
+                              + (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * Ti0             * xjac * theta * tstep & 
 
 
                            + tgnum_Ti* 0.25d0 * BigR**2 * Ti0* (rho_x * u0_y - rho_y * u0_x)         &

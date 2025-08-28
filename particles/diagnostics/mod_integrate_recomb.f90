@@ -193,14 +193,23 @@ enddo
 
         r0    = eq_g(mp,5,ms,mt)
         r0_corr = corr_neg_dens1(r0)
+		
+#ifdef WITH_TiTe
+        T0    = eq_g(mp,8,ms,mt)
+        T0_corr = corr_neg_temp1(T0)
 		  
+        vpar0    = eq_g(mp,7,ms,mt)
+
+        call rec_rate_to_kinetic(r0, T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)
+#else
+
         T0    = eq_g(mp,6,ms,mt)
         T0_corr = corr_neg_temp1(T0)
 		  
         vpar0    = eq_g(mp,7,ms,mt)
-		
-        !> Calculate 
-        call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
+
+        call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)
+#endif
         ! --- Transform derivatives on Te to derivatives in total T	
         dSrec_dT           = dSrec_dT      / 2.d0	
         dLradDcont_dT      = dLradDcont_dT / 2.d0
