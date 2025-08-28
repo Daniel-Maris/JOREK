@@ -701,10 +701,10 @@ do i=1,n_vertex_max
           if (use_ncs .or. use_ics) then
               if (use_ncs) aux_rho0 = eq_aux_g(mp,rho_idx_kin,ms,mt)
 #ifdef WITH_TiTe
-                aux_E0_Te = eq_aux_g(mp,E_Te_idx_kin,ms,mt)
-                aux_E0_Ti = eq_aux_g(mp,E_Ti_idx_kin,ms,mt)
+              aux_E0_Te = eq_aux_g(mp,E_Te_idx_kin,ms,mt)
+              aux_E0_Ti = eq_aux_g(mp,E_Ti_idx_kin,ms,mt)
 #else
-                aux_E0 = eq_aux_g(mp,E_idx_kin,ms,mt)
+              aux_E0 = eq_aux_g(mp,E_idx_kin,ms,mt)
 #endif
               aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if

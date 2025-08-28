@@ -209,13 +209,13 @@ enddo
         vpar0    = eq_g(mp,7,ms,mt)
 
         call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)
-#endif
+
         ! --- Transform derivatives on Te to derivatives in total T	
         dSrec_dT           = dSrec_dT      / 2.d0	
         dLradDcont_dT      = dLradDcont_dT / 2.d0
         dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
-		
-		 
+#endif
+
 		!> neutral density gain in element due to recombination
 		rec_rate_local(ife)   = rec_rate_local(ife)+ (Srec_T * r0_corr * r0_corr)                                      *TWOPI *BigR *xjac *tstep /n_plane *wst ! rho_rec
 		!> momentum density in R,Z, phi direction. rho_rec * v
