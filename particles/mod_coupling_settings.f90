@@ -50,6 +50,14 @@ subroutine check_compatibility_and_determine_coupling_schemes()
       case ('epf')
         use_epf = .true.
       case ('non')
+
+      !ENERGETIC PARTICLE COUPLING - NEED TO WRITE COMPATIBILITY CHECKS
+      case ('epc')
+        use_epc = .true.
+      case ('epp')
+        use_epp = .true.
+      case ('epf')
+        use_epf = .true.
         
       case default
         write(*,*) "ERROR: The coupling scheme '", part_group_configs(group_num)%coupling_scheme, "' is invalid."
