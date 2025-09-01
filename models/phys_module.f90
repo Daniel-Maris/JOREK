@@ -1043,7 +1043,10 @@ module phys_module
     logical             :: use_kin_cx              !< switch on charge-exchange for group 
     logical             :: use_kin_recombination   !< switch on recombination from the plasma fluid to this kinetic neutrals group*
                                                    !  *if 2+ ncs groups are present, how the fluid recombination is divided amongst the groups is not yet implemented
-                                                  
+    logical             :: use_kin_neutral_coll    !< switch on neutral self-collisions*
+                                                   !  *cross collisions between different neutrals species is not yet supported
+                                                   !   For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
+    real*8              :: neutral_coll_dTw(3)     !< the reference diameter d_ref [m], reference temperatrue T_ref [K] and viscosity index omega [-] of the variable hard sphere model for this neutral species
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma

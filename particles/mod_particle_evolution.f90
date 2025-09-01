@@ -138,6 +138,7 @@ contains
     real*8    :: vvector(3), ran_norm(4)
 
     logical   :: limits, limits_coll
+    real*8    :: n_e_raw, T_e_raw
     real*8    :: ionize_rate, ionize_energy, ionize_source, ionize_prob
     real*8    :: cx_rate, cx_energy,  cx_source, cx_prob
     real*8    :: PLT, PRB, Srec, line_rad_energy
@@ -190,7 +191,7 @@ contains
     !$omp parallel do default(none)                                                                       &
 #endif
     !$omp schedule(runtime)                                                                               &
-    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                         &
+    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                            &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
@@ -203,8 +204,8 @@ contains
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
     !$omp density_source, mom_par_source, energy_source, v_old, v_new, T_eV,                              &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
-    !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, delta_E_kin,                                   &
-    !$omp vvector, ran_norm, imp_q_idx_temp)                                                              &
+    !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, delta_E_kin                                    &
+    !$omp vvector, ran_norm, imp_q_idx_temp, n_e_raw, T_e_raw)                                            &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
       particle_tmp = sim%groups(group_num)%particles(j)
@@ -236,7 +237,7 @@ contains
         v_new     = v_old
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
-        call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, grad_T_e)
+        call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
 
         !> loop over impurities groups and calculate their contribution to electron density
         imp_charge_density = 0.d0
@@ -251,7 +252,7 @@ contains
         !> adjust n_e based on impurity charge
         n_e = n_i + max(0.d0, imp_charge_density)
         
-        limits = n_e .le. 1e14 .or. T_e * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
+        limits = n_e_raw .le. 1e14 .or. T_e_raw * K_BOLTZ / EL_CHG .le. 1.d0 !ADAS limits
         
         !> check that particle weight is non negative
         if (particle_tmp%weight .lt. 0.0d0) write(*,*) "Negative particle weight p(j)%w=", particle_tmp%weight
@@ -374,7 +375,8 @@ contains
         ! ============================================ ICS SPECIFIC PHYSICS ===========================================
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
-          limits_coll = T_e > 0.d0 !< limits for collisions
+          limits_coll = T_e_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions [eV]
+
           ! velocities before/after in this substep
           v_old     = particle_tmp%v
           v_new     = v_old
@@ -387,7 +389,7 @@ contains
             particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ionize_ran_imp(1:2)),1)
             
             if (particle_tmp%q .gt. q_old) then
-              binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG ! should this be q or q_old?
+              binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG
               ionize_energy     =  - binding_energy * particle_tmp%weight
               !< including binding energy will make ionize_energy negative, so it becomes a sink for the plasma
             endif
@@ -398,7 +400,7 @@ contains
             call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
             call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
             call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
-            binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q) * EL_CHG ! should this be q or q_old?
+            binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q) * EL_CHG
             radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
           endif ! RADIATION
           

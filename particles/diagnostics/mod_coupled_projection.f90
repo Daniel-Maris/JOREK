@@ -51,6 +51,7 @@ contains
     use mod_particle_sim, only: particle_sim
     use mod_parameters, only: n_tor, n_vertex_max, n_degrees
     use phys_module, only: n_aux_var
+    use data_structure, only: init_node
 
     use mpi_mod
     use mod_event
@@ -88,6 +89,11 @@ contains
     else 
       n_rhs_f = size(this%rhs_f,5)
     end if
+
+    ! reinitialise the storage node_list to ensure all projections fit
+    do i=1, this%node_list%n_nodes
+      call init_node(this%node_list%node(i), n_rhs_f+n_rhs)
+    enddo
 
     this%rhs_vec%nrhs = (n_rhs + n_rhs_f)
     this%rhs_vec%n = this%system_size
@@ -152,7 +158,7 @@ contains
     ! Write the solution to the node_list
     if (this%my_id .eq. 0) then
 
-      do i_var=1,min(n_rhs+n_rhs_f, n_aux_var)
+      do i_var=1,n_rhs+n_rhs_f
     
         found_nan = .false.
         
