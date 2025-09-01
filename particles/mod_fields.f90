@@ -23,7 +23,6 @@ module mod_fields
     procedure, public :: calc_NeTe
     procedure, public :: calc_NeTevpar
     procedure, public :: calc_NeTiTe
-    procedure, public :: calc_NeTiTe2
     procedure, public :: calc_NjTj
     procedure, public :: calc_EBpsiU
     procedure, public :: calc_vvector
@@ -279,66 +278,12 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
   end if
 end subroutine calc_NeTe
 
-pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_i)
-  use phys_module, only: central_density
-  use constants
-  class(fields_base), intent(in)                    :: fields
-  integer, intent(in)                               :: i_elm
-  real*8, intent(in)                                :: time, st(2), phi
-  real*8, intent(out)                               :: n_e !< corrected electron density [m^-3]
-  real*8, intent(out)                               :: T_i !< corrected ion temperature [K]
-  real*8, intent(out)                               :: T_e !< corrected electron temperature [K]
-  real*8, intent(out), optional                     :: n_e_raw !< electron density without correction [m^-3]
-  real*8, intent(out), optional                     :: T_i_raw !< ion temperature without correction [K]
-  real*8, intent(out), optional                     :: T_e_raw !< electron temperature without correction [K]
-  real*8, intent(out), optional, dimension(3)       :: grad_T_i !< gradient of ion temperature [K/m]
-
-  real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
-  real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
-  real*8 :: T_norm !< temperature normalisation
-  real*8 :: n_e_temp, T_i_temp, T_e_temp
-
-  ! assume with_TiTe, with_vpar
-  ! var_rho=5
-  ! var_Ti=6
-  ! var_Te=8
-  call fields%interp_PRZ(time,i_elm,[5,6,8],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
-
-  n_e_temp = central_density * P(1) * 1d20
-  if (present(n_e_raw)) then
-    n_e_raw = n_e_temp
-  end if
-  n_e = max(n_e_temp, 1d16)                           ! plasma density [1/m^3], capped against negative
-
-  T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
-
-  T_i_temp = P(2)*T_norm
-  if (present(T_i_raw)) then
-    T_i_raw = T_i_temp
-  end if
-  T_i = max(T_i_temp, 1.d0) ! temperature capped against going negative
-
-  T_e_temp = P(3)*T_norm
-  if (present(T_e_raw)) then
-    T_e_raw = T_e_temp
-  end if
-  T_e = max(T_e_temp, 1.d0) ! temperature capped against going negative
-
-  ! TODO: do we need sep. ion and electron versions of this?
-  if (present(grad_T_i)) then
-
-    xjac = R_s * Z_t - R_t * Z_s
-    grad_T_i = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
-                     (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
-                     P_phi(2)/R]
-  end if
-end subroutine calc_NeTiTe
 
 !> Calculates electron density and temperatures (Te and optional Ti) at a specific position
 !> (element i_elm, local coords st, toroidal angle phi) and time time.
 !> Returns corrected SI values and, if requested, raw values and temperature gradients,
 !> supports both one- and two-temperature models.
-pure subroutine calc_NeTiTe2(fields,time,i_elm,st,phi,                   &
+pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
                             n_e,T_i,T_e,                                &
                             n_e_raw,T_i_raw,T_e_raw,                    &
                             grad_T_i,grad_T_e)
@@ -363,7 +308,7 @@ pure subroutine calc_NeTiTe2(fields,time,i_elm,st,phi,                   &
   real*8               :: T_norm, n_norm, n_e_temp
   real*8               :: T_i_temp, T_e_temp
   integer              :: ii_Ti, ii_Te
-  logical              :: need_Ti, need_Te, need_grad, same_T
+  logical              :: need_Ti, need_grad, same_T
 
   ! normalizations
   T_norm = 1.d0 / (K_BOLTZ * 2.d0 * MU_ZERO * central_density * 1.d20)
@@ -371,7 +316,6 @@ pure subroutine calc_NeTiTe2(fields,time,i_elm,st,phi,                   &
 
   ! what do we actually need?
   need_Ti   = present(T_i) .or. present(T_i_raw) .or. present(grad_T_i)
-  need_Te   = .true.      .or. present(T_e_raw)  .or. present(grad_T_e)   ! T_e is required anyway
   need_grad = present(grad_T_i) .or. present(grad_T_e)
 
   ! interpolate fields
@@ -409,8 +353,8 @@ pure subroutine calc_NeTiTe2(fields,time,i_elm,st,phi,                   &
   ! gradients (only if requested)
   if (need_grad) then
     xjac = R_s * Z_t - R_t * Z_s
-    if (present(grad_T_i) .and. present(grad_T_e) .and. same_T) then
-      ! 1-T case (or any case ii_Ti==ii_Te):
+    if (same_T) then
+      ! 1-T case:
       grad_T_e = grad_of(ii_Te, xjac, R, P_s, P_t, P_phi, T_norm)
       grad_T_i = grad_T_e
     else
@@ -436,8 +380,7 @@ contains
     g(2) = T_norm * ((- P_s(ii) * R_t + P_t(ii) * R_s) * inv_xjac)
     g(3) = T_norm * (  P_phi(ii) * inv_R )
   end function grad_of
-
-end subroutine calc_NeTiTe2
+end subroutine calc_NeTiTe
 
 
 pure subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
