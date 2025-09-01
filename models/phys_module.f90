@@ -1093,6 +1093,7 @@ module phys_module
     ! =============== for energetic particles ('epc', 'epp', 'epf' coupling schemes) ==========
     real*8              :: T_maxwell               !< Maxwellian temperature [eV] for the energetic particles
     integer             :: n_phi_planes            !< number of phi planes to copy initialised particles around
+    real*8              :: n_particles_total       !< Total number of particles to simulate (ie sum(weights)) !!NOT n_particles - total number of super/numeric-particles
 
   end type type_part_group_config
 

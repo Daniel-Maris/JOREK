@@ -89,18 +89,29 @@ module mod_initialise_particles
     type(type_part_group_config)       :: config
     real*8                             :: T_maxwell
     integer                            :: n_phi_planes_in
+    real*8                            :: n_particles_total
 
     config = part_group_configs(matching_part_config_indices(group_num))
     init_function_name = config%init_function
     T_maxwell = config%T_maxwell
     n_phi_planes_in = config%n_phi_planes
+    n_particles_total = config%n_particles_total
 
     select case (trim(init_function_name))
     case ("maxwell")
-      if (sim%my_id == 0) write(*,*) "Using the initialise_particles_h_mu_psi_phiplanes subroutine"
+
+      !> Initialise particles via a maxwellian distribution
+      if (sim%my_id == 0) write(*,*) " Using the initialise_particles_h_mu_psi_phiplanes subroutine"
       call initialise_particles_H_mu_psi_phiplanes(sim%groups(group_num)%particles, sim%fields, pcg32_rng(),sim%groups(group_num)%mass, T_maxwell=T_maxwell, n_phi_planes_in=n_phi_planes_in)
+
+      !> Adjust particle weights so sum(weights) = n_particles_total
+      call adjust_particle_weights(sim%groups(group_num)%particles, n_particles_total)
       if (sim%my_id == 0) then
         write(*,*) "----- Finished initialisation for group '", config%id, "' with coupling scheme '", config%coupling_scheme, "' -----"
+        write(*,'(A,ES12.2)')   " Number of super particles    : ", config%n_particles
+        write(*,'(A,ES12.2)')   " Total number of particles    : ", n_particles_total
+        write(*,'(A,ES12.2)')   " Particle weights adjusted to : ", sim%groups(group_num)%particles(1)%weight
+        write(*,'(A,ES12.2,A)') " Temperature of Maxwellian    : ", T_maxwell, "[eV]"
         write(*,*) ""
       endif
     case default
