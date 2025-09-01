@@ -205,16 +205,16 @@ contains
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin,                                                                   &
 #ifdef WITH_TiTe
-    !$omp E_Te_idx_kin, E_Ti_idx_kin, grad_T_i,                                                                   &
+    !$omp E_Te_idx_kin, E_Ti_idx_kin,                                                                   &
 #else
-    !$omp E_idx_kin, grad_T_e,                                                                                     &
+    !$omp E_idx_kin,                                                                                     &
 #endif
     !$omp imp_q_idx, ics_indices_kin,                                                                     &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
     !$omp private(particle_tmp, i_rng, i, j, k, l, m, t, E, B, psi, U, rz_old, st_old,                    &
     !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, q_old,      &
     !$omp ionize_rate, ionize_prob, ionize_ran, ionize_ran_imp, ionize_source, ionize_energy,             &
-    !$omp cx_rate, cx_prob, cx_source, cx_energy, cx_ran,                                                 &
+    !$omp cx_rate, cx_prob, cx_source, cx_energy, cx_ran, grad_T_i,                                               &
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
     !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,                  &
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
