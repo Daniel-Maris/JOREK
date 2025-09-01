@@ -317,13 +317,13 @@ contains
               v_new = v_new + vvector 
 
               CX_source = particle_tmp%weight
+              !> Compute kinetic energy change to plasma due to velocity change in this substep
+              delta_E_kin = 0.5d0 * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT * particle_tmp%weight &
+                        * (dot_product(v_old,v_old) - dot_product(v_new,v_new))
+              cx_energy   = delta_E_kin  !< for diagnostics only
             endif ! cx_ran
           endif ! CHARGE EXCHANGE
 
-          !> Compute kinetic energy change to plasma due to velocity change in this substep
-          delta_E_kin = 0.5d0 * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT * particle_tmp%weight &
-                        * (dot_product(v_old,v_old) - dot_product(v_new,v_new))
-          cx_energy   = delta_E_kin  !< for diagnostics only
           
           !> check that the energy feedback is valid
           if (isnan(ionize_source * ionize_energy + delta_E_kin - line_rad_energy)) then
@@ -375,6 +375,9 @@ contains
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
           limits_coll = T_e > 0.d0 !< limits for collisions
+          ! velocities before/after in this substep
+          v_old     = particle_tmp%v
+          v_new     = v_old
 
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
@@ -427,14 +430,11 @@ contains
   
               do l=1,n_coll
                 call rng(i_rng)%next(ran)
-                call collide_particles(ran(1:3), particle_tmp%q, sim%groups(group_num)%mass, particle_tmp%v, &
+                call collide_particles(ran(1:3), particle_tmp%q, sim%groups(group_num)%mass, v_new, &
                     q_b, m_b, v_b(:,l), n_b, coulomb_log, tstep_part_adj/real(n_coll,8))
               end do
             end if
           endif ! COLLISIONS
-          
-          !> velocities after any ICS processes in this substep
-          v_new = particle_tmp%v
           
           !> kinetic energy change transferred to plasma fluid this substep
           delta_E_kin = 0.5d0 * particle_tmp%weight * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &
