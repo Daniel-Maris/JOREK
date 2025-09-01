@@ -299,7 +299,7 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
   real*8, intent(out),  optional                    :: T_i_raw, T_e_raw     !< raw Ti/Te [K]
   real*8, intent(out),  optional, dimension(3)      :: grad_T_i, grad_T_e   !< grad(corrected Ti/Te) [K/m]
 
-#if WITH_TiTe
+#ifdef WITH_TiTe
   real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
 #else
   real*8, dimension(2) :: P, P_s, P_t, P_phi, P_time
@@ -307,8 +307,11 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
   real*8               :: T_norm, n_norm, n_e_temp
   real*8               :: T_i_temp, T_e_temp
+  real*8               :: tmp_g(3)
   integer              :: ii_Ti, ii_Te
   logical              :: need_Ti, need_grad, same_T
+  real*8, parameter    :: N_FLOOR = 1.d16
+  real*8, parameter    :: T_FLOOR = 1.d0
 
   ! normalizations
   T_norm = 1.d0 / (K_BOLTZ * 2.d0 * MU_ZERO * central_density * 1.d20)
@@ -319,7 +322,7 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
   need_grad = present(grad_T_i) .or. present(grad_T_e)
 
   ! interpolate fields
-#if defined(WITH_TiTe) || defined(with_TiTe)
+#ifdef WITH_TiTe
   call fields%interp_PRZ(time,i_elm,[var_rho,var_Ti,var_Te],3,st(1),st(2),phi, &
                          P,P_s,P_t,P_phi,P_time,                               &
                          R,R_s,R_t,Z,Z_s,Z_t)
@@ -335,19 +338,19 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
   ! density
   n_e_temp = P(1) * n_norm
   if (present(n_e_raw)) n_e_raw = n_e_temp
-  n_e = max(n_e_temp, 1.d16)
+  n_e = max(n_e_temp, N_FLOOR)
 
   ! temperatures
   ! compute Te (required)
   T_e_temp = P(ii_Te) * T_norm
   if (present(T_e_raw)) T_e_raw = T_e_temp
-  T_e = max(T_e_temp, 1.d0)
+  T_e = max(T_e_temp, T_FLOOR)
 
   ! compute Ti only if requested (in 1-T, this is the same component anyway)
   if (need_Ti) then
     T_i_temp = P(ii_Ti) * T_norm
     if (present(T_i_raw)) T_i_raw = T_i_temp
-    if (present(T_i))     T_i     = max(T_i_temp, 1.d0)
+    if (present(T_i))     T_i     = max(T_i_temp, T_FLOOR)
   end if
 
   ! gradients (only if requested)
@@ -355,8 +358,9 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
     xjac = R_s * Z_t - R_t * Z_s
     if (same_T) then
       ! 1-T case:
-      grad_T_e = grad_of(ii_Te, xjac, R, P_s, P_t, P_phi, T_norm)
-      grad_T_i = grad_T_e
+      tmp_g = grad_of(ii_Te, xjac, R, P_s, P_t, P_phi, T_norm)
+      if (present(grad_T_e)) grad_T_e = tmp_g
+      if (present(grad_T_i)) grad_T_i = tmp_g
     else
       if (present(grad_T_i)) grad_T_i = grad_of(ii_Ti, xjac, R, P_s, P_t, P_phi, T_norm)
       if (present(grad_T_e)) grad_T_e = grad_of(ii_Te, xjac, R, P_s, P_t, P_phi, T_norm)
