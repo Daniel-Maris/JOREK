@@ -251,7 +251,7 @@ contains
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
         
 #ifdef WITH_TiTe
-          call sim%fields%calc_NeTiTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3),n_e,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_i)
+          call sim%fields%calc_NeTiTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3),n_i,T_i,T_e,n_e_raw,T_i_raw,T_e_raw,grad_T_i)
           limits_coll = T_i_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions
 #else
           ! Note to self: if with_TiTe this will get Te
