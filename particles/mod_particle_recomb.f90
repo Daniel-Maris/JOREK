@@ -114,7 +114,7 @@ module mod_particle_recomb
       !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
       !$omp parallel do default(shared) &
-      !$omp shared(sim, jorek_stepper, element_list, node_list, target_group, rec_v_R,rec_v_Z,rec_v_phi, &
+      !$omp shared(sim, particles,jorek_stepper, element_list, node_list, target_group, rec_v_R,rec_v_Z,rec_v_phi, &
       !$omp i_free,rng,rec_rate_local, &
       !$omp CENTRAL_DENSITY, CENTRAL_MASS,sqrt_mu0_over_rho0,particles_per_element ) &
 #endif

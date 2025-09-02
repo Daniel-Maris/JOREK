@@ -3,6 +3,8 @@
 !> Sources cited in this file: 
 !> [1]: Bird, G. A. (1994). Molecular Gas Dynamics and the Direct Simulation of Gas Flows.
 !> [2]: Liebermann (2005). Principles of Plasma Discharges and Materials Processing.
+!>
+!> For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
 module mod_neutral_collision
   use mod_particle_types
   use constants
@@ -11,6 +13,7 @@ module mod_neutral_collision
   use phys_module, only: tstep, n_period, use_manual_random_seed,n_plane !< we need the intrinsic fortran gamma function so have to use only
   use mod_interp, only: interp_RZ, interp_0
   use mod_event, only: mpi_minmeanmax
+  use mod_particle_sorting
   use mpi
   use nodes_elements
   
@@ -32,12 +35,6 @@ module mod_neutral_collision
     procedure :: initialize
     procedure :: do => neutral_self_collision
   end type 
-
-  !> an object containing the array of particle indices of particles in this element 
-  !> s.t. an array of these objects can store all particle indices as array per element
-  type :: indices_in_elm
-    integer, dimension(:), allocatable :: pa_ind
-  end type
 
   !> object to store an index array to randomly draw from the unused indices
   type :: random_draw
@@ -68,6 +65,8 @@ contains
 !> (which would create a new particle for every colliding pair), it is impossible to conserve both momentum and energy.
 !> It is chosen to conserve energy and keep the large angle scattering behaviour also for the heavier particle to ensure
 !> the correct diffusive behaviour.
+!>
+!> For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
 subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   implicit none
 
@@ -93,16 +92,12 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   
   ! arrays used for determining sorted_ind_arr
   integer, dimension(:),       allocatable :: pa_in_elm_arr     !< number of particles in the element (n_elm)
-  integer, dimension(:),       allocatable :: pa_elm_arr        !< precalculated pa(:)%i_elm for faster masking over i_elm  (n_pa)
-  integer, dimension(:,:),     allocatable :: pa_in_thread_arr  !< number of particles in the thread for this element (n_elm, n_thread)
-  integer, dimension(:,:),     allocatable :: offset_thread_arr !< offset of this thread's contribution to sorted_ind_arr for this element (n_elm, n_thread)
-  integer, dimension(:,:),     allocatable :: i_loc_thread_arr  !< ith particle index insertion into sorted_ind_arr for this element by this thread (n_elm, n_thread)
 
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: i, j, i_elm, i_loc, i_global, i_phi, is, it, ns, nt, i_pair, n_elm
   integer :: pa_in_elm !< number of particles in the element under consideration
   integer :: n_pa_bin  !< number of particles in this collisional bin
-  integer :: i_thread, n_thread
+  integer :: i_thread
 
   real*8 :: P_real  !< [chance] chance that this particle will collide (with anything) this timestep, P_real = n \sigma_T v_r dt
   real*8 :: P_try   !< [chance] rescaled chance of this pair colliding P_try = P_real / P_max_elm(i_elm)
@@ -173,10 +168,6 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   
     n_elm = sim%fields%element_list%n_elements
     
-    i_thread = 1 !default if not using OMP
-    n_thread = 1
-    !$ n_thread = omp_get_max_threads()
-    
     global_diag(:)=0.d0
 
     ! for now it is assumed that having n_plane toroidal bins is enough locality in the toroidal direction. 
@@ -184,85 +175,8 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     ! (just as the number of s and t bins scale as such)
     n_phi = n_plane
     
-    ! --- sorting the particle indices into arrays by their element number
-    ! the goal is to deterministically sort the particle indices into arrays per element
-    if(allocated(pa_elm_arr)) deallocate(pa_elm_arr)
-    allocate(pa_elm_arr(size(pa)))
-    pa_elm_arr = 0
-    if(.not. allocated(pa_in_elm_arr)) allocate(pa_in_elm_arr(n_elm))
-    pa_in_elm_arr = 0
-    if(allocated(pa_in_thread_arr)) deallocate(pa_in_thread_arr)
-    allocate(pa_in_thread_arr(n_elm,n_thread))
-    pa_in_thread_arr = 0
-    
-    !find out how many particles per element and thread
-#ifdef __GFORTRAN__
-    !$omp parallel do default(none)  &
-    !$omp shared(sim,pa_elm_arr,pa_in_thread_arr)      &
-#else
-    !$omp parallel do default(shared)  &
-    !$omp shared(pa_elm_arr,pa_in_thread_arr)      &
-#endif
-    !$omp private(i_elm, i_thread)   &
-    !$omp schedule(static,100)
-    do i=1,size(pa)
-      !$ i_thread = omp_get_thread_num()+1
-      i_elm = pa(i)%i_elm
-      if(i_elm < 1) cycle
-      pa_elm_arr(i) = i_elm
-      pa_in_thread_arr(i_elm,i_thread) = pa_in_thread_arr(i_elm,i_thread) + 1
-    end do
-    !$omp end parallel do
-
-    !find out how many particles per element total, and getting the offset of each thread 
-    !so that each thread writes to its own part of the sorted_ind_arr(i_elm)%pa_ind(:) array later on
-    if(allocated(offset_thread_arr)) deallocate(offset_thread_arr)
-    allocate(offset_thread_arr(n_elm,n_thread))
-    !$omp parallel do default(none)  &
-    !$omp shared(pa_in_elm_arr,pa_in_thread_arr,offset_thread_arr,n_thread,n_elm) &
-    !$omp private(i_thread)
-    do i_elm=1,n_elm
-      pa_in_elm_arr(i_elm) = sum(pa_in_thread_arr(i_elm,:))
-      
-      !the offset must be the sum over the particles in that element of lower thread numbers, we can determine this iteratively from the previous offset
-      offset_thread_arr(i_elm,1) = 0
-      do i_thread=2,n_thread
-        offset_thread_arr(i_elm,i_thread) = offset_thread_arr(i_elm,i_thread - 1) + pa_in_thread_arr(i_elm,i_thread - 1)
-      end do
-    end do
-    !$omp end parallel do
-
-    !allocating sorted_ind_arr object
-    if(.not. allocated(sorted_ind_arr)) allocate(sorted_ind_arr(n_elm))
-    !$omp parallel do default(none) &
-    !$omp shared(pa_in_elm_arr, sorted_ind_arr, n_elm)
-    do i_elm=1,n_elm
-      if(allocated(sorted_ind_arr(i_elm)%pa_ind)) deallocate(sorted_ind_arr(i_elm)%pa_ind) ! this can be done here as we know size(sorted_ind_arr)=n_elm is fixed
-      allocate(sorted_ind_arr(i_elm)%pa_ind(pa_in_elm_arr(i_elm)))
-    end do
-    !$omp end parallel do
-
-    !filling sorted_ind_arr object
-    if(allocated(i_loc_thread_arr)) deallocate(i_loc_thread_arr)
-    allocate(i_loc_thread_arr(n_elm,n_thread))
-    i_loc_thread_arr = 1
-    !$omp parallel do default(none)                     &
-    !$omp shared(pa_elm_arr, offset_thread_arr, i_loc_thread_arr, sorted_ind_arr) &
-    !$omp private(i_elm, i_loc, i_thread) &
-    !$omp schedule(static,100)
-    do i=1,size(pa_elm_arr)
-      !$ i_thread = omp_get_thread_num()+1
-      i_elm = pa_elm_arr(i)
-      if(i_elm < 1) cycle
-      !for the first particle in i_thread=1, offset=0, 
-      i_loc = offset_thread_arr(i_elm,i_thread) + i_loc_thread_arr(i_elm,i_thread) 
-      i_loc_thread_arr(i_elm,i_thread) = i_loc_thread_arr(i_elm,i_thread) + 1
-      sorted_ind_arr(i_elm)%pa_ind(i_loc) = i
-    end do
-    !$omp end parallel do
-    deallocate(i_loc_thread_arr)
-    deallocate(offset_thread_arr)
-    deallocate(pa_elm_arr)
+    ! sorting the particle indices into arrays by their element number
+    call sort_particles_in_elm(sim%groups(this%group_num)%particles,n_elm,sorted_ind_arr,pa_in_elm_arr)
 
     max_n_pa = 0
     P_max_mpi = 0
@@ -286,6 +200,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     !$omp sigma_T, P_try, P_real, N_try, i_thread, RN, Theta, alpha, v1f, v2f, i_loc, i_loc_bin) &
     !$omp reduction(+:global_diag) reduction(max:max_n_pa, P_max_mpi)
     do i_elm=1,n_elm
+      i_thread = 1 !default if not using OMP
       !$ i_thread = omp_get_thread_num()+1
       
       if(allocated(i_pa_elm)) deallocate(i_pa_elm)
@@ -447,7 +362,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
               !diagnostics
               global_diag(i_sigma_av) = global_diag(i_sigma_av) + sigma_T
               global_diag(i_d_av)     = global_diag(i_d_av)     + sqrt(sigma_T/PI)
-              global_diag(i_P_av)     = global_diag(i_P_av)     + P_real
+              global_diag(i_P_av)     = global_diag(i_P_av)     + max(P_real,0.d0) ! we want to count negative P_real as 0 for the average collision chance
               global_diag(i_n_pairs)  = global_diag(i_n_pairs)  + 1
               if (P_real > P_max_mpi) P_max_mpi = P_real
               
@@ -489,7 +404,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
                   pa2%v = v_g * v2f / norm2(v2f)
                 end if 
 
-                global_diag(i_w_col) = global_diag(i_w_col) + 2*w_s
+                global_diag(i_w_col) = global_diag(i_w_col) + w1 + w2
                 global_diag(i_n_col) = global_diag(i_n_col) + 2
                 
                 ! copy back into MPI pa array (with generic assignment =)
@@ -537,7 +452,7 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     if(sim%my_id .eq. 0) then
       write(*,"(A,2I8,2es15.5)") "max (pa in elm/pa in bin/P_real/min tau) =",max_n_pa_gl,P_max_global,dt/nonzero(P_max_global)
       write(*,"(A,2es15.5)") "P_max_elm rescale values (min/max) ",P_max_elm_min_red,P_max_elm_max_red
-      if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles have been tried more than once for collisions"
+      if(P_max_elm_max_red .ge. 1) write(*,"(A)") "WARNING: some particles will be tried more than once for collisions"
       if(reduced_global_diag(i_Pgt1) > 0.5) write(*,"(A,I10.0,A,I10.0,A)") "WARNING: P_try>1 for ",nint(reduced_global_diag(i_Pgt1))," out of ",nint(reduced_global_diag(i_n_pairs))," collision attempts during this timestep"
   
       !getting the averages by dividing the sum by number of pairs
@@ -618,7 +533,7 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
     if(id == "non") cycle
     if(.not. part_group_configs(i)%use_kin_neutral_coll) then
       if(any(abs(part_group_configs(i)%neutral_coll_dTw(:) + 1.d99)/1.d99 > 1.d-10)) then ! dTw was changed while use_kin_neutral_coll=.false.
-        if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.false. but part_group_configs(",i,")%neutral_coll_dTw has been set. If you want to use neutral collisions you need to set part_group_configs(",i,")%use_kin_neutral_coll=.true and define the three parameters of part_group_configs(",i,")%neutral_coll_dTw. Aborting."
+        if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.false. but part_group_configs(",i,")%neutral_coll_dTw has been set. If you want to use neutral collisions you need to set part_group_configs(",i,")%use_kin_neutral_coll=.true and define the three parameters of part_group_configs(",i,")%neutral_coll_dTw. Aborting."
         stop
       end if  
       cycle
@@ -646,7 +561,7 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
       if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%use_kin_neutral_coll=.true. but not all parameters in part_group_configs(",i,")%neutral_coll_dTw have been defined. Please set the reference collisional diameter, temperature and viscosity index part_group_configs(",i,")%neutral_coll_dTw. Aborting."
       stop
     else if(any(part_group_configs(i)%neutral_coll_dTw(:) < 0)) then
-      if(sim%my_id == 0) write(*,"(A,I2,A,2es14.4,A)") "ERROR: negative values in part_group_configs(",i,")%neutral_coll_dTw=",part_group_configs(i)%neutral_coll_dTw," Please check your input. Aborting."
+      if(sim%my_id == 0) write(*,"(A,I2,A,3es14.4,A)") "ERROR: negative values in part_group_configs(",i,")%neutral_coll_dTw=",part_group_configs(i)%neutral_coll_dTw," Please check your input. Aborting."
       stop
     end if
     group_num = group_num_from_id(sim, id)

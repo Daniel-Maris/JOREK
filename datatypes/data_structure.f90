@@ -305,7 +305,7 @@ contains
     use omp_lib
     !$OMP PARALLEL shared(nbthreads)
     !$OMP master
-    call omp_set_dynamic(0)
+    call omp_set_dynamic(.false.)
     nbthreads = omp_get_num_threads()
     !$OMP end master
     !$OMP barrier
@@ -417,4 +417,5 @@ contains
   end subroutine del_thread_buffers
 
 end module data_structure
+
 

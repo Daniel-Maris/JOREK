@@ -224,7 +224,9 @@ do i=1, n_local_elms !=== do elements
       apply_dirichlet_1234 = .true.
       apply_dirichlet_all  = .false.
 
-      if (     (node_list%node(inode)%boundary .eq. 12) &
+      if (     (node_list%node(inode)%boundary .eq.  2) &
+          .or. (node_list%node(inode)%boundary .eq.  3) &
+          .or. (node_list%node(inode)%boundary .eq. 12) &
           .or. (node_list%node(inode)%boundary .eq. 20) &
           .or. (node_list%node(inode)%boundary .eq. 21)) &
       then

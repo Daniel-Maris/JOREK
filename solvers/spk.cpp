@@ -177,7 +177,7 @@ extern "C" void spk_solve_multiple(int_all* n_, int_all* nrhs_, int_all ** dist_
   StrumpackSparseSolverMPIDist<double,int_all>* spss= *spss_;
 
   MPI_Comm comm=MPI_Comm_f2c(*comm_);
-  int rank,P;
+  int thread_level,rank,P;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &P);
   std::chrono::steady_clock::time_point t0, t1;
@@ -203,11 +203,11 @@ extern "C" void spk_solve_multiple(int_all* n_, int_all* nrhs_, int_all ** dist_
   x_glob.assign(n*nrhs,0);
   x_buf.assign(n*nrhs,0);
 
-for (int_all j=0; j<nrhs; j++) {
+for (int_all j=0; j<nrhs; j++)
   #pragma omp for
   for (int_all i=dist[rank]; i<dist[rank+1]; i++)
     x_buf[i+n*j]=x(i-dist[rank], j);
-}
+
   MPI_Allreduce(x_buf.data(), x_glob.data(), n*nrhs, MPI_DOUBLE_PRECISION, MPI_SUM, comm);
 
   t1 = std::chrono::steady_clock::now();
@@ -239,7 +239,7 @@ extern "C" void spk_solve(int_all* n_, int_all ** dist_, double** rhs_,
   StrumpackSparseSolverMPIDist<double,int_all>* spss= *spss_;
 
   MPI_Comm comm=MPI_Comm_f2c(*comm_);
-  int rank,P;
+  int thread_level,rank,P;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &P);
   std::chrono::steady_clock::time_point t0, t1;

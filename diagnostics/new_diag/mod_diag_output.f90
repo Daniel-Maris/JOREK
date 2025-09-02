@@ -344,9 +344,11 @@ module mod_diag_output
         write(*,*) ierr
         return
       end if
-      if ( (present(append) .and. (append)) .and. (present(blanks) .and. (blanks)) ) then
-        write(i_file,*)
-        write(i_file,*)
+      if ( present(append) .and. present(blanks) ) then
+        if ( append .and. blanks ) then
+          write(i_file,*)
+          write(i_file,*)
+        end if
       end if
     else
       i_file = STDOUT
@@ -354,7 +356,7 @@ module mod_diag_output
     end if
     
   end subroutine open_ascii_file
-  !.and. * .a
+  
   
   
   
