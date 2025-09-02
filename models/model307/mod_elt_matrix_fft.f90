@@ -767,7 +767,7 @@ do i=1,n_vertex_max
 
           D_prof      = get_dperp (psi_norm)
           D_par_local = D_par
-          ZK_prof     = get_zkperp(psi_norm)*max(r0, 1.d-2)
+          ZK_prof     = get_zkperp(psi_norm)
 
           ! --- Increase diffusivity if very small density/temperature
           if (xpoint2) then
