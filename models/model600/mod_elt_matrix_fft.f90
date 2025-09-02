@@ -1693,7 +1693,7 @@ do i=1,n_vertex_max
                          + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,15) &
                          + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,16) &
                          - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,17) &
-                         - (gamma-1.d0)* v * 0.5d0 *Ti0 * BigR * r0_corr * r0_corr  * Srec_T     * xjac * tstep * factor(var_Ti,18) 
+                         - v * Ti0 * BigR * r0_corr * r0_corr  * Srec_T                              * xjac * tstep * factor(var_Ti,18) 
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
 
  
@@ -1885,7 +1885,7 @@ do i=1,n_vertex_max
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * LradDcont_corr * xjac * tstep * factor(var_T,14) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * frad_bg                               * xjac * tstep * factor(var_T,15) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * rimp0_corr * Lrad                     * xjac * tstep * factor(var_T,16) &
-                             -(GAMMA-1.) * v * 0.5d0 * T0 * BigR * r0_corr * r0_corr * Srec_T                  * xjac * tstep * factor(var_T,23) & ! ion thermal energy lost from plasma due to recombination
+                             - v * T0 * BigR * r0_corr * r0_corr * Srec_T                                      * xjac * tstep * factor(var_T,23) & ! ion thermal energy lost from plasma due to recombination
 
                              ! Additional energy teleportation term for plasmoid drift
                              + v * BigR * power_dens_teleport_ju                                * xjac * tstep * factor(var_T,18) &
@@ -2930,7 +2930,7 @@ do i=1,n_vertex_max
                                *(1.d0 - fact_conservative_u) &
 
                             ! --------------------------------------------------- from kinetic coupling -------------------------------------------------
-                            - v*aux_rho0*vpar*BB2 * BigR * xjac * theta * tstep * (1.d0 - fact_conservative_u) &
+                            + v*aux_rho0*vpar*BB2 * BigR * xjac * theta * tstep * (1.d0 - fact_conservative_u) &
                             ! ---------------------------------------------end of terms from kinetic coupling ------------------------------------------
 
   
@@ -3175,7 +3175,7 @@ do i=1,n_vertex_max
                               - v * BigR * ((GAMMA - 1.)/2.) * vv2            * (rho*rn0*Sion_T) * xjac * theta * tstep &
                              !==============================End of friction terms=================
 
-                              + (gamma-1.d0)*v * BigR * rho * r0_corr * Srec_T * Ti0             * xjac * theta * tstep & 
+                              + 2.d0 * v * BigR * rho * r0_corr * Srec_T * Ti0             * xjac * theta * tstep &
 
 
                            + tgnum_Ti* 0.25d0 * BigR**2 * Ti0* (rho_x * u0_y - rho_y * u0_x)         &
@@ -3282,8 +3282,8 @@ do i=1,n_vertex_max
                                 + v * (r0 + rimp0*alpha_i) * GAMMA * Ti0 * (vpar_s * ps0_t - vpar_t * ps0_s)   * theta * tstep &
 
                       ! --------------------------------- from kinetic coupling -------------------------------------------------
-                                + (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                                - (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
+                                - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
                       ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
                       !===================== Additional terms from friction terms============
@@ -4135,8 +4135,8 @@ do i=1,n_vertex_max
                                              + v * (r0 + rimp0 * alpha_imp) * GAMMA * T0 * (vpar_s * ps0_t - vpar_t * ps0_s)     * theta * tstep &
 
                                             ! --------------------------------- from kinetic coupling -------------------------------------------------
-                                             + (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                                             - (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & 
+                                             - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                             + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep & 
                                             ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
 
