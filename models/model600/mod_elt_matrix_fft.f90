@@ -1885,7 +1885,7 @@ do i=1,n_vertex_max
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * (r0_corr-rimp0_corr) * LradDcont_corr * xjac * tstep * factor(var_T,14) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * frad_bg                               * xjac * tstep * factor(var_T,15) &
                              - v * BigR * (r0_corr+alpha_e*rimp0_corr) * rimp0_corr * Lrad                     * xjac * tstep * factor(var_T,16) &
-                             - v * T0 * BigR * r0_corr * r0_corr * Srec_T                                      * xjac * tstep * factor(var_T,23) & ! ion thermal energy lost from plasma due to recombination
+                             - v * 0.5d0 * T0 * BigR * r0_corr * r0_corr * Srec_T                              * xjac * tstep * factor(var_T,23) & ! ion thermal energy lost from plasma due to recombination
 
                              ! Additional energy teleportation term for plasmoid drift
                              + v * BigR * power_dens_teleport_ju                                * xjac * tstep * factor(var_T,18) &
@@ -3236,6 +3236,8 @@ do i=1,n_vertex_max
                               + ZK_i_perp_num_psin*(v_xx + v_x/BigR + v_yy)*(Ti_xx + Ti_x/BigR + Ti_yy) * BigR * xjac * theta * tstep &
   
   !!!!                            -v * Te * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0 * BigR * xjac * theta * tstep &
+
+                              + v * bigR * Ti * r0_corr * r0_corr * Srec_T                    * xjac * theta * tstep &
   
                               + tgnum_Ti* 0.25d0 * BigR**2 * Ti* ((r0_x+alpha_i*rimp0_x)*u0_y - (r0_y+alpha_i*rimp0_y)*u0_x)         &
                                         * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep  &
