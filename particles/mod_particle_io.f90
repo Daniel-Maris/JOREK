@@ -595,50 +595,28 @@ mpi_comm_in,mpi_info_in,test_in)
 
         !> Setting attributes ------------------------
 
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Setting group attributes for group ", i
-        endif
         sim%groups(i)%Z = tmp_Z
         sim%groups(i)%mass = tmp_mass
         sim%groups(i)%coupling_scheme = tmp_cs
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Group attributes set: Z=", tmp_Z, ", mass=", tmp_mass, ", coupling_scheme=", tmp_cs
-        endif
-
         ! overriding n_particles_tot from import with n_particles from config
         sim%groups(i)%n_particles = config%n_particles
         n_particles_tot(1) = config%n_particles
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Overridden n_particles: ", config%n_particles
-        endif
-
+  
         !> adas data
         sim%groups(i)%ad%suffix = config%atom_data_suffix
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Setting adas suffix: ", config%atom_data_suffix
-        endif
         if((len_trim(sim%groups(i)%ad%suffix).gt.0).and.(.not.test)) then
           if (trim(adas_dir) .eq. '') then
-            if (sim%my_id == master_task) then
-              write(*,*) "DEBUG: Reading adf11 without adas_dir"
-            endif
             sim%groups(i)%ad = read_adf11(sim%my_id,sim%groups(i)%ad%suffix)
           else
-            if (sim%my_id == master_task) then
-              write(*,*) "DEBUG: Reading adf11 with adas_dir: ", trim(adas_dir)
-            endif
             sim%groups(i)%ad = read_adf11(sim%my_id,sim%groups(i)%ad%suffix,trim(adas_dir))
           endif
           sim%groups(i)%cor = coronal(sim%groups(i)%ad) 
-          if (sim%my_id == master_task) then
-            write(*,*) "DEBUG: Coronal data set for group ", i
-          endif
         endif
 
         !> compute the number of particles per processor and allocate particle array ---------
         n_particles_per_mpi_array = calc_n_particles_per_mpi_array(int(n_particles_tot(1)), sim%n_mpi)
+        
         if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Calculated particle distribution across MPI tasks: ", n_particles_per_mpi_array
           write(*,*) "-- Particle load balancing across mpi for group '", part_groups_in_use(i), "' --"
           do k=1, sim%n_mpi
             write(*,*) " MPI ", k-1, ":    ", n_particles_per_mpi_array(k)
@@ -648,238 +626,65 @@ mpi_comm_in,mpi_info_in,test_in)
 
         offset = int(sum(n_particles_per_mpi_array(1:sim%my_id)),kind=HSIZE_T)
         n_particles_hsizet = int(n_particles_per_mpi_array(sim%my_id+1),kind=HSIZE_T)
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Offset: ", offset, ", n_particles_hsizet: ", n_particles_hsizet
-        endif
 
         !> allocate particle list and initialise to 0 -----------------
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Allocating particles for group ", i
-        endif
         call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi_array(sim%my_id+1), mpi_comm_loc)
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Initializing particle list to zero for group ", i
-        endif
+
         call initialize_particle_list_to_zero(n_particles_per_mpi_array(sim%my_id+1),sim%groups(i)%particles,ierr)
 
+
         !> Read particle base datasets from HDF5 and fill the particle lists: integer 1D array -------------
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading i_elm_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading_int(file_id,i_elm_arr,trim(group_name)//"i_elm",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: i_elm_arr: ", i_elm_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading i_life_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading_int(file_id,i_life_arr,trim(group_name)//"i_life",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: i_life_arr: ", i_life_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading q_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading_int(file_id,q_arr,trim(group_name)//"q",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: q_arr: ", q_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading t_birth_arr for group ", i
-        endif
+        !> Read particle base datasets from HDF5 and fill the particle lists: float 1D array
         call HDF5_allocatable_array1D_reading_r4(file_id,t_birth_arr,trim(group_name)//"t_birth",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: t_birth_arr: ", t_birth_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading weight_arr for group ", i
-        endif
+        !> Read particle base datasets from HDF5 and fill the particle lists: double 1D array
         call HDF5_allocatable_array1D_reading(file_id,weight_arr,trim(group_name)//"weight",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: weight_arr: ", weight_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading v_1d_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading(file_id,v_1d_arr,trim(group_name)//"v",&
-        reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: v_1d_arr: ", v_1d_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading E_arr for group ", i
-        endif
+        reqdims_in=[n_particles_hsizet],start=[offset])   
         call HDF5_allocatable_array1D_reading(file_id,E_arr,trim(group_name)//"E",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: E_arr: ", E_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading mu_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading(file_id,mu_arr,trim(group_name)//"mu",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: mu_arr: ", mu_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading vpar_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading(file_id,vpar_arr,trim(group_name)//"Vpar",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: vpar_arr: ", vpar_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading B_norm_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading(file_id,B_norm_arr,trim(group_name)//"B_norm",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: B_norm_arr: ", B_norm_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading vpar_m_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading(file_id,vpar_m_arr,trim(group_name)//"Vpar_m",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: vpar_m_arr: ", vpar_m_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading Bn_k_arr for group ", i
-        endif
         call HDF5_allocatable_array1D_reading(file_id,Bn_k_arr,trim(group_name)//"Bn_k",&
         reqdims_in=[n_particles_hsizet],start=[offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Bn_k_arr: ", Bn_k_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: n1_HSIZE_T: ", n1_HSIZE_T
-          write(*,*) "DEBUG: n_particles_hsizet: ", n_particles_hsizet
-          write(*,*) "DEBUG: i0_HSIZE_T: ", i0_HSIZE_T
-          write(*,*) "DEBUG: offset: ", offset
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading st_arr for group ", i
-        endif
+        !> Read particle base datasets from HDF5 and fill the particle lists: integer 2D array
         call HDF5_allocatable_array2D_reading(file_id,st_arr,trim(group_name)//"st",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: st_arr: ", st_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading x_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,x_arr,trim(group_name)//"x",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: x_arr: ", x_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading B_hat_prev_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,B_hat_prev_arr,trim(group_name)//"B_hat_prev",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: B_hat_prev_arr: ", B_hat_prev_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading x_m_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,x_m_arr,trim(group_name)//"x_m",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: x_m_arr: ", x_m_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading Astar_m_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,Astar_m_arr,trim(group_name)//"Astar_m",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Astar_m_arr: ", Astar_m_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading Astar_k_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,Astar_k_arr,trim(group_name)//"Astar_k",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Astar_k_arr: ", Astar_k_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading dBn_k_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,dBn_k_arr,trim(group_name)//"dBn_k",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: dBn_k_arr: ", dBn_k_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading Bnorm_k_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,Bnorm_k_arr,trim(group_name)//"Bnorm_k",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Bnorm_k_arr: ", Bnorm_k_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading E_k_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,E_k_arr,trim(group_name)//"E_k",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: E_k_arr: ", E_k_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading v_2d_arr for group ", i
-        endif
         call HDF5_allocatable_array2D_reading(file_id,v_2d_arr,trim(group_name)//"v",&
         reqdims_in=[n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: v_2d_arr: ", v_2d_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Reading dAstar_k_arr for group ", i
-        endif
+        !> Read particle base datasets from HDF5 and fill the particle lists: integer 3D array
         call HDF5_allocatable_array3D_reading(file_id,dAstar_k_arr,trim(group_name)//"dAstar_k",&
         reqdims_in=[n1_HSIZE_T,n1_HSIZE_T,n_particles_hsizet],start=[i0_HSIZE_T,i0_HSIZE_T,offset])
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: dAstar_k_arr: ", dAstar_k_arr
-        endif
-
-        if (sim%my_id == master_task) then
-          write(*,*) "DEBUG: Filling particle list from arrays for group ", i
-        endif
+        !> fill particle list from arrays
         call particle_list_from_arrays(n_particles_per_mpi_array(sim%my_id+1),sim%groups(i)%particles,ierr,&
         i_elm_arr=i_elm_arr,i_life_arr=i_life_arr,t_birth_arr=t_birth_arr,weight_arr=weight_arr,&
         x_arr=x_arr,st_arr=st_arr,q_arr=q_arr,v_1d_arr=v_1d_arr,E_arr=E_arr,mu_arr=mu_arr,&
@@ -887,7 +692,6 @@ mpi_comm_in,mpi_info_in,test_in)
         v_2d_arr=v_2d_arr,x_m_arr=x_m_arr,Astar_m_arr=Astar_m_arr,Astar_k_arr=Astar_k_arr,&
         Bn_k_arr=Bn_k_arr,dBn_k_arr=dBn_k_arr,Bnorm_k_arr=Bnorm_k_arr,&
         E_k_arr=E_k_arr,dAstar_k_arr=dAstar_k_arr)
-        write(*,*) "DEBUG: Deallocating temporary arrays for group ", i
         !> deallocate structures
         call deallocate_particle_arrays(n_particles_per_mpi_array(sim%my_id+1),i_elm_arr,&
         i_life_arr,q_arr,t_birth_arr,weight_arr,v_1d_arr,E_arr,mu_arr,vpar_arr,&
@@ -991,5 +795,3 @@ mpi_comm_loc,mpi_info_loc,my_id,n_mpi) result(time)
 end function get_simulation_hdf5_time
 
 end module mod_particle_io
-
-

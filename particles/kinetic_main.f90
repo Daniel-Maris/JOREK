@@ -90,7 +90,6 @@ type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 
 !tmp
 class(type_rng), dimension(:), allocatable :: wall_rng
-character(len=50) :: s
 
 !***********************************************************************
 !*                            initialisation                            *
@@ -290,16 +289,13 @@ do while (.not. sim%stop_now)
   enddo  
 
   ! --- Handling the particles that left the domain
-  
-  ! DEBUG
-  !jorek_feedback%rhs = 0.d0
 
   ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
   ! which might lead to bad behaviour in other code than the wall_actions
   if (n_wall_act_groups > 0) then
     call write_to_outputfile(sim%my_id, "Particle particle wall_actions")
     do i=1, n_wall_act_groups
-      call wall_act_groups(i)%do(sim, .true.)
+      call wall_act_groups(i)%do(sim,.true.)
     enddo
   endif
 
@@ -309,8 +305,6 @@ do while (.not. sim%stop_now)
   !> Also writes the projection.vtk file which contains the interaction terms (particle, energy and momentum exchange to the fluid) and neutral density
   call write_to_outputfile(sim%my_id, "Projecting feedback from particles to fluid FE grid")
   call with(sim, project_jorek_feedback)
-
-
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
   !> feedback of the particles as sources and sinks in the MHD equations 
@@ -330,17 +324,10 @@ do while (.not. sim%stop_now)
   endif
   
   !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
-  !if ( mod(istep,500) .eq. 0 ) then
-  !  call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
-  !  call write_simulation_hdf5(sim, 'interim_part_restart.h5')
-  !endif
-
-  if ( mod(index_now,50) == 0 ) then
-    call write_to_outputfile(sim%my_id, "Writing part_restart.h5")
-    write(s,'(a,i5.5,a)') 'part_restart_', index_now, '.h5'
-    call write_simulation_hdf5(sim, trim(s))
-  end if
-
+  if ( mod(istep,500) .eq. 0 ) then
+    call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
+    call write_simulation_hdf5(sim, 'interim_part_restart.h5')
+  endif
 
   ! Writing some conservation checks to the ouput file
   call write_to_outputfile(sim%my_id, "Conservation checks")

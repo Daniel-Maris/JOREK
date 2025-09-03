@@ -36,8 +36,8 @@ subroutine conservation_checks(sim)
 #ifdef __GFORTRAN__
       !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
-      !$omp parallel do default(shared)  &
-      !!$omp shared(sim, particles) &
+      !$omp parallel do default(none) &
+      !$omp shared(sim, particles) &
 #endif
       !$omp reduction(+:particles_remaining, momentum_remaining, energy_remaining,superparticles_remaining) &
       !$omp private(j, E, B, psi, U, B_norm)
@@ -48,30 +48,10 @@ subroutine conservation_checks(sim)
         call sim%fields%calc_EBpsiU(sim%time , particles(j)%i_elm, particles(j)%st, particles(j)%x(3), E, B, psi, U)
         B_norm = B/norm2(B)
 
-        if (any(particles(j)%v .ne. particles(j)%v)) then
-          write(*,*) "particle v is nan in conservation check"
-        end if
-
         particles_remaining = particles_remaining + particles(j)%weight
         momentum_remaining  = momentum_remaining  + particles(j)%weight * dot_product(B_norm,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT
         energy_remaining  = energy_remaining  + particles(j)%weight * dot_product(particles(j)%v,particles(j)%v) *sim%groups(1)%mass * ATOMIC_MASS_UNIT /2.d0
         superparticles_remaining = superparticles_remaining + 1
-
-
-        if (momentum_remaining .ne. momentum_remaining) then
-          write(*,*) "momentum_remaining is nan in conservation check"
-          write(*,*) "particles(j)%i_elm", particles(j)%i_elm
-          write(*,*) "particles(j)%st", particles(j)%st
-          write(*,*) "particles(j)%x(3)", particles(j)%x(3)
-          write(*,*) "E", E
-          write(*,*) "psi", psi
-          write(*,*) "U", U
-          write(*,*) "particles(j)%weight", particles(j)%weight
-          write(*,*) "B", B
-          write(*,*) "B_norm", B_norm
-          write(*,*) "particles(j)%v", particles(j)%v
-          write(*,*) "sim%groups(1)%mass", sim%groups(1)%mass
-        end if
 
       enddo !j
       !omp end parallel do
@@ -81,11 +61,6 @@ subroutine conservation_checks(sim)
     call MPI_REDUCE(momentum_remaining,  all_momentum,      1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     call MPI_REDUCE(energy_remaining,  all_energy,      1, MPI_DOUBLE_PRECISION, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
     call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER,      MPI_SUM, 0, MPI_COMM_WORLD, ierr) 
-
-    if (all_momentum .ne. all_momentum) then
-      write(*,*) "all_momentum is nan in conservation check"
-    end if
-
 
     if (sim%my_id .eq. 0) then
       write(*,'(A,A3,A)') " ---- Conservation Checks for Group: ", sim%groups(i)%id, " ---- "
