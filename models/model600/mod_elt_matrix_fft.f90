@@ -1094,9 +1094,6 @@ do i=1,n_vertex_max
 
           ! --- Particle diffusivities
           D_prof         = get_dperp (psi_norm)
-          !D_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_dperp(psi_norm) &
-          !        + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*2*get_dperp(psi_norm) ! below Xpoint
-          !D_prof  = max(get_dperp(psi_norm),2*get_dperp(psi_norm)*0.5*(1-tanh((y_g(ms,mt)-(Z_xpoint(1)+0.15))/0.01)))
           D_par_local     = D_par
           D_par_local_imp = D_par_imp
           D_perp_num_psin = D_perp_num +                                                  &
@@ -1134,12 +1131,8 @@ do i=1,n_vertex_max
 
           ! --- Perpendicular heat diffusivities
           if ( with_TiTe ) then
-            ZKi_prof = get_zk_iperp(psi_norm)*max(r0,1.d-2)
-            ZKe_prof = get_zk_eperp(psi_norm)*max(r0,1.d-2)
-            !ZKi_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*(get_zk_iperp(psi_norm))*max(r0,1.d-2) & ! above xpoint
-            !         + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zk_eperp(psi_norm)*min(max(r0,0.18),1.) ! below Xpoint
-            !ZKe_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*(get_zkperp(psi_norm))*max(r0,1.d-2) & ! above xpoint
-            !         + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zkperp(psi_norm)*min(max(r0,0.18),1.) ! below Xpoint
+            ZKi_prof = get_zk_iperp(psi_norm)
+            ZKe_prof = get_zk_eperp(psi_norm)
             ZK_i_perp_num_psin = ZK_i_perp_num +                                                  &
                                  ZK_i_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_i_perp_num_tanh_psin)/ZK_i_perp_num_tanh_sig))
@@ -1147,12 +1140,7 @@ do i=1,n_vertex_max
                                  ZK_e_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_e_perp_num_tanh_psin)/ZK_e_perp_num_tanh_sig))
           else
-            !ZK_prof = get_zkperp(psi_norm)*max(r0,1.d-2)
-            !ZK_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zkperp(psi_norm)*max(r0,1.d-2) & ! above xpoint
-            !        + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*1.d-7                              ! below Xpoint
-            ZK_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*(get_zkperp(psi_norm))*max(r0,1.d-2) & ! above xpoint
-                     + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_zkperp(psi_norm)*min(max(r0,0.18),1.) ! below Xpoint
-            !ZK_prof = get_zkperp(psi_norm) * max(r0,1.d-2)*(20*0.5*(1-tanh((y_g(ms,mt)-(Z_xpoint(1)+0.15))/0.01)))
+            ZK_prof = get_zkperp(psi_norm)
             ZK_perp_num_psin = ZK_perp_num +                                                  &
                                ZK_perp_num_tanh * 0.5d0*(1.d0-                                &
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))
@@ -1771,9 +1759,7 @@ do i=1,n_vertex_max
                                                                                            * xjac*tstep*BigR  * factor(var_Te,19)& 
                         ! --------------------------------------- from kinetic coupling -------------------------------------------------
                          + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20)
-                         !+ (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Te,21) &
-                         !- (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Te,22)
-                         ! last two terms only for ions?
+                         ! no aux_rho0 and aux_mom_par0 terms here, since we assume bulk ion flow and m_e->0
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------ 
 
               if (with_impurities) then
@@ -3704,10 +3690,6 @@ do i=1,n_vertex_max
                                   + tgnum_Te * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
                                       * (r0+alpha_e_bis*rimp0) * (Te0_x * ps0_y - Te0_y * ps0_x + F0 / BigR * Te0_p)                             &
                                       * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep  
-                    ! --------------------------------- from kinetic coupling -------------------------------------------------
-                    !              - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
-                    !              + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep
-                    ! ----------------------------end of terms from kinetic coupling ------------------------------------------
     
                       amat_k(var_Te,var_vpar) =  &
                             + tgnum_Te * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
