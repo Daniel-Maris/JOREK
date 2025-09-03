@@ -202,20 +202,19 @@ contains
 #endif
     !$omp schedule(runtime)                                                                               &
     !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
-    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin,                                                                   &
 #ifdef WITH_TiTe
-    !$omp E_Te_idx_kin, E_Ti_idx_kin,                                                                   &
+    !$omp E_Te_idx_kin, E_Ti_idx_kin,                                                                     &
 #else
-    !$omp E_idx_kin,                                                                                     &
+    !$omp E_idx_kin,                                                                                      &
 #endif
     !$omp imp_q_idx, ics_indices_kin,                                                                     &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
     !$omp private(particle_tmp, i_rng, i, j, k, l, m, t, E, B, psi, U, rz_old, st_old,                    &
-    !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, q_old,      &
+    !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, q_old,                &
     !$omp ionize_rate, ionize_prob, ionize_ran, ionize_ran_imp, ionize_source, ionize_energy,             &
-    !$omp cx_rate, cx_prob, cx_source, cx_energy, cx_ran, grad_T_i,                                               &
+    !$omp cx_rate, cx_prob, cx_source, cx_energy, cx_ran, grad_T_i,                                       &
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
     !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,                  &
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
@@ -289,7 +288,6 @@ contains
             line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
           endif ! RADIATION
           
-          ! DO WITH TI
           !> IONISATION (Neutrals)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call sim%groups(group_num)%ad%SCD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), ionize_rate) ! [m^3/s]
@@ -318,12 +316,10 @@ contains
             !<including binding energy will make ionize_energy negative, so it becomes a sink for the plasma
           endif ! IONISATION
           
-          ! DO WITH TI
           !> CHARGE EXCHANGE
           ! It is assumed that we will have a exchange between hydrogen isotopes
           if (sim%groups(group_num)%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
             call sim%groups(group_num)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
-            !write(*,*) 'cx_rate', cx_rate
             CX_prob = 1.d0 - exp(-cx_rate * n_e * tstep_part_adj)
     
             call rng(i_rng)%next(cx_ran)
@@ -447,7 +443,6 @@ contains
           endif ! RADIATION
           
           !> COLLISIONS WITH THE BACKGROUND PLASMA (Neoclassical collisions)
-          ! Note to self: I think this should use background Ti
           if (sim%groups(group_num)%use_kin_bg_collisions .and. .not. limits_coll) then
             if (particle_tmp%q .gt. 0) then
               ! Calculate collisions
@@ -477,7 +472,7 @@ contains
                 call rng(i_rng)%next(ran2(:,l))
               end do
 
-              call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/sim%t_norm, v_b) !P(1)*B/norm2(B)/sim%t_norm
+              call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/sim%t_norm, v_b)
   
               do l=1,n_coll
                 call rng(i_rng)%next(ran)
@@ -501,7 +496,6 @@ contains
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          ! Note to self: I'm pretty sure about this part, except for ionization
 #ifdef WITH_TiTe
           energy_source_Te = ionize_energy + radiation_energy
           energy_source_Ti = -delta_E_kin_coll
@@ -510,7 +504,6 @@ contains
 #endif
           mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT
 
-          !particle_tmp%v = v_temp ! remove this line? 
           n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
           p_lost_plt = p_lost_plt + radiation_energy
