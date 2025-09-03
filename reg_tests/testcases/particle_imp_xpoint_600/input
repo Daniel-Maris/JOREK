@@ -14,6 +14,9 @@
   use_manual_random_seed = .true.
   manual_seed = 498932990
 
+  use_strumpack=.false.
+  use_pastix=.true.
+
   deuterium_adas    = .true.
 
   tstep_particles    = 5.d-7

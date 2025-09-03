@@ -202,6 +202,7 @@ contains
 #endif
     !$omp schedule(runtime)                                                                               &
     !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
+    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin,                                                                   &
 #ifdef WITH_TiTe
@@ -429,7 +430,7 @@ contains
             particle_tmp%q = int(new_charge(int(q_old,4), sim%groups(group_num)%ad, log10(n_e), log10(T_e), tstep_part_adj, ionize_ran_imp(1:2)),1)
             
             if (particle_tmp%q .gt. q_old) then
-              binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG ! should this be q or q_old?
+              binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG
               ionize_energy     =  - binding_energy * particle_tmp%weight
               !< including binding energy will make ionize_energy negative, so it becomes a sink for the plasma
             endif
@@ -440,7 +441,7 @@ contains
             call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
             call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
             call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
-            binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG ! should this be q or q_old?
+            binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG
             radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
             line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
           endif ! RADIATION
@@ -459,10 +460,9 @@ contains
               ! Assumes deuterium background
               q_b = 1
               m_b = 2.d0
+
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
-              ! grad_T_e is actually grad_T_e, I'm just lazy to rewrite it
               q = q_homma2013(kTb, grad_T_i*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
-              !q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, 1.)
 
               !> Calculate coulomb logarithm and limit it to reasonable values
               coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)

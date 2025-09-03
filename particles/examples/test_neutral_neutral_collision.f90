@@ -1,6 +1,8 @@
-!> Benchmark program to test the neutral neutral collisions
+!> Benchmark program to test the neutral neutral collisions 
 !> this is basically a gas box experiment where two fluids mix, from which the effective diffusion coefficient can be reconstructed
-!> this can then be compared to the diffusion coefficient expected from theory to verify that the code works properly
+!> this can then be compared to the diffusion coefficient expected from theory to verify that the neutral neutral collisions code works properly
+!> For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions 
+!> and the reference document in the "How the code works" section
 program test_NNC
 
   use data_structure
@@ -38,19 +40,19 @@ program test_NNC
   type(event), target                        :: project_diagnostics
   type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 
-  integer, parameter :: n_diag=8 !< how many diagnostic fields to project
-  !< p_ii (p_RR, p_ZZ, p_\phi\phi), T, rho, rho_1, rho_2, normalisation for T (in theory, but it is probably wrong)
+  integer, parameter :: n_diag=6 !< how many diagnostic fields to project
+  !< p_ii (p_RR, p_ZZ, p_\phi\phi), n_1, n (=n_1+n_2), n_2
 
   !parameters of the grid
   real*8, parameter :: R_0 = 100.d0, Z_0 = 0.d0, length = 1.d0
-  integer, parameter :: n = 11 !4!11!101!6!10!2!100 ! number of nodes in r, z directions
+  integer, parameter :: n = 11 ! number of nodes in r, z directions
 
   !variables
   integer :: i, i_elm, i_step, nstep_proj
   integer :: seed, i_rng, n_stream
   real*8 :: s, t, phi, R, Z
   real*8 :: RN(8), weight, T_av !< [K] average intial temperature of gas
-  character(len=100) :: i_step_char, filename, MSD_file
+  character(len=100) :: i_step_char, filename
   real*8 :: last_time
   !$ real*8 :: w(2), mmm(3)
   
@@ -103,14 +105,12 @@ program test_NNC
     call plot_grid(node_list,element_list,bnd_elm_list,bnd_node_list,.true.,.false.,'initial')
   end if
 
-  write(MSD_file,"(A,I1,A)") 'p',sim%my_id,'.csv'
-  open(unit=13+sim%my_id, file=MSD_file, status='replace')
+  call MSD2file(sim, start_near_wall, 0, init=.true.)
 
   ! Set up particle group characteristics
   sim%groups(1)%Z    = -2 !< for deuterium 1
   sim%groups(1)%mass = atomic_weights(-2) !< atomic mass units
-  !sim%groups(1)%ad   = read_adf11(sim%my_id,'12_h')
-
+  
   ! setting up particles per MPI node
   allocate(particle_kinetic_leapfrog::sim%groups(1)%particles( ceiling(part_group_configs(1)%n_particles/sim%n_mpi) ))
 
@@ -178,13 +178,6 @@ program test_NNC
       end if
     end do
     !$omp end parallel do
-
-    ! determining which particles are far away from boundary to use for MSD
-    start_near_wall = .false.
-    do i=1,N_test_pa
-      if(abs(p(i)%x(1) - R_0) > 0.9 * length) start_near_wall(i) = .true.
-      if(abs(p(i)%x(2) - Z_0) > 0.9 * length) start_near_wall(i) = .true.
-    end do
   end select
 
   !projections for feedback purposes
@@ -207,14 +200,15 @@ program test_NNC
   allocate(w_iRt(2,R_bins,0:nstep_proj))
   w_iRt = 0.d0
   t_arr = 0.d0
-  i_step = 0
+
   call with(sim, counter)
-  call fill_w_iRt(sim,w_iRt,t_arr,i_step)
+  call fill_w_iRt(sim,w_iRt,t_arr,0)
 
   conserv_obj(:) = 0.d0
   call conservation_checks(sim,conserv_obj)
 
   i_step=0
+  ! writing out a full particle restart file to see investigate all particles (was used for early debugging)
   ! write(filename,"(A,I2.2)") "i_step_",i_step
   ! call write_simulation_hdf5(sim,filename)
   ! -------------------------------------- main loop
@@ -233,27 +227,20 @@ program test_NNC
 
     call global_av_T(sim)
 
-    if(mod(i_step,nout_projection)==0 .or. i_step==1) then
+    if(mod(i_step,nout_projection)==0) then
       call log_block(sim%my_id, "Diagnostics", last_time)
       call with(sim, counter)
       call fill_w_iRt(sim,w_iRt,t_arr,i_step)
       call with(sim, project_diagnostics)
-      ! call conservation_checks(sim,conserv_obj)
-
-      ! writing MSD particles information to file
-      select type (pa => sim%groups(1)%particles)
-      type is (particle_kinetic_leapfrog)  
-      do i=1,N_test_pa
-        if(start_near_wall(i)) cycle
-        write(13+sim%my_id,"(2I10, 7es20.10)") i, i_step, sim%time, pa(i)%x, pa(i)%v
-      end do
-      end select
+      call MSD2file(sim,start_near_wall,i_step)
+    else if(i_step == 1) then
+      call with(sim, project_diagnostics) ! we need the projections for the neutral neutral collisions, so if nout_projection > 1 we still need to do this here
     end if
 
     call log_block(sim%my_id, "Neutral self collision", last_time)
     call neutral_collisions(1)%do(sim,tstep_particles*nstep_particles,projections%node_list, projections%element_list)
 
-    ! ! printout sim%particles
+    ! print details of sim%particles to logfile (was used for early debugging)
     ! select type (pa => sim%groups(1)%particles)
     ! type is (particle_kinetic_leapfrog)
     !   do i=1,size(pa,1)
@@ -261,12 +248,14 @@ program test_NNC
     !   end do
     ! end select
 
+    ! resetting the particle species labels halfway the simulation to investigate whether the initial state was an equilibrium (it was)
     ! if(mod(i_step,5000)==0) then
-    !   call log_block(sim%my_id, "")
+    !   call log_block(sim%my_id, "resetting species labels")
     !   call reset_part_labels(sim)
     ! end if
     ! call conservation_checks(sim,conserv_obj)
 
+    ! writing out a full particle restart file to see investigate all particles (was used for early debugging)
     ! write(filename,"(A,I2.2)") "i_step_",i_step
     ! call write_simulation_hdf5(sim,filename)  
   end do
@@ -274,13 +263,14 @@ program test_NNC
   ! --- end
   call log_block(sim%my_id, "End of sim", last_time)
   call write_diag_output(sim%my_id,w_iRt,t_arr)
-  close(13+sim%my_id)
+  close(13+sim%my_id) !closing MSD file
   !$ w(2) = omp_get_wtime()
   !$ mmm = mpi_minmeanmax(w(2)-w(1))
   !$ if (sim%my_id .eq. 0) write(*,"(A,3es13.3,A)") "test_NNC done in (min/mean/max) ", mmm, " s"
   call sim%finalize()
 contains
 
+  !> simple pusher algorithm which ignores all plasma interactions and keeps track of projections relevant for a gas box simulation
   subroutine push_particle(sim,rng,projections)
     use mod_sampling, only: sample_cosine
     use mod_find_rz_nearby
@@ -351,11 +341,10 @@ contains
               do m=1,n_order+1  ! order of the polynomial
                 qty = 0.d0
                 factor = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight / nstep_particles
-                qty(1:3) = factor * mass * particle_tmp%v * particle_tmp%v ! directional pressure P_ii = dp_i/dt /A = mv_i^2 dt A n /dt /A = mv_i^2 n
-                qty(4)   = factor * mass * dot_product(particle_tmp%v,particle_tmp%v) / (3*EL_CHG) ! T [eV] (E = 1/2 m v^2 = 3/2 k_B T, k_B T / e = m v^2 / (3 e))
-                qty(5)   = factor ! total species density
-                qty(5+particle_tmp%i_life) = factor ! species density [m^-3] (qty(6) = n_1, qty(7) = n_2)
-                qty(8)   = particle_tmp%weight !< to normalise later on
+                qty(1:3)                            = factor * mass * particle_tmp%v * particle_tmp%v ! directional pressure P_ii = dp_i/dt /A = mv_i^2 dt A n /dt /A = mv_i^2 n
+                if(particle_tmp%i_life == 1) qty(4) = factor                                          ! n_1 species density [m^-3]
+                qty(5)                              = factor                                          ! n=n_1+n_2 total species density [m^-3]
+                if(particle_tmp%i_life == 2) qty(6) = factor                                          ! n_2 species density [m^-3]
                 
                 do i_tor=1,n_tor ! toroidal harmonic
                   do k=1,n_diag  ! diagnostic quantity
@@ -396,29 +385,17 @@ contains
       end do ! loop over particles
       !$omp end parallel do
 
-      ! rescaling the projections using the total weight at the location
-      do l=1,n_vertex_max
-        do m=1,n_order+1
-          do i_elm=1,sim%fields%element_list%n_elements
-            do i_tor=1,n_tor
-              w = proj(m,l,i_elm,i_tor,5)
-              proj(m,l,i_elm,i_tor,4) = proj(m,l,i_elm,i_tor,4)/nonzero(proj(m,l,i_elm,i_tor,8))/sim%n_mpi !< divide by total weight
-            enddo
-          enddo
-        enddo
-      enddo
-
       projections%rhs = proj
 
     end select
   end subroutine push_particle
 
   !> writes a new header in the log file, and if last_time is supplied, it times the previous block
-  subroutine log_block(id,what,last_time)
+  subroutine log_block(id,block_name,last_time)
     implicit none
     
     integer, intent(in) :: id
-    character(len=*),intent(in) :: what !< what to call the new block
+    character(len=*),intent(in) :: block_name !< what to call the new block
     real*8, intent(inout), optional :: last_time !< omp_get_wtime
 
     real*8 :: now, mmm(3)
@@ -438,11 +415,12 @@ contains
     !$ if(timing) write(*,"(A,3f9.4,A)") "block done in (min/mean/max) ", mmm, " s"
 
     write(*,'(A100)') "===================================================================================================="
-    write(*,*) what
+    write(*,'(A)') block_name
     write(*,'(A100)') "===================================================================================================="
   
   end subroutine
 
+  !> calculates the weights (per species and radial position) for this timestep and fill it into w(i,R,t=i_step)
   subroutine fill_w_iRt(sim,w_iRt,t_arr,i_step)
     implicit none
 
@@ -506,6 +484,7 @@ contains
 
   end subroutine fill_w_iRt
 
+  !> writes the w_iRt array (weights per species, radial position and timestep) to a file
   subroutine write_diag_output(id, w_iRt_in,t_arr)
     implicit none
 
@@ -541,6 +520,7 @@ contains
     end if
   end subroutine
 
+  !> keeps track of global superparticle, particle, momentum and energy balances and writes the change and new values to the logfile
   subroutine conservation_checks(sim, conserv_obj)
     implicit none
     
@@ -639,6 +619,7 @@ contains
     end if
   end subroutine global_av_T
 
+  !> resets the particle labels of the two species based on their position, which can be used to check if the initial equilibrium is indeed an equilibrium (which it was when last checked).
   subroutine reset_part_labels(sim)
     implicit none
 
@@ -663,5 +644,46 @@ contains
       !$omp end parallel do
     end select
   end subroutine reset_part_labels
+
+  !> to write the position over time of particles which started far away from the wall, 
+  !> which can be used to determine the mean square displacement (MSD), 
+  !> with which the diffusion coefficient can be calculated
+  subroutine MSD2file(sim, start_near_wall, i_step, init)
+    implicit none
+    class(particle_sim), target, intent(in) :: sim
+    logical, dimension(N_test_pa), intent(inout) :: start_near_wall
+    integer, intent(in) :: i_step
+    logical, intent(in), optional :: init
+
+    character(len=100) :: MSD_file
+    logical :: do_init
+
+    do_init=.false.
+    if(present(init)) do_init = init 
+
+    if(do_init) then
+      write(MSD_file,"(A,I1,A)") 'p',sim%my_id,'.csv'
+      open(unit=13+sim%my_id, file=MSD_file, status='replace')    
+      
+      ! determining which particles are far away from boundary to use for MSD
+      start_near_wall = .false.
+      select type (p => sim%groups(1)%particles)
+      type is (particle_kinetic_leapfrog)  
+        do i=1,N_test_pa
+          if(abs(p(i)%x(1) - R_0) > 0.9 * length) start_near_wall(i) = .true.
+          if(abs(p(i)%x(2) - Z_0) > 0.9 * length) start_near_wall(i) = .true.
+        end do
+      end select
+    end if
+
+    ! writing MSD particles information to file
+    select type (pa => sim%groups(1)%particles)
+    type is (particle_kinetic_leapfrog)  
+      do i=1,N_test_pa
+        if(start_near_wall(i)) cycle
+        write(13+sim%my_id,"(2I10, 7es20.10)") i, i_step, sim%time, pa(i)%x, pa(i)%v
+      end do
+    end select
+  end subroutine MSD2file
 
 end program test_NNC

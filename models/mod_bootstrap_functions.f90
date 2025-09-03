@@ -210,7 +210,7 @@ subroutine bootstrap_current(R, Z,                           &
     Jb = Jb * (0.5d0 - 0.5d0 * tanh( -(distance_xpoint - distance)/0.01d0 ) )
   endif
 
-  if (psi_norm .gt. 0.995 )  Jb = 0.
+  if (psi_norm .gt. bootstrap_psin_cutoff )  Jb = 0.
 
 return
 end subroutine bootstrap_current
@@ -399,7 +399,7 @@ subroutine bootstrap_get_averaged_j_spline(my_id, node_list, element_list, psi_a
   ! --- Internal parameters
   type (type_surface_list) :: flux_list, sep_list
   integer                  :: i, k, ig, i_surf, i_piece, n_psi, i_elm
-  real*8                   :: psi_bnd, psi_bnd2
+  real*8                   :: psi_bnd, psi_bnd2, psi_n_bnd_factor
   real*8                   :: sigmas(17)
   integer                  :: n_grids(12)
   real*8                   :: rr, s, t, ds, dt, xjac, dl, sum_dl
@@ -494,7 +494,7 @@ subroutine bootstrap_get_averaged_j_spline(my_id, node_list, element_list, psi_a
 
     ! --- Call the routine
     do i=1,flux_list%n_psi
-      flux_list%psi_values(i) = psi_axis + 1.2*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
+      flux_list%psi_values(i) = psi_axis + bootstrap_psin_cutoff*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
     enddo
     call find_flux_surfaces(my_id,xpoint,xcase,node_list,element_list,flux_list)
 
@@ -621,7 +621,7 @@ subroutine bootstrap_get_q_and_ft_splines(my_id, node_list, element_list, psi_ax
   real*8                   :: hh2(n_spline), ft_int(n_spline)
   integer                  :: n_int
   real*8                   :: lambda_ft, dlambda_ft, OneMinusLh
-  real*8                   :: psi_n
+  real*8                   :: psi_n, psi_n_bnd_factor
   real*8                   :: psi_xpoint_tmp(2)
 
 
@@ -709,7 +709,7 @@ subroutine bootstrap_get_q_and_ft_splines(my_id, node_list, element_list, psi_ax
 
     ! --- Call the routine
     do i=1,flux_list%n_psi
-      flux_list%psi_values(i) = psi_axis + 1.2*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
+      flux_list%psi_values(i) = psi_axis + bootstrap_psin_cutoff*(psi_bnd - psi_axis) * float(i)/float(flux_list%n_psi)
     enddo
     call find_flux_surfaces(my_id,xpoint,xcase,node_list,element_list,flux_list)
 
