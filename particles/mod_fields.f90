@@ -370,11 +370,11 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
 contains
 
   pure function grad_of(ii, xjac, R, P_s, P_t, P_phi, T_norm) result(g)
-    integer, intent(in) :: ii
-    real*8, intent(in)  :: xjac, R, T_norm
-    real*8, intent(in)  :: P_s(:), P_t(:), P_phi(:)
-    real*8              :: g(3)
-    real*8              :: inv_xjac, inv_R, eps
+    integer, intent(in)             :: ii
+    real*8, intent(in)              :: xjac, R, T_norm
+    real*8, intent(in), contiguous  :: P_s(:), P_t(:), P_phi(:)
+    real*8                          :: g(3)
+    real*8                          :: inv_xjac, inv_R, eps
 
     eps = 1.d-12  ! 0 division safeguard
     inv_xjac = 0.d0; if (abs(xjac) > eps) inv_xjac = 1.d0/xjac
