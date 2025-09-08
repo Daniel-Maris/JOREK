@@ -699,7 +699,7 @@ subroutine write_particle_distribution_to_vtk(node_list,element_list,filename,ns
     call write_vtk(i_filename, xyz(mp,:,:), ien(mp,:,:), vtk_quad_type, scalar_names, scalars(mp,:,:))
   enddo
 #else 
-  call write_vtk(filename, xyz(0,:,:), ien(0,:,:), vtk_quad_type, scalar_names, scalars(0,:,:))
+  call write_vtk(filename, xyz(1,:,:), ien(1,:,:), vtk_quad_type, scalar_names, scalars(1,:,:))
 #endif
 
   deallocate(scalars, scalar_names)
