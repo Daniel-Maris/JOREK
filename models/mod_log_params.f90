@@ -418,6 +418,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,CHAR_FMT) 'domm_file             ', domm_file
     write(*,REAL_FMT) 'R_domm                ', R_domm
   end if
+  write(*,LOGI_FMT) 'extended_boundary     ', extended_boundary
+  write(*,REAL_FMT) 'j_cutoff_rcoord       ', j_cutoff_rcoord
+  write(*,REAL_FMT) 'j_cutoff_sig          ', j_cutoff_sig
 
   if ( (abs(V_0) .ge. 1.d-19) .or. (num_rot) ) then
      write(*,LOGI_FMT) 'normalized_velocity_profile', normalized_velocity_profile
@@ -823,6 +826,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'use_mumps_eq          ', use_mumps_eq
   write(*,LOGI_FMT) 'use_pastix_eq         ', use_pastix_eq
   write(*,LOGI_FMT) 'use_strumpack_eq      ', use_strumpack_eq  
+  write(*,LOGI_FMT) 'use_mumps_prj         ', use_mumps_prj
+  write(*,LOGI_FMT) 'use_pastix_prj        ', use_pastix_prj
+  write(*,LOGI_FMT) 'use_strumpack_prj     ', use_strumpack_prj
   write(*,REAL_FMT) 'pastix_pivot          ', pastix_pivot
   write(*,INTG_FMT) 'pastix_maxthrd        ', pastix_maxthrd
   write(*,LOGI_FMT) 'refinement            ', refinement
@@ -896,6 +902,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   endif
   write(*,LOGI_FMT) 'output_bnd_elements   ', output_bnd_elements
   write(*,LOGI_FMT) 'bootstrap             ', bootstrap
+  write(*,REAL_FMT) 'bootstrap_psin_cutoff ', bootstrap_psin_cutoff
   write(*,LOGI_FMT) 'NEO                   ', NEO
   if (NEO) then
     write(*,LOGI_FMT) 'num_neo_file          ', num_neo_file
@@ -967,6 +974,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
        write(*,CHAR_FMT2) 'spi_plume_file(',i,')    ',  trim(spi_plume_file(i))
      end do
      write(*,LOGI_FMT) 'spi_plume_hdf5      ',  spi_plume_hdf5
+     write(*,LOGI_FMT) 'spi_abl_mag_reduction',  spi_abl_mag_reduction
      write(*,INTG_FMT) 'spi_rnd_seed        ',  spi_rnd_seed
      write(*,INTG_FMT) 'spi_abl_model       ',  spi_abl_model
      do i = 1,n_inj
@@ -1016,6 +1024,15 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,REAL_FMT) 'Z_valve,              ',Z_valve
     write(*,REAL_FMT) 'R_valve_loc2,         ',R_valve_loc2
     write(*,REAL_FMT) 'Z_valve2,             ',Z_valve2
+  endif
+
+  write(*,LOGI_FMT) 'use_manual_random_seed,  ',use_manual_random_seed
+  if (use_manual_random_seed) then
+    write(*,INTG_FMT) 'manual_seed,             ',manual_seed
+  endif     
+  write(*,LOGI_FMT) 'use_fixed_rng_value,    ',use_fixed_rng_value
+  if (use_fixed_rng_value) then
+    write(*,REAL_FMT) 'fixed_rng_value,        ',fixed_rng_value
   endif
 
 #ifdef USE_CATALYST
