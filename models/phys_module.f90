@@ -79,6 +79,7 @@ module phys_module
   real*8  :: Z_xpoint_limit(2)    !< Search the lower X-point in the region Z < Z_xpoint_limit(1) and the upper X-point in the region Z > Z_xpoint_limit(2) 
   integer :: xpoint_search_tries  !< The number of candidate elements to check for being the element containing the upper or lower X-point.
   logical :: bootstrap            !< Evolve the Bootstrap current consistently with time?
+  real*8  :: bootstrap_psin_cutoff!< Bootstrap-current hard cutoff if simulating X-point plasma.
   real*8  :: minRad               !< Approximation of minor radius for bootstrap current calculation
   logical :: refinement           !< Use mesh refinement? (not presently available)
   logical :: force_central_node   !< Force all nodes in the center to have the same values in flux aligned grids or independent values?
@@ -220,6 +221,9 @@ module phys_module
    
   ! Stellarator parameters
   logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC
+  logical :: extended_boundary    !< Choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
+  real*8  :: j_cutoff_rcoord      !< Radial location from which the current is set to zero as it approaches the boundary - rcoord corresponds to the normalised toroidal flux
+  real*8  :: j_cutoff_sig         !< Radial width over which the current is ramped down to zero towards the boundary
 
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   real*8  :: surface_cross_tol                                                  !< Tolerance when looking for crossing of polar lines and surfaces, needs to be > 1.0

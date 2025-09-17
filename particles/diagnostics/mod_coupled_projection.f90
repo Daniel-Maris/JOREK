@@ -9,8 +9,6 @@ contains
 
   !> Constructor for project_particles
   !> Be sure to use keyword arguments when initializing, to avoid confusion
-  !> Constructor for project_particles
-  !> Be sure to use keyword arguments when initializing, to avoid confusion
   subroutine assemble_system(node_list, element_list, mpi_comm_world, a_mat, filter, filter_hyper, filter_parallel, apply_dirichlet, system_size, n_dof)
     use data_structure, only: type_element_list, type_node_list
     use mod_sparse_matrix, only: type_SP_MATRIX
@@ -133,6 +131,12 @@ contains
       enddo
     enddo
 
+    if (this%my_id .eq. 0) then
+      call MPI_Reduce(MPI_IN_PLACE,    this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, 0, this%mpi_comm_world, ierr)
+    else
+      call MPI_Reduce(this%rhs_vec%val,this%rhs_vec%val,this%rhs_vec%n*this%rhs_vec%nrhs, MPI_REAL8, MPI_SUM, 0, this%mpi_comm_world, ierr)
+    endif
+
     if (allocated(this%rhs)) this%rhs = 0.d0
     if (allocated(this%rhs_f)) this%rhs_f = 0.d0
 
@@ -201,7 +205,9 @@ contains
                               apply_dirichlet_condition_in)
   use data_structure, only: type_element, type_element_list, type_node, type_node_list, make_deep_copy_node, dealloc_node
   use mod_sparse_matrix, only: type_SP_MATRIX
-  use phys_module, only : F0, TWOPI, fix_axis_nodes
+  use mod_parameters, only: n_tor, n_vertex_max, n_degrees, n_coord_tor, n_plane
+  use phys_module, only : F0, TWOPI, fix_axis_nodes, mode, n_tor_fft_thresh
+  use iso_c_binding
 
   use mpi_mod
   use basis_at_gaussian
@@ -209,7 +215,11 @@ contains
 
   implicit none
 
-  type (type_node_list), intent(in)    :: node_list !< A copy of the node list which will be used to save variables
+#ifdef USE_FFTW
+  include 'fftw3.f03'
+#endif
+
+  type (type_node_list), intent(in)    :: node_list
   type (type_element_list), intent(in) :: element_list
   integer, intent(in)                  :: this_mpi_comm_world
   real*8, intent(in)                   :: filter
@@ -234,6 +244,14 @@ contains
   integer    :: ms, mt, mp, my_id, ierr
   logical    :: apply_dirichlet_condition
   logical    :: do_facto
+  logical    :: use_fft
+  real*8, allocatable :: ELM_term1(:,:,:), ELM_term2(:,:,:)
+  real*8     :: in_fft(1:n_plane)
+  complex*16 :: out_fft(1:n_plane)
+
+  integer*8 :: fftw_plan
+
+  integer :: ik, i_loc, j_loc
 
   type (type_SP_MATRIX) :: a_mat  !< Projection matrix
 
@@ -261,6 +279,7 @@ contains
 
   ! n_tor // n_coord_tor
 
+  use_fft = (n_tor > n_tor_fft_thresh)
   ! Only perform the construction of the matrix on the host
   if (my_id .eq. 0) then
 
@@ -279,27 +298,50 @@ contains
     wgauss2 = wgauss
 
     write(*,*) "Starting matrix construction with: ", element_list%n_elements, " elements"
+    if (use_fft) then
+        write(*,*) "Using FFT-accelerated path."
+#ifdef USE_FFTW
+        write(*,*) " with fftw library"
+#else
+        write(*,*) " with custom implementation"
+#endif
+    else
+        write(*,*) "Using direct summation path."
+    end if
+
+#ifdef USE_FFTW
+    if (use_fft) call dfftw_plan_dft_r2c_1d(fftw_plan, n_plane, in_fft, out_fft, FFTW_PATIENT)
+#endif
 
     if (apply_dirichlet_condition) write(*,*) 'applying Dirichlet conditions'
-
     !$omp parallel do default(none) &
-    !$omp shared(element_list, node_list,                                    &
-    !$omp        H, H_s, H_t, H_ss, H_st, H_tt, Hz, Hz_p, HZ_coord, a_mat, wgauss2,                 &
-    !$omp        filter, filter_hyper, filter_parallel, F0, fix_axis_nodes)          &
-    !$omp private(ELM, i_elm, element, i, j, k, l, ms, mt, in, im, mp,           &
-    !$omp         x_g, x_s, x_t, x_ss, x_st, x_tt,                                      &
-    !$omp         y_g, y_s, y_t, y_ss, y_st, y_tt,                                      &
-    !$omp         psi_g, psi_s, psi_t, psi_ss, psi_tt, psi_st,                          &
-    !$omp         v, v_s, v_t, v_ss, v_st, v_tt, v_x, v_y, v_xx, v_yy, v_p,             &
-    !$omp         p, p_s, p_t, p_ss, p_st, p_tt, p_x, p_y, p_xx, p_yy, p_p,             &
-    !$omp         wst, xjac, xjac_x, xjac_y, psi_x, psi_y, BB2, Bgrad_p, Bgrad_v_star,  &
-    !$omp         index_ij, index_kl, ilarge, in_index, im_index,                       &
-    !$omp         inode, index_large_i, knode, index_large_k)                           &
-    !$omp firstprivate(nodes)                                                           & 
+    !$omp shared(element_list, node_list,                                                 &
+    !$omp        H, H_s, H_t, H_ss, H_st, H_tt, Hz, Hz_p, HZ_coord, a_mat, wgauss2, mode, &
+    !$omp        filter, filter_hyper, filter_parallel, F0, fix_axis_nodes, use_fft, fftw_plan) &
+    !$omp private(ELM, i_elm, element, i, j, k, l, ms, mt, in, im, mp,                    &
+    !$omp         x_g, x_s, x_t, x_ss, x_st, x_tt,                                        &
+    !$omp         y_g, y_s, y_t, y_ss, y_st, y_tt,                                        &
+    !$omp         psi_g, psi_s, psi_t, psi_ss, psi_tt, psi_st,                            &
+    !$omp         v, v_s, v_t, v_ss, v_st, v_tt, v_x, v_y, v_xx, v_yy, v_p,               &
+    !$omp         p, p_s, p_t, p_ss, p_st, p_tt, p_x, p_y, p_xx, p_yy, p_p,               &
+    !$omp         wst, xjac, xjac_x, xjac_y, psi_x, psi_y, BB2, Bgrad_p, Bgrad_v_star,    &
+    !$omp         index_ij, index_kl, ilarge, in_index, im_index,                         &
+    !$omp         inode, index_large_i, knode, index_large_k,                             &
+    !$omp         ELM_term1, ELM_term2, in_fft, out_fft, ik, i_loc, j_loc)                &
+    !$omp firstprivate(nodes)                                                             & 
     !$omp schedule(static) 
     do i_elm=1,element_list%n_elements
       
       ELM = 0.d0
+      
+      if (use_fft) then
+        allocate(ELM_term1(n_plane, n_vertex_max*n_degrees, n_vertex_max*n_degrees))
+        ELM_term1 = 0.d0
+        if (filter_parallel .gt. 0.d0) then
+          allocate(ELM_term2(n_plane, n_vertex_max*n_degrees, n_vertex_max*n_degrees))
+          ELM_term2 = 0.d0
+        endif
+      end if
 
       element = element_list%element(i_elm)
       do m=1,n_vertex_max
@@ -316,7 +358,7 @@ contains
           do ms=1, n_gauss
             do mt=1, n_gauss
               do mp=1,n_plane
-              do in=1,n_coord_tor
+                do in=1,n_coord_tor
                   x_g(mp,ms,mt)  = x_g(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H(i,j,ms,mt)    * HZ_coord(in,mp)
                   x_s(mp,ms,mt)  = x_s(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_s(i,j,ms,mt)  * HZ_coord(in,mp)
                   x_t(mp,ms,mt)  = x_t(mp,ms,mt)  + nodes(i)%x(in,j,1) * element%size(i,j) * H_t(i,j,ms,mt)  * HZ_coord(in,mp)
@@ -343,7 +385,6 @@ contains
                   psi_st(mp,ms,mt) = psi_st(mp,ms,mt) + nodes(i)%values(im,j,1) * element%size(i,j) * H_st(i,j,ms,mt) * HZ(im,mp)
                   psi_tt(mp,ms,mt) = psi_tt(mp,ms,mt) + nodes(i)%values(im,j,1) * element%size(i,j) * H_tt(i,j,ms,mt) * HZ(im,mp)
                 enddo
-
               enddo
             enddo
           enddo
@@ -358,100 +399,99 @@ contains
           do mp = 1, n_plane
 
 
-          xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
-        
-          xjac_x  = (x_ss(mp,ms,mt)*y_t(mp,ms,mt)**2 - y_ss(mp,ms,mt)*x_t(mp,ms,mt)*y_t(mp,ms,mt) - 2.d0*x_st(mp,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
-                + y_st(mp,ms,mt)*(x_s(mp,ms,mt)*y_t(mp,ms,mt) + x_t(mp,ms,mt)*y_s(mp,ms,mt))                                                      &
-                + x_tt(mp,ms,mt)*y_s(mp,ms,mt)**2 - y_tt(mp,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)) / xjac
+            xjac    = x_s(mp,ms,mt)*y_t(mp,ms,mt)  - x_t(mp,ms,mt)*y_s(mp,ms,mt)
+          
+            xjac_x  = (x_ss(mp,ms,mt)*y_t(mp,ms,mt)**2 - y_ss(mp,ms,mt)*x_t(mp,ms,mt)*y_t(mp,ms,mt) - 2.d0*x_st(mp,ms,mt)*y_s(mp,ms,mt)*y_t(mp,ms,mt) &
+                  + y_st(mp,ms,mt)*(x_s(mp,ms,mt)*y_t(mp,ms,mt) + x_t(mp,ms,mt)*y_s(mp,ms,mt))                                                      &
+                  + x_tt(mp,ms,mt)*y_s(mp,ms,mt)**2 - y_tt(mp,ms,mt)*x_s(mp,ms,mt)*y_s(mp,ms,mt)) / xjac
 
-          xjac_y  = (y_tt(mp,ms,mt)*x_s(mp,ms,mt)**2 - x_tt(mp,ms,mt)*y_s(mp,ms,mt)*x_s(mp,ms,mt) - 2.d0*y_st(mp,ms,mt)*x_t(mp,ms,mt)*x_s(mp,ms,mt) &
-                + x_st(mp,ms,mt)*(y_t(mp,ms,mt)*x_s(mp,ms,mt) + y_s(mp,ms,mt)*x_t(mp,ms,mt))                                                      &
-                + y_ss(mp,ms,mt)*x_t(mp,ms,mt)**2 - x_ss(mp,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt)) / xjac
+            xjac_y  = (y_tt(mp,ms,mt)*x_s(mp,ms,mt)**2 - x_tt(mp,ms,mt)*y_s(mp,ms,mt)*x_s(mp,ms,mt) - 2.d0*y_st(mp,ms,mt)*x_t(mp,ms,mt)*x_s(mp,ms,mt) &
+                  + x_st(mp,ms,mt)*(y_t(mp,ms,mt)*x_s(mp,ms,mt) + y_s(mp,ms,mt)*x_t(mp,ms,mt))                                                      &
+                  + y_ss(mp,ms,mt)*x_t(mp,ms,mt)**2 - x_ss(mp,ms,mt)*y_t(mp,ms,mt)*x_t(mp,ms,mt)) / xjac
 
 
-          psi_x = (  y_t(mp,ms,mt) * psi_s(mp,ms,mt) - y_s(mp,ms,mt) * psi_t(mp,ms,mt)) / xjac
-          psi_y = (- x_t(mp,ms,mt) * psi_s(mp,ms,mt) + x_s(mp,ms,mt) * psi_t(mp,ms,mt)) / xjac
+            psi_x = (  y_t(mp,ms,mt) * psi_s(mp,ms,mt) - y_s(mp,ms,mt) * psi_t(mp,ms,mt)) / xjac
+            psi_y = (- x_t(mp,ms,mt) * psi_s(mp,ms,mt) + x_s(mp,ms,mt) * psi_t(mp,ms,mt)) / xjac
 
-          BB2 = 1.d0
-          if (filter_parallel .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(mp,ms,mt)**2
+            BB2 = 1.d0
+            if (filter_parallel .gt. 0.d0) BB2 = (F0*F0 + psi_x * psi_x + psi_y * psi_y )/x_g(mp,ms,mt)**2
 
             do i=1,n_vertex_max
               do j=1,n_degrees
+                i_loc = n_degrees*(i-1) + j
+                v_s  = H_s(i,j,ms,mt)  * element%size(i,j)
+                v_t  = H_t(i,j,ms,mt)  * element%size(i,j)
+                v_p  = H(i,j,ms,mt)    * element%size(i,j)
+                v    = v_p
+                v_ss = H_ss(i,j,ms,mt) * element%size(i,j)
+                v_tt = H_tt(i,j,ms,mt) * element%size(i,j)
+                v_st = H_st(i,j,ms,mt) * element%size(i,j)
+                v_x = (  y_t(mp,ms,mt) * v_s - y_s(mp,ms,mt) * v_t) / xjac
+                v_y = (- x_t(mp,ms,mt) * v_s + x_s(mp,ms,mt) * v_t) / xjac
 
-                do im = 1, n_tor
+                v_xx = (v_ss * y_t(mp,ms,mt)**2 - 2.d0*v_st * y_s(mp,ms,mt)*y_t(mp,ms,mt) + v_tt * y_s(mp,ms,mt)**2  &
+                    + v_s * (y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt) )                          &
+                    + v_t * (y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt) ) )  / xjac**2             &
+                    - xjac_x * (v_s * y_t(mp,ms,mt) - v_t * y_s(mp,ms,mt)) / xjac**2
 
-                  index_ij = n_tor*n_degrees*(i-1) + n_tor * (j-1) + im   ! index in the ELM matrix
-
-                  v    = H(i,j,ms,mt)    * element%size(i,j) * HZ(im,mp)
-                  v_s  = H_s(i,j,ms,mt)  * element%size(i,j) * HZ(im,mp)
-                  v_t  = H_t(i,j,ms,mt)  * element%size(i,j) * HZ(im,mp)
-                  v_p  = H(i,j,ms,mt)    * element%size(i,j) * HZ_p(im,mp)
-
-                  v_ss = H_ss(i,j,ms,mt) * element%size(i,j) * HZ(im,mp)
-                  v_tt = H_tt(i,j,ms,mt) * element%size(i,j) * HZ(im,mp)
-                  v_st = H_st(i,j,ms,mt) * element%size(i,j) * HZ(im,mp)
-
-                  v_x = (  y_t(mp,ms,mt) * v_s - y_s(mp,ms,mt) * v_t) / xjac
-                  v_y = (- x_t(mp,ms,mt) * v_s + x_s(mp,ms,mt) * v_t) / xjac
-
-                  v_xx = (v_ss * y_t(mp,ms,mt)**2 - 2.d0*v_st * y_s(mp,ms,mt)*y_t(mp,ms,mt) + v_tt * y_s(mp,ms,mt)**2  &
-                      + v_s * (y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt) )                          &
-                      + v_t * (y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt) ) )  / xjac**2             &
-                      - xjac_x * (v_s * y_t(mp,ms,mt) - v_t * y_s(mp,ms,mt)) / xjac**2
-
-                  v_yy = (v_ss * x_t(mp,ms,mt)**2 - 2.d0*v_st * x_s(mp,ms,mt)*x_t(mp,ms,mt) + v_tt * x_s(mp,ms,mt)**2  &
-                      + v_s * (x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt) )                          &
-                      + v_t * (x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt) ) )     / xjac**2          &
-                      - xjac_y * (- v_s * x_t(mp,ms,mt) + v_t * x_s(mp,ms,mt) ) / xjac**2
+                v_yy = (v_ss * x_t(mp,ms,mt)**2 - 2.d0*v_st * x_s(mp,ms,mt)*x_t(mp,ms,mt) + v_tt * x_s(mp,ms,mt)**2  &
+                    + v_s * (x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt) )                          &
+                    + v_t * (x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt) ) )     / xjac**2          &
+                    - xjac_y * (- v_s * x_t(mp,ms,mt) + v_t * x_s(mp,ms,mt) ) / xjac**2
 
 
-                  Bgrad_v_star = 0.d0
-                  if (filter_parallel .gt. 0.d0) Bgrad_v_star = ( F0 / x_g(mp,ms,mt) * v_p  +  v_x  * psi_y - v_y  * psi_x ) / x_g(mp,ms,mt)
+                Bgrad_v_star = 0.d0
+                if (filter_parallel .gt. 0.d0) Bgrad_v_star = ( F0 / x_g(mp,ms,mt) * v_p  +  v_x  * psi_y - v_y  * psi_x ) / x_g(mp,ms,mt)
 
 
-                  do k=1,n_vertex_max
-                    do l=1,n_degrees
+                do k=1,n_vertex_max
+                  do l=1,n_degrees
+                    j_loc = n_degrees*(k-1) + l
+                    p_s = h_s(k,l,ms,mt)   * element%size(k,l)
+                    p_t = h_t(k,l,ms,mt)   * element%size(k,l)
+                    p_p = h(k,l,ms,mt)     * element%size(k,l)
+                    p   = p_p
+                    p_ss = h_ss(k,l,ms,mt) * element%size(k,l)
+                    p_tt = h_tt(k,l,ms,mt) * element%size(k,l)
+                    p_st = h_st(k,l,ms,mt) * element%size(k,l)
+                    p_x = (  y_t(mp,ms,mt) * p_s - y_s(mp,ms,mt) * p_t) / xjac
+                    p_y = (- x_t(mp,ms,mt) * p_s + x_s(mp,ms,mt) * p_t) / xjac
 
-                      do in = 1, n_tor
+                    p_xx = (p_ss * y_t(mp,ms,mt)**2 - 2.d0*p_st * y_s(mp,ms,mt)*y_t(mp,ms,mt) + p_tt * y_s(mp,ms,mt)**2  &
+                        + p_s * (y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt) )                          &
+                        + p_t * (y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt) ) )  / xjac**2             &
+                        - xjac_x * (p_s * y_t(mp,ms,mt) - p_t * y_s(mp,ms,mt)) / xjac**2
 
-                        index_kl = n_tor*n_degrees*(k-1) + n_tor * (l-1) + in   ! index in the ELM matrix
+                    p_yy = (p_ss * x_t(mp,ms,mt)**2 - 2.d0*p_st * x_s(mp,ms,mt)*x_t(mp,ms,mt) + p_tt * x_s(mp,ms,mt)**2  &
+                        + p_s * (x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt) )                          &
+                        + p_t * (x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt) ) )     / xjac**2          &
+                        - xjac_y * (- p_s * x_t(mp,ms,mt) + p_t * x_s(mp,ms,mt) ) / xjac**2
 
-                        p   = h(k,l,ms,mt)     * element%size(k,l) * HZ(in,mp)
-                        p_s = h_s(k,l,ms,mt)   * element%size(k,l) * HZ(in,mp)
-                        p_t = h_t(k,l,ms,mt)   * element%size(k,l) * HZ(in,mp)
-                        p_p = h(k,l,ms,mt)     * element%size(k,l) * HZ_p(in,mp)
+                    Bgrad_p = 0.d0
+                    if (filter_parallel .gt. 0.d0) Bgrad_p = ( F0 / x_g(mp,ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(mp,ms,mt)
 
-                        p_ss = h_ss(k,l,ms,mt) * element%size(k,l) * HZ(in,mp)
-                        p_tt = h_tt(k,l,ms,mt) * element%size(k,l) * HZ(in,mp)
-                        p_st = h_st(k,l,ms,mt) * element%size(k,l) * HZ(in,mp)
-
-                        p_x = (  y_t(mp,ms,mt) * p_s - y_s(mp,ms,mt) * p_t) / xjac
-                        p_y = (- x_t(mp,ms,mt) * p_s + x_s(mp,ms,mt) * p_t) / xjac
-
-                        p_xx = (p_ss * y_t(mp,ms,mt)**2 - 2.d0*p_st * y_s(mp,ms,mt)*y_t(mp,ms,mt) + p_tt * y_s(mp,ms,mt)**2  &
-                            + p_s * (y_st(mp,ms,mt)*y_t(mp,ms,mt) - y_tt(mp,ms,mt)*y_s(mp,ms,mt) )                          &
-                            + p_t * (y_st(mp,ms,mt)*y_s(mp,ms,mt) - y_ss(mp,ms,mt)*y_t(mp,ms,mt) ) )  / xjac**2             &
-                            - xjac_x * (p_s * y_t(mp,ms,mt) - p_t * y_s(mp,ms,mt)) / xjac**2
-
-                        p_yy = (p_ss * x_t(mp,ms,mt)**2 - 2.d0*p_st * x_s(mp,ms,mt)*x_t(mp,ms,mt) + p_tt * x_s(mp,ms,mt)**2  &
-                            + p_s * (x_st(mp,ms,mt)*x_t(mp,ms,mt) - x_tt(mp,ms,mt)*x_s(mp,ms,mt) )                          &
-                            + p_t * (x_st(mp,ms,mt)*x_s(mp,ms,mt) - x_ss(mp,ms,mt)*x_t(mp,ms,mt) ) )     / xjac**2          &
-                            - xjac_y * (- p_s * x_t(mp,ms,mt) + p_t * x_s(mp,ms,mt) ) / xjac**2
-
-                        Bgrad_p = 0.d0
-                        if (filter_parallel .gt. 0.d0) Bgrad_p = ( F0 / x_g(mp,ms,mt) * p_p +  p_x * psi_y - p_y * psi_x ) / x_g(mp,ms,mt)
-
-                        ELM(index_ij,index_kl) = ELM(index_ij,index_kl) &
-                        
-                                              + p * v * xjac * x_g(mp,ms,mt) * wst &
-
-                                              + filter          * (p_x * v_x + p_y * v_y) * xjac * x_g(mp,ms,mt) * wst &
-
-                                              + filter_hyper    * (v_xx + v_x/x_g(mp,ms,mt) + v_yy)*(p_xx + p_x/x_g(mp,ms,mt) + p_yy) * xjac * x_g(mp,ms,mt) * wst &
-
-                                              + filter_parallel * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(mp,ms,mt) * wst
+                    if (.not. use_fft) then
+                      do im = 1, n_tor
+                        do in = 1, n_tor
+                          index_ij = n_tor*n_degrees*(i-1) + n_tor * (j-1) + im
+                          index_kl = n_tor*n_degrees*(k-1) + n_tor * (l-1) + in
+                          ELM(index_ij,index_kl) = ELM(index_ij,index_kl) &
+                              + (p   * HZ(in,mp)) * (v   * HZ(im,mp)) * xjac * x_g(mp,ms,mt) * wst &
+                              + filter          * ((p_x * HZ(in,mp)) * (v_x * HZ(im,mp)) + (p_y * HZ(in,mp)) * (v_y * HZ(im,mp))) * xjac * x_g(mp,ms,mt) * wst &
+                              + filter_hyper    * ((v_xx* HZ(im,mp)) + (v_x* HZ(im,mp))/x_g(mp,ms,mt) + (v_yy* HZ(im,mp)))* &
+                                                  ((p_xx* HZ(in,mp)) + (p_x* HZ(in,mp))/x_g(mp,ms,mt) + (p_yy* HZ(in,mp))) * xjac * x_g(mp,ms,mt) * wst &
+                              + filter_parallel * (Bgrad_v_star * HZ_p(im,mp)) * (Bgrad_p * HZ_p(in,mp)) / BB2 * xjac * x_g(mp,ms,mt) * wst
+                        enddo
                       enddo
-                    enddo
+                    else
+                      ELM_term1(mp, i_loc, j_loc) = ELM_term1(mp, i_loc, j_loc) &
+                                  + p * v * xjac * x_g(mp,ms,mt) * wst &
+                                  + filter          * (p_x * v_x + p_y * v_y) * xjac * x_g(mp,ms,mt) * wst &
+                                  + filter_hyper    * (v_xx + v_x/x_g(mp,ms,mt) + v_yy)*(p_xx + p_x/x_g(mp,ms,mt) + p_yy) * xjac * x_g(mp,ms,mt) * wst
+                      if (filter_parallel .gt. 0.d0) &
+                        ELM_term2(mp, i_loc, j_loc) = ELM_term2(mp, i_loc, j_loc) &
+                                    + filter_parallel * Bgrad_v_star * Bgrad_p / BB2 * xjac * x_g(mp,ms,mt) * wst
+                    endif
                   enddo
                 enddo
               enddo
@@ -459,6 +499,79 @@ contains
           enddo
         enddo
       enddo
+    
+      if (use_fft) then
+        ! FFT Assembly Block
+        do i_loc = 1, n_vertex_max*n_degrees
+          do j_loc = 1, n_vertex_max*n_degrees
+            ! --- Process ELM_term1 ---
+            in_fft(1:n_plane) = ELM_term1(1:n_plane, i_loc, j_loc)
+#ifdef USE_FFTW
+            call dfftw_execute_dft_r2c(fftw_plan, in_fft, out_fft)
+#else
+            call my_fft(in_fft, out_fft, n_plane)
+#endif
+            do m = 1, (n_tor+1)/2
+              do k = 1, (n_tor+1)/2
+                im_index = max(2*(m-1),1)
+                in_index = max(2*(k-1),1)
+                index_ij = n_tor*(i_loc-1) + im_index
+                index_kl = n_tor*(j_loc-1) + in_index
+                
+                l = abs(k-m)
+                ELM(index_ij,   index_kl)   = ELM(index_ij,   index_kl)   + real(out_fft(l+1))
+                if (m > 1) ELM(index_ij+1, index_kl)   = ELM(index_ij+1, index_kl)   + imag(out_fft(l+1))*sign(1.d0,real(k-m))
+                if (k > 1) ELM(index_ij,   index_kl+1) = ELM(index_ij,   index_kl+1) - imag(out_fft(l+1))*sign(1.d0,real(k-m))
+                if (m > 1 .and. k > 1) ELM(index_ij+1, index_kl+1) = ELM(index_ij+1, index_kl+1) + real(out_fft(l+1))
+                
+                l = k+m-2
+                if (l >= 0 .and. l < n_plane/2) then
+                  ELM(index_ij,   index_kl)   = ELM(index_ij,   index_kl)   + real(out_fft(l+1))
+                  if (m > 1) ELM(index_ij+1, index_kl)   = ELM(index_ij+1, index_kl)   - imag(out_fft(l+1))
+                  if (k > 1) ELM(index_ij,   index_kl+1) = ELM(index_ij,   index_kl+1) - imag(out_fft(l+1))
+                  if (m > 1 .and. k > 1) ELM(index_ij+1, index_kl+1) = ELM(index_ij+1, index_kl+1) - real(out_fft(l+1))
+                endif
+              enddo
+            enddo
+
+            ! --- Process ELM_term2 ---
+            if (filter_parallel .gt. 0.d0) then
+              in_fft(1:n_plane) = ELM_term2(1:n_plane, i_loc, j_loc)
+#ifdef USE_FFTW
+              call dfftw_execute_dft_r2c(fftw_plan, in_fft, out_fft)
+#else
+              call my_fft(in_fft, out_fft, n_plane)
+#endif
+              do m = 1, (n_tor+1)/2 
+                do k = 1, (n_tor+1)/2
+                  im_index = max(2*(m-1),1)
+                  in_index = max(2*(k-1),1)
+                  index_ij = n_tor*(i_loc-1) + im_index
+                  index_kl = n_tor*(j_loc-1) + in_index
+                  
+                  l = abs(k-m)
+                  ELM(index_ij,   index_kl)   = ELM(index_ij,   index_kl)   + real(out_fft(l+1)) * mode(in_index) * mode(im_index)
+                  if (m > 1) ELM(index_ij+1, index_kl)   = ELM(index_ij+1, index_kl)   + imag(out_fft(l+1))*sign(1.d0,real(k-m)) * mode(in_index) * mode(im_index)
+                  if (k > 1) ELM(index_ij,   index_kl+1) = ELM(index_ij,   index_kl+1) - imag(out_fft(l+1))*sign(1.d0,real(k-m)) * mode(in_index) * mode(im_index)
+                  if (m > 1 .and. k > 1) ELM(index_ij+1, index_kl+1) = ELM(index_ij+1, index_kl+1) + real(out_fft(l+1)) * mode(in_index) * mode(im_index)
+                  
+                  l = k+m-2
+                  if (l >= 0 .and. l < n_plane/2) then
+                    ELM(index_ij,   index_kl)   = ELM(index_ij,   index_kl)   - real(out_fft(l+1)) * mode(in_index) * mode(im_index)
+                    if (m > 1) ELM(index_ij+1, index_kl)   = ELM(index_ij+1, index_kl)   + imag(out_fft(l+1)) * mode(in_index) * mode(im_index)
+                    if (k > 1) ELM(index_ij,   index_kl+1) = ELM(index_ij,   index_kl+1) + imag(out_fft(l+1)) * mode(in_index) * mode(im_index)
+                    if (m > 1 .and. k > 1) ELM(index_ij+1, index_kl+1) = ELM(index_ij+1, index_kl+1) + real(out_fft(l+1)) * mode(in_index) * mode(im_index)
+                  endif
+                enddo
+              enddo
+
+            endif
+          enddo
+        enddo
+        ELM = 0.5d0 * ELM
+        deallocate(ELM_term1)
+        if (filter_parallel .gt. 0.d0) deallocate(ELM_term2)
+      endif
 
       ! Save contribution of this element in MUMPS format
       do i=1,n_vertex_max
@@ -485,10 +598,9 @@ contains
 
                   index_large_k = n_tor*(node_list%node(knode)%index(l)-1) + in   ! base index in the main matrix
 
-                ! Explicitly calculate the index
+                  ! Explicitly calculate the index
+                  ilarge = in + n_tor*(l-1) + n_tor*(k-1)*n_degrees             &
 
-                  ilarge = in + n_tor*(l-1) + n_tor*(k-1)*n_degrees            &
-                          
                         + (im-1)    *   n_vertex_max *  n_degrees * n_tor       &
                         
                         + (j-1)     *   n_vertex_max *  n_degrees * n_tor **2   &
@@ -506,7 +618,6 @@ contains
                   else
                       a_mat%val(ilarge)     = ELM(index_ij,index_kl) * TWOPI / real(n_plane,8)
                   endif
-
                 enddo
               enddo
             enddo
@@ -566,11 +677,36 @@ contains
     a_mat%ng  = n_AA
     a_mat%nnz = nz_AA
 
-  end if
-  ! MPI broadcast the ng and nnz
+#ifdef USE_FFTW
+    if (use_fft) call dfftw_destroy_plan(fftw_plan)
+#endif
+
+    end if
   call MPI_Bcast(a_mat%ng, 1, MPI_INTEGER, 0, this_mpi_comm_world, ierr)
   call MPI_Bcast(a_mat%nnz, 1, MPI_INTEGER, 0, this_mpi_comm_world, ierr)
 
   end subroutine assemble_projection_matrix
+
+
+subroutine my_fft(in_fft,out_fft,n)
+
+  implicit none
+
+  real*8     :: in_fft(*)
+  complex*16 :: out_fft(*)
+
+  integer    :: i, n
+  real*8     :: tmp_fft(2*n+2)
+
+  tmp_fft(1:n) = in_fft(1:n)
+
+  call RFT2(tmp_fft,n,1)
+
+  do i=1,n
+    out_fft(i) = cmplx(tmp_fft(2*i-1),tmp_fft(2*i))
+  enddo
+
+  return
+end subroutine my_fft
 
 end module mod_coupled_projection

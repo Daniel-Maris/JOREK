@@ -62,6 +62,9 @@ subroutine preset_parameters
   rst_format   = 0             ! use 'old' format for restart import
   write_ps     = .true.           ! write postscript file at the end of the run 
   gvec_grid_import = .false.
+  extended_boundary = .false.
+  j_cutoff_rcoord = 99.0
+  j_cutoff_sig = 0.025
 
   freeboundary_equil = .false. ! use free or fixed boundary equilibrium
   freeboundary       = .false. ! use free or fixed boundary?
@@ -192,6 +195,7 @@ subroutine preset_parameters
   T_jropes       = 0.d0
 
   bootstrap = .false.
+  bootstrap_psin_cutoff = 0.9995
 
   ellip  = 1.d0
   tria_u = 0.d0
@@ -640,15 +644,15 @@ subroutine preset_parameters
   current_prof_initialized = .false.
   
   use_mumps          = .false.              ! Use MUMPS solver
-  use_pastix         = .true.               ! Use PASTIX solver
-  use_strumpack      = .false.              ! Use STRUMPACK solver  
+  use_pastix         = .false.              ! Use PASTIX solver
+  use_strumpack      = .true.               ! Use STRUMPACK solver  
   use_wsmp           = .false.              ! Use WSMP solver (use with care, still in development!)
   
   use_mumps_eq       = .false.              ! Use MUMPS equilibrium solver
   use_pastix_eq      = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_eq   = .false.              ! Use STRUMPACK equilibrium olver  
   
-  use_mumps_prj      = .false.              ! Use MUMPS equilibrium solver
+  use_mumps_prj      = .true.               ! Use MUMPS equilibrium solver
   use_pastix_prj     = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_prj  = .false.              ! Use STRUMPACK equilibrium olver  
 

@@ -418,6 +418,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,CHAR_FMT) 'domm_file             ', domm_file
     write(*,REAL_FMT) 'R_domm                ', R_domm
   end if
+  write(*,LOGI_FMT) 'extended_boundary     ', extended_boundary
+  write(*,REAL_FMT) 'j_cutoff_rcoord       ', j_cutoff_rcoord
+  write(*,REAL_FMT) 'j_cutoff_sig          ', j_cutoff_sig
 
   if ( (abs(V_0) .ge. 1.d-19) .or. (num_rot) ) then
      write(*,LOGI_FMT) 'normalized_velocity_profile', normalized_velocity_profile
@@ -899,6 +902,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   endif
   write(*,LOGI_FMT) 'output_bnd_elements   ', output_bnd_elements
   write(*,LOGI_FMT) 'bootstrap             ', bootstrap
+  write(*,REAL_FMT) 'bootstrap_psin_cutoff ', bootstrap_psin_cutoff
   write(*,LOGI_FMT) 'NEO                   ', NEO
   if (NEO) then
     write(*,LOGI_FMT) 'num_neo_file          ', num_neo_file
