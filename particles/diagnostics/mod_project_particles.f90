@@ -670,9 +670,4 @@ subroutine close_projection(this)
   call this%solver%finalize()
 end subroutine close_projection
 
-subroutine close_projection(this)
-  class(projection), intent(inout) :: this
-  call this%solver%finalize()
-end subroutine close_projection
-
 end module mod_project_particles
