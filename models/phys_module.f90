@@ -998,7 +998,8 @@ module phys_module
   ! ------------------------------------------------
   ! --- Structures for settings wall_action
   ! ------------------------------------------------
-  !> Contains settings to define one wall_action (see mod_particle_wall_interaction)
+  !> Contains settings to define one wall_action (see mod_particle_wall_interaction for implementation
+  !> and the wiki for documentation at https://jorek.eu/wiki/doku.php?id=particles:wall_actions)
   type :: type_wall_act_config
     character(len=20) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
     character(len=3)  :: target_group_id !< which particle group (as identified by its %id) this wall interaction affects
