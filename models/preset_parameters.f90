@@ -891,6 +891,8 @@ part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_cx             = .false.
 ! --- ics only
 part_group_configs(:)%use_kin_bg_collisions  = .false.
+part_group_configs(:)%kin_bg_coll_type       = 'Homma2020'
+part_group_configs(:)%homma2020_alpha        = 1.d12
 part_group_configs(:)%ics_group_idx          = -1
 
 do i=1, n_part_groups_max
