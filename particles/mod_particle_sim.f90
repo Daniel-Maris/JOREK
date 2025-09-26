@@ -109,6 +109,15 @@ subroutine configure_particle_groups(sim)
     else
       if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
     endif
+
+    if (sim%groups(i)%use_kin_bg_collisions) then
+      if ((sim%groups(i)%kin_bg_coll_type /= 'Homma2013') .and. (sim%groups(i)%kin_bg_coll_type /= 'Homma2020')) then
+              write(*,*) 'ERROR: Wrong input kin_bg_coll_type=', trim(sim%groups(i)%kin_bg_coll_type), &
+                 ' please choose either Homma2013 or Homma2020!'
+        stop
+      endif
+    endif
+      
   enddo 
 
 end subroutine configure_particle_groups

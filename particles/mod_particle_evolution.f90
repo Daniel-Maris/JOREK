@@ -399,15 +399,12 @@ contains
               n_b = n_e
               q_b = 1
               m_b = 2.d0
+              write(*,*) sim%groups(group_num)%kin_bg_coll_type
               if (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2013') then
-                if ((sim%my_id .eq. 0) .and. (sim%groups(group_num)%homma2020_alpha .ne. 1.d12)) write(*,*) 'WARNING: Using Homma2013 and homma2020_alpha is set, it will not be used!'
                 !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
                 q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
               elseif (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2020') then
-                if ((sim%my_id .eq. 0) .and. (sim%groups(group_num)%homma2020_alpha .eq. 1.d12)) write(*,*) 'WARNING: Using default value of 1.d12 for homma2020_alpha!'
                 q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, sim%groups(group_num)%homma2020_alpha)
-              else
-                if (sim%my_id .eq. 0) write(*,*) 'WARNING: Input kin_bg_coll_type not implemented, please choose either Homma2013 or Homma2020!'
               endif
 
               !> Calculate coulomb logarithm and limit it to reasonable values
