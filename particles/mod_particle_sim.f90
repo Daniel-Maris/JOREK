@@ -32,7 +32,9 @@ type :: particle_group
   logical            :: use_kin_recombination    !< switch on recombination for group       
 
   ! --- impurities only
-  logical            :: use_kin_bg_collisions    !< switch only collisions with the background plasma
+  logical            :: use_kin_bg_collisions    !< switch on collisions with the background plasma
+  character(len=9)   :: kin_bg_coll_type         !< method to calculate heat flux in kin_bg_collision
+  real*8             :: homma2020_alpha          !< flux limiting factor alpha for Homma2020 heat flux
   integer            :: ics_group_idx            !< internal index given to this specific impurities group
 
 
@@ -96,6 +98,8 @@ subroutine configure_particle_groups(sim)
 
     ! --- ics only
     sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
+    sim%groups(i)%kin_bg_coll_type       =  config%kin_bg_coll_type
+    sim%groups(i)%homma2020_alpha        =  config%homma2020_alpha
     sim%groups(i)%ics_group_idx          =  config%ics_group_idx
     
     if (len_trim(config%atom_data_suffix) > 0) then
