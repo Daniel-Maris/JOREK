@@ -193,6 +193,7 @@ subroutine preset_parameters
   T_jropes       = 0.d0
 
   bootstrap = .false.
+  bootstrap_psin_cutoff = 0.9995
 
   ellip  = 1.d0
   tria_u = 0.d0
@@ -642,15 +643,15 @@ subroutine preset_parameters
   current_prof_initialized = .false.
   
   use_mumps          = .false.              ! Use MUMPS solver
-  use_pastix         = .true.               ! Use PASTIX solver
-  use_strumpack      = .false.              ! Use STRUMPACK solver  
+  use_pastix         = .false.              ! Use PASTIX solver
+  use_strumpack      = .true.               ! Use STRUMPACK solver  
   use_wsmp           = .false.              ! Use WSMP solver (use with care, still in development!)
   
   use_mumps_eq       = .false.              ! Use MUMPS equilibrium solver
   use_pastix_eq      = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_eq   = .false.              ! Use STRUMPACK equilibrium olver  
   
-  use_mumps_prj      = .false.              ! Use MUMPS equilibrium solver
+  use_mumps_prj      = .true.               ! Use MUMPS equilibrium solver
   use_pastix_prj     = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_prj  = .false.              ! Use STRUMPACK equilibrium olver  
 
@@ -889,6 +890,10 @@ part_group_configs(:)%use_kin_ionisation     = .false.
 ! --- ncs only
 part_group_configs(:)%use_kin_recombination  = .false.
 part_group_configs(:)%use_kin_cx             = .false.
+part_group_configs(:)%use_kin_neutral_coll   = .false.
+do i=1,n_part_groups_max
+  part_group_configs(i)%neutral_coll_dTw(:)  = -1.d99
+end do
 ! --- ics only
 part_group_configs(:)%use_kin_bg_collisions  = .false.
 part_group_configs(:)%kin_bg_coll_type       = 'Homma2020'

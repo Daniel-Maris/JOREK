@@ -79,6 +79,7 @@ module phys_module
   real*8  :: Z_xpoint_limit(2)    !< Search the lower X-point in the region Z < Z_xpoint_limit(1) and the upper X-point in the region Z > Z_xpoint_limit(2) 
   integer :: xpoint_search_tries  !< The number of candidate elements to check for being the element containing the upper or lower X-point.
   logical :: bootstrap            !< Evolve the Bootstrap current consistently with time?
+  real*8  :: bootstrap_psin_cutoff!< Bootstrap-current hard cutoff if simulating X-point plasma.
   real*8  :: minRad               !< Approximation of minor radius for bootstrap current calculation
   logical :: refinement           !< Use mesh refinement? (not presently available)
   logical :: force_central_node   !< Force all nodes in the center to have the same values in flux aligned grids or independent values?
@@ -997,7 +998,8 @@ module phys_module
   ! ------------------------------------------------
   ! --- Structures for settings wall_action
   ! ------------------------------------------------
-  !> Contains settings to define one wall_action (see mod_particle_wall_interaction)
+  !> Contains settings to define one wall_action (see mod_particle_wall_interaction for implementation
+  !> and the wiki for documentation at https://jorek.eu/wiki/doku.php?id=particles:wall_actions)
   type :: type_wall_act_config
     character(len=20) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
     character(len=3)  :: target_group_id !< which particle group (as identified by its %id) this wall interaction affects
@@ -1042,7 +1044,10 @@ module phys_module
     logical             :: use_kin_cx              !< switch on charge-exchange for group 
     logical             :: use_kin_recombination   !< switch on recombination from the plasma fluid to this kinetic neutrals group*
                                                    !  *if 2+ ncs groups are present, how the fluid recombination is divided amongst the groups is not yet implemented
-                                                  
+    logical             :: use_kin_neutral_coll    !< switch on neutral self-collisions*
+                                                   !  *cross collisions between different neutrals species is not yet supported
+                                                   !   For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
+    real*8              :: neutral_coll_dTw(3)     !< the reference diameter d_ref [m], reference temperatrue T_ref [K] and viscosity index omega [-] of the variable hard sphere model for this neutral species
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
