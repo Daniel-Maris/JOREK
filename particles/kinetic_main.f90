@@ -31,6 +31,7 @@ use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 use mod_particle_wall_interaction
+use mod_neutral_collision, only: neutral_collisions_from_config, type_neutral_collision
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
@@ -83,9 +84,10 @@ integer   :: n_wall_act_groups = 0
 integer   :: recomb_counter  = 0
 integer   :: puff_counter    = 0
 
-integer,                dimension(:), allocatable :: recomb_groups
-type(particle_puffing), dimension(:), allocatable :: puff_actions   
-type(wall_act_group),   dimension(:), allocatable :: wall_act_groups
+integer,                      dimension(:), allocatable :: recomb_groups
+type(particle_puffing),       dimension(:), allocatable :: puff_actions   
+type(wall_act_group),         dimension(:), allocatable :: wall_act_groups
+type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 
 !tmp
 class(type_rng), dimension(:), allocatable :: wall_rng
@@ -203,6 +205,9 @@ do group_num=1, n_part_groups
 
 enddo ! n_part_groups
 
+! neutral collisions
+neutral_collisions = neutral_collisions_from_config(sim)
+
 ! --- Set up feedback to the plasma (does not currently include recombination)
 jorek_feedback = new_projection(sim%fields%node_list, sim%fields%element_list, &
                                 filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0=filter_par_n0,            &
@@ -272,7 +277,7 @@ do while (.not. sim%stop_now)
     
   if (puff_counter > 0) then 
     call write_to_outputfile(sim%my_id, "Puffing")
-    if (sim%my_id == 0) write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
+    if (sim%my_id == 0) write(*,"(A,G13.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
     do i=1, puff_counter
       call puff_actions(i)%do(sim)
     enddo
@@ -322,9 +327,17 @@ do while (.not. sim%stop_now)
   
 
   ! -- Finalising the fluid timestep
+
+  !neutral self collisions, which need the projected neutral density
+  if (size(neutral_collisions) > 0) then
+    call write_to_outputfile(sim%my_id, "Neutral self collisions")
+    do i=1, size(neutral_collisions)
+      call neutral_collisions(i)%do(sim,tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
+    enddo
+  endif
   
-  !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
-  if ( mod(istep,500) .eq. 0 ) then
+  !Writing interim particle restart files every nout fluid steps done. Overwrites previous restart file to save space
+  if ( mod(istep,nout) .eq. 0 ) then
     call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
     call write_simulation_hdf5(sim, 'interim_part_restart.h5')
   endif

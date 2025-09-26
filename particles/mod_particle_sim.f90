@@ -30,6 +30,7 @@ type :: particle_group
   ! --- neutrals only
   logical            :: use_kin_cx               !< switch on charge-exchange for group  
   logical            :: use_kin_recombination    !< switch on recombination for group       
+  logical            :: use_kin_neutral_coll     !< switch on neutral self-collisions for group       
 
   ! --- impurities only
   logical            :: use_kin_bg_collisions    !< switch only collisions with the background plasma
@@ -91,13 +92,14 @@ subroutine configure_particle_groups(sim)
 
     ! === ncs and ics options
     if (sim%groups(i)%coupling_scheme == 'ncs' .or. sim%groups(i)%coupling_scheme == 'ics') then
-        sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
-        sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
-        sim%groups(i)%use_kin_radiation      =  config%use_kin_radiation 
+      sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
+      sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
+      sim%groups(i)%use_kin_radiation      =  config%use_kin_radiation 
 
       ! --- ncs only
       sim%groups(i)%use_kin_cx             =  config%use_kin_cx
       sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
+      sim%groups(i)%use_kin_neutral_coll   =  config%use_kin_neutral_coll
 
       ! --- ics only
       sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
