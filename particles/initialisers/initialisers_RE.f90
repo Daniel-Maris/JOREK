@@ -146,7 +146,6 @@ subroutine basic_initialization(sim, group_num, rng, init_pdf, energy, pitch, st
       gyro_angle = gyro_angle * TWOPI
 
       particles(j)%p = p_par(j) * B_norm + p_perp(j)*(e1*cos(gyro_angle) + e2*sin(gyro_angle))
-      !particles(j)%p = -p_par(j) * B_norm + p_perp(j)*(e1*cos(gyro_angle) + e2*sin(gyro_angle))
 
     end do
     !$omp end parallel do 

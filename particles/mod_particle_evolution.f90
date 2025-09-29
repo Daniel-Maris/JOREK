@@ -201,7 +201,6 @@ contains
   
               v_jPhi  = - proj_factor * real(particles(j)%q, 8) * EL_CHG * cylindrical_velocity(3) * particles(j)%x(1) * MU_ZERO
               
-              !v_n     = proj_factor   !> diagnostic variable that may be expanded later
 
               do i_tor = 1,n_tor
                 feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) + HZ(i_tor)*v_Ppar
