@@ -399,7 +399,7 @@ contains
               n_b = n_e
               q_b = 1
               m_b = 2.d0
-              write(*,*) sim%groups(group_num)%kin_bg_coll_type
+
               if (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2013') then
                 !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
                 q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
