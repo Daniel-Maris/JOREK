@@ -398,7 +398,7 @@ contains
               kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
               n_b = n_e
               q_b = 1
-              m_b = central_mass !2.d0
+              m_b = central_mass
 
               if (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2013') then
                 !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
