@@ -339,7 +339,6 @@ contains
                 + CX_source  * dot_product(B, v_old - v_new) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
           energy_source  = ionize_source * ionize_energy + delta_E_kin - line_rad_energy
                   
-          particle_tmp%v = v_new 
           n_lost_ion = n_lost_ion + ionize_source	!< local sum #particles lost due to ionisation
           p_lost_ion = p_lost_ion + ionize_source * ionize_energy
           p_lost_plt = p_lost_plt + line_rad_energy
@@ -482,10 +481,10 @@ contains
             enddo
           enddo
 
-          !> explicitly store updated velocity
-          particle_tmp%v = v_new
-
         endif ! END OF ICS SPECIFIC PHYSICS
+
+        !> explicitly store updated velocity
+        particle_tmp%v = v_new
 
         !> =============================== PUSH PARTICLE ====================================
         if (particle_tmp%i_elm .gt. 0) then
