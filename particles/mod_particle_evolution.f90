@@ -231,10 +231,7 @@ contains
         st_old    = particle_tmp%st
         i_elm_old = particle_tmp%i_elm
         q_old     = particle_tmp%q 
-
-        ! velocities before/after in this substep
         v_old     = particle_tmp%v
-        v_new     = v_old
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
         call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
@@ -377,10 +374,6 @@ contains
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
           limits_coll = T_e_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions [eV]
 
-          ! velocities before/after in this substep
-          v_old     = particle_tmp%v
-          v_new     = v_old
-
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call rng(i_rng)%next(ionize_ran_imp)
@@ -412,6 +405,8 @@ contains
               n_b = n_i
               q_b = 1
               m_b = 2.d0
+              !> because in collide_particles this gets both used as the old velocity and updated to the new one
+              v_new = v_old
               !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
               q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) 
 
