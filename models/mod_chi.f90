@@ -394,11 +394,12 @@ module mod_chi
 
     ! Compute chi and R, Z, phi derivatives
     xjac =  R_s*Z_t - R_t*Z_s
+    ! Use L'Hopital's rule (differentiate numerator and denominator wrt s) if the derivatives are being evaluated on the axis
     if (i_elm .le. n_tht .and. s .eq. 0.d0) then
       xjac_s = R_s*Z_st - R_st*Z_s
       chi_x = ( Z_st*chi_corr_s - Z_s*chi_corr_st)/xjac_s
       chi_y = (-R_st*chi_corr_s + R_s*chi_corr_st)/xjac_s
-    else
+    else ! If not, then we use the standard expressions for chi_x and chi_y
       chi_x = (   Z_t * chi_corr_s - Z_s * chi_corr_t ) / xjac
       chi_y = ( - R_t * chi_corr_s + R_s * chi_corr_t ) / xjac
     end if

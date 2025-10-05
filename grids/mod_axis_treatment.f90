@@ -11,6 +11,8 @@ module mod_axis_treatment
 contains
 
 ! Transform basis functions for the axis nodes. This will solve for new degrees of freedom at the axis.
+! This is the 2D version of the transform, useful for solving the Grad-Shafranov equation in mod_poiss.
+! See the next subroutine, transform_basis_for_axis_element, if multiple Fourier modes need to be treated.
 subroutine transform_basis_for_axis_element_poisson(nodes, ELM, RHS, ivar_in, ivar_out, i_harm)
 use data_structure
 use phys_module
@@ -122,27 +124,34 @@ enddo ! loop over iv
 end subroutine transform_basis_for_axis_element_poisson
 
 ! Transform basis functions for the axis nodes. This will solve for new degrees of freedom at the axis.
-subroutine transform_basis_for_axis_element(nodes, ielm, ELM, RHS, i_v, i_n, n_v)
+! This subroutine handles 3D transforms, i.e. when multiple Fourier modes are present.
+! Parameters:
+!   nodes:        An array containing all the nodes of the element whose ELM and RHS are being transformed
+!   ielm:         The index in the element list of the element whose ELM and RHS are being transformed
+!   ELM:          The element matrix that is being transformed
+!   RHS:          The RHS that is being transformed
+!   i_v:          An array containing the indices of all variables involved in the transformation, can be a subset of the variables in the matrix
+!   n_v:          The total number of variables in the matrix, must be >= size(i_v)
+!   i_n:          An array containing the indices of all Fourier modes involved in the transformation, can be a subset of the modes in the matrix
+!   n_tor_local:  The total number of Fourier modes in the matrix, must be >= size(i_n)
+subroutine transform_basis_for_axis_element(nodes, ielm, ELM, RHS, i_v, n_v, i_n, n_tor_local)
 use data_structure
 use phys_module
 implicit none
 type(type_node),       intent(inout) :: nodes(n_vertex_max)
 integer, dimension(:), intent(in) :: i_v, i_n
-real*8, dimension(size(i_n)*n_vertex_max*(n_order+1)*n_v, size(i_n)*n_vertex_max*(n_order+1)*n_v), intent(inout) :: ELM
-real*8, dimension(size(i_n)*n_vertex_max*(n_order+1)*n_v), intent(inout) :: RHS
-integer, intent(in) :: ielm, n_v
+real*8, dimension(n_tor_local*n_vertex_max*(n_order+1)*n_v, n_tor_local*n_vertex_max*(n_order+1)*n_v), intent(inout) :: ELM
+real*8, dimension(n_tor_local*n_vertex_max*(n_order+1)*n_v), intent(inout) :: RHS
+integer, intent(in) :: ielm, n_v, n_tor_local
 
 ! --- routine parameters
 integer :: axis_vertex1, axis_vertex4, dof1, dof2, dof3, dof4
 integer :: iv, io, jv, jo, index_iv_io, index_jv_jo
-integer :: ivar, jvar, im, in, n_tor_local, n_harm
+integer :: ivar, jvar, im, in
 real*8  :: Ptrans(1:4, 1:4), Pmat(1:4, 1:4), rhs_i(1:4), elm_ij(1:4, 1:4), theta
 
 axis_vertex1 = 1 ; axis_vertex4 = 4
 dof1 = 1 ; dof2 = 2 ; dof3 = 3 ; dof4 = 4
-
-n_harm = size(i_n)
-n_tor_local = i_n(n_harm) - i_n(1) +1
 
 do iv = 1, n_vertex_max
 #if STELLARATOR_MODEL
@@ -184,17 +193,17 @@ do iv = 1, n_vertex_max
   end if
 
   do ivar = 1, size(i_v)
-  do im   = 1, n_harm
+  do im   = 1, size(i_n)
     ! Extract RHS associated with a vertex iv: rhs_iv
     do io = 1, n_order+1
-      index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + (i_n(im)-i_n(1)+1) + (i_v(ivar)-1)*n_tor_local
+      index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + n_tor_local*(i_v(ivar)-1) + (i_n(im)-i_n(1)+1)
       rhs_i(io)   = RHS(index_iv_io)
     enddo
     ! transform test functions for rhs_v
     rhs_i = matmul( Ptrans, rhs_i)
     ! fill the updated entries in RHS vector
     do io = 1, n_order+1
-      index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + (i_n(im)-i_n(1)+1) + (i_v(ivar)-1)*n_tor_local
+      index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + n_tor_local*(i_v(ivar)-1) + (i_n(im)-i_n(1)+1)
       RHS(index_iv_io) = rhs_i(io)
     enddo
   enddo ! loop over im
@@ -240,16 +249,16 @@ do iv = 1, n_vertex_max
     end if
 
     ! Extract ELM associated with a vertex iv and jv: elm_iv_jv
-    do ivar = 1, n_v
-    do im   = 1, n_harm
+    do ivar = 1, size(i_v)
+    do im   = 1, size(i_n)
     
-    do jvar = 1, n_v
-    do in   = 1, n_harm
+    do jvar = 1, size(i_v)
+    do in   = 1, size(i_n)
     
        do io = 1, n_order+1
-          index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + (i_n(im)-i_n(1)+1) + (i_v(ivar)-1)*n_tor_local
+          index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + n_tor_local*(i_v(ivar)-1) + (i_n(im)-i_n(1)+1)
           do jo = 1, n_order+1
-             index_jv_jo = n_tor_local*n_v*(n_order+1)*(jv-1) + n_tor_local*n_v*(jo-1) + (i_n(in)-i_n(1)+1) + (i_v(jvar)-1)*n_tor_local
+             index_jv_jo = n_tor_local*n_v*(n_order+1)*(jv-1) + n_tor_local*n_v*(jo-1) + n_tor_local*(i_v(jvar)-1) + (i_n(in)-i_n(1)+1)
              elm_ij(io, jo) =  ELM(index_iv_io, index_jv_jo)
           enddo
        enddo
@@ -257,9 +266,9 @@ do iv = 1, n_vertex_max
        elm_ij = matmul(matmul(PTrans, elm_ij), Pmat)
        ! fill the updated entries in ELM matrix
        do io = 1, n_order+1
-          index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + (i_n(im)-i_n(1)+1) + (i_v(ivar)-1)*n_tor_local       
+          index_iv_io = n_tor_local*n_v*(n_order+1)*(iv-1) + n_tor_local*n_v*(io-1) + n_tor_local*(i_v(ivar)-1) + (i_n(im)-i_n(1)+1)
           do jo = 1, n_order+1
-             index_jv_jo = n_tor_local*n_v*(n_order+1)*(jv-1) + n_tor_local*n_v*(jo-1) + (i_n(in)-i_n(1)+1) + (i_v(jvar)-1)*n_tor_local
+             index_jv_jo = n_tor_local*n_v*(n_order+1)*(jv-1) + n_tor_local*n_v*(jo-1) + n_tor_local*(i_v(jvar)-1) + (i_n(in)-i_n(1)+1)
              ELM(index_iv_io, index_jv_jo) = elm_ij(io, jo)
           enddo
        enddo

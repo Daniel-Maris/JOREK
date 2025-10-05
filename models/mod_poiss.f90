@@ -329,7 +329,7 @@ if (my_id == 0) then
         do i_tor=1,n_coord_tor
           i_n(i_tor) = i_tor
         end do
-        call transform_basis_for_axis_element(nodes, ife, ELM, RHS, (/ 1 /), i_n, 1)
+        call transform_basis_for_axis_element(nodes, ife, ELM, RHS, (/ 1 /), 1, i_n, n_coord_tor)
       else
         call transform_basis_for_axis_element_poisson(nodes, ELM, RHS, ivar_in, ivar_out, i_harm)
       end if
