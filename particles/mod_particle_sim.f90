@@ -121,7 +121,7 @@ subroutine configure_particle_groups(sim)
           write(*,*) 'ERROR: Input parameter homma2020_alpha cannot be 0 or less!'
           stop
         endif
-        if ((sim%groups(i)%homma2020_alpha > 0.3d0) .or. (sim%groups(i)%homma2020_alpha < 2.d0)) then
+        if ((sim%groups(i)%homma2020_alpha < 0.3d0) .or. (sim%groups(i)%homma2020_alpha > 2.d0)) then
           write(*,*) 'WARNING: Input parameter homma2020_alpha outside of recommended range of 0.3-2!'
         endif
       endif
