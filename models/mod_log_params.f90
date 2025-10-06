@@ -42,7 +42,7 @@ character(len=512), parameter :: HEADER_FMT = "(A40)"
 integer           :: ivar, itor
 integer           :: i, j, n_rows, group_num !> do loop index 
 integer           :: used_segs !< used for write out of puff ctrls
-integer           :: n_wall_actions
+integer           :: n_wall_actions, n_poly
 character(len=10) :: mode_num
 logical           :: short2
 
@@ -1119,6 +1119,12 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           write(*,"(3X,A, ' = ""', A, '""')") 'type,                 ', trim(part_group_configs(group_num)%wall_act_configs(i)%type)
           write(*,"(3X,A,' = ',A)") 'target_group_id,      ', part_group_configs(group_num)%wall_act_configs(i)%target_group_id
           write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,        ', part_group_configs(group_num)%wall_act_configs(i)%weight_factor
+          write(*,"(3X,A,' = ',L12)") 'only_in_polygon,      ', part_group_configs(group_num)%wall_act_configs(i)%only_in_polygon   
+          if (part_group_configs(group_num)%wall_act_configs(i)%only_in_polygon) then
+            write(*,"(3X,A,' = ',100ES12.4)") 'poly_R,               ', part_group_configs(group_num)%wall_act_configs(i)%poly_R
+            write(*,"(3X,A,' = ',100ES12.4)") 'poly_Z,               ', part_group_configs(group_num)%wall_act_configs(i)%poly_Z
+            write(*,"(3X,A, ' = ""', A, '""')") 'nametag,              ', trim(part_group_configs(group_num)%wall_act_configs(i)%nametag)
+          end if
           
           !> config of the number of supers to create per event
           if (part_group_configs(group_num)%wall_act_configs(i)%supers_num_wall > 0) then
@@ -1163,6 +1169,12 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           write(*,"(3X,A, ' = ""', A, '""')") 'type,                 ', trim(fluid_configs(group_num)%wall_act_configs(i)%type)
           write(*,"(3X,A,' = ',A)") 'target_group_id,      ', fluid_configs(group_num)%wall_act_configs(i)%target_group_id
           write(*,"(3X,A,' = ',ES12.4)") 'weight_factor,        ', fluid_configs(group_num)%wall_act_configs(i)%weight_factor
+          write(*,"(3X,A,' = ',L12)") 'only_in_polygon,      ', fluid_configs(group_num)%wall_act_configs(i)%only_in_polygon   
+          if (fluid_configs(group_num)%wall_act_configs(i)%only_in_polygon) then
+            write(*,"(3X,A,' = ',100ES12.4)") 'poly_R,               ', fluid_configs(group_num)%wall_act_configs(i)%poly_R
+            write(*,"(3X,A,' = ',100ES12.4)") 'poly_Z,               ', fluid_configs(group_num)%wall_act_configs(i)%poly_Z
+            write(*,"(3X,A, ' = ""', A, '""')") 'nametag,              ', trim(fluid_configs(group_num)%wall_act_configs(i)%nametag)
+          end if
           
           !> config of the number of supers to create per event
           if (fluid_configs(group_num)%wall_act_configs(i)%supers_num_wall > 0) then
