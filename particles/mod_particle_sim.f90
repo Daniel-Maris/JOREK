@@ -112,9 +112,18 @@ subroutine configure_particle_groups(sim)
 
     if (sim%groups(i)%use_kin_bg_collisions) then
       if ((sim%groups(i)%kin_bg_coll_type /= 'Homma2013') .and. (sim%groups(i)%kin_bg_coll_type /= 'Homma2020')) then
-              write(*,*) 'ERROR: Wrong input kin_bg_coll_type=', trim(sim%groups(i)%kin_bg_coll_type), &
+        write(*,*) 'ERROR: Wrong input kin_bg_coll_type=', trim(sim%groups(i)%kin_bg_coll_type), &
                  ' please choose either Homma2013 or Homma2020!'
         stop
+      endif
+      if (sim%groups(i)%kin_bg_coll_type == 'Homma2020') then
+        if (sim%groups(i)%homma2020_alpha .le. 0.d0) then
+          write(*,*) 'ERROR: Input parameter homma2020_alpha cannot be 0 or less!'
+          stop
+        endif
+        if ((sim%groups(i)%homma2020_alpha > 0.3d0) .or. (sim%groups(i)%homma2020_alpha < 2.d0)) then
+          write(*,*) 'WARNING: Input parameter homma2020_alpha outside of recommended range of 0.3-2!'
+        endif
       endif
     endif
       

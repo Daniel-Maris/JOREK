@@ -170,9 +170,6 @@ pure function q_homma2020(kT, grad_kT, B, n_b, m_b, q_b,alpha) result(q)
         kT, n_b, q_b, q_b, m_b, m_b &
       ))
 
-      ! tau_b = 12*pi*sqrt(pi)*EPS_ZERO**2 * sqrt(m_b*ATOMIC_MASS_UNIT) * (kT*sqrt(kT)) / &
-      ! (n_b * real(int(q_b, 4)**4) * EL_CHG**4 * 15)    ! force coulomb log to 15 for homma test
-
   B_hat = B/norm2(B)
   Omega_b = real(q_b,4) * EL_CHG * norm2(B) / (m_b * ATOMIC_MASS_UNIT)
 
