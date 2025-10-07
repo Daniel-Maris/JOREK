@@ -5013,7 +5013,7 @@ subroutine construct_imp_charge_states()
      m_i_over_m_imp = central_mass/40.  
      m_imp          = 40.
   case('Ne')
-     m_i_over_m_imp = central_mass/20. 
+     m_i_over_m_imp = central_mass/20. * (2.d0/2.01455279245d0) !backwards compatibility
      m_imp          = 20.
   case default
      write(*,*) '!! Gas type "', trim(imp_type(index_main_imp)), '" unknown (in inj_source.f90) !!'

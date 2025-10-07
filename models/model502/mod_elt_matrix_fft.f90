@@ -844,7 +844,7 @@ do ms=1, n_gauss
          m_i_over_m_imp = central_mass/2.
          m_imp          = 2.
        case('Ar')
-         m_i_over_m_imp = central_mass/40. ! Argon mass = 40 u and main ion (D) mass = 2 u
+         m_i_over_m_imp = central_mass/40. * (2.d0/2.01455279245d0) !backwards compatibility ! Argon mass = 40 u and main ion (D) mass = 2 u
          m_imp          = 40.
        case('Ne')
          m_i_over_m_imp = central_mass/20. ! Neon mass = 20 u and main ion (D) mass = 2 u
