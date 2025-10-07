@@ -1051,6 +1051,9 @@ module phys_module
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
+    character(len=9)    :: kin_bg_coll_type        !< choose type of heat flux used in collisions, either Homma2013 or Homma2020 at the moment
+    real*8              :: homma2020_alpha         !< alpha factor in Homma2020 heat flux to limit,
+                                                   !< recommended value is 1.5 for ion heat flux, see Homma 2020 and Fundamenski 2005
     integer             :: ics_group_idx           !< internal index given to this specific impurities group, used to obtain the variable index of charge density
                                                    !< projectons specific to this group, as we require a charge density projection for each impurities group for coupling
                                              
