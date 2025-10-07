@@ -262,7 +262,7 @@ module mod_jorek2IMAS
         allocate(plasma_profiles_ids%ggd(i_slice)%neutral(i_neut))
         allocate(plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%element(1))
 
-        plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%element(1)%a   = int(central_mass)
+        plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%element(1)%a   = nint(central_mass)
         plasma_profiles_ids%ggd(i_slice)%neutral(i_neut)%element(1)%z_n = 1
 
         ! --- Density in GGD
@@ -875,7 +875,7 @@ module mod_jorek2IMAS
       spi%injector(i_inj)%pellet%core%species(1)%density = spi_quantity(i_inj) / pellet_vol
 
       ! --- Background species
-      spi%injector(i_inj)%pellet%core%species(2)%a       = int(central_mass)
+      spi%injector(i_inj)%pellet%core%species(2)%a       = nint(central_mass)
       spi%injector(i_inj)%pellet%core%species(2)%z_n     = 1
       spi%injector(i_inj)%pellet%core%species(2)%density = spi_quantity_bg(i_inj) / pellet_vol
 

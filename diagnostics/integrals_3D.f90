@@ -494,7 +494,7 @@ endif
 call MPI_AllReduce(varmin,varminout,n_var,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,ierr)
 call MPI_AllReduce(varmax,varmaxout,n_var,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,ierr)
 
-rho_norm = central_density*1.d20 * central_mass * 1.67d-27
+rho_norm = central_density*1.d20 * central_mass * ATOMIC_MASS_UNIT
 t_norm   = sqrt(MU_zero*rho_norm)
 
 current_in  = n_period * current_in  / MU_zero / (2.d0 * PI)
