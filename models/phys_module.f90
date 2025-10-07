@@ -998,7 +998,8 @@ module phys_module
   ! ------------------------------------------------
   ! --- Structures for settings wall_action
   ! ------------------------------------------------
-  !> Contains settings to define one wall_action (see mod_particle_wall_interaction)
+  !> Contains settings to define one wall_action (see mod_particle_wall_interaction for implementation
+  !> and the wiki for documentation at https://jorek.eu/wiki/doku.php?id=particles:wall_actions)
   type :: type_wall_act_config
     character(len=20) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
     character(len=3)  :: target_group_id !< which particle group (as identified by its %id) this wall interaction affects
@@ -1050,6 +1051,9 @@ module phys_module
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
+    character(len=9)    :: kin_bg_coll_type        !< choose type of heat flux used in collisions, either Homma2013 or Homma2020 at the moment
+    real*8              :: homma2020_alpha         !< alpha factor in Homma2020 heat flux to limit,
+                                                   !< recommended value is 1.5 for ion heat flux, see Homma 2020 and Fundamenski 2005
     integer             :: ics_group_idx           !< internal index given to this specific impurities group, used to obtain the variable index of charge density
                                                    !< projectons specific to this group, as we require a charge density projection for each impurities group for coupling
                                              

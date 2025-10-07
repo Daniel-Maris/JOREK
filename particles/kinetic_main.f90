@@ -264,7 +264,7 @@ do while (.not. sim%stop_now)
     
   if (puff_counter > 0) then 
     call write_to_outputfile(sim%my_id, "Puffing")
-    if (sim%my_id == 0) write(*,"(A,G12.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
+    if (sim%my_id == 0) write(*,"(A,G13.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
     do i=1, puff_counter
       call puff_actions(i)%do(sim)
     enddo

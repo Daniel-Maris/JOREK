@@ -454,10 +454,14 @@ contains
               n_b = n_e
               ! Assumes deuterium background
               q_b = 1
-              m_b = 2.d0
+              m_b = central_mass
 
-              !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
-              q = q_homma2013(kTb, grad_T_i*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+              if (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2013') then
+                !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
+                q = q_homma2013(kTb, grad_T_i*K_BOLTZ, B, n_b, m_b, q_b)
+              elseif (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2020') then
+                q = q_homma2020(kTb, grad_T_i*K_BOLTZ, B, n_b, m_b, q_b, sim%groups(group_num)%homma2020_alpha)
+              endif
 
               !> Calculate coulomb logarithm and limit it to reasonable values
               coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)
