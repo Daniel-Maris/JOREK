@@ -255,12 +255,6 @@ RHS_k = 0.d0
 ELM   = 0.d0
 RHS   = 0.d0
 
-!write(*,*) "n_aux_var", n_aux_var
-!write(*,*) "E_Te_idx_kin", E_Te_idx_kin
-!write(*,*) "E_Ti_idx_kin", E_Ti_idx_kin
-!write(*,*) "E_idx_kin", E_idx_kin
-!write(*,*) "mom_par_idx_kin", mom_par_idx_kin
-
 epsil=1.d-3
 
 ! --- Decide whether or not use the conservative form of the momentum equation
