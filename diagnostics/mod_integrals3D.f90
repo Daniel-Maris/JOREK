@@ -903,7 +903,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 #endif
      
         ! Get coefficient:  Prad,SI = coef_prad_si * Prad,jorek
-        coef_prad_si = 1./((GAMMA-1)*MU_ZERO*(MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**0.5) 
+        coef_prad_si = 1./((GAMMA-1)*MU_ZERO*(MU_ZERO*central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**0.5) 
       
         ksi_ion_norm = central_density * 1.d20 * ksi_ion   ! Normalisation of the ionization energy cost for Deuterium
       
@@ -953,7 +953,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
             Arad_bg = 2.4d-31 
             Brad_bg = 20.
             Crad_bg = 0.8
-            frad_bg = (2./3.)*(1./(central_mass*MASS_PROTON))*((MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**(1.5d0))                &
+            frad_bg = (2./3.)*(1./(central_mass*ATOMIC_MASS_UNIT))*((MU_ZERO*central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**(1.5d0))                &
                             *nimp_bg(1)*Arad_bg*exp(-((log(Te_corr_eV)-log(Brad_bg))**2.)/Crad_bg**2.)
                     
             local_radiation_phi(mp)         = local_radiation_phi(mp) + (r0_corr * rn0_corr  * LradDrays_T         &
@@ -1126,13 +1126,13 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
         else
           lambda_e_bg  = 24. - log((ne_SI*1.d-6)**0.5*Te_corr_eV**(-1.0))
         endif
-        nu_e_imp     = 1.8d-19*(1.d6*MASS_ELECTRON*MASS_PROTON*m_imp) ** 0.5&
+        nu_e_imp     = 1.8d-19*(1.d6*MASS_ELECTRON*ATOMIC_MASS_UNIT*m_imp) ** 0.5&
                        * Z_eff_imp * (1.d14*central_density*rimp0_corr*m_i_over_m_imp) * lambda_e_imp &
-                       / (1.d3*(MASS_ELECTRON*Ti0_corr+Te0_corr*MASS_PROTON*m_imp)&
+                       / (1.d3*(MASS_ELECTRON*Ti0_corr+Te0_corr*ATOMIC_MASS_UNIT*m_imp)&
                        / (EL_CHG * MU_ZERO * central_density * 1.d20)) ** 1.5
-        nu_e_bg      = 1.8d-19*(1.d6*MASS_ELECTRON*MASS_PROTON*central_mass) ** 0.5&
+        nu_e_bg      = 1.8d-19*(1.d6*MASS_ELECTRON*ATOMIC_MASS_UNIT*central_mass) ** 0.5&
                        * (1.d14*central_density*(r0_corr-rimp0_corr)) * lambda_e_bg &
-                       / (1.d3*(MASS_ELECTRON*Ti0_corr+Te0_corr*MASS_PROTON*central_mass)&
+                       / (1.d3*(MASS_ELECTRON*Ti0_corr+Te0_corr*ATOMIC_MASS_UNIT*central_mass)&
                        / (EL_CHG * MU_ZERO * central_density * 1.d20)) ** 1.5 ! Assuming bg_charge is 1!
     
         if (nu_e_imp < 0.) nu_e_imp = 0.
@@ -1384,7 +1384,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 
         ! Neutral injection rate in particles/s
         local_n_particles_inj = local_n_particles_inj + 0.5d0 * central_density * 1.d20 * source_neutral * bigR *&
-                                 xjac * wst * delta_phi / sqrt(MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)
+                                 xjac * wst * delta_phi / sqrt(MU_ZERO*central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)
         ! Total neutrals in particles
         local_n_particles     = local_n_particles     +  rn0 * central_density * 1.d20 * bigR * xjac * wst * delta_phi
         ! Frictional heat source
@@ -1434,7 +1434,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
 
         ! Neutral injection rate in particles/s
         local_n_particles_inj = local_n_particles_inj + 0.5d0 * central_density * 1.d20 * source_imp * m_i_over_m_imp * bigR &
-	                         * xjac * wst * delta_phi / sqrt(MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)
+	                         * xjac * wst * delta_phi / sqrt(MU_ZERO*central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)
         ! Total neutrals in particles
         local_n_particles     = local_n_particles + central_density * 1.d20 * rimp0 * m_i_over_m_imp * bigR * xjac * wst * delta_phi
 #endif
@@ -2228,7 +2228,7 @@ if (allocated(local_source_volume_drift)) deallocate(local_source_volume_drift)
 #endif
 
 ! --- Normalization factors
-rho_norm = central_density*1.d20 * central_mass * MASS_PROTON 
+rho_norm = central_density*1.d20 * central_mass * ATOMIC_MASS_UNIT 
 t_norm   = sqrt(MU_zero*rho_norm)
 
 if (units == SI_UNITS) then
