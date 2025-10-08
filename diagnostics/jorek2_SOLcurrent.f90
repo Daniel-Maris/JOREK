@@ -33,6 +33,8 @@ program jorek2_SOLcurrent
   use mod_interp
   use mod_boundary
   use mod_position
+  use mod_model_settings
+  !$ use omp_lib
   
   implicit none
 
@@ -55,12 +57,12 @@ program jorek2_SOLcurrent
  !real*8  :: av_sigma_Spitz                    !< fluxline average Spitzer conductivity as given by Stangeby eq 17.22
  !real*8  :: resisty_Spitz                     !< running integral fluxline resistivity, i.e. integral term in Stangeby eq 17.29
   real*8  :: nu_ei                             !< electron ion colission frequency, Stangeby 19.23
-  real*8  :: lambda11=1.975d0                  !< Spitzer-Härm coefficient, see Hinton table 1
+  real*8, parameter  :: lambda11=1.975d0       !< Spitzer-Härm coefficient, see Hinton table 1
   real*8  :: resisty                           !< running fluxline average of Stangeby 9.35
   real*8  :: av_sigma                          !< average conductivity as calculated from Staebler eq 12
   real*8  :: L                                 !< connection length (m)
   real*8  :: pe_s, pe_t, pe_R, pe_Z, pe_phi    !< pressure and their derivatives at the tracer
-  real*8  :: B, B_s, B_t, B_r, B_z, B_phi, Jac !< magnetic field and jacobian for \grad_\parallel Pe equation
+  real*8  :: B, B_s, B_t, B_r, B_z, B_phi      !< magnetic field for \grad_\parallel Pe equation
   real*8  :: par_grad_p                        !< parallel pressure gradient at the tracer
   real*8  :: pressure_drop                     !< Sanity check: integral of parallel pe gradient, i.e. electron pressure drop from hot to cold side (Pa)
   real*8  :: pe_integral                       !< pressure integral \int (1/n) dp_e/ds_\parallel ds_\parallel
@@ -73,15 +75,14 @@ program jorek2_SOLcurrent
   real*8  :: I_loc                             !< [A], current onto the wall corresponding to the area represented by this starting position and - angle
   real*8  :: int_I_wall                        !< \int I over the full wall [A], should be 0 (sanity check)
   logical, parameter :: correct4fluxexpansion = .true. !< whether to correct the j_wall for the fact that j_par is not actually constant due to flux expansion. Only takes major radius into account
-  real*8,  parameter :: R_average = 5.d0               !< [m] average major radius of the two targets, used for the flux expansion correction
+  real*8  :: R_average                         !< [m] average major radius of the beginning and end of the traced fieldline (i.e. R_average=(R_b+R_e)/2), used for the flux expansion correction
   integer :: my_id
-  integer :: i, j, iside_i, iside_j, ip, np, i_tor, i_harm, i_var_psi = 1,i_var_n=5,i_var_T=6
-  integer :: i_elm, ifail, n_phi_steps, i_elm_out, i_elm_prev, i_elm_tmp,i_steps
-  integer :: n_phi0, i_phi0, n_elm_pts
-  real*8  :: R_line, Z_line, s_line, t_line, p_line, R_mid, Z_mid, s_mid, t_mid, p_mid, s_out, t_out
+  integer :: i, j, iside_i, iside_j, ip, np, i_tor, i_harm
+  integer :: i_elm, ifail, i_elm_out, i_elm_prev, i_elm_tmp,i_steps, i_phi0
+  real*8  :: R_line, Z_line, s_line, t_line, p_line, R_mid, Z_mid, s_mid, t_mid, p_mid
   real*8  :: R, R_s, R_t, Z, Z_s, Z_t 
   real*8,dimension(3) :: P, P_s, P_t, P_phi
-  real*8  :: tol, delta_phi, Zjac, psi_s, psi_t, R_in, Z_in, R_out, Z_out, Rmin, Rmax, Zmin, Zmax, delta_s, delta_t, R_keep, Z_keep
+  real*8  :: tol, delta_phi, delta_phi_signed, Zjac, psi_s, psi_t, R_in, Z_in, R_out, Z_out, Rmin, Rmax, Zmin, Zmax, delta_s, delta_t, R_keep, Z_keep
   real*8  :: small_delta, small_delta_s, small_delta_t, delta_phi_local
   real*8  :: atmp, cur_pert
   real*8  :: psi_out
@@ -91,12 +92,18 @@ program jorek2_SOLcurrent
   real*8  :: B3(3)            !< Magnetic field [T]
   real*8  :: bdotn            !< b (=B/|B|) dot outward pointing normal to the boundary
   real*8  :: inv_st_jac, psi_R, psi_Z
-  logical :: debug = .false.            !< useful for debugging the main code 
-  logical :: write_debug_file = .false. !< useful for debugging the Newton solver
-  logical :: solve_j = .true. !< If true, Stangeby eq 17.29 is solved in the routine by a custom Newton solver
   real*8  :: B_deb(3), grad_p_deb(3)
-  character(len=512) :: dir = "./SOLcurrent/" !< subdirectory you want the datafile for this step to write to
   character(len=5)   :: t_index_char
+
+  logical, parameter :: debug = .false.            !< useful for debugging the main code 
+  logical, parameter :: write_debug_file = .false. !< useful for debugging the Newton solver
+  logical, parameter :: solve_j = .true. !< If true, Stangeby eq 17.29 is solved in the routine by a custom Newton solver
+
+  integer, parameter :: n_phi_steps   = 150000 !number of steps in the toroidal direction
+  integer, parameter :: n_phi0        = 1!2    !number of toroidal angles to start from for each poloidal bnd point
+  integer, parameter :: n_elm_pts     = 1!10   !number of starting points along each bnd element
+
+  character(len=512) :: dir = "./SOLcurrent/" !< subdirectory you want the datafile for this step to write to
 
   write(*,*) '***************************************'
   write(*,*) '* JOREK2_SOLcurrent                   *'
@@ -124,6 +131,9 @@ program jorek2_SOLcurrent
 
   element_neighbours = 0
 
+  !$omp parallel do default(none)                              &
+  !$omp shared(node_list, element_list, element_neighbours)    &
+  !$omp private(j, iside_i, iside_j)
   do i=1,element_list%n_elements
     
     do j=i+1,element_list%n_elements
@@ -135,11 +145,7 @@ program jorek2_SOLcurrent
       
     enddo
   enddo
-
-  ! NUMERICAL PARAMETERS
-  n_phi_steps   = 150000 !number of steps in the toroidal direction
-  n_phi0        = 1!2    !number of toroidal angles to start from for each poloidal bnd point
-  n_elm_pts     = 1!10   !number of starting points along each bnd element
+  !$omp end parallel do
 
   ! maximum stepsize delta_phi (stepsize is automatically made smaller if an element boundary is crossed)
   delta_phi = 2.d0 * PI / float(n_period*n_phi_steps)
@@ -160,8 +166,6 @@ program jorek2_SOLcurrent
   write(*,*) 'number of boundary elements:                       ',bnd_elm_list%n_bnd_elements
   write(*,*) 'number of fieldlines to trace:                     ',n_phi0*np
   write(*,*)
-
-  i_var_psi = 1
 
   mode(1) = 0
   do i=1,(n_tor-1)/2
@@ -198,9 +202,17 @@ program jorek2_SOLcurrent
   int_I_wall = 0
   
   ! --- Trace the fieldlines
-  L_p: do ip=1,np !loop over the starting positions
+  !$omp parallel do schedule(monotonic:dynamic,1) default(none)                                                                                                  &
+  !$omp shared(np, initial_bnd_pos, Phi_start_list, node_list, element_list, n_norm, T_norm, F0, delta_phi, element_neighbours, alpha, central_mass)             &
+  !$omp private(i_phi0, s_line, t_line, i_elm, i_elm_prev, Phi_b, p_line, P, P_s, P_t, P_phi, R, R_s, R_t, Z, Z_s, Z_t, ne_b, Te_b, R_b, Z_b, R_old, Z_old,      &
+  !$omp         inv_st_jac,psi_R,psi_Z,B3,bdotn,delta_phi_signed,L,resisty,pe_integral,pressure_drop,i_steps,in_domain,s_mid, t_mid, p_mid, delta_s, delta_t,    &
+  !$omp         small_delta_s, small_delta_t, small_delta, R_in, Z_in, i_elm_tmp, R_out, Z_out, delta_phi_local, ne, ne_s, ne_t, ne_phi, Te, Te_s, Te_t, Te_phi, &
+  !$omp         Zjac, dr, nu_ei, pe_s, pe_t, pe_phi, pe_R, pe_Z, B_R, B_Z, B_phi, B, par_grad_p, R_e, Z_e, ne_e, Te_e, Phi_e, av_sigma, hot2cold, Te_h, ne_h,    &
+  !$omp         ratio_T, ratio_n, pe_term, c_sh, gamma_fact, j_hat_par, j_par, j_wall, R_average, I_loc)                                                         &
+  !$omp reduction(+:int_I_wall)
+  do ip=1,np !loop over the starting positions
     
-    L_phi0: do i_phi0 = 1, n_phi0 !loop over starting angles
+    do i_phi0 = 1, n_phi0 !loop over starting angles
       if(write_debug_file) then
         write(22,*)
         write(22,'(A80)') '-------------------------------------------------------------------------------'
@@ -221,7 +233,7 @@ program jorek2_SOLcurrent
       p_line = Phi_b
       
       ! Calculate the starting location and variables
-      call interp_PRZ(node_list,element_list,i_elm,[i_var_psi,i_var_n,i_var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
+      call interp_PRZ(node_list,element_list,i_elm,[var_psi,var_rho,var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
       ne_b = P(2) * n_norm
       ne_b = max(ne_b, 1.d16)
       Te_b = P(3) * T_norm
@@ -243,9 +255,9 @@ program jorek2_SOLcurrent
 
       B3         = [+psi_Z, -psi_R, F0] * 1.d0/R
       !> since the phi element of the wall normal vector is 0, the dot product is that of the first two elements 
-      bdotn      = dot_product(B3(1:2),initial_bnd_pos%pos(i,ip)%bnd_normal)/norm2(B3)
-      delta_phi  = sign(abs(delta_phi),-bdotn*F0/R)
-      if(debug) write(*,*) 'B:',B3, 'bdotn:',bdotn, 'delta_phi:',delta_phi
+      bdotn      = dot_product(B3(1:2),initial_bnd_pos%pos(1,ip)%bnd_normal)/norm2(B3)
+      delta_phi_signed = sign(abs(delta_phi),-bdotn*F0/R)
+      if(debug) write(*,*) 'B:',B3, 'bdotn:',bdotn, 'delta_phi_signed:',delta_phi_signed
       
       !resetting running integrals
       L             = 0.d0
@@ -261,18 +273,20 @@ program jorek2_SOLcurrent
       
         i_steps = i_steps + 1
         if(i_steps .ge. 1000*n_phi_steps) then
-          write(*,*) 'ERROR: could not find connecting wall'
+          !$omp critical
+          write(*,*) 'ERROR: could not find connecting wall', R_b,Z_b,Phi_b,R,Z,p_line
+          !$omp end critical
           cycle
         end if
       
         
-        call step(i_elm,s_line,t_line,p_line,delta_phi,delta_s,delta_t)
+        call step(i_elm,s_line,t_line,p_line,delta_phi_signed,delta_s,delta_t)
 
         s_mid = s_line + 0.5d0 * delta_s
         t_mid = t_line + 0.5d0 * delta_t
-        p_mid = p_line + 0.5d0 * delta_phi
+        p_mid = p_line + 0.5d0 * delta_phi_signed
             
-        call step(i_elm,s_mid,t_mid,p_mid,delta_phi,delta_s,delta_t)
+        call step(i_elm,s_mid,t_mid,p_mid,delta_phi_signed,delta_s,delta_t)
         
         small_delta_s = 1.d0
       
@@ -308,9 +322,9 @@ program jorek2_SOLcurrent
           ! so better to comment it out.
           !s_mid = s_line + 0.5d0 * small_delta * delta_s
           !t_mid = t_line + 0.5d0 * small_delta * delta_t
-          !p_mid = p_line + 0.5d0 * small_delta * delta_phi
+          !p_mid = p_line + 0.5d0 * small_delta * delta_phi_signed
             
-          !call step(i_elm,s_mid,t_mid,p_mid,delta_phi,delta_s,delta_t) ! why is this in here? better accuracy at the cost of getting a possibly getting new position s,t \in [0,1], meaning the position is not updated as it's inside the wrong if statement
+          !call step(i_elm,s_mid,t_mid,p_mid,delta_phi_signed,delta_s,delta_t) ! why is this in here? better accuracy at the cost of getting a possibly getting new position s,t \in [0,1], meaning the position is not updated as it's inside the wrong if statement
       
           if (small_delta_s .lt. small_delta_t) then
 
@@ -318,7 +332,7 @@ program jorek2_SOLcurrent
       
               s_line = 1.d0
               t_line = t_line + small_delta * delta_t
-              p_line = p_line + small_delta * delta_phi
+              p_line = p_line + small_delta * delta_phi_signed
         
               call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
 
@@ -343,7 +357,7 @@ program jorek2_SOLcurrent
 
               s_line = 0.d0
               t_line = t_line + small_delta * delta_t
-              p_line = p_line + small_delta * delta_phi
+              p_line = p_line + small_delta * delta_phi_signed
 
               call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
       
@@ -373,7 +387,7 @@ program jorek2_SOLcurrent
       
               s_line = s_line + small_delta * delta_s
               t_line = 1.d0
-              p_line = p_line + small_delta * delta_phi
+              p_line = p_line + small_delta * delta_phi_signed
 
               call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
 
@@ -399,7 +413,7 @@ program jorek2_SOLcurrent
 
               s_line = s_line + small_delta * delta_s	
               t_line = 0.d0
-              p_line = p_line + small_delta * delta_phi
+              p_line = p_line + small_delta * delta_phi_signed
 
               call interp_RZ(node_list,element_list,i_elm,s_line,t_line,R_in,Z_in)
 
@@ -429,18 +443,18 @@ program jorek2_SOLcurrent
 
           s_line = s_line + delta_s
           t_line = t_line + delta_t
-          p_line = p_line + delta_phi
+          p_line = p_line + delta_phi_signed
 
           small_delta = 1.d0
       
         endif ! does step cross an element boundary?
         
-        delta_phi_local = small_delta * delta_phi
+        delta_phi_local = small_delta * delta_phi_signed
         
         if(i_elm .le. 0) then
-          call interp_PRZ(node_list,element_list,i_elm_prev,[i_var_psi,i_var_n,i_var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
+          call interp_PRZ(node_list,element_list,i_elm_prev,[var_psi,var_rho,var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
         else
-          call interp_PRZ(node_list,element_list,i_elm,[i_var_psi,i_var_n,i_var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
+          call interp_PRZ(node_list,element_list,i_elm,[var_psi,var_rho,var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
         end if
         
         ne     = P(2)     * n_norm
@@ -453,7 +467,7 @@ program jorek2_SOLcurrent
         Te_s   = P_s(3)   * T_norm
         Te_t   = P_t(3)   * T_norm
         Te_phi = P_phi(3) * T_norm
-        Jac = R_s * Z_t - R_t * Z_s
+        Zjac = R_s * Z_t - R_t * Z_s
 
         dr = sqrt((R-R_old)**2 + (Z-Z_old)**2 + (R*delta_phi_local)**2)
         !write(*,*) 'prior to L: ',R, R_old, Z, Z_old, delta_phi_local,i_elm_prev, L, dr
@@ -461,17 +475,17 @@ program jorek2_SOLcurrent
         !Spitzer conductivity, does not take into account changing Coulomb logarithm
         !Spitzer_cond = 3.6d7 * (Te*1.d-3) ** (3/2) !< Stangeby eq 17.21, Te is in eV
 
-        !This should be using lnA from coulomb_log_ei from mod_plasma_functions, but that is currently not availble in this branch yet
+        !#TODO This should be using lnA from coulomb_log_ei from mod_plasma_functions, but that is currently not availble in this branch yet
         nu_ei = 0.51 * (EL_CHG**4.d0) * lnA(Te,ne) * ne / (3.d0*sqrt(MASS_ELECTRON)*(EPS_ZERO**2.d0)*((2.d0*PI*EL_CHG*Te)**(3.d0/2.d0))) ! Stangeby eq 9.23
         !if(write_debug_file .and. (ip .eq. 100)) write(22,'(A50,7es18.8)') 'nu_ei,lnA(Te,ne),Te,ne,num,denom,eT2pi',nu_ei,lnA(Te,ne),Te,ne,0.51 * (EL_CHG**4) * lnA(Te,ne) * ne,(3*sqrt(MASS_ELECTRON)*(EPS_ZERO**2)*((2*PI*EL_CHG*Te)**(3/2))),(2*PI*EL_CHG*Te)
 
         pe_s   = ne_s   * Te * EL_CHG + ne * Te_s   * EL_CHG !< product rule for pe = ne Te[eV] e
         pe_t   = ne_t   * Te * EL_CHG + ne * Te_t   * EL_CHG
         pe_phi = ne_phi * Te * EL_CHG + ne * Te_phi * EL_CHG
-        pe_R   =   ( pe_s   * Z_t - pe_t   * Z_s ) / Jac
-        pe_Z   = - ( pe_s   * R_t - pe_t   * R_s ) / Jac
-        psi_R  =   ( P_s(1) * Z_t - P_t(1) * Z_s ) / Jac
-        psi_Z  = - ( P_s(1) * R_t - P_t(1) * R_s ) / Jac
+        pe_R   =   ( pe_s   * Z_t - pe_t   * Z_s ) / Zjac
+        pe_Z   = - ( pe_s   * R_t - pe_t   * R_s ) / Zjac
+        psi_R  =   ( P_s(1) * Z_t - P_t(1) * Z_s ) / Zjac
+        psi_Z  = - ( P_s(1) * R_t - P_t(1) * R_s ) / Zjac
         B_R    =   psi_Z / R
         B_Z    = - psi_R / R
         B_phi  =   F0    / R
@@ -512,7 +526,7 @@ program jorek2_SOLcurrent
       if (.not. ((s_line .eq. 0.d0) .or. (s_line .eq. 1.d0) .or. (t_line .eq. 0.d0) .or. (t_line .eq. 1.d0))) &
         write(*,*) 'WARNING, endpoint   is not edge',s_line,t_line,i_elm,i_elm_prev
 
-      call interp_PRZ(node_list,element_list,i_elm_prev,[i_var_psi,i_var_n,i_var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
+      call interp_PRZ(node_list,element_list,i_elm_prev,[var_psi,var_rho,var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
       R_e = R
       Z_e = Z
       
@@ -574,8 +588,13 @@ program jorek2_SOLcurrent
       end if
 
       j_wall = j_par*abs(bdotn)
-      if(correct4fluxexpansion) j_wall = j_wall*R_average/R_b 
-      !< approximately corrects the radial component of the flux expansion dependence of j_par
+
+      ! approximately correct the radial component of the flux expansion dependence of j_par
+      if(correct4fluxexpansion) then
+        R_average = (R_b + R_e)/2.d0
+        j_wall = j_wall*R_average/R_b 
+      end if
+
       if (.not. hot2cold) j_wall = - j_wall 
       !< defining the sign of j_wall as positive when current flows out of the starting wall, and negative 
       !< when current flows into the starting wall; since j_par is defined as positive for hot -> 
@@ -587,16 +606,18 @@ program jorek2_SOLcurrent
       I_loc = j_wall * (TWOPI/n_phi0)*R_b*initial_bnd_pos%pos(1,ip)%dl
       int_I_wall = int_I_wall + I_loc
 
+      !$omp critical
       write(21,'(20es18.8)') R_b, Z_b, Phi_b, R_e, Z_e, Phi_e, ne_b, ne_e, Te_b, Te_e, L, av_sigma, pressure_drop, pe_term, j_hat_par, j_par, bdotn, j_wall, initial_bnd_pos%pos(1,ip)%dl, I_loc
-
-    enddo L_phi0 !traced all starting angles for one bnd point
+      !$omp end critical
+    enddo !traced all starting angles for one bnd point
     
     !if(debug) write(*,*) 'ip/np',ip,np
     if (mod(ip,(np/10+1)) == 0) then !< writes some intermediate progress updates
       write(*,'(A17,I10,A4,I10)') 'starting point = ',ip,' of ',np
     endif
 
-  end do L_p !traced all starting points and angles
+  end do !traced all starting points and angles
+  !$omp end parallel do
 
   write(*,'(A64, e18.8)') 'Sanity check: total current over the whole wall (should be 0) = ',int_I_wall
 
@@ -763,16 +784,18 @@ contains
 end program jorek2_SOLcurrent
 
 
-
+!> calculates a single fieldline tracing step in s,t coordinates for a step in the phi direction of delta_p
+!> copied from jorek2_poincare
 subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t)
   use mod_parameters
   use elements_nodes_neighbours
   use phys_module
   use mod_interp
+  use mod_model_settings
 
   implicit none
 
-  integer :: i_var_psi, i_elm, i_tor, i_harm
+  integer :: i_elm, i_tor, i_harm
 
   real*8 :: s_in, t_in, p_in, delta_p, delta_s, delta_t
   real*8 :: R,R_s,R_t,Z,Z_s,Z_t
@@ -780,13 +803,11 @@ subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t)
   real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt, psi_s, psi_t, Zjac
   real*8 :: AR0_Z, AR0_p, AR0_s, AR0_t, AZ0_R, AZ0_p, AZ0_s, AZ0_t, A30_R, A30_Z, BR0, BZ0, Bp0, Fprof
 
-  i_var_psi = 1
-
   call interp_RZ(node_list,element_list,i_elm,s_in,t_in,R,R_s,R_t,Z,Z_s,Z_t)
 
   Zjac = (R_s * Z_t - R_t * Z_s)
 
-  call interp(node_list,element_list,i_elm,i_var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
+  call interp(node_list,element_list,i_elm,var_psi,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
 
   psi_s = P0_s 
   psi_t = P0_t 
@@ -811,12 +832,12 @@ subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t)
 
     i_harm = 2*i_tor
 
-    call interp(node_list,element_list,i_elm,i_var_psi,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
+    call interp(node_list,element_list,i_elm,var_psi,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
 
     psi_s = psi_s + Pcos_s * cos(mode(i_harm)*p_in)
     psi_t = psi_t + Pcos_t * cos(mode(i_harm)*p_in)
 
-    call interp(node_list,element_list,i_elm,i_var_psi,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
+    call interp(node_list,element_list,i_elm,var_psi,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
 
     psi_s = psi_s + Psin_s * sin(mode(i_harm+1)*p_in)
     psi_t = psi_t + Psin_t * sin(mode(i_harm+1)*p_in)
@@ -865,42 +886,3 @@ subroutine step(i_elm,s_in,t_in,p_in,delta_p,delta_s,delta_t)
 
   return
 end subroutine step
-
-subroutine var_value(i_elm,i_var,s_in,t_in,p_in,value_out)
-  use mod_parameters
-  use elements_nodes_neighbours
-  use phys_module
-  use mod_interp, only: interp
-
-  implicit none
-
-  integer :: i_var, i_elm, i_tor, i_harm
-
-  real*8 :: s_in, t_in, p_in
-  real*8 :: Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt, Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt
-  real*8 :: P0,P0_s,P0_t,P0_st,P0_ss,P0_tt
-  real*8 :: value_out
-
-  !call interp_RZ(node_list,element_list,i_elm,s_in,t_in,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
-  !Zjac = (R_s * Z_t - R_t * Z_s)
-
-  call interp(node_list,element_list,i_elm,i_var,1,s_in,t_in,P0,P0_s,P0_t,P0_st,P0_ss,P0_tt)
-
-  value_out = P0
-
-  do i_tor = 1, (n_tor-1)/2
-
-    i_harm = 2*i_tor
-
-    call interp(node_list,element_list,i_elm,i_var,i_harm,s_in,t_in,Pcos,Pcos_s,Pcos_t,Pcos_st,Pcos_ss,Pcos_tt)
-
-    value_out = value_out + Pcos * cos(mode(i_harm)*p_in)
-
-    call interp(node_list,element_list,i_elm,i_var,i_harm+1,s_in,t_in,Psin,Psin_s,Psin_t,Psin_st,Psin_ss,Psin_tt)
-
-    value_out = value_out + Psin * sin(mode(i_harm+1)*p_in)
-
-  enddo
-
-  return
-end subroutine var_value
