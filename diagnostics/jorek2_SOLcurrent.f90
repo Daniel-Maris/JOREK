@@ -1,7 +1,11 @@
-! Calculates SOL currents from the JOREK restart file this program is run in 
-! using Stangeby eq 17.29 by determining the fluxline integrals by line tracing
+! Calculates SOL currents from the jorek_restart.h5 file of the simulation folder
+! the program is run in.
+! Solves for Stangeby eq 17.29 by determining the fluxline integrals by line tracing
 ! (based on jorek2_poincare) and solving the equation using a Newton solver
 ! 
+! requires the input namelist to be piped into the program:
+! ./jorek2_SOLcurrent < input
+!
 ! References:
 ! 
 ! Stangeby, P.C. (2000). The Plasma Boundary of Magnetic Fusion Devices (1st ed.). 
@@ -34,6 +38,8 @@ program jorek2_SOLcurrent
   use mod_boundary
   use mod_position
   use mod_model_settings
+  use corr_neg
+  use mod_plasma_functions, only: coulomb_log_ei
   !$ use omp_lib
   
   implicit none
@@ -50,13 +56,11 @@ program jorek2_SOLcurrent
   real*8  :: Te_h, ratio_T, ne_h, ratio_n      !< hot end of fluxline quantities, and ratios
   real*8  :: c_sh                              !< ion speed of sound at the hot end of the fluxline
   logical :: hot2cold                          !< true if Te_b > Te_e, else false. Tracks whether the fluxline starts at the hot or cold side, to determine the sign of j//
-  real*8  :: ne, ne_s, ne_t, ne_phi            !< ne and Te and their derivatives at the tracer
-  real*8  :: Te, Te_s, Te_t, Te_phi           
+  real*8  :: r0_corr, ne, ne_s, ne_t, ne_phi   !< ne and Te and their derivatives at the tracer
+  real*8  :: T_corr, Te, Te_s, Te_t, Te_phi           
   real*8  :: n_norm, T_norm                    !< normalisation constants
- !real*8  :: Spitzer_cond                      !< Spitzer conductivity as given by Stangeby eq 17.21
- !real*8  :: av_sigma_Spitz                    !< fluxline average Spitzer conductivity as given by Stangeby eq 17.22
- !real*8  :: resisty_Spitz                     !< running integral fluxline resistivity, i.e. integral term in Stangeby eq 17.29
   real*8  :: nu_ei                             !< electron ion colission frequency, Stangeby 19.23
+  real*8  :: lnA                               !< Coulomb logarithm (ignoring impurities)
   real*8, parameter  :: lambda11=1.975d0       !< Spitzer-Härm coefficient, see Hinton table 1
   real*8  :: resisty                           !< running fluxline average of Stangeby 9.35
   real*8  :: av_sigma                          !< average conductivity as calculated from Staebler eq 12
@@ -118,8 +122,7 @@ program jorek2_SOLcurrent
   call det_modes()
 
   call initialise_parameters(my_id,  "__NO_FILENAME__")
-  !call log_parameters(my_id)
-
+  
   call import_restart(node_list, element_list, 'jorek_restart', rst_format, ierr)
   
   call initialise_basis
@@ -198,7 +201,6 @@ program jorek2_SOLcurrent
   n_norm = central_density*1.d20                     ! ne[atoms/m³]     = n[jor] * n_norm
   T_norm = 1.d0 / (2.d0 * EL_CHG * MU_ZERO * n_norm) ! Te[eV] = T[eV]/2 = T[jor] * T_norm
 
-  !setting sanity check current integral over full domain to 0
   int_I_wall = 0
   
   ! --- Trace the fieldlines
@@ -206,9 +208,9 @@ program jorek2_SOLcurrent
   !$omp shared(np, initial_bnd_pos, Phi_start_list, node_list, element_list, n_norm, T_norm, F0, delta_phi, element_neighbours, alpha, central_mass)             &
   !$omp private(i_phi0, s_line, t_line, i_elm, i_elm_prev, Phi_b, p_line, P, P_s, P_t, P_phi, R, R_s, R_t, Z, Z_s, Z_t, ne_b, Te_b, R_b, Z_b, R_old, Z_old,      &
   !$omp         inv_st_jac,psi_R,psi_Z,B3,bdotn,delta_phi_signed,L,resisty,pe_integral,pressure_drop,i_steps,in_domain,s_mid, t_mid, p_mid, delta_s, delta_t,    &
-  !$omp         small_delta_s, small_delta_t, small_delta, R_in, Z_in, i_elm_tmp, R_out, Z_out, delta_phi_local, ne, ne_s, ne_t, ne_phi, Te, Te_s, Te_t, Te_phi, &
-  !$omp         Zjac, dr, nu_ei, pe_s, pe_t, pe_phi, pe_R, pe_Z, B_R, B_Z, B_phi, B, par_grad_p, R_e, Z_e, ne_e, Te_e, Phi_e, av_sigma, hot2cold, Te_h, ne_h,    &
-  !$omp         ratio_T, ratio_n, pe_term, c_sh, gamma_fact, j_hat_par, j_par, j_wall, R_average, I_loc)                                                         &
+  !$omp         small_delta_s, small_delta_t, small_delta, R_in, Z_in, i_elm_tmp, R_out, Z_out, delta_phi_local, r0_corr, ne, ne_s, ne_t, ne_phi, T_corr, Te,    &
+  !$omp         Te_s, Te_t, Te_phi, Zjac, dr, lnA, nu_ei, pe_s, pe_t, pe_phi, pe_R, pe_Z, B_R, B_Z, B_phi, B, par_grad_p, R_e, Z_e, ne_e, Te_e, Phi_e, av_sigma, &
+  !$omp         hot2cold, Te_h, ne_h, ratio_T, ratio_n, pe_term, c_sh, gamma_fact, j_hat_par, j_par, j_wall, R_average, I_loc)                                   &
   !$omp reduction(+:int_I_wall)
   do ip=1,np !loop over the starting positions
     
@@ -218,10 +220,7 @@ program jorek2_SOLcurrent
         write(22,'(A80)') '-------------------------------------------------------------------------------'
         write(22,'(A3,I5,A7,I3,A1,I3)') 'ip=',ip,' angle ',i_phi0,'/',n_phi0
       end if
-      !write(23,*)
-      !write(23,'(A80)') '-------------------------------------------------------------------------------'
-      !write(23,'(A3,I5,A7,I3,A1,I3)') 'ip=',ip,' angle ',i_phi0,'/',n_phi0
-
+      
       s_line = initial_bnd_pos%pos(1,ip)%s
       t_line = initial_bnd_pos%pos(1,ip)%t
       i_elm  = initial_bnd_pos%pos(1,ip)%ielm
@@ -245,10 +244,8 @@ program jorek2_SOLcurrent
       Z_old = Z
 
       if(debug) write(*,*) 'R,Z',R,Z
-      !write(*,'(I8,7es18.8)') i_elm,s_line,t_line,initial_bnd_pos%pos(1,ip)%R,initial_bnd_pos%pos(1,ip)%Z,R_b,Z_b,initial_bnd_pos%pos(1,ip)%dl
-
-      !determine sign of delta_phi
       
+      ! --- determine sign of delta_phi
       inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
       psi_R      = (  P_s(1) * Z_t - P_t(1) * Z_s ) * inv_st_jac
       psi_Z      = (- P_s(1) * R_t + P_t(1) * R_s ) * inv_st_jac
@@ -261,7 +258,6 @@ program jorek2_SOLcurrent
       
       !resetting running integrals
       L             = 0.d0
-     !resisty_Spitz = 0.d0
       resisty       = 0.d0
       pe_integral   = 0.d0
       pressure_drop = 0.d0
@@ -314,11 +310,9 @@ program jorek2_SOLcurrent
 
         small_delta = min(small_delta_s, small_delta_t)
 
-        !	write(*,'(A,5e16.8)') ' small delta : ',small_delta,delta_s,delta_t,s_line,t_line
-
         if (small_delta .lt. 1.d0)  then ! moving the tracked position by delta_t and delta_s moves it out of the element so correct that the tracked position ends up on the element instead
           
-          ! This extra step seems unnecessary and could potentially even lead to problems,
+          ! This extra step in jorek2_poincare seems unnecessary and could potentially even lead to problems,
           ! so better to comment it out.
           !s_mid = s_line + 0.5d0 * small_delta * delta_s
           !t_mid = t_line + 0.5d0 * small_delta * delta_t
@@ -457,28 +451,23 @@ program jorek2_SOLcurrent
           call interp_PRZ(node_list,element_list,i_elm,[var_psi,var_rho,var_T],3,s_line,t_line,p_line,P,P_s,P_t,P_phi,R,R_s,R_t,Z,Z_s,Z_t)
         end if
         
-        ne     = P(2)     * n_norm
-        ne = max(ne,1.d16) !temperature and density corrections should probably be standardized
-        ne_s   = P_s(2)   * n_norm
-        ne_t   = P_t(2)   * n_norm
-        ne_phi = P_phi(2) * n_norm
-        Te     = P(3)     * T_norm
-        Te = max(Te,0.1d0)
-        Te_s   = P_s(3)   * T_norm
-        Te_t   = P_t(3)   * T_norm
-        Te_phi = P_phi(3) * T_norm
-        Zjac = R_s * Z_t - R_t * Z_s
+        r0_corr = corr_neg_dens(P(2))
+        ne      = r0_corr  * n_norm
+        ne_s    = P_s(2)   * n_norm
+        ne_t    = P_t(2)   * n_norm
+        ne_phi  = P_phi(2) * n_norm
+        T_corr  = corr_neg_temp(P(3))
+        Te      = T_corr   * T_norm
+        Te_s    = P_s(3)   * T_norm
+        Te_t    = P_t(3)   * T_norm
+        Te_phi  = P_phi(3) * T_norm
+        Zjac    = R_s * Z_t - R_t * Z_s
 
         dr = sqrt((R-R_old)**2 + (Z-Z_old)**2 + (R*delta_phi_local)**2)
-        !write(*,*) 'prior to L: ',R, R_old, Z, Z_old, delta_phi_local,i_elm_prev, L, dr
         
-        !Spitzer conductivity, does not take into account changing Coulomb logarithm
-        !Spitzer_cond = 3.6d7 * (Te*1.d-3) ** (3/2) !< Stangeby eq 17.21, Te is in eV
-
-        !#TODO This should be using lnA from coulomb_log_ei from mod_plasma_functions, but that is currently not availble in this branch yet
-        nu_ei = 0.51 * (EL_CHG**4.d0) * lnA(Te,ne) * ne / (3.d0*sqrt(MASS_ELECTRON)*(EPS_ZERO**2.d0)*((2.d0*PI*EL_CHG*Te)**(3.d0/2.d0))) ! Stangeby eq 9.23
-        !if(write_debug_file .and. (ip .eq. 100)) write(22,'(A50,7es18.8)') 'nu_ei,lnA(Te,ne),Te,ne,num,denom,eT2pi',nu_ei,lnA(Te,ne),Te,ne,0.51 * (EL_CHG**4) * lnA(Te,ne) * ne,(3*sqrt(MASS_ELECTRON)*(EPS_ZERO**2)*((2*PI*EL_CHG*Te)**(3/2))),(2*PI*EL_CHG*Te)
-
+        call coulomb_log_ei(P(3),T_corr,P(2),r0_corr, 0.d0, 0.d0, 0.d0, lnA)
+        nu_ei = 0.51 * (EL_CHG**4.d0) * lnA * ne / (3.d0*sqrt(MASS_ELECTRON)*(EPS_ZERO**2.d0)*((2.d0*PI*EL_CHG*Te)**(3.d0/2.d0))) ! Stangeby eq 9.23
+        
         pe_s   = ne_s   * Te * EL_CHG + ne * Te_s   * EL_CHG !< product rule for pe = ne Te[eV] e
         pe_t   = ne_t   * Te * EL_CHG + ne * Te_t   * EL_CHG
         pe_phi = ne_phi * Te * EL_CHG + ne * Te_phi * EL_CHG
@@ -509,7 +498,6 @@ program jorek2_SOLcurrent
         par_grad_p = sign(abs(par_grad_p), B_phi * delta_phi_local * par_grad_p)
         
         L             = L             +  1.d0                 * dr
-       !resisty_Spitz = resisty_Spitz + (1.d0 / Spitzer_cond) * dr
         resisty       = resisty       + (nu_ei / ne )         * dr !1/(n_e \tau_ei) = \nu_ei / n_e
         pe_integral   = pe_integral   + (1 / ne) * par_grad_p * dr
         pressure_drop = pressure_drop + par_grad_p            * dr !useful sanity check for debugging
@@ -522,7 +510,6 @@ program jorek2_SOLcurrent
       
       enddo ! traced a fieldline for one bnd point for 1 starting angle phi
 
-      !call interp_RZ(node_list,element_list,i_elm_prev,s_line,t_line,R_e,Z_e)
       if (.not. ((s_line .eq. 0.d0) .or. (s_line .eq. 1.d0) .or. (t_line .eq. 0.d0) .or. (t_line .eq. 1.d0))) &
         write(*,*) 'WARNING, endpoint   is not edge',s_line,t_line,i_elm,i_elm_prev
 
@@ -535,14 +522,6 @@ program jorek2_SOLcurrent
       Te_e = P(3) * T_norm
       Te_e = max(Te_e, 0.1d0)
       Phi_e = p_line
-      
-      !write(*,*) L, resistivity
-      !some fieldlines do not take any steps, leading to resisty = 0, thus skip those
-      !if(resisty_Spitz .ne. 0.d0) then  
-      !  av_sigma_Spitz = L / resisty_Spitz
-      !else
-      !  av_sigma_Spitz = 0.d0
-      !endif
       
       if(resisty .ne. 0.d0) then  
         av_sigma = L * (lambda11 * EL_CHG**2 / MASS_ELECTRON) / resisty
@@ -601,7 +580,6 @@ program jorek2_SOLcurrent
       !< cold, if e.g. the tracer started at the hot side and j_par > 0, current is out of the 
       !< starting wall, thus j_wall is positive
       
-      !write(*,'(A15,3f10.4)') 'length / R / Z', initial_bnd_pos%pos(1,ip)%length, R_b, Z_b
       ! I_loc = j * A = j_wall * angle*R*dl
       I_loc = j_wall * (TWOPI/n_phi0)*R_b*initial_bnd_pos%pos(1,ip)%dl
       int_I_wall = int_I_wall + I_loc
@@ -611,7 +589,6 @@ program jorek2_SOLcurrent
       !$omp end critical
     enddo !traced all starting angles for one bnd point
     
-    !if(debug) write(*,*) 'ip/np',ip,np
     if (mod(ip,(np/10+1)) == 0) then !< writes some intermediate progress updates
       write(*,'(A17,I10,A4,I10)') 'starting point = ',ip,' of ',np
     endif
@@ -619,30 +596,12 @@ program jorek2_SOLcurrent
   end do !traced all starting points and angles
   !$omp end parallel do
 
-  write(*,'(A64, e18.8)') 'Sanity check: total current over the whole wall (should be 0) = ',int_I_wall
+  write(*,'(A,e18.8,A)') 'Sanity check: total current over the whole wall (i.e. discretisation error, usually of order 10 A, should be negligible compared to target current, usually of order 10 kA) = ',int_I_wall, " A"
 
   close(21)
   if(write_debug_file) close(22)
   if(debug) close(23)
 contains
-
-  !> calculates the Coulomb Logarithm for the given Te [eV] and ne [m⁻³]
-  function lnA(Te_corr_eV, ne) result(res)
-
-    implicit none
-    
-    real*8, intent(in)             :: Te_corr_eV    !< temperature with correction if applicable, in eV
-    real*8, intent(in)             :: ne            !< density in SI units (atoms/m³)
-    real*8                         :: res           !< output coulomb logartihm
-    real*8                         :: ne_cm3        !< density in (atoms/cm³)
-    
-    ne_cm3 = ne*1.d-6
-    if (Te_corr_eV < 10.d0) then
-      res  = 23.0    - 0.5*log(ne_cm3) +  1.5*log(Te_corr_eV)  ! Assuming bg_charge is 1!
-    else
-      res  = 24.1513 - 0.5*log(ne_cm3) +  1.0*log(Te_corr_eV)
-    endif
-  end function lnA
 
   !> detemines j_hat_par based on Newton's method with error function f
   function Newton_solver(gamma_fact, ratio_T, ratio_n, pe_term, alpha, write_debug_file) result(j_hat_par)
