@@ -476,7 +476,7 @@ module mod_position
       do m_pt = 1, n_elm_pts
 
         i_bnd  = i_bnd + 1 
-        s_or_t = (float(m_pt)-0.5d0)/float(n_elm_pts) !< TODO revert?
+        s_or_t = float(m_pt-1)/float(n_elm_pts)
 
         ! --- Which s and t values correspond to the current point and is the
         !     boundary element an s=const or t=const side of the 2D element?
