@@ -230,7 +230,6 @@ pure subroutine calc_F_profile(fields,i_elm,s,t,phi,Fprof)
 end subroutine calc_F_profile
 
 pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_raw, grad_T_e)
-pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_raw, grad_T_e)
   use phys_module, only: central_density
   use constants
   class(fields_base), intent(in)                    :: fields
@@ -245,7 +244,6 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
   real*8, dimension(2) :: P, P_s, P_t, P_phi, P_time
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
   real*8 :: T_norm !< temperature normalisation
-  real*8 :: n_e_temp, T_e_temp
   real*8 :: n_e_temp, T_e_temp
 
 #if (JOREK_MODEL == 400)
