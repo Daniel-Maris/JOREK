@@ -97,7 +97,7 @@ program jorek2_SOLcurrent
   real*8  :: bdotn            !< b (=B/|B|) dot outward pointing normal to the boundary
   real*8  :: inv_st_jac, psi_R, psi_Z
   real*8  :: B_deb(3), grad_p_deb(3)
-  character(len=5)   :: t_index_char
+  character(len=6)   :: t_index_char
 
   logical, parameter :: debug = .false.            !< useful for debugging the main code 
   logical, parameter :: write_debug_file = .false. !< useful for debugging the Newton solver
@@ -190,7 +190,7 @@ program jorek2_SOLcurrent
   ! --- Open the output file to which the SOL current data will be written in ascii format
   call system('mkdir -p '//trim(DIR))
 
-  write(t_index_char,'(I5.5)') index_start
+  write(t_index_char,'(I6.6)') index_start
   open(21,file=trim(DIR)//'step'//t_index_char//'.dat')
   if(write_debug_file) open(22,file='debug_Newton_solver.dat')
   if(debug) open(23,file='debug2.dat')
