@@ -173,7 +173,7 @@ contains
 
     !> Normalise variables 
     n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-    rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+    rho_norm = CENTRAL_MASS * ATOMIC_MASS_UNIT * n_norm             ! rho_SI = rho_norm * rho
     t_norm   = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
     v_norm   = 1.d0 / t_norm                                        ! V_SI   = v_norm * v_jorek
     E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek

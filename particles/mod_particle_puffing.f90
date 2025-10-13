@@ -276,7 +276,7 @@ end subroutine calc_puff_rate_linear
 subroutine do_particle_puffing(this,sim, ev)
   use mpi_mod
   use phys_module, only: tstep, central_mass, central_density
-  use constants, only: MASS_PROTON, MU_ZERO
+  use constants, only: ATOMIC_MASS_UNIT, MU_ZERO
   ! use mod_particle_create, only: free_particle_indices ! TODO
   ! !$ use omp_lib
 
@@ -310,7 +310,7 @@ subroutine do_particle_puffing(this,sim, ev)
   i_elm = this%val_i_elm
 
   !> get SI time ----------------
-  tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * MASS_PROTON * CENTRAL_DENSITY * 1.d20))
+  tstep_fluid_si = tstep*sqrt((MU_ZERO * CENTRAL_MASS * ATOMIC_MASS_UNIT * CENTRAL_DENSITY * 1.d20))
 
   ! TODO rm
   !============== Finding free particles !< make into a function?
