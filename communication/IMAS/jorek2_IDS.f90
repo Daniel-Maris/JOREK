@@ -185,10 +185,7 @@ program jorek2_IDS
   endif
 
   if (export_radiation)  then
-    if (.not. use_marker) then
-      write(*,*) 'radiation IDS currently only supported with marker model'
-      export_radiation=.false.
-    else
+    if (use_marker) then
       allocate( aux_node_list )
     end if
   end if
@@ -199,6 +196,8 @@ program jorek2_IDS
 
   first_step = .true.
 
+  call initialise_postproc_settings(first_step, n_grid)
+  
   ! --- Loop over
   do i_step = i_begin, i_end, i_jump_steps
  
@@ -285,14 +284,15 @@ program jorek2_IDS
 
     ! --- Fill and export a radiation IDS
     if (export_radiation) then
-      call import_hdf5_restart_aux(aux_node_list, trim(name_proj) // '.h5', rst_format, ierr)
-      if (ierr /= 0) then
-        write(*,*) ' Could not open projections file where radiation is stored'
-        stop
+      if (use_marker) then
+        call import_hdf5_restart_aux(aux_node_list, trim(name_proj) // '.h5', rst_format, ierr)
+        if (ierr /= 0) then
+          write(*,*) ' Could not open projections file where radiation is stored'
+          stop
+        endif
       endif
-      call fill_radiation_IDS(first_step, time_SI, radiation_ids)  
-    endif
-
+      call fill_radiation_IDS(first_step, time_SI, n_grid, radiation_ids)  
+    end if
     ! --- Fill and export an SPI IDS
     if (export_spi)   call fill_spi_IDS(first_step, time_SI, spi_ids) 
 
