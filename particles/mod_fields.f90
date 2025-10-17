@@ -319,7 +319,11 @@ pure subroutine calc_NeTiTe(fields,time,i_elm,st,phi,                   &
   real*8, parameter    :: T_FLOOR = 1.d0
 
   ! normalizations
+#ifdef WITH_TiTe
+  T_norm = 1.d0 / (K_BOLTZ * MU_ZERO * central_density * 1.d20)
+#else
   T_norm = 1.d0 / (K_BOLTZ * 2.d0 * MU_ZERO * central_density * 1.d20)
+#endif
   n_norm = central_density * 1.d20
 
   ! what do we actually need?
