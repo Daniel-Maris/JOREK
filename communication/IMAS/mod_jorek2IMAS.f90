@@ -1036,9 +1036,9 @@ module mod_jorek2IMAS
     
     integer:: num_nodes
     
-    integer :: n_slice, i_slice, grid_ind, grid_sub_ind, n_grid_sub, n_grid
+    integer :: n_slice, i_slice, grid_ind, grid_sub_ind, n_grid_sub, n_grid, i_psi
     type(type_command)  :: command_tmp
-    real*8, allocatable :: result(:,:)
+    real*8, allocatable :: result(:,:), q_prof(:), rho_tor(:)
     ! **********************************************************************************
   
     ! --- Number of grids and grid subsets
@@ -1075,44 +1075,52 @@ module mod_jorek2IMAS
     radiation_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS
     allocate( radiation_ids%process(1))   ! --- 1 type of radiation
 
-
+    
     if (use_marker) then
       allocate( radiation_ids%process(1)%ggd(n_slice) )
-      
+
       radiation_ids%time(i_slice)                = time_SI 
       radiation_ids%process(1)%ggd(i_slice)%time = time_SI
-      
+
       ! --- Fill radiation data 
       var_rad = 2
-      
+
       allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1))
       allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%emissivity(n_grid_sub))
       allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%name(1) )  
       allocate( radiation_ids%process(1)%identifier%name(1) )
       allocate( radiation_ids%process(1)%identifier%description(1) )
-      
+
       radiation_ids%process(1)%identifier%name         = "Line radiation"
       radiation_ids%process(1)%identifier%description  = "Total line radiation"
       radiation_ids%process(1)%identifier%index        = 10
-      
+
       radiation_ids%process(1)%ggd(i_slice)%ion(1)%name = imp_type(index_main_imp) 
-      
+
       ggd_scalar => radiation_ids%process(1)%ggd(i_slice)%ion(1)%emissivity(grid_sub_ind)
       call fill_Bezier_coefficients( ggd_scalar, aux_node_list, var_rad, grid_ind, grid_sub_ind, fact_rad )
     else
       allocate( radiation_ids%process(1)%profiles_1d(1))
+      radiation_ids%process(1)%profiles_1d(1)%time = time_SI
       command_tmp%n_args = 0
       expr_list = exprs((/'Psi_N','Psi', 'radiation'/), 3)
       if ( .not. ES%LCFS_is_lost ) then
         call average(command_tmp, first_step==.true., ierr, result, .true.)
         call clean_up()
+        call qprofile(command_tmp, first_step==.true., ierr, q_prof)
       else 
         if(allocated(result)) deallocate(result)
+        if(allocated(q_prof)) deallocate(q_prof)
         allocate(result(n_grid_1d, expr_list%n_expr))
-        result = -1.d99;   
+        allocate(q_prof(n_grid_1d))
+        result = -1.d99;   q_prof = -1.d99;
         write(*,*) '  plasma_profiles cannot be produced without closed flux surfaces'
       endif
-          ! --- Fill expressions in IDSs
+      ! --- Correct first and last points
+      q_prof(1)      = q_prof(2)        + (q_prof(2)-q_prof(3))
+      q_prof(n_grid_1d) = q_prof(n_grid_1d-1) + (q_prof(n_grid_1d-1)-q_prof(n_grid_1d-2))
+
+      ! --- Fill expressions in IDSs
       ! --- Psi_N
       allocate( radiation_ids%process(1)%profiles_1d(i_slice)%grid%rho_pol_norm(n_grid_1d) )
       radiation_ids%process(1)%profiles_1d(i_slice)%grid%psi_magnetic_axis = ES%Psi_axis * fact_psi
@@ -1123,7 +1131,17 @@ module mod_jorek2IMAS
       radiation_ids%process(1)%profiles_1d(i_slice)%grid%psi(:)   = result(:,2) * fact_psi
       ! --- radiation
       allocate( radiation_ids%process(1)%profiles_1d(1)%emissivity_ion_total(n_grid_1d))
-      radiation_ids%process(1)%profiles_1d(1)%emissivity_ion_total(:) = result(:,3) * fact_rad
+      radiation_ids%process(1)%profiles_1d(1)%emissivity_ion_total(:) = result(:,3) 
+
+
+      allocate( radiation_ids%process(1)%profiles_1d(i_slice)%grid%rho_tor_norm(n_grid_1d) )
+      allocate(rho_tor(n_grid_1d))
+      rho_tor(:) = 0.d0
+      do i_psi=2, n_grid_1d
+        rho_tor(i_psi) = sum(q_prof(1:i_psi)) ! Assuming equidistant psi grid!!
+      end do
+      radiation_ids%process(1)%profiles_1d(i_slice)%grid%rho_tor_norm(:) = sqrt( rho_tor(:)/rho_tor(n_grid_1d) )
+
     end if
     
   end subroutine fill_radiation_IDS
