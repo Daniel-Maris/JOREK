@@ -437,7 +437,7 @@ contains
             call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
             call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
             call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
-            binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG
+            binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q) * EL_CHG
             radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
             line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
           endif ! RADIATION
@@ -451,7 +451,7 @@ contains
 #else
               kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
 #endif
-              n_b = n_e
+              n_b = n_i
               ! Assumes deuterium background
               q_b = 1
               m_b = central_mass
