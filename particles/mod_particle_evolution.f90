@@ -232,6 +232,8 @@ contains
         i_elm_old = particle_tmp%i_elm
         q_old     = particle_tmp%q 
         v_old     = particle_tmp%v
+
+        v_new = v_old
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
         call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
@@ -426,9 +428,7 @@ contains
               end do
 
               call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/sim%t_norm, v_b)
-              
-              !> because in collide_particles this gets both used as the old velocity and updated to the new one
-              v_new = v_old 
+
               do l=1,n_coll
                 call rng(i_rng)%next(ran)
                 call collide_particles(ran(1:3), particle_tmp%q, sim%groups(group_num)%mass, v_new, &
