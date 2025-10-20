@@ -184,10 +184,8 @@ program jorek2_IDS
     endif
   endif
 
-  if (export_radiation)  then
-    if (use_marker) then
-      allocate( aux_node_list )
-    end if
+  if (export_radiation .and. use_marker)  then
+    allocate( aux_node_list )
   end if
 
   ! --- Time normalization
