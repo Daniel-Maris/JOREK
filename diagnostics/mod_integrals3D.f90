@@ -449,9 +449,10 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          vpar_disp_tot, vprp_disp_tot, fric_disp_tot, area1, mag_src_tot, momentum_x, momentum_y,       &
 !$omp          eta_ohmic, central_mass, R2curr_tmp, Zcurr_tmp, ksi_ion,                                       &
 !$omp          local_mom_par_int, local_mom_par_ext, local_mom_par_tot,                                       &
-!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_Prec, local_Prb, local_Prb_cooling,  &
+!$omp          use_ncs, use_ics, local_Nion, local_Nrec, local_Prec, local_Prb, local_Prb_cooling,            &
 !$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
-!$omp          rho_idx_kin, mom_par_idx_kin,                                                       &
+!$omp          rho_idx_kin, mom_par_idx_kin,                                                                  &
+!$omp          local_pn_e, local_pn_i, local_pn,                                                              &
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
@@ -470,7 +471,7 @@ Tie_min_neg = 0.5*T_min_neg
 #endif
 !$omp          T_1, T_max_eta, T_max_eta_ohm, eta_T_dependent,                                                & 
 !$omp          wgauss_copy, varmin, varmax)                                                                   &
-!$omp   private(ife,iv,inode,element,i,j, k,in, mp, ms, mt,                                             &
+!$omp   private(ife,iv,inode,element,i,j, k,in, mp, ms, mt,                                                   &
 !$omp           x_g, y_g, x_s, y_s, x_t, y_t, x_p, y_p, xjac, xjac_R, xjac_Z, eq_g, eq_s, eq_t, eq_p,         &
 !$omp           x_ss, x_tt, x_st, y_ss, y_tt, y_st, eq_ss, eq_tt, eq_st, eq_sp, eq_tp,                        &
 !$omp           eq_spp, eq_tpp, psi_axisym,s_norm, stel_current_source,eq_s_3d, eq_t_3d, wst, BigR,           &
@@ -489,14 +490,14 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           AZ0_Zp, A30, A30_p, A30_s, A30_t, A30_ss, A30_tt, A30_st, A30_R, A30_RR, A30_ZZ, BR_Z, BZ_R,  &
 !$omp           Srec_T_ncs, dSrec_dT_ncs, ksi_ion_norm, LradDcont_T_ncs, dLradDcont_dT_ncs, Sion_T_ncs,       &
 !$omp           LradDcont_corr_ncs, dLradDcont_dT_corr_ncs,                                                   &
-!$omp           dSion_dT_ncs, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_E0, aux_mom_par0, &
+!$omp           dSion_dT_ncs, eq_aux_g, eq_aux_s, eq_aux_t, eq_aux_p, aux_rho0, aux_mom_par0,                 &
 !$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
 !$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
+!$omp           aux_E0_Ti, aux_E0_Te, aux_E0,                                                                 &
 #ifdef WITH_TiTe
-!$omp          E_Te_idx_kin, E_Ti_idx_kin, aux_E0_Ti, aux_E0_Te,                                              &
-!$omp                local_pn_e, local_pn_i,                                                                  &
+!$omp           E_Te_idx_kin, E_Ti_idx_kin,                                                                   &
 #else
-!$omp          E_idx_kin, aux_E0, local_pn                                                                            &
+!$omp           E_idx_kin,                                                                                    &
 #endif
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                                    &
@@ -526,7 +527,7 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           Arad_bg, Brad_bg, Crad_bg,                                                                    &
 !$omp           coef_prad_si,                                                                                 &
 #endif
-!$omp           omp_nthreads,omp_tid)                                                          &
+!$omp           omp_nthreads,omp_tid)                                                                         &
 !$omp   firstprivate(nodes, aux_nodes) !< so that these nodes are unallocated at the start of the omp region and can be explicitly allocated/deallocated 
 
 
@@ -2823,12 +2824,12 @@ if (my_id .eq. 0) then
     write(*,'(A)') ' Kinetic neutral integrals on fluid side                  '
     write(*,'(A,4es14.6,A)') ' Ion source (aux_rho0), Recomb loss                : ',xt,xt*t_norm, Nion, Nrec,' [#/m^3/s]'
     write(*,'(A,5es14.6,A)') ' Parallel momentum source(aux_mom_par0) (total/in/out): ',xt,xt*t_norm,aux_mom_par_tot, aux_mom_par_int, aux_mom_par_ext,' [kg m/s]'
-  #ifdef WITH_TiTe
+#ifdef WITH_TiTe
     write(*,'(A,3es14.6,A)') ' Heat source electrons (aux_E0_Te)         : ',xt,xt*t_norm, plasmaneutral_e/1.d6, ' [MW]'
     write(*,'(A,3es14.6,A)') ' Heat source ions (aux_E0_Ti)         : ',xt,xt*t_norm, plasmaneutral_i/1.d6, ' [MW]'
-  #else
+#else
     write(*,'(A,3es14.6,A)') ' Heat source (aux_E0)         : ',xt,xt*t_norm, plasmaneutral/1.d6, ' [MW]'
-  #endif
+#endif
     write(*,'(A,5es14.6,A)') ' Prec, Prb, Prb_cooling       : ',xt,xt*t_norm,Prec/1.d6,Prb/1.d6,Prb_cooling/1.d6,' [MW]'
     write(*,'(A)') '----------------------------------------'
   endif !use_ncs .or. use_ics 
