@@ -986,7 +986,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   ! stellarator fixed temperature parameters
   real*8                   :: T_0_hdf5, Ti_0_hdf5, Te_0_hdf5
   real*8                   :: F_0
-  integer                  :: n_rad, n_theta
+  integer                  :: n_flux_hdf5, n_tht_hdf5
 
   ! local variables
   real*8, allocatable :: spi_R_arr (:)
@@ -1248,10 +1248,10 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
     stop
   endif
 
-  call HDF5_integer_reading(file_id,n_rad,  'n_flux')
-  call HDF5_integer_reading(file_id,n_theta,'n_tht')
-  if ((n_theta .ne. n_tht) .or. (n_rad .ne. n_flux)) then
-    write(*, *) "Error: Number of radial and poloidal in restart file and namelist are inconsistent: ", n_rad, n_flux, n_theta, n_tht
+  call HDF5_integer_reading(file_id,n_flux_hdf5,'n_flux')
+  call HDF5_integer_reading(file_id,n_tht_hdf5,'n_tht')
+  if ((n_tht_hdf5 .ne. n_tht) .or. (n_flux_hdf5 .ne. n_flux)) then
+    write(*, *) "Error: Number of radial and poloidal in restart file and namelist are inconsistent: ", n_flux_hdf5, n_flux, n_tht_hdf5, n_tht
     stop
   endif
 
