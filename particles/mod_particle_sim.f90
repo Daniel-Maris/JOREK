@@ -37,7 +37,6 @@ type :: particle_group
   integer            :: ics_group_idx            !< internal index given to this specific impurities group
 
   ! ==================== for runaway electrons =================
-  real*8             :: av_weight                !< average weight of each super particle in the group
   integer            :: q                        !< charge of each runaway electron super particle
 
   class(particle_base), dimension(:), allocatable :: particles
@@ -111,13 +110,6 @@ subroutine configure_particle_groups(sim)
         if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
       endif
     endif
-
-    ! === rep options
-    if (sim%groups(i)%coupling_scheme == 'rep') then
-      sim%groups(i)%av_weight  =  config%num_re / config%n_particles
-      sim%groups(i)%q          =  -1 !< default charge of the runaway electrons
-    endif
-
   enddo 
 
 end subroutine configure_particle_groups
