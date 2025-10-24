@@ -424,6 +424,9 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,CHAR_FMT) 'domm_file             ', domm_file
     write(*,REAL_FMT) 'R_domm                ', R_domm
   end if
+  write(*,LOGI_FMT) 'extended_boundary     ', extended_boundary
+  write(*,REAL_FMT) 'j_cutoff_rcoord       ', j_cutoff_rcoord
+  write(*,REAL_FMT) 'j_cutoff_sig          ', j_cutoff_sig
 
   if ( (abs(V_0) .ge. 1.d-19) .or. (num_rot) ) then
      write(*,LOGI_FMT) 'normalized_velocity_profile', normalized_velocity_profile
@@ -1079,6 +1082,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         ! ics specific
         if (sim%groups(group_num)%coupling_scheme .eq. 'ics') then
           write(*,LOGI_FMT) 'use_kin_bg_collisions,  ',sim%groups(group_num)%use_kin_bg_collisions
+          write(*,CHAR_FMT) 'kin_bg_coll_type,  ',sim%groups(group_num)%kin_bg_coll_type
+          write(*,REAL_FMT) 'homma2020_alpha,  ',sim%groups(group_num)%homma2020_alpha
         endif
 
         write(*,CHAR_FMT) 'atom_data_suffix,       ',trim(part_group_configs(group_num)%atom_data_suffix)

@@ -297,7 +297,7 @@ contains
 
     !> Normalise variables 
     n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-    rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+    rho_norm = CENTRAL_MASS * ATOMIC_MASS_UNIT * n_norm             ! rho_SI = rho_norm * rho
     t_norm   = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
     v_norm   = 1.d0 / t_norm                                        ! V_SI   = v_norm * v_jorek
     E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek
@@ -518,9 +518,14 @@ contains
               kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
               n_b = n_e
               q_b = 1
-              m_b = 2.d0
-              !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
-              q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+              m_b = central_mass
+
+              if (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2013') then
+                !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
+                q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b)
+              elseif (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2020') then
+                q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, sim%groups(group_num)%homma2020_alpha)
+              endif
 
               !> Calculate coulomb logarithm and limit it to reasonable values
               coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)

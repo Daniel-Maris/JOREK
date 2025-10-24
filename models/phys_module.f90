@@ -31,7 +31,7 @@ module phys_module
   real*8  :: TiTe_ratio           !< ratio to set ion and electron temperature from T (in model 180): Ti=TiTe_ratio*T; Te=(1.0-TiTe_ratio)*T
   real*8  :: F0                   !< Determines fixed toroidal magnetic field: \f$ B_\phi = F_0/R \f$
   real*8  :: central_density      !< particle density at the magnetic axis (in units of \f$10^{20} m^{-3}\f$)
-  real*8  :: central_mass         !< average ion mass in atomic mass units (constant in time and space)
+  real*8  :: central_mass         !< average ion mass in atomic mass units (constant in time and space, including electron mass)
   real*8  :: sqrt_mu0_rho0        !< Normalization factor \f$\sqrt(\mu_0 \rho_0)\f$ calculated from input
   real*8  :: sqrt_mu0_over_rho0   !< Normalization factor \f$\sqrt(\mu_0/\rho_0)\f$ calculated from input
   real*8  :: gamma                !< ratio of specific heat (typically 5/3)
@@ -221,6 +221,9 @@ module phys_module
    
   ! Stellarator parameters
   logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC
+  logical :: extended_boundary    !< Choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
+  real*8  :: j_cutoff_rcoord      !< Radial location from which the current is set to zero as it approaches the boundary - rcoord corresponds to the normalised toroidal flux
+  real*8  :: j_cutoff_sig         !< Radial width over which the current is ramped down to zero towards the boundary
 
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   real*8  :: surface_cross_tol                                                  !< Tolerance when looking for crossing of polar lines and surfaces, needs to be > 1.0
@@ -1057,6 +1060,9 @@ module phys_module
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
+    character(len=9)    :: kin_bg_coll_type        !< choose type of heat flux used in collisions, either Homma2013 or Homma2020 at the moment
+    real*8              :: homma2020_alpha         !< alpha factor in Homma2020 heat flux to limit,
+                                                   !< recommended value is 1.5 for ion heat flux, see Homma 2020 and Fundamenski 2005
     integer             :: ics_group_idx           !< internal index given to this specific impurities group, used to obtain the variable index of charge density
                                                    !< projectons specific to this group, as we require a charge density projection for each impurities group for coupling
                                              
