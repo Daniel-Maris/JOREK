@@ -141,7 +141,7 @@ contains
     !> RE specific variables
     real*8    :: n_norm, rho_norm
     real*8    :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4)
-    real*8    :: v_n, v_jR, v_jZ, v_jPhi, v_Ppar, v_Pperp
+    real*8    :: v_jR, v_jZ, v_jPhi, v_Ppar, v_Pperp
 
     real*8    :: E(3), B(3), B_norm2(3), psi, U
     real*8    :: cylindrical_velocity(3), cylindrical_momentum(3)
@@ -163,7 +163,7 @@ contains
       !$omp parallel do default(none) &
       !$omp schedule(runtime)         &
       !$omp private(j, k, m, n, HZ, HH, HH_s, HH_t, E, B, psi, U,  &
-      !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, v_n, i_tor, ifail, &
+      !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, i_tor, ifail, &
       !$omp cylindrical_velocity, cylindrical_momentum, v_par, v_perp, gamma_m ) &
       !$omp shared (nstep_particles, tstep_part_adj, sim, group_num, rho_norm, &
       !$omp P_par_idx_kin, P_perp_idx_kin, j_phi_idx_kin) &
