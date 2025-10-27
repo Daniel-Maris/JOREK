@@ -149,7 +149,7 @@ contains
     integer   :: j, k, m, n, ifail, i_tor, n_lost
 
     n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-    rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+    rho_norm = CENTRAL_MASS * ATOMIC_MASS_UNIT * n_norm                  ! rho_SI = rho_norm * rho
 
     ! Loop over all particle groups
     n_lost = 0

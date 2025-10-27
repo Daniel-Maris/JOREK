@@ -9,7 +9,7 @@ module initialisers_RE
   use mod_pusher_tools, only: get_orthonormals
   use mod_coordinate_transforms, only: vector_cylindrical_to_cartesian
   use mod_model_settings
-  use phys_module, only: CENTRAL_DENSITY, CENTRAL_MASS, MASS_PROTON, MU_ZERO
+  use phys_module, only: CENTRAL_DENSITY, CENTRAL_MASS, ATOMIC_MASS_UNIT, MU_ZERO
   implicit none
 
   contains
