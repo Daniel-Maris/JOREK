@@ -53,8 +53,8 @@ subroutine preset_parameters
   visco_par_heating = 0.d0
   visco_old_setup   = .false.
   
-  central_density = 1.d0        ! the central density in units 10^20 m^-3
-  central_mass    = 2.d0        ! the central average ion mass (D)
+  central_density = 1.d0            ! the central density in units 10^20 m^-3
+  central_mass    = 2.01410177811d0 ! the central average mass (atomic mass of deuterium, including electron)
 
   n_tor_restart= 0
   restart      = .false.
@@ -64,6 +64,9 @@ subroutine preset_parameters
   rst_format   = 0             ! use 'old' format for restart import
   write_ps     = .true.           ! write postscript file at the end of the run 
   gvec_grid_import = .false.
+  extended_boundary = .false.
+  j_cutoff_rcoord = 99.0
+  j_cutoff_sig = 0.025
 
   freeboundary_equil = .false. ! use free or fixed boundary equilibrium
   freeboundary       = .false. ! use free or fixed boundary?
@@ -897,6 +900,8 @@ do i=1,n_part_groups_max
 end do
 ! --- ics only
 part_group_configs(:)%use_kin_bg_collisions  = .false.
+part_group_configs(:)%kin_bg_coll_type       = 'Homma2020'
+part_group_configs(:)%homma2020_alpha        = 1.5d0
 part_group_configs(:)%ics_group_idx          = -1
 
 do i=1, n_part_groups_max

@@ -1491,12 +1491,13 @@ end subroutine calc_fluid_yield
 !> updates this%delta_t, as that can change when tstep changes during the simulation
 subroutine update_delta_t(this)
   use phys_module, only: tstep, central_mass, central_density
+  use constants, only: MU_ZERO, ATOMIC_MASS_UNIT
 
   implicit none
   
   class(wall_action), intent(inout)    :: this
   
-  this%delta_t = (tstep*sqrt((MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20)))
+  this%delta_t = (tstep*sqrt((MU_ZERO * central_mass * ATOMIC_MASS_UNIT * central_density * 1.d20)))
 
 end subroutine update_delta_t
 

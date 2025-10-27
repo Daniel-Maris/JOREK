@@ -134,7 +134,7 @@ contains
     !> Coupling --------------------------------------
     real*8    :: density_source, mom_par_source, energy_source
     real*8    :: density_fb, mom_par_fb, E_fb, imp_q_fb, imp_density_fb, imp_P_rad_fb, extra_proj 
-    real*8    :: v_temp(3), T_eV, B_norm(3)
+    real*8    :: v_old(3), v_new(3), T_eV
     real*8    :: vvector(3), ran_norm(4)
 
     logical   :: limits, limits_coll
@@ -152,6 +152,7 @@ contains
     real*8    :: ran(6), ran2(6,n_coll), q(3), m_b
     real*8    :: coulomb_log, kTb, n_b, v_b(3,n_coll) 
     real*8, dimension(1) :: P, P_s, P_t, P_phi, P_time
+    real*8    :: delta_E_kin
 
     !> System variables ------------------------------
     type(particle_kinetic_leapfrog) :: particle_tmp
@@ -173,7 +174,7 @@ contains
 
     !> Normalise variables 
     n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-    rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+    rho_norm = CENTRAL_MASS * ATOMIC_MASS_UNIT * n_norm             ! rho_SI = rho_norm * rho
     t_norm   = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
     v_norm   = 1.d0 / t_norm                                        ! V_SI   = v_norm * v_jorek
     E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek
@@ -185,7 +186,7 @@ contains
       !$ call omp_set_schedule(omp_sched_dynamic,10)
     end if  
 #ifdef __GFORTRAN__
-    !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
+    !$omp parallel do default(shared) & ! workaround for Error: «__vtab_mod_pcg32_rng_Pcg32_rng» not specified in enclosing «parallel»
 #else
     !$omp parallel do default(none)                                                                       &
 #endif
@@ -201,9 +202,9 @@ contains
     !$omp kinetic_energy, line_rad_energy, radiation_energy, binding_energy,                              &  
     !$omp R_g, R_s, R_t, Z_g, Z_s, Z_t, R, Z, xjac, HH, HH_s, HH_t, HZ, index_lm, ifail,                  &
     !$omp density_fb, E_fb, mom_par_fb,extra_proj, imp_q_fb, imp_density_fb, imp_P_rad_fb,                &
-    !$omp density_source, mom_par_source, energy_source, v_temp, T_eV,                                    &
+    !$omp density_source, mom_par_source, energy_source, v_old, v_new, T_eV,                              &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
-    !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll,                                                &
+    !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, delta_E_kin,                                   &
     !$omp vvector, ran_norm, imp_q_idx_temp, n_e_raw, T_e_raw)                                            &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
@@ -222,6 +223,7 @@ contains
         radiation_energy = 0.d0
         cx_source = 0.d0
         cx_energy = 0.d0
+        delta_E_kin = 0.d0
 
         !> calculate local fields
         call sim%fields%calc_EBpsiU(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), E, B, psi, U)
@@ -229,7 +231,9 @@ contains
         st_old    = particle_tmp%st
         i_elm_old = particle_tmp%i_elm
         q_old     = particle_tmp%q 
-        v_temp    = particle_tmp%v
+        v_old     = particle_tmp%v
+
+        v_new = v_old
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)
         call sim%fields%calc_NeTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_i, T_e, n_e_raw, T_e_raw, grad_T_e)
@@ -288,7 +292,7 @@ contains
               particle_tmp%weight = particle_tmp%weight * (1.d0 - ionize_prob)
             endif 
     
-            kinetic_energy = dot_product(particle_tmp%v,particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT /2.d0
+            kinetic_energy = dot_product(v_old,v_old) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT /2.d0
             ionize_energy     = kinetic_energy - H_binding_energy
             !<including binding energy will make ionize_energy negative, so it becomes a sink for the plasma
           endif ! IONISATION
@@ -307,20 +311,24 @@ contains
               !> ----- NEW CX PARTICLE ---------
               !Box-Mueller sample velocities with st.dev=1
               ran_norm = boxmueller_transform(cx_ran(2:5))
-              !>v_temp = sqrt(kT/m) * ran_norm
-              v_temp = sqrt(T_e * K_BOLTZ/(sim%groups(group_num)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
+              !>v_new = sqrt(kT/m) * ran_norm
+              v_new = sqrt(T_e * K_BOLTZ/(sim%groups(group_num)%mass * ATOMIC_MASS_UNIT))*ran_norm(2:4)
               !>add bulk fluid flow
-              v_temp = v_temp + vvector 
+              v_new = v_new + vvector 
 
               CX_source = particle_tmp%weight
-              CX_energy   = 0.5d0 * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT *  (dot_product(particle_tmp%v,particle_tmp%v) - dot_product(v_temp,v_temp))
+              !> Compute kinetic energy change to plasma due to velocity change in this substep
+              delta_E_kin = 0.5d0 * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT * particle_tmp%weight &
+                        * (dot_product(v_old,v_old) - dot_product(v_new,v_new))
+              cx_energy   = delta_E_kin  !< for diagnostics only
             endif ! cx_ran
           endif ! CHARGE EXCHANGE
-            
+
+          
           !> check that the energy feedback is valid
-          if (isnan(ionize_source * ionize_energy + cx_source * cx_energy - line_rad_energy)) then
+          if (isnan(ionize_source * ionize_energy + delta_E_kin - line_rad_energy)) then
             write(*,*) "ionize_energy", ionize_energy
-            write(*,*) "cx_energy", cx_energy
+            write(*,*) "delta_E_kin", delta_E_kin
             write(*,*) "line_rad_energy", line_rad_energy
             particle_tmp%i_elm  = 0
             CYCLE !< don't feed this particle into the feedback
@@ -329,11 +337,10 @@ contains
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
           density_source = ionize_source * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !< mass source in SI
-          mom_par_source = ionize_source * dot_product(B, particle_tmp%v) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &	
-                + CX_source  * dot_product(B, particle_tmp%v - v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
-          energy_source  = ionize_source * ionize_energy + cx_source * cx_energy - line_rad_energy
+          mom_par_source = ionize_source * dot_product(B, v_old) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT & 
+                + CX_source  * dot_product(B, v_old - v_new) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
+          energy_source  = ionize_source * ionize_energy + delta_E_kin - line_rad_energy
                   
-          particle_tmp%v = v_temp 
           n_lost_ion = n_lost_ion + ionize_source	!< local sum #particles lost due to ionisation
           p_lost_ion = p_lost_ion + ionize_source * ionize_energy
           p_lost_plt = p_lost_plt + line_rad_energy
@@ -387,7 +394,7 @@ contains
             call sim%groups(group_num)%ad%PLT%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PLT)  ! [J m^3/s] Line radiation
             call sim%groups(group_num)%ad%PRB%interp(int(particle_tmp%q), log10(n_e), log10(T_e), PRB)  ! [J m^3/s] Bremsstrahlung
             call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
-            binding_energy = sim%groups(group_num)%ad%ionisation_energy(q_old+1) * EL_CHG
+            binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q) * EL_CHG
             radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
           endif ! RADIATION
           
@@ -395,12 +402,17 @@ contains
           if (sim%groups(group_num)%use_kin_bg_collisions .and. .not. limits_coll) then
             if (particle_tmp%q .gt. 0) then
               ! Calculate collisions
-              kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
-              n_b = n_e
+              kTb = T_e*K_BOLTZ ! assume T_e == T_i
+              n_b = n_i
               q_b = 1
-              m_b = 2.d0
-              !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
-              q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b) !EL_CHG/K_BOLTZ
+              m_b = central_mass
+
+              if (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2013') then
+                !> Homma use temperature in [J] (kb [j/K]* T_e [K] or e [J/eV] * Te_eV [eV])
+                q = q_homma2013(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b)
+              elseif (sim%groups(group_num)%kin_bg_coll_type .eq. 'Homma2020') then
+                q = q_homma2020(kTb, grad_T_e*K_BOLTZ, B, n_b, m_b, q_b, sim%groups(group_num)%homma2020_alpha)
+              endif
 
               !> Calculate coulomb logarithm and limit it to reasonable values
               coulomb_log = coulomb_logarithm(kTb, n_b, particle_tmp%q, q_b, sim%groups(group_num)%mass, m_b)
@@ -415,31 +427,35 @@ contains
                 call rng(i_rng)%next(ran2(:,l))
               end do
 
-              call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/norm2(B)/sim%t_norm, v_b) !P(1)*B/norm2(B)/sim%t_norm
-  
+              call sample_velocity_dist_magnetized(n_coll, ran2(1:6,:), kTb, q, n_b, m_b, q_b, P(1)*B/sim%t_norm, v_b)
+
               do l=1,n_coll
                 call rng(i_rng)%next(ran)
-                call collide_particles(ran(1:3), particle_tmp%q, sim%groups(group_num)%mass, particle_tmp%v, &
+                call collide_particles(ran(1:3), particle_tmp%q, sim%groups(group_num)%mass, v_new, &
                     q_b, m_b, v_b(:,l), n_b, coulomb_log, tstep_part_adj/real(n_coll,8))
               end do
             end if
           endif ! COLLISIONS
           
+          !> kinetic energy change transferred to plasma fluid this substep
+          delta_E_kin = 0.5d0 * particle_tmp%weight * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT &
+                        * (dot_product(v_old, v_old) - dot_product(v_new, v_new))
+
           !> check that the particle energy sources are valid
-          if (isnan(imp_charge_density + ionize_energy - radiation_energy)) then
+          if (isnan(imp_charge_density + ionize_energy + radiation_energy + delta_E_kin)) then
             write(*,*) "imp_charge_density", imp_charge_density
             write(*,*) "ionize_energy", ionize_energy
             write(*,*) "rad_energy", radiation_energy
+            write(*,*) "delta_E_kin", delta_E_kin
             particle_tmp%i_elm  = 0
             CYCLE !< don't feed this particle into the feedback
           endif
       
           !> ----- CONSTRUCT FEEDBACK -----
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
-          energy_source  = ionize_energy + radiation_energy
-          mom_par_source = -1.d0 * particle_tmp%weight * dot_product(B, particle_tmp%v-v_temp) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !&	
-
-          particle_tmp%v = v_temp 
+          energy_source  = ionize_energy + radiation_energy + delta_E_kin
+          mom_par_source = particle_tmp%weight * dot_product(B, (v_old - v_new)) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT ! parallel momentum given to plasma
+ 
           n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
           p_lost_plt = p_lost_plt + radiation_energy
@@ -471,6 +487,9 @@ contains
           enddo
 
         endif ! END OF ICS SPECIFIC PHYSICS
+
+        !> explicitly store updated velocity
+        particle_tmp%v = v_new
 
         !> =============================== PUSH PARTICLE ====================================
         if (particle_tmp%i_elm .gt. 0) then
