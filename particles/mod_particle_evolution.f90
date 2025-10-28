@@ -84,16 +84,16 @@ contains
     if (part_group%coupling_scheme == 'ncs' .or. part_group%coupling_scheme == 'ics') then
       write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
 
-      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time
 #ifdef WITH_TiTe
       jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_Te_idx_kin) + feedback_rhs(:,:,:,:,E_Te_idx_kin) / jorek_feedback%rhs_gather_time
       jorek_feedback%rhs(:,:,:,:,E_Ti_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_Ti_idx_kin) + feedback_rhs(:,:,:,:,E_Ti_idx_kin) / jorek_feedback%rhs_gather_time
 #else
-      jorek_feedback%rhs(:,:,:,:,E_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_idx_kin) + feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,E_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_idx_kin) + feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time
 #endif
       !> ncs specific projections
       if (part_group%coupling_scheme == 'ncs') then
-        jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+        jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time
         jorek_feedback%rhs(:,:,:,:,6) = jorek_feedback%rhs(:,:,:,:,6) + feedback_rhs(:,:,:,:,6)   !< extra diagnostic projection 
       endif
 
