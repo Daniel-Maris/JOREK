@@ -212,7 +212,7 @@ subroutine determine_coupling_variables()
       case ("j_Phi")
         j_Phi_idx_kin = final_var_idx
       case ("imp_q")
-        continue
+        continue      !< do nothing as already handled above in use_ics loop
       case default
         write(*,*) "Error: no match found for coupling variable: ", coupling_vars(i),", please check coupling_variables.f90 and recompile"
         stop

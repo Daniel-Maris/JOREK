@@ -1209,12 +1209,6 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   
   ! pre-update weight of simulated particle according to weight factor for correct incoming diagnostics
   particle%weight = this%weight_factor * particle%weight 
-  if(present(E_in)) then
-    if (E_in .ne. E_in) then
-      write(*,*) "E_in is nan"
-    end if
-  end if
-
 
   ! set the incoming particle energy
   if(present(E_in)) then
@@ -1223,11 +1217,6 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
     ! calculate the energy associated with the velocity of the particle (in eV)
     E = 0.5d0*sim%groups(this%target_group)%mass*ATOMIC_MASS_UNIT*dot_product(particle%v, particle%v)/EL_CHG !< must be in eV
   end if
-
-  if (E .ne. E) then
-    write(*,*) "E is nan, after incoming particle energy"
-  end if
-
 
   ! determine the type, this can be different from this%type if single_self_interaction is called from within fluid2part
   if(present(type_in)) then
@@ -1262,10 +1251,6 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   !   !!$omp end critical
   ! end if
 
-  if (E .ne. E) then
-    write(*,*) "E is nan, before potential drop"
-  end if
-
   ! Update the particle energy from the potential drop in the sheath
 #ifdef WITH_TiTe
   call sim%fields%calc_NeTiTe(sim%time, particle%i_elm, particle%st, particle%x(3), n_e=n_e, T_i=T_i, T_e=T_e)
@@ -1277,9 +1262,6 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   
   E = E + simple_potential_drop(int(particle%q,4),Te_eV)
 
-  if (E .ne. E) then
-    write(*,*) "E is nan, before diagnostics"
-  end if
   ! store this particle's contribution to incoming particle, heatflux and flux onto the wall
   diagnostics(i_wall_part_in) = diagnostics(i_wall_part_in) + 1
   diagnostics(i_wall_flux_in) = diagnostics(i_wall_flux_in) + particle%weight
@@ -1696,7 +1678,7 @@ pure subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti
   integer, intent(in)            :: Z_ion
   real*8, intent(out)            :: E !< Energy in eV
   real*8, intent(in), optional   :: E_threshold !< Theshold energy in eV, not to sample particles below this energy
-  real*8, intent(in),  optional  :: Ti_eV !< ion temperature (eV), optional
+  real*8, intent(in), optional  :: Ti_eV !< ion temperature (eV), optional
 
   real*8                         :: beta, v, Ti_eV_local, fact
 
@@ -1723,6 +1705,7 @@ pure subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti
   ! v = sqrt(2E/m) (+ or - with 50/50 prob)
   v = sign(sqrt(2.d0*E*EL_CHG*(1.d0-beta)/(central_mass*ATOMIC_MASS_UNIT)), u(3)-0.5d0) ! m/s
   ! the sound speed is sqrt(k (1+gamma) T/m) = sqrt(T_eV*EL_CHG/m)
+  ! gamma=1 is assumed, valid for cold dense plasma
   v = v + sqrt( fact*(Te_eV+Ti_eV_local)*EL_CHG/(central_mass*ATOMIC_MASS_UNIT)) ! m/s
   E = E * beta + 0.5d0 * central_mass*ATOMIC_MASS_UNIT * v**2 / EL_CHG
 
