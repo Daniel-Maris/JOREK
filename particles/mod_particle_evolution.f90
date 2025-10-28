@@ -423,7 +423,7 @@ contains
 
         if (sim%groups(group_num)%coupling_scheme == 'ics') then
           line_rad_energy = 0.d0
-          delta_E_kin_coll = 0.d0
+          delta_E_kin = 0.d0
           !> IONISATION & RECOMBINATION (Impurities)
           if (sim%groups(group_num)%use_kin_ionisation .and. .not. limits) then
             call rng(i_rng)%next(ionize_ran_imp)
