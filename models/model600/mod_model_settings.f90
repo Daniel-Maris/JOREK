@@ -6,7 +6,7 @@ implicit none
 logical, parameter :: with_vpar       = .true.
 logical, parameter :: with_TiTe       = .false.
 logical, parameter :: with_neutrals   = .false. 
-logical, parameter :: with_impurities = .true.
+logical, parameter :: with_impurities = .false.
 logical, parameter :: with_refluid    = .false. ! not yet possible to switch
 
 
@@ -80,7 +80,7 @@ integer,  parameter :: n_terms_zj   = 1
 integer,  parameter :: n_terms_w    = 1
 integer,  parameter :: n_terms_rho  = 13
 integer,  parameter :: n_terms_T    = 26
-integer,  parameter :: n_terms_Te   = 22
+integer,  parameter :: n_terms_Te   = 20
 integer,  parameter :: n_terms_Ti   = 18
 integer,  parameter :: n_terms_vpar = 12
 integer,  parameter :: n_terms_rhon = 7
@@ -175,7 +175,7 @@ character*36, dimension(n_terms_Ti),    parameter :: Ti_term_names=  &
                                                  'Ti_Eq__aux_energy_source      ', &  ! 15:  
                                                  'Ti_Eq__aux_particle_source    ', &  ! 16: 
                                                  'Ti_Eq__aux_par_momentum_source', &  ! 17:
-                                                 'Ti_Eq__recomb_thermal_loss'/)       ! 18:
+                                                 'Ti_Eq__recomb_thermal_loss    '/)   ! 18:
                                                  
 
 character*36, dimension(n_terms_Te),    parameter :: Te_term_names=  &
@@ -198,9 +198,7 @@ character*36, dimension(n_terms_Te),    parameter :: Te_term_names=  &
                                                  'Te_Eq__imp_ionization         ', &  ! 17:
                                                  'Te_Eq__power_teleported       ', &  ! 18:
                                                  'Te_Eq__implicit_heating       ', &  ! 19:
-                                                 'Te_Eq__aux_energy_source      ', &  ! 20:  
-                                                 'Te_Eq__aux_particle_source    ', &  ! 21: 
-                                                 'Te_Eq__aux_par_momentum_source'/)   ! 22: 
+                                                 'Te_Eq__aux_energy_source      '/)   ! 20: 
 
 
 character*36, dimension(n_terms_vpar),  parameter :: vpar_term_names=  &
