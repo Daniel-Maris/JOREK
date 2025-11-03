@@ -1046,20 +1046,22 @@ module mod_jorek2IMAS
     n_grid_sub   = 1
     grid_ind     = 1  ! Index
     grid_sub_ind = 1  ! Index
-  
-    if (first_step) then
-      ! --- Put the grid in GGD
-      allocate( radiation_ids%grid_ggd(n_grid) )
-      grid => radiation_ids%grid_ggd(grid_ind)
-      grid%time = time_SI
-      call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
-    else
-      if ( associated(radiation_ids%grid_ggd)) then
-        call ids_deallocate_struct(radiation_ids%grid_ggd(grid_ind), .false.)     
-        deallocate(radiation_ids%grid_ggd)
+
+    if (use_marker) then
+      if (first_step) then
+        ! --- Put the grid in GGD
+        allocate( radiation_ids%grid_ggd(n_grid) )
+        grid => radiation_ids%grid_ggd(grid_ind)
+        grid%time = time_SI
+        call grid2ggd( grid, node_list, element_list, bnd_node_list, bnd_elm_list )
+      else
+        if ( associated(radiation_ids%grid_ggd)) then
+          call ids_deallocate_struct(radiation_ids%grid_ggd(grid_ind), .false.)     
+          deallocate(radiation_ids%grid_ggd)
+        endif
       endif
-    endif
- 
+    end if
+    
     ! --- Normalization factors for IMAS
     rho0               = central_density * 1.d20 * central_mass * ATOMIC_MASS_UNIT
     sqrt_mu0_rho0      = sqrt( mu_zero * rho0 )
@@ -1071,15 +1073,20 @@ module mod_jorek2IMAS
     n_slice = 1  
     i_slice = 1
     allocate(  radiation_ids%time(n_slice) )
+    radiation_ids%time(i_slice)                = time_SI 
 
     radiation_ids%ids_properties%homogeneous_time = IDS_TIME_MODE_HETEROGENEOUS
     allocate( radiation_ids%process(1))   ! --- 1 type of radiation
+    allocate( radiation_ids%process(1)%identifier%name(1) )
+    allocate( radiation_ids%process(1)%identifier%description(1) )
+
+    radiation_ids%process(1)%identifier%name         = "Line radiation"
+    radiation_ids%process(1)%identifier%description  = "Total line radiation"
+    radiation_ids%process(1)%identifier%index        = 10
 
     
     if (use_marker) then
       allocate( radiation_ids%process(1)%ggd(n_slice) )
-
-      radiation_ids%time(i_slice)                = time_SI 
       radiation_ids%process(1)%ggd(i_slice)%time = time_SI
 
       ! --- Fill radiation data 
@@ -1088,12 +1095,6 @@ module mod_jorek2IMAS
       allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1))
       allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%emissivity(n_grid_sub))
       allocate( radiation_ids%process(1)%ggd(i_slice)%ion(1)%name(1) )  
-      allocate( radiation_ids%process(1)%identifier%name(1) )
-      allocate( radiation_ids%process(1)%identifier%description(1) )
-
-      radiation_ids%process(1)%identifier%name         = "Line radiation"
-      radiation_ids%process(1)%identifier%description  = "Total line radiation"
-      radiation_ids%process(1)%identifier%index        = 10
 
       radiation_ids%process(1)%ggd(i_slice)%ion(1)%name = imp_type(index_main_imp) 
 
