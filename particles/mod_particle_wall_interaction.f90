@@ -1429,7 +1429,7 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   end select
   
   ! update weight of simulated particle after the wall interaction
-  if (particle%weight .le. sim%groups(this%target_group)%average_weight * part_kill_ratio) then
+  if (particle%weight .le. sim%groups(this%target_group)%average_weight * part_kill_ratio .and. yield .le. 1.d0) then
     call rng%next(p_kill)
     if (p_kill(1) .le. (1-yield)) then
       particle%i_elm  = 0 !takes the particle out of active use
