@@ -140,7 +140,7 @@ module mod_particle_wall_interaction
   
   !> indices of different diagnostics in the global diagnostics array which is used for the output file
   !> number of super particles is intentionally stored in a real, to easily handle all diagnostics simultaneously (in omp reductions and in MPI_reduce)
-  integer, parameter :: n_global_diagnostics=9, i_wall_part_in=1, i_wall_flux_in=2, i_wall_heat_in=3, i_wall_part_out=4, i_wall_flux_out=5, i_wall_heat_out=6, i_wall_flux_refl=7, i_wall_heat_refl=8, i_pumped=9
+  integer, parameter :: n_global_diagnostics=10, i_wall_part_in=1, i_wall_flux_in=2, i_wall_heat_in=3, i_wall_part_out=4, i_wall_flux_out=5, i_wall_heat_out=6, i_wall_flux_refl=7, i_wall_heat_refl=8, i_removed=9, i_super_killed=10
   
   integer, parameter :: n_project_general=4 !< number of general projections (on top of the number of interaction type specific interactions)
 
@@ -1269,6 +1269,8 @@ end subroutine part2self_action
 
 !> The interaction of a single particle with the wall, only affecting that super particle (self sputter or reflect)
 subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, type_in, weight_preadjusted)
+  use phys_module, only: part_kill_ratio
+
   implicit none
 
   class(wall_action),                      intent(inout) :: this
@@ -1285,7 +1287,7 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   real*8 :: vector_normal(3)
   logical :: fast_reflection !< whether the reflection is a fast reflection or a thermal desorption (not that release is instant, but the energy of the reflected particle is different)
   real*8 :: yield, energy_coeff, T_eV, fast_reflect_chance, v_new
-  real*8 :: u(2)
+  real*8 :: u(2), p_kill(1)
   character(len=20) :: local_type !< which single particle interaction to do, used to call self interaction from within fluid2part_action (=type_in if present, else =this%type)
   logical :: skip_yield !< if weight_preadjusted = true, then the yield calculation should be skipped
   
@@ -1351,8 +1353,7 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   select case (trim(local_type))
   case ("pump")
     yield = this%weight_factor
-    diagnostics(i_pumped) = diagnostics(i_pumped) + particle%weight*(1-yield)
-
+    
     !> storing this particle's contribution on a 2D edge element patch grid as diagnostic
     call particle_projection_diagnostic(this, sim, particle, E, (1-yield))
   case ("reflection")
@@ -1428,7 +1429,22 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   end select
   
   ! update weight of simulated particle after the wall interaction
-  particle%weight = yield * particle%weight 
+  if (particle%weight .le. sim%groups(this%target_group)%average_weight * part_kill_ratio) then
+    call rng%next(p_kill)
+    if (p_kill(1) .le. (1-yield)) then
+      particle%i_elm  = 0 !takes the particle out of active use
+
+      diagnostics(i_super_killed) = diagnostics(i_super_killed) + 1
+      diagnostics(i_removed)      = diagnostics(i_removed)      + particle%weight
+      
+      return ! we explicitly don't want this particle to be updated or counted in the outgoing diagnostics anymore
+    
+    endif ! else do nothing to the weight of this particle
+  else 
+    diagnostics(i_removed) = diagnostics(i_removed) + particle%weight*(1-yield)
+
+    particle%weight = yield * particle%weight
+  endif
 
   ! use E from previous section to calculate velocity in one 
   v_new = sqrt(2.d0* E *EL_CHG/(sim%groups(this%target_group)%mass * ATOMIC_MASS_UNIT))
@@ -2077,7 +2093,9 @@ subroutine write_global_diag(this,sim,diagnostics)
     write(*,'(A,2es16.6)') "particle flux (in/out) [#/s]  = ", diagnostics(i_wall_flux_in)/this%delta_t,diagnostics(i_wall_flux_out)/this%delta_t 
     write(*,'(A,2es16.6)') "heatflux (in/out) [W]         = ", diagnostics(i_wall_heat_in)/this%delta_t,diagnostics(i_wall_heat_out)/this%delta_t 
     if(trim(this%type) == "pump") then
-       write(*,'(A,1es16.6)') "pumped particles this step    = ", diagnostics(i_pumped)
+      write(*,'(A,1f14.0)' ) "pumped superparticles         = ", diagnostics(i_super_killed)
+      write(*,'(A,1es16.6)') "pumped particles this step    = ", diagnostics(i_removed)
+      write(*,'(A,1es16.6)') "pumped particles flux [#/s]   = ", diagnostics(i_removed)/this%delta_t
     endif
   endif
 

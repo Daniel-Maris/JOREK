@@ -1082,6 +1082,8 @@ module phys_module
 
   type (type_part_group_config), dimension(n_part_groups_max) :: part_group_configs 
 
+  real*8 :: part_kill_ratio !< the ratio weight/average_weight at which kinetic particles will be destroyed rather than get their weight reduced (by interactions such as ionisation and wall pumping)
+
   ! ------------------------------------------------
   ! --- Structures for fluid groups
   ! ------------------------------------------------

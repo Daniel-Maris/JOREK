@@ -936,6 +936,8 @@ do i=1, n_part_groups_max
   enddo
 enddo
 
+part_kill_ratio = 1.d-3
+
 ! --- fluid groups
 n_fluid_groups = 0
 

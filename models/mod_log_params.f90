@@ -1148,6 +1148,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,*) ""
   endif ! n_part_groups > 0
 
+  write(*,REAL_FMT) 'part_kill_ratio         ', part_kill_ratio
+
   ! fluid groups
   write(*,INTG_FMT) 'n_fluid_groups          ',n_fluid_groups
   if(n_fluid_groups > 0) then
