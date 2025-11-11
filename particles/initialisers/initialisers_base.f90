@@ -244,10 +244,8 @@ subroutine initialise_particles(particles, node_list, element_list, &
           end do
 
           if (present(transform)) then
-            ! write(*,*) "transform: ", transform(p), " ran: ", ran(4)
-            ran(4) = 0.d0 ![D]
             if (ran(4) .lt. transform(p)) then
-              particles(j)%x = [r, z, phi]
+              particles(j)%x = [R, Z, phi]
               particles(j)%i_elm = i_elm
               particles(j)%st = [s, t]
               select type (pa => particles(j))
