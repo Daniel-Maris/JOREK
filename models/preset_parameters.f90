@@ -600,6 +600,8 @@ subroutine preset_parameters
   
   keep_n0_const      = .false.
   linear_run         = .false.
+
+  set_chi_perp_const = .false.
   
   export_for_nemec   = .false.
   export_aux_node_list = .true.
