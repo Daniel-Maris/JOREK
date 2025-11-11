@@ -1117,8 +1117,13 @@ do i=1,n_vertex_max
 
           ! --- Perpendicular heat diffusivities
           if ( with_TiTe ) then
-            ZKi_prof = get_zk_iperp(psi_norm)
-            ZKe_prof = get_zk_eperp(psi_norm)
+            if (set_chi_perp_const) then
+              ZKi_prof = get_zk_iperp(psi_norm) * max(r0,1.d-2)
+              ZKe_prof = get_zk_eperp(psi_norm) * max(r0,1.d-2)
+            else
+              ZKi_prof = get_zk_iperp(psi_norm)
+              ZKe_prof = get_zk_eperp(psi_norm)
+            endif
             ZK_i_perp_num_psin = ZK_i_perp_num +                                                  &
                                  ZK_i_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_i_perp_num_tanh_psin)/ZK_i_perp_num_tanh_sig))
@@ -1126,7 +1131,11 @@ do i=1,n_vertex_max
                                  ZK_e_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_e_perp_num_tanh_psin)/ZK_e_perp_num_tanh_sig))
           else
-            ZK_prof = get_zkperp(psi_norm)
+            if (set_chi_perp_const) then
+              ZK_prof = get_zkperp(psi_norm) * max(r0,1.d-2)
+            else
+              ZK_prof = get_zkperp(psi_norm)
+            endif
             ZK_perp_num_psin = ZK_perp_num +                                                  &
                                ZK_perp_num_tanh * 0.5d0*(1.d0-                                &
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))
@@ -1134,14 +1143,26 @@ do i=1,n_vertex_max
           ! --- Increase diffusivity if very small temperature
           if ( with_TiTe ) then
             if (Ti0 .lt. ZK_i_prof_neg_thresh) then
-              ZKi_prof = ZK_i_prof_neg
+              if (set_chi_perp_const) then
+                ZKi_prof = ZK_i_prof_neg * max(r0,1.d-2)
+              else
+                ZKi_prof = ZK_i_prof_neg
+              endif
             end if
             if (Te0 .lt. ZK_e_prof_neg_thresh) then
-              ZKe_prof = ZK_e_prof_neg
+              if (set_chi_perp_const) then
+                ZKe_prof = ZK_e_prof_neg * max(r0,1.d-2)
+              else
+                ZKe_prof = ZK_e_prof_neg
+              endif
             end if
           else ! (with_TiTe = .f.), i.e. with single temperature
             if (T0 .lt. ZK_prof_neg_thresh) then
-              ZK_prof = ZK_prof_neg
+              if (set_chi_perp_const) then
+                ZK_prof = ZK_prof_neg * max(r0,1.d-2)
+              else
+                ZK_prof = ZK_prof_neg
+              endif
             end if
           endif ! (with_TiTe)
 
