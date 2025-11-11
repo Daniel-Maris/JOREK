@@ -8,7 +8,7 @@ module mod_polygon
 contains
 
 ! --- Check if point is inside polygon
-logical function inside_polygon(N, rpol, zpol, r, z)
+pure logical function inside_polygon(N, rpol, zpol, r, z)
 
   implicit none
   
