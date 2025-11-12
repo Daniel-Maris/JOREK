@@ -106,7 +106,7 @@ character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                                  'u_Eq__zeta_timevol_term', &  !  9:
                                                  'u_Eq__ext_dens_source  ', &  ! 10:
                                                  'u_Eq__neoclassical_term', &  ! 11:
-                                                 'u_Eq__RE_pressure'/)         ! 12:
+                                                 'u_Eq__RE_pressure      '/)   ! 12:
 
  character*36, dimension(n_terms_zj),   parameter :: zj_term_names=  &
                                               (/ 'zj_Eq__DeltaStar_Psi   '/)  !  1:
