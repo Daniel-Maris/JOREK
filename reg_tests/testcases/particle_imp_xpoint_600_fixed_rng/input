@@ -164,6 +164,12 @@
   part_group_configs(1)%neutral_coll_dTw = 2.d-10, 273, 0.66
   part_group_configs(1)%atom_data_suffix = '12_h'
   part_group_configs(1)%wall_act_configs(1)%type="reflection"
+  part_group_configs(1)%wall_act_configs(2)%type="pump"
+  part_group_configs(1)%wall_act_configs(2)%weight_factor=0.7d0
+  part_group_configs(1)%wall_act_configs(2)%only_in_polygon=.t.
+  part_group_configs(1)%wall_act_configs(2)%poly_R= 2.75,3.2,3.2,2.75
+  part_group_configs(1)%wall_act_configs(2)%poly_Z= -1.4,-1.4,-1.7,-1.7  
+  part_group_configs(1)%wall_act_configs(2)%nametag="PFR"
 
   ! Nitrogen Impurities (N01)
   part_group_configs(2)%id = 'N01'
@@ -179,6 +185,12 @@
   part_group_configs(2)%use_kin_bg_collisions  = .t.
   part_group_configs(2)%atom_data_suffix = '96_n'
   part_group_configs(2)%wall_act_configs(1)%type="reflection"
+  part_group_configs(2)%wall_act_configs(2)%type="pump"
+  part_group_configs(2)%wall_act_configs(2)%weight_factor=0.7d0
+  part_group_configs(2)%wall_act_configs(2)%only_in_polygon=.t.
+  part_group_configs(2)%wall_act_configs(2)%poly_R= 2.75,3.2,3.2,2.75
+  part_group_configs(2)%wall_act_configs(2)%poly_Z= -1.4,-1.4,-1.7,-1.7  
+  part_group_configs(2)%wall_act_configs(2)%nametag="PFR"
 
   ! ---- fluid groups
 

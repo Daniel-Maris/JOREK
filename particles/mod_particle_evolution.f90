@@ -4,7 +4,7 @@ module mod_particle_evolution
     use mod_model_settings
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: nstep_particles, use_manual_random_seed
+    use phys_module, only: nstep_particles, use_manual_random_seed, part_kill_ratio
     use mod_coupling_settings
     use coupling_variables
     use mod_project_particles
@@ -66,7 +66,7 @@ contains
     feedback_element_list => jorek_feedback%element_list
     feedback_rhs       = 0.d0
     
-    !> count number of particles in system
+    !> count number of particles in system, and update sim%groups(...)%average_weight
     call with(sim, counter)
     
     !> ================================ COUPLING SPECIFIC LOOPS =======================================
@@ -202,7 +202,7 @@ contains
 #endif
     !$omp schedule(runtime)                                                                               &
     !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
-    !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
+    !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, part_kill_ratio,                              &    
     !$omp rho_idx_kin, mom_par_idx_kin,                                                                   &
 #ifdef WITH_TiTe
     !$omp E_Te_idx_kin, E_Ti_idx_kin,                                                                     &
@@ -299,7 +299,7 @@ contains
             ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
             ionize_source = 0.d0
     
-            if (particle_tmp%weight .le. 1.0d9) then
+            if (particle_tmp%weight .le. sim%groups(group_num)%average_weight * part_kill_ratio) then
               call rng(i_rng)%next(ionize_ran)
               if (ionize_ran(1) .le. ionize_prob) then
                 particle_tmp%i_elm  = 0
