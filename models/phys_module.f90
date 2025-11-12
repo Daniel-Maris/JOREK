@@ -123,7 +123,7 @@ module phys_module
   integer :: gmres_max_iter       !< Maximum number of GMRES iterations
   logical :: keep_n0_const        !< Perform a linear run where the equilibrium quantities (i_tor=1) do not change with time?
   logical :: linear_run           !< Same as keep_n0_const, to be replaced soon by true linear run where modes are independent
-  logical :: set_chi_perp_const   !< Fixes the perpendicular heat diffusivity as a constant rather than heat conductivity kappa (KZ in this code)
+  logical :: use_zkperp_times_density   !< If set to .true., the ZK_perp used in the equations is given by the ZK_perp input form the namelist times the normalized particle density; otherwise ZK_perp from the input namelist is used directly
   logical :: export_for_nemec     !< Export equilibrium information for the NEMEC code?
   logical :: export_aux_node_list !< Include the aux_node_list for particle projections in the restart files
   logical :: use_murge            !< (Deprecated, Cannot be used any more)
