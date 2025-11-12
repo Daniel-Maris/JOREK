@@ -72,8 +72,8 @@ module mod_particle_recomb
       write(*,'(A15,6E14.6)') 'TOTAL RECOMB: ',sim%time, total_rec_all* central_density* 1.d20 , total_Erec_neutral_all *1.5d0 / MU_ZERO, total_Erec_neutral_all *1.5d0 / MU_ZERO/tstep_fluid_si /1.d6, &
                   total_Erec_rad_all *1.5d0 / MU_ZERO, total_Erec_rad_all *1.5d0 / MU_ZERO/tstep_fluid_si /1.d6
       if(n_plane > 1) then
-        write(*,*) 'total recombination weight per plane : ' , total_rec_nplane_all* central_density* 1.d20 
-        write(*,*) 'total volume per plane: ' , total_volume_nplane_all
+        write(*,'(A,100E16.8)') 'total recombination weight per plane : ' , total_rec_nplane_all* central_density* 1.d20 
+        write(*,'(A,100E16.8)') 'total volume per plane: ' , total_volume_nplane_all
       endif
     endif
     !Nrec_part amount of particles needed for this amount of recombination
