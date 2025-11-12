@@ -1005,12 +1005,18 @@ module phys_module
   ! ------------------------------------------------
   ! --- Structures for settings wall_action
   ! ------------------------------------------------
+  integer, parameter  :: nmax_poly=10    !< maxixmum number of points in a polygon (used for part2self wall_actions)
+
   !> Contains settings to define one wall_action (see mod_particle_wall_interaction for implementation
   !> and the wiki for documentation at https://jorek.eu/wiki/doku.php?id=particles:wall_actions)
   type :: type_wall_act_config
-    character(len=20) :: type            !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
-    character(len=3)  :: target_group_id !< which particle group (as identified by its %id) this wall interaction affects
-    real*8            :: weight_factor   !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
+    character(len=20) :: type               !< type of the wall interaction, namely "self sputter" (e.g. W -> W), "fluid sputter" (e.g. fluid D+ -> W), "other sputter" (e.g. kinetic N -> W), "reflection" (e.g. kinetic D -> D) or "wall recomb" (e.g. kinetic D+ -> D)
+    character(len=3)  :: target_group_id    !< which particle group (as identified by its %id) this wall interaction affects
+    real*8            :: weight_factor      !< additional weight factor of the yield (e.g. useful to simulate a non-unity wall albedo for a wall that partially absorbs incoming flux)
+    logical           :: only_in_polygon    !< whether to execute this wall_action only on the specified polygon (.true.) or on the full domain (.false.)
+    real*8            :: poly_R(nmax_poly)  !< R coordinates of the polygon. Make sure to define the polygon in order (the polygon is defined as linesegments drawn from point 1 to point 2 to point 3, etc.)
+    real*8            :: poly_Z(nmax_poly)  !< Z coordinates of the polygon.
+    character(len=10) :: nametag            !< for easy recognition of which action this is (with which polygon), used in the output file and for diagnostics (if left blank, it will be set to wall_act_configs(i) number i)
     
     ! settings for number of superparticles created when new super particles must be initialised
     integer           :: supers_num_wall    !< number of new superparticles initialised at each puff action
@@ -1089,6 +1095,8 @@ module phys_module
   character(len=3), dimension(n_part_groups_max) :: part_groups_in_use  
 
   type (type_part_group_config), dimension(n_part_groups_max) :: part_group_configs 
+
+  real*8 :: part_kill_ratio !< the ratio weight/average_weight at which kinetic particles will be destroyed rather than get their weight reduced (by interactions such as ionisation and wall pumping)
 
   ! ------------------------------------------------
   ! --- Structures for fluid groups
