@@ -9,6 +9,7 @@ subroutine preset_parameters
   implicit none
 
   integer :: i, j ! for iterations
+  character(len=20) :: tmp !< for temporary name tag
 
   time_evol_scheme = 'Crank-Nicholson'
   
@@ -921,6 +922,11 @@ do i=1, n_part_groups_max
     part_group_configs(i)%wall_act_configs(j)%type            = "none"
     part_group_configs(i)%wall_act_configs(j)%target_group_id = "non"
     part_group_configs(i)%wall_act_configs(j)%weight_factor   = 1.d0
+    part_group_configs(i)%wall_act_configs(j)%only_in_polygon = .false.
+    part_group_configs(i)%wall_act_configs(j)%poly_R          = -1.d99
+    part_group_configs(i)%wall_act_configs(j)%poly_Z          = -1.d99
+    write(tmp,"(I5)") j
+    write(part_group_configs(i)%wall_act_configs(j)%nametag,"(A)") adjustl(trim(tmp)) ! sets the default nametag to the wall_act_configs(j) number j
 
     part_group_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
     part_group_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
@@ -929,6 +935,8 @@ do i=1, n_part_groups_max
     !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
   enddo
 enddo
+
+part_kill_ratio = 1.d-3
 
 ! --- fluid groups
 n_fluid_groups = 0
@@ -942,6 +950,11 @@ do i=1, n_fluid_groups_max
     fluid_configs(i)%wall_act_configs(j)%type            = "none"
     fluid_configs(i)%wall_act_configs(j)%target_group_id = "non"
     fluid_configs(i)%wall_act_configs(j)%weight_factor   = 1.d0
+    fluid_configs(i)%wall_act_configs(j)%only_in_polygon = .false.
+    fluid_configs(i)%wall_act_configs(j)%poly_R          = -1.d99
+    fluid_configs(i)%wall_act_configs(j)%poly_Z          = -1.d99
+    write(tmp,"(I5)") j
+    write(fluid_configs(i)%wall_act_configs(j)%nametag,"(A)") adjustl(trim(tmp))
 
     fluid_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
     fluid_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
