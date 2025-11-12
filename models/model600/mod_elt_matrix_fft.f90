@@ -1118,8 +1118,8 @@ do i=1,n_vertex_max
           ! --- Perpendicular heat diffusivities
           if ( with_TiTe ) then
             if (use_zkperp_times_density) then
-              ZKi_prof = get_zk_iperp(psi_norm) * max(r0,1.d-2)
-              ZKe_prof = get_zk_eperp(psi_norm) * max(r0,1.d-2)
+              ZKi_prof = get_zk_iperp(psi_norm) * max(r0,zkperp_density_floor)
+              ZKe_prof = get_zk_eperp(psi_norm) * max(r0,zkperp_density_floor)
             else
               ZKi_prof = get_zk_iperp(psi_norm)
               ZKe_prof = get_zk_eperp(psi_norm)
@@ -1132,7 +1132,7 @@ do i=1,n_vertex_max
                                  tanh((psi_norm-ZK_e_perp_num_tanh_psin)/ZK_e_perp_num_tanh_sig))
           else
             if (use_zkperp_times_density) then
-              ZK_prof = get_zkperp(psi_norm) * max(r0,1.d-2)
+              ZK_prof = get_zkperp(psi_norm) * max(r0,zkperp_density_floor)
             else
               ZK_prof = get_zkperp(psi_norm)
             endif
@@ -1144,14 +1144,14 @@ do i=1,n_vertex_max
           if ( with_TiTe ) then
             if (Ti0 .lt. ZK_i_prof_neg_thresh) then
               if (use_zkperp_times_density) then
-                ZKi_prof = ZK_i_prof_neg * max(r0,1.d-2)
+                ZKi_prof = ZK_i_prof_neg * max(r0,zkperp_density_floor)
               else
                 ZKi_prof = ZK_i_prof_neg
               endif
             end if
             if (Te0 .lt. ZK_e_prof_neg_thresh) then
               if (use_zkperp_times_density) then
-                ZKe_prof = ZK_e_prof_neg * max(r0,1.d-2)
+                ZKe_prof = ZK_e_prof_neg * max(r0,zkperp_density_floor)
               else
                 ZKe_prof = ZK_e_prof_neg
               endif
@@ -1159,7 +1159,7 @@ do i=1,n_vertex_max
           else ! (with_TiTe = .f.), i.e. with single temperature
             if (T0 .lt. ZK_prof_neg_thresh) then
               if (use_zkperp_times_density) then
-                ZK_prof = ZK_prof_neg * max(r0,1.d-2)
+                ZK_prof = ZK_prof_neg * max(r0,zkperp_density_floor)
               else
                 ZK_prof = ZK_prof_neg
               endif

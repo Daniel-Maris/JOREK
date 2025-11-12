@@ -602,6 +602,7 @@ subroutine preset_parameters
   linear_run         = .false.
 
   use_zkperp_times_density = .false.
+  zkperp_density_floor = 1.d-2
   
   export_for_nemec   = .false.
   export_aux_node_list = .true.
