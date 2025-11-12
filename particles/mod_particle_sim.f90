@@ -21,6 +21,7 @@ type :: particle_group
   character(len=3)   :: coupling_scheme                            !< coupling scheme to use for the group
   real*8             :: n_particles                                !< number of super/marker particles in group
   character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
+  real*8             :: average_weight = -1.d0                     !< average weight of all particles in the group (preset value negative to avoid killing of particles in first instance)
  
   ! ================ for neutrals and impurities =============
   logical            :: use_kin_ionisation       !< switch on ionisation for group         
