@@ -393,26 +393,26 @@ contains
             do m=1,n_order+1
               index_lm = (l-1)*(n_order+1) + m
   
-              density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source     * t_norm / rho_norm
+              density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source * t_norm / rho_norm
               mom_par_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
 #ifdef WITH_TiTe
-              E_fb_Te       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Te       * t_norm / E_norm
-              E_fb_Ti       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Ti       * t_norm / E_norm
+              E_fb_Te    = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Te * t_norm / E_norm
+              E_fb_Ti    = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Ti * t_norm / E_norm
 #else
-              E_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
+              E_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source * t_norm / E_norm
 #endif
               extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(nstep_particles,8) 
   
               do i_tor=1,n_tor
-                feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * density_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin)     = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * density_fb
 #ifdef WITH_TiTe
-                feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
-                feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin)    = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin)    = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
 #else
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
 #endif
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * extra_proj
+                feedback_rhs(m,l,i_elm_old,i_tor,6)               = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * extra_proj
               enddo
             enddo
           enddo
@@ -455,7 +455,7 @@ contains
 #ifdef WITH_TiTe
               kTb = T_i*K_BOLTZ
 #else
-              kTb = T_e*K_BOLTZ !/EL_CHG ! assume T_e == T_i
+              kTb = T_e*K_BOLTZ ! assume T_e == T_i
 #endif
               n_b = n_i
               ! Assumes deuterium background
@@ -512,9 +512,9 @@ contains
           energy_source_Te = ionize_energy + radiation_energy
           energy_source_Ti = -delta_E_kin
 #else
-          energy_source  = ionize_energy + radiation_energy - delta_E_kin
+          energy_source    = ionize_energy + radiation_energy - delta_E_kin
 #endif
-          mom_par_source = particle_tmp%weight * dot_product(B, (v_old - v_new)) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT ! parallel momentum given to plasma
+          mom_par_source   = particle_tmp%weight * dot_product(B, (v_old - v_new)) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT ! parallel momentum given to plasma
 
           n_lost_ion = n_lost_ion
           p_lost_ion = p_lost_ion + ionize_energy
@@ -527,13 +527,12 @@ contains
           
           do l=1,n_vertex_max
             do m=1,n_order+1
-  
               index_lm = (l-1)*(n_order+1) + m
 
               mom_par_fb     = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
 #ifdef WITH_TiTe
-              E_fb_Te           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Te  * t_norm / E_norm
-              E_fb_Ti           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Ti  * t_norm / E_norm
+              E_fb_Te        = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Te  * t_norm / E_norm
+              E_fb_Ti        = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source_Ti  * t_norm / E_norm
 #else
               E_fb           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source  * t_norm / E_norm
 #endif
@@ -543,10 +542,10 @@ contains
               imp_P_line_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * line_rad_energy / tstep_part_adj   
               do i_tor=1,n_tor
 #ifdef WITH_TiTe
-                feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
-                feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin)    = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
+                feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin)    = feedback_rhs(m,l,i_elm_old,i_tor,E_Ti_idx_kin) + HZ(i_tor) * E_fb_Ti
 #else
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
 #endif
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * imp_q_fb ! impurity charge density
