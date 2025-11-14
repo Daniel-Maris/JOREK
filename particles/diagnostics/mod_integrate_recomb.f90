@@ -199,19 +199,14 @@ enddo
         r0_corr = corr_neg_dens1(r0)
 		
 #ifdef WITH_TiTe
-        T0    = eq_g(mp,8,ms,mt)
-        T0_corr = corr_neg_temp1(T0)
-		  
-        vpar0    = eq_g(mp,7,ms,mt)
-
+        T0       = eq_g(mp,var_Te,ms,mt)
+        T0_corr  = corr_neg_temp1(T0)
+        vpar0    = eq_g(mp,var_vpar,ms,mt)
         call rec_rate_to_kinetic(r0, T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)
 #else
-
-        T0    = eq_g(mp,6,ms,mt)
-        T0_corr = corr_neg_temp1(T0)
-      
-        vpar0    = eq_g(mp,7,ms,mt)
-
+        T0       = eq_g(mp,var_T,ms,mt)
+        T0_corr  = corr_neg_temp1(T0)
+        vpar0    = eq_g(mp,var_vpar,ms,mt)
         call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)
 
         ! --- Transform derivatives on Te to derivatives in total T	
@@ -238,7 +233,6 @@ enddo
     call dealloc_node(nodes(iv))
   enddo
 
-  !write(50+my_id,*) "ife,ielm,volume_check(ife)",ife, ielm, volume_check(ife)
 enddo !ife
 !$omp end parallel do
 
