@@ -1123,8 +1123,13 @@ do i=1,n_vertex_max
             if (use_zkperp_times_density) then
               ZKi_prof = get_zk_iperp(psi_norm) * max(r0,zkperp_density_floor)
               ZKe_prof = get_zk_eperp(psi_norm) * max(r0,zkperp_density_floor)
-              dZKi_prof_drho = get_zk_iperp(psi_norm) / max(r0,zkperp_density_floor)
-              dZKe_prof_drho = get_zk_eperp(psi_norm) / max(r0,zkperp_density_floor)
+              if (r0 .gt. zkperp_density_floor) then
+                dZKi_prof_drho = get_zk_iperp(psi_norm)
+                dZKe_prof_drho = get_zk_eperp(psi_norm)
+              else:
+                dZKi_prof_drho = 0.d0
+                dZKe_prof_drho = 0.d0
+              endif
             else
               ZKi_prof = get_zk_iperp(psi_norm)
               ZKe_prof = get_zk_eperp(psi_norm)
@@ -1140,7 +1145,11 @@ do i=1,n_vertex_max
           else
             if (use_zkperp_times_density) then
               ZK_prof = get_zkperp(psi_norm) * max(r0,zkperp_density_floor)
-              dZK_prof_drho = ZK_prof / max(r0,zkperp_density_floor)
+              if (r0 .gt. zkperp_density_floor) then
+                dZK_prof_drho = get_zkperp(psi_norm)
+              else
+                dZK_prof_drho = 0.d0
+              endif
             else
               ZK_prof = get_zkperp(psi_norm)
               dZK_prof_drho = 0.d0
@@ -3175,7 +3184,7 @@ do i=1,n_vertex_max
                                      * rho * (Ti0_x * ps0_y - Ti0_y * ps0_x + F0 / BigR * Ti0_p)     &
                                      * ( v_x * ps0_y -  v_y * ps0_x ) * xjac * theta * tstep * tstep &
 
-                            !==============================ZKi_prof density dependence=================
+                            !==============================ZKi_perp density dependence=================
                               - dZKi_prof_drho * rho * BigR / BB2 * Bgrad_T_star * Bgrad_Ti       * xjac * theta * tstep &
                               + dZKi_prof_drho * rho * BigR * (v_x*Ti0_x + v_y*Ti0_y)             * xjac * theta * tstep
   
@@ -3959,7 +3968,7 @@ do i=1,n_vertex_max
                                     * rho * (T0_x * ps0_y - T0_y * ps0_x + F0 / BigR * T0_p)                          &
                                     * ( v_x * ps0_y -  v_y * ps0_x )                   * xjac * theta * tstep * tstep &
 
-                    !==============================ZKperp density dependece=================
+                    !==============================ZKperp density dependence=================
                            - dZK_prof_drho * rho * BigR / BB2 * Bgrad_T_star * Bgrad_T       * xjac * theta * tstep &
                            + dZK_prof_drho * rho * BigR * (v_x*T0_x + v_y*T0_y)              * xjac * theta * tstep
   
