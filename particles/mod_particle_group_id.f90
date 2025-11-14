@@ -82,7 +82,7 @@ contains
       !> loop over actually defined configs
       if ( (part_group_configs(i)%type /= 'none') .or. (part_group_configs(i)%n_particles > 0)) then
 
-        !> check if the ID of the group has assigned
+        !> check if the ID of the group has been assigned
         if (trim(part_group_configs(i)%id) == 'non') then
           write(*,*) "ERROR: No %id defined for particle group in slot: ", i
           write(*,*) "You have to define a unique %id for every part_groups_config you use"
