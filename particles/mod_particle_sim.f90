@@ -135,13 +135,13 @@ end subroutine configure_particle_groups
 !> Actions to perform when setting up a simulation
 !> inputs:
 !>   sim:             (particle_sim) the particle simulation
-!>   num_groups:      (integer) number of particle groups
 !>   skip_jorek2help: (logical)(optional) call jorek2help if present
 !>   my_id:           (integer)(optional) mpi rank
 !>   n_mpi:           (integer)(optional) number of mpi tasks in the commworld
+!>   num_groups:      (integer)(optional) number of particle groups, only to be used when you want the old hard coded initialisation, rather than using the namelist input
 !> outputs:
 !>   sim: (particle_sim) the particle simulation
-subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_group_config)
+subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_group_config,num_groups)
   use mod_mpi_tools,     only: init_mpi_threads
   use mod_mpi_tools,     only: get_mpi_wtime
   use mod_parameters,    only: n_tor, n_period
@@ -153,7 +153,7 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_grou
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
   logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in,skip_group_config
-  integer,intent(in),optional        :: my_id,n_mpi
+  integer,intent(in),optional        :: my_id,n_mpi,num_groups
   logical                            :: do_jorek_init
   integer                            :: ierr, i_tor,nthreads, group_num
 
@@ -191,6 +191,22 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_grou
     ! --- Initialize basis functions for the Dommaschk potentials
     if (domm) call init_chi_basis()
   endif
+
+  ! Handling backwards compatibility
+  if(present(num_groups)) then
+    if(sim%my_id == 0) then
+      write(*,"(A)") "==========================================================================================================================================="
+      write(*,"(A)") "WARNING: you are using the old hard-coded way of initialising particle groups (without considering the input namelist) in your own program."
+      write(*,"(A)") "Although this has been left as an option for backwards compatibility, it is highly discouraged for kinetic neutral, impurity, runaway "
+      write(*,"(A)") "electron or fast particle applications. Please consider to switch over to use the unified kinetic_main instead. See the wikipage " 
+      write(*,"(A)") "https://jorek.eu/wiki/doku.php?id=particles and its subpages. If you would like to use kinetic_main, but are uncertain of whether/how to "
+      write(*,"(A)") "transition, please contact the active developers of kinetic_main (see bottom of https://jorek.eu/wiki/doku.php?id=ncs_ics_tutorial)."
+      write(*,"(A)") "In this way, everyone can benefit from the latest fixes and features of the kinetics."
+      write(*,"(A)") "==========================================================================================================================================="
+    end if
+    call sim%allocate_groups(num_groups)
+    return ! making sure the normal allocation will not happen
+  end if
 
   ! Allocating groups
   call sim%allocate_groups(n_part_groups)
