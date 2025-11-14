@@ -124,6 +124,7 @@ module phys_module
   logical :: keep_n0_const        !< Perform a linear run where the equilibrium quantities (i_tor=1) do not change with time?
   logical :: linear_run           !< Same as keep_n0_const, to be replaced soon by true linear run where modes are independent
   logical :: use_zkperp_times_density   !< If set to .true., the ZK_perp used in the equations is given by the ZK_perp input form the namelist times the normalized particle density; otherwise ZK_perp from the input namelist is used directly
+                                        !< Effectively, user sets chi_perp perp heat diffusivity instead of ZK_perp perp heat conductivitiy
   real*8  :: zkperp_density_floor !< Minumum density to multiply zkperp by if use_zkperp_times_density is used, to avoid division by 0
   logical :: export_for_nemec     !< Export equilibrium information for the NEMEC code?
   logical :: export_aux_node_list !< Include the aux_node_list for particle projections in the restart files
