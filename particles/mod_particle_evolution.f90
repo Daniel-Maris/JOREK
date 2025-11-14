@@ -3,7 +3,7 @@
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: nstep_particles, use_manual_random_seed
+    use phys_module, only: nstep_particles, use_manual_random_seed, part_kill_ratio
     use mod_coupling_settings
     use coupling_variables
     use mod_project_particles
@@ -64,7 +64,7 @@ contains
     feedback_element_list => jorek_feedback%element_list
     feedback_rhs       = 0.d0
     
-    !> count number of particles in system
+    !> count number of particles in system, and update sim%groups(...)%average_weight
     call with(sim, counter)
     
     !> ================================ COUPLING SPECIFIC LOOPS =======================================
@@ -194,7 +194,7 @@ contains
     !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                            &
-    !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
+    !$omp CENTRAL_DENSITY, CENTRAL_MASS, part_kill_ratio, feedback_nodelist, feedback_element_list)       &
     !$omp private(particle_tmp, i_rng, i, j, k, l, m, t, E, B, psi, U, rz_old, st_old,                    &
     !$omp i_elm_old, i_elm, n_i, n_e, T_e,imp_charge_density, PLT, PRB, Srec, grad_T_e, q_old,            &
     !$omp ionize_rate, ionize_prob, ionize_ran, ionize_ran_imp, ionize_source, ionize_energy,             &
@@ -277,7 +277,7 @@ contains
             ! If the weight is to small throw away the particle with the probability, else reduce weight with ionising probability
             ionize_source = 0.d0
     
-            if (particle_tmp%weight .le. 1.0d9) then
+            if (particle_tmp%weight .le. sim%groups(group_num)%average_weight * part_kill_ratio) then
               call rng(i_rng)%next(ionize_ran)
               if (ionize_ran(1) .le. ionize_prob) then
                 particle_tmp%i_elm  = 0
