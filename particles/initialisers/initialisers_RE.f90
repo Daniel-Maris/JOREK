@@ -10,6 +10,7 @@ module initialisers_RE
   use mod_coordinate_transforms, only: vector_cylindrical_to_cartesian
   use mod_model_settings
   use phys_module, only: CENTRAL_DENSITY, CENTRAL_MASS, ATOMIC_MASS_UNIT, MU_ZERO
+  use equil_info
   implicit none
 
   contains
@@ -21,9 +22,8 @@ pure function RZ_pdf(var) result(p)
   real*8              :: minor_r
   real*8              :: R_ax, Z_ax
 
-  !> temporarily hard coded, but should be able to be obtained via ES (EquilState)
-  R_ax = 10.d0
-  Z_ax = 0.d0
+  R_ax = ES%R_axis
+  Z_ax = ES%Z_axis
 
   minor_r = sqrt((var(1)-Z_ax)**2 + (var(2)-R_ax)**2)
 
@@ -36,15 +36,16 @@ pure function analytical_pdf(var) result(p)
   real*8              :: minor_r
   real*8              :: nu
   real*8              :: R_ax, Z_ax
+  real*8              :: LCFS_a
 
-  !> temporarily hard coded, but should be able to be obtained via ES (EquilState)
-  R_ax = 6.2d0 
-  Z_ax = 0.d0
-  nu = 2.d0
+  R_ax   = ES%R_axis
+  Z_ax   = ES%Z_axis
+  LCFS_a = ES%LCFS_a
+  nu     = 2.d0
 
   minor_r = sqrt((var(1)-Z_ax)**2 + (var(2)-R_ax)**2)
 
-  p = (1.d0 - minor_r**2/4.d0)**nu
+  p = (1.d0 - (minor_r/LCFS_a)**2)**nu
 
 end function analytical_pdf
 
