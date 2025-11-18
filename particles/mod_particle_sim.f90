@@ -39,9 +39,6 @@ type :: particle_group
   real*8             :: homma2020_alpha          !< flux limiting factor alpha for Homma2020 heat flux
   integer            :: ics_group_idx            !< internal index given to this specific impurities group
 
-  ! ==================== for runaway electrons =================
-  integer            :: q                        !< charge of each runaway electron super particle
-
   class(particle_base), dimension(:), allocatable :: particles
 
 end type particle_group
