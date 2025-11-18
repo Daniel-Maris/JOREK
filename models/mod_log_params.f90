@@ -1117,8 +1117,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       if (sim%groups(group_num)%coupling_scheme .eq. 'rep') then
         write(*,REAL_FMT) 'n_re,                   ',part_group_configs(group_num)%num_re
         write(*,REAL_FMT) 're_energy,              ',part_group_configs(group_num)%re_energy
-        write(*,REAL_FMT) 'std_energy,             ',part_group_configs(group_num)%std_energy
-        write(*,REAL_FMT) 'pitch,                  ',part_group_configs(group_num)%pitch
+        write(*,REAL_FMT) 're_std_energy,          ',part_group_configs(group_num)%re_std_energy
+        write(*,REAL_FMT) 're_pitch,               ',part_group_configs(group_num)%re_pitch
       endif     
 
 

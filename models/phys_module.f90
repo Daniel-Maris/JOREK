@@ -1086,8 +1086,8 @@ module phys_module
 
     real*8              :: num_re                  !< number of runaway electrons in the group
     real*8              :: re_energy               !< energy [eV] of the runaway electrons in the group
-    real*8              :: std_energy              !< standard deviation of the energy [eV] of the runaway electrons in the group
-    real*8              :: pitch                   !< pitch between RE momentum and magnetic field line (i.e. p_re_par/p_re_tot)
+    real*8              :: re_std_energy           !< standard deviation of the energy [eV] of the runaway electrons in the group
+    real*8              :: re_pitch                !< pitch between RE momentum and magnetic field line (i.e. p_re_par/p_re_tot)
 
   end type type_part_group_config
 
