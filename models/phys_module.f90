@@ -66,6 +66,7 @@ module phys_module
   integer :: nout                 !< Output a restart file every nout timesteps
   integer :: nout_projection      !< Output particle projection every nout_projection timesteps (only for diagnostics)
                                   !< Note that the 'to_h5' or 'to_vtk' flag should be .true. in the 'new_projection' function for this parameter to be in play
+  integer :: nout_particles       !< Output particle restart file every nout_particles timesteps
   integer :: xcase                !< 1->LowerXpoint. 2->UpperXpoint. 3->doubleNull
   logical :: forceSDN             !< Force a symmetric double null, within the accuracy of SDN_threshold
   real*8  :: SDN_threshold        !< threshold, in absolute psi, for a symmetric-double-null grid construction

@@ -565,6 +565,7 @@ subroutine preset_parameters
 
   nout = 9999999
   nout_projection = -1
+  nout_particles  = -1
 
   rst_hdf5 = 1   ! =0,restart with binary files; =1, with HDF5 files
 
