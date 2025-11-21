@@ -1126,7 +1126,7 @@ do i=1,n_vertex_max
               if (r0 .gt. zkperp_density_floor) then
                 dZKi_prof_drho = get_zk_iperp(psi_norm)
                 dZKe_prof_drho = get_zk_eperp(psi_norm)
-              else:
+              else
                 dZKi_prof_drho = 0.d0
                 dZKe_prof_drho = 0.d0
               endif
