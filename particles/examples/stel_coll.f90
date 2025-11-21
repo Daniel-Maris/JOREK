@@ -26,7 +26,6 @@ use mod_particle_diagnostics
 use mod_fields_linear   
 use mod_fields_hermite_birkhoff
 
-
 implicit none
 
 interface
