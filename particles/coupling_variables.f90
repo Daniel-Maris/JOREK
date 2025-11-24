@@ -41,11 +41,10 @@ module coupling_variables
     ]
 #endif
 
-  ! CCS
-  character(len=var_name_len), dimension(4) :: ccs_var_names = [character(len=var_name_len) :: &
-    "q",        & !> charge density
-    "j_R",      & !> R   component of current
-    "j_Z",      & !> Z   component of current
+  ! REP (Pressure coupling scheme for runaway electrons)
+  character(len=var_name_len), dimension(3) :: rep_var_names = [character(len=var_name_len) :: &
+    "P_par",    & !> parallel component of dynamic pressure tensor
+    "P_perp",   & !> perpendicular component of dynamic pressure tensor
     "j_Phi"     & !> Phi compoment of current  
   ]
 
@@ -60,9 +59,8 @@ module coupling_variables
 #else
     integer :: E_idx_kin      = 0
 #endif
-  integer :: q_idx_kin        = 0
-  integer :: j_R_idx_kin      = 0
-  integer :: j_Z_idx_kin      = 0
+  integer :: P_par_idx_kin    = 0
+  integer :: P_perp_idx_kin   = 0
   integer :: j_Phi_idx_kin    = 0
 
   !> index of coupling variables specific to each impurity group
