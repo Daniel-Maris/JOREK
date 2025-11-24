@@ -40,6 +40,7 @@ use mod_atomic_coeff_deuterium, only: ad_deuterium
 use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
 use mod_coupling_settings, only: use_kin_recomb_global
+use mod_initialise_particles
 use equil_info
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -48,7 +49,7 @@ use phys_module, only: n_part_groups, n_aux_var, n_valves_max
 use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles
 use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
-use phys_module, only: apply_dirichlet_proj, part_group_configs
+use phys_module, only: apply_dirichlet_proj, part_group_configs, init_particles_only
 use phys_module, only: use_manual_random_seed, manual_seed
 
 use mod_particle_group_id, only: matching_part_config_indices
@@ -91,6 +92,8 @@ type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 !tmp
 class(type_rng), dimension(:), allocatable :: wall_rng
 
+integer :: n_particles_local
+
 !***********************************************************************
 !*                            initialisation                            *
 !***********************************************************************
@@ -125,6 +128,16 @@ else
   call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
   call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
+
+  call initialise_particles_for_sim(sim) !< initialise the particle positions for groups requiring it (e.g. REs)
+
+  call write_simulation_hdf5(sim, 'part_restart_init.h5')
+
+  if (init_particles_only) then
+    call sim%finalize
+    stop
+  endif
+
   
 endif ! (restart_particles)
 
@@ -323,8 +336,8 @@ do while (.not. sim%stop_now)
     enddo
   endif
   
-  !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
-  if ( mod(istep,500) .eq. 0 ) then
+  !Writing interim particle restart files every nout fluid steps done. Overwrites previous restart file to save space
+  if ( mod(istep,nout) .eq. 0 ) then
     call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
     call write_simulation_hdf5(sim, 'interim_part_restart.h5')
   endif
