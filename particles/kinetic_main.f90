@@ -71,7 +71,7 @@ type(jorek_timestep_action), target               :: jorek_stepper
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: edge_elm_template
 type(particle_puffing)                            :: gas_puff, gas_puff2
-character(len=50)                                 :: s
+character(len=50)                                 :: rst_part_file
 
 real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
 real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amount of steps (nstep_particles) fit into a fluid step (tstep)
@@ -340,9 +340,9 @@ do while (.not. sim%stop_now)
   
   !Writing regular particle restart files every nout_particles.
   if ( mod(index_now,nout_particles) .eq. 0 ) then
-    write(s, '(a,i6.6,a)') 'part_restart_', index_now, '.h5'
+    write(rst_part_file, '(a,i6.6,a)') 'part_restart_', index_now, '.h5'
     call write_to_outputfile(sim%my_id, "Writing part_restart.h5")
-    call write_simulation_hdf5(sim, trim(s))
+    call write_simulation_hdf5(sim, trim(rst_part_file))
   endif
 
   !Writing interim particle restart files every nout fluid steps done. Overwrites previous restart file to save space
