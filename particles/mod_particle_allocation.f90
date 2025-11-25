@@ -61,7 +61,7 @@ contains
     character(len=:), allocatable, intent(in)    :: particle_type_str
     integer,                       intent(in)    :: n_particles_per_mpi
     integer, optional,             intent(in)    :: mpi_comm_loc
-    integer                                      :: errorcode, ierr
+    integer                                      :: errorcode, ierr, i
 
     select case (trim(particle_type_str))
     case ("particle_kinetic")

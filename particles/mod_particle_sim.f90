@@ -39,7 +39,6 @@ type :: particle_group
   real*8             :: homma2020_alpha          !< flux limiting factor alpha for Homma2020 heat flux
   integer            :: ics_group_idx            !< internal index given to this specific impurities group
 
-
   class(particle_base), dimension(:), allocatable :: particles
 
 end type particle_group
@@ -83,51 +82,54 @@ subroutine configure_particle_groups(sim)
   do i=1, n_part_groups ! loop over groups defined in part_groups_in_use
     config = part_group_configs(matching_part_config_indices(i))
 
+    sim%groups(i)%coupling_scheme = config%coupling_scheme
+
     sim%groups(i)%Z = config%Z
     sim%groups(i)%mass = config%mass
-    sim%groups(i)%coupling_scheme = config%coupling_scheme
     sim%groups(i)%n_particles = config%n_particles
     sim%groups(i)%id = config%id
-  
+
     ! === ncs and ics options
-    sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
-    sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
-    sim%groups(i)%use_kin_radiation      =  config%use_kin_radiation 
+    if (sim%groups(i)%coupling_scheme == 'ncs' .or. sim%groups(i)%coupling_scheme == 'ics') then
+      sim%groups(i)%use_kin_ionisation     =  config%use_kin_ionisation          
+      sim%groups(i)%use_kin_puffing        =  config%use_kin_puffing        
+      sim%groups(i)%use_kin_radiation      =  config%use_kin_radiation 
 
-    ! --- ncs only
-    sim%groups(i)%use_kin_cx             =  config%use_kin_cx
-    sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
-    sim%groups(i)%use_kin_neutral_coll   =  config%use_kin_neutral_coll
+      ! --- ncs only
+      sim%groups(i)%use_kin_cx             =  config%use_kin_cx
+      sim%groups(i)%use_kin_recombination  =  config%use_kin_recombination         
+      sim%groups(i)%use_kin_neutral_coll   =  config%use_kin_neutral_coll
 
-    ! --- ics only
-    sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
-    sim%groups(i)%kin_bg_coll_type       =  config%kin_bg_coll_type
-    sim%groups(i)%homma2020_alpha        =  config%homma2020_alpha
-    sim%groups(i)%ics_group_idx          =  config%ics_group_idx
+      ! --- ics only
+      sim%groups(i)%use_kin_bg_collisions  =  config%use_kin_bg_collisions
+      sim%groups(i)%kin_bg_coll_type       =  config%kin_bg_coll_type
+      sim%groups(i)%homma2020_alpha        =  config%homma2020_alpha
+      sim%groups(i)%ics_group_idx          =  config%ics_group_idx
     
-    if (len_trim(config%atom_data_suffix) > 0) then
-      sim%groups(i)%ad =  read_adf11(sim%my_id, trim(part_group_configs(i)%atom_data_suffix))
-    else
-      if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
-    endif
-
-    if (sim%groups(i)%use_kin_bg_collisions) then
-      if ((sim%groups(i)%kin_bg_coll_type /= 'Homma2013') .and. (sim%groups(i)%kin_bg_coll_type /= 'Homma2020')) then
-        write(*,*) 'ERROR: Wrong input kin_bg_coll_type=', trim(sim%groups(i)%kin_bg_coll_type), &
-                 ' please choose either Homma2013 or Homma2020!'
-        stop
+      if (len_trim(config%atom_data_suffix) > 0) then
+        sim%groups(i)%ad =  read_adf11(sim%my_id, trim(part_group_configs(i)%atom_data_suffix))
+      else
+        if (trim(config%coupling_scheme) == 'ncs') write(*,*) "WARNING: No atom_data_suffix set for particle group ", i, "."
       endif
-      if (sim%groups(i)%kin_bg_coll_type == 'Homma2020') then
-        if (sim%groups(i)%homma2020_alpha .le. 0.d0) then
-          write(*,*) 'ERROR: Input parameter homma2020_alpha cannot be 0 or less!'
+
+
+      if (sim%groups(i)%use_kin_bg_collisions) then
+        if ((sim%groups(i)%kin_bg_coll_type /= 'Homma2013') .and. (sim%groups(i)%kin_bg_coll_type /= 'Homma2020')) then
+          write(*,*) 'ERROR: Wrong input kin_bg_coll_type=', trim(sim%groups(i)%kin_bg_coll_type), &
+                  ' please choose either Homma2013 or Homma2020!'
           stop
         endif
-        if ((sim%groups(i)%homma2020_alpha < 0.3d0) .or. (sim%groups(i)%homma2020_alpha > 2.d0)) then
-          write(*,*) 'WARNING: Input parameter homma2020_alpha outside of recommended range of 0.3-2!'
+        if (sim%groups(i)%kin_bg_coll_type == 'Homma2020') then
+          if (sim%groups(i)%homma2020_alpha .le. 0.d0) then
+            write(*,*) 'ERROR: Input parameter homma2020_alpha cannot be 0 or less!'
+            stop
+          endif
+          if ((sim%groups(i)%homma2020_alpha < 0.3d0) .or. (sim%groups(i)%homma2020_alpha > 2.d0)) then
+            write(*,*) 'WARNING: Input parameter homma2020_alpha outside of recommended range of 0.3-2!'
+          endif
         endif
       endif
-    endif
-      
+    endif       !> if ncs or ics
   enddo 
 
 end subroutine configure_particle_groups
