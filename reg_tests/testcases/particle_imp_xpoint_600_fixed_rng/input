@@ -171,6 +171,8 @@
   part_group_configs(1)%wall_act_configs(2)%poly_Z= -1.4,-1.4,-1.7,-1.7  
   part_group_configs(1)%wall_act_configs(2)%nametag="PFR"
 
+  tracked_group_id='D01'
+
   ! Nitrogen Impurities (N01)
   part_group_configs(2)%id = 'N01'
   part_group_configs(2)%Z = 7

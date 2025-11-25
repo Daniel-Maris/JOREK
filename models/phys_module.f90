@@ -1098,6 +1098,8 @@ module phys_module
 
   real*8 :: part_kill_ratio !< the ratio weight/average_weight at which kinetic particles will be destroyed rather than get their weight reduced (by interactions such as ionisation and wall pumping)
 
+  character(len=3) :: tracked_group_id !< particle group id of which the change in particles/momentum/energy will be printed for every interaction in the output file
+
   ! ------------------------------------------------
   ! --- Structures for fluid groups
   ! ------------------------------------------------

@@ -1162,6 +1162,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   endif ! n_part_groups > 0
 
   write(*,REAL_FMT) 'part_kill_ratio         ', part_kill_ratio
+  write(*,CHAR_FMT) 'tracked_group_id        ', tracked_group_id
 
   ! fluid groups
   write(*,INTG_FMT) 'n_fluid_groups          ',n_fluid_groups

@@ -947,6 +947,8 @@ enddo
 
 part_kill_ratio = 1.d-3
 
+tracked_group_id = "non"
+
 ! --- fluid groups
 n_fluid_groups = 0
 

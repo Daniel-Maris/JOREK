@@ -932,6 +932,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(part_groups_in_use,                         n_part_groups_max*3,  MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
 
   call MPI_PACK(part_kill_ratio,                                              1,  MPI_REAL8,    buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
+  call MPI_PACK(tracked_group_id,                                             3,  MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
 
   call MPI_PACK(n_fluid_groups,                                     1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(fluid_configs(:)%Z,                n_fluid_groups_max,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -1891,6 +1892,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,part_groups_in_use,                                n_part_groups_max*3, MPI_CHARACTER,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,part_kill_ratio,                                                     1, MPI_REAL8,    MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,tracked_group_id,                                                    3, MPI_CHARACTER,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,n_fluid_groups,                                     1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,fluid_configs(:)%Z,                n_fluid_groups_max,MPI_INTEGER,MPI_COMM_WORLD,ierr)
