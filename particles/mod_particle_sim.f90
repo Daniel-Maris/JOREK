@@ -20,7 +20,7 @@ type :: particle_group
   real*8             :: dt                                         !< timestep (if fixed for all particles in this group)
   character(len=3)   :: coupling_scheme                            !< coupling scheme to use for the group
   real*8             :: n_particles                                !< number of super/marker particles in group
-  character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
+  character(len=3)   :: id = "???"                                 !< unique identifier for the group (mainly used when restarting)
   real*8             :: average_weight = -1.d0                     !< average weight of all particles in the group (preset value negative to avoid killing of particles in first instance)
  
   ! ================ for neutrals and impurities =============
@@ -55,6 +55,8 @@ type :: particle_sim
   integer :: my_id = 0
   integer :: n_mpi = 1 ! if not initialized, act as if there is no mpi
   real*8  :: wtime_start !< Clock time at the start of the program
+
+  logical :: hard_coded_init = .false. !< whether initialization is done through the input namelist (.false.) or hard-coded in an example program (.true.)
 contains
   procedure,pass(sim) :: finalize
   procedure,pass(sim) :: initialize
@@ -151,13 +153,13 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_grou
   use basis_at_gaussian, only: initialise_basis
   use mod_chi,           only: init_chi_basis
   use data_structure,    only: init_threads, nbthreads
-  use phys_module,       only: n_part_groups, n_part_groups_max
+  use phys_module,       only: n_part_groups, n_part_groups_max, part_groups_in_use
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
   logical,intent(in), optional       :: skip_jorek2help,do_jorek_init_in,skip_group_config
   integer,intent(in),optional        :: my_id,n_mpi,num_groups
   logical                            :: do_jorek_init
-  integer                            :: ierr, i_tor,nthreads, group_num
+  integer                            :: ierr, i_tor,nthreads, group_num, i
 
   !> initialise the mpi comm world with threads if required
   if(present(my_id).and.present(n_mpi)) then
@@ -196,6 +198,8 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_grou
 
   ! Handling backwards compatibility
   if(present(num_groups)) then
+    sim%hard_coded_init = .true.
+
     if(sim%my_id == 0) then
       write(*,"(A)") "==========================================================================================================================================="
       write(*,"(A)") "WARNING: you are using the old hard-coded way of initialising particle groups (without considering the input namelist) in your own program."
@@ -207,6 +211,13 @@ subroutine initialize(sim,skip_jorek2help,my_id,n_mpi,do_jorek_init_in,skip_grou
       write(*,"(A)") "==========================================================================================================================================="
     end if
     call sim%allocate_groups(num_groups)
+
+    n_part_groups = num_groups                 ! set n_part_groups
+    do i=1,n_part_groups
+      write(sim%groups(i)%id,"(I3.3)") i       ! set default %id's 001 etc
+      part_groups_in_use(i) = sim%groups(i)%id ! set part_groups_in_use to all default %id's
+    enddo
+    
     return ! making sure the normal allocation will not happen
   end if
 
