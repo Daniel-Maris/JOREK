@@ -489,7 +489,7 @@ contains
                 + CX_source  * dot_product(B, v_old - v_new) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT 
 #ifdef WITH_TiTe
           energy_source_Te = -ionize_source * H_binding_energy - line_rad_energy
-          energy_source_Ti = ionize_source * kinetic_energy + cx_source * cx_energy
+          energy_source_Ti = ionize_source * kinetic_energy + delta_E_kin
 #else
           energy_source  = ionize_source * ionize_energy + delta_E_kin - line_rad_energy
 #endif
