@@ -10,7 +10,7 @@ module mod_neutral_collision
   use constants
   use mod_pcg32_rng,   only: pcg32_rng
   use mod_particle_sim
-  use phys_module, only: tstep, n_period, use_manual_random_seed,n_plane !< we need the intrinsic fortran gamma function so have to use only
+  use phys_module, only: n_period, use_manual_random_seed,n_plane !< we need the intrinsic fortran gamma function so have to use only
   use mod_interp, only: interp_RZ, interp_0
   use mod_event, only: mpi_minmeanmax
   use mod_particle_sorting

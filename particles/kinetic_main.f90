@@ -327,15 +327,26 @@ do while (.not. sim%stop_now)
         call wall_act_groups(i)%do(sim,.true.)
       enddo
     endif
+  
+    if(sim%istep_fluid==1 .and. sim%istep_inner_part==1) call with(sim, project_jorek_feedback) 
+
+    !neutral self collisions, which need the projected neutral density
+    if (size(neutral_collisions) > 0) then
+      call write_to_outputfile(sim, "Neutral self collisions")
+      do i=1, size(neutral_collisions)
+        call neutral_collisions(i)%do(sim,sim%tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
+      enddo
+    endif
+    
   enddo !particle superstep inner loop
-  sim%istep_inner_part=-1
+  sim%istep_inner_part=-1 ! set to -1 to notify that sim is outside of inner particle loop
 
   ! --- Update the fluid
   
   !> Project the collected feedback from the particles onto the finite element grid so that the MHD solver can use it
   !> Also writes the projection.vtk file which contains the interaction terms (particle, energy and momentum exchange to the fluid) and neutral density
   call write_to_outputfile(sim, "Projecting feedback from particles to fluid FE grid")
-  call with(sim, project_jorek_feedback)
+  if(sim%istep_fluid/=1) call with(sim, project_jorek_feedback)
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
   !> feedback of the particles as sources and sinks in the MHD equations 
@@ -345,14 +356,6 @@ do while (.not. sim%stop_now)
   
 
   ! -- Finalising the fluid timestep
-
-  !neutral self collisions, which need the projected neutral density
-  if (size(neutral_collisions) > 0) then
-    call write_to_outputfile(sim, "Neutral self collisions")
-    do i=1, size(neutral_collisions)
-      call neutral_collisions(i)%do(sim,sim%tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
-    enddo
-  endif
   
   !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
   if ( mod(sim%istep_fluid,500) .eq. 0 ) then

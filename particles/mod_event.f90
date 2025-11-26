@@ -449,7 +449,7 @@ subroutine do_count_action(this, sim, ev)
                                                ", w=", w_alive_total, sim%groups(i_group)%particles(1)%weight*n_alive_total
     end if
 
-    sim%groups(i_group)%average_weight = w_alive_total / n_alive_total
+    sim%groups(i_group)%average_weight = w_alive_total / max(n_alive_total,1)
   end do
 end subroutine do_count_action
 
