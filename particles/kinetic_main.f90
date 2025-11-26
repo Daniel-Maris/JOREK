@@ -72,12 +72,11 @@ type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: edge_elm_template
 type(particle_puffing)                            :: gas_puff, gas_puff2
 
-real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
-real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amount of steps (nstep_particles) fit into a fluid step (tstep)
+real*8    :: rho_norm, t_norm, n_norm
 !$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
-integer   :: i, j, istep, group_num, config_num, valve_num
+integer   :: i, j, istep_inner_part, group_num, config_num, valve_num
 integer   :: seed, i_rng, n_stream
 
 !> For keeping track of groups requiring specific physics (e.g. wall actions, recombination, puffing...)
@@ -158,9 +157,13 @@ do i=1,n_stream
   call rng(i)%initialize(1, seed, n_stream, i)
 end do
 
-! --- Check if the user tried to use nstep_particles rather than tstep_particles to define the particle timestepping
-if (nstep_particles .ne. 0 .and. sim%my_id .eq. 0) then
-  write(*,*) "ERROR: nstep_particles is defined in the input file, while for this example the combination tstep_particles, nstep and tstep define nstep_particles. Please remove nstep_particles from your input file to avoid ambiguity. Stopping now."
+! --- Check if nstep_particles and tstep_particles are positive
+if (nstep_particles < 1 .and. sim%my_id .eq. 0) then
+  write(*,*) "ERROR: nstep_particles < 1 which is not allowed. Stopping now."
+  stop
+end if
+if (tstep_particles < 0.d0 .and. sim%my_id .eq. 0) then
+  write(*,*) "ERROR: tstep_particles < 0 which is not allowed. Stopping now."
   stop
 end if
 
@@ -236,28 +239,34 @@ jorek_stepper_event    = new_event_ptr(jorek_stepper,    start = sim%time)
 !*                           main loop                                 *
 !***********************************************************************
 
-istep = 0
+sim%istep_fluid = 0
 call write_to_outputfile(sim,"Starting main loop")
 do while (.not. sim%stop_now)
-  istep = istep + 1
-  write(header_line,'(A37,I6)') "Starting main loop iteration istep = ",istep
+  sim%istep_fluid = sim%istep_fluid + 1
+  write(header_line,'(A,I6)') "Starting main loop iteration sim%istep_fluid = ",sim%istep_fluid
   call write_to_outputfile(sim,header_line)
 
   ! --- Determining the time stepping for this fluid step
-  tstep = get_tstep_n(istep) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
-  tstep_fluid_si = tstep*t_norm
-  sim%time = sim%time + tstep_fluid_si ! carries the time at the end of the current step
+  tstep = get_tstep_n(sim%istep_fluid) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
+  sim%tstep_fluid_si = tstep*t_norm
+  sim%time = sim%time + sim%tstep_fluid_si ! carries the time at the end of the current loop
 
-  nstep_particles = ceiling(tstep_fluid_si / tstep_particles) ! ceiling makes sure tstep_part_adj is never bigger than tstep_particles
-  tstep_part_adj = tstep_fluid_si / nstep_particles ! slightly smaller tstep_particles to fit an exact integer amount in one fluid timestep
+  sim%nsuperstep_part      = ceiling(sim%tstep_fluid_si / (nstep_particles * tstep_particles))
+  sim%tsuperstep_part      = sim%tstep_fluid_si / sim%nsuperstep_part
+  sim%nstep_part_adj       = ceiling(sim%tsuperstep_part / tstep_particles) ! ceiling makes sure tstep_part_adj is never bigger than tstep_particles
+  sim%tstep_part_adj       = sim%tsuperstep_part / sim%nstep_part_adj ! slightly smaller tstep_particles to fit an exact integer amount in one superstep
   
   if (sim%my_id .eq. 0) then
-     write(*,*) "PARTICLE : tstep_particles : ",tstep_particles
-     write(*,*) "PARTICLE : tstep_part_adj  : ",tstep_part_adj
-     write(*,*) "PARTICLE : sim%time        : ",sim%time
-     write(*,*) "PARTICLE : nstep_particles : ",nstep_particles
-     write(*,*) "PARTICLE : tstep_fluid_si  : ",tstep_fluid_si
-     write(*,*) "PARTICLE : n*dt_part - dt  : ",nstep_particles*tstep_part_adj - tstep_fluid_si
+    if(sim%tstep_fluid_si < sim%tstep_part_adj) write(*,*) "tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
+    write(*,*) "sim%time            : ",sim%time
+    write(*,*) "tstep_fluid_si      : ",sim%tstep_fluid_si
+    write(*,*) "aim tstep_particles : ",tstep_particles
+    write(*,*) "aim nstep_particles : ",nstep_particles
+    write(*,*) "tsuperstep_part     : ",sim%tsuperstep_part
+    write(*,*) "nsuperstep_part     : ",sim%nsuperstep_part
+    write(*,*) "used tstep_part_adj : ",sim%tstep_part_adj
+    write(*,*) "used nstep_part_adj : ",sim%nstep_part_adj
+    write(*,*) "n_part*dt_part*n_super - dt_fluid  : ",sim%nstep_part_adj*sim%tstep_part_adj*sim%nsuperstep_part - sim%tstep_fluid_si
   endif
 
 
@@ -274,7 +283,7 @@ do while (.not. sim%stop_now)
   if (recomb_counter > 0) then
     call write_to_outputfile(sim, "Volume recombination") !< as opposed to wall recombination which is part of wall_actions
     do i=1, recomb_counter
-      call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
+      call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, sim%tstep_fluid_si) 
     enddo
   endif
     
@@ -288,32 +297,38 @@ do while (.not. sim%stop_now)
 
   ! --- Interactions that happen on the particle timesteps
   
-  call write_to_outputfile(sim, "Particle evolution loop")
-  
-  !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
-  !> + pushing the particles + calculating the feedback
-  !> Currently supports: (Work in progress)
-  !>  - kinetic neutrals
-  !>  - kinetic impurities
-
-  !> As we call multiple kinetic loops and only want to use 1 %rhs,
-  !>   we should set it to zero here, and not in any of the kinetic loops
+  !> As we call multiple kinetic loops multiple times and only want to use 1 %rhs,
+  !> we should set it to zero here before the inner loop starts
   jorek_feedback%rhs = 0.d0
+  do istep_inner_part=1,sim%nsuperstep_part
+    sim%istep_inner_part = istep_inner_part
+    write(header_line,'(A,I6,A,I6)') "Starting inner particle loop iteration sim%istep_inner_part = ",sim%istep_inner_part," of ",sim%nsuperstep_part
+    call write_to_outputfile(sim,header_line)
 
-  do group_num=1, n_part_groups
-    call evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
-  enddo  
+    call write_to_outputfile(sim, "Particle evolution loop")
+    
+    !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
+    !> + pushing the particles + calculating the feedback
+    !> Currently supports: (Work in progress)
+    !>  - kinetic neutrals
+    !>  - kinetic impurities
 
-  ! --- Handling the particles that left the domain
+    do group_num=1, n_part_groups
+      call evolve_particle_group(sim, group_num, jorek_feedback, rng, sim%tstep_part_adj, sim%nstep_part_adj)
+    enddo  
 
-  ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
-  ! which might lead to bad behaviour in other code than the wall_actions
-  if (n_wall_act_groups > 0) then
-    call write_to_outputfile(sim, "Particle particle wall_actions")
-    do i=1, n_wall_act_groups
-      call wall_act_groups(i)%do(sim,.true.)
-    enddo
-  endif
+    ! --- Handling the particles that left the domain
+
+    ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
+    ! which might lead to bad behaviour in other code than the wall_actions
+    if (n_wall_act_groups > 0) then
+      call write_to_outputfile(sim, "Particle particle wall_actions")
+      do i=1, n_wall_act_groups
+        call wall_act_groups(i)%do(sim,.true.)
+      enddo
+    endif
+  enddo !particle superstep inner loop
+  sim%istep_inner_part=-1
 
   ! --- Update the fluid
   
@@ -335,12 +350,12 @@ do while (.not. sim%stop_now)
   if (size(neutral_collisions) > 0) then
     call write_to_outputfile(sim, "Neutral self collisions")
     do i=1, size(neutral_collisions)
-      call neutral_collisions(i)%do(sim,tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
+      call neutral_collisions(i)%do(sim,sim%tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
     enddo
   endif
   
   !Writing interim particle restart files every 500 fluid steps done. Overwrites previous restart file to save space
-  if ( mod(istep,500) .eq. 0 ) then
+  if ( mod(sim%istep_fluid,500) .eq. 0 ) then
     call write_to_outputfile(sim, "Writing interim_part_restart.h5")
     call write_simulation_hdf5(sim, 'interim_part_restart.h5')
   endif

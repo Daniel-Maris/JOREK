@@ -47,6 +47,13 @@ end type particle_group
 type :: particle_sim
   real*8                                          :: time = 0.d0 !< time of the simulation. Only accurate when in events with sync or at
   !< the start of the simulation
+  integer                                         :: istep_fluid      !< timestep of main loop (on which the fluid is stepped)
+  integer                                         :: istep_inner_part !< timestep of inner particle loop (on which particle-particle interactions are called))
+  real*8                                          :: tstep_fluid_si  !< [s] fluid timestep (tstep) in si units
+  real*8                                          :: tsuperstep_part !< [s] timestep of the particle interactions (=nstep_part_adj*tstep_part_adj)
+  real*8                                          :: tstep_part_adj  !< [s] tstep_particles adjusted so that an integer amount of steps (nstep_part_adj) fit into a superstep
+  integer                                         :: nsuperstep_part !< number of inner particle interaction loop calls per fluid timestep (determined from namelist tstep, tstep_particles and nstep_particles)
+  integer                                         :: nstep_part_adj  !< nstep_particles adjusted so that an integer amount of steps fit into a superstep, and an integer amount of supersteps fit into a tstep
   class(fields_base), allocatable                 :: fields
   logical                                         :: stop_now = .false.
   real*8                                          :: t_norm !< JOREK normalisation factor
