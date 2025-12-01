@@ -43,6 +43,7 @@ use mod_coupling_settings, only: use_kin_recomb_global
 use mod_initialise_particles
 use equil_info
 use mod_output_file_routines, only: write_to_outputfile
+use mod_neutral_density, only: get_neutral_density
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
@@ -63,10 +64,11 @@ implicit none
 
 type(event)                                       :: fieldreader, partreader
 type(event)                                       :: gas_puff_event, gas_puff2_event
-type(event), target                               :: project_jorek_feedback, jorek_stepper_event
+type(event), target                               :: project_jorek_feedback, jorek_stepper_event, project_neutral_density
 type(pcg32_rng), dimension(:), allocatable        :: rng
 type(count_action)                                :: counter
 type(projection), target                          :: jorek_feedback
+type(projection), target                          :: neutral_density_proj
 type(jorek_timestep_action), target               :: jorek_stepper
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: edge_elm_template
@@ -234,6 +236,18 @@ jorek_stepper = new_jorek_timestep_action(jorek_feedback%node_list)
 project_jorek_feedback = new_event_ptr(jorek_feedback,   start = sim%time)
 jorek_stepper_event    = new_event_ptr(jorek_stepper,    start = sim%time)
 
+! setting up projection for neutral density
+if(size(neutral_collisions) > 0) then
+  neutral_density_proj = new_projection(sim%fields%node_list, sim%fields%element_list, &
+                                  filter_n0 = filter_perp_n0, filter_hyper_n0 = filter_hyper_n0, filter_parallel_n0=filter_par_n0,            &
+                                  filter = filter_perp, filter_hyper = filter_hyper, filter_parallel=filter_par, fractional_digits = 9,       &
+                                  do_zonal = .false., calc_integrals=.false., to_vtk=.false., to_h5 = .false., basename='projections', nsub=2, &
+                                  do_dirichlet=apply_dirichlet_proj)
+
+  ! define feedback size dependent on the number of variables required for coupling
+  allocate(neutral_density_proj%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 1))
+endif
+
 
 !***********************************************************************
 !*                           main loop                                 *
@@ -328,13 +342,16 @@ do while (.not. sim%stop_now)
       enddo
     endif
   
-    if(sim%istep_fluid==1 .and. sim%istep_inner_part==1) call with(sim, project_jorek_feedback) 
-
     !neutral self collisions, which need the projected neutral density
     if (size(neutral_collisions) > 0) then
       call write_to_outputfile(sim, "Neutral self collisions")
+  
+      ! update the neutral density which are necessary for the neutral collisions
+      call get_neutral_density(sim,neutral_density_proj)
+
+      ! do the neutral collisions
       do i=1, size(neutral_collisions)
-        call neutral_collisions(i)%do(sim,sim%tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
+        call neutral_collisions(i)%do(sim,sim%tstep_fluid_si,neutral_density_proj%node_list,neutral_density_proj%element_list)
       enddo
     endif
     
@@ -346,7 +363,7 @@ do while (.not. sim%stop_now)
   !> Project the collected feedback from the particles onto the finite element grid so that the MHD solver can use it
   !> Also writes the projection.vtk file which contains the interaction terms (particle, energy and momentum exchange to the fluid) and neutral density
   call write_to_outputfile(sim, "Projecting feedback from particles to fluid FE grid")
-  if(sim%istep_fluid/=1) call with(sim, project_jorek_feedback)
+  call with(sim, project_jorek_feedback)
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
   !> feedback of the particles as sources and sinks in the MHD equations 
