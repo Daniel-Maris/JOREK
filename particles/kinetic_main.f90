@@ -338,17 +338,19 @@ do while (.not. sim%stop_now)
     enddo
   endif
   
-  !Writing regular particle restart files every nout_particles.
-  if ( mod(index_now,nout_particles) .eq. 0 ) then
-    write(rst_part_file, '(a,i6.6,a)') 'part_restart_', index_now, '.h5'
-    call write_to_outputfile(sim%my_id, "Writing part_restart.h5")
-    call write_simulation_hdf5(sim, trim(rst_part_file))
-  endif
-
   !Writing interim particle restart files every nout fluid steps done. Overwrites previous restart file to save space
-  if ( mod(istep,nout) .eq. 0 ) then
-    call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
-    call write_simulation_hdf5(sim, 'interim_part_restart.h5')
+  if ( nout_particles .eq. 9999999 ) then
+    if ( mod(istep,nout) .eq. 0 ) then
+      call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
+      call write_simulation_hdf5(sim, 'interim_part_restart.h5')
+    endif
+  else
+    !Writing regular particle restart files every nout_particles.
+    if ( mod(index_now,nout_particles) .eq. 0 ) then
+      write(rst_part_file, '(a,i6.6,a)') 'part_restart_', index_now, '.h5'
+      call write_to_outputfile(sim%my_id, "Writing part_restart.h5")
+      call write_simulation_hdf5(sim, trim(rst_part_file))
+    endif
   endif
 
   ! Writing some conservation checks to the ouput file
