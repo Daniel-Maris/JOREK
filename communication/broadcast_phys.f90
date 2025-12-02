@@ -927,9 +927,8 @@ if (my_id .eq. 0) then
       call MPI_PACK(part_group_configs(i)%wall_act_configs(j)%supers_num_wall,    1,   MPI_INTEGER, buffer,bufsize,position,MPI_COMM_WORLD,ierr)
       call MPI_PACK(part_group_configs(i)%wall_act_configs(j)%supers_weight_wall, 1,   MPI_REAL8,   buffer,bufsize,position,MPI_COMM_WORLD,ierr)
       call MPI_PACK(part_group_configs(i)%wall_act_configs(j)%supers_ratio_wall,  1,   MPI_REAL8,   buffer,bufsize,position,MPI_COMM_WORLD,ierr)    
-
-      call MPI_PACK(part_group_configs(i)%wall_act_configs(j)%each_nstep_part,    1,   MPI_INTEGER, buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     enddo
+    call MPI_PACK(part_group_configs(i)%wall_act_each_nstep_part,                1,   MPI_INTEGER, buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   enddo
 
   call MPI_PACK(part_groups_in_use,                         n_part_groups_max*3,  MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
@@ -954,8 +953,6 @@ if (my_id .eq. 0) then
       call MPI_PACK(fluid_configs(i)%wall_act_configs(j)%supers_num_wall,    1,   MPI_INTEGER, buffer,bufsize,position,MPI_COMM_WORLD,ierr)
       call MPI_PACK(fluid_configs(i)%wall_act_configs(j)%supers_weight_wall, 1,   MPI_REAL8,   buffer,bufsize,position,MPI_COMM_WORLD,ierr)
       call MPI_PACK(fluid_configs(i)%wall_act_configs(j)%supers_ratio_wall,  1,   MPI_REAL8,   buffer,bufsize,position,MPI_COMM_WORLD,ierr)    
-
-      call MPI_PACK(fluid_configs(i)%wall_act_configs(j)%each_nstep_part,    1,   MPI_INTEGER, buffer,bufsize,position,MPI_COMM_WORLD,ierr)
     enddo
   enddo
 
@@ -1892,9 +1889,8 @@ if (my_id .ne. 0) then
       call MPI_UNPACK(buffer,bufsize,position,part_group_configs(i)%wall_act_configs(j)%supers_num_wall,    1,   MPI_INTEGER, MPI_COMM_WORLD,ierr)
       call MPI_UNPACK(buffer,bufsize,position,part_group_configs(i)%wall_act_configs(j)%supers_weight_wall, 1,   MPI_REAL8,   MPI_COMM_WORLD,ierr)
       call MPI_UNPACK(buffer,bufsize,position,part_group_configs(i)%wall_act_configs(j)%supers_ratio_wall,  1,   MPI_REAL8,   MPI_COMM_WORLD,ierr)    
-      
-      call MPI_UNPACK(buffer,bufsize,position,part_group_configs(i)%wall_act_configs(j)%each_nstep_part,    1,   MPI_INTEGER, MPI_COMM_WORLD,ierr)
     enddo
+    call MPI_UNPACK(buffer,bufsize,position,part_group_configs(i)%wall_act_each_nstep_part,                1,   MPI_INTEGER,MPI_COMM_WORLD,ierr)
   enddo
 
   call MPI_UNPACK(buffer,bufsize,position,part_groups_in_use,                                n_part_groups_max*3, MPI_CHARACTER,MPI_COMM_WORLD,ierr)
@@ -1919,8 +1915,6 @@ if (my_id .ne. 0) then
       call MPI_UNPACK(buffer,bufsize,position,fluid_configs(i)%wall_act_configs(j)%supers_num_wall,    1,   MPI_INTEGER, MPI_COMM_WORLD,ierr)
       call MPI_UNPACK(buffer,bufsize,position,fluid_configs(i)%wall_act_configs(j)%supers_weight_wall, 1,   MPI_REAL8,   MPI_COMM_WORLD,ierr)
       call MPI_UNPACK(buffer,bufsize,position,fluid_configs(i)%wall_act_configs(j)%supers_ratio_wall,  1,   MPI_REAL8,   MPI_COMM_WORLD,ierr)    
-      
-      call MPI_UNPACK(buffer,bufsize,position,fluid_configs(i)%wall_act_configs(j)%each_nstep_part,    1,   MPI_INTEGER, MPI_COMM_WORLD,ierr)
     enddo
   enddo
 

@@ -154,13 +154,12 @@ module mod_particle_wall_interaction
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
-subroutine construct_wall_action(this, sim, origin_group, config, edge_element_template, origin_is_fluid, fluid_Z, fluid_density_fraction, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
+subroutine construct_wall_action(this, sim, origin_group, config, edge_element_template, origin_is_fluid, fluid_Z, fluid_density_fraction, each_nstep_part, filename, basename, decimal_digits, fractional_digits, rng, input_identifier)
   use mod_pcg32_rng, only: pcg32_rng
   use mod_random_seed, only: random_seed
   use phys_module, only: nout_projection, n_fluid_groups_max, n_part_groups, n_part_groups_max, fluid_configs, type_wall_act_config
   use mod_particle_group_id, only: matching_sim_groups_indices
   use mod_particle_sim, only: group_num_from_id
-  use mod_math_operators, only: gcd
 
   implicit none
   type(wall_action),             intent(inout) :: this         !< the new wall_action object. Inout because it may need some settings already
@@ -171,6 +170,7 @@ subroutine construct_wall_action(this, sim, origin_group, config, edge_element_t
   logical,                       intent(in) :: origin_is_fluid       !< whether the origin group is a fluid group (.true.) or a particle group (.false.)
   integer,                       intent(in), optional :: fluid_Z                !< Z of this fluid species (e.g. -2 for D)
   real*8,                        intent(in), optional :: fluid_density_fraction !< fraction of the plasma density of this specific fluid. The density fractions of all used fluid configs should add up to 1
+  integer,                       intent(in), optional :: each_nstep_part        !< run this particular particle-particle action at every i_inner_loop = each_nstep_part 
   character(len=*),              intent(in), optional :: filename               !< where to save the diagnostics
   character(len=*),              intent(in), optional :: basename
   integer,                       intent(in), optional :: decimal_digits
@@ -477,26 +477,20 @@ subroutine construct_wall_action(this, sim, origin_group, config, edge_element_t
     call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=pcg32_rng(), rngs=this%rng)
   end if
 
-  !sanity checks on when to run the action
-  if(config%each_nstep_part /= -9999999) then
+  !sanity checks and seting when to run the action
+  if(present(each_nstep_part)) then
     if(this%fluid2part) then
-      write(msg,"(A)") "%ncoll_each_nstep_part is only supported for particle-particle wall_actions but you set it for a fluid-particle wall_action"
+      write(msg,"(A)") "each_nstep_part is only supported for particle-particle wall_actions but you set it for a fluid-particle wall_action"
       call wrong_input(msg, sim%my_id, identifier)
     endif
-    if(config%each_nstep_part <= 0) then
-      write(msg,"(A)") "ncoll_each_nstep_part <= 0 which is not allowed"
-      call wrong_input(msg, sim%my_id, identifier)
-    endif
+    if(each_nstep_part /= -9999999) then
+      if(each_nstep_part <= 0) then
+        write(msg,"(A)") "each_nstep_part <= 0 which is not allowed"
+        call wrong_input(msg, sim%my_id, identifier)
+      endif
 
-    this%each_nstep_part = config%each_nstep_part
-    call sim%update_lcm_gcd(config%each_nstep_part)
-    if (gcd_wall_acts == -1) then
-      gcd_wall_acts = config%each_nstep_part
-    else
-      gcd_wall_acts = gcd(gcd_wall_acts,config%each_nstep_part)
+      this%each_nstep_part = each_nstep_part ! setting it
     endif
-  else
-    if((.not. this%fluid2part) .and. sim%my_id == 0) write(*,"(2A)") "%each_nstep_part was not set, so wall_action will be done once every fluid step ",identifier
   endif
 
   !constructor finished
@@ -515,6 +509,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
   use phys_module, only: fluid_configs, n_fluid_groups_max
   use mod_particle_group_id, only: matching_part_config_indices
   use mod_particle_sim, only: group_num_from_id
+  use mod_math_operators, only: gcd
 
   implicit none
 
@@ -527,7 +522,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
 
   character(len=1000) :: identifier
   character(len=1000) :: msg !< error message
-  integer :: i, j, k, Z, config_num_i, n_fluids, n_groups, idx_group, idx_act, i_target_group
+  integer :: i, j, k, Z, config_num_i, n_fluids, n_groups, idx_group, idx_act, i_target_group, each_nstep_part
   integer :: i_wall_acts, n_wall_acts !< total number of wall_action objects to make
   integer :: i_other, n_other !< number of wall_action objects in the "other" group
   integer :: i_part2self, n_part2self !< number of wall_action objects in the "part2self" group
@@ -727,8 +722,25 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
   
   !from particles
   do i=1,n_part_groups !loop over particle groups
+    config_num_i = matching_part_config_indices(i)
+    
+    each_nstep_part = part_group_configs(config_num_i)%wall_act_each_nstep_part
+    if(each_nstep_part /= -9999999) then
+      if(each_nstep_part <= 0) then
+        write(*,"(A,I2,A)") "part_group_configs(",config_num_i,")%wall_act_each_nstep_part <= 0 which is not allowed. Aborting."
+        stop
+      endif
+      call sim%update_lcm_gcd(each_nstep_part)
+      if (gcd_wall_acts == -1) then
+        gcd_wall_acts = each_nstep_part
+      else
+        gcd_wall_acts = gcd(gcd_wall_acts,each_nstep_part)
+      endif
+    else
+      if(sim%my_id == 0) write(*,"(A,I2,A)") "part_group_configs(",config_num_i,")%wall_act_each_nstep_part was not set, so particle-particle wall_actions originating from this species will be done once every fluid step"
+    endif
+        
     do j=1,n_part_groups_max !loop over wall_action configs
-      config_num_i = matching_part_config_indices(i)
       config = part_group_configs(config_num_i)%wall_act_configs(j)
       
       select case(trim(config%type))
@@ -758,7 +770,7 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
       ! being here means it is a wall_action that should be used
       i_wall_acts = i_wall_acts + 1
       write(identifier,"(A,I2,A,I2,A,I3,A)") "for input namelist: particle_group_configs(",config_num_i,")%wall_act_configs(",j,"). (This corresponds to wall_action: ",i_wall_acts,")"
-      call construct_wall_action(wall_act_groups(idx_group)%wall_actions(idx_act),sim,i,config,edge_element_template,.false.,input_identifier=identifier)      
+      call construct_wall_action(wall_act_groups(idx_group)%wall_actions(idx_act),sim,i,config,edge_element_template,.false.,each_nstep_part=each_nstep_part,input_identifier=identifier)      
     end do
   end do
 

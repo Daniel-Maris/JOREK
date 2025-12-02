@@ -943,9 +943,8 @@ do i=1, n_part_groups_max
     part_group_configs(i)%wall_act_configs(j)%supers_ratio_wall  = -1.d0   
     !< if none of these three above options are set, the supers_ratio_wall method
     !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
-
-    part_group_configs(i)%wall_act_configs(j)%each_nstep_part    = -9999999
   enddo
+  part_group_configs(i)%wall_act_each_nstep_part = -9999999
 enddo
 
 part_kill_ratio = 1.d-3
@@ -973,8 +972,6 @@ do i=1, n_fluid_groups_max
     fluid_configs(i)%wall_act_configs(j)%supers_num_wall    = -1
     fluid_configs(i)%wall_act_configs(j)%supers_weight_wall = -1.d0
     fluid_configs(i)%wall_act_configs(j)%supers_ratio_wall  = -1.d0
-
-    fluid_configs(i)%wall_act_configs(j)%each_nstep_part    = -9999999
   enddo
 enddo
 !-----------------------------------------------

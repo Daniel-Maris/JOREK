@@ -1024,8 +1024,6 @@ module phys_module
     real*8            :: supers_ratio_wall  !< fraction of the total number of superparticles allocated for this group (i.e. part_group_configs(i)%n_particles) to use for each puff action
     !< if none of these three above options are set, the supers_ratio_wall method
     !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
-
-    integer           :: each_nstep_part    !< run this particular action at every i_inner_loop = each_nstep_part. Default (-9999999) interpreted as nstep_inner_loop (i.e. each fluid timestep)
   end type type_wall_act_config
   
   ! ------------------------------------------------
@@ -1065,7 +1063,7 @@ module phys_module
                                                    !  *cross collisions between different neutrals species is not yet supported
                                                    !   For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
     real*8              :: neutral_coll_dTw(3)     !< the reference diameter d_ref [m], reference temperatrue T_ref [K] and viscosity index omega [-] of the variable hard sphere model for this neutral species
-    integer             :: ncoll_each_nstep_part   !< run neutral self collisions action at every i_inner_loop = each_nstep_part. Default (-9999999) interpreted as nstep_inner_loop (i.e. each fluid timestep)
+    integer             :: ncoll_each_nstep_part   !< run neutral self collisions action at every i_inner_loop = ncoll_each_nstep_part. Default (-9999999) interpreted as nstep_inner_loop (i.e. each fluid timestep)
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
@@ -1084,6 +1082,7 @@ module phys_module
 
     !> --- the settings to define the wall_action objects for this particle group. Index is arbitrary
     type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
+    integer                                                  :: wall_act_each_nstep_part    !< run this group's particle-particle wall_actions every i_inner_loop = wall_act_each_nstep_part. Default (-9999999) interpreted as nstep_inner_loop (i.e. each fluid timestep)
 
     ! ================ for runaway electrons ('rep' coupling scheme) particles ===============
 

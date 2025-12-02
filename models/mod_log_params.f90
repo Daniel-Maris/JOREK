@@ -1132,6 +1132,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       end do
       write(*,INTG_FMT) "n_wall_actions          ",n_wall_actions
       if(n_wall_actions > 0) then
+        write(*,INTG_FMT) "wall_act_each_nstep_part",part_group_configs(group_num)%wall_act_each_nstep_part
         do i=1,n_part_groups_max
           if (trim(part_group_configs(group_num)%wall_act_configs(i)%type) == "none") cycle
           
@@ -1155,8 +1156,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           else
             write(*,"(3X,A,' = ',99ES12.4)")    'supers_ratio_wall     ', part_group_configs(group_num)%wall_act_configs(i)%supers_ratio_wall
           endif
-
-          write(*,"(3X,A,' = ',I12)") 'each_nstep_part,      ', part_group_configs(group_num)%wall_act_configs(i)%each_nstep_part
         end do
       end if !wall actions
 
@@ -1209,8 +1208,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           else
             write(*,"(3X,A,' = ',99ES12.4)")    'supers_ratio_wall     ', fluid_configs(group_num)%wall_act_configs(i)%supers_ratio_wall
           endif
-
-          write(*,"(3X,A,' = ',100I12)")    'each_nstep_part       ', fluid_configs(group_num)%wall_act_configs(i)%each_nstep_part
         end do
       end if !wall actions
 

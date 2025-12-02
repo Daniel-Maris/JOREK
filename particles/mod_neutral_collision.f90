@@ -70,14 +70,13 @@ contains
 !> the correct diffusive behaviour.
 !>
 !> For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
-subroutine neutral_self_collision(this, sim, dt, nodes, elements)
+subroutine neutral_self_collision(this, sim, nodes, elements)
   implicit none
 
   class(type_neutral_collision), intent(inout) :: this
   type(particle_sim),            intent(inout) :: sim
   type (type_node_list),         intent(in)    :: nodes    !< aux node list to sample neutral density from (neutral density is assumed to be at index 5)
   type (type_element_list),      intent(in)    :: elements !< element list (necessary to sample neutral density from)
-  real*8,                        intent(in)    :: dt       !< timestep over which the collisions must be calculated
 
   type(particle_kinetic_leapfrog)                                :: pa1            !< first particle of the collisional pair
   type(particle_kinetic_leapfrog)                                :: pa2            !< second particle of the collisional pair
@@ -95,6 +94,8 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   
   ! arrays used for determining sorted_ind_arr
   integer, dimension(:),       allocatable :: pa_in_elm_arr     !< number of particles in the element (n_elm)
+
+  real*8  :: dt        !< timestep over which the collisions must be calculated
 
   integer :: n_phi !< number of toroidal bins to do collisions in
   integer :: i, j, i_elm, i_loc, i_global, i_phi, is, it, ns, nt, i_pair, n_elm
@@ -155,10 +156,10 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   integer :: ierr
   !$ real*8 :: w(2), mmm(3)
 
+  ! --- start of code
+
   !check whether this action should be run right now
   if(.not. (mod(sim%istep_inner_loop,this%each_nstep_part)==0 .or. sim%istep_inner_loop==sim%nstep_inner_loop)) return
-
-  ! --- start of code
 
   !$ w(1) = omp_get_wtime()
   
@@ -168,6 +169,12 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
     if(sim%my_id==0) write(*,"(A)") "ERROR: something went wrong in the initialization of this neutral_collision object as it did not finish. Aborting"
     stop
   end if
+
+  if(this%each_nstep_part == -9999999) then
+    dt = sim%nstep_inner_loop*sim%tstep_part_adj
+  else
+    dt = this%each_nstep_part*sim%tstep_part_adj
+  endif
 
   select type (pa => sim%groups(this%group_num)%particles)
   type is (particle_kinetic_leapfrog)
