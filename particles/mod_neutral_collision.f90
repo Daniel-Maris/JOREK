@@ -22,15 +22,16 @@ module mod_neutral_collision
   implicit none
    
   private
-  public :: type_neutral_collision, neutral_collisions_from_config, nonzero
+  public :: type_neutral_collision, neutral_collisions_from_config, nonzero, gcd_neutral_collisions
 
   !> action object, storing P_max values per element
   type :: type_neutral_collision
-    integer                                    :: group_num !< which group number this collision is about
-    real*8,          dimension(:), allocatable :: P_max_elm !< [chance] rescaling factor for collision probability for this element, based on a large estimate for the actual chance a given physical particle will collide in the element (n_elm)
-    type(pcg32_rng), dimension(:), allocatable :: rng       !< rng object for this action specifically
-    real*8,          dimension(3)              :: dTw       !< the d_ref, T_ref and omega of the variable hard sphere model for this neutral species
-    logical :: constructed=.false. !< whether initialization finished
+    integer                                    :: group_num           !< which group number this collision is about
+    real*8,          dimension(:), allocatable :: P_max_elm           !< [chance] rescaling factor for collision probability for this element, based on a large estimate for the actual chance a given physical particle will collide in the element (n_elm)
+    type(pcg32_rng), dimension(:), allocatable :: rng                 !< rng object for this action specifically
+    real*8,          dimension(3)              :: dTw                 !< the d_ref, T_ref and omega of the variable hard sphere model for this neutral species
+    integer                                    :: each_nstep_part     !< run this particular action at every i_inner_loop = each_nstep_part
+    logical                                    :: constructed=.false. !< whether initialization finished
   contains
     procedure :: initialize
     procedure :: do => neutral_self_collision
@@ -45,6 +46,8 @@ module mod_neutral_collision
     procedure :: reset
     procedure :: next
   end type
+
+  integer :: gcd_neutral_collisions = -1 !< greatest common divisor of the %each_nstep_part of all neutral collision objects
 
 contains
 
@@ -151,6 +154,9 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
   real*8 :: P_max_elm_max_red, P_max_elm_min_red !< MPI reduced P_max_elm_min
   integer :: ierr
   !$ real*8 :: w(2), mmm(3)
+
+  !check whether this action should be run right now
+  if(.not. (mod(sim%istep_inner_loop,this%each_nstep_part)==0 .or. sim%istep_inner_loop==sim%nstep_inner_loop)) return
 
   ! --- start of code
 
@@ -477,13 +483,16 @@ subroutine neutral_self_collision(this, sim, dt, nodes, elements)
 end subroutine neutral_self_collision
 
 !> initializes the neutral collision object
-subroutine initialize(this, sim, group_num, dTw)
+subroutine initialize(this, sim, group_num, dTw, each_nstep_part)
   use mod_random_seed
+  use mod_math_operators, only: gcd
+
   implicit none  
   class(type_neutral_collision), intent(inout) :: this
-  type(particle_sim),            intent(in)    :: sim
+  type(particle_sim),            intent(inout) :: sim
   integer,                       intent(in)    :: group_num
   real*8,                        intent(in)    :: dtW(3)
+  integer,                       intent(in)    :: each_nstep_part
 
   integer :: i, seed, n_thread
   
@@ -508,6 +517,19 @@ subroutine initialize(this, sim, group_num, dTw)
   !setting up variables
   this%group_num = group_num
   this%dTw = dtW
+  this%each_nstep_part = each_nstep_part
+  if (each_nstep_part /= -9999999) then
+    call sim%update_lcm_gcd(each_nstep_part)
+    if(gcd_neutral_collisions == -1) then
+      gcd_neutral_collisions = each_nstep_part
+    else
+      if(gcd_neutral_collisions == -1) then
+        gcd_neutral_collisions = each_nstep_part
+      else
+        gcd_neutral_collisions = gcd(gcd_neutral_collisions,each_nstep_part)
+      endif
+    endif
+  endif
 
   this%constructed = .true.
 end subroutine initialize
@@ -519,7 +541,7 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
   
   implicit none
 
-  type(particle_sim), intent(in)                           :: sim
+  type(particle_sim), intent(inout)                        :: sim
   class(type_neutral_collision), allocatable, dimension(:) :: neutral_collisions !< array of neutral collisions objects 
 
 
@@ -564,8 +586,19 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
       if(sim%my_id == 0) write(*,"(A,I2,A,3es14.4,A)") "ERROR: negative values in part_group_configs(",i,")%neutral_coll_dTw=",part_group_configs(i)%neutral_coll_dTw," Please check your input. Aborting."
       stop
     end if
+
+    !sanity check and writing when to run the action
+    if(part_group_configs(i)%ncoll_each_nstep_part /= -9999999) then
+      if(part_group_configs(i)%ncoll_each_nstep_part <= 0) then
+        if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%ncoll_each_nstep_part <= 0, which is not possible. Aborting."
+        stop
+      endif
+    else
+      if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "part_group_configs(",i,")%ncoll_each_nstep_part was not set, so neutral self collisions action will be done once every fluid step."
+    endif
+    
     group_num = group_num_from_id(sim, id)
-    call neutral_collisions(i_coll_obj)%initialize(sim,group_num,part_group_configs(i)%neutral_coll_dTw)
+    call neutral_collisions(i_coll_obj)%initialize(sim,group_num,part_group_configs(i)%neutral_coll_dTw,part_group_configs(i)%ncoll_each_nstep_part)
   end do
 
   !sanity check

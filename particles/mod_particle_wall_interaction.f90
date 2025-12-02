@@ -70,7 +70,7 @@ module mod_particle_wall_interaction
   implicit none
    
   private
-  public :: wall_act_group, wall_actions_from_config
+  public :: wall_act_group, wall_actions_from_config, gcd_wall_acts
 
   ! action containing the wall interaction information for one origin species to one target species
   type, extends(io_action) :: wall_action
@@ -93,6 +93,8 @@ module mod_particle_wall_interaction
     logical :: use_Yn_func  = .false. !< Use Ecksteins interpolating functions instead of interpolating manually
     
     class(type_rng), dimension(:), allocatable :: rng !< one RNG per openmp thread
+
+    integer             :: each_nstep_part = -9999999 !< run this particular action at every i_inner_loop = each_nstep_part
     
     !> when the origin group is a fluid species
     integer             :: fluid_Z         = -999     !< Z of this fluid species (e.g. -2 for D)
@@ -142,11 +144,13 @@ module mod_particle_wall_interaction
   !> number of super particles is intentionally stored in a real, to easily handle all diagnostics simultaneously (in omp reductions and in MPI_reduce)
   integer, parameter :: n_global_diagnostics=10, i_wall_part_in=1, i_wall_flux_in=2, i_wall_heat_in=3, i_wall_part_out=4, i_wall_flux_out=5, i_wall_heat_out=6, i_wall_flux_refl=7, i_wall_heat_refl=8, i_removed=9, i_super_killed=10
   
-  integer, parameter :: n_project_general=4 !< number of general projections (on top of the number of interaction type specific interactions)
+  integer, parameter :: n_project_general=4                    !< number of general projections (on top of the number of interaction type specific interactions)
 
   real*8, parameter  :: supers_ratio_wall_default = 5.d-4      !< if none of the wall_act_configs(i)%supers_..._wall options are set, supers_to_create will be calculated
                                                                !< as supers_ratio_wall_default * part_group_config(this%target_group)%n_particles
                                                                !< In this case this default value overrides the value from preset_parameters.f90
+  
+  integer            :: gcd_wall_acts = -1                     !< greatest common divisor of the %each_nstep_part of all wall_actions
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
@@ -156,10 +160,11 @@ subroutine construct_wall_action(this, sim, origin_group, config, edge_element_t
   use phys_module, only: nout_projection, n_fluid_groups_max, n_part_groups, n_part_groups_max, fluid_configs, type_wall_act_config
   use mod_particle_group_id, only: matching_sim_groups_indices
   use mod_particle_sim, only: group_num_from_id
+  use mod_math_operators, only: gcd
 
   implicit none
   type(wall_action),             intent(inout) :: this         !< the new wall_action object. Inout because it may need some settings already
-  type(particle_sim),            intent(in) :: sim
+  type(particle_sim),            intent(inout) :: sim
   integer,                       intent(in) :: origin_group    !< config index specifying which group is undergoing this wall interaction. Either particle group number or fluid group number (if it is a fluid to particle interaction type)
   type(type_wall_act_config),    intent(in) :: config          !< wall_act_config to make the wall_action from
   type(edge_elements),           intent(in) :: edge_element_template !< a prepared set of edge elements
@@ -472,6 +477,28 @@ subroutine construct_wall_action(this, sim, origin_group, config, edge_element_t
     call setup_shared_rngs(n_dim=3, seed=my_seed, rng_type=pcg32_rng(), rngs=this%rng)
   end if
 
+  !sanity checks on when to run the action
+  if(config%each_nstep_part /= -9999999) then
+    if(this%fluid2part) then
+      write(msg,"(A)") "%ncoll_each_nstep_part is only supported for particle-particle wall_actions but you set it for a fluid-particle wall_action"
+      call wrong_input(msg, sim%my_id, identifier)
+    endif
+    if(config%each_nstep_part <= 0) then
+      write(msg,"(A)") "ncoll_each_nstep_part <= 0 which is not allowed"
+      call wrong_input(msg, sim%my_id, identifier)
+    endif
+
+    this%each_nstep_part = config%each_nstep_part
+    call sim%update_lcm_gcd(config%each_nstep_part)
+    if (gcd_wall_acts == -1) then
+      gcd_wall_acts = config%each_nstep_part
+    else
+      gcd_wall_acts = gcd(gcd_wall_acts,config%each_nstep_part)
+    endif
+  else
+    if((.not. this%fluid2part) .and. sim%my_id == 0) write(*,"(2A)") "%each_nstep_part was not set, so wall_action will be done once every fluid step ",identifier
+  endif
+
   !constructor finished
   this%constructed = .true.
 end subroutine construct_wall_action
@@ -491,8 +518,8 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
 
   implicit none
 
-  type(particle_sim),  intent(in) :: sim
-  type(edge_elements), intent(in) :: edge_element_template !< a prepared set of edge elements
+  type(particle_sim),  intent(inout) :: sim
+  type(edge_elements), intent(in)    :: edge_element_template !< a prepared set of edge elements
   
   type(wall_act_group), dimension(:), allocatable :: wall_act_groups
   type(type_wall_act_config) :: config
@@ -935,6 +962,13 @@ subroutine do_wall_action(this, sim, ev)
   integer :: i
 
   ! --- setup  
+
+  !check whether this action should be run right now
+  if(.not. this%fluid2part) then ! always run fluid2part actions when called
+    !> skip any part2part action if it is not it's time to be run
+    if(.not. (mod(sim%istep_inner_loop,this%each_nstep_part)==0 .or. sim%istep_inner_loop==sim%nstep_inner_loop)) return
+  endif
+
   if(sim%my_id == 0) write(*,"(A)") "--- wall_action: "//trim(this%name)//" --- "
 
   ! check whether the constructor was used (so that all other sanity checks can be done once in the constructor)
@@ -957,7 +991,7 @@ subroutine do_wall_action(this, sim, ev)
   ! in the future add part2other
 
   ! --- area for writing the projected diagnostic
-  if (sim%istep_inner_part >= sim%nsuperstep_part) then
+  if (sim%istep_inner_loop >= sim%nstep_inner_loop) then
     this%i_step_diag = this%i_step_diag + 1
     if (this%i_step_diag .ge. this%n_step_diag) then
       call write_wall_project_vtk(this, sim)

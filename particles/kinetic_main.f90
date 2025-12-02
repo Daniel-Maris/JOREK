@@ -31,7 +31,7 @@ use mod_basisfunctions
 use nodes_elements
 use constants,   only: MU_ZERO, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 use mod_particle_wall_interaction
-use mod_neutral_collision, only: neutral_collisions_from_config, type_neutral_collision
+use mod_neutral_collision, only: neutral_collisions_from_config, type_neutral_collision, gcd_neutral_collisions
 use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
@@ -44,6 +44,7 @@ use mod_initialise_particles
 use equil_info
 use mod_output_file_routines, only: write_to_outputfile
 use mod_neutral_density, only: get_neutral_density
+use mod_math_operators, only: gcd
 
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
@@ -78,8 +79,9 @@ real*8    :: rho_norm, t_norm, n_norm
 !$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
-integer   :: i, j, istep_inner_part, group_num, config_num, valve_num
+integer   :: i, j, istep_inner_loop, group_num, config_num, valve_num, n_lcm_blocks, inner_stepsize
 integer   :: seed, i_rng, n_stream
+logical   :: last_step !< whether it is the last step of the inner particle loop
 
 !> For keeping track of groups requiring specific physics (e.g. wall actions, recombination, puffing...)
 integer   :: n_wall_act_groups = 0
@@ -248,6 +250,8 @@ if(size(neutral_collisions) > 0) then
   allocate(neutral_density_proj%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 1))
 endif
 
+!if no %each_nstep_part was set, the lowest common multiplier of all %each_nstep_part is 1 (meaning all particle-particle actions will happen only once each fluid timestep)
+if(sim%lcm_inner_loop == -1) sim%lcm_inner_loop = 1
 
 !***********************************************************************
 !*                           main loop                                 *
@@ -261,26 +265,37 @@ do while (.not. sim%stop_now)
   call write_to_outputfile(sim,header_line)
 
   ! --- Determining the time stepping for this fluid step
-  tstep = get_tstep_n(sim%istep_fluid) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
+  tstep = get_tstep_n(sim%istep_fluid)     ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
   sim%tstep_fluid_si = tstep*t_norm
-  sim%time = sim%time + sim%tstep_fluid_si ! carries the time at the end of the current loop
+  sim%time = sim%time + sim%tstep_fluid_si ! carries the time at the end of the current main loop
 
-  sim%nsuperstep_part      = ceiling(sim%tstep_fluid_si / (nstep_particles * tstep_particles))
-  sim%tsuperstep_part      = sim%tstep_fluid_si / sim%nsuperstep_part
-  sim%nstep_part_adj       = ceiling(sim%tsuperstep_part / tstep_particles) ! ceiling makes sure tstep_part_adj is never bigger than tstep_particles
-  sim%tstep_part_adj       = sim%tsuperstep_part / sim%nstep_part_adj ! slightly smaller tstep_particles to fit an exact integer amount in one superstep
+  ! We divide the fluid timestep into an integer number of particle timesteps such that all actions with their own %each_nstep_part fit an integer amount 
+  ! of times in the fluid timestep. We ensure this by fitting the lowest common multiplier (lcm) of all %each_nstep_part into the fluid timestep an integer 
+  ! amount of times. 
+  n_lcm_blocks             = ceiling(sim%tstep_fluid_si / (sim%lcm_inner_loop * tstep_particles)) ! integer number of lcm blocks within one fluid step
+  sim%nstep_inner_loop     = n_lcm_blocks*sim%lcm_inner_loop                                      ! number of inner loop steps
+  sim%tstep_part_adj       = sim%tstep_fluid_si / sim%nstep_inner_loop                            ! slightly smaller tstep_particles to fit an exact integer amount in one fluid timestep
   
+  ! if gcd > 1, we don't have to run each particle loop separately, but we can bunch them up into steps of size gcd
+  ! if no %each_nstep_part is set, gcd is the maximum possible value of sim%nstep_inner_loop
+  inner_stepsize = sim%gcd_inner_loop
+  if(sim%gcd_inner_loop == -1) inner_stepsize = sim%nstep_inner_loop
+
   if (sim%my_id .eq. 0) then
-    if(sim%tstep_fluid_si < sim%tstep_part_adj) write(*,*) "tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
-    write(*,*) "sim%time            : ",sim%time
-    write(*,*) "tstep_fluid_si      : ",sim%tstep_fluid_si
-    write(*,*) "aim tstep_particles : ",tstep_particles
-    write(*,*) "aim nstep_particles : ",nstep_particles
-    write(*,*) "tsuperstep_part     : ",sim%tsuperstep_part
-    write(*,*) "nsuperstep_part     : ",sim%nsuperstep_part
-    write(*,*) "used tstep_part_adj : ",sim%tstep_part_adj
-    write(*,*) "used nstep_part_adj : ",sim%nstep_part_adj
-    write(*,*) "n_part*dt_part*n_super - dt_fluid  : ",sim%nstep_part_adj*sim%tstep_part_adj*sim%nsuperstep_part - sim%tstep_fluid_si
+    if(sim%lcm_inner_loop * tstep_particles > sim%tstep_fluid_si) then
+      write(*,"(A)") "WARNING: the lowest common multiplier (lcm) of all specified %each_nstep_part makes the particle_timestep smaller than it"
+      write(*,"(A)") "needs to be this fluid tstep. Consider changing your %each_nstep_part to be more compatible with eachother (e.g. avoid   "
+      write(*,"(A)") "co-primes), and smaller in general to keep the lcm small."
+    end if
+    if(sim%tstep_fluid_si < sim%tstep_part_adj) write(*,"(A)") "tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
+    write(*,*) "sim%time                   : ",sim%time
+    write(*,*) "tstep_fluid_si             : ",sim%tstep_fluid_si
+    write(*,*) "aim tstep_particles        : ",tstep_particles
+    write(*,*) "used tstep_part_adj        : ",sim%tstep_part_adj
+    write(*,*) "nstep_inner_loop           : ",sim%nstep_inner_loop
+    write(*,*) "lcm, n_lcm_blocks          : ",n_lcm_blocks, sim%lcm_inner_loop
+    write(*,*) "gcd, inner_stepsize        : ",sim%gcd_inner_loop, inner_stepsize
+    write(*,*) "n_part*dt_part - dt_fluid  : ",sim%nstep_inner_loop*sim%tstep_part_adj - sim%tstep_fluid_si
   endif
 
 
@@ -309,15 +324,23 @@ do while (.not. sim%stop_now)
     enddo
   endif
 
-  ! --- Interactions that happen on the particle timesteps
+  ! --- Inner particle loop, with interactions that happen on the particle timesteps
   
   !> As we call multiple kinetic loops multiple times and only want to use 1 %rhs,
   !> we should set it to zero here before the inner loop starts
   jorek_feedback%rhs = 0.d0
-  do istep_inner_part=1,sim%nsuperstep_part
-    sim%istep_inner_part = istep_inner_part
-    write(header_line,'(A,I6,A,I6)') "Starting inner particle loop iteration sim%istep_inner_part = ",sim%istep_inner_part," of ",sim%nsuperstep_part
+  
+  do istep_inner_loop=inner_stepsize,sim%nstep_inner_loop,inner_stepsize
+    write(header_line,'(A,I6,A,I6)') "Starting inner particle loop iteration sim%istep_inner_loop = ",istep_inner_loop," of ",sim%nstep_inner_loop
     call write_to_outputfile(sim,header_line)
+
+    !updating inner loop steps
+    sim%istep_inner_loop = istep_inner_loop
+    if(istep_inner_loop == sim%nstep_inner_loop) then
+      last_step = .true.
+    else
+      last_step = .false.
+    endif
 
     call write_to_outputfile(sim, "Particle evolution loop")
     
@@ -327,15 +350,16 @@ do while (.not. sim%stop_now)
     !>  - kinetic neutrals
     !>  - kinetic impurities
 
+    ! evolution loop is called every inner particle step, for inner_stepsize number of steps at once
     do group_num=1, n_part_groups
-      call evolve_particle_group(sim, group_num, jorek_feedback, rng, sim%tstep_part_adj, sim%nstep_part_adj)
+      call evolve_particle_group(sim, group_num, jorek_feedback, rng, sim%tstep_part_adj, inner_stepsize)
     enddo  
 
     ! --- Handling the particles that left the domain
 
     ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
     ! which might lead to bad behaviour in other code than the wall_actions
-    if (n_wall_act_groups > 0) then
+    if (n_wall_act_groups > 0 .and. (mod(istep_inner_loop,gcd_wall_acts)==0 .or. last_step)) then
       call write_to_outputfile(sim, "Particle particle wall_actions")
       do i=1, n_wall_act_groups
         call wall_act_groups(i)%do(sim,.true.)
@@ -343,7 +367,7 @@ do while (.not. sim%stop_now)
     endif
   
     !neutral self collisions, which need the projected neutral density
-    if (size(neutral_collisions) > 0) then
+    if (size(neutral_collisions) > 0 .and. (mod(istep_inner_loop,gcd_neutral_collisions)==0 .or. last_step)) then
       call write_to_outputfile(sim, "Neutral self collisions")
   
       ! update the neutral density which are necessary for the neutral collisions
@@ -355,8 +379,8 @@ do while (.not. sim%stop_now)
       enddo
     endif
     
-  enddo !particle superstep inner loop
-  sim%istep_inner_part=-1 ! set to -1 to notify that sim is outside of inner particle loop
+  enddo ! inner particle loop
+  sim%istep_inner_loop=-1 ! set to -1 to notify that sim is outside of inner particle loop
 
   ! --- Update the fluid
   
