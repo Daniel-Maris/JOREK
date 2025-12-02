@@ -634,9 +634,9 @@ contains
           !> the feedback per particle per time step is accumulated which is then divided by gather time later
 #ifdef WITH_TiTe
           energy_source_Te = ionize_energy + radiation_energy
-          energy_source_Ti = -delta_E_kin
+          energy_source_Ti = delta_E_kin
 #else
-          energy_source    = ionize_energy + radiation_energy - delta_E_kin
+          energy_source    = ionize_energy + radiation_energy + delta_E_kin
 #endif
           mom_par_source   = particle_tmp%weight * dot_product(B, (v_old - v_new)) * sim%groups(group_num)%mass * ATOMIC_MASS_UNIT ! parallel momentum given to plasma
 
