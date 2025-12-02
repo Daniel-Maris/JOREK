@@ -316,12 +316,13 @@ do while (.not. sim%stop_now)
   if(sim%gcd_inner_loop == -1) inner_stepsize = sim%nstep_inner_loop
 
   if (sim%my_id .eq. 0) then
-    if(sim%lcm_inner_loop * tstep_particles > sim%tstep_fluid_si) then
+    if(sim%tstep_fluid_si < tstep_particles) then
+      write(*,"(A)") "WARNING: tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
+    else if(sim%lcm_inner_loop * tstep_particles > sim%tstep_fluid_si) then
       write(*,"(A)") "WARNING: the lowest common multiplier (lcm) of all specified %each_nstep_part makes the particle_timestep smaller than it"
       write(*,"(A)") "needs to be this fluid tstep. Consider changing your %each_nstep_part to be more compatible with eachother (e.g. avoid   "
       write(*,"(A)") "co-primes), and smaller in general to keep the lcm small."
     end if
-    if(sim%tstep_fluid_si < sim%tstep_part_adj) write(*,"(A)") "tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
     write(*,*) "sim%time                   : ",sim%time
     write(*,*) "tstep_fluid_si             : ",sim%tstep_fluid_si
     write(*,*) "aim tstep_particles        : ",tstep_particles
