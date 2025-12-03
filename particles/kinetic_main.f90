@@ -251,7 +251,7 @@ if(size(neutral_collisions) > 0) then
 endif
 
 !if no %each_nstep_part was set, the lowest common multiplier of all %each_nstep_part is 1 (meaning all particle-particle actions will happen only once each fluid timestep)
-if(sim%lcm_inner_loop == -1) sim%lcm_inner_loop = 1
+if(sim%lcm_inner_loop == -9999991) sim%lcm_inner_loop = 1
 
 !***********************************************************************
 !*                           main loop                                 *
@@ -313,7 +313,7 @@ do while (.not. sim%stop_now)
   ! if gcd > 1, we don't have to run each particle loop separately, but we can bunch them up into steps of size gcd
   ! if no %each_nstep_part is set, gcd is the maximum possible value of sim%nstep_inner_loop
   inner_stepsize = sim%gcd_inner_loop
-  if(sim%gcd_inner_loop == -1) inner_stepsize = sim%nstep_inner_loop
+  if(sim%gcd_inner_loop == -9999991) inner_stepsize = sim%nstep_inner_loop
 
   if (sim%my_id .eq. 0) then
     if(sim%tstep_fluid_si < tstep_particles) then

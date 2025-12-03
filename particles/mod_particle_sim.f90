@@ -47,13 +47,13 @@ end type particle_group
 type :: particle_sim
   real*8                                          :: time = 0.d0 !< time of the simulation. Only accurate when in events with sync or at
   !< the start of the simulation
-  integer                                         :: istep_fluid         !< timestep of main loop (on which the fluid is stepped)
-  integer                                         :: istep_inner_loop    !< timestep of inner particle loop (on which particle-particle interactions are called))
-  real*8                                          :: tstep_fluid_si      !< [s] fluid timestep (tstep) in si units
-  real*8                                          :: tstep_part_adj      !< [s] tstep_particles adjusted so that an integer amount of steps fit into a fluid timestep an integer amount of lcm_inner_loop times
-  integer                                         :: nstep_inner_loop    !< number of inner particle loops within the fluid step
-  integer                                         :: lcm_inner_loop = -1 !< lowest common multiplier of each_nstep_part of all actions in the inner loop
-  integer                                         :: gcd_inner_loop = -1 !< greatest common divisor  of each_nstep_part of all actions in the inner loop
+  integer                                         :: istep_fluid               !< timestep of main loop (on which the fluid is stepped)
+  integer                                         :: istep_inner_loop          !< timestep of inner particle loop (on which particle-particle interactions are called))
+  real*8                                          :: tstep_fluid_si            !< [s] fluid timestep (tstep) in si units
+  real*8                                          :: tstep_part_adj            !< [s] tstep_particles adjusted so that an integer amount of steps fit into a fluid timestep an integer amount of lcm_inner_loop times
+  integer                                         :: nstep_inner_loop          !< number of inner particle loops within the fluid step
+  integer                                         :: lcm_inner_loop = -9999991 !< lowest common multiplier of each_nstep_part of all actions in the inner loop
+  integer                                         :: gcd_inner_loop = -9999991 !< greatest common divisor  of each_nstep_part of all actions in the inner loop
   class(fields_base), allocatable                 :: fields
   logical                                         :: stop_now = .false.
   real*8                                          :: t_norm              !< JOREK normalisation factor
@@ -405,10 +405,10 @@ subroutine update_lcm_gcd(sim, new_number)
   integer :: gcd_temp
   
   ! filter out default
-  if(new_number == -1) return
+  if(new_number == -9999991) return
 
   ! if first encounter, set to the new_number 
-  if(sim%gcd_inner_loop == -1) then
+  if(sim%gcd_inner_loop == -9999991) then
     sim%gcd_inner_loop = new_number
     sim%lcm_inner_loop = new_number
     return
@@ -422,6 +422,6 @@ subroutine update_lcm_gcd(sim, new_number)
 
   ! gcd between old gcd and temporary gcd
   sim%gcd_inner_loop = gcd(sim%gcd_inner_loop, gcd_temp)
-end subroutine
+end subroutine update_lcm_gcd
 
 end module mod_particle_sim

@@ -47,7 +47,7 @@ module mod_neutral_collision
     procedure :: next
   end type
 
-  integer :: gcd_neutral_collisions = -1 !< greatest common divisor of the %each_nstep_part of all neutral collision objects
+  integer :: gcd_neutral_collisions = -9999991 !< greatest common divisor of the %each_nstep_part of all neutral collision objects
 
 contains
 
@@ -170,7 +170,7 @@ subroutine neutral_self_collision(this, sim, nodes, elements)
     stop
   end if
 
-  if(this%each_nstep_part == -9999999) then
+  if(this%each_nstep_part == -9999991) then
     dt = sim%nstep_inner_loop*sim%tstep_part_adj
   else
     dt = this%each_nstep_part*sim%tstep_part_adj
@@ -525,16 +525,12 @@ subroutine initialize(this, sim, group_num, dTw, each_nstep_part)
   this%group_num = group_num
   this%dTw = dtW
   this%each_nstep_part = each_nstep_part
-  if (each_nstep_part /= -9999999) then
+  if (each_nstep_part /= -9999991) then
     call sim%update_lcm_gcd(each_nstep_part)
-    if(gcd_neutral_collisions == -1) then
+    if(gcd_neutral_collisions == -9999991) then
       gcd_neutral_collisions = each_nstep_part
     else
-      if(gcd_neutral_collisions == -1) then
-        gcd_neutral_collisions = each_nstep_part
-      else
-        gcd_neutral_collisions = gcd(gcd_neutral_collisions,each_nstep_part)
-      endif
+      gcd_neutral_collisions = gcd(gcd_neutral_collisions,each_nstep_part)
     endif
   endif
 
@@ -595,7 +591,7 @@ function neutral_collisions_from_config(sim) result(neutral_collisions)
     end if
 
     !sanity check and writing when to run the action
-    if(part_group_configs(i)%ncoll_each_nstep_part /= -9999999) then
+    if(part_group_configs(i)%ncoll_each_nstep_part /= -9999991) then
       if(part_group_configs(i)%ncoll_each_nstep_part <= 0) then
         if(sim%my_id == 0) write(*,"(A,I2,A,I2,A,I2,A)") "ERROR: part_group_configs(",i,")%ncoll_each_nstep_part <= 0, which is not possible. Aborting."
         stop

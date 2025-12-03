@@ -901,7 +901,7 @@ part_group_configs(:)%use_kin_neutral_coll   = .false.
 do i=1,n_part_groups_max
   part_group_configs(i)%neutral_coll_dTw(:)  = -1.d99
 end do
-part_group_configs(:)%ncoll_each_nstep_part  = -9999999
+part_group_configs(:)%ncoll_each_nstep_part  = -9999991
 ! --- ics only
 part_group_configs(:)%use_kin_bg_collisions  = .false.
 part_group_configs(:)%kin_bg_coll_type       = 'Homma2020'
@@ -944,7 +944,7 @@ do i=1, n_part_groups_max
     !< if none of these three above options are set, the supers_ratio_wall method
     !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
   enddo
-  part_group_configs(i)%wall_act_each_nstep_part = -9999999
+  part_group_configs(i)%wall_act_each_nstep_part = -9999991
 enddo
 
 part_kill_ratio = 1.d-3

@@ -94,7 +94,7 @@ module mod_particle_wall_interaction
     
     class(type_rng), dimension(:), allocatable :: rng !< one RNG per openmp thread
 
-    integer             :: each_nstep_part = -9999999 !< run this particular action at every i_inner_loop = each_nstep_part
+    integer             :: each_nstep_part = -9999991 !< run this particular action at every i_inner_loop = each_nstep_part
     
     !> when the origin group is a fluid species
     integer             :: fluid_Z         = -999     !< Z of this fluid species (e.g. -2 for D)
@@ -150,7 +150,7 @@ module mod_particle_wall_interaction
                                                                !< as supers_ratio_wall_default * part_group_config(this%target_group)%n_particles
                                                                !< In this case this default value overrides the value from preset_parameters.f90
   
-  integer            :: gcd_wall_acts = -1                     !< greatest common divisor of the %each_nstep_part of all wall_actions
+  integer            :: gcd_wall_acts = -999999                !< greatest common divisor of the %each_nstep_part of all wall_actions
 contains
 
 !> Constructor for the particle_sputter type, setting the io_action parameters and sputtering parameters.
@@ -483,7 +483,7 @@ subroutine construct_wall_action(this, sim, origin_group, config, edge_element_t
       write(msg,"(A)") "each_nstep_part is only supported for particle-particle wall_actions but you set it for a fluid-particle wall_action"
       call wrong_input(msg, sim%my_id, identifier)
     endif
-    if(each_nstep_part /= -9999999) then
+    if(each_nstep_part /= -9999991) then
       if(each_nstep_part <= 0) then
         write(msg,"(A)") "each_nstep_part <= 0 which is not allowed"
         call wrong_input(msg, sim%my_id, identifier)
@@ -725,13 +725,13 @@ function wall_actions_from_config(sim, edge_element_template) result(wall_act_gr
     config_num_i = matching_part_config_indices(i)
     
     each_nstep_part = part_group_configs(config_num_i)%wall_act_each_nstep_part
-    if(each_nstep_part /= -9999999) then
+    if(each_nstep_part /= -9999991) then
       if(each_nstep_part <= 0) then
         write(*,"(A,I2,A)") "part_group_configs(",config_num_i,")%wall_act_each_nstep_part <= 0 which is not allowed. Aborting."
         stop
       endif
       call sim%update_lcm_gcd(each_nstep_part)
-      if (gcd_wall_acts == -1) then
+      if (gcd_wall_acts == -9999991) then
         gcd_wall_acts = each_nstep_part
       else
         gcd_wall_acts = gcd(gcd_wall_acts,each_nstep_part)
