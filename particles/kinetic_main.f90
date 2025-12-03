@@ -364,8 +364,10 @@ do while (.not. sim%stop_now)
 
     ! --- Handling the particles that left the domain
 
-    ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
-    ! which might lead to bad behaviour in other code than the wall_actions
+    ! At the moment the inner particle loop does not include any particle generation routines (such as puffing). If such routines would be moved 
+    ! to the inner particle loop, it would reintroduce the problem of overwriting %ielm<0 particles (particles that hit the wall but have not been 
+    ! reintroduced into the domain yet during the below particle-particle wall_actions) because the particle-particle wall_actions don't necessarily 
+    ! happen directly after the evolve_particle_group due to the flexible timestepping.
     if (n_wall_act_groups > 0 .and. (mod(istep_inner_loop,gcd_wall_acts)==0 .or. last_step)) then
       call write_to_outputfile(sim, "Particle particle wall_actions")
       do i=1, n_wall_act_groups
