@@ -114,7 +114,7 @@ subroutine conservation_block(sim)
     diff = 0.d0
     diff = conserv_obj - old
     
-    write(*,"(A)") "conservation checks --------------------------------------------------------------"
+    write(*,"(3A)") "conservation checks for group with id: ",tracked_group_id," -------------------------------------------------------------------"
     write(*,"(A,7A15)") "qty: ", "superparticles", "particles", "w ielm < 0", "momentum R", "momentum Z", "momentum phi", "energy"
     write(*,"(A,7es15.5)") "diff ",diff
     write(*,"(A,7es15.5)") "new  ",conserv_obj
