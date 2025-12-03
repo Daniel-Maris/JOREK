@@ -239,11 +239,11 @@ jorek_stepper_event    = new_event_ptr(jorek_stepper,    start = sim%time)
 !***********************************************************************
 
 istep = 0
-call write_to_outputfile(sim,"Starting main loop")
+call write_to_outputfile(sim,"Starting main loop",next_block_only_header=.true.)
 do while (.not. sim%stop_now)
   istep = istep + 1
   write(header_line,'(A37,I6)') "Starting main loop iteration istep = ",istep
-  call write_to_outputfile(sim,header_line)
+  call write_to_outputfile(sim,header_line,next_block_only_header=.true.)
 
   ! --- Determining the time stepping for this fluid step
   tstep = get_tstep_n(istep) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
@@ -365,7 +365,7 @@ end do ! while
 !***********************************************************************
 !*                          end of simulation                          *
 !***********************************************************************
-call write_to_outputfile(sim, "End of simulation")
+call write_to_outputfile(sim, "End of simulation",next_block_only_header=.true.)
   
 call write_simulation_hdf5(sim, 'part_restart.h5')
 
