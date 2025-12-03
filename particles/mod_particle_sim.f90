@@ -52,7 +52,7 @@ type :: particle_sim
   real*8                                          :: tstep_fluid_si            !< [s] fluid timestep (tstep) in si units
   real*8                                          :: tstep_part_adj            !< [s] tstep_particles adjusted so that an integer amount of steps fit into a fluid timestep an integer amount of lcm_inner_loop times
   integer                                         :: nstep_inner_loop          !< number of inner particle loops within the fluid step
-  integer                                         :: lcm_inner_loop = -9999991 !< lowest common multiplier of each_nstep_part of all actions in the inner loop
+  integer                                         :: lcm_inner_loop = -9999991 !< least common multiple of each_nstep_part of all actions in the inner loop
   integer                                         :: gcd_inner_loop = -9999991 !< greatest common divisor  of each_nstep_part of all actions in the inner loop
   class(fields_base), allocatable                 :: fields
   logical                                         :: stop_now = .false.
@@ -393,7 +393,7 @@ function config_num_from_id(id) result(config_num)
 
 end function config_num_from_id
 
-!> updates the lowest common multiplier (lcm) and greatest common divisor (gcd) of sim
+!> updates the least common multiple (lcm) and greatest common divisor (gcd) of sim
 subroutine update_lcm_gcd(sim, new_number)
   use mod_math_operators, only: gcd
   

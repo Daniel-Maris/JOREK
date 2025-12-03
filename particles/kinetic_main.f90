@@ -250,7 +250,7 @@ if(size(neutral_collisions) > 0) then
   allocate(neutral_density_proj%rhs(n_order+1, n_vertex_max, sim%fields%element_list%n_elements, n_tor, 1))
 endif
 
-!if no %each_nstep_part was set, the lowest common multiplier of all %each_nstep_part is 1 (meaning all particle-particle actions will happen only once each fluid timestep)
+!if no %each_nstep_part was set, the least common multiple of all %each_nstep_part is 1 (meaning all particle-particle actions will happen only once each fluid timestep)
 if(sim%lcm_inner_loop == -9999991) sim%lcm_inner_loop = 1
 
 !***********************************************************************
@@ -304,7 +304,7 @@ do while (.not. sim%stop_now)
   call write_to_outputfile(sim,"Starting inner particle loop")
   
   ! We divide the fluid timestep into an integer number of particle timesteps such that all actions with their own %each_nstep_part fit an integer amount 
-  ! of times in the fluid timestep. We ensure this by fitting the lowest common multiplier (lcm) of all %each_nstep_part into the fluid timestep an integer 
+  ! of times in the fluid timestep. We ensure this by fitting the least common multiple (lcm) of all %each_nstep_part into the fluid timestep an integer 
   ! amount of times. 
   n_lcm_blocks             = ceiling(sim%tstep_fluid_si / (sim%lcm_inner_loop * tstep_particles)) ! integer number of lcm blocks within one fluid step
   sim%nstep_inner_loop     = n_lcm_blocks*sim%lcm_inner_loop                                      ! number of inner loop steps
@@ -319,7 +319,7 @@ do while (.not. sim%stop_now)
     if(sim%tstep_fluid_si < tstep_particles) then
       write(*,"(A)") "WARNING: tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
     else if(sim%lcm_inner_loop * tstep_particles > sim%tstep_fluid_si) then
-      write(*,"(A)") "WARNING: the lowest common multiplier (lcm) of all specified %each_nstep_part makes the particle_timestep smaller than it"
+      write(*,"(A)") "WARNING: the least common multiple (lcm) of all specified %each_nstep_part makes the particle_timestep smaller than it"
       write(*,"(A)") "needs to be this fluid tstep. Consider changing your %each_nstep_part to be more compatible with eachother (e.g. avoid   "
       write(*,"(A)") "co-primes), and smaller in general to keep the lcm small."
     end if
