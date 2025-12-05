@@ -77,11 +77,6 @@ subroutine check_compatibility_ncs(group_num)
     write(*,*) "  Please recompile with with_neutrals and with_impurities=.false."
     stop
   endif
-
-  !> two-temperature model is not in production yet
-  if (with_TiTe) then
-    write(*,*) "EXPERIMENTAL: using kinetic neutrals/impurities with two-temperature model (with_TiTe = .true.)"
-  endif
   
 end subroutine check_compatibility_ncs
 
@@ -111,11 +106,6 @@ subroutine check_compatibility_ics(group_num)
     write(*,*) "  Currently kinetic impurities are not compatible with fluid neutrals/impurities."
     write(*,*) "  Please recompile with with_neutrals and with_impurities=.false."
     stop
-  endif
-
-  !> two-temperature model is not in production yet
-  if (with_TiTe) then
-    write(*,*) "EXPERIMENTAL: using kinetic neutrals/impurities with two-temperature model (with_TiTe = .true.)"
   endif
   
 
