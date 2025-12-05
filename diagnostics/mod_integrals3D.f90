@@ -453,6 +453,11 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp          local_aux_mom_par_int,local_aux_mom_par_ext,local_aux_mom_par_tot, n_aux_var,                  &
 !$omp          rho_idx_kin, mom_par_idx_kin,                                                                  &
 !$omp          local_pn_e, local_pn_i, local_pn,                                                              &
+#ifdef WITH_TiTe
+!$omp           E_Te_idx_kin, E_Ti_idx_kin,                                                                   &
+#else
+!$omp           E_idx_kin,                                                                                    &
+#endif
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp          spi_num_vol, local_source_volume, local_source_volume_drift, drift_distance,                   &
 !$omp          using_spi, n_spi_tot, n_inj, n_spi,                                                            &
@@ -494,11 +499,6 @@ Tie_min_neg = 0.5*T_min_neg
 !$omp           aux_P0, aux_P0_s, aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs,         &
 !$omp           eta_T_ohm, rn0, rn0_corr, rimp0, rimp0_corr, Z_eff, lnA, alpha_e,                             &
 !$omp           aux_E0_Ti, aux_E0_Te, aux_E0,                                                                 &
-#ifdef WITH_TiTe
-!$omp           E_Te_idx_kin, E_Ti_idx_kin,                                                                   &
-#else
-!$omp           E_idx_kin,                                                                                    &
-#endif
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
 !$omp           i_imp, frad_bg, Lrad_imp, Te_corr_eV, Te_eV, ne_SI, Ti_eV,                                    &
 !$omp           spi_R_tmp, spi_Z_tmp, spi_phi_tmp, ns_radius_tmp,                                             &
