@@ -1107,10 +1107,10 @@ subroutine fluid2part_action(this, sim)
 
       ! Calculate temperature at this position to determine particle energy
 #ifdef WITH_TiTe
-      call sim%fields%calc_NeTiTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_i=T_i, T_e=T_e)
+      call sim%fields%calc_NeTeTi(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e, T_i=T_i)
       Ti_eV = T_i * K_BOLTZ / EL_CHG
 #else
-      call sim%fields%calc_NeTiTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e)
+      call sim%fields%calc_NeTeTi(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e)
 #endif
       Te_eV = T_e * K_BOLTZ / EL_CHG
 
@@ -1352,10 +1352,10 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   if (trim(local_type) /= "pump") then
     ! Update the particle energy from the potential drop in the sheath
 #ifdef WITH_TiTe
-    call sim%fields%calc_NeTiTe(sim%time, particle%i_elm, particle%st, particle%x(3), n_e=n_e, T_i=T_i, T_e=T_e)
+    call sim%fields%calc_NeTeTi(sim%time, particle%i_elm, particle%st, particle%x(3), n_e=n_e, T_i=T_i, T_e=T_e)
     Ti_eV = T_i * K_BOLTZ / EL_CHG
 #else
-    call sim%fields%calc_NeTiTe(sim%time, particle%i_elm, particle%st, particle%x(3), n_e=n_e, T_e=T_e)
+    call sim%fields%calc_NeTeTi(sim%time, particle%i_elm, particle%st, particle%x(3), n_e=n_e, T_e=T_e)
 #endif
     Te_eV = T_e * K_BOLTZ / EL_CHG
   

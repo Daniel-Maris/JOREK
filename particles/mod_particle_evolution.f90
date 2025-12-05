@@ -32,7 +32,7 @@ contains
     use mod_basisfunctions
     use mod_particle_types, only: copy_particle_kinetic_leapfrog
     use mod_sampling, only: boxmueller_transform,sample_chi_squared_3
-    
+
     implicit none
     class(particle_sim), target, intent(inout)                :: sim
     integer, intent(in)                                       :: group_num
@@ -108,7 +108,6 @@ contains
         jorek_feedback%rhs(:,:,:,:,imp_q_idx) = jorek_feedback%rhs(:,:,:,:,imp_q_idx) + feedback_rhs(:,:,:,:,imp_q_idx)
         jorek_feedback%rhs(:,:,:,:,7) = jorek_feedback%rhs(:,:,:,:,7) + feedback_rhs(:,:,:,:,7)   !< extra projection (impurity radiated power)
         jorek_feedback%rhs(:,:,:,:,8) = jorek_feedback%rhs(:,:,:,:,8) + feedback_rhs(:,:,:,:,8)   !< extra projection (impurity density)
-        jorek_feedback%rhs(:,:,:,:,9) = jorek_feedback%rhs(:,:,:,:,9) + feedback_rhs(:,:,:,:,9)   !< extra projection (impurity rad)
       endif
     endif
 
@@ -376,12 +375,12 @@ contains
         
         !> calculate ion density and electron temperature (jorek model assumption: n_e = n_i)     
 #ifdef WITH_TiTe
-          call sim%fields%calc_NeTiTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3),n_e=n_i, T_i=T_i, T_e=T_e, n_e_raw=n_e_raw, &
-                            T_i_raw=T_i_raw, T_e_raw=T_e_raw, grad_T_i=grad_T_i)
+          call sim%fields%calc_NeTeTi(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3),n_e=n_i, T_e=T_e, T_i=T_i, n_e_raw=n_e_raw, &
+                            T_e_raw=T_e_raw, T_i_raw=T_i_raw, grad_T_i=grad_T_i)
           limits = (n_e_raw .le. 1e14) .or. (T_e_raw * K_BOLTZ / EL_CHG .le. 1.d0) .or. (T_i_raw * K_BOLTZ / EL_CHG .le. 1.d0) !ADAS limits
           limits_coll = T_i_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions
 #else
-          call sim%fields%calc_NeTiTe(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_e=n_i, T_e=T_e, n_e_raw=n_e_raw, T_e_raw=T_e_raw, grad_T_e=grad_T_i)
+          call sim%fields%calc_NeTeTi(t, particle_tmp%i_elm, particle_tmp%st, particle_tmp%x(3), n_e=n_i, T_e=T_e, n_e_raw=n_e_raw, T_e_raw=T_e_raw, grad_T_e=grad_T_i)
           limits = (n_e_raw .le. 1e14) .or. (T_e_raw * K_BOLTZ / EL_CHG .le. 1.d0)
           limits_coll = T_e_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions
 #endif
@@ -500,15 +499,6 @@ contains
           p_lost_plt = p_lost_plt + line_rad_energy
           p_lost_cx  = p_lost_cx + cx_source * cx_energy
 
-          ! Sanity check
-          if (i_elm_old <= 0 .or. i_elm_old > size(sim%fields%element_list%element)) then
-            !$omp critical
-            write(*,*) 'CRITICAL ERROR on MPI rank ', sim%my_id, ' Thread ', omp_get_thread_num()
-            write(*,*) 'Attempting to project feedback from an invalid element index!', i_elm_old
-            write(*,*) 'Particle j=', j, 'Substep k=', k
-            !$omp end critical
-            cycle
-          endif
 
           !> Calculate the projection of the ion source in real-time
           call basisfunctions(particle_tmp%st(1), particle_tmp%st(2), HH, HH_s, HH_t)
@@ -569,7 +559,6 @@ contains
             call sim%groups(group_num)%ad%ACD%interp(int(particle_tmp%q), log10(n_e), log10(T_e), Srec) ! [J m^3/s] Recomb radiation 
             binding_energy = sim%groups(group_num)%ad%ionisation_energy(particle_tmp%q) * EL_CHG
             radiation_energy = - n_e * particle_tmp%weight * (PLT +PRB-Srec*binding_energy)* tstep_part_adj
-            line_rad_energy = n_e * particle_tmp%weight * PLT * tstep_part_adj
           endif ! RADIATION
           
           !> COLLISIONS WITH THE BACKGROUND PLASMA (Neoclassical collisions)
@@ -662,7 +651,6 @@ contains
               imp_q_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q /real(nstep_particles,8)
               imp_density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight /real(nstep_particles,8)
               imp_P_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * radiation_energy / tstep_part_adj
-              imp_P_line_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * line_rad_energy / tstep_part_adj   
               do i_tor=1,n_tor
 #ifdef WITH_TiTe
                 feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin)    = feedback_rhs(m,l,i_elm_old,i_tor,E_Te_idx_kin) + HZ(i_tor) * E_fb_Te
@@ -674,7 +662,6 @@ contains
                 feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * imp_q_fb ! impurity charge density
                 feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * imp_P_rad_fb             ! impurity radiated power [to be moved to diag feedback]
                 feedback_rhs(m,l,i_elm_old,i_tor,8) = feedback_rhs(m,l,i_elm_old,i_tor,8) + HZ(i_tor) * imp_density_fb           ! impurity density [to be moved to diag feedback]
-                feedback_rhs(m,l,i_elm_old,i_tor,9) = feedback_rhs(m,l,i_elm_old,i_tor,9) + HZ(i_tor) * imp_P_line_rad_fb
               enddo
             enddo
           enddo
