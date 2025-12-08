@@ -239,11 +239,11 @@ jorek_stepper_event    = new_event_ptr(jorek_stepper,    start = sim%time)
 !***********************************************************************
 
 istep = 0
-call write_to_outputfile(sim,"Starting main loop",next_block_only_header=.true.)
+call write_to_outputfile(sim,"Starting main loop",next_block_write_conserv=.false.,next_block_write_timing=.false.)
 do while (.not. sim%stop_now)
   istep = istep + 1
   write(header_line,'(A37,I6)') "Starting main loop iteration istep = ",istep
-  call write_to_outputfile(sim,header_line,next_block_only_header=.true.)
+  call write_to_outputfile(sim,header_line,next_block_write_conserv=.false.,next_block_write_timing=.false.)
 
   ! --- Determining the time stepping for this fluid step
   tstep = get_tstep_n(istep) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
@@ -321,13 +321,13 @@ do while (.not. sim%stop_now)
   
   !> Project the collected feedback from the particles onto the finite element grid so that the MHD solver can use it
   !> Also writes the projection.vtk file which contains the interaction terms (particle, energy and momentum exchange to the fluid) and neutral density
-  call write_to_outputfile(sim, "Projecting feedback from particles to fluid FE grid")
+  call write_to_outputfile(sim, "Projecting feedback from particles to fluid FE grid",next_block_write_conserv=.false.)
   call with(sim, project_jorek_feedback)
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
   !> feedback of the particles as sources and sinks in the MHD equations 
   !> Also writes .h5 file, updates tstep and sets sim%stop_now = .true. if all fluid steps are done
-  call write_to_outputfile(sim, "Fluid stepper")
+  call write_to_outputfile(sim, "Fluid stepper",next_block_write_conserv=.false.)
   call with(sim, jorek_stepper_event) 
   
 
@@ -344,14 +344,15 @@ do while (.not. sim%stop_now)
   !Writing interim particle restart files every nout fluid steps done. Overwrites previous restart file to save space
   if ( nout_particles .eq. 9999999 ) then
     if ( mod(istep,nout) .eq. 0 ) then
-      call write_to_outputfile(sim, "Writing interim_part_restart.h5")
+      call write_to_outputfile(sim, "Writing interim_part_restart.h5",next_block_write_conserv=.false.)
       call write_simulation_hdf5(sim, 'interim_part_restart.h5')
     endif
   else
     !Writing regular particle restart files every nout_particles.
     if ( mod(index_now,nout_particles) .eq. 0 ) then
       write(rst_part_file, '(a,i6.6,a)') 'part_restart_', index_now, '.h5'
-      call write_to_outputfile(sim, "Writing part_restart.h5")
+      write(header_line, "(2A)") "Writing ",trim(rst_part_file)
+      call write_to_outputfile(sim, header_line,next_block_write_conserv=.false.)
       call write_simulation_hdf5(sim, trim(rst_part_file))
     endif
   endif
@@ -365,12 +366,13 @@ end do ! while
 !***********************************************************************
 !*                          end of simulation                          *
 !***********************************************************************
-call write_to_outputfile(sim, "End of simulation",next_block_only_header=.true.)
-  
+call write_to_outputfile(sim, "End of simulation",next_block_write_conserv=.false.,next_block_write_timing=.false.)
+
+call write_to_outputfile(sim, "Writing final part_restart.h5",next_block_write_conserv=.false.)
 call write_simulation_hdf5(sim, 'part_restart.h5')
 
+call write_to_outputfile(sim, "Finalizing",next_block_write_conserv=.false., next_block_write_timing=.false.)
 deallocate(recomb_groups)
-
 call sim%finalize()
 
 !***********************************************************************

@@ -12,33 +12,41 @@ module mod_output_file_routines
   private
   public write_to_outputfile
 
-  integer,parameter :: num_tracked=7      !< number of tracked variables (see conserv_obj)
+  integer,parameter :: num_tracked=7        !< number of tracked variables (see conserv_obj)
 
-  real*8  :: conserv_obj(num_tracked)=0.d0 !< superparticles, real particles, momentum (3 directions), energy
-  real*8  :: last_time=0                   !< omp_get_wtime
-  logical :: next_call_only_header=.false. !< whether the coming block should only have a header (.true.) or also have conservation and/or timing information (.false.)
+  real*8  :: conserv_obj(num_tracked)=0.d0  !< superparticles, real particles, momentum (3 directions), energy
+  real*8  :: last_time=0                    !< omp_get_wtime
+  logical :: next_call_write_conserv=.true. !< whether the coming block should have conservation information (.true.) or not (.false.)
+  logical :: next_call_write_timing =.true. !< whether the coming block should be timed (.true.) or not (.false.)
 
 contains
 
 !> Write the new header line for the coming block, with possibly extra general output of the previous block such as
 !> how much computational time the block previous block took, and the changes in particles/momentum/energy of a tracked species
-subroutine write_to_outputfile(sim,what,next_block_only_header)
+subroutine write_to_outputfile(sim,what,next_block_write_conserv,next_block_write_timing)
   implicit none
 
   type(particle_sim), intent(in) :: sim
   character(len=*),   intent(in) :: what
-  logical, optional,  intent(in) :: next_block_only_header !< whether the coming block should only have a header (.true.) or also have conservation and/or timing information (.false.). Default .false.
+  logical, optional,  intent(in) :: next_block_write_conserv !< whether the coming block should have conservation information (.true.) or not (.false.). Default behaviour: .true.
+  logical, optional,  intent(in) :: next_block_write_timing  !< whether the coming block should be timed (.true.) or not (.false.). Default behaviour: .true.
 
-  if(.not. next_call_only_header) then
+  if(next_call_write_conserv) then
     if (tracked_group_id /= "non") call conservation_block(sim)
-
+  end if
+  if(next_call_write_timing) then
     call cpu_time_block(sim)
   endif
 
-  if(present(next_block_only_header)) then
-    next_call_only_header=next_block_only_header
+  if(present(next_block_write_conserv)) then
+    next_call_write_conserv=next_block_write_conserv
   else
-    next_call_only_header=.false.
+    next_call_write_conserv=.true.
+  endif
+  if(present(next_block_write_timing)) then
+    next_call_write_timing=next_block_write_timing
+  else
+    next_call_write_timing=.true.
   endif
   
   if(sim%my_id .ne. 0) return
