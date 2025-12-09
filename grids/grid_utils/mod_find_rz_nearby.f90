@@ -59,7 +59,7 @@ real*8, optional,         intent(in)    :: phi
 
 !> Accuracy defaults (tolerances are squared!, units of element size)
 real*8,  parameter :: element_tolerance   = 1.d-24 !< Tolerance for finding a position inside an element
-integer, parameter :: newton_iter_max     = 8 !< Number of iterations to try
+integer, parameter :: newton_iter_max     = 200 !< Number of iterations to try
 
 !> Internal variables
 real*8  :: p              
@@ -181,8 +181,14 @@ if (newton_iter_number .gt. newton_iter_max) then
     !write(*,"(A,2g16.8)") "Find_RZ at ", x_new
   call find_RZ (node_list,element_list,x_new(1),x_new(2),  x_step(1),x_step(2),i_elm_new,s_new,t_new,ifail)
 #endif
-if (ifail .eq. 0) ifail=3
-return
+  if (ifail .eq. 0) then
+    ifail=3
+  else
+    !$omp critical
+      write(*,"(A,2f10.5,A)") "ERROR: issue in mod_find_rz_nearby; could not find ",R_old,Z_old," This position is likely outside of the domain but newton_iter_max is not big enough to find the domain boundary element closest to it"
+    !$omp end critical
+  endif
+  return
 endif
 end subroutine find_RZ_nearby
 
