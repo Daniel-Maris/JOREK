@@ -177,7 +177,6 @@ function new_projection(node_list, element_list,                                
   if (present(fractional_digits)) new%fractional_digits = fractional_digits
   if (present(calc_integrals)) new%calc_integrals = calc_integrals
   new%name = "Project"
-  new%log = .true.
 
   !----------------------------
 #if STELLARATOR_MODEL
