@@ -239,7 +239,7 @@ jorek_stepper_event    = new_event_ptr(jorek_stepper,    start = sim%time)
 !***********************************************************************
 
 istep = 0
-call write_to_outputfile(sim,"Starting main loop",next_block_write_conserv=.false.,next_block_write_timing=.false.)
+call write_to_outputfile(sim,"Starting main loop",next_block_write_conserv=.false.,next_block_write_timing=.false.) ! next_block_write_...=.false. because this is only a header, not the announcement of some action, so we don't want to time or write particle conservation for the "content" of this block as there is no content
 do while (.not. sim%stop_now)
   istep = istep + 1
   write(header_line,'(A37,I6)') "Starting main loop iteration istep = ",istep
@@ -321,7 +321,7 @@ do while (.not. sim%stop_now)
   
   !> Project the collected feedback from the particles onto the finite element grid so that the MHD solver can use it
   !> Also writes the projection.vtk file which contains the interaction terms (particle, energy and momentum exchange to the fluid) and neutral density
-  call write_to_outputfile(sim, "Projecting feedback from particles to fluid FE grid",next_block_write_conserv=.false.)
+  call write_to_outputfile(sim, "Projecting feedback from particles to fluid FE grid",next_block_write_conserv=.false.) ! next_block_write_conserv=.false. since the particle array is not changed during this action, so we don't want to log the global #particles, momentum and energy here
   call with(sim, project_jorek_feedback)
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
