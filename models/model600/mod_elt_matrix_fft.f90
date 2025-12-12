@@ -1621,12 +1621,7 @@ do i=1,n_vertex_max
                            * (                                          + F0 / BigR * v_p)  * xjac * tstep * tstep * factor(var_vpar,6)&
 
             !===============================End of new TG_num terms============================
-                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_k_star             * xjac * tstep * factor(var_vpar,9)& 
-
-            ! -------------------------------------- from kinetic coupling -------------------------------------------------
-              - v * aux_rho0 * vpar0 * BB2 * BigR * (1.d0 - fact_conservative_u)                     * xjac * tstep * factor(var_vpar,11) &
-              + v * BigR * aux_mom_par0                                                              * xjac * tstep * factor(var_vpar,12) 
-            ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
+                 - visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar * Bgrad_rho_k_star             * xjac * tstep * factor(var_vpar,9)
 
             end if ! (with_vpar)
             
