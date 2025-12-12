@@ -158,7 +158,7 @@ subroutine prepare(this, node_list, element_list, edge_domains, nsub, nsub_toroi
           this%patch(i_domain)%i_elm_jorek_edge(k) = edge_domains(i_domain)%i_elm(i+j)
           call interp_RZ(node_list, element_list, edge_domains(i_domain)%i_elm(i+j), st(1), st(2), R, Z)
             
-          this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal*n_period)],4)
+          this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal)],4)
           ! ien contains the coordinates of the edge points in counter-clockwise order.
           ! Elements point outwards from the domain (since particle fluxes are positive)
           ! orientation of JOREK elements is counterclockwise in poloidal plane
@@ -189,7 +189,7 @@ subroutine prepare(this, node_list, element_list, edge_domains, nsub, nsub_toroi
       this%patch(i_domain)%st(:,k) = st
       this%patch(i_domain)%i_elm_jorek_edge(k) = edge_domains(i_domain)%i_elm(i+n_jorek_elm-1)
       call interp_RZ(node_list, element_list, edge_domains(i_domain)%i_elm(i+n_jorek_elm-1), st(1), st(2), R, Z)
-      this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal*n_period)],4)
+      this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal)],4)
     end do
   end do
 end subroutine prepare
@@ -540,7 +540,7 @@ subroutine integrate_edge_elements(this, i_scalar, integral, res)
 
   ! Prepare PDFs
   res%nphi = n_plane*this%patch(1)%nsub_toroidal
-  res%dphi = TWOPI / (n_period*res%nphi)
+  res%dphi = TWOPI / (res%nphi)
   do i_patch=1,n_patch
     n = size(this%patch(i_patch)%st,2)/res%nphi
     allocate(res%pdf_pol(i_patch)%a(n))
