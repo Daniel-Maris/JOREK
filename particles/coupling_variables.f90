@@ -12,7 +12,7 @@ module coupling_variables
   integer, parameter :: var_name_len  = 15
   character(len=var_name_len), dimension(n_aux_var_max) :: coupling_vars
 
-  ! NCS
+  ! NCS (Coupling scheme for neutral particles)
 #ifdef WITH_TiTe
     character(len=var_name_len), dimension(4) :: ncs_var_names = [character(len=var_name_len) :: &
       "rho",      & !> density
@@ -28,6 +28,8 @@ module coupling_variables
     ]
 #endif
 
+  ! ICS (Coupling scheme for impurity particles)
+  !> These are only the base variables, there is also the impurity charge density, unique to each impurity group
 #ifdef WITH_TiTe
     character(len=var_name_len), dimension(3) :: ics_var_names = [character(len=var_name_len) :: &
       "mom_par",  & !> parallel momentum
