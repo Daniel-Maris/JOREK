@@ -406,6 +406,7 @@ contains
               if (ionize_ran(1) .le. ionize_prob) then
                 particle_tmp%i_elm  = 0
                 ionize_source = particle_tmp%weight
+                particle_tmp%weight = 0.d0
                 !superparticles ionized
                 n_super_ionized = n_super_ionized +1
               else
@@ -423,7 +424,7 @@ contains
             
           !> CHARGE EXCHANGE
           ! It is assumed that we will have a exchange between hydrogen isotopes
-          if (sim%groups(group_num)%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
+          if (sim%groups(group_num)%use_kin_cx  .and. .not. limits .and. particle_tmp%weight .gt. 0.d0) then !< CX uses adas as well. Te limit could be lower.
             call sim%groups(group_num)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
             CX_prob = 1.d0 - exp(-cx_rate * n_e * tstep_part_adj)
     
