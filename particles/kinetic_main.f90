@@ -430,26 +430,5 @@ pure function f_original(n, P, grad_P) result(f)
 
 end function f_original
 
-pure function f_toroidal_flux(n, P, grad_P) result(f)
-  integer, intent(in) :: n
-  real*8, intent(in) :: P(n), grad_P(3,n)
-  real*8 :: s, psi_norm, coeff(0:3)
-  real*4 :: f
-
-  ! central densiy should be 1.44131x10^17
-
-  coeff(0)=0.49123
-  coeff(1)=0.298228
-  coeff(2)=0.198739
-  coeff(3)=0.521298
-
-  psi_norm = max((P(1) - ES%Psi_axis) / ( ES%Psi_bnd - ES%Psi_axis),0.d0)
-
-  s = 0.957 * psi_norm + 0.043 * psi_norm**2 
-
-  f = coeff(3)*exp(-coeff(2)/coeff(1)*(tanh((sqrt(s)-coeff(0))/coeff(2))))
-
-end function f_toroidal_flux
-
 
 end program kinetic_main
