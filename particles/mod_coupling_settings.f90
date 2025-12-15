@@ -43,6 +43,12 @@ subroutine check_compatibility_and_determine_coupling_schemes()
         part_group_configs(group_num)%ics_group_idx = n_ics
       case ('rep')
         use_rep = .true.
+      case ('epc')
+        use_epc = .true.
+      case ('epp')
+        use_epp = .true.
+      case ('epf')
+        use_epf = .true.
       case ('non')
         
       case default
@@ -185,6 +191,12 @@ subroutine determine_coupling_variables()
     enddo
   endif
 
+  if (use_epf) then
+    do i=1, size(epf_var_names)
+      call assess_and_accumulate_variable(epf_var_names(i), coupling_var_idx, coupling_vars)
+    enddo
+  endif
+
   !> additional coupling schemes will be added here in future PRs (e.g. use_epp, use_epf)  
     
   !> assign indices to the coupling variables and determine n_aux_var
@@ -206,6 +218,21 @@ subroutine determine_coupling_variables()
         j_Phi_idx_kin = final_var_idx
       case ("imp_q")
         continue       !< do nothing as already handled above in use_ics loop
+      !> epf coupling vars
+      case ("rho_ep")
+        rho_ep_idx_kin = final_var_idx
+      case ("PI_RR")
+        PI_RR_idx_kin = final_var_idx
+      case ("PI_ZZ")
+        PI_ZZ_idx_kin = final_var_idx
+      case ("PI_PHIPHI")
+        PI_PHIPHI_idx_kin = final_var_idx
+      case ("PI_RZ")
+        PI_RZ_idx_kin = final_var_idx
+      case ("PI_RPHI")
+        PI_RPHI_idx_kin = final_var_idx
+      case ("PI_ZPHI")
+        PI_ZPHI_idx_kin = final_var_idx
       case default
         write(*,*) "Error: no match found for coupling variable: ", coupling_vars(i),", please check coupling_variables.f90 and recompile"
         stop
