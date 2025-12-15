@@ -14,28 +14,45 @@ module mod_output_file_routines
 
   integer,parameter :: num_tracked=7        !< number of tracked variables (see conserv_obj)
 
+  !> timer object to time anything
+  type :: timer
+    real*8 :: last_time = -1.d0             !< last time the timer was called
+    character(len=100) :: output_line(2)="" !< what to say exactly in the output file when writing the time spent
+    logical :: started=.false.              !< whether the timer has started running (.true.) or not (.false.)
+  contains
+    procedure :: write => write_cpu_time
+  end type timer
+
   real*8  :: conserv_obj(num_tracked)=0.d0  !< superparticles, real particles, momentum (3 directions), energy
-  real*8  :: last_time=0                    !< omp_get_wtime
   logical :: next_call_write_conserv=.true. !< whether the coming block should have conservation information (.true.) or not (.false.)
   logical :: next_call_write_timing =.true. !< whether the coming block should be timed (.true.) or not (.false.)
 
+  type(timer) :: time_block, time_main_loop
 contains
 
 !> Write the new header line for the coming block, with possibly extra general output of the previous block such as
 !> how much computational time the block previous block took, and the changes in particles/momentum/energy of a tracked species
-subroutine write_to_outputfile(sim,what,next_block_write_conserv,next_block_write_timing)
+subroutine write_to_outputfile(sim,what,next_block_write_conserv,next_block_write_timing,call_main_loop_timer)
   implicit none
 
   type(particle_sim), intent(in) :: sim
   character(len=*),   intent(in) :: what
   logical, optional,  intent(in) :: next_block_write_conserv !< whether the coming block should have conservation information (.true.) or not (.false.). Default behaviour: .true.
   logical, optional,  intent(in) :: next_block_write_timing  !< whether the coming block should be timed (.true.) or not (.false.). Default behaviour: .true.
+  logical, optional,  intent(in) :: call_main_loop_timer       !< whether this is the start of 
+
+  real*8  :: now, mmm_main(3)
+  logical :: call_main_loop_timer_loc
 
   if(next_call_write_conserv) then
     if (tracked_group_id /= "non") call conservation_block(sim)
   end if
   if(next_call_write_timing) then
-    call cpu_time_block(sim)
+    if(.not. time_block%started) then
+      ! setting up the timer
+      time_block%output_line(1) = "block"
+    endif
+    call time_block%write(sim)
   endif
 
   if(present(next_block_write_conserv)) then
@@ -48,7 +65,18 @@ subroutine write_to_outputfile(sim,what,next_block_write_conserv,next_block_writ
   else
     next_call_write_timing=.true.
   endif
-  
+
+  call_main_loop_timer_loc = .false.
+  if(present(call_main_loop_timer)) call_main_loop_timer_loc = call_main_loop_timer
+  if(call_main_loop_timer_loc) then
+    if(.not. time_main_loop%started) then
+      ! setting up the timer
+      time_main_loop%output_line(1) = "===== Main loop iteration"
+      time_main_loop%output_line(2) = "====="
+    endif
+    call time_main_loop%write(sim)
+  endif
+
   if(sim%my_id .ne. 0) return
 
   write(*,'(A100)') "===================================================================================================="
@@ -130,23 +158,39 @@ subroutine conservation_block(sim)
 
 end subroutine conservation_block
 
-!> determines the cpu time spent since the last time this function was called (so it times the previous block)
+!> determines the cpu time spent since the last time this function was called
 !> and writes this to the output file
-subroutine cpu_time_block(sim)
+subroutine write_cpu_time(this, sim)
   implicit none
   
-  class(particle_sim), target, intent(in) :: sim
+  class(timer),                intent(inout) :: this
+  class(particle_sim), target, intent(in)    :: sim
 
   real*8 :: now, mmm(3)
+  logical :: has_omp
+  has_omp = .false.
+  !$ has_omp = .true.
+  ! the !$ lines are executed only if omp is used, they are not actual comments
+  
+  if(has_omp) then
+    call cpu_time(now)
+  else
+    !$ now = omp_get_wtime()
+  endif
+  if(sim%n_mpi > 1) then
+    mmm = mpi_minmeanmax(now - this%last_time)
+  else
+    mmm(:) = now - this%last_time
+  endif
+  this%last_time = now
 
-  ! the following are executed only if omp is used, they are not actual comments
+  ! don't write timing information the first time around, because it makes no sense
+  if(.not. this%started) then
+    this%started=.true.
+    return
+  end if
 
-  !$ if(last_time < 0.d0) last_time = 0
-  !$ now = omp_get_wtime()
-  !$ mmm = mpi_minmeanmax(now - last_time)
-  !$ last_time = now
-
-  !$ if(sim%my_id == 0) write(*,"(A,3f17.5,A)") "block done in (min/mean/max) ", mmm, " s"
-end subroutine cpu_time_block
+  if(sim%my_id == 0) write(*,"(2A,3f17.5,2A)") trim(this%output_line(1))," done in (min/mean/max) ", mmm, " s ",trim(this%output_line(2))
+end subroutine write_cpu_time
 
 end module mod_output_file_routines

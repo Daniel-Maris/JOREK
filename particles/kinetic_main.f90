@@ -76,7 +76,6 @@ character(len=50)                                 :: rst_part_file
 
 real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
 real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amount of steps (nstep_particles) fit into a fluid step (tstep)
-!$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
 integer   :: i, j, istep, group_num, config_num, valve_num
@@ -243,7 +242,7 @@ call write_to_outputfile(sim,"Starting main loop",next_block_write_conserv=.fals
 do while (.not. sim%stop_now)
   istep = istep + 1
   write(header_line,'(A37,I6)') "Starting main loop iteration istep = ",istep
-  call write_to_outputfile(sim,header_line,next_block_write_conserv=.false.,next_block_write_timing=.false.)
+  call write_to_outputfile(sim,header_line,next_block_write_conserv=.false.,next_block_write_timing=.false.,call_main_loop_timer=.true.) ! call_main_loop_timer=.true. because we want to write the total time taken by the previous main loop iteration before starting the next main loop iteration
 
   ! --- Determining the time stepping for this fluid step
   tstep = get_tstep_n(istep) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
@@ -366,7 +365,7 @@ end do ! while
 !***********************************************************************
 !*                          end of simulation                          *
 !***********************************************************************
-call write_to_outputfile(sim, "End of simulation",next_block_write_conserv=.false.,next_block_write_timing=.false.)
+call write_to_outputfile(sim, "End of simulation",next_block_write_conserv=.false.,next_block_write_timing=.false.,call_main_loop_timer=.true.)
 
 call write_to_outputfile(sim, "Writing final part_restart.h5",next_block_write_conserv=.false.)
 call write_simulation_hdf5(sim, 'part_restart.h5')
