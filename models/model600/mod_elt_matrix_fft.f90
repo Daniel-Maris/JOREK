@@ -1545,7 +1545,7 @@ do i=1,n_vertex_max
                         ! --------------------------------------   from rep kinetic coupling ------------------------------------------
                            - v * (aux_P_par_re + aux_P_perp_re) *   BigR              * xjac * tstep * factor(var_u,12)      &
                         ! --------------------------------------   from epf kinetic coupling ------------------------------------------
-                           + BigR**2 * ( -aux_divPIR_perp*v_y + aux_divPIZ_perp*v_x)  * xjac * tstep
+                           + BigR**2 * ( -aux_divPIR_perp*v_y + aux_divPIZ_perp*v_x)  * xjac * tstep * factor(var_u,13)
                         ! --------------------------------------   end of kinetic coupling terms --------------------------------------
 
 
