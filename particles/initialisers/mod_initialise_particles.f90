@@ -20,12 +20,21 @@ module mod_initialise_particles
     do i=1, n_part_groups ! loop over part_groups_in_use
       j = matching_part_config_indices(i) ! get the matching part_group_config index
       
-      !> initialisation of runaway electrons
-      if (trim(part_group_configs(j)%coupling_scheme) == 'rep') then
-        if (sim%my_id == 0) write(*,*) "----- Initialising particles for group '", part_group_configs(j)%id, "' with coupling scheme '", part_group_configs(j)%coupling_scheme, "' -----"
+      if (sim%my_id == 0) write(*,*) "----- Initialising particles for group '", part_group_configs(j)%id, "' with coupling scheme '", part_group_configs(j)%coupling_scheme, "' -----"
 
+      select case(trim(part_group_configs(j)%coupling_scheme))
+
+      !> initialisation of runaway electrons
+      case('rep')
         call initialise_group_RE(sim, i)
-      endif
+      !> initialisation of energetic particles
+      case ('epc', 'epp', 'epf')
+        call initialise_group_EP(sim, i)
+      !> default case - give error
+      case default
+        if (sim%my_id == 0) write(*,*) "ERROR : No particle coupling scheme selected for group '", part_group_configs(j)%id, "'"
+        stop 1
+      end select
     enddo
 
   end subroutine initialise_particles_for_sim
@@ -62,12 +71,45 @@ module mod_initialise_particles
         endif
       case default
         if (sim%my_id == 0) then
-        write(*,*) "ERROR: ", trim(init_function_name), " is not a valid initialisation function "
-        write(*,*) "  for group '", config%id, "' with coupling scheme: '", config%coupling_scheme, "'"
+          write(*,*) "ERROR: ", trim(init_function_name), " is not a valid initialisation function "
+          write(*,*) "  for group '", config%id, "' with coupling scheme: '", config%coupling_scheme, "'"
         endif
         stop 1
     end select
 
   end subroutine initialise_group_RE
+
+  subroutine initialise_group_EP(sim, group_num)
+    use mod_pcg32_rng
+
+    implicit none
+    class(particle_sim), intent(inout) :: sim
+    integer,             intent(in)    :: group_num
+    character(len=50)                  :: init_function_name
+    type(type_part_group_config)       :: config
+    real*8                             :: T_maxwell
+    integer                            :: n_phi_planes_in
+
+    config = part_group_configs(matching_part_config_indices(group_num))
+    init_function_name = config%init_function
+    T_maxwell = config%T_maxwell
+    n_phi_planes_in = config%n_phi_planes
+
+    select case (trim(init_function_name))
+    case ("maxwell")
+      if (sim%my_id == 0) write(*,*) "Using the initialise_particles_h_mu_psi_phiplanes subroutine"
+      call initialise_particles_H_mu_psi_phiplanes(sim%groups(group_num)%particles, sim%fields, pcg32_rng(),sim%groups(group_num)%mass, T_maxwell=T_maxwell, n_phi_planes_in=n_phi_planes_in)
+      if (sim%my_id == 0) then
+        write(*,*) "----- Finished initialisation for group '", config%id, "' with coupling scheme '", config%coupling_scheme, "' -----"
+        write(*,*) ""
+      endif
+    case default
+      if (sim%my_id == 0) then
+        write(*,*) "ERROR: ", trim(init_function_name), " is not a valid initialisation function "
+        write(*,*) "  for group '", config%id, "' with coupling scheme: '", config%coupling_scheme, "'"
+      endif
+      stop 1
+    end select
+  end subroutine initialise_group_EP
 
 end module mod_initialise_particles

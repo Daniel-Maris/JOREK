@@ -1090,6 +1090,10 @@ module phys_module
     real*8              :: re_std_energy           !< standard deviation of the energy [eV] of the runaway electrons in the group
     real*8              :: re_pitch                !< pitch between RE momentum and magnetic field line (i.e. p_re_par/p_re_tot)
 
+    ! =============== for energetic particles ('epc', 'epp', 'epf' coupling schemes) ==========
+    real*8              :: T_maxwell               !< Maxwellian temperature [eV] for the energetic particles
+    integer             :: n_phi_planes            !< number of phi planes to copy initialised particles around
+
   end type type_part_group_config
 
   !> @name Particle groups in use (used when changing groups on restart), fill with group ids
