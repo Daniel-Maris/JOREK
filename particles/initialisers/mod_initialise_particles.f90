@@ -111,10 +111,10 @@ module mod_initialise_particles
       call adjust_particle_weights(sim%groups(group_num)%particles, n_particles_total)
       if (sim%my_id == 0) then
         write(*,*) "----- Finished initialisation for group '", config%id, "' with coupling scheme '", config%coupling_scheme, "' -----"
-        write(*,'(A,ES12.2)')   " Number of super particles    : ", config%n_particles
-        write(*,'(A,ES12.2)')   " Total number of particles    : ", n_particles_total
-        write(*,'(A,ES12.2)')   " Particle weights adjusted to : ", sim%groups(group_num)%particles(1)%weight
-        write(*,'(A,ES12.2,A)') " Temperature of Maxwellian    : ", T_maxwell, "[eV]"
+        write(*,'(A,ES12.3)')   " Number of super particles    : ", config%n_particles
+        write(*,'(A,ES12.3)')   " Total number of particles    : ", n_particles_total
+        write(*,'(A,ES12.3)')   " Particle weights adjusted to : ", sim%groups(group_num)%particles(1)%weight
+        write(*,'(A,ES12.3,A)') " Temperature of Maxwellian    : ", T_maxwell, "[eV]"
         write(*,*) ""
       endif
     case default
