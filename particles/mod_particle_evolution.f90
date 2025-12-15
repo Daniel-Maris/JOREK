@@ -429,7 +429,6 @@ contains
                 ionize_source = particle_tmp%weight
                 !superparticles ionized
                 n_super_ionized = n_super_ionized +1
-                cycle
               else
                 ionize_source = 0.d0
               endif
