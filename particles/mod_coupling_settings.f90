@@ -48,6 +48,7 @@ subroutine check_compatibility_and_determine_coupling_schemes()
       case ('epp')
         use_epp = .true.
       case ('epf')
+        call check_compatibility_epf(group_num)
         use_epf = .true.
       case ('non')
         
@@ -131,6 +132,55 @@ subroutine check_compatibility_ics(group_num)
   endif
 
 end subroutine check_compatibility_ics
+
+subroutine check_compatibility_epf(group_num)
+  implicit none
+  integer :: group_num
+
+  !> currently epf particles must be of type 'particle_kinetic_leapfrog'
+  if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently only type = 'particle_kinetic_leapfrog' is supported for"
+    write(*,*) "  groups with coupling scheme 'ncs'"
+    stop
+  endif
+
+  !> currently epf particles are not compatible with fluid neutrals and fluid impurities
+  if (with_neutrals .or. with_impurities) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic neutrals are not compatible with fluid neutrals/impurities."
+    write(*,*) "  Please recompile with with_neutrals and with_impurities=.false."
+    stop
+  endif
+
+  !> currently epf particles are not compatible with two temperature
+  if (with_TiTe) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
+    write(*,*) "  Currently kinetic neutrals are not compatible with two temperature models, "
+    write(*,*) "  Please recompile with with_TiTe=.false."
+    stop
+  endif
+
+  !> Check initialisation parameters
+  if (trim(part_group_configs(group_num)%init_function) .eq. 'maxwell') then
+    if (part_group_configs(group_num)%T_maxwell .eq. 0.d0) then
+      write(*,*) "Maxwell initialisation chosen, but no temperature supplied"
+      write(*,*) "please set part_group_configs()%T_maxwell"
+      stop
+    endif
+    if (part_group_configs(group_num)%n_phi_planes .eq. 0) then
+      write(*,*) "Maxwell initialisation chosen, but n_phi_planes = 0"
+      write(*,*) "needs to be at least 1, please set part_group_configs()%n_phi_planes"
+      stop
+    endif
+  endif
+  if (part_group_configs(group_num)%n_particles_total .eq. 0.d0) then
+    write(*,*) "n_particles_total = 0, this is how weights are set"
+    write(*,*) "please set part_group_configs()%n_particles_total"
+    stop
+  endif
+
+end subroutine check_compatibility_epf
 
 !> compares the name of a given coupling variable associated with a coupling scheme (i.e. assessed_var) 
 !> with the list of coupling variables already used by the simulation (i.e. coupling_vars). If the 
