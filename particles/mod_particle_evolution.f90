@@ -798,6 +798,6 @@ contains
       write(*,*) " EP LOOP : End of particle loop"
       write(*,*) " EP LOOP : Lost ", n_parts_lost, " particles total"
     end if
-  end subroutine evolve_EPs
+  end subroutine evolve_epf
 
 end module mod_particle_evolution
