@@ -195,6 +195,8 @@ allocate(element_list)
 allocate(bnd_elm_list)
 allocate(bnd_node_list)
 
+n_aux_var = 10 ! temprarily hard coded - must be a better way of getting n_aux_var
+
 ! --- Initialise input parameters and read the input namelist.
 my_id     = 0
 call initialise_parameters(my_id, "__NO_FILENAME__")
@@ -376,7 +378,7 @@ endif
 allocate(iibg(n_adas),iproj(n_var))
 
 if (include_projections) then
-  do i = 1, n_var
+  do i = 1, n_aux_var
     write(proj_label, '(a4,i2.2)') 'aux_', i
     call add_vtk_entry(proj_label, proj_label, iproj(i), n_scalars, si_units, scalar_names) 
   end do
@@ -720,7 +722,7 @@ do i=1,element_list%n_elements
         enddo
 
         if (include_projections) then
-          do i_proj=1,n_var
+          do i_proj=1,n_aux_var
             call interp(aux_node_list,element_list,i,i_proj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,iproj(i_proj)) = P * HZ(i_tor,i_plane)
           end do
@@ -1075,7 +1077,7 @@ do i=1,element_list%n_elements
           enddo
 
           if (include_projections) then
-            do i_proj=1,n_var
+            do i_proj=1,n_aux_var
               call interp(aux_node_list,element_list,i,i_proj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
               scalars(inode,iproj(i_proj)) = scalars(inode,iproj(i_proj)) + P * HZ(i_tor,i_plane)
             end do
