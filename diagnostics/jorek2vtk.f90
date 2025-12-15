@@ -195,8 +195,6 @@ allocate(element_list)
 allocate(bnd_elm_list)
 allocate(bnd_node_list)
 
-n_aux_var = 10 ! temprarily hard coded - must be a better way of getting n_aux_var
-
 ! --- Initialise input parameters and read the input namelist.
 my_id     = 0
 call initialise_parameters(my_id, "__NO_FILENAME__")
@@ -378,7 +376,7 @@ endif
 allocate(iibg(n_adas),iproj(n_var))
 
 if (include_projections) then
-  do i = 1, n_aux_var
+  do i = 1, 8 !> hard-coded n_aux_var, TODO : find better way of getting this value
     write(proj_label, '(a4,i2.2)') 'aux_', i
     call add_vtk_entry(proj_label, proj_label, iproj(i), n_scalars, si_units, scalar_names) 
   end do
@@ -722,7 +720,7 @@ do i=1,element_list%n_elements
         enddo
 
         if (include_projections) then
-          do i_proj=1,n_aux_var
+          do i_proj=1,8 !> hard-coded n_aux_var, TODO : find better way of getting this value
             call interp(aux_node_list,element_list,i,i_proj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
             scalars(inode,iproj(i_proj)) = P * HZ(i_tor,i_plane)
           end do
@@ -814,6 +812,13 @@ do i=1,element_list%n_elements
              call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
              scalars(inode,m) = scalars(inode,m) + P * HZ(i_tor,i_plane)
           enddo
+
+          if (include_projections) then
+            do i_proj=1,8 !> hard-coded n_aux_var, TODO : find better way of getting this value
+              call interp(aux_node_list,element_list,i,i_proj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
+              scalars(inode,iproj(i_proj)) = scalars(inode,iproj(i_proj)) + P * HZ(i_tor,i_plane)
+            end do
+          end if
           
           call interp(node_list,element_list,i,var_AR, i_tor,s,t,AR0,AR0_s,AR0_t,AR0_st,AR0_ss,AR0_tt)
           call interp(node_list,element_list,i,var_AZ, i_tor,s,t,AZ0,AZ0_s,AZ0_t,AZ0_st,AZ0_ss,AZ0_tt)
@@ -1077,7 +1082,7 @@ do i=1,element_list%n_elements
           enddo
 
           if (include_projections) then
-            do i_proj=1,n_aux_var
+            do i_proj=1,8 !> hard-coded n_aux_var, TODO : find better way of getting this value
               call interp(aux_node_list,element_list,i,i_proj,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
               scalars(inode,iproj(i_proj)) = scalars(inode,iproj(i_proj)) + P * HZ(i_tor,i_plane)
             end do
