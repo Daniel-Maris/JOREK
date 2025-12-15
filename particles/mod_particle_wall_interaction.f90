@@ -1110,7 +1110,7 @@ subroutine fluid2part_action(this, sim)
       call sim%fields%calc_NeTeTi(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e, T_i=T_i)
       Ti_eV = T_i * K_BOLTZ / EL_CHG
 #else
-      call sim%fields%calc_NeTeTi(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e)
+      call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e)
 #endif
       Te_eV = T_e * K_BOLTZ / EL_CHG
 
