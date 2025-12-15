@@ -210,6 +210,17 @@ real*8     :: visco_fact_old, visco_fact_new
 real*8     :: aux_rho0, aux_E0, aux_mom_par0
 real*8     :: aux_P_par_re, aux_P_perp_re, aux_jre, aux_jre_ind
 
+! --- Full pressure tensor coupling variables 
+real*8     :: aux_PIRR, aux_PIRR_s, aux_PIRR_t, aux_PIRR_R, aux_PIRR_Z,aux_PIRR_p
+real*8     :: aux_PIZZ, aux_PIZZ_s, aux_PIZZ_t, aux_PIZZ_R, aux_PIZZ_Z,aux_PIZZ_p
+real*8     :: aux_PIPP, aux_PIPP_s, aux_PIPP_t, aux_PIPP_R, aux_PIPP_Z,aux_PIPP_p
+real*8     :: aux_PIZR, aux_PIZR_s, aux_PIZR_t, aux_PIZR_R, aux_PIZR_Z,aux_PIZR_p
+real*8     :: aux_PIRP, aux_PIRP_s, aux_PIRP_t, aux_PIRP_R, aux_PIRP_Z,aux_PIRP_p
+real*8     :: aux_PIZP, aux_PIZP_s, aux_PIZP_t, aux_PIZP_R, aux_PIZP_Z,aux_PIZP_p
+real*8     :: aux_divPIR_perp, aux_divPIZ_perp,     aux_divPIp_perp
+real*8     :: aux_divPIR,      aux_divPIZ,          aux_divPIp
+real*8     :: aux_BdivPI,aux_BB2
+
 #define DIM1 n_plane
 #define DIM2 1:n_vertex_max*n_var*n_degrees
 
@@ -328,6 +339,17 @@ eq_zT           = 0.d0
 
 aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
 aux_P_par_re = 0.d0; aux_P_perp_re = 0.d0; aux_jre = 0.d0; aux_jre_ind = 0.d0
+
+! --- full pressure tensor coupling terms
+aux_PIRR = 0.d0; aux_PIRR_s = 0.d0; aux_PIRR_t = 0.d0; aux_PIRR_R = 0.d0; aux_PIRR_Z = 0.d0; aux_PIRR_p = 0.d0
+aux_PIZZ = 0.d0; aux_PIZZ_s = 0.d0; aux_PIZZ_t = 0.d0; aux_PIZZ_R = 0.d0; aux_PIZZ_Z = 0.d0; aux_PIZZ_p = 0.d0
+aux_PIPP = 0.d0; aux_PIPP_s = 0.d0; aux_PIPP_t = 0.d0; aux_PIPP_R = 0.d0; aux_PIPP_Z = 0.d0; aux_PIPP_p = 0.d0
+aux_PIZR = 0.d0; aux_PIZR_s = 0.d0; aux_PIZR_t = 0.d0; aux_PIZR_R = 0.d0; aux_PIZR_Z = 0.d0; aux_PIZR_p = 0.d0
+aux_PIRP = 0.d0; aux_PIRP_s = 0.d0; aux_PIRP_t = 0.d0; aux_PIRP_R = 0.d0; aux_PIRP_Z = 0.d0; aux_PIRP_p = 0.d0
+aux_PIZP = 0.d0; aux_PIZP_s = 0.d0; aux_PIZP_t = 0.d0; aux_PIZP_R = 0.d0; aux_PIZP_Z = 0.d0; aux_PIZP_p = 0.d0
+aux_divPIR_perp = 0.d0; aux_divPIZ_perp = 0.d0; aux_divPIp_perp = 0.d0
+aux_divPIR = 0.d0;      aux_divPIZ = 0.d0;      aux_divPIp = 0.d0
+aux_BdivPI = 0.d0;      aux_BB2 = 0.d0
 
 amu_neo_prof   = 0.d0
 aki_neo_prof   = 0.d0
@@ -709,6 +731,67 @@ do i=1,n_vertex_max
             else
               aux_jre_ind = aux_jre
             endif
+          endif
+
+          if(use_epf) then 
+            aux_PIRR    = eq_aux_g(mp,PI_RR_idx_kin,ms,mt);
+            aux_PIRR_s  = eq_aux_s(mp,PI_RR_idx_kin,ms,mt);
+            aux_PIRR_t  = eq_aux_t(mp,PI_RR_idx_kin,ms,mt);
+            aux_PIRR_R  = (   y_t(ms,mt) * aux_PIRR_s - y_s(ms,mt) * aux_PIRR_t ) / xjac
+            aux_PIRR_Z  = ( - x_t(ms,mt) * aux_PIRR_s + x_s(ms,mt) * aux_PIRR_t ) / xjac
+            aux_PIRR_p  = eq_aux_p(mp,PI_RR_idx_kin,ms,mt);
+
+            aux_PIZZ    = eq_aux_g(mp,PI_ZZ_idx_kin,ms,mt);
+            aux_PIZZ_s  = eq_aux_s(mp,PI_ZZ_idx_kin,ms,mt);
+            aux_PIZZ_t  = eq_aux_t(mp,PI_ZZ_idx_kin,ms,mt);
+            aux_PIZZ_R  = (   y_t(ms,mt) * aux_PIZZ_s - y_s(ms,mt) * aux_PIZZ_t ) / xjac
+            aux_PIZZ_Z  = ( - x_t(ms,mt) * aux_PIZZ_s + x_s(ms,mt) * aux_PIZZ_t ) / xjac
+            aux_PIZZ_p  = eq_aux_p(mp,PI_ZZ_idx_kin,ms,mt);
+            
+            aux_PIPP    = eq_aux_g(mp,PI_PHIPHI_idx_kin,ms,mt);
+            aux_PIPP_s  = eq_aux_s(mp,PI_PHIPHI_idx_kin,ms,mt);
+            aux_PIPP_t  = eq_aux_t(mp,PI_PHIPHI_idx_kin,ms,mt);
+            aux_PIPP_R  = (   y_t(ms,mt) * aux_PIPP_s - y_s(ms,mt) * aux_PIPP_t ) / xjac
+            aux_PIPP_Z  = ( - x_t(ms,mt) * aux_PIPP_s + x_s(ms,mt) * aux_PIPP_t ) / xjac
+            aux_PIPP_p  = eq_aux_p(mp,PI_PHIPHI_idx_kin,ms,mt);             
+
+            aux_PIZR    = eq_aux_g(mp,PI_RZ_idx_kin,ms,mt);
+            aux_PIZR_s  = eq_aux_s(mp,PI_RZ_idx_kin,ms,mt);
+            aux_PIZR_t  = eq_aux_t(mp,PI_RZ_idx_kin,ms,mt);
+            aux_PIZR_R  = (   y_t(ms,mt) * aux_PIZR_s - y_s(ms,mt) * aux_PIZR_t ) / xjac
+            aux_PIZR_Z  = ( - x_t(ms,mt) * aux_PIZR_s + x_s(ms,mt) * aux_PIZR_t ) / xjac
+            aux_PIZR_p  = eq_aux_p(mp,PI_RZ_idx_kin,ms,mt);             
+
+            aux_PIRP    = eq_aux_g(mp,PI_RPHI_idx_kin,ms,mt);
+            aux_PIRP_s  = eq_aux_s(mp,PI_RPHI_idx_kin,ms,mt);
+            aux_PIRP_t  = eq_aux_t(mp,PI_RPHI_idx_kin,ms,mt);
+            aux_PIRP_R  = (   y_t(ms,mt) * aux_PIRP_s - y_s(ms,mt) * aux_PIRP_t ) / xjac
+            aux_PIRP_Z  = ( - x_t(ms,mt) * aux_PIRP_s + x_s(ms,mt) * aux_PIRP_t ) / xjac
+            aux_PIRP_p  = eq_aux_p(mp,PI_RPHI_idx_kin,ms,mt);             
+
+            aux_PIZP    = eq_aux_g(mp,PI_ZPHI_idx_kin,ms,mt);
+            aux_PIZP_s  = eq_aux_s(mp,PI_ZPHI_idx_kin,ms,mt);
+            aux_PIZP_t  = eq_aux_t(mp,PI_ZPHI_idx_kin,ms,mt);
+            aux_PIZP_R  = (   y_t(ms,mt) * aux_PIZP_s - y_s(ms,mt) * aux_PIZP_t ) / xjac
+            aux_PIZP_Z  = ( - x_t(ms,mt) * aux_PIZP_s + x_s(ms,mt) * aux_PIZP_t ) / xjac
+            aux_PIZP_p  = eq_aux_p(mp,PI_ZPHI_idx_kin,ms,mt);
+
+            !See https://www.jorek.eu/wiki/doku.php?id=coordinates, div Pi (tensor)
+            !in physical components
+            !These calculations are the same in reduced MHD. Only the way in which these terms enter
+            !the projected equations differs.
+            aux_divPIR  = aux_PIRR_R + aux_PIZR_Z + (aux_PIRP_p + aux_PIRR - aux_PIPP) / BigR
+            aux_divPIZ  = aux_PIZZ_Z + aux_PIZR_R + (aux_PIZP_p + aux_PIZR) / BigR
+            aux_divPIp  = aux_PIPP_p / BigR + aux_PIRP_R + aux_PIZP_Z + 2.d0 / BigR * aux_PIRP
+ 
+            ! B. div P
+            aux_BdivPI      = ps0_y/BigR * aux_divPIR  - ps0_x/BigR * aux_divPIZ + F0/BigR * aux_divPIp
+            ! Ensuring B. div P is perpendicular to B.
+            aux_BB2= (ps0_y / BigR)**2 + (-ps0_x / BigR)**2 + (F0 / BigR)**2
+            aux_divPIR_perp = aux_divPIR - ps0_y / BigR / aux_BB2 * aux_BdivPI
+            aux_divPIZ_perp = aux_divPIZ + ps0_x / BigR / aux_BB2 * aux_BdivPI
+            aux_divPIp_perp = aux_divPIp - F0 / BigR / aux_BB2 * aux_BdivPI
+    
           endif
 
           if (with_neutrals) then
@@ -1459,9 +1542,12 @@ do i=1,n_vertex_max
                              + BigR**2 * vpar0 * (r0_x * ps0_y - r0_y * ps0_x)    * (v_x * u0_x + v_y * u0_y) * xjac * tstep &
                            ) * factor(var_u,10)                                                                              &
 
-                        ! --------------------------------------   from kinetic coupling -------------------------------------------------
-                           - v * (aux_P_par_re + aux_P_perp_re) *   BigR              * xjac * tstep * factor(var_u,12)
-                        ! -------------------------------- end of terms from kinetic coupling ------------------------------------------
+                        ! --------------------------------------   from rep kinetic coupling ------------------------------------------
+                           - v * (aux_P_par_re + aux_P_perp_re) *   BigR              * xjac * tstep * factor(var_u,12)      &
+                        ! --------------------------------------   from epf kinetic coupling ------------------------------------------
+                           + BigR**2 * ( -aux_divPIR_perp*v_y + aux_divPIZ_perp*v_x)  * xjac * tstep
+                        ! --------------------------------------   end of kinetic coupling terms --------------------------------------
+
 
             
             !------------------------------------------------------------------------ NEO
