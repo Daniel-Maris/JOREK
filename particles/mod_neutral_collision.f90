@@ -771,6 +771,8 @@ function next(this, RN) result(i_drawn)
   ! determine the location in the index array to draw from
   draw_loc = this%used + ceiling(RN * (this%size - this%used))
   
+  if(ceiling(RN) == 0) draw_loc = draw_loc + 1 ! treat the edge case that the random number = 0 exactly
+
   !sanity check on draw_loc
   if(draw_loc < 1 .or. draw_loc > this%size) then
     write(*,"(A,3I10,f10.5)") "ERROR in random draw. draw_loc/size/used/RN = ",draw_loc,this%size,this%used,RN
