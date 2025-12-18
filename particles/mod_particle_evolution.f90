@@ -60,7 +60,6 @@ contains
     endif
 
     !> Set up storage of feedback
-    jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + nstep_part_adj * tstep_part_adj
     allocate(feedback_rhs,source=jorek_feedback%rhs)
     feedback_nodelist => jorek_feedback%node_list
     feedback_element_list => jorek_feedback%element_list
@@ -88,33 +87,34 @@ contains
     ! ================================= CONSTRUCT PROJECTION RHS =======================================
     !> enter gathered rhs into jorek_feedback
     if (part_group%coupling_scheme == 'ncs' .or. part_group%coupling_scheme == 'ics') then
-      write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,E_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_idx_kin) + feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      ! To get rates in the feedback, we need to divide the change by the time. Since we keep adding changes each evolve_particle_group call until 
+      ! the rhs is reset to 0 when the jorek_feedback is projected (each fluid tstep), we should divide by sim%tstep_fluid_si
+      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / sim%tstep_fluid_si
+      jorek_feedback%rhs(:,:,:,:,E_idx_kin)       = jorek_feedback%rhs(:,:,:,:,E_idx_kin)       + feedback_rhs(:,:,:,:,E_idx_kin)       / sim%tstep_fluid_si
 
       !> ncs specific projections
       if (part_group%coupling_scheme == 'ncs') then
-        jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-        jorek_feedback%rhs(:,:,:,:,5) = jorek_feedback%rhs(:,:,:,:,5) + feedback_rhs(:,:,:,:,5)   !< extra diagnostic projection 
+        jorek_feedback%rhs(:,:,:,:,rho_idx_kin)   = jorek_feedback%rhs(:,:,:,:,rho_idx_kin)     + feedback_rhs(:,:,:,:,rho_idx_kin)     / sim%tstep_fluid_si
+        ! for the density, we should divide by the amount of times we will double count the same particle (=the number of particle steps in a fluid step)
+        jorek_feedback%rhs(:,:,:,:,5)             = jorek_feedback%rhs(:,:,:,:,5)               + feedback_rhs(:,:,:,:,5)               / (sim%tstep_fluid_si/tstep_part_adj) !< extra diagnostic projection (density) 
       endif
 
       !> ics specific projections
       if (part_group%coupling_scheme == 'ics') then
-        jorek_feedback%rhs(:,:,:,:,imp_q_idx) = jorek_feedback%rhs(:,:,:,:,imp_q_idx) + feedback_rhs(:,:,:,:,imp_q_idx)
-        jorek_feedback%rhs(:,:,:,:,6) = jorek_feedback%rhs(:,:,:,:,6) + feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
-        jorek_feedback%rhs(:,:,:,:,7) = jorek_feedback%rhs(:,:,:,:,7) + feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
+        jorek_feedback%rhs(:,:,:,:,imp_q_idx)     = jorek_feedback%rhs(:,:,:,:,imp_q_idx)       + feedback_rhs(:,:,:,:,imp_q_idx)       / (sim%tstep_fluid_si/tstep_part_adj)
+        jorek_feedback%rhs(:,:,:,:,6)             = jorek_feedback%rhs(:,:,:,:,6)               + feedback_rhs(:,:,:,:,6)               / sim%tstep_fluid_si                  !< extra projection (impurity radiated power)
+        jorek_feedback%rhs(:,:,:,:,7)             = jorek_feedback%rhs(:,:,:,:,7)               + feedback_rhs(:,:,:,:,7)               / (sim%tstep_fluid_si/tstep_part_adj) !< extra projection (impurity density)
       endif
     endif
 
     !> rep specific projections
     if (part_group%coupling_scheme == 'rep') then
       feedback_rhs = feedback_rhs / real(nstep_part_adj,8) 
-      jorek_feedback%rhs(:,:,:,:,P_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,P_par_idx_kin) + feedback_rhs(:,:,:,:,P_par_idx_kin) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin) + feedback_rhs(:,:,:,:,P_perp_idx_kin) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
+      jorek_feedback%rhs(:,:,:,:,P_par_idx_kin)   = jorek_feedback%rhs(:,:,:,:,P_par_idx_kin)   + feedback_rhs(:,:,:,:,P_par_idx_kin)
+      jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin)  = jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin)  + feedback_rhs(:,:,:,:,P_perp_idx_kin)
+      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin)   = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin)   + feedback_rhs(:,:,:,:,j_Phi_idx_kin)
     endif
 
-    jorek_feedback%rhs_gather_time = 0.d0
     deallocate(feedback_rhs)
     
     if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', part_group%id, " ----------"
@@ -205,9 +205,9 @@ contains
               
 
               do i_tor = 1,n_tor
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) + HZ(i_tor)*v_Ppar
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin)  = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin)  + HZ(i_tor)*v_Ppar
                 feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_perp_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_perp_idx_kin) + HZ(i_tor)*v_Pperp
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) + HZ(i_tor)*v_jPhi
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin)  = feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin)  + HZ(i_tor)*v_jPhi
 
                 !> inverse implementation from Hannes (TODO: reverse data structure of the projections generally)
                 ! feedback_rhs_inv(P_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(P_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
@@ -477,16 +477,16 @@ contains
           do l=1,n_vertex_max
             do m=1,n_order+1
   
-              density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source     * t_norm / rho_norm
-              mom_par_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
+              density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source      * t_norm / rho_norm
+              mom_par_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source      * t_norm / m_norm
               E_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
-              extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(nstep_part_adj,8) 
+              extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight
   
               do i_tor=1,n_tor
-                feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * density_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin)     = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin)     + HZ(i_tor) * density_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       + HZ(i_tor) * E_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj
+                feedback_rhs(m,l,i_elm_old,i_tor,5)               = feedback_rhs(m,l,i_elm_old,i_tor,5)               + HZ(i_tor) * extra_proj
               enddo
             enddo
           enddo
@@ -591,18 +591,18 @@ contains
           do l=1,n_vertex_max
             do m=1,n_order+1
   
-              mom_par_fb     = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
-              E_fb           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source  * t_norm / E_norm
-              imp_q_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q /real(nstep_part_adj,8)
-              imp_density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight /real(nstep_part_adj,8)
+              mom_par_fb     = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source                        * t_norm / m_norm
+              E_fb           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source                         * t_norm / E_norm
+              imp_q_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q 
+              imp_density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight
               imp_P_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * radiation_energy / tstep_part_adj
               
               do i_tor=1,n_tor
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       + HZ(i_tor) * E_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * imp_q_fb ! impurity charge density
-                feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * imp_P_rad_fb             ! impurity radiated power [to be moved to diag feedback]
-                feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * imp_density_fb           ! impurity density [to be moved to diag feedback]
+                feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx)       = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx)       + HZ(i_tor) * imp_q_fb       ! impurity charge density
+                feedback_rhs(m,l,i_elm_old,i_tor,6)               = feedback_rhs(m,l,i_elm_old,i_tor,6)               + HZ(i_tor) * imp_P_rad_fb   ! impurity radiated power [to be moved to diag feedback]
+                feedback_rhs(m,l,i_elm_old,i_tor,7)               = feedback_rhs(m,l,i_elm_old,i_tor,7)               + HZ(i_tor) * imp_density_fb ! impurity density [to be moved to diag feedback]
               enddo
             enddo
           enddo
