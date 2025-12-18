@@ -639,7 +639,7 @@ subroutine write_particle_distribution_to_vtk(node_list,element_list,filename,ns
   allocate(scalar_names(n_scalars),vector_names(n_vectors))
 
 #ifdef STELLARATOR_MODEL
-  allocate(scalars(n_planes, n_nodes, n_scalars), vectors(n_nodes,3,n_vectors))
+  allocate(scalars(n_plane, n_nodes, n_scalars), vectors(n_nodes,3,n_vectors))
 #else
   allocate(scalars(1, n_nodes, n_scalars), vectors(n_nodes,3,n_vectors))
 #endif
