@@ -329,7 +329,7 @@ contains
     !$omp density_source, mom_par_source, energy_source, v_old, v_new, T_eV,                              &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, delta_E_kin,                                   &
-    !$omp vvector, ran_norm, imp_q_idx_temp, n_e_raw, T_e_raw)                                            &
+    !$omp vvector, ran_norm, imp_q_idx_temp, n_e_raw, T_e_raw, i_tor, n)                                  &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
       particle_tmp = sim%groups(group_num)%particles(j)
