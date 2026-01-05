@@ -173,9 +173,9 @@ subroutine write_cpu_time(this, sim)
   ! the !$ lines are executed only if omp is used, they are not actual comments
   
   if(has_omp) then
-    call cpu_time(now)
-  else
     !$ now = omp_get_wtime()
+  else
+    call cpu_time(now)
   endif
   if(sim%n_mpi > 1) then
     mmm = mpi_minmeanmax(now - this%last_time)
