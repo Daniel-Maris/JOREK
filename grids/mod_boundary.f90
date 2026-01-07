@@ -593,7 +593,7 @@ module mod_boundary
     norm_n=(norm2(n,1))
     if(norm_n <= 0.d0) then
       !$omp critical
-      write(*,"(A,I8,5es10.5)") "ERROR: size of normal vector is 0 in grids/mod_boundary.f90 wall_normal_vector(). Returning n=(1,0,0) i_elm,s,t,norm_n,n = ",i_elm,s,t,norm_n,n
+      write(*,"(A,I8,6es15.5)") "ERROR: size of normal vector is 0 in grids/mod_boundary.f90 wall_normal_vector(). Returning n=(1,0,0) i_elm,s,t,norm_n,n = ",i_elm,s,t,norm_n,n
       !$omp end critical
       n=[1.d0,0.d0,0.d0]
       return
