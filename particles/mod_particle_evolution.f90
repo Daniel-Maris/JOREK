@@ -332,7 +332,7 @@ contains
     !$omp density_source, mom_par_source, energy_source, v_old, v_new, T_eV,                              &
     !$omp m_b, kTb,coulomb_log ,n_b,v_b, ran, ran2, q_b, q,                                               &
     !$omp P, P_s, P_t, P_phi, P_time, limits, limits_coll, delta_E_kin,                                   &
-    !$omp vvector, ran_norm, imp_q_idx_temp, n_e_raw, T_e_raw)                                            &
+    !$omp vvector, ran_norm, imp_q_idx_temp, n_e_raw, T_e_raw, i_tor, n)                                  &
     !$omp reduction(+:feedback_rhs,n_lost_ion,p_lost_plt,p_lost_cx,p_lost_ion,n_super_ionized)
     do j=1,size(sim%groups(group_num)%particles,1)
       particle_tmp = sim%groups(group_num)%particles(j)
@@ -409,6 +409,7 @@ contains
               if (ionize_ran(1) .le. ionize_prob) then
                 particle_tmp%i_elm  = 0
                 ionize_source = particle_tmp%weight
+                particle_tmp%weight = 0.d0
                 !superparticles ionized
                 n_super_ionized = n_super_ionized +1
               else
@@ -426,7 +427,7 @@ contains
             
           !> CHARGE EXCHANGE
           ! It is assumed that we will have a exchange between hydrogen isotopes
-          if (sim%groups(group_num)%use_kin_cx  .and. .not. limits) then !< CX uses adas as well. Te limit could be lower.
+          if (sim%groups(group_num)%use_kin_cx  .and. .not. limits .and. particle_tmp%weight .gt. 0.d0) then !< CX uses adas as well. Te limit could be lower.
             call sim%groups(group_num)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
             CX_prob = 1.d0 - exp(-cx_rate * n_e * tstep_part_adj)
     

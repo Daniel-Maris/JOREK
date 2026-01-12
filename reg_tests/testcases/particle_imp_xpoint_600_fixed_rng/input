@@ -17,9 +17,6 @@
   use_fixed_rng_value = .true.
   fixed_rng_value = 0.5
 
-  use_strumpack=.false.
-  use_pastix=.true.
-
   deuterium_adas    = .true.
 
   tstep_particles    = 5.d-7
@@ -28,8 +25,10 @@
   filter_par_n0      = 0.d0
 
   time_evol_scheme= 'Gears'
+  use_strumpack = .false.
+  use_mumps     = .true.
   use_mumps_eq  = .true.
-  use_pastix_eq = .false.
+  use_mumps_prj = .true.
   T_min_neg     = 4.d-4
   rho_min_neg   =  1.d-3
   T_min       = 4.d-6
