@@ -161,7 +161,7 @@ pure subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
   ! Calculate the derivatives to R and Z
 
   R_inv = 1.d0/R
-  inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
+  inv_st_jac = 1.d0/jac(R_s,R_t,Z_s,Z_t)
   psi_R    = (  P_s(1) * Z_t - P_t(1) * Z_s ) * inv_st_jac
   psi_Z    = (- P_s(1) * R_t + P_t(1) * R_s ) * inv_st_jac
   psi_phi  = P_phi(1) - R_phi*psi_R - Z_phi*psi_Z
@@ -271,7 +271,7 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
 
   if (present(grad_T_e)) then
 
-    xjac = R_s * Z_t - R_t * Z_s
+    xjac = jac(R_s,R_t,Z_s,Z_t)
     grad_T_e = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
                      (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
                      P_phi(2)/R]
@@ -315,7 +315,7 @@ pure subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad
 
   if (present(grad_T_e)) then
 
-    xjac = R_s * Z_t - R_t * Z_s
+    xjac = jac(R_s,R_t,Z_s,Z_t)
     grad_T_e = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
                      (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
                      P_phi(2)/R]
@@ -420,7 +420,7 @@ pure subroutine calc_gyro_average_E(fields, time, particles, n_phases, E_average
     P_time(1) = 0.d0
 
     R_inv = 1.d0/R
-    inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
+    inv_st_jac = 1.d0/jac(R_s,R_t,Z_s,Z_t)
 
     ! Calculate the derivatives to R and Z
     U_R      = (  P_s(1) * Z_t - P_t(1) * Z_s ) * inv_st_jac
@@ -476,7 +476,7 @@ t_norm  = sqrt(mu_zero * ATOMIC_MASS_UNIT * central_mass * central_density * 1.d
 call fields%interp_PRZ(time, i_elm, i_var, 3, st(1), st(2), phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
 
 R_inv = 1.d0/R
-inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
+inv_st_jac = 1.d0/jac(R_s,R_t,Z_s,Z_t)
 
 ! Calculate the derivatives to R and Z
 psi_R    = (  P_s(1) * Z_t - P_t(1) * Z_s ) * inv_st_jac
@@ -658,7 +658,7 @@ pure subroutine calc_RK4(fields, time, i_elm, st, phi, A, dA, B, dB, Bnorm, dBno
   psi_Rphi = (  P_sphi(1) * Z_t - P_tphi(1) * Z_s ) * inv_st_jac
   psi_Zphi = (- P_sphi(1) * R_t + P_tphi(1) * R_s ) * inv_st_jac
 
-  RZjac    = R_s*Z_t - R_t*Z_s
+  RZjac    = jac(R_s,R_t,Z_s,Z_t)
 
   RZjac_R  = (R_ss*Z_t**2 - Z_ss*R_t*Z_t - 2.d0*R_st*Z_s*Z_t   &
          + Z_st*(R_s*Z_t + R_t*Z_s) + R_tt*Z_s**2 - Z_tt*R_s*Z_s) / RZjac
@@ -1002,7 +1002,7 @@ pure subroutine calc_Qin(fields, time, i_elm, st, phi, A, dA, B, dB, Bnorm, dBno
                          R, R_s, R_t, R_ss, R_st, R_tt, Z, Z_s, Z_t, Z_ss, Z_st, Z_tt)
 
   R_inv = 1.d0/R
-  inv_st_jac = 1.d0/(R_s * Z_t - R_t * Z_s)
+  inv_st_jac = 1.d0/jac(R_s,R_t,Z_s,Z_t)
 
   ! Update psi and U
   psi = P(1)
@@ -1018,7 +1018,7 @@ pure subroutine calc_Qin(fields, time, i_elm, st, phi, A, dA, B, dB, Bnorm, dBno
   psi_Rphi = (  P_sphi(1) * Z_t - P_tphi(1) * Z_s ) * inv_st_jac
   psi_Zphi = (- P_sphi(1) * R_t + P_tphi(1) * R_s ) * inv_st_jac
 
-  RZjac    = R_s*Z_t - R_t*Z_s
+  RZjac    = jac(R_s,R_t,Z_s,Z_t)
 
   RZjac_R  = (R_ss*Z_t**2 - Z_ss*R_t*Z_t - 2.d0*R_st*Z_s*Z_t   &
            + Z_st*(R_s*Z_t + R_t*Z_s) + R_tt*Z_s**2 - Z_tt*R_s*Z_s) / RZjac
@@ -1434,5 +1434,18 @@ pure subroutine set_flag_dpsidt(this,flag_dpsidt_to_zero)
   this%flag_zero_dpsidt = flag_dpsidt_to_zero
 
 end subroutine set_flag_dpsidt
+
+!> calculates the jacobian R_s*Z_t - R_t*Z_s, returns small number if jac = 0
+pure real*8 function jac(R_s,R_t,Z_s,Z_t)
+  implicit none
+  real*8, intent(in)           :: R_s,R_t,Z_s,Z_t
+
+  real*8, parameter :: tol = 1.d-20
+
+  jac = (R_s * Z_t - R_t * Z_s)
+  if (abs(jac) < tol) then
+    jac = sign(tol,jac)
+  endif
+end function jac
 
 end module mod_fields
