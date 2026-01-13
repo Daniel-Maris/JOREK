@@ -11,7 +11,7 @@ use data_structure
 use tr_module 
 use gauss
 use basis_at_gaussian
-use phys_module, only:   n_limiter, R_limiter, Z_limiter, write_ps, fix_axis_nodes, force_central_node, treat_axis
+use phys_module, only:   n_limiter, R_limiter, Z_limiter, write_ps, fix_axis_nodes, force_central_node, treat_axis, wall_file
 use mod_neighbours, only: update_neighbours
 use mod_interp
 use mod_grid_conversions
@@ -77,6 +77,7 @@ integer             :: i_elm2, i_vertex2, i_node2
 integer             :: n_remove_elements, n_remove_nodes, remove_elements(100), remove_nodes(100), newnode_index(n_nodes_max), skip_index
 integer             :: node_indices( (n_order+1)/2, (n_order+1)/2 )
 
+
 xpoint = .true.
 extend = .true.;   if (n_ext .lt. 1) extend = .false.
 xcase  = LOWER_XPOINT
@@ -88,7 +89,7 @@ write(*,*) '*************************************'
 write(*,*) '*    X-point(wall) grid             *'
 write(*,*) '*************************************'
 
-open(23,file='wall.txt')
+open(23,file=wall_file)
 read(23,*)
 read(23,*) n_wall
 write(*,*) ' reading outer wall : ',n_wall
@@ -564,7 +565,7 @@ endif
 !------------------------------ interpolation points are known, construct polar coordinate lines
 n_pieces=3
 allocate(R_polar(n_pieces,4,n_tht+2*n_leg),Z_polar(n_pieces,4,n_tht+2*n_leg))
-
+write(*,*) "j=1,n_tht"
 do j=1,n_tht
 
   delta = 0.08
@@ -612,7 +613,7 @@ do j=1,n_tht
 enddo
 
 
-
+write(*,*) "j=1,2*n_leg"
 do j=1,2*n_leg
 
   delta = 0.2
@@ -712,7 +713,7 @@ Z_polar(2,3,n_tht+1) = 2.d0 * Z_polar(2,4,n_tht+1) - Z_polar(3,3,n_tht+1)
 R_polar(2,3,n_tht+1) = 2.d0 * R_polar(2,4,n_tht+1) - R_polar(3,3,n_tht+1)  
 
 j_end = n_leg/2
-
+write(*,*) "j= 2, j_end-1"
 do j= 2, j_end-1
 
   R_polar(3,:,n_tht+j) =  real(j-1,8)/real(j_end-1,8) * R_polar(3,:,n_tht+j_end) + real(j_end-j,8)/real(j_end-1,8) * R_polar(3,:,n_tht+1)
@@ -773,7 +774,7 @@ endif
 RR_new = 0.d0
 ZZ_new = 0.d0
 
-
+write(*,*) "do j=1, n_tht"
 do j=1, n_tht          ! the magnetic axis
 
   RR_new(1,j)    = R_axis
@@ -822,7 +823,7 @@ do i=1, n_flux + n_open - 1
   enddo
 
 enddo
-
+write(*,*) "do i=n_flux-1, n_flux - 1  + n_open + n_private"
 !DIR$ NOVECTOR
 do i=n_flux-1, n_flux - 1  + n_open + n_private
 !DIR$ NOVECTOR
@@ -859,7 +860,7 @@ enddo
 ! --------------------------------------------------------------------------------------
 ! --------------------------------- Define Final Grid ----------------------------------
 ! --------------------------------------------------------------------------------------
-
+write(*,*) "Define Final Grid"
 ! --- Allocate data structures for new nodes and elements and initialize them.
 allocate(newnode_list)
 call init_node_list(newnode_list, n_nodes_max, newnode_list%n_dof, n_var)
@@ -869,6 +870,7 @@ call tr_register_mem(sizeof(newelement_list),"newelement_list")
 
 newnode_list%n_nodes = 0
 newnode_list%n_dof   = 0
+write(*,*) "i = 1, n_nodes_max"
 do i = 1, n_nodes_max
   newnode_list%node(i)%x           = 0.d0
   newnode_list%node(i)%values      = 0.d0
@@ -893,7 +895,7 @@ do i = 1, n_elements_max
   newelement_list%element(i)%contain_node = 0
   newelement_list%element(i)%nref         = 0
 end do
-
+write(*,*) "i=1,n_flux-1"
 do i=1,n_flux-1                 !------------------------ the closed field lines
   do j=1, n_tht-1
 
@@ -904,27 +906,28 @@ do i=1,n_flux-1                 !------------------------ the closed field lines
     Z_cub1d = (/ Z_polar(k,1,j), 3.d0/2.d0 *(Z_polar(k,2,j)-Z_polar(k,1,j)), &
                  Z_polar(k,4,j), 3.d0/2.d0 *(Z_polar(k,4,j)-Z_polar(k,3,j)) /)
 
+    write(*,*) "write 1"
     call CUB1D(R_cub1d(1), R_cub1d(2), R_cub1d(3), R_cub1d(4),t_tht(i,j),tmp1, dR_dt)
     call CUB1D(Z_cub1d(1), Z_cub1d(2), Z_cub1d(3), Z_cub1d(4),t_tht(i,j),tmp2, dZ_dt)
-
+    write(*,*) "write 2"
     call interp_RZ(node_list,element_list,ielm_flux(i,j),s_flux(i,j),t_flux(i,j), &
                    RRg1,dRRg1_dr,dRRg1_ds,ZZg1,dZZg1_dr,dZZg1_ds)
-
+    write(*,*) "write 3"
     call interp(node_list,element_list,ielm_flux(i,j),1,1,s_flux(i,j),t_flux(i,j),&
                    PSg1,dPSg1_dr,dPSg1_ds,dPSg1_drs,dPSg1_drr,dPSg1_dss)
-
+    write(*,*) "write 4"
     RZ_jac  = DRRg1_dr * dZZg1_ds - dRRg1_ds * dZZg1_dr
-
+    write(*,*) "write 5"
     PSI_R = (   dPSg1_dr * dZZg1_ds - dPSg1_ds * dZZg1_dr ) / RZ_jac
     PSI_Z = ( - dPSg1_dr * dRRg1_ds + dPSg1_ds * dRRg1_dr ) / RZ_jac
-
+    write(*,*) "write 6"
     node  = (n_tht-1)*(i-1) + j
     index = node
-
+    write(*,*) "write 7"
     newnode_list%node(index)%x(1,1,:) = (/ RR_new(i,j), ZZ_new(i,j) /)
     newnode_list%node(index)%x(1,2,:) = (/ dR_dt, dZ_dt /) / sqrt(dR_dt**2 + dZ_dt**2)
     newnode_list%node(index)%boundary = 0
-
+    write(*,*) "write 8"
     if (i .eq. 1) then   !------------------------------------ magnetic axis : special case
       newnode_list%node(index)%x(1,3,:) = 0.d0
       newnode_list%node(index)%x(1,4,:) = 0.d0
@@ -936,7 +939,7 @@ do i=1,n_flux-1                 !------------------------ the closed field lines
   enddo
 enddo
 newnode_list%n_nodes = node
-
+write(*,*) "add multiple nodes at the x-point"
 !----------------------------------------- add multiple nodes at the x-point
 index_xpoint = newnode_list%n_nodes + 1
 
@@ -995,7 +998,7 @@ newnode_list%node(index_xpoint+3)%boundary = 0
 newnode_list%n_nodes = newnode_list%n_nodes + n_xpoint
 
 index = newnode_list%n_nodes
-
+write(*,*) "do i=n_flux-1,n_flux-1+n_open "
 do i=n_flux-1,n_flux-1+n_open           !--------------------------- nodes on the open field lines
 
   j_start = 1; j_end = n_tht   ! skip first and last point on separatrix (x-points already added)
