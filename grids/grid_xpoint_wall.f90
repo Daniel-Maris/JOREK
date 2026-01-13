@@ -77,7 +77,6 @@ integer             :: i_elm2, i_vertex2, i_node2
 integer             :: n_remove_elements, n_remove_nodes, remove_elements(100), remove_nodes(100), newnode_index(n_nodes_max), skip_index
 integer             :: node_indices( (n_order+1)/2, (n_order+1)/2 )
 
-
 xpoint = .true.
 extend = .true.;   if (n_ext .lt. 1) extend = .false.
 xcase  = LOWER_XPOINT
@@ -774,6 +773,7 @@ endif
 RR_new = 0.d0
 ZZ_new = 0.d0
 
+
 do j=1, n_tht          ! the magnetic axis
 
   RR_new(1,j)    = R_axis
@@ -859,7 +859,7 @@ enddo
 ! --------------------------------------------------------------------------------------
 ! --------------------------------- Define Final Grid ----------------------------------
 ! --------------------------------------------------------------------------------------
-write(*,*) "Define Final Grid"
+
 ! --- Allocate data structures for new nodes and elements and initialize them.
 allocate(newnode_list)
 call init_node_list(newnode_list, n_nodes_max, newnode_list%n_dof, n_var)
@@ -869,7 +869,6 @@ call tr_register_mem(sizeof(newelement_list),"newelement_list")
 
 newnode_list%n_nodes = 0
 newnode_list%n_dof   = 0
-
 do i = 1, n_nodes_max
   newnode_list%node(i)%x           = 0.d0
   newnode_list%node(i)%values      = 0.d0
