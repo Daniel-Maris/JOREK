@@ -2,7 +2,7 @@
 module mod_output_file_routines
   use mod_particle_sim
   use mod_particle_types
-  use constants, only: ATOMIC_MASS_UNIT
+  use constants, only: ATOMIC_MASS_UNIT, SPEED_OF_LIGHT
   use mod_event, only: mpi_minmeanmax
   use mpi
   use phys_module, only: tracked_group_id
@@ -93,8 +93,9 @@ subroutine conservation_block(sim)
   
   class(particle_sim), target, intent(in) :: sim
 
-  real*8  :: old(num_tracked), diff(num_tracked)
-  integer :: j, ierr, group_num_tracked
+  real*8    :: old(num_tracked), diff(num_tracked)
+  integer   :: j, ierr, group_num_tracked
+  real*8    :: mass, gamma_m
   real*8    :: particles_remaining, particles_elm_lt0, momentum_remaining(3), energy_remaining, all_particles, all_momentum(3), all_energy, all_elm_lt0
   integer   :: superparticles_remaining,all_superparticles,closest_iteration
 
@@ -106,13 +107,15 @@ subroutine conservation_block(sim)
   energy_remaining    = 0.d0
   superparticles_remaining = 0
 
+  mass = sim%groups(group_num_tracked)%mass * ATOMIC_MASS_UNIT !< particle mass [kg]
+
   select type (particles => sim%groups(group_num_tracked)%particles)
   type is (particle_kinetic_leapfrog)
 #ifdef __GFORTRAN__
     !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
     !$omp parallel do default(none) &
-    !$omp shared(sim,group_num_tracked) &
+    !$omp shared(particles, mass) &
 #endif
     !$omp reduction(+:particles_remaining, particles_elm_lt0, momentum_remaining, energy_remaining,superparticles_remaining)
       do j=1,size(particles,1)
@@ -123,14 +126,43 @@ subroutine conservation_block(sim)
         if (particles(j)%i_elm .le. 0) cycle
 
         particles_remaining = particles_remaining + particles(j)%weight
-        momentum_remaining  = momentum_remaining  + particles(j)%weight * particles(j)%v *sim%groups(group_num_tracked)%mass * ATOMIC_MASS_UNIT
-        energy_remaining    = energy_remaining    + particles(j)%weight * 0.5d0 * sim%groups(group_num_tracked)%mass * ATOMIC_MASS_UNIT * dot_product(particles(j)%v,particles(j)%v)
+        momentum_remaining  = momentum_remaining  + particles(j)%weight * particles(j)%v * mass
+        energy_remaining    = energy_remaining    + particles(j)%weight * 0.5d0 * mass * dot_product(particles(j)%v,particles(j)%v)
         superparticles_remaining = superparticles_remaining + 1
 
       enddo !j
     !omp end parallel do
+
+  type is (particle_kinetic_relativistic)
+#ifdef __GFORTRAN__
+    !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
+#else
+    !$omp parallel do default(none) &
+    !$omp shared(particles, mass) &
+    !$omp private(gamma_m) &
+#endif
+    !$omp reduction(+:particles_remaining, particles_elm_lt0, momentum_remaining, energy_remaining,superparticles_remaining)
+      do j=1,size(particles,1)
+
+        !< account for lost particles
+        if (particles(j)%i_elm .lt. 0) particles_elm_lt0 = particles_elm_lt0 + particles(j)%weight
+        if (particles(j)%i_elm .le. 0) cycle
+
+        !< account for remaining (super)particles
+        superparticles_remaining = superparticles_remaining + 1
+        particles_remaining      = particles_remaining + particles(j)%weight
+
+        !< calculate Lorentz factor
+        gamma_m = sqrt(mass**2 + dot_product(particles(j)%p, particles(j)%p)*ATOMIC_MASS_UNIT**2/SPEED_OF_LIGHT**2)
+
+        momentum_remaining = momentum_remaining + particles(j)%weight * particles(j)%p * ATOMIC_MASS_UNIT
+        energy_remaining   = energy_remaining   + particles(j)%weight *(gamma_m - mass*ATOMIC_MASS_UNIT) * SPEED_OF_LIGHT**2
+
+      enddo !j
+    !omp end parallel do
+
   class default
-      if(sim%my_id == 0) write(*,*) "conservation_block() only implemented for particle_kinetic_leapfrog, not for particle type of group ",sim%groups(group_num_tracked)%id
+      if(sim%my_id == 0) write(*,*) "conservation_block() only implemented for particle_kinetic_leapfrog and particle_kinetic_relativistic, not for particle type of group ",sim%groups(group_num_tracked)%id
       return
   end select
 
@@ -151,7 +183,7 @@ subroutine conservation_block(sim)
     diff = conserv_obj - old
     
     write(*,"(3A)") "conservation checks for group with id: ",tracked_group_id," -------------------------------------------------------------------"
-    write(*,"(A,7A15)") "qty: ", "superparticles", "particles", "w ielm < 0", "momentum R", "momentum Z", "momentum phi", "energy"
+    write(*,"(A,7A15)") "qty: ", "superparticles", "particles", "w ielm < 0", "momentum R", "momentum Z", "momentum phi", "energy [J]"
     write(*,"(A,7es15.5)") "diff ",diff
     write(*,"(A,7es15.5)") "new  ",conserv_obj
   endif !(sim%my_id .eq. 0)
