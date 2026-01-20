@@ -2107,7 +2107,7 @@ call MPI_AllReduce(local_Nion,Nion,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD
 call MPI_AllReduce(local_Nrec,Nrec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 #ifdef WITH_TiTe
 call MPI_AllReduce(local_pn_e,plasmaneutral_e,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-call MPI_AllReduce(local_pn_e,plasmaneutral_i,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+call MPI_AllReduce(local_pn_i,plasmaneutral_i,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 #else
 call MPI_AllReduce(local_pn,plasmaneutral,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
 #endif
