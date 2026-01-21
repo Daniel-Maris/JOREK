@@ -123,47 +123,47 @@ subroutine sanity_checks(my_id, n_cpu, mpi_required, mpi_provided)
 
   ! WARNING for axis treatment
   if(treat_axis .and. (fix_axis_nodes .or. force_central_node) .and. (my_id .eq. 0))then
-    write(*,*) 'WARNING :'
-    write(*,*) 'If using treat_axis = .true. then'
-    write(*,*) 'fix_axis_nodes and force_central_node both MUST be .false.'
-    write(*,*) 'Setting fix_axis_nodes and force_central_node to .false.'    
+    write(*,*) 'WARNING:'
+    write(*,*) '  If using treat_axis = .true. then'
+    write(*,*) '  fix_axis_nodes and force_central_node both MUST be .false.'
+    write(*,*) '  Setting fix_axis_nodes and force_central_node to .false.'    
     force_central_node  = .false.
     fix_axis_nodes      = .false.
   endif
   if(treat_axis .and. (n_order .gt. 3) .and. (my_id .eq. 0))then
-    write(*,*) 'WARNING :'
-    write(*,*) 'treat_axis = .true. is not possible'
-    write(*,*) 'at the moment with n_order>3, please use fix_axis_nodes instead.'
+    write(*,*) 'WARNING:'
+    write(*,*) '  treat_axis = .true. is not possible'
+    write(*,*) '  at the moment with n_order>3, please use fix_axis_nodes instead.'
     call MPI_FINALIZE(IERR) 
     stop
   endif
 
   ! WARNING for freeboundary with n_order>3
   if(freeboundary .and. (n_order .gt. 3) .and. (my_id .eq. 0))then
-    write(*,*) 'WARNING :'
-    write(*,*) 'freeboundary = .true. is not possible'
-    write(*,*) 'at the moment with n_order>3, aborting.'
+    write(*,*) 'WARNING:'
+    write(*,*) '  freeboundary = .true. is not possible'
+    write(*,*) '  at the moment with n_order>3, aborting.'
     call MPI_FINALIZE(IERR) 
     stop
   endif
 
   ! WARNING for invalid values of n_order (needs to be odd)
   if( mod(n_order+1,2) .ne. 0 )then
-    write(*,*) 'WARNING :'
-    write(*,*) 'n_order needs to be an odd integer'
+    write(*,*) 'WARNING:'
+    write(*,*) '  n_order needs to be an odd integer'
     call MPI_FINALIZE(IERR) 
     stop
   endif
 
   ! WARNING for n_order>=7 if auto-generated mod_basisfunctions.f90 and gauss.f90 have not been created
   if( (n_order .ge. 7) .and. (n_gauss .le. 8) )then
-    write(*,*) 'WARNING :'
-    write(*,*) 'if you are using n_order>=7 (ie. G3-Bezier or higher)'
-    write(*,*) 'you need to generate the routines mod_basisfunctions.f90 and gauss.f90'
-    write(*,*) 'using the code ./util/generate_codes_for_norder_gt_7.py'
-    write(*,*) 'please see'
-    write(*,*) 'https://www.jorek.eu/wiki/doku.php?id=gn_grid_tutorial#gn-continuous_grid_tutorial'
-    write(*,*) 'for instructions.'
+    write(*,*) 'WARNING:'
+    write(*,*) '  if you are using n_order>=7 (ie. G3-Bezier or higher)'
+    write(*,*) '  you need to generate the routines mod_basisfunctions.f90 and gauss.f90'
+    write(*,*) '  using the code ./util/generate_codes_for_norder_gt_7.py'
+    write(*,*) '  please see'
+    write(*,*) '  https://www.jorek.eu/wiki/doku.php?id=gn_grid_tutorial#gn-continuous_grid_tutorial'
+    write(*,*) '  for instructions.'
     call MPI_FINALIZE(IERR) 
     stop
   endif
