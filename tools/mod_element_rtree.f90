@@ -2,6 +2,7 @@
 module mod_element_rtree
 use iso_c_binding
 use data_structure
+use mpi
 implicit none
 public populate_element_rtree, nearby_elements, elements_containing_point, rtree_initialized, tree_slices
 
@@ -69,7 +70,7 @@ subroutine populate_element_rtree_2D(node_list, element_list)
   type(type_element_list), intent(in) :: element_list
   real(C_DOUBLE), dimension(:), allocatable :: min_bb, max_bb
   real*8 :: rmin, rmax, zmin, zmax
-  integer :: i, n
+  integer :: i, n, my_id, ierr
   n = element_list%n_elements
   allocate(min_bb(n*ND), max_bb(n*ND))
   do i=1,n
@@ -80,7 +81,13 @@ subroutine populate_element_rtree_2D(node_list, element_list)
     min_bb((i - 1) * ND + 1) = real(rmin, kind=C_DOUBLE)
     min_bb((i - 1) * ND + 2) = real(zmin, kind=C_DOUBLE)
   end do
-  write(*,*) "Initializing RTree"
+
+  call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+
+  if (my_id .eq. 0) then
+    write(*,*) "Initializing RTree"
+  endif
+
   ! this cleans out the tree before insertion
   call element_rtree(int(n, C_INT), int(1, C_INT), min_bb, max_bb)
   rtree_initialized = .true.
@@ -89,6 +96,7 @@ end subroutine populate_element_rtree_2D
 !> Only one call to this routine can be made simultaneously! It uses a static
 subroutine populate_element_rtree_3D(node_list, element_list)
   use constants, only: PI
+  use mpi
 
   type(type_node_list),    intent(in) :: node_list
   type(type_element_list), intent(in) :: element_list
@@ -96,7 +104,7 @@ subroutine populate_element_rtree_3D(node_list, element_list)
   real(C_DOUBLE), dimension(:), allocatable :: min_bb, max_bb
 
   real*8  :: rmin, rmax, zmin, zmax, rmin_old, rmax_old, zmin_old, zmax_old
-  integer :: i, n, mp, mp_old, index
+  integer :: i, n, mp, mp_old, index, my_id, ierr
   real*8  :: arbitrary_HZ_coord(n_coord_tor,tree_slices)
 
   n = element_list%n_elements
@@ -123,7 +131,12 @@ subroutine populate_element_rtree_3D(node_list, element_list)
       rmin_old = rmin ; rmax_old = rmax ; zmin_old = zmin ; zmax_old = zmax
     end do
   enddo
-  write(*,*) "Initializing RTree"
+
+  call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+
+  if (my_id .eq. 0) then
+    write(*,*) "Initializing RTree"
+  endif
   ! this cleans out the tree before insertion
   call element_rtree(int(n, C_INT), int(tree_slices, C_INT), min_bb, max_bb)
   rtree_initialized = .true.

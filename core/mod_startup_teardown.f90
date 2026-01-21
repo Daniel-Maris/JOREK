@@ -122,7 +122,7 @@ subroutine sanity_checks(my_id, n_cpu, mpi_required, mpi_provided)
   integer :: mpi_required, mpi_provided
 
   ! WARNING for axis treatment
-  if(treat_axis .and. (fix_axis_nodes .or. force_central_node))then
+  if(treat_axis .and. (fix_axis_nodes .or. force_central_node) .and. (my_id .eq. 0))then
     write(*,*) 'WARNING :'
     write(*,*) 'If using treat_axis = .true. then'
     write(*,*) 'fix_axis_nodes and force_central_node both MUST be .false.'
@@ -130,7 +130,7 @@ subroutine sanity_checks(my_id, n_cpu, mpi_required, mpi_provided)
     force_central_node  = .false.
     fix_axis_nodes      = .false.
   endif
-  if(treat_axis .and. (n_order .gt. 3))then
+  if(treat_axis .and. (n_order .gt. 3) .and. (my_id .eq. 0))then
     write(*,*) 'WARNING :'
     write(*,*) 'treat_axis = .true. is not possible'
     write(*,*) 'at the moment with n_order>3, please use fix_axis_nodes instead.'
@@ -139,7 +139,7 @@ subroutine sanity_checks(my_id, n_cpu, mpi_required, mpi_provided)
   endif
 
   ! WARNING for freeboundary with n_order>3
-  if(freeboundary .and. (n_order .gt. 3))then
+  if(freeboundary .and. (n_order .gt. 3) .and. (my_id .eq. 0))then
     write(*,*) 'WARNING :'
     write(*,*) 'freeboundary = .true. is not possible'
     write(*,*) 'at the moment with n_order>3, aborting.'
@@ -302,50 +302,53 @@ subroutine sanity_checks(my_id, n_cpu, mpi_required, mpi_provided)
       stop
     end if
   end if
-  if ( iand(n_plane,n_plane-1) /= 0 ) then
+  if ( (iand(n_plane,n_plane-1) /= 0)  .and. (my_id .eq. 0)) then
     write(*,*) 'WARNING: n_plane is not a power of two. This might be inefficient.'
     write(*,*) '  When using FFTW, it is possible to run like this, but it might not be fast.'
   end if
-  if ( (nbthreads > 24) .and. (my_id == 0) ) then
+  if ( (nbthreads > 24) .and. (my_id == 0)  .and. (my_id .eq. 0)) then
     write(*,*) 'WARNING: You are using more than 24 OpenMP threads which might be inefficient.'
     write(*,*) '  Consider testing, whether you get better performance by increasing the number'
     write(*,*) '  of MPI tasks and reducing the number of OpenMP threads in the jobscript.'
   end if
-  if ( ( tauIC .ne. 0.d0 ) .and. ( jorek_model == 401 ) ) then
+  if ( ( tauIC .ne. 0.d0 ) .and. ( jorek_model == 401 )  .and. (my_id .eq. 0)) then
     write(*,*) 'WARNING: tauIC in model401 has been modified to match model303. '
     write(*,*) '         tauIC should be = m_{ion} / ( e * F0 * sqrt_mu0_rho0 * (1. + T_i/T_e) )'
   endif
-  if (abs(visco_par-visco_par_heating)/(visco_par+visco_par_heating+1.d-12) > 1.d-6) then
-    write(*,*) 'WARNING: The viscosity visco_par and the viscosity used for viscous heating '
-    write(*,*) '  visco_par_heating are not the same. No problem if you know what you are doing,  ' 
+  if ((abs(visco_par-visco_par_heating)/(visco_par+visco_par_heating+1.d-12) > 1.d-6) .and. (my_id .eq. 0)) then
+    write(*,*) 'WARNING: The viscosity visco_par and the viscosity used for viscous heating'
+    write(*,*) '  visco_par_heating are not the same. No problem if you know what you`re doing,' 
     write(*,*) '  but with this setup you are not conserving energy.   '
   endif
-  if (abs(visco-visco_heating)/(visco+visco_heating+1.d-12) > 1.d-6) then
+  if ((abs(visco-visco_heating)/(visco+visco_heating+1.d-12) > 1.d-6) .and. (my_id .eq. 0)) then
     write(*,*) 'WARNING: The viscosity visco and the viscosity used for viscous heating '
-    write(*,*) '  visco_heating are not the same. No problem if you know what you are doing,  ' 
+    write(*,*) '  visco_heating are not the same. No problem if you know what you`re doing,' 
     write(*,*) '  but with this setup you are not conserving energy.   '
   endif
 
-  if (abs(eta-eta_ohmic)/(eta+eta_ohmic+1.d-12) > 1.d-6) then
+  if ((abs(eta-eta_ohmic)/(eta+eta_ohmic+1.d-12) > 1.d-6) .and. (my_id .eq. 0)) then
     write(*,*) 'WARNING: The resistivity eta and the resistivity used for Ohmic heating '
     write(*,*) '  eta_ohm are not the same. No problem if you know what you are doing,  ' 
     write(*,*) '  but with this setup you are not conserving energy.   '
   endif
-  if (abs(T_max_eta-T_max_eta_ohm)/(T_max_eta+T_max_eta_ohm) > 1.d-6) then
-    write(*,*) 'WARNING: T_max_eta and T_max_eta_ohm are not the same, which breaks  &
-        energy conservation. No problem if you know what you are doing (a good reason to &
-	do this could be to avoid spurious Ohmic heating in the plasma core).'
+  if ((abs(T_max_eta-T_max_eta_ohm)/(T_max_eta+T_max_eta_ohm) > 1.d-6) .and. (my_id .eq. 0)) then
+    write(*,*) 'WARNING: T_max_eta and T_max_eta_ohm are not the same, which breaks energy'
+    write(*,*) '  conservation. No problem if you know what you are doing (a good reason  '
+    write(*,*) '  to do this could be to avoid spurious Ohmic heating in the plasma core).'
   end if
-  if ((T_min_neg .lt. 0.d0) .or. (rho_min_neg .lt. 0.d0)) then
-	write(*,*) 'WARNING: You did not specify T_min_neg and/or rho_min_neg for the correction of negative temperatures and densities.  & 
-	   The lower values of the equilibrium profiles (T_1 and/or rho_1) will be used instead.'
-	write(*,*) 'For instance, try in your input file: rho_min_neg = 1.d-3 and T_min_neg = 4.02d-4 !=2.01d-5*central_density*Tmin_ev (with central_density = 1 and Tmin_eV= 20 eV)'    
+  if (((T_min_neg .lt. 0.d0) .or. (rho_min_neg .lt. 0.d0)) .and. (my_id .eq. 0)) then
+    write(*,*) 'WARNING: You did not specify T_min_neg and/or rho_min_neg for the correction' 
+    write(*,*) '  of negative temperatures and densities. The lower values of the equilibrium'
+    write(*,*) '  profiles (T_1 and/or rho_1) will be used instead.'
+    write(*,*) '  For instance, try in your input file: rho_min_neg = 1.d-3' 
+    write(*,*) '  and T_min_neg = 4.02d-4 !=2.01d-5*central_density*Tmin_ev' 
+    write(*,*) '  (with central_density = 1 and Tmin_eV= 20 eV)' 
   endif
 #ifdef WITH_Impurities
-  if (D_prof_imp_neg_thresh .gt. -1.d3) then
-	write(*,*) 'WARNING: You are using a value for D_prof_imp_neg_thresh that is likely to activate the correction for negative impurity density.' 
-	write(*,*) '  No problem if you know what you are doing, but this could lead to convergence issues'
-	write(*,*) '  in particular at the beginning of impurity injection when nimp is oscillating around zero.'
+  if ((D_prof_imp_neg_thresh .gt. -1.d3) .and. (my_id .eq. 0)) then
+    write(*,*) 'WARNING: You are using a value for D_prof_imp_neg_thresh that is likely to activate the correction for negative impurity density.' 
+    write(*,*) '  No problem if you know what you are doing, but this could lead to convergence issues'
+    write(*,*) '  in particular at the beginning of impurity injection when nimp is oscillating around zero.'
   endif
 #endif
 
