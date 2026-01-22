@@ -114,8 +114,9 @@ subroutine conservation_block(sim)
 #ifdef __GFORTRAN__
     !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
-    !$omp parallel do default(none) &
-    !$omp shared(particles, mass) &
+    !$omp parallel do default(none)  &
+    !$omp shared(particles, mass)    &
+    !$omp private(j)                 &
 #endif
     !$omp reduction(+:particles_remaining, particles_elm_lt0, momentum_remaining, energy_remaining,superparticles_remaining)
       do j=1,size(particles,1)
@@ -137,9 +138,9 @@ subroutine conservation_block(sim)
 #ifdef __GFORTRAN__
     !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
 #else
-    !$omp parallel do default(none) &
-    !$omp shared(particles, mass) &
-    !$omp private(gamma_m) &
+    !$omp parallel do default(none)   &
+    !$omp shared(particles, mass)     &
+    !$omp private(gamma_m,j)          &
 #endif
     !$omp reduction(+:particles_remaining, particles_elm_lt0, momentum_remaining, energy_remaining,superparticles_remaining)
       do j=1,size(particles,1)
