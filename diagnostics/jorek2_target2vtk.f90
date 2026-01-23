@@ -362,7 +362,7 @@ do m=1, n_plane
 
           D_prof   = get_dperp (psi_norm)
           if (use_zkperp_times_density) then
-            ZK_prof = get_zkperp(psi_norm) * max(r0_real8,zkperp_density_floor)
+            ZK_prof = get_zkperp(psi_norm) * max(rho,zkperp_density_floor)
           else
             ZK_prof = get_zkperp(psi_norm)
           endif
