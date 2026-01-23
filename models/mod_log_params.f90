@@ -650,6 +650,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,REAL_FMT) 'ZK_prof_neg_thresh    ', ZK_prof_neg_thresh
     write(*,REAL_FMT) 'ZK_par_neg_thresh     ', ZK_par_neg_thresh
   endif
+  write(*,LOGI_FMT) 'use_zkperp_times_density', use_zkperp_times_density
+  write(*,REAL_FMT) 'zkperp_density_floor    ', zkperp_density_floor
   write(*,REAL_FMT) 'D_imp_extra_R         ', D_imp_extra_R
   write(*,REAL_FMT) 'D_imp_extra_Z         ', D_imp_extra_Z
   write(*,REAL_FMT) 'D_imp_extra_p         ', D_imp_extra_p
