@@ -350,6 +350,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
   write(*,INTG_FMT) 'nout                  ', nout
   write(*,INTG_FMT) 'nout_projection       ', nout_projection
+  write(*,INTG_FMT) 'nout_particles        ', nout_particles
   write(*,REAL_FMT) 'xr1                   ', xr1
   write(*,REAL_FMT) 'sig1                  ', sig1
   write(*,REAL_FMT) 'xr2                   ', xr2
@@ -1015,6 +1016,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'filter_hyper_n0,      ',filter_hyper_n0   
   write(*,REAL_FMT) 'filter_par_n0,        ',filter_par_n0   
   write(*,LOGI_FMT) 'apply_dirichlet_proj, ',apply_dirichlet_proj     
+  write(*,LOGI_FMT) 'init_particles_only,  ',init_particles_only     
+
 
   
   if (n_part_groups > 0) then !< particles settings
@@ -1042,9 +1045,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,HEADER_FMT) "========== Coupling schemes ============"
     write(*,*) "  use_ncs               = ", use_ncs
     write(*,*) "  use_ics               = ", use_ics
-    write(*,*) "  use_ccs               = ", use_ccs
-    write(*,*) "  use_pcs               = ", use_pcs
-    write(*,*) "  use_pcf               = ", use_pcf
+    write(*,*) "  use_rep               = ", use_rep
     write(*,*) "  use_kin_recomb_global = ", use_kin_recomb_global
 
     write(*,HEADER_FMT) '=========== Particle Groups ============'
@@ -1062,6 +1063,10 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       write(*,CHAR_FMT) 'coupling_scheme,        ',sim%groups(group_num)%coupling_scheme
       write(*,REAL_FMT) 'n_particles,            ',sim%groups(group_num)%n_particles
       write(*,CHAR_FMT) 'type,                   ',trim(part_group_configs(group_num)%type)
+      write(*,CHAR_FMT) 'init_function           ',trim(part_group_configs(group_num)%init_function)
+      if (trim(part_group_configs(group_num)%init_function) /= 'none') then
+        write(*,CHAR_FMT) 'init_pdf                ',trim(part_group_configs(group_num)%init_pdf)
+      endif
 
       ! ncs and ics -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs' .or. sim%groups(group_num)%coupling_scheme .eq. 'ics') then     
@@ -1109,7 +1114,16 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
           enddo
         endif ! puffing
 
-      endif ! 'ncs'
+      endif ! 'ncs' or 'ics'
+
+      ! rep (runaway electrons, only pressure coupling for now) -----
+      if (sim%groups(group_num)%coupling_scheme .eq. 'rep') then
+        write(*,REAL_FMT) 'n_re,                   ',part_group_configs(group_num)%num_re
+        write(*,REAL_FMT) 're_energy,              ',part_group_configs(group_num)%re_energy
+        write(*,REAL_FMT) 're_std_energy,          ',part_group_configs(group_num)%re_std_energy
+        write(*,REAL_FMT) 're_pitch,               ',part_group_configs(group_num)%re_pitch
+      endif     
+
 
       ! wall interactions
       n_wall_actions = 0
