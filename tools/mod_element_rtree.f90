@@ -71,6 +71,8 @@ subroutine populate_element_rtree_2D(node_list, element_list)
   real(C_DOUBLE), dimension(:), allocatable :: min_bb, max_bb
   real*8 :: rmin, rmax, zmin, zmax
   integer :: i, n, my_id, ierr
+  logical :: is_init
+
   n = element_list%n_elements
   allocate(min_bb(n*ND), max_bb(n*ND))
   do i=1,n
@@ -82,7 +84,13 @@ subroutine populate_element_rtree_2D(node_list, element_list)
     min_bb((i - 1) * ND + 2) = real(zmin, kind=C_DOUBLE)
   end do
 
-  call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+  call MPI_Initialized(is_init, ierr)
+
+  if (is_init) then
+    call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+  else
+    my_id = 0
+  endif
 
   if (my_id .eq. 0) then
     write(*,*) "Initializing RTree"
@@ -106,6 +114,7 @@ subroutine populate_element_rtree_3D(node_list, element_list)
   real*8  :: rmin, rmax, zmin, zmax, rmin_old, rmax_old, zmin_old, zmax_old
   integer :: i, n, mp, mp_old, index, my_id, ierr
   real*8  :: arbitrary_HZ_coord(n_coord_tor,tree_slices)
+  logical :: is_init
 
   n = element_list%n_elements
 
@@ -132,7 +141,14 @@ subroutine populate_element_rtree_3D(node_list, element_list)
     end do
   enddo
 
-  call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+
+  call MPI_Initialized(is_init, ierr)
+  
+  if (is_init) then 
+    call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+  else 
+    my_id = 0 
+  endif
 
   if (my_id .eq. 0) then
     write(*,*) "Initializing RTree"
