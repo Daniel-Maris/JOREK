@@ -591,9 +591,11 @@ module mod_boundary
       n = [Z_t, -R_t, 0.d0]
     end select
     norm_n=(norm2(n,1))
+    !> WARNING: this is to avoid a NaN from ruining the simulation, but it is not correct!
     if(norm_n <= 0.d0) then
       !$omp critical
       write(*,"(A,I8,6es15.5)") "ERROR: size of normal vector is 0 in grids/mod_boundary.f90 wall_normal_vector(). Returning n=(1,0,0) i_elm,s,t,norm_n,n = ",i_elm,s,t,norm_n,n
+      write(*,"(A)") "Please find out why this happened, and fix the underlying issue"
       !$omp end critical
       n=[1.d0,0.d0,0.d0]
       return

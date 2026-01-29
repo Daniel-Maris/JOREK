@@ -84,7 +84,7 @@ module mod_fields
 contains
 !> Calculates the electric and magnetic fields at a specific position
 !> in the jorek element `i_elm` at `st`.
-pure subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
+subroutine calc_EBpsiU(fields, time, i_elm, st, phi, E, B, psi, U)
   use phys_module, only: F0, mode, central_mass, central_density
   use constants, only: mu_zero, atomic_mass_unit
   use mod_coordinate_transforms, only: transform_derivatives_st_to_RZ
@@ -228,7 +228,7 @@ pure subroutine calc_F_profile(fields,i_elm,s,t,phi,Fprof)
 
 end subroutine calc_F_profile
 
-pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_raw, grad_T_e)
+subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_raw, grad_T_e)
   use phys_module, only: central_density
   use constants
   class(fields_base), intent(in)                    :: fields
@@ -278,7 +278,7 @@ pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_r
   end if
 end subroutine calc_NeTe
 
-pure subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
+subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
   use phys_module, only: central_density, central_mass
   use constants
   class(fields_base), intent(in)                    :: fields
@@ -384,7 +384,7 @@ end subroutine calc_NjTj
 
 
 !> Calculates the gyro-averaged electric fields from a set of particles (representing the gyro-orbit)
-pure subroutine calc_gyro_average_E(fields, time, particles, n_phases, E_average)
+subroutine calc_gyro_average_E(fields, time, particles, n_phases, E_average)
   use phys_module, only: F0, mode, central_mass, central_density
   use constants, only: mu_zero, atomic_mass_unit
   use mod_particle_types
@@ -606,7 +606,7 @@ pure subroutine calc_RK4_analytic(fields, R, Z, phi, A_out, dA_out, B_out, dB_ou
   return
 end
 
-pure subroutine calc_RK4(fields, time, i_elm, st, phi, A, dA, B, dB, Bnorm, dBnorm, bn, dBn, E)
+subroutine calc_RK4(fields, time, i_elm, st, phi, A, dA, B, dB, Bnorm, dBnorm, bn, dBn, E)
   use phys_module, only: F0, mode, central_mass, central_density
   use constants, only: mu_zero, atomic_mass_unit
 ! Routine parameters
@@ -966,7 +966,7 @@ pure subroutine calc_Qin_analytic(fields, R, Z, phi, A_out, dA_out, B_out, dB_ou
   return
 end
 
-pure subroutine calc_Qin(fields, time, i_elm, st, phi, A, dA, B, dB, Bnorm, dBnorm, bn, dBn, E)
+subroutine calc_Qin(fields, time, i_elm, st, phi, A, dA, B, dB, Bnorm, dBnorm, bn, dBn, E)
   use phys_module, only: F0, mode, central_mass, central_density
   use constants, only: mu_zero, atomic_mass_unit
   ! Routine parameters
@@ -1435,15 +1435,23 @@ pure subroutine set_flag_dpsidt(this,flag_dpsidt_to_zero)
 
 end subroutine set_flag_dpsidt
 
-!> calculates the jacobian R_s*Z_t - R_t*Z_s, returns small number if jac = 0
-pure real*8 function jac(R_s,R_t,Z_s,Z_t)
+!> calculates the jacobian R_s*Z_t - R_t*Z_s
+!> returns small number if jac = 0 (to avoid NaNs, but it is of course not correct)
+real*8 function jac(R_s,R_t,Z_s,Z_t)
   implicit none
   real*8, intent(in)           :: R_s,R_t,Z_s,Z_t
 
   real*8, parameter :: tol = 1.d-20
 
   jac = (R_s * Z_t - R_t * Z_s)
+  
+  !> WARNING: this is to avoid a NaN from ruining the simulation, but it is not correct!
   if (abs(jac) < tol) then
+    !$omp critical
+    write(*,"(A)") "ERROR: jacobian=0 in particles/mod_fields.f90. Returning small number instead to avoid NaNs"
+    write(*,"(A)") "This should normally not happen. Likely something was sampled exactly at the grid_axis."
+    write(*,"(A)") "Please find and solve the underlying problem."
+    !$omp end critical
     jac = sign(tol,jac)
   endif
 end function jac
