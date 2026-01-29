@@ -965,6 +965,8 @@ module phys_module
   real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
   logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
   logical :: init_particles_only  !< only initialise particles, and produce part_restart files, do not run the simulation (only relevant when restart_particles=.f.)
+  integer :: find_RZ_nearby_iter  !< the maximum newton iterations used in find_RZ_nearby 
+  real*8  :: find_RZ_nearby_tol   !< the squared element tolerance used in find_RZ_nearby for finding a position inside an element (unit: element size)
 
   ! -----------------------------------------------
   ! --- Structures for particle valves 

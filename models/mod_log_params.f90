@@ -1015,6 +1015,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'filter_par_n0,        ',filter_par_n0   
   write(*,LOGI_FMT) 'apply_dirichlet_proj, ',apply_dirichlet_proj     
   write(*,LOGI_FMT) 'init_particles_only,  ',init_particles_only     
+  write(*,INTG_FMT) 'find_RZ_nearby_iter,  ',find_RZ_nearby_iter    
+  write(*,REAL_FMT) 'find_RZ_nearby_tol,   ',find_RZ_nearby_tol    
 
 
   
