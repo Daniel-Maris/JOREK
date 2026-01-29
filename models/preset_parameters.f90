@@ -889,6 +889,7 @@ part_group_configs(:)%type              = 'none'
 part_group_configs(:)%id                = 'non'
 part_group_configs(:)%init_function     = 'none'
 part_group_configs(:)%init_pdf          = 'none'
+part_group_configs(:)%do_conservation_checks = .false.
 
 !----- specific to ics and ncs 
 part_group_configs(:)%atom_data_suffix      = ''
@@ -947,8 +948,6 @@ do i=1, n_part_groups_max
 enddo
 
 part_kill_ratio = 1.d-3
-
-tracked_group_id = "non"
 
 ! --- fluid groups
 n_fluid_groups = 0

@@ -22,6 +22,7 @@ type :: particle_group
   real*8             :: n_particles                                !< number of super/marker particles in group
   character(len=3)   :: id                                         !< unique identifier for the group (mainly used when restarting)
   real*8             :: average_weight = -1.d0                     !< average weight of all particles in the group (preset value negative to avoid killing of particles in first instance)
+  logical            :: do_conservation_checks                     !< whether to write conservation checks every interaction in the output file (i.e. the change in particles/momentum/energy etc.)
  
   ! ================ for neutrals and impurities =============
   logical            :: use_kin_ionisation       !< switch on ionisation for group         
@@ -88,6 +89,7 @@ subroutine configure_particle_groups(sim)
     sim%groups(i)%mass = config%mass
     sim%groups(i)%n_particles = config%n_particles
     sim%groups(i)%id = config%id
+    sim%groups(i)%do_conservation_checks = config%do_conservation_checks
 
     ! === ncs and ics options
     if (sim%groups(i)%coupling_scheme == 'ncs' .or. sim%groups(i)%coupling_scheme == 'ics') then

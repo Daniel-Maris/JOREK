@@ -4,15 +4,15 @@ module mod_output_file_routines
   use mod_particle_types
   use constants, only: ATOMIC_MASS_UNIT, SPEED_OF_LIGHT
   use mod_event, only: mpi_minmeanmax
+  use phys_module, only: n_part_groups_max, n_part_groups
   use mpi
-  use phys_module, only: tracked_group_id
   !$ use omp_lib
 
   implicit none
   private
   public write_to_outputfile
 
-  integer,parameter :: num_tracked=7        !< number of tracked variables (see conserv_obj)
+  integer,parameter :: num_tracked=7        !< number of tracked variables (see conserv_objs)
 
   !> timer object to time anything
   type :: timer
@@ -23,9 +23,9 @@ module mod_output_file_routines
     procedure :: write => write_cpu_time
   end type timer
 
-  real*8  :: conserv_obj(num_tracked)=0.d0  !< superparticles, real particles, momentum (3 directions), energy
-  logical :: next_call_write_conserv=.true. !< whether the coming block should have conservation information (.true.) or not (.false.)
-  logical :: next_call_write_timing =.true. !< whether the coming block should be timed (.true.) or not (.false.)
+  real*8  :: conserv_objs(n_part_groups_max,num_tracked)=0.d0 !< for every particle group, contains: superparticles, real particles, momentum (3 directions), energy
+  logical :: next_call_write_conserv=.true.                   !< whether the coming block should have conservation information (.true.) or not (.false.)
+  logical :: next_call_write_timing =.true.                   !< whether the coming block should be timed (.true.) or not (.false.)
 
   type(timer) :: time_block, time_main_loop
 contains
@@ -43,9 +43,12 @@ subroutine write_to_outputfile(sim,what,next_block_write_conserv,next_block_writ
 
   real*8  :: now, mmm_main(3)
   logical :: call_main_loop_timer_loc
+  integer :: group_num
 
   if(next_call_write_conserv) then
-    if (tracked_group_id /= "non") call conservation_block(sim)
+    do group_num=1,n_part_groups
+      if (sim%groups(group_num)%do_conservation_checks) call conservation_block(sim,group_num)
+    enddo
   end if
   if(next_call_write_timing) then
     if(.not. time_block%started) then
@@ -88,18 +91,17 @@ end subroutine
 
 !> keeps track of global superparticle, particle, momentum and energy balances for 1 group,
 !> and writes the change and new values to the logfile, and times the previous block
-subroutine conservation_block(sim)
+subroutine conservation_block(sim,group_num)
   implicit none
   
   class(particle_sim), target, intent(in) :: sim
+  integer,                     intent(in) :: group_num
 
   real*8    :: old(num_tracked), diff(num_tracked)
-  integer   :: j, ierr, group_num_tracked
+  integer   :: j, ierr
   real*8    :: mass, gamma_m
   real*8    :: particles_remaining, particles_elm_lt0, momentum_remaining(3), energy_remaining, all_particles, all_momentum(3), all_energy, all_elm_lt0
-  integer   :: superparticles_remaining,all_superparticles,closest_iteration
-
-  group_num_tracked = group_num_from_id(sim, tracked_group_id)
+  integer   :: superparticles_remaining,all_superparticles
 
   particles_remaining = 0.d0
   particles_elm_lt0   = 0.d0
@@ -107,9 +109,9 @@ subroutine conservation_block(sim)
   energy_remaining    = 0.d0
   superparticles_remaining = 0
 
-  mass = sim%groups(group_num_tracked)%mass * ATOMIC_MASS_UNIT !< particle mass [kg]
+  mass = sim%groups(group_num)%mass * ATOMIC_MASS_UNIT !< particle mass [kg]
 
-  select type (particles => sim%groups(group_num_tracked)%particles)
+  select type (particles => sim%groups(group_num)%particles)
   type is (particle_kinetic_leapfrog)
 #ifdef __GFORTRAN__
     !$omp parallel do default(shared) & ! workaround for Error: �__vtab_mod_pcg32_rng_Pcg32_rng� not specified in enclosing �parallel�
@@ -163,7 +165,7 @@ subroutine conservation_block(sim)
     !omp end parallel do
 
   class default
-      if(sim%my_id == 0) write(*,*) "conservation_block() only implemented for particle_kinetic_leapfrog and particle_kinetic_relativistic, not for particle type of group ",sim%groups(group_num_tracked)%id
+      if(sim%my_id == 0) write(*,*) "conservation_block() only implemented for particle_kinetic_leapfrog and particle_kinetic_relativistic, not for particle type of group ",sim%groups(group_num)%id
       return
   end select
 
@@ -174,19 +176,19 @@ subroutine conservation_block(sim)
   call MPI_REDUCE(superparticles_remaining,all_superparticles,1, MPI_INTEGER,          MPI_SUM, 0, MPI_COMM_WORLD, ierr) 
   
   if (sim%my_id .eq. 0) then
-    old = conserv_obj
+    old = conserv_objs(group_num,:)
 
-    conserv_obj(1:3) = [real(all_superparticles),all_particles, all_elm_lt0]
-    conserv_obj(4:6) = all_momentum
-    conserv_obj(7)   = all_energy
+    conserv_objs(group_num,1:3) = [real(all_superparticles),all_particles, all_elm_lt0]
+    conserv_objs(group_num,4:6) = all_momentum
+    conserv_objs(group_num,7)   = all_energy
 
     diff = 0.d0
-    diff = conserv_obj - old
+    diff = conserv_objs(group_num,:) - old
     
-    write(*,"(3A)") "conservation checks for group with id: ",tracked_group_id," -------------------------------------------------------------------"
+    write(*,"(3A)") "conservation checks for group with id: ",sim%groups(group_num)%id," -------------------------------------------------------------------"
     write(*,"(A,7A15)") "qty: ", "superparticles", "particles", "w ielm < 0", "momentum R", "momentum Z", "momentum phi", "energy [J]"
     write(*,"(A,7es15.5)") "diff ",diff
-    write(*,"(A,7es15.5)") "new  ",conserv_obj
+    write(*,"(A,7es15.5)") "new  ",conserv_objs(group_num,:)
   endif !(sim%my_id .eq. 0)
 
 end subroutine conservation_block
