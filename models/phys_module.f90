@@ -1092,7 +1092,10 @@ module phys_module
 
     ! =============== for energetic particles ('epc', 'epp', 'epf' coupling schemes) ==========
     real*8              :: T_maxwell               !< Maxwellian temperature [eV] for the energetic particles
-    integer             :: n_phi_planes            !< number of phi planes to copy initialised particles around
+    integer             :: n_phi_planes            !< number of times to copy initialised particles around phi.
+                                                   !< for example n_phi_planes=4, n_particles=1e4 then only 250 particles are initialised
+                                                   !< each particle is then copied multiple (3) times around the torus with angle 2pi/n_phi_planes (= pi/2)
+                                                   !< if n_phi_planes=int*n_period then projected particle quantities are initialised as 0 for n_tor>1
     real*8              :: n_particles_total       !< Total number of particles to simulate (ie sum(weights)) !!NOT n_particles - total number of super/numeric-particles
 
   end type type_part_group_config
