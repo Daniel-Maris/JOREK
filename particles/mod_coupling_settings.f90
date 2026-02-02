@@ -164,19 +164,19 @@ subroutine check_compatibility_epf(group_num)
   !> Check initialisation parameters
   if (trim(part_group_configs(group_num)%init_function) .eq. 'maxwell') then
     if (part_group_configs(group_num)%T_maxwell .eq. 0.d0) then
-      write(*,*) "Maxwell initialisation chosen, but no temperature supplied"
-      write(*,*) "please set part_group_configs()%T_maxwell"
+      write(*,*) "ERROR: Maxwell initialisation chosen, but no temperature supplied"
+      write(*,*) "  please set part_group_configs()%T_maxwell"
       stop
     endif
     if (part_group_configs(group_num)%n_phi_planes .eq. 0) then
-      write(*,*) "Maxwell initialisation chosen, but n_phi_planes = 0"
-      write(*,*) "needs to be at least 1, please set part_group_configs()%n_phi_planes"
+      write(*,*) "ERROR: Maxwell initialisation chosen, but n_phi_planes = 0"
+      write(*,*) "  needs to be at least 1, please set part_group_configs()%n_phi_planes"
       stop
     endif
   endif
   if (part_group_configs(group_num)%n_particles_total .eq. 0.d0) then
-    write(*,*) "n_particles_total = 0, this is how weights are set"
-    write(*,*) "please set part_group_configs()%n_particles_total"
+    write(*,*) "ERROR: n_particles_total = 0, this is how weights are set"
+    write(*,*) "  please set part_group_configs()%n_particles_total"
     stop
   endif
 
