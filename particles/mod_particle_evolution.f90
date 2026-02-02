@@ -684,8 +684,6 @@ contains
     if (nstep_particles < proj_factor) then
       proj_factor = 1
     endif
-    iterations         = real(nstep_particles/proj_factor,8)
-
 
     !> loop over all particles in group(group_num)
     select type (particles => sim%groups(group_num)%particles)
@@ -793,6 +791,11 @@ contains
 
     !> Add up lost particles across MPI procs
     call MPI_ALLreduce(n_parts_lost_local, n_parts_lost, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ifail)
+
+    !> Renormalise by number of timesteps the projection quantities were collected for
+    iterations   = real(nstep_particles/proj_factor,8)
+    feedback_rhs = feedback_rhs/iterations
+
 
     if (sim%my_id .eq. 0) then
       write(*,*) " EP LOOP : End of particle loop"
