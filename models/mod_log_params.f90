@@ -1044,8 +1044,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,*) "  use_ncs               = ", use_ncs
     write(*,*) "  use_ics               = ", use_ics
     write(*,*) "  use_rep               = ", use_rep
-    write(*,*) "  use_epc               = ", use_epc
-    write(*,*) "  use_epp               = ", use_epp
     write(*,*) "  use_epf               = ", use_epf
     write(*,*) "  use_kin_recomb_global = ", use_kin_recomb_global
 
