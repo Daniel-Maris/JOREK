@@ -163,13 +163,9 @@ do i=1,n_stream
   call rng(i)%initialize(1, seed, n_stream, i)
 end do
 
-! --- Check if nstep_particles and tstep_particles are positive
-if (nstep_particles < 1 .and. sim%my_id .eq. 0) then
-  write(*,*) "ERROR: nstep_particles < 1 which is not allowed. Stopping now."
-  stop
-end if
-if (tstep_particles < 0.d0 .and. sim%my_id .eq. 0) then
-  write(*,*) "ERROR: tstep_particles < 0 which is not allowed. Stopping now."
+! --- Check if tstep_particles is positive
+if (tstep_particles <= 0.d0) then
+  if (sim%my_id == 0) write(*,*) "ERROR: tstep_particles <= 0 which is not allowed. Stopping now."
   stop
 end if
 
@@ -319,7 +315,8 @@ do while (.not. sim%stop_now)
 
   if (sim%my_id .eq. 0) then
     if(sim%tstep_fluid_si < tstep_particles) then
-      write(*,"(A)") "WARNING: tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
+      write(*,"(A)") "WARNING: tstep < tstep_particles which is currently not supported. Effectively tstep_part_adj = tstep will be used,"
+      write(*,"(A)") "or, if the least common multiple (lcm) > 1, tstep_part_adj < tstep will be used."
     else if(sim%lcm_inner_loop * tstep_particles > sim%tstep_fluid_si) then
       write(*,"(A)") "WARNING: the least common multiple (lcm) of all specified %each_nstep_part makes the particle_timestep smaller than it"
       write(*,"(A)") "needs to be this fluid tstep. Consider changing your %each_nstep_part to be more compatible with eachother (e.g. avoid   "
