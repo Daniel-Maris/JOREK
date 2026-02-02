@@ -43,7 +43,6 @@ use mod_coupling_settings, only: use_kin_recomb_global
 use mod_initialise_particles
 use equil_info
 use mod_output_file_routines, only: write_to_outputfile
-use mod_math_operators, only: gcd
 
 use phys_module, only: index_now
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -76,7 +75,6 @@ type(particle_puffing)                            :: gas_puff, gas_puff2
 character(len=50)                                 :: rst_part_file
 
 real*8    :: rho_norm, t_norm, n_norm
-!$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
 integer   :: i, j, istep_inner_loop, group_num, config_num, valve_num, n_lcm_blocks, inner_stepsize
@@ -242,7 +240,7 @@ if(sim%lcm_inner_loop == -9999991) sim%lcm_inner_loop = 1
 !***********************************************************************
 
 sim%istep_fluid = 0
-call write_to_outputfile(sim,"Starting main loop",next_block_write_conserv=.false.,next_block_write_timing=.false.) ! next_block_write_...=.false. because this is only a header, not the announcement of some action, so we don't want to time or write particle conservation for the "content" of this block as there is no contentdo while (.not. sim%stop_now)
+call write_to_outputfile(sim,"Starting main loop",next_block_write_conserv=.false.,next_block_write_timing=.false.) ! next_block_write_...=.false. because this is only a header, not the announcement of some action, so we don't want to time or write particle conservation for the "content" of this block as there is no content
 do while (.not. sim%stop_now)
   sim%istep_fluid = sim%istep_fluid + 1
   write(header_line,'(A,I6)') "Starting main loop iteration sim%istep_fluid = ",sim%istep_fluid
