@@ -29,13 +29,15 @@ use mod_jorek_timestepping
 use mod_random_seed
 use mod_basisfunctions
 use nodes_elements
-use constants,   only: MU_ZERO, ATOMIC_MASS_UNIT
+use constants,   only: MU_ZERO, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 use mod_particle_wall_interaction
 use mod_neutral_collision, only: neutral_collisions_from_config, type_neutral_collision, gcd_neutral_collisions
+use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
 use mod_particle_puffing
 use mod_edge_domain
 use mod_edge_elements, only: edge_elements
 use mod_atomic_coeff_deuterium, only: ad_deuterium 
+use data_structure, only: type_bnd_element_list, type_bnd_node_list 
 use mod_boundary,   only: boundary_from_grid
 use mod_coupling_settings, only: use_kin_recomb_global
 use mod_initialise_particles
@@ -45,23 +47,26 @@ use mod_neutral_density, only: get_neutral_density
 use mod_math_operators, only: gcd
 
 use phys_module, only: index_now
-use phys_module, only: tstep,restart_particles, restart, nout
+use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_part_groups, n_aux_var, n_valves_max
-use phys_module, only: tstep_particles, nout_particles
-use phys_module, only: deuterium_adas
+use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles, nout_particles
+use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: apply_dirichlet_proj, part_group_configs, init_particles_only
+use phys_module, only: use_manual_random_seed, manual_seed
 
 use mod_particle_group_id, only: matching_part_config_indices
 
 use mod_pcg32_rng, only: pcg32_rng
+use mod_rng, only: type_rng, setup_shared_rngs
 !$ use omp_lib
 
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event), target                               :: project_jorek_feedback, jorek_stepper_event
+type(event)                                       :: gas_puff_event, gas_puff2_event
+type(event), target                               :: project_jorek_feedback, jorek_stepper_event, project_neutral_density
 type(pcg32_rng), dimension(:), allocatable        :: rng
 type(count_action)                                :: counter
 type(projection), target                          :: jorek_feedback
@@ -70,14 +75,14 @@ type(jorek_timestep_action), target               :: jorek_stepper
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: edge_elm_template
 type(particle_puffing)                            :: gas_puff, gas_puff2
+character(len=50)                                 :: rst_part_file
 
-character(len=50)  :: rst_part_file
-character(len=100) :: header_line
-real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
-real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amount of steps (nstep_particles) fit into a fluid step (tstep)
+real*8    :: rho_norm, t_norm, n_norm
+!$ real*8 :: w0, w1, mmm(3)
 
+integer   :: n_reflect
 integer   :: i, j, istep_inner_loop, group_num, config_num, valve_num, n_lcm_blocks, inner_stepsize
-integer   :: seed, n_stream
+integer   :: seed, i_rng, n_stream
 logical   :: last_step !< whether it is the last step of the inner particle loop
 
 !> For keeping track of groups requiring specific physics (e.g. wall actions, recombination, puffing...)
@@ -89,6 +94,13 @@ integer,                      dimension(:), allocatable :: recomb_groups
 type(particle_puffing),       dimension(:), allocatable :: puff_actions   
 type(wall_act_group),         dimension(:), allocatable :: wall_act_groups
 type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
+
+!tmp
+class(type_rng), dimension(:), allocatable :: wall_rng
+
+integer :: n_particles_local
+
+character(len=100) :: header_line
 
 !***********************************************************************
 !*                            initialisation                            *
@@ -113,6 +125,7 @@ if (restart_particles) then
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
 
+  !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
   if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
 
@@ -150,9 +163,13 @@ do i=1,n_stream
   call rng(i)%initialize(1, seed, n_stream, i)
 end do
 
-! --- Check if nstep_particles and tstep_particles is positive
-if (tstep_particles <= 0.d0) then
-  if (sim%my_id == 0) write(*,*) "ERROR: tstep_particles <= 0 which is not allowed. Stopping now."
+! --- Check if nstep_particles and tstep_particles are positive
+if (nstep_particles < 1 .and. sim%my_id .eq. 0) then
+  write(*,*) "ERROR: nstep_particles < 1 which is not allowed. Stopping now."
+  stop
+end if
+if (tstep_particles < 0.d0 .and. sim%my_id .eq. 0) then
+  write(*,*) "ERROR: tstep_particles < 0 which is not allowed. Stopping now."
   stop
 end if
 
@@ -302,8 +319,7 @@ do while (.not. sim%stop_now)
 
   if (sim%my_id .eq. 0) then
     if(sim%tstep_fluid_si < tstep_particles) then
-      write(*,"(A)") "WARNING: tstep < tstep_particles which is currently not supported. Effectively tstep_part_adj = tstep will be used,"
-      write(*,"(A)") "or, if the least common multiple (lcm) > 1, tstep_part_adj < tstep will be used."
+      write(*,"(A)") "WARNING: tstep < tstep_particles which is currently not supported. effectively tstep_part_adj = tstep will be used"
     else if(sim%lcm_inner_loop * tstep_particles > sim%tstep_fluid_si) then
       write(*,"(A)") "WARNING: the least common multiple (lcm) of all specified %each_nstep_part makes the particle_timestep smaller than it"
       write(*,"(A)") "needs to be this fluid tstep. Consider changing your %each_nstep_part to be more compatible with eachother (e.g. avoid   "
