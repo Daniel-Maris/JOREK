@@ -675,11 +675,9 @@ contains
     real*8   :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4) !> Bezier basis functions
 
     integer  :: i, j, k, l, m, ifail, i_tor
-    integer  :: n_parts_lost_local, n_parts_lost
     integer  :: i_elm, i_elm_old
     integer  :: proj_factor
 
-    n_parts_lost_local = 0
     proj_factor        = 10     !> TODO : make this an input parameter or some divisor of nstep_particles
     if (nstep_particles < proj_factor) then
       proj_factor = 1
@@ -699,16 +697,10 @@ contains
       !$omp i_elm, B_norm, v_tilde_r, v_tilde_z, v_par, p_perp, p_par, p_atrop, base, v, i_tor, ifail) &
       !$omp shared(nstep_particles, tstep_part_adj, sim, group_num, proj_factor, &
       !$omp PI_RR_idx_kin, PI_ZZ_idx_kin, PI_PHIPHI_idx_kin, PI_RZ_idx_kin, PI_RPHI_idx_kin, PI_ZPHI_idx_kin, rho_ep_idx_kin) &
-      !$omp reduction(+:feedback_rhs, n_parts_lost_local)
+      !$omp reduction(+:feedback_rhs)
 
       do j=1,size(particles,1)
         do k=1,nstep_particles
-
-          !> If particle is lost, count it and then go to the next particle
-          if (particles(j)%i_elm .le. 0) then
-            n_parts_lost_local = n_parts_lost_local + 1
-            cycle !> Go to next particle
-          endif
 
           !> Determine E, B at particles location
           call sim%fields%calc_EBpsiU(sim%time, particles(j)%i_elm, particles(j)%st, particles(j)%x(3), E, B, psi, U)
@@ -721,12 +713,6 @@ contains
           if (particles(j)%i_elm .gt. 0) then
             call boris_push_cylindrical(particles(j), sim%groups(group_num)%mass, E, B, tstep_part_adj)
             call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, rzp_old(1), rzp_old(2), st_old(1), st_old(2), i_elm_old, particles(j)%x(1), particles(j)%x(2), particles(j)%st(1), particles(j)%st(2), particles(j)%i_elm, ifail)
-          endif
-
-          !> find_RZ_nearby may have created new lost particles, so check again
-          if (particles(j)%i_elm .le. 0) then
-            n_parts_lost_local = n_parts_lost_local + 1
-            cycle !> Go to next particle
           endif
 
           !> only collect projections every proj_factor number of timesteps
@@ -789,18 +775,10 @@ contains
       !$omp end parallel do
     end select
 
-    !> Add up lost particles across MPI procs
-    call MPI_ALLreduce(n_parts_lost_local, n_parts_lost, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ifail)
-
     !> Renormalise by number of timesteps the projection quantities were collected for
     iterations   = real(nstep_particles/proj_factor,8)
     feedback_rhs = feedback_rhs/iterations
 
-
-    if (sim%my_id .eq. 0) then
-      write(*,*) " EP LOOP : End of particle loop"
-      write(*,*) " EP LOOP : Lost ", n_parts_lost, " particles total"
-    end if
   end subroutine evolve_epf
 
 end module mod_particle_evolution
