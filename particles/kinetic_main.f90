@@ -42,6 +42,7 @@ use mod_boundary,   only: boundary_from_grid
 use mod_coupling_settings, only: use_kin_recomb_global
 use mod_initialise_particles
 use equil_info
+use mod_output_file_routines, only: write_to_outputfile
 
 use phys_module, only: index_now
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -75,7 +76,6 @@ character(len=50)                                 :: rst_part_file
 
 real*8    :: rho_norm, t_norm, n_norm, tstep_fluid_si 
 real*8    :: tstep_part_adj !< tstep_particles adjusted so that an integer amount of steps (nstep_particles) fit into a fluid step (tstep)
-!$ real*8 :: w0, w1, mmm(3)
 
 integer   :: n_reflect
 integer   :: i, j, istep, group_num, config_num, valve_num
@@ -95,6 +95,8 @@ type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 class(type_rng), dimension(:), allocatable :: wall_rng
 
 integer :: n_particles_local
+
+character(len=100) :: header_line
 
 !***********************************************************************
 !*                            initialisation                            *
@@ -244,11 +246,11 @@ jorek_stepper_event    = new_event_ptr(jorek_stepper,    start = sim%time)
 !***********************************************************************
 
 istep = 0
+call write_to_outputfile(sim,"Starting main loop",next_block_write_conserv=.false.,next_block_write_timing=.false.) ! next_block_write_...=.false. because this is only a header, not the announcement of some action, so we don't want to time or write particle conservation for the "content" of this block as there is no content
 do while (.not. sim%stop_now)
   istep = istep + 1
-  if(sim%my_id .eq. 0) write(*,'(A100)'  ) "===================================================================================================="
-  if(sim%my_id .eq. 0) write(*,'(A37,I6)') "Starting main loop iteration istep = ",istep
-  if(sim%my_id .eq. 0) write(*,'(A100)'  ) "===================================================================================================="
+  write(header_line,'(A37,I6)') "Starting main loop iteration istep = ",istep
+  call write_to_outputfile(sim,header_line,next_block_write_conserv=.false.,next_block_write_timing=.false.,call_main_loop_timer=.true.) ! call_main_loop_timer=.true. because we want to write the total time taken by the previous main loop iteration before starting the next main loop iteration
 
   ! --- Determining the time stepping for this fluid step
   tstep = get_tstep_n(istep) ! tstep is also set in stepper, but tstep is already used in the calls before the stepper
@@ -272,21 +274,21 @@ do while (.not. sim%stop_now)
 
   if (n_wall_act_groups > 0) then
     ! here only do the wall actions that create particles
-    call write_to_outputfile(sim%my_id, "Particle creating wall_actions")
+    call write_to_outputfile(sim, "Particle creating wall_actions")
     do i=1, n_wall_act_groups
       call wall_act_groups(i)%do(sim,.false.)
     enddo
   endif
 
   if (recomb_counter > 0) then
-    call write_to_outputfile(sim%my_id, "Volume recombination") !< as opposed to wall recombination which is part of wall_actions
+    call write_to_outputfile(sim, "Volume recombination") !< as opposed to wall recombination which is part of wall_actions
     do i=1, recomb_counter
       call do_1particle_recombination(element_list,node_list, recomb_groups(i), jorek_stepper,rng, tstep_fluid_si) 
     enddo
   endif
     
   if (puff_counter > 0) then 
-    call write_to_outputfile(sim%my_id, "Puffing")
+    call write_to_outputfile(sim, "Puffing")
     if (sim%my_id == 0) write(*,"(A,G13.6,A)") "====== Puffing details for time t=", sim%time, " s ======"
     do i=1, puff_counter
       call puff_actions(i)%do(sim)
@@ -295,7 +297,7 @@ do while (.not. sim%stop_now)
 
   ! --- Interactions that happen on the particle timesteps
   
-  call write_to_outputfile(sim%my_id, "Particle evolution loop")
+  call write_to_outputfile(sim, "Particle evolution loop")
   
   !> Evolution loop: calculating interaction between particles in a group and its environment (i.e. CX, ionisation) 
   !> + pushing the particles + calculating the feedback
@@ -316,7 +318,7 @@ do while (.not. sim%stop_now)
   ! Don't put any code in between the evolve_particle_groups and these wall_actions, because the particles which left the domain have i_elm < 0 
   ! which might lead to bad behaviour in other code than the wall_actions
   if (n_wall_act_groups > 0) then
-    call write_to_outputfile(sim%my_id, "Particle particle wall_actions")
+    call write_to_outputfile(sim, "Particle particle wall_actions")
     do i=1, n_wall_act_groups
       call wall_act_groups(i)%do(sim,.true.)
     enddo
@@ -326,13 +328,13 @@ do while (.not. sim%stop_now)
   
   !> Project the collected feedback from the particles onto the finite element grid so that the MHD solver can use it
   !> Also writes the projection.vtk file which contains the interaction terms (particle, energy and momentum exchange to the fluid) and neutral density
-  call write_to_outputfile(sim%my_id, "Projecting feedback from particles to fluid FE grid")
+  call write_to_outputfile(sim, "Projecting feedback from particles to fluid FE grid",next_block_write_conserv=.false.) ! next_block_write_conserv=.false. since the particle array is not changed during this action, so we don't want to log the global #particles, momentum and energy here
   call with(sim, project_jorek_feedback)
   
   !> Calls the MHD solver which timesteps the MHD fluid based on the fluid itself using the projected
   !> feedback of the particles as sources and sinks in the MHD equations 
   !> Also writes .h5 file, updates tstep and sets sim%stop_now = .true. if all fluid steps are done
-  call write_to_outputfile(sim%my_id, "Fluid stepper")
+  call write_to_outputfile(sim, "Fluid stepper",next_block_write_conserv=.false.)
   call with(sim, jorek_stepper_event) 
   
 
@@ -340,7 +342,7 @@ do while (.not. sim%stop_now)
 
   !neutral self collisions, which need the projected neutral density
   if (size(neutral_collisions) > 0) then
-    call write_to_outputfile(sim%my_id, "Neutral self collisions")
+    call write_to_outputfile(sim, "Neutral self collisions")
     do i=1, size(neutral_collisions)
       call neutral_collisions(i)%do(sim,tstep_fluid_si,jorek_feedback%node_list,jorek_feedback%element_list)
     enddo
@@ -349,20 +351,21 @@ do while (.not. sim%stop_now)
   !Writing interim particle restart files every nout fluid steps done. Overwrites previous restart file to save space
   if ( nout_particles .eq. 9999999 ) then
     if ( mod(istep,nout) .eq. 0 ) then
-      call write_to_outputfile(sim%my_id, "Writing interim_part_restart.h5")
+      call write_to_outputfile(sim, "Writing interim_part_restart.h5",next_block_write_conserv=.false.)
       call write_simulation_hdf5(sim, 'interim_part_restart.h5')
     endif
   else
     !Writing regular particle restart files every nout_particles.
     if ( mod(index_now,nout_particles) .eq. 0 ) then
       write(rst_part_file, '(a,i6.6,a)') 'part_restart_', index_now, '.h5'
-      call write_to_outputfile(sim%my_id, "Writing part_restart.h5")
+      write(header_line, "(2A)") "Writing ",trim(rst_part_file)
+      call write_to_outputfile(sim, header_line,next_block_write_conserv=.false.)
       call write_simulation_hdf5(sim, trim(rst_part_file))
     endif
   endif
 
   ! Writing some conservation checks to the ouput file
-  call write_to_outputfile(sim%my_id, "Conservation checks")
+  call write_to_outputfile(sim, "Conservation checks")
   call conservation_checks(sim)
 
 end do ! while
@@ -370,12 +373,13 @@ end do ! while
 !***********************************************************************
 !*                          end of simulation                          *
 !***********************************************************************
-call write_to_outputfile(sim%my_id, "End of simulation")
-  
+call write_to_outputfile(sim, "End of simulation",next_block_write_conserv=.false.,next_block_write_timing=.false.,call_main_loop_timer=.true.)
+
+call write_to_outputfile(sim, "Writing final part_restart.h5",next_block_write_conserv=.false.)
 call write_simulation_hdf5(sim, 'part_restart.h5')
 
+call write_to_outputfile(sim, "Finalizing",next_block_write_conserv=.false., next_block_write_timing=.false.)
 deallocate(recomb_groups)
-
 call sim%finalize()
 
 !***********************************************************************
@@ -383,21 +387,6 @@ call sim%finalize()
 !***********************************************************************
 
 contains
-
-subroutine write_to_outputfile(id,what)
-  implicit none
-  
-  integer, intent(in) :: id
-  character(len=*),intent(in) :: what
-
-  if(id .ne. 0) return
-
-  write(*,'(A100)') "===================================================================================================="
-  write(*,*) what
-  write(*,'(A100)') "===================================================================================================="
-
-end subroutine
-
 
 pure function f_adapted(n, P, grad_P) result(f)
   integer, intent(in) :: n

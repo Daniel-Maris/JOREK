@@ -239,9 +239,20 @@ subroutine calc_puff_rate_linear(this, time, puff_rate_0, puff_rate_1, puff_rate
   real*8, intent(inout)                  :: puff_rate     !< the puff rate at time t (y)
 
   !> check if the simulation has advanced to the next puffing segment
-  if (this%current_puff_seg /= this%last_puff_seg) then
-    if (time > this%puff_ctrl%times(this%current_puff_seg + 1)) this%current_puff_seg = this%current_puff_seg + 1 
-  endif
+  ! if some puffing segments are very small (e.g. to create a step function), you might need to skip more than 1 puffing segment, 
+  ! so keep on checking until t<t_next_seg or the last segment is reached
+  ! do ... enddo just does the loop infinitely until exit is called
+  do
+    if (this%current_puff_seg /= this%last_puff_seg) then
+      if (time > this%puff_ctrl%times(this%current_puff_seg + 1)) then
+        this%current_puff_seg = this%current_puff_seg + 1 
+      else
+        exit
+      endif
+    else
+      exit
+    endif
+  enddo
 
   !> set the bounding values of the current puffing segment
   if (this%current_puff_seg == 0) then 
