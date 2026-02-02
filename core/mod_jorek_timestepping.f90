@@ -77,7 +77,6 @@ function new_jorek_timestep_action(auxiliary_node_list) result(new)
   if (present(auxiliary_node_list)) new%auxiliary_node_list => auxiliary_node_list
   new%istep = 1
   new%name = "JOREK timestep"
-  new%log = .true.
 end function new_jorek_timestep_action
 
 
