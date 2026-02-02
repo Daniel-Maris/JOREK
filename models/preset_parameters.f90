@@ -889,6 +889,7 @@ part_group_configs(:)%type              = 'none'
 part_group_configs(:)%id                = 'non'
 part_group_configs(:)%init_function     = 'none'
 part_group_configs(:)%init_pdf          = 'none'
+part_group_configs(:)%do_conservation_checks = .false.
 
 !----- specific to ics and ncs 
 part_group_configs(:)%atom_data_suffix      = ''
