@@ -881,6 +881,7 @@ if (my_id .eq. 0) then
   call MPI_PACK(part_group_configs%init_function,             n_part_groups_max*50, MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(part_group_configs%init_pdf,                  n_part_groups_max*50, MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(part_group_configs%id,                        n_part_groups_max*3,  MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
+  call MPI_PACK(part_group_configs%do_conservation_checks,    n_part_groups_max,    MPI_LOGICAL  ,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
 
   call MPI_PACK(part_group_configs%atom_data_suffix,           n_part_groups_max*8, MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(part_group_configs%use_kin_ionisation,         n_part_groups_max,     MPI_LOGICAL,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -935,7 +936,6 @@ if (my_id .eq. 0) then
   call MPI_PACK(part_groups_in_use,                         n_part_groups_max*3,  MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
 
   call MPI_PACK(part_kill_ratio,                                              1,  MPI_REAL8,    buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
-  call MPI_PACK(tracked_group_id,                                             3,  MPI_CHARACTER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)  
 
   call MPI_PACK(n_fluid_groups,                                     1,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
   call MPI_PACK(fluid_configs(:)%Z,                n_fluid_groups_max,MPI_INTEGER,buffer,bufsize,position,MPI_COMM_WORLD,ierr)
@@ -1844,6 +1844,7 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%init_function,             n_part_groups_max*50,MPI_CHARACTER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%init_pdf,                  n_part_groups_max*50,MPI_CHARACTER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%id,                        n_part_groups_max*3, MPI_CHARACTER,MPI_COMM_WORLD,ierr)
+  call MPI_UNPACK(buffer,bufsize,position,part_group_configs%do_conservation_checks,    n_part_groups_max,   MPI_LOGICAL,  MPI_COMM_WORLD,ierr)
   
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%atom_data_suffix,           n_part_groups_max*8,MPI_CHARACTER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,part_group_configs%use_kin_ionisation,         n_part_groups_max,MPI_LOGICAL,MPI_COMM_WORLD,ierr)
@@ -1898,7 +1899,6 @@ if (my_id .ne. 0) then
   call MPI_UNPACK(buffer,bufsize,position,part_groups_in_use,                                n_part_groups_max*3, MPI_CHARACTER,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,part_kill_ratio,                                                     1, MPI_REAL8,    MPI_COMM_WORLD,ierr)
-  call MPI_UNPACK(buffer,bufsize,position,tracked_group_id,                                                    3, MPI_CHARACTER,MPI_COMM_WORLD,ierr)
 
   call MPI_UNPACK(buffer,bufsize,position,n_fluid_groups,                                     1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
   call MPI_UNPACK(buffer,bufsize,position,fluid_configs(:)%Z,                n_fluid_groups_max,MPI_INTEGER,MPI_COMM_WORLD,ierr)

@@ -1044,6 +1044,7 @@ module phys_module
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
     character(len=50)  :: init_function            !< name of the function to use for creating the initial distribution of in particles in the group
     character(len=50)  :: init_pdf                 !< the pdf to be used by the init_function to sample the initial distribution of particles in the group 
+    logical            :: do_conservation_checks   !< whether to write conservation checks every interaction in the output file (i.e. the change in particles/momentum/energy etc.)
 
     ! ================ for neutrals and impurities ('ncs' and 'ics' coupling schemes) particles ===============
 
@@ -1102,8 +1103,6 @@ module phys_module
   type (type_part_group_config), dimension(n_part_groups_max) :: part_group_configs 
 
   real*8 :: part_kill_ratio !< the ratio weight/average_weight at which kinetic particles will be destroyed rather than get their weight reduced (by interactions such as ionisation and wall pumping)
-
-  character(len=3) :: tracked_group_id !< particle group id of which the change in particles/momentum/energy will be printed for every interaction in the output file
 
   ! ------------------------------------------------
   ! --- Structures for fluid groups

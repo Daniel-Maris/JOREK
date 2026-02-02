@@ -1065,6 +1065,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       if (trim(part_group_configs(group_num)%init_function) /= 'none') then
         write(*,CHAR_FMT) 'init_pdf                ',trim(part_group_configs(group_num)%init_pdf)
       endif
+      write(*,LOGI_FMT) 'do_conservation_checks  ',sim%groups(group_num)%do_conservation_checks
+      
 
       ! ncs and ics -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs' .or. sim%groups(group_num)%coupling_scheme .eq. 'ics') then     
@@ -1166,7 +1168,6 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   endif ! n_part_groups > 0
 
   write(*,REAL_FMT) 'part_kill_ratio         ', part_kill_ratio
-  write(*,CHAR_FMT) 'tracked_group_id        ', tracked_group_id
 
   ! fluid groups
   write(*,INTG_FMT) 'n_fluid_groups          ',n_fluid_groups
