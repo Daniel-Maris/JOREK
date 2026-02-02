@@ -702,6 +702,9 @@ contains
       do j=1,size(particles,1)
         do k=1,nstep_particles
 
+          !> if particle is lost, skip
+          if (particles(j)%i_elm .le. 0) exit
+
           !> Determine E, B at particles location
           call sim%fields%calc_EBpsiU(sim%time, particles(j)%i_elm, particles(j)%st, particles(j)%x(3), E, B, psi, U)
 
@@ -714,6 +717,9 @@ contains
             call boris_push_cylindrical(particles(j), sim%groups(group_num)%mass, E, B, tstep_part_adj)
             call find_RZ_nearby(sim%fields%node_list, sim%fields%element_list, rzp_old(1), rzp_old(2), st_old(1), st_old(2), i_elm_old, particles(j)%x(1), particles(j)%x(2), particles(j)%st(1), particles(j)%st(2), particles(j)%i_elm, ifail)
           endif
+
+          !> may have pushed particle out of domain, check again if it is lost
+          if (particles(j)%i_elm .le. 0) exit
 
           !> only collect projections every proj_factor number of timesteps
           if (mod(k,proj_factor) .ne. 0) cycle
