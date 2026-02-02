@@ -114,6 +114,12 @@ else
   stop
 end if
 
+!> update and broadcast the equilibrium state
+if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
+call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
+call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
+call broadcast_equil_state(sim%my_id)
+
 ! setting up the particles
 if (restart_particles) then
   ! reading the particles from a file
@@ -121,20 +127,9 @@ if (restart_particles) then
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
 
-  !> update equilbirum state after reading particles
-  if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
-  call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
-  call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
-
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
   if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
-
-  !> is this needed for neutrals?
-  if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
-  call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
-
-  call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
   call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
 
@@ -149,9 +144,6 @@ else
 
   
 endif ! (restart_particles)
-
-!> broadcast equil state after particle init
-call broadcast_equil_state(sim%my_id)
 
 
 ! Read Open ADAS data for plasma fluid
