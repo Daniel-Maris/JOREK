@@ -684,7 +684,6 @@ contains
     else
       proj_factor = proj_collection_period
     endif
-    write(*,*) "proj_factor = ", proj_factor, "on proc = ", sim%my_id
     if (nstep_particles < proj_factor) then
       proj_factor = 1
     endif
