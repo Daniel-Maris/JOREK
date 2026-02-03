@@ -1032,7 +1032,9 @@ module phys_module
   ! ------------------------------------------------
   !> @name Particle group settings
   integer            :: n_part_groups                !< number of particle groups being used
-  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups     
+  integer, parameter :: n_part_groups_max = 20       !< maximum number of particle groups 
+  integer            :: proj_collection_period       !< projections collected every proj_collection_period steps - speed-up scheme
+                                                     !< ie if proj_collection_period=1 then projections collected for each particle step    
   
   !> Contains configuration and settings relating to a particle group
   type :: type_part_group_config
@@ -1098,6 +1100,7 @@ module phys_module
                                                    !< each particle is then copied multiple (3) times around the torus with angle 2pi/n_phi_planes (= pi/2)
                                                    !< if n_phi_planes=int*n_period then projected particle quantities are initialised as 0 for n_tor>1
     real*8              :: n_particles_total       !< Total number of particles to simulate (ie sum(weights)) !!NOT n_particles - total number of super/numeric-particles
+
 
   end type type_part_group_config
 

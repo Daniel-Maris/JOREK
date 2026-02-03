@@ -3,7 +3,7 @@
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: nstep_particles, use_manual_random_seed, n_aux_var, part_kill_ratio
+    use phys_module, only: nstep_particles, use_manual_random_seed, n_aux_var, part_kill_ratio, proj_collection_period
     use mod_coupling_settings
     use coupling_variables
     use mod_project_particles
@@ -679,7 +679,12 @@ contains
     integer  :: i_elm, i_elm_old
     integer  :: proj_factor
 
-    proj_factor        = 10     !> TODO : make this an input parameter or some divisor of nstep_particles
+    if (proj_collection_period .eq. 0) then
+      proj_factor = 10
+    else
+      proj_factor = proj_collection_period
+    endif
+    write(*,*) "proj_factor = ", proj_factor, "on proc = ", sim%my_id
     if (nstep_particles < proj_factor) then
       proj_factor = 1
     endif

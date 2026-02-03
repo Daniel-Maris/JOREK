@@ -880,6 +880,7 @@ enddo
 ! -------------- particle groups ---------------
 n_part_groups = 0
 part_groups_in_use(:) = 'non'
+proj_collection_period = 0
 
 part_group_configs(:)%Z                 = 1
 part_group_configs(:)%mass              = 0.d0
@@ -919,6 +920,7 @@ part_group_configs(:)%re_pitch               = 0.d0
 part_group_configs(:)%T_maxwell              = 0.d0
 part_group_configs(:)%n_phi_planes           = 0
 part_group_configs(:)%n_particles_total      = 0.d0
+
 
 
 do i=1, n_part_groups_max
