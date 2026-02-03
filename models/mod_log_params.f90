@@ -1067,6 +1067,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       if (trim(part_group_configs(group_num)%init_function) /= 'none') then
         write(*,CHAR_FMT) 'init_pdf                ',trim(part_group_configs(group_num)%init_pdf)
       endif
+      write(*,LOGI_FMT) 'do_conservation_checks  ',sim%groups(group_num)%do_conservation_checks
+      
 
       ! ncs and ics -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs' .or. sim%groups(group_num)%coupling_scheme .eq. 'ics') then     
