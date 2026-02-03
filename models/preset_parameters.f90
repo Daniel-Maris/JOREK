@@ -652,7 +652,7 @@ subroutine preset_parameters
   use_pastix_eq      = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_eq   = .false.              ! Use STRUMPACK equilibrium olver  
   
-  use_mumps_prj      = .false.               ! Use MUMPS equilibrium solver
+  use_mumps_prj      = .true.               ! Use MUMPS equilibrium solver
   use_pastix_prj     = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_prj  = .false.              ! Use STRUMPACK equilibrium olver  
 

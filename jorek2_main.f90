@@ -308,7 +308,7 @@ mpi_required = 0
       write(*,*) 'You are trying to restart the simulation with treat_axis = ', input_treat_axis
       write(*,*) 'Earlier treat_axis was set to = ', treat_axis
       write(*,*) 'STOP'
-      call MPI_FINALIZE(IERR) 
+      call MPI_Abort(MPI_COMM_WORLD, 29, IERR)
       stop      
     endif
 
