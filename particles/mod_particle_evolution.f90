@@ -783,7 +783,7 @@ contains
     end select
 
     !> Renormalise by number of timesteps the projection quantities were collected for
-    iterations   = real(nstep_particles/proj_factor,8)
+    iterations   = nstep_particles/proj_factor
     feedback_rhs = feedback_rhs/iterations
 
   end subroutine evolve_epf
