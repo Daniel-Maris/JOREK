@@ -852,7 +852,7 @@ subroutine preset_parameters
   Sigma = 0.d0
 
 !===================== particle input values
-nstep_particles    = 9999999
+nstep_particles    = 0
 nsubstep_particles = 1
 tstep_particles    = 1d-9
 filter_perp        = 0.d0
