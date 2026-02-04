@@ -17,7 +17,7 @@ logical :: use_ics               = .false. !< use kinetic impurity particles
 logical :: use_rep               = .false. !< use pressure coupling scheme for runaway electrons
 logical :: use_epc               = .false. !< use current coupling scheme for energetic particles                          [PLACEHOLDER, NOT YET IMPLEMENTED]
 logical :: use_epp               = .false. !< use pressure coupling scheme for energetic particles                         [PLACEHOLDER, NOT YET IMPLEMENTED]
-logical :: use_epf               = .false. !< use full anisotropic pressure tensor coupling scheme for energetic particles [PLACEHOLDER, NOT YET IMPLEMENTED]
+logical :: use_epf               = .false. !< use full anisotropic pressure tensor coupling scheme for energetic particles
 logical :: use_kin_recomb_global = .false. !< whether recombination is required (has effect on both fluid and kinetic side)
 integer :: n_ics                 = 0       !< number of ics groups in the simulation
 contains
