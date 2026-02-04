@@ -284,7 +284,7 @@ do while (.not. sim%stop_now)
 
   ! --- Inner particle loop, with interactions that happen on the particle timesteps
   
-  call write_to_outputfile(sim,"Starting inner particle loop")
+  call write_to_outputfile(sim,"Starting inner particle loop",next_block_write_conserv=.false.,next_block_write_timing=.false.)
   
   ! We divide the fluid timestep into an integer number of particle timesteps such that all actions with their own %each_nstep_part fit an integer amount 
   ! of times in the fluid timestep. We ensure this by fitting the least common multiple (lcm) of all %each_nstep_part into the fluid timestep an integer 
@@ -323,7 +323,7 @@ do while (.not. sim%stop_now)
 
   do istep_inner_loop=inner_stepsize,sim%nstep_inner_loop,inner_stepsize
     write(header_line,'(A,I6,A,I6)') "Starting inner particle loop iteration getting us to istep_inner_loop=",istep_inner_loop," out of ",sim%nstep_inner_loop
-    call write_to_outputfile(sim,header_line)
+    call write_to_outputfile(sim,header_line,next_block_write_conserv=.false.,next_block_write_timing=.false.)
 
     !updating inner loop steps
     sim%istep_inner_loop = istep_inner_loop
