@@ -1163,6 +1163,7 @@ do i=1,n_vertex_max
             if (Ti0 .lt. ZK_i_prof_neg_thresh) then
               if (use_zkperp_times_density) then
                 ZKi_prof = ZK_i_prof_neg * max(r0,zkperp_density_floor)
+                dZKi_prof_drho = ZK_i_prof_neg
               else
                 ZKi_prof = ZK_i_prof_neg
               endif
@@ -1170,6 +1171,7 @@ do i=1,n_vertex_max
             if (Te0 .lt. ZK_e_prof_neg_thresh) then
               if (use_zkperp_times_density) then
                 ZKe_prof = ZK_e_prof_neg * max(r0,zkperp_density_floor)
+                dZKe_prof_drho = ZK_e_prof_neg
               else
                 ZKe_prof = ZK_e_prof_neg
               endif
@@ -1178,6 +1180,7 @@ do i=1,n_vertex_max
             if (T0 .lt. ZK_prof_neg_thresh) then
               if (use_zkperp_times_density) then
                 ZK_prof = ZK_prof_neg * max(r0,zkperp_density_floor)
+                dZK_prof_drho = ZK_prof_neg
               else
                 ZK_prof = ZK_prof_neg
               endif
