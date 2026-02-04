@@ -43,11 +43,11 @@ real*8    :: target_time, tstep_keep
 real*8    :: physical_particles, weight
 real*8    :: oldtime, step_rest_time, particle_step_time, particle_start_time, timestep_gc
 real*8    :: rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, tstep_si, timesteps
-real*8    :: v_kin_temp, E(3), B(3), psi, U, B_norm, psi_prev
+real*8    :: v_kin_temp, E(3), B(3), psi, U, B_norm, psi_prev, U_prev
 real*8    :: ran(6), T_scale_factor
 real*8    :: p_in(3), B_hat(3), v_par, v_par2, qom, larmor_radius, v_perp
 real*8    :: A(3), dA(3,3), dB(3,3), bn, dbn(3), Bnorm(3), dBnorm(3,3)
-real*8    :: r_out, z_out, s_out, t_out, amplitude, mm, psi_n
+real*8    :: r_out, z_out, s_out, t_out, amplitude_psi, amplitude_U, psi_n
 real*8    :: p_phi_gc,  energy_gc,  p_phi_gc_start,  energy_gc_start 
 real*8    :: p_phi_gc2, energy_gc2, p_phi_gc2_start, energy_gc2_start 
 real*8    :: p_phi_lf,  energy_lf,  p_phi_lf_start,  energy_lf_start
@@ -88,33 +88,34 @@ if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%e
 call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
 call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase)
 
-amplitude = 1.d-4
-mm = 2
+amplitude_psi = 1.d-4
+amplitude_U   = 1.d-4
 
 do in=2,n_tor
   do i=1,node_list%n_nodes
-      sim%fields%node_list%node(i)%values(in,:,:) = 0.d0
-
       psi = sim%fields%node_list%node(i)%values(1,1,1)
       psi_n = (psi - ES%psi_axis)/(ES%psi_bnd - ES%psi_axis)
 
-      sim%fields%node_list%node(i)%values(in,1,1) = amplitude * psi_n * (1.d0 -psi_n)
-      sim%fields%node_list%node(i)%values(in,2,1) = amplitude * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,2,1)
-      sim%fields%node_list%node(i)%values(in,3,1) = amplitude * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,3,1)
-      sim%fields%node_list%node(i)%values(in,4,1) = amplitude * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,4,1)
+      sim%fields%node_list%node(i)%values(in,1,1) = amplitude_psi * psi_n * (1.d0 -psi_n)
+      sim%fields%node_list%node(i)%values(in,2,1) = amplitude_psi * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,2,1)
+      sim%fields%node_list%node(i)%values(in,3,1) = amplitude_psi * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,3,1)
+      sim%fields%node_list%node(i)%values(in,4,1) = amplitude_psi * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,4,1)
   enddo
 enddo
-
+do in=1,n_tor
+  do i=1,node_list%n_nodes
+      psi = sim%fields%node_list%node(i)%values(1,1,1)
+      psi_n = (psi - ES%psi_axis)/(ES%psi_bnd - ES%psi_axis)
+      sim%fields%node_list%node(i)%values(in,1,2) = amplitude_U * psi_n * (1.d0 -psi_n)
+      sim%fields%node_list%node(i)%values(in,2,2) = amplitude_U * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,2,1)
+      sim%fields%node_list%node(i)%values(in,3,2) = amplitude_U * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,3,1)
+      sim%fields%node_list%node(i)%values(in,4,2) = amplitude_U * (1. - 2.d0 * psi_n)/(ES%psi_bnd - ES%psi_axis) * sim%fields%node_list%node(i)%values(1,4,1)
+  enddo
+enddo
 
 tstep     = tstep_keep
 
 call det_modes()
-
-if (.not. restart) then
-  do j=1, sim%fields%node_list%n_nodes
-    sim%fields%node_list%node(j)%values(:,:,2) = 0.d0
-  enddo
-endif
 
 n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
 rho_norm = CENTRAL_MASS * ATOMIC_MASS_UNIT * n_norm                  ! rho_SI = rho_norm * rho
@@ -152,7 +153,7 @@ type is (particle_gc_vpar)
         p_lf(1)%q = 1
         p_gc(1)%q = 1
 
-        qom =  p_lf(i)%q * EL_CHG / (sim%groups(1)%mass * ATOMIC_MASS_UNIT)
+        qom =  p_lf(1)%q * EL_CHG / (sim%groups(1)%mass * ATOMIC_MASS_UNIT)
 
         p_gc(1)%vpar = 0.4122032306d+05          ! from Qin paper, PoP 16, 042510 (2009) (P_phi (normalised) = -1.077d-3)
         p_gc(1)%mu   = 0.2061748464d+11          ! mu (normalised) = 2.25d-6
@@ -166,7 +167,7 @@ type is (particle_gc_vpar)
         p_gc(1)%i_elm = i_elm_out
         p_gc(1)%st    = (/ s_out, t_out /) 
 
-        call sim%fields%calc_EBpsiU(sim%time, p_gc(i)%i_elm, p_gc(i)%st, p_gc(i)%x(3), E, B, psi, U)
+        call sim%fields%calc_EBpsiU(sim%time, p_gc(1)%i_elm, p_gc(1)%st, p_gc(1)%x(3), E, B, psi, U)
         call sim%fields%calc_RK4(sim%time, p_gc(1)%i_elm, p_gc(1)%st, p_gc(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
       !  call sim%fields%calc_RK4_analytic(p_gc(1)%x(1), p_gc(1)%x(2), p_gc(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
 
@@ -188,7 +189,7 @@ type is (particle_gc_vpar)
         p_lf(1)%i_elm = i_elm_out
         p_lf(1)%st    = (/ s_out, t_out /) 
 
-        call sim%fields%calc_EBpsiU(sim%time, p_lf(i)%i_elm, p_lf(i)%st, p_lf(i)%x(3), E, B, psi, U)
+        call sim%fields%calc_EBpsiU(sim%time, p_lf(1)%i_elm, p_lf(1)%st, p_lf(1)%x(3), E, B, psi, U)
 
         p_lf(1)%v = p_gc(1)%vpar * B / norm2(B) + v_perp * cross(B,(/0.d0,0.d0,1.d0/)) / norm2(cross(B,(/0.d0,0.d0,1.d0/)))
 
@@ -206,12 +207,12 @@ type is (particle_gc_vpar)
         write(*,'(A,e18.10)')  'CHECK v_par  [m/s] : ',dot_product(p_orbit(1)%v, B) / norm2(B)
         write(*,'(A,3e18.10)') 'CHECK v_perp [m/s] : ',norm2(cross(cross(p_orbit(1)%v, B), B)) / norm2(B)**2
 
-        call convert_leapfrog_to_gc_vpar(sim%fields%node_list, sim%fields%element_list, p_lf(i), B, sim%groups(1)%mass, p_check_gc)
+        call convert_leapfrog_to_gc_vpar(sim%fields%node_list, sim%fields%element_list, p_lf(1), B, sim%groups(1)%mass, p_check_gc)
         write(*,*) ' CHECK convert leapfrog to gc'
         write(*,'(A,8e18.10)') ' check : x         : ',p_check_gc%x
         write(*,'(A,8e18.10)') ' check : v_par, mu : ',p_check_gc%vpar, p_check_gc%mu
 
-        p_Emu = kinetic_leapfrog_to_gc(sim%fields%node_list, sim%fields%element_list, p_lf(i), E, B, sim%groups(1)%mass, 0.d0)
+        p_Emu = kinetic_leapfrog_to_gc(sim%fields%node_list, sim%fields%element_list, p_lf(1), E, B, sim%groups(1)%mass, 0.d0)
         write(*,'(A,8e18.10)') 'EMu x  : ',p_Emu%x
         write(*,'(A,8e18.10)') 'EMu E  : ',p_Emu%E
         write(*,'(A,8e18.10)') 'EMu mu / (q/m) : ',p_Emu%mu
@@ -229,11 +230,13 @@ type is (particle_gc_vpar)
         call sim%fields%calc_RK4(sim%time, p_gc(1)%i_elm, p_gc(1)%st, p_gc(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
 !        call sim%fields%calc_RK4_analytic(p_gc(1)%x(1), p_gc(1)%x(2), p_gc(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
 
-        p_phi_gc_start  = p_gc(1)%x(1) * ( p_gc(1)%vpar * Bnorm(3) + qom * A(3))
-        energy_gc_start = 0.5d0 * p_gc(1)%vpar**2 + p_gc(1)%mu * p_gc(1)%B_norm
+        call sim%fields%calc_EBpsiU(sim%time, p_gc(1)%i_elm, p_gc(1)%st, p_gc(1)%x(3), E, B, psi, U)
 
-        p_phi_gc2_start  = p_gc2(1)%x(1) * ( p_gc2(1)%vpar * Bnorm(3) + qom * A(3))
-        energy_gc2_start = 0.5d0 * p_gc2(1)%vpar**2 + p_gc2(1)%mu * p_gc2(1)%B_norm
+        p_phi_gc_start  = p_gc(1)%x(1) * ( p_gc(1)%vpar * Bnorm(3) + qom * A(3))
+        energy_gc_start = 0.5d0 * p_gc(1)%vpar**2 + p_gc(1)%mu * p_gc(1)%B_norm - qom * U
+
+!        p_phi_gc2_start  = p_gc2(1)%x(1) * ( p_gc2(1)%vpar * Bnorm(3) + qom * A(3))
+!        energy_gc2_start = 0.5d0 * p_gc2(1)%vpar**2 + p_gc2(1)%mu * p_gc2(1)%B_norm
 
         write(*,'(A,12e18.10)') ' RK4 start : ',p_gc(1)%x, p_gc(1)%vpar,  p_phi_gc_start,  energy_gc_start
 !        write(*,'(A,12e18.10)') ' RK2 start : ',p_gc2(1)%x,p_gc2(1)%vpar, p_phi_gc2_start, energy_gc2_start
@@ -256,8 +259,10 @@ type is (particle_gc_vpar)
       call sim%fields%calc_Qin(sim%time, p_qin(1)%i_elm, p_qin(1)%st, p_qin(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
       !call sim%fields%calc_Qin_analytic(p_qin(1)%x(1), p_qin(1)%x(2), p_qin(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
       
+      call sim%fields%calc_EBpsiU(sim%time, p_qin(1)%i_elm, p_qin(1)%st, p_qin(1)%x(3), E, B, psi, U)
+
       p_phi_qin_start  = p_Qin(1)%vpar * Bnorm(3) + qom * A(3)
-      energy_qin_start = 0.5d0 * p_Qin(1)%vpar**2 + p_Qin(1)%mu * bn
+      energy_qin_start = 0.5d0 * p_Qin(1)%vpar**2 + p_Qin(1)%mu * bn - qom * U
 
       write(*,'(A,12e18.10)') ' Qin start : ',p_Qin(1)%x,p_Qin(1)%vpar, p_phi_Qin_start, energy_qin_start
 
@@ -268,11 +273,15 @@ end select
 select type (p_lf => sim%groups(1)%particles)
 type is (particle_kinetic_leapfrog)  
   call boris_all_initial_half_step_backwards_RZPhi(p_lf, sim%groups(1)%mass, sim%fields, sim%time, timesteps)
-  call sim%fields%calc_EBpsiU(sim%time, p_lf(1)%i_elm, p_lf(1)%st, p_lf(1)%x(3), E, B, psi_prev, U)
+
+  call sim%fields%calc_EBpsiU(sim%time, p_lf(1)%i_elm, p_lf(1)%st, p_lf(1)%x(3), E, B, psi_prev, U_prev)
+  
   call loop_particle_kinetic_leapfrog(sim, timesteps, 1, particle_start_time)
+  
   call sim%fields%calc_EBpsiU(sim%time, p_lf(1)%i_elm, p_lf(1)%st, p_lf(1)%x(3), E, B, psi, U)
+  
   p_phi_lf_start  = p_lf(1)%x(1) * p_lf(1)%v(3) + 0.5d0 * qom * (psi + psi_prev)
-  energy_lf_start = 0.5d0 * dot_product(p_lf(1)%v,p_lf(1)%v) 
+  energy_lf_start = 0.5d0 * dot_product(p_lf(1)%v,p_lf(1)%v) - qom * U
   write(*,'(A,12e16.8)') ' LF start : ',p_lf(1)%x, p_phi_lf_start, energy_lf_start
 end select
 
@@ -299,8 +308,10 @@ do i=1, nstep_particles
  !   call convert_gc_vpar_to_kinetic(sim%fields%node_list, sim%fields%element_list, p_gc(1), B, sim%groups(2)%mass, n_phases, p_orbit, ifail)
  !   write(112,'(3e18.10)') (p_orbit(j)%x,j=1,n_phases)
 
+    call sim%fields%calc_EBpsiU(sim%time, p_gc(1)%i_elm, p_gc(1)%st, p_gc(1)%x(3), E, B, psi, U)
+
     p_phi_gc  = p_gc(1)%x(1) * ( p_gc(1)%vpar * Bnorm(3) + qom * A(3))
-    energy_gc = 0.5d0 * p_gc(1)%vpar**2 + p_gc(1)%mu * p_gc(1)%B_norm
+    energy_gc = 0.5d0 * p_gc(1)%vpar**2 + p_gc(1)%mu * p_gc(1)%B_norm  - qom * U
 
     error_W_rk4(i) = abs((energy_gc - energy_gc_start)/energy_gc_start)
     error_P_rk4(i) = abs((P_phi_gc  - P_phi_gc_start) /P_phi_gc_start)
@@ -322,8 +333,10 @@ do i=1, nstep_particles
 !   call convert_gc_vpar_to_kinetic(sim%fields%node_list, sim%fields%element_list, p_gc(1), B, sim%groups(2)%mass, n_phases, p_orbit, ifail)
 !   write(112,'(3e18.10)') (p_orbit(j)%x,j=1,n_phases)
 
+!   call sim%fields%calc_EBpsiU(sim%time, p_gc2(1)%i_elm, p_gc2(1)%st, p_gc2(1)%x(3), E, B, psi, U)
+
 !    p_phi_gc2  = p_gc2(1)%x(1) * ( p_gc2(1)%vpar * Bnorm(3) + qom * A(3))
-!    energy_gc2 = 0.5d0 * p_gc2(1)%vpar**2 + p_gc2(1)%mu * p_gc2(1)%B_norm
+!    energy_gc2 = 0.5d0 * p_gc2(1)%vpar**2 + p_gc2(1)%mu * p_gc2(1)%B_norm - qom * U
 
 !    error_W_rk2(i) = abs((energy_gc2 - energy_gc2_start)/energy_gc2_start)
 !    error_P_rk2(i) = abs((P_phi_gc2  - P_phi_gc2_start) /P_phi_gc2_start)
@@ -342,9 +355,11 @@ do i=1, nstep_particles
 
     call sim%fields%calc_Qin(sim%time, p_qin(1)%i_elm, p_qin(1)%st, p_qin(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
     !call sim%fields%calc_Qin_analytic(p_qin(1)%x(1), p_qin(1)%x(2), p_qin(1)%x(3), A, dA, B, dB, Bnorm, dBnorm, bn, dbn, E)
-    
+
+    call sim%fields%calc_EBpsiU(sim%time, p_qin(1)%i_elm, p_qin(1)%st, p_qin(1)%x(3), E, B, psi, U)
+
     p_phi_qin  = p_Qin(1)%vpar * Bnorm(3) + qom * A(3)
-    energy_qin = 0.5d0 * p_Qin(1)%vpar**2 + p_Qin(1)%mu * bn
+    energy_qin = 0.5d0 * p_Qin(1)%vpar**2 + p_Qin(1)%mu * bn - qom * U
 
     error_W_qin(i) = abs((energy_qin - energy_qin_start)/energy_qin_start)
     error_P_qin(i) = abs((P_phi_qin - P_phi_qin_start)/P_phi_qin_start)
@@ -357,10 +372,11 @@ do i=1, nstep_particles
     type is (particle_kinetic_leapfrog)
   
     psi_prev = psi
+    U_prev   = U
     call sim%fields%calc_EBpsiU(sim%time, p_lf(1)%i_elm, p_lf(1)%st, p_lf(1)%x(3), E, B, psi, U)
   
-    p_phi_lf  = p_lf(1)%x(1) * p_lf(1)%v(3) + 0.5d0 * qom * (psi + psi_prev)
-    energy_lf = 0.5d0 * dot_product(p_lf(1)%v,p_lf(1)%v) 
+    p_phi_lf  = p_lf(1)%x(1) * p_lf(1)%v(3)              + 0.5d0 * qom * (psi + psi_prev)
+    energy_lf = 0.5d0 * dot_product(p_lf(1)%v,p_lf(1)%v) - qom * U
 
     error_W_lf(i) = abs((energy_lf - energy_lf_start)/energy_lf_start)
     error_P_lf(i) = abs((P_phi_lf- P_phi_lf_start)/P_phi_lf_start)
