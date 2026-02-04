@@ -1249,7 +1249,7 @@ do i=1,element_list%n_elements
         D_prof  = get_dperp (psi_norm)
 
         if (use_zkperp_times_density) then
-          ZK_prof = get_zkperp(psi_norm) * max(ZN0,zkperp_density_floor)
+          ZK_prof = get_zkperp(psi_norm) * max(scalars(inode,var_rho),zkperp_density_floor)
         else
           ZK_prof = get_zkperp(psi_norm)
         endif
