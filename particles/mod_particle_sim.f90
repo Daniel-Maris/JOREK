@@ -49,7 +49,7 @@ type :: particle_sim
   real*8                                          :: time = 0.d0 !< time of the simulation. Only accurate when in events with sync or at
   !< the start of the simulation
   integer                                         :: istep_fluid               !< timestep of main loop (on which the fluid is stepped)
-  integer                                         :: istep_inner_loop          !< timestep of inner particle loop (on which particle-particle interactions are called))
+  integer                                         :: istep_inner_loop = -1     !< timestep of inner particle loop (on which particle-particle interactions are called))
   real*8                                          :: tstep_fluid_si            !< [s] fluid timestep (tstep) in si units
   real*8                                          :: tstep_part_adj            !< [s] tstep_particles adjusted so that an integer amount of steps fit into a fluid timestep an integer amount of lcm_inner_loop times
   integer                                         :: nstep_inner_loop          !< number of inner particle loops within the fluid step

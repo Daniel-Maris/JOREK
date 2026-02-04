@@ -1003,7 +1003,7 @@ subroutine do_wall_action(this, sim, ev)
   ! in the future add part2other
 
   ! --- area for writing the projected diagnostic
-  if (sim%istep_inner_loop >= sim%nstep_inner_loop) then
+  if (sim%istep_inner_loop >= sim%nstep_inner_loop .or. sim%istep_inner_loop == -1) then !if at the last step of inner loop, or outside inner loop
     this%i_step_diag = this%i_step_diag + 1
     if (this%i_step_diag .ge. this%n_step_diag) then
       call write_wall_project_vtk(this, sim)
