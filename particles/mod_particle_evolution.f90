@@ -681,7 +681,7 @@ contains
 
     proj_factor        = 10     !> TODO : make this an input parameter or some divisor of nstep_particles
     if (nstep_particles < proj_factor) then
-      proj_factor = 1
+      proj_factor = nstep_particles
     endif
 
     !> loop over all particles in group(group_num)
