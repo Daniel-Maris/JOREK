@@ -865,6 +865,8 @@ restart_particles  = .false.
 use_marker         = .false.
 apply_dirichlet_proj = .false.
 init_particles_only = .false.
+find_RZ_nearby_iter = 16
+find_RZ_nearby_tol  = 1.d-22
 
 !--------------- valves -------------------------
 valves(:)%type = 'none'
