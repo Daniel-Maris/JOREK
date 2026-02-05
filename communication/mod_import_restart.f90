@@ -40,11 +40,11 @@ subroutine import_restart(node_list, element_list, filename, format_rst, ierr, n
     write(*,*) " Restart from BINARY file " // trim(filename) // '.rst'
     if(present(aux_node_list)) then 
       call import_binary_restart(node_list=node_list, element_list=element_list, &
-           filename=trim(filename)//'.rst', format_rst=format_rst, ierr=ierr, &
+           filename=trim(filename)//'.rst', format_rst=format_rst, error=ierr, &
            no_perturbations=no_perturbations, aux_node_list=aux_node_list, use_3D_rtree=use_3D_rtree)
    else
       call import_binary_restart(node_list=node_list, element_list=element_list, &
-           filename=trim(filename)//'.rst', format_rst=format_rst, ierr=ierr, &
+           filename=trim(filename)//'.rst', format_rst=format_rst, error=ierr, &
            no_perturbations=no_perturbations, use_3D_rtree=use_3D_rtree)
    endif
 

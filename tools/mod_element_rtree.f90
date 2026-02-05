@@ -58,6 +58,10 @@ interface
     integer(C_INT) :: elements_in_rect
   end function elements_in_rect
 end interface
+type :: type_box_container
+   real(C_DOUBLE), allocatable :: min_vals(:) ! Size: n_slices * 3
+   real(C_DOUBLE), allocatable :: max_vals(:) ! Size: n_slices * 3
+end type type_box_container
 
 contains
 
@@ -83,8 +87,6 @@ subroutine populate_element_rtree(node_list, element_list, use_3D_rtree)
       use_3D = .false.
 #endif
    end if
-
-   write(*,*) "Populating Element RTree with ", merge("3D Slices", "2D Slices (Axisymmetric)", use_3D)
   
    if (use_3D) then
       call populate_element_rtree_3D(node_list, element_list)
