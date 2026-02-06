@@ -955,8 +955,8 @@ module phys_module
   logical :: restart_particles    !< Load in previously simulated particles from a the part_restart.h5 restart file?
   logical :: use_marker           !< This flag determines whether to use marker particles to treat impurity (Placeholder)
   real*8  :: tstep_particles      !< the time step for the particles
-  integer :: nstep_particles      !< the number of particle time steps
-  integer :: nsubstep_particles   !< the number of particles substeps (without projection)
+  integer :: nstep_particles      !< the number of particle time steps (not used in kinetic_main)
+  integer :: nsubstep_particles   !< the number of particles substeps (without projection) (not used in kinetic_main)
   real*8  :: filter_perp          !< particle projection smoothing parameter, poloidal plane
   real*8  :: filter_hyper         !< particle projection smoothing parameter, poloidal plane
   real*8  :: filter_par           !< particle projection smoothing parameter, parallel direction
@@ -965,6 +965,8 @@ module phys_module
   real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
   logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
   logical :: init_particles_only  !< only initialise particles, and produce part_restart files, do not run the simulation (only relevant when restart_particles=.f.)
+  integer :: find_RZ_nearby_iter  !< the maximum newton iterations used in find_RZ_nearby 
+  real*8  :: find_RZ_nearby_tol   !< the squared element tolerance used in find_RZ_nearby for finding a position inside an element (unit: element size)
 
   ! -----------------------------------------------
   ! --- Structures for particle valves 
@@ -1044,6 +1046,7 @@ module phys_module
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
     character(len=50)  :: init_function            !< name of the function to use for creating the initial distribution of in particles in the group
     character(len=50)  :: init_pdf                 !< the pdf to be used by the init_function to sample the initial distribution of particles in the group 
+    logical            :: do_conservation_checks   !< whether to write conservation checks every interaction in the output file (i.e. the change in particles/momentum/energy etc.)
 
     ! ================ for neutrals and impurities ('ncs' and 'ics' coupling schemes) particles ===============
 
@@ -1082,6 +1085,8 @@ module phys_module
 
     !> --- the settings to define the wall_action objects for this particle group. Index is arbitrary
     type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
+    integer                                                  :: wall_act_each_nstep_part    !< run this group's particle-particle wall_actions every i_inner_loop = wall_act_each_nstep_part. Default (-9999991*) interpreted as nstep_inner_loop (i.e. each fluid timestep)
+                                                                                            ! * -9999991 was chosen as default because it is the negative of a big prime, so it will produce strange results if the gcd or lcm of it and another number will be calculated, making it easier to debug if something is wrong
 
     ! ================ for runaway electrons ('rep' coupling scheme) particles ===============
 
