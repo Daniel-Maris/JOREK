@@ -1694,8 +1694,8 @@ do i=1,n_vertex_max
                          + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,15) &
                          + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,16) &
                          - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,17) &
-                         - v * Ti0 * BigR * r0_corr * r0_corr  * Srec_T                              * xjac * tstep * factor(var_Ti,18) 
                         ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
+                         - v * Ti0 * BigR * r0_corr * r0_corr  * Srec_T                              * xjac * tstep * factor(var_Ti,18) 
 
  
               if (with_impurities) then
