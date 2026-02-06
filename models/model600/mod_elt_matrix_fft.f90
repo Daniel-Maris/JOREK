@@ -1246,11 +1246,7 @@ do i=1,n_vertex_max
             source_neutral_drift = max(0.,source_neutral_drift)
 
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
-            if (with_TiTe) then
-              call rec_rate_to_kinetic(r0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
-            else
-              call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
-            endif
+            call rec_rate_to_kinetic(r0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
 
             !> following terms are handled on the kinetic side (mod_particle_evolution.f90)
             LradDrays_T   = 0.d0
