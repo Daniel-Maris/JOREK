@@ -3,7 +3,7 @@
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: nstep_particles, use_manual_random_seed, n_aux_var, part_kill_ratio
+    use phys_module, only: use_manual_random_seed, n_aux_var, part_kill_ratio
     use mod_coupling_settings
     use coupling_variables
     use mod_project_particles
@@ -24,7 +24,7 @@ contains
   !> - performs coupling scheme specific physics (e.g. ionisation, radiation... etc)
   !> - creates the feedback rhs required for projections of kinetic variables
   !> - evolves the location and velocity of the particles based on the background plasma (pushing)
-  subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj)
+  subroutine evolve_particle_group(sim, group_num, jorek_feedback, rng, tstep_part_adj, nstep_part_adj)
     use mod_project_particles
     use mod_random_seed
     use mod_interp, only: mode_moivre
@@ -38,7 +38,8 @@ contains
     type(projection), target, intent(inout)                   :: jorek_feedback
     type(count_action)                                        :: counter
     type(pcg32_rng), dimension(:), allocatable, intent(inout) :: rng
-    real*8, intent(in)                                        :: tstep_part_adj
+    real*8,  intent(in)                                       :: tstep_part_adj
+    integer, intent(in)                                       :: nstep_part_adj
     
     real*8,allocatable :: feedback_rhs(:,:,:,:,:)
     type (type_node_list),         pointer :: feedback_nodelist
@@ -59,7 +60,6 @@ contains
     endif
 
     !> Set up storage of feedback
-    jorek_feedback%rhs_gather_time = jorek_feedback%rhs_gather_time + nstep_particles * tstep_part_adj
     allocate(feedback_rhs,source=jorek_feedback%rhs)
     feedback_nodelist => jorek_feedback%node_list
     feedback_element_list => jorek_feedback%element_list
@@ -74,11 +74,11 @@ contains
 
     select case (part_group%coupling_scheme)
       case ('ncs')
-        call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj)
+        call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, nstep_part_adj)
       case ('ics')
-        call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
+        call evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, nstep_part_adj, imp_q_idx)
       case ('rep')
-        call evolve_REs(sim, group_num, feedback_rhs, rng, tstep_part_adj)
+        call evolve_REs(sim, group_num, feedback_rhs, rng, tstep_part_adj, nstep_part_adj)
       case default
         write(*,*) "ERROR: Unknown coupling scheme: '", part_group%coupling_scheme, "' found for group '", part_group%id, "'"
         stop 1
@@ -87,40 +87,41 @@ contains
     ! ================================= CONSTRUCT PROJECTION RHS =======================================
     !> enter gathered rhs into jorek_feedback
     if (part_group%coupling_scheme == 'ncs' .or. part_group%coupling_scheme == 'ics') then
-      write(*,*) 'GATHER TIME : ',jorek_feedback%rhs_gather_time
-      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,E_idx_kin) = jorek_feedback%rhs(:,:,:,:,E_idx_kin) + feedback_rhs(:,:,:,:,E_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
+      ! To get rates in the feedback, we need to divide the change by the time. Since we keep adding changes each evolve_particle_group call until 
+      ! the rhs is reset to 0 when the jorek_feedback is projected (each fluid tstep), we should divide by sim%tstep_fluid_si
+      jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,mom_par_idx_kin) + feedback_rhs(:,:,:,:,mom_par_idx_kin) / sim%tstep_fluid_si
+      jorek_feedback%rhs(:,:,:,:,E_idx_kin)       = jorek_feedback%rhs(:,:,:,:,E_idx_kin)       + feedback_rhs(:,:,:,:,E_idx_kin)       / sim%tstep_fluid_si
 
       !> ncs specific projections
       if (part_group%coupling_scheme == 'ncs') then
-        jorek_feedback%rhs(:,:,:,:,rho_idx_kin) = jorek_feedback%rhs(:,:,:,:,rho_idx_kin) + feedback_rhs(:,:,:,:,rho_idx_kin) / jorek_feedback%rhs_gather_time !* TWOPI
-        jorek_feedback%rhs(:,:,:,:,5) = jorek_feedback%rhs(:,:,:,:,5) + feedback_rhs(:,:,:,:,5)   !< extra diagnostic projection 
+        jorek_feedback%rhs(:,:,:,:,rho_idx_kin)   = jorek_feedback%rhs(:,:,:,:,rho_idx_kin)     + feedback_rhs(:,:,:,:,rho_idx_kin)     / sim%tstep_fluid_si
+        ! for the density, we should divide by the amount of times we will double count the same particle (=the number of particle steps in a fluid step)
+        jorek_feedback%rhs(:,:,:,:,5)             = jorek_feedback%rhs(:,:,:,:,5)               + feedback_rhs(:,:,:,:,5)               / (sim%tstep_fluid_si/tstep_part_adj) !< extra diagnostic projection (density) 
       endif
 
       !> ics specific projections
       if (part_group%coupling_scheme == 'ics') then
-        jorek_feedback%rhs(:,:,:,:,imp_q_idx) = jorek_feedback%rhs(:,:,:,:,imp_q_idx) + feedback_rhs(:,:,:,:,imp_q_idx)
-        jorek_feedback%rhs(:,:,:,:,6) = jorek_feedback%rhs(:,:,:,:,6) + feedback_rhs(:,:,:,:,6)   !< extra projection (impurity radiated power)
-        jorek_feedback%rhs(:,:,:,:,7) = jorek_feedback%rhs(:,:,:,:,7) + feedback_rhs(:,:,:,:,7)   !< extra projection (impurity density)
+        jorek_feedback%rhs(:,:,:,:,imp_q_idx)     = jorek_feedback%rhs(:,:,:,:,imp_q_idx)       + feedback_rhs(:,:,:,:,imp_q_idx)       / (sim%tstep_fluid_si/tstep_part_adj)
+        jorek_feedback%rhs(:,:,:,:,6)             = jorek_feedback%rhs(:,:,:,:,6)               + feedback_rhs(:,:,:,:,6)               / sim%tstep_fluid_si                  !< extra projection (impurity radiated power)
+        jorek_feedback%rhs(:,:,:,:,7)             = jorek_feedback%rhs(:,:,:,:,7)               + feedback_rhs(:,:,:,:,7)               / (sim%tstep_fluid_si/tstep_part_adj) !< extra projection (impurity density)
       endif
     endif
 
     !> rep specific projections
     if (part_group%coupling_scheme == 'rep') then
-      feedback_rhs = feedback_rhs / real(nstep_particles,8) 
-      jorek_feedback%rhs(:,:,:,:,P_par_idx_kin) = jorek_feedback%rhs(:,:,:,:,P_par_idx_kin) + feedback_rhs(:,:,:,:,P_par_idx_kin) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin) = jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin) + feedback_rhs(:,:,:,:,P_perp_idx_kin) !* TWOPI
-      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin) + feedback_rhs(:,:,:,:,j_Phi_idx_kin) !* TWOPI
+      feedback_rhs = feedback_rhs / real(nstep_part_adj,8) 
+      jorek_feedback%rhs(:,:,:,:,P_par_idx_kin)   = jorek_feedback%rhs(:,:,:,:,P_par_idx_kin)   + feedback_rhs(:,:,:,:,P_par_idx_kin)
+      jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin)  = jorek_feedback%rhs(:,:,:,:,P_perp_idx_kin)  + feedback_rhs(:,:,:,:,P_perp_idx_kin)
+      jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin)   = jorek_feedback%rhs(:,:,:,:,j_Phi_idx_kin)   + feedback_rhs(:,:,:,:,j_Phi_idx_kin)
     endif
 
-    jorek_feedback%rhs_gather_time = 0.d0
     deallocate(feedback_rhs)
     
     if (sim%my_id .eq. 0) write(*,*) '---------- Finished evolving group: ', part_group%id, " ----------"
     
   end subroutine evolve_particle_group
 
-  subroutine evolve_REs(sim, group_num, feedback_rhs, rng, tstep_part_adj)
+  subroutine evolve_REs(sim, group_num, feedback_rhs, rng, tstep_part_adj, nstep_part_adj)
     use mod_project_particles
     use mod_random_seed
     use mod_interp, only: mode_moivre
@@ -134,8 +135,9 @@ contains
     real*8,allocatable,          intent(inout)                :: feedback_rhs(:,:,:,:,:)
     type(count_action)                                        :: counter
     type(pcg32_rng), dimension(:), allocatable, intent(inout) :: rng
-    real*8, intent(in)                                        :: tstep_part_adj
-    
+    real*8,  intent(in)                                       :: tstep_part_adj
+    integer, intent(in)                                       :: nstep_part_adj
+
     character(len=3) :: cs
 
     !> RE specific variables
@@ -165,12 +167,12 @@ contains
       !$omp private(j, k, m, n, HZ, HH, HH_s, HH_t, E, B, psi, U,  &
       !$omp B_norm2, proj_factor, v_Ppar, v_Pperp, v_jPhi, i_tor, ifail, &
       !$omp cylindrical_velocity, cylindrical_momentum, v_par, v_perp, gamma_m ) &
-      !$omp shared (nstep_particles, tstep_part_adj, sim, group_num, rho_norm, &
+      !$omp shared (nstep_part_adj, tstep_part_adj, sim, group_num, rho_norm, &
       !$omp P_par_idx_kin, P_perp_idx_kin, j_phi_idx_kin) &
       !$omp reduction(+:feedback_rhs)
   
       do j=1,size(particles,1)
-        do k=1,nstep_particles
+        do k=1,nstep_part_adj
           if (particles(j)%i_elm .le. 0) exit
   
           call basisfunctions(particles(j)%st(1), particles(j)%st(2), HH, HH_s, HH_t)
@@ -203,9 +205,9 @@ contains
               
 
               do i_tor = 1,n_tor
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin) + HZ(i_tor)*v_Ppar
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin)  = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_par_idx_kin)  + HZ(i_tor)*v_Ppar
                 feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_perp_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,P_perp_idx_kin) + HZ(i_tor)*v_Pperp
-                feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) = feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin) + HZ(i_tor)*v_jPhi
+                feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin)  = feedback_rhs(n,m,particles(j)%i_elm,i_tor,j_Phi_idx_kin)  + HZ(i_tor)*v_jPhi
 
                 !> inverse implementation from Hannes (TODO: reverse data structure of the projections generally)
                 ! feedback_rhs_inv(P_par_idx_kin,i_tor,particles(j)%i_elm,m,n) = feedback_rhs_inv(P_par_idx_kin,i_tor,particles(j)%i_elm,m,n) + HZ(i_tor)*v_Ppar
@@ -233,7 +235,7 @@ contains
   !> The two coupling schemes are handled by the same function due to large degree of overlap in the physics 
   !> experienced by neutrals and impurities. 
   !> The pushing of the particle is also done here
-  subroutine evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, imp_q_idx)
+  subroutine evolve_ncs_ics(sim, group_num, feedback_rhs, feedback_nodelist, feedback_element_list, rng, tstep_part_adj, nstep_part_adj, imp_q_idx)
     use mod_collisions
     use mod_ionisation_recombination
 
@@ -245,6 +247,7 @@ contains
     type (type_element_list), pointer, intent(in)             :: feedback_element_list
     type(pcg32_rng), dimension(:), allocatable, intent(inout) :: rng
     real*8,                            intent(in)             :: tstep_part_adj
+    integer,                           intent(in)             :: nstep_part_adj
     integer, optional,                 intent(in)             :: imp_q_idx
 
 
@@ -315,7 +318,7 @@ contains
     !$omp parallel do default(none)                                                                       &
 #endif
     !$omp schedule(runtime)                                                                               &
-    !$omp shared(sim, group_num, nstep_particles, tstep_part_adj, rng,                                    &
+    !$omp shared(sim, group_num, nstep_part_adj, tstep_part_adj, rng,                                    &
     !$omp rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm,                                               &    
     !$omp rho_idx_kin, mom_par_idx_kin, E_idx_kin, imp_q_idx, ics_indices_kin,                            &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, part_kill_ratio, feedback_nodelist, feedback_element_list)       &
@@ -334,7 +337,7 @@ contains
     do j=1,size(sim%groups(group_num)%particles,1)
       particle_tmp = sim%groups(group_num)%particles(j)
       !$ i_rng = omp_get_thread_num()+1
-      do k=1,nstep_particles
+      do k=1,nstep_part_adj
 
         !> exit evolution loop if particle is outside domain
         if (particle_tmp%i_elm .le. 0) exit
@@ -475,16 +478,16 @@ contains
           do l=1,n_vertex_max
             do m=1,n_order+1
   
-              density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source     * t_norm / rho_norm
-              mom_par_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
+              density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * density_source      * t_norm / rho_norm
+              mom_par_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source      * t_norm / m_norm
               E_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source       * t_norm / E_norm
-              extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) *particle_tmp%weight * 1.d0/real(nstep_particles,8) 
+              extra_proj = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight
   
               do i_tor=1,n_tor
-                feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin) + HZ(i_tor) * density_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin)     = feedback_rhs(m,l,i_elm_old,i_tor,rho_idx_kin)     + HZ(i_tor) * density_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       + HZ(i_tor) * E_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,5) = feedback_rhs(m,l,i_elm_old,i_tor,5) + HZ(i_tor) * extra_proj
+                feedback_rhs(m,l,i_elm_old,i_tor,5)               = feedback_rhs(m,l,i_elm_old,i_tor,5)               + HZ(i_tor) * extra_proj
               enddo
             enddo
           enddo
@@ -589,18 +592,18 @@ contains
           do l=1,n_vertex_max
             do m=1,n_order+1
   
-              mom_par_fb     = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source * t_norm / m_norm
-              E_fb           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source  * t_norm / E_norm
-              imp_q_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q /real(nstep_particles,8)
-              imp_density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight /real(nstep_particles,8)
+              mom_par_fb     = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * mom_par_source                        * t_norm / m_norm
+              E_fb           = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * energy_source                         * t_norm / E_norm
+              imp_q_fb       = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight * particle_tmp%q 
+              imp_density_fb = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * particle_tmp%weight
               imp_P_rad_fb   = HH(l,m) * sim%fields%element_list%element(i_elm_old)%size(l,m) * radiation_energy / tstep_part_adj
               
               do i_tor=1,n_tor
-                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin) + HZ(i_tor) * E_fb
+                feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       = feedback_rhs(m,l,i_elm_old,i_tor,E_idx_kin)       + HZ(i_tor) * E_fb
                 feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) = feedback_rhs(m,l,i_elm_old,i_tor,mom_par_idx_kin) + HZ(i_tor) * mom_par_fb
-                feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx) + HZ(i_tor) * imp_q_fb ! impurity charge density
-                feedback_rhs(m,l,i_elm_old,i_tor,6) = feedback_rhs(m,l,i_elm_old,i_tor,6) + HZ(i_tor) * imp_P_rad_fb             ! impurity radiated power [to be moved to diag feedback]
-                feedback_rhs(m,l,i_elm_old,i_tor,7) = feedback_rhs(m,l,i_elm_old,i_tor,7) + HZ(i_tor) * imp_density_fb           ! impurity density [to be moved to diag feedback]
+                feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx)       = feedback_rhs(m,l,i_elm_old,i_tor,imp_q_idx)       + HZ(i_tor) * imp_q_fb       ! impurity charge density
+                feedback_rhs(m,l,i_elm_old,i_tor,6)               = feedback_rhs(m,l,i_elm_old,i_tor,6)               + HZ(i_tor) * imp_P_rad_fb   ! impurity radiated power [to be moved to diag feedback]
+                feedback_rhs(m,l,i_elm_old,i_tor,7)               = feedback_rhs(m,l,i_elm_old,i_tor,7)               + HZ(i_tor) * imp_density_fb ! impurity density [to be moved to diag feedback]
               enddo
             enddo
           enddo
@@ -632,9 +635,9 @@ contains
     
     if (sim%my_id .eq. 0) write(*,'(A46,E14.6,I6)') "Lost superparticles at t due to ionisation: ", sim%time, n_super_ionized_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost particles at t due to ionisation: ", sim%time, n_lost_ion_all
-    p_lost_ion_all = p_lost_ion_all / (tstep_part_adj * nstep_particles)
-    p_lost_plt_all = p_lost_plt_all / (tstep_part_adj * nstep_particles)
-    p_lost_cx_all  = p_lost_cx_all / (tstep_part_adj * nstep_particles)
+    p_lost_ion_all = p_lost_ion_all / (tstep_part_adj * nstep_part_adj)
+    p_lost_plt_all = p_lost_plt_all / (tstep_part_adj * nstep_part_adj)
+    p_lost_cx_all  = p_lost_cx_all / (tstep_part_adj * nstep_part_adj)
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to ionisation: ", sim%time, p_lost_ion_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to radiation: ", sim%time, p_lost_plt_all
     if (sim%my_id .eq. 0) write(*,'(A46,2E14.6)') "Lost energy [W] at t due to CX radiation: ", sim%time, p_lost_cx_all

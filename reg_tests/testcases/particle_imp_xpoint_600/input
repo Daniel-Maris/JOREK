@@ -144,6 +144,7 @@
   part_group_configs(1)%coupling_scheme = 'ncs'
   part_group_configs(1)%n_particles     = 1e4
   part_group_configs(1)%type            = 'particle_kinetic_leapfrog'
+  part_group_configs(1)%do_conservation_checks = .t.
 
   part_group_configs(1)%use_kin_puffing        = .t.
   part_group_configs(1)%use_kin_cx             = .t.
@@ -168,6 +169,7 @@
   part_group_configs(2)%coupling_scheme = 'ics'
   part_group_configs(2)%n_particles     = 1e4
   part_group_configs(2)%type            = 'particle_kinetic_leapfrog'
+  part_group_configs(2)%do_conservation_checks = .t.
 
   part_group_configs(2)%use_kin_puffing        = .t. 
   part_group_configs(2)%use_kin_ionisation     = .t.
