@@ -171,8 +171,9 @@ real*8  :: aux_rho0, aux_E0, aux_mom_par0
 real*8  :: aux_E0_Ti, aux_E0_Te
 real*8  :: aux_P0, aux_P0_s,  aux_P0_t, aux_P0_p, aux_q0, aux_jx0, aux_jy0, aux_jz0, aux_jz0_pcs 
 !Ionisation recombination for aux/use_ncs purposes. 
-real*8  :: Nion, Nrec, plasmaneutral, plasmaneutral_e, plasmaneutral_i, Prec, Prb, Prb_cooling !Also needed for use_ncs
-real*8  :: local_Nion, local_Nrec, local_pn, local_pn_e, local_pn_i, local_Prec, local_Prb, local_Prb_cooling  !Also needed for use_ncs
+real*8  :: Nion, Nrec, Prec, Prb, Prb_cooling !Also needed for use_ncs
+real*8  :: plasmaneutral, plasmaneutral_e, plasmaneutral_i, local_pn, local_pn_e, local_pn_i ! ncs/ics energy coupling terms (single T, Te, Ti)
+real*8  :: local_Nion, local_Nrec, local_Prec, local_Prb, local_Prb_cooling  !Also needed for use_ncs
 real*8  :: local_aux_mom_par_int ,local_aux_mom_par_ext, local_aux_mom_par_tot  ! coupled parallel momentum
 real*8  :: aux_mom_par_int ,aux_mom_par_ext, aux_mom_par_tot  ! coupled parallel momentum
 !> For model500 + use_ncs
