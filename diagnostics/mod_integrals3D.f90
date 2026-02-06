@@ -889,7 +889,6 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
           !> coupled energies
           !>aux_E0 (plasma neutral interaction)
 #ifdef WITH_TiTe
-          !> THIS IS JUST A WORKAROUND FOR NOW BECAUSE I'M LAZY
           local_pn_e = local_pn_e + aux_E0_Te *BigR * xjac* delta_phi * wst
           local_pn_i = local_pn_i + aux_E0_Ti *BigR * xjac* delta_phi * wst
 #else
