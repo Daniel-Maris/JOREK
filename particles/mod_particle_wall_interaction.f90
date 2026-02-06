@@ -1854,10 +1854,8 @@ pure subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti
   ! Use Ti if provided, otherwise fall back to Te
   if (present(Ti_eV)) then
     Ti_eV_local = Ti_eV
-    fact = 1.d0
   else
     Ti_eV_local = Te_eV
-    fact = 0.5d0
   end if
 
   ! Sample an energy at the local temperature
@@ -1875,7 +1873,7 @@ pure subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti
   v = sign(sqrt(2.d0*E*EL_CHG*(1.d0-beta)/(central_mass*ATOMIC_MASS_UNIT)), u(3)-0.5d0) ! m/s
   ! the sound speed is sqrt(k (1+gamma) T/m) = sqrt(T_eV*EL_CHG/m)
   ! gamma=1 is assumed, valid for cold dense plasma
-  v = v + sqrt( fact*(Te_eV+Ti_eV_local)*EL_CHG/(central_mass*ATOMIC_MASS_UNIT)) ! m/s
+  v = v + sqrt((Te_eV+Ti_eV_local)*EL_CHG/(central_mass*ATOMIC_MASS_UNIT)) ! m/s
   E = E * beta + 0.5d0 * central_mass*ATOMIC_MASS_UNIT * v**2 / EL_CHG
 
   E = E*sqrt(atomic_weights(Z_ion)/central_mass) ! correct for atomic weight
