@@ -231,7 +231,7 @@ end subroutine calc_F_profile
 
 !> Wrapper around the general Te/Ti routine to avoid code duplication.
 !> We use keyword arguments to map inputs correctly and skip Ti-related outputs.
-pure subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_raw, grad_T_e)
+subroutine calc_NeTe(fields, time, i_elm, st, phi, n_e, T_e, n_e_raw, T_e_raw, grad_T_e)
   class(fields_base), intent(in)                    :: fields
   integer, intent(in)                               :: i_elm
   real*8, intent(in)                                :: time, st(2), phi
@@ -255,7 +255,7 @@ end subroutine calc_NeTe
 !> (element i_elm, local coords st, toroidal angle phi) ands time.
 !> Returns corrected SI values and, if requested, raw values and stemperature gradients,
 !> supports both one- and two-temperature models.
-pure subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
+subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
                             n_e,T_e,T_i,                                &
                             n_e_raw,T_e_raw,T_i_raw,                    &
                             grad_T_e,grad_T_i)
@@ -332,7 +332,7 @@ pure subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 
   ! gradients (only if requested)
   if (need_grad) then
-    xjac = R_s * Z_t - R_t * Z_s
+    xjac = jac(R_s,R_t,Z_s,Z_t)
     inv_xjac = 0.d0
     if (abs(xjac) > EPS) inv_xjac = 1.d0/xjac
     
