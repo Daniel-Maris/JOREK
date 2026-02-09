@@ -1860,8 +1860,13 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 #endif
 
 #ifdef WITH_TiTe
-      ZK_e_prof     = get_zk_eperp(psi_n)
-      ZK_i_prof     = get_zk_iperp(psi_n)
+      if (use_zkperp_times_density) then 
+        ZK_e_prof     = get_zk_eperp(psi_n) * max(r0,zkperp_density_floor)
+        ZK_i_prof     = get_zk_iperp(psi_n) * max(r0,zkperp_density_floor)
+      else
+        ZK_e_prof     = get_zk_eperp(psi_n)
+        ZK_i_prof     = get_zk_iperp(psi_n)
+      end if
 
       ! --- Temperature dependent parallel heat conductivity
       call conductivity_parallel(ZK_i_par, ZK_par_max, Ti0, Ti0_corr, Ti_min_ZKpar, Ti_0,  & 
@@ -1870,7 +1875,11 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
                                  ZK_e_par_T, ZK_e_par_neg_thresh, ZK_e_par_neg)
 
 #else
-      ZK_prof = get_zkperp(psi_n)
+      if (use_zkperp_times_density) then
+        ZK_prof = get_zkperp(psi_n) * max(r0,zkperp_density_floor)
+      else
+        ZK_prof = get_zkperp(psi_n)
+      end if
 
       ! --- Temperature dependent parallel heat conductivity
       call conductivity_parallel(ZK_par, ZK_par_max, T0, T0_corr, T_min_ZKpar, T_0, &
@@ -1880,14 +1889,26 @@ do m_bndelem = 1, bnd_elm_list%n_bnd_elements
 
       if ( with_TiTe ) then ! (with_TiTe) ****************************************************
         if (Ti0 .lt. ZK_i_prof_neg_thresh) then
-          ZK_i_prof = ZK_i_prof_neg
+          if (use_zkperp_times_density) then
+            ZK_i_prof = ZK_i_prof_neg * max(r0,zkperp_density_floor)
+          else
+            ZK_i_prof = ZK_i_prof_neg
+          end if
         end if
         if (Te0 .lt. ZK_e_prof_neg_thresh) then
-          ZK_e_prof = ZK_e_prof_neg
+          if (use_zkperp_times_density) then
+            ZK_e_prof = ZK_e_prof_neg * max(r0,zkperp_density_floor)
+          else
+            ZK_e_prof = ZK_e_prof_neg
+          end if
         end if
       else ! (with_TiTe = .f.), i.e. with single temperature ***************************************
         if (T0 .lt. ZK_prof_neg_thresh) then
-          ZK_prof = ZK_prof_neg
+          if (use_zkperp_times_density) then
+            ZK_prof = ZK_prof_neg * max(r0,zkperp_density_floor)
+          else
+            ZK_prof = ZK_prof_neg
+          end if
         end if
       endif ! (with_TiTe) ********************************************************************
 
