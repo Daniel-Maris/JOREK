@@ -77,17 +77,17 @@ subroutine populate_element_rtree(node_list, element_list, use_3D_rtree)
   logical, intent(in), optional       :: use_3D_rtree
   logical :: use_3D
 
-   ! Determine whether to use 3D RTree based on argument or compilation flag
+! Determine whether to use 3D RTree based on argument or compilation flag
+#if !STELLARATOR_MODEL
+   use_3D = .false.
+#else
    if (present(use_3D_rtree)) then
       use_3D = use_3D_rtree
    else
-#if STELLARATOR_MODEL
       use_3D = .true.
-#else
-      use_3D = .false.
-#endif
    end if
-  
+#endif
+
    if (use_3D) then
       call populate_element_rtree_3D(node_list, element_list)
    else
