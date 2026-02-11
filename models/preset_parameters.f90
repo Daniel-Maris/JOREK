@@ -880,7 +880,7 @@ enddo
 ! -------------- particle groups ---------------
 n_part_groups = 0
 part_groups_in_use(:) = 'non'
-proj_collection_period = 0
+proj_collection_period = 1
 
 part_group_configs(:)%Z                 = 1
 part_group_configs(:)%mass              = 0.d0
