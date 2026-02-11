@@ -677,15 +677,10 @@ contains
 
     integer  :: i, j, k, l, m, ifail, i_tor
     integer  :: i_elm, i_elm_old
-    integer  :: proj_factor
 
-    if (proj_collection_period .eq. 0) then
-      proj_factor = 10
-    else
-      proj_factor = proj_collection_period
-    endif
-    if (nstep_particles < proj_factor) then
-      proj_factor = 1
+    write(*,*) "proj_collection_period = ", proj_collection_period, "on proc, ", sim%my_id
+    if (nstep_particles < proj_collection_period) then
+      proj_collection_period = nstep_particles
     endif
 
     !> loop over all particles in group(group_num)
@@ -700,7 +695,7 @@ contains
       !$omp schedule(runtime) &
       !$omp private(j, k, l, m, HZ, HH, HH_s, HH_t, E, B, psi, U, rzp_old, st_old, i_elm_old, &
       !$omp i_elm, B_norm, v_tilde_r, v_tilde_z, v_par, p_perp, p_par, p_atrop, base, v, i_tor, ifail) &
-      !$omp shared(nstep_particles, tstep_part_adj, sim, group_num, proj_factor, &
+      !$omp shared(nstep_particles, tstep_part_adj, sim, group_num, proj_collection_period, &
       !$omp PI_RR_idx_kin, PI_ZZ_idx_kin, PI_PHIPHI_idx_kin, PI_RZ_idx_kin, PI_RPHI_idx_kin, PI_ZPHI_idx_kin, rho_ep_idx_kin) &
       !$omp reduction(+:feedback_rhs)
 
@@ -726,8 +721,8 @@ contains
           !> may have pushed particle out of domain, check again if it is lost
           if (particles(j)%i_elm .le. 0) exit
 
-          !> only collect projections every proj_factor number of timesteps
-          if (mod(k,proj_factor) .ne. 0) cycle
+          !> only collect projections every proj_collection_period number of timesteps
+          if (mod(k,proj_collection_period) .ne. 0) cycle
 
           !> calc normalised B and orthonormal v cmpts
           B_norm    = B / norm2(B)
@@ -787,7 +782,7 @@ contains
     end select
 
     !> Renormalise by number of timesteps the projection quantities were collected for
-    iterations   = real(nstep_particles/proj_factor,8)
+    iterations   = real(nstep_particles/proj_collection_period,8)
     feedback_rhs = feedback_rhs/iterations
 
   end subroutine evolve_epf
