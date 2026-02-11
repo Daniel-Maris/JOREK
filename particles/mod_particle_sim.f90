@@ -48,9 +48,16 @@ end type particle_group
 type :: particle_sim
   real*8                                          :: time = 0.d0 !< time of the simulation. Only accurate when in events with sync or at
   !< the start of the simulation
+  integer                                         :: istep_fluid               !< timestep of main loop (on which the fluid is stepped)
+  integer                                         :: istep_inner_loop = -1     !< timestep of inner particle loop (on which particle-particle interactions are called))
+  real*8                                          :: tstep_fluid_si            !< [s] fluid timestep (tstep) in si units
+  real*8                                          :: tstep_part_adj            !< [s] tstep_particles adjusted so that an integer amount of steps fit into a fluid timestep an integer amount of lcm_inner_loop times
+  integer                                         :: nstep_inner_loop          !< number of inner particle loops within the fluid step
+  integer                                         :: lcm_inner_loop = -9999991 !< least common multiple of each_nstep_part of all actions in the inner loop
+  integer                                         :: gcd_inner_loop = -9999991 !< greatest common divisor  of each_nstep_part of all actions in the inner loop
   class(fields_base), allocatable                 :: fields
   logical                                         :: stop_now = .false.
-  real*8                                          :: t_norm !< JOREK normalisation factor
+  real*8                                          :: t_norm              !< JOREK normalisation factor
   type(particle_group), dimension(:), allocatable :: groups
   !< MPI settings
   integer :: my_id = 0
@@ -65,6 +72,7 @@ contains
   procedure,pass(sim) :: compute_particle_sizes
   procedure,pass(sim) :: find_particle_types
   procedure,pass(sim) :: find_active_particles_groups
+  procedure,pass(sim) :: update_lcm_gcd
 end type particle_sim
 
 contains
@@ -386,5 +394,36 @@ function config_num_from_id(id) result(config_num)
   write(*,"(3A)") "ERROR: id ",id," not found among part_group_configs(:)%id (config_num_from_id)"
 
 end function config_num_from_id
+
+!> updates the least common multiple (lcm) and greatest common divisor (gcd) of sim
+subroutine update_lcm_gcd(sim, new_number)
+  use mod_math_operators, only: gcd
+  
+  implicit none
+  
+  class(particle_sim),intent(inout) :: sim
+  integer,            intent(in)    :: new_number
+  
+  integer :: gcd_temp
+  
+  ! filter out default
+  if(new_number == -9999991) return
+
+  ! if first encounter, set to the new_number 
+  if(sim%gcd_inner_loop == -9999991) then
+    sim%gcd_inner_loop = new_number
+    sim%lcm_inner_loop = new_number
+    return
+  endif
+  
+  ! gcd between old lcm and new number
+  gcd_temp = gcd(sim%lcm_inner_loop,new_number)
+  
+  ! new lcm
+  sim%lcm_inner_loop = (sim%lcm_inner_loop*new_number)/gcd_temp
+
+  ! gcd between old gcd and temporary gcd
+  sim%gcd_inner_loop = gcd(sim%gcd_inner_loop, gcd_temp)
+end subroutine update_lcm_gcd
 
 end module mod_particle_sim

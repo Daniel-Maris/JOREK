@@ -204,6 +204,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 proj_collection_period,                             &
                 part_group_configs, part_groups_in_use, valves,     &
                 fluid_configs, init_particles_only,                 &
+                find_RZ_nearby_iter, find_RZ_nearby_tol,            &
                 min_sheath_angle, bcs, part_kill_ratio,             &
                 use_sc, add_sources_in_sc, visco_sc_num,            &
                 D_perp_sc_num, D_par_sc_num, ZK_perp_sc_num,        &
@@ -221,7 +222,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 export_polar_boundary, xpoint_search_tries,         &
                 use_manual_random_seed, manual_seed,                &
                 use_fixed_rng_value, fixed_rng_value,               &
-                loop_voltage, export_aux_node_list
+                loop_voltage, export_aux_node_list,                 &
+                use_zkperp_times_density, zkperp_density_floor
 
 
 if (my_id .eq. 0) then

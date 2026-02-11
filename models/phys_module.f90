@@ -124,6 +124,9 @@ module phys_module
   integer :: gmres_max_iter       !< Maximum number of GMRES iterations
   logical :: keep_n0_const        !< Perform a linear run where the equilibrium quantities (i_tor=1) do not change with time?
   logical :: linear_run           !< Same as keep_n0_const, to be replaced soon by true linear run where modes are independent
+  logical :: use_zkperp_times_density   !< If set to .true., the ZK_perp used in the equations is given by the ZK_perp input form the namelist times the normalized particle density; otherwise ZK_perp from the input namelist is used directly
+                                        !< Effectively, user sets chi_perp perp heat diffusivity instead of ZK_perp perp heat conductivitiy
+  real*8  :: zkperp_density_floor !< Minumum density to multiply zkperp by if use_zkperp_times_density is used, to avoid division by 0
   logical :: export_for_nemec     !< Export equilibrium information for the NEMEC code?
   logical :: export_aux_node_list !< Include the aux_node_list for particle projections in the restart files
   logical :: use_murge            !< (Deprecated, Cannot be used any more)
@@ -955,8 +958,8 @@ module phys_module
   logical :: restart_particles    !< Load in previously simulated particles from a the part_restart.h5 restart file?
   logical :: use_marker           !< This flag determines whether to use marker particles to treat impurity (Placeholder)
   real*8  :: tstep_particles      !< the time step for the particles
-  integer :: nstep_particles      !< the number of particle time steps
-  integer :: nsubstep_particles   !< the number of particles substeps (without projection)
+  integer :: nstep_particles      !< the number of particle time steps (not used in kinetic_main)
+  integer :: nsubstep_particles   !< the number of particles substeps (without projection) (not used in kinetic_main)
   real*8  :: filter_perp          !< particle projection smoothing parameter, poloidal plane
   real*8  :: filter_hyper         !< particle projection smoothing parameter, poloidal plane
   real*8  :: filter_par           !< particle projection smoothing parameter, parallel direction
@@ -965,6 +968,8 @@ module phys_module
   real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
   logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
   logical :: init_particles_only  !< only initialise particles, and produce part_restart files, do not run the simulation (only relevant when restart_particles=.f.)
+  integer :: find_RZ_nearby_iter  !< the maximum newton iterations used in find_RZ_nearby 
+  real*8  :: find_RZ_nearby_tol   !< the squared element tolerance used in find_RZ_nearby for finding a position inside an element (unit: element size)
 
   ! -----------------------------------------------
   ! --- Structures for particle valves 
@@ -1085,6 +1090,8 @@ module phys_module
 
     !> --- the settings to define the wall_action objects for this particle group. Index is arbitrary
     type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
+    integer                                                  :: wall_act_each_nstep_part    !< run this group's particle-particle wall_actions every i_inner_loop = wall_act_each_nstep_part. Default (-9999991*) interpreted as nstep_inner_loop (i.e. each fluid timestep)
+                                                                                            ! * -9999991 was chosen as default because it is the negative of a big prime, so it will produce strange results if the gcd or lcm of it and another number will be calculated, making it easier to debug if something is wrong
 
     ! ================ for runaway electrons ('rep' coupling scheme) particles ===============
 

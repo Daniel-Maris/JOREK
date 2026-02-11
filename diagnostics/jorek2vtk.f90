@@ -1270,7 +1270,12 @@ do i=1,element_list%n_elements
         v_perp  = R * sqrt(u_x*u_x + u_y * u_y)
         Btot    = sqrt(F0**2 + ps_x**2 + ps_y**2) / BigR
         D_prof  = get_dperp (psi_norm)
-        ZK_prof = get_zkperp(psi_norm)
+
+        if (use_zkperp_times_density) then
+          ZK_prof = get_zkperp(psi_norm) * max(scalars(inode,var_rho),zkperp_density_floor)
+        else
+          ZK_prof = get_zkperp(psi_norm)
+        endif
 
         ZKpar_T = ZK_par * ((max( scalars(inode,6), T_min ))/T_0)**2.5
 
