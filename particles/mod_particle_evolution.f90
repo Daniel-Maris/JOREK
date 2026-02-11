@@ -3,7 +3,7 @@
 module mod_particle_evolution
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: nstep_particles, use_manual_random_seed, n_aux_var, part_kill_ratio
+    use phys_module, only: nstep_particles, use_manual_random_seed, n_aux_var, part_kill_ratio, proj_collection_period
     use mod_coupling_settings
     use coupling_variables
     use mod_project_particles
@@ -671,17 +671,16 @@ contains
 
     !> local variables
     real*8   :: t, E(3), B(3), B_norm(3), psi, U
-    real*8   :: rzp_old(3), st_old(2), iterations
+    real*8   :: rzp_old(3), st_old(2)
     real*8   :: v_tilde_r, v_tilde_z, v_par, p_par, v, p_perp, p_atrop, base
     real*8   :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4) !> Bezier basis functions
+    integer  :: iterations
 
     integer  :: i, j, k, l, m, ifail, i_tor
     integer  :: i_elm, i_elm_old
-    integer  :: proj_factor
 
-    proj_factor        = 10     !> TODO : make this an input parameter or some divisor of nstep_particles
-    if (nstep_particles < proj_factor) then
-      proj_factor = nstep_particles
+    if (nstep_particles < proj_collection_period) then
+      proj_collection_period = nstep_particles
     endif
 
     !> loop over all particles in group(group_num)
@@ -696,7 +695,7 @@ contains
       !$omp schedule(runtime) &
       !$omp private(j, k, l, m, HZ, HH, HH_s, HH_t, E, B, psi, U, rzp_old, st_old, i_elm_old, &
       !$omp i_elm, B_norm, v_tilde_r, v_tilde_z, v_par, p_perp, p_par, p_atrop, base, v, i_tor, ifail) &
-      !$omp shared(nstep_particles, tstep_part_adj, sim, group_num, proj_factor, &
+      !$omp shared(nstep_particles, tstep_part_adj, sim, group_num, proj_collection_period, &
       !$omp PI_RR_idx_kin, PI_ZZ_idx_kin, PI_PHIPHI_idx_kin, PI_RZ_idx_kin, PI_RPHI_idx_kin, PI_ZPHI_idx_kin, rho_ep_idx_kin) &
       !$omp reduction(+:feedback_rhs)
 
@@ -722,8 +721,8 @@ contains
           !> may have pushed particle out of domain, check again if it is lost
           if (particles(j)%i_elm .le. 0) exit
 
-          !> only collect projections every proj_factor number of timesteps
-          if (mod(k,proj_factor) .ne. 0) cycle
+          !> only collect projections every proj_collection_period number of timesteps
+          if (mod(k,proj_collection_period) .ne. 0) cycle
 
           !> calc normalised B and orthonormal v cmpts
           B_norm    = B / norm2(B)
@@ -783,7 +782,7 @@ contains
     end select
 
     !> Renormalise by number of timesteps the projection quantities were collected for
-    iterations   = nstep_particles/proj_factor
+    iterations   = nstep_particles / proj_collection_period
     feedback_rhs = feedback_rhs/iterations
 
   end subroutine evolve_epf

@@ -1130,6 +1130,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
         write(*,REAL_FMT) 'T_maxwell,              ',part_group_configs(group_num)%T_maxwell
         write(*,INTG_FMT) 'n_phi_planes,           ',part_group_configs(group_num)%n_phi_planes
         write(*,REAL_FMT) 'n_particles_total,      ',part_group_configs(group_num)%n_particles_total
+        write(*,INTG_FMT) 'proj_collection_period, ',proj_collection_period
       endif
 
 
