@@ -671,14 +671,14 @@ contains
 
     !> local variables
     real*8   :: t, E(3), B(3), B_norm(3), psi, U
-    real*8   :: rzp_old(3), st_old(2), iterations
+    real*8   :: rzp_old(3), st_old(2)
     real*8   :: v_tilde_r, v_tilde_z, v_par, p_par, v, p_perp, p_atrop, base
     real*8   :: HZ(n_tor), HH(4,4), HH_s(4,4), HH_t(4,4) !> Bezier basis functions
+    integer  :: iterations
 
     integer  :: i, j, k, l, m, ifail, i_tor
     integer  :: i_elm, i_elm_old
 
-    write(*,*) "proj_collection_period = ", proj_collection_period, "on proc, ", sim%my_id
     if (nstep_particles < proj_collection_period) then
       proj_collection_period = nstep_particles
     endif
@@ -782,7 +782,7 @@ contains
     end select
 
     !> Renormalise by number of timesteps the projection quantities were collected for
-    iterations   = real(nstep_particles/proj_collection_period,8)
+    iterations   = nstep_particles / proj_collection_period
     feedback_rhs = feedback_rhs/iterations
 
   end subroutine evolve_epf
