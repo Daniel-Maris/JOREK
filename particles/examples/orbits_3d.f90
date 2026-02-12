@@ -299,6 +299,12 @@ do i=1, nstep_particles
   type is (particle_gc_vpar)	
 
     do j=1, n_particles 
+      if (p_gc(j)%i_elm .le. 0) then
+        write(*,*) 'ERROR: GC particle left domain at step ',i
+        write(*,*) 'Position: ',p_gc(1)%x, "r = ", sqrt((p_gc(1)%x(1) - ES%R_axis)**2 + (p_gc(1)%x(2) - ES%Z_axis)**2)
+        exit
+      endif
+
       call push_gc_rk4(sim%fields, p_gc(j), sim%groups(2)%mass, timesteps, n_steps, 0)
     enddo
 
@@ -350,6 +356,11 @@ do i=1, nstep_particles
   type is (particle_gc_Qin)	
 
     do j=1, n_particles 
+      if (p_Qin(j)%i_elm .le. 0) then 
+        write(*,*) 'ERROR: Qin particle left domain at step ',i
+        write(*,*) 'Position: ',p_Qin(1)%x, "r = ", sqrt((p_Qin(1)%x(1) - ES%R_axis)**2 + (p_Qin(1)%x(2) - ES%Z_axis)**2)
+        exit
+      endif
       call push_gc_Qin(sim%fields, p_Qin(j), sim%groups(3)%mass, timesteps, n_steps)
     enddo
 
@@ -371,6 +382,11 @@ do i=1, nstep_particles
   select type (p_lf => sim%groups(1)%particles)
     type is (particle_kinetic_leapfrog)
   
+    if(p_lf(1)%i_elm .le. 0) then
+      write(*,*) 'ERROR: Leapfrog particle left domain at step ',i
+      write(*,*) 'Position: ',p_lf(1)%x, "r = ", sqrt((p_lf(1)%x(1) - ES%R_axis)**2 + (p_lf(1)%x(2) - ES%Z_axis)**2)
+      exit
+    endif
     psi_prev = psi
     U_prev   = U
     call sim%fields%calc_EBpsiU(sim%time, p_lf(1)%i_elm, p_lf(1)%st, p_lf(1)%x(3), E, B, psi, U)
