@@ -77,7 +77,6 @@ function new_jorek_timestep_action(auxiliary_node_list) result(new)
   if (present(auxiliary_node_list)) new%auxiliary_node_list => auxiliary_node_list
   new%istep = 1
   new%name = "JOREK timestep"
-  new%log = .true.
 end function new_jorek_timestep_action
 
 
@@ -134,6 +133,9 @@ subroutine setup_solvers(this, sim)
     endif
   endif
 
+  ! --- flag that this is a particle simulation
+  use_particles = .true.
+  
   ! --- Initialize the vacuum part.
   call vacuum_init(sim%my_id, freeboundary_equil, freeboundary, resistive_wall)
 

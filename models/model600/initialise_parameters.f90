@@ -36,7 +36,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 SIG_up_leg_0, SIG_up_leg_1, SIG_up_priv,            &
                 SIG_outer, SIG_inner, SIG_theta_up,                 &
                 dPSI_outer, dPSI_inner, dPSI_up_priv,               &
-                nout, nout_projection, xr1, sig1, xr2, sig2,        &
+                nout, nout_projection, nout_particles,              &
+                xr1, sig1, xr2, sig2,                               &
                 R_begin, R_end, Z_begin, Z_end,                     &
                 rect_grid_vac_psi,                                  &
                 R_geo, Z_geo, amin, mf, fbnd, fpsi, mode,           &
@@ -202,6 +203,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 apply_dirichlet_proj, restart_particles,            &
                 part_group_configs, part_groups_in_use, valves,     &
                 fluid_configs, init_particles_only,                 &
+                find_RZ_nearby_iter, find_RZ_nearby_tol,            &
                 min_sheath_angle, bcs, part_kill_ratio,             &
                 use_sc, add_sources_in_sc, visco_sc_num,            &
                 D_perp_sc_num, D_par_sc_num, ZK_perp_sc_num,        &
@@ -219,7 +221,8 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 export_polar_boundary, xpoint_search_tries,         &
                 use_manual_random_seed, manual_seed,                &
                 use_fixed_rng_value, fixed_rng_value,               &
-                loop_voltage, export_aux_node_list
+                loop_voltage, export_aux_node_list,                 &
+                use_zkperp_times_density, zkperp_density_floor
 
 
 if (my_id .eq. 0) then

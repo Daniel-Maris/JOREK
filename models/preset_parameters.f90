@@ -565,6 +565,7 @@ subroutine preset_parameters
 
   nout = 9999999
   nout_projection = -1
+  nout_particles  = 9999999
 
   rst_hdf5 = 1   ! =0,restart with binary files; =1, with HDF5 files
 
@@ -588,7 +589,7 @@ subroutine preset_parameters
   zk_e_perp_file     = 'none'
   zk_i_perp_file     = 'none'
   R_Z_psi_bnd_file   = 'none'
-  wall_file          = 'none'
+  wall_file          = 'wall.txt'
   rot_file           = 'none'
   domm_file          = 'none'
   normalized_velocity_profile = .true.
@@ -601,6 +602,9 @@ subroutine preset_parameters
   
   keep_n0_const      = .false.
   linear_run         = .false.
+
+  use_zkperp_times_density = .false.
+  zkperp_density_floor = 1.d-2
   
   export_for_nemec   = .false.
   export_aux_node_list = .true.
@@ -655,9 +659,9 @@ subroutine preset_parameters
   use_pastix_eq      = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_eq   = .false.              ! Use STRUMPACK equilibrium olver  
   
-  use_mumps_prj      = .true.               ! Use MUMPS equilibrium solver
-  use_pastix_prj     = .false.              ! Use PASTIX equilibrium solver
-  use_strumpack_prj  = .false.              ! Use STRUMPACK equilibrium olver  
+  use_mumps_prj      = .true.               ! Use MUMPS projection solver
+  use_pastix_prj     = .false.              ! Use PASTIX projection solver
+  use_strumpack_prj  = .false.              ! Use STRUMPACK projection olver  
 
   refinement         = .false.              ! enable mesh refinement
   force_central_node = .true.               ! force all nodes in the grid center to have the same values in flux surface aligned grids
@@ -851,6 +855,7 @@ subroutine preset_parameters
   Sigma = 0.d0
 
 !===================== particle input values
+use_particles      = .false.
 nstep_particles    = 0
 nsubstep_particles = 1
 tstep_particles    = 1d-9
@@ -864,6 +869,8 @@ restart_particles  = .false.
 use_marker         = .false.
 apply_dirichlet_proj = .false.
 init_particles_only = .false.
+find_RZ_nearby_iter = 16
+find_RZ_nearby_tol  = 1.d-22
 
 !--------------- valves -------------------------
 valves(:)%type = 'none'
@@ -888,6 +895,7 @@ part_group_configs(:)%type              = 'none'
 part_group_configs(:)%id                = 'non'
 part_group_configs(:)%init_function     = 'none'
 part_group_configs(:)%init_pdf          = 'none'
+part_group_configs(:)%do_conservation_checks = .false.
 
 !----- specific to ics and ncs 
 part_group_configs(:)%atom_data_suffix      = ''
@@ -943,6 +951,7 @@ do i=1, n_part_groups_max
     !< if none of these three above options are set, the supers_ratio_wall method
     !< will be used, with its default value being set by supers_ratio_wall_default in mod_particle_wall_interaction.f90
   enddo
+  part_group_configs(i)%wall_act_each_nstep_part = -9999991
 enddo
 
 part_kill_ratio = 1.d-3

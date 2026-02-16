@@ -66,6 +66,7 @@ module phys_module
   integer :: nout                 !< Output a restart file every nout timesteps
   integer :: nout_projection      !< Output particle projection every nout_projection timesteps (only for diagnostics)
                                   !< Note that the 'to_h5' or 'to_vtk' flag should be .true. in the 'new_projection' function for this parameter to be in play
+  integer :: nout_particles       !< Output particle restart file every nout_particles timesteps
   integer :: xcase                !< 1->LowerXpoint. 2->UpperXpoint. 3->doubleNull
   logical :: forceSDN             !< Force a symmetric double null, within the accuracy of SDN_threshold
   real*8  :: SDN_threshold        !< threshold, in absolute psi, for a symmetric-double-null grid construction
@@ -123,6 +124,9 @@ module phys_module
   integer :: gmres_max_iter       !< Maximum number of GMRES iterations
   logical :: keep_n0_const        !< Perform a linear run where the equilibrium quantities (i_tor=1) do not change with time?
   logical :: linear_run           !< Same as keep_n0_const, to be replaced soon by true linear run where modes are independent
+  logical :: use_zkperp_times_density   !< If set to .true., the ZK_perp used in the equations is given by the ZK_perp input form the namelist times the normalized particle density; otherwise ZK_perp from the input namelist is used directly
+                                        !< Effectively, user sets chi_perp perp heat diffusivity instead of ZK_perp perp heat conductivitiy
+  real*8  :: zkperp_density_floor !< Minumum density to multiply zkperp by if use_zkperp_times_density is used, to avoid division by 0
   logical :: export_for_nemec     !< Export equilibrium information for the NEMEC code?
   logical :: export_aux_node_list !< Include the aux_node_list for particle projections in the restart files
   logical :: use_murge            !< (Deprecated, Cannot be used any more)
@@ -949,13 +953,14 @@ module phys_module
   real*8, allocatable :: re_current_t(:), Ipre_tot_t(:)
 
   !> @name Particles-related input parameters
+  logical :: use_particles        !< Flag if simulation contains particles
   integer :: n_aux_var            !< number of variables in aux_node_list
   integer :: n_diag_var = n_var   !< number of variables in diag_node_list (= n_var is temporary)
   logical :: restart_particles    !< Load in previously simulated particles from a the part_restart.h5 restart file?
   logical :: use_marker           !< This flag determines whether to use marker particles to treat impurity (Placeholder)
   real*8  :: tstep_particles      !< the time step for the particles
-  integer :: nstep_particles      !< the number of particle time steps
-  integer :: nsubstep_particles   !< the number of particles substeps (without projection)
+  integer :: nstep_particles      !< the number of particle time steps (not used in kinetic_main)
+  integer :: nsubstep_particles   !< the number of particles substeps (without projection) (not used in kinetic_main)
   real*8  :: filter_perp          !< particle projection smoothing parameter, poloidal plane
   real*8  :: filter_hyper         !< particle projection smoothing parameter, poloidal plane
   real*8  :: filter_par           !< particle projection smoothing parameter, parallel direction
@@ -964,6 +969,8 @@ module phys_module
   real*8  :: filter_par_n0        !< particle projection smoothing parameter, parallel direction (n=0)
   logical :: apply_dirichlet_proj !< use dirichlet boundary conditions for the particle feedback projections
   logical :: init_particles_only  !< only initialise particles, and produce part_restart files, do not run the simulation (only relevant when restart_particles=.f.)
+  integer :: find_RZ_nearby_iter  !< the maximum newton iterations used in find_RZ_nearby 
+  real*8  :: find_RZ_nearby_tol   !< the squared element tolerance used in find_RZ_nearby for finding a position inside an element (unit: element size)
 
   ! -----------------------------------------------
   ! --- Structures for particle valves 
@@ -1043,6 +1050,7 @@ module phys_module
     character(len=3)   :: id                       !< unique identifer for the particle group (mainly used in in/export)
     character(len=50)  :: init_function            !< name of the function to use for creating the initial distribution of in particles in the group
     character(len=50)  :: init_pdf                 !< the pdf to be used by the init_function to sample the initial distribution of particles in the group 
+    logical            :: do_conservation_checks   !< whether to write conservation checks every interaction in the output file (i.e. the change in particles/momentum/energy etc.)
 
     ! ================ for neutrals and impurities ('ncs' and 'ics' coupling schemes) particles ===============
 
@@ -1081,6 +1089,8 @@ module phys_module
 
     !> --- the settings to define the wall_action objects for this particle group. Index is arbitrary
     type(type_wall_act_config), dimension(n_part_groups_max) :: wall_act_configs
+    integer                                                  :: wall_act_each_nstep_part    !< run this group's particle-particle wall_actions every i_inner_loop = wall_act_each_nstep_part. Default (-9999991*) interpreted as nstep_inner_loop (i.e. each fluid timestep)
+                                                                                            ! * -9999991 was chosen as default because it is the negative of a big prime, so it will produce strange results if the gcd or lcm of it and another number will be calculated, making it easier to debug if something is wrong
 
     ! ================ for runaway electrons ('rep' coupling scheme) particles ===============
 

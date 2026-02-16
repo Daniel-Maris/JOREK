@@ -350,6 +350,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
   write(*,INTG_FMT) 'nout                  ', nout
   write(*,INTG_FMT) 'nout_projection       ', nout_projection
+  write(*,INTG_FMT) 'nout_particles        ', nout_particles
   write(*,REAL_FMT) 'xr1                   ', xr1
   write(*,REAL_FMT) 'sig1                  ', sig1
   write(*,REAL_FMT) 'xr2                   ', xr2
@@ -650,6 +651,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,REAL_FMT) 'ZK_prof_neg_thresh    ', ZK_prof_neg_thresh
     write(*,REAL_FMT) 'ZK_par_neg_thresh     ', ZK_par_neg_thresh
   endif
+  write(*,LOGI_FMT) 'use_zkperp_times_density', use_zkperp_times_density
+  write(*,REAL_FMT) 'zkperp_density_floor    ', zkperp_density_floor
   write(*,REAL_FMT) 'D_imp_extra_R         ', D_imp_extra_R
   write(*,REAL_FMT) 'D_imp_extra_Z         ', D_imp_extra_Z
   write(*,REAL_FMT) 'D_imp_extra_p         ', D_imp_extra_p
@@ -1014,6 +1017,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,REAL_FMT) 'filter_par_n0,        ',filter_par_n0   
   write(*,LOGI_FMT) 'apply_dirichlet_proj, ',apply_dirichlet_proj     
   write(*,LOGI_FMT) 'init_particles_only,  ',init_particles_only     
+  write(*,INTG_FMT) 'find_RZ_nearby_iter,  ',find_RZ_nearby_iter    
+  write(*,REAL_FMT) 'find_RZ_nearby_tol,   ',find_RZ_nearby_tol    
 
 
   
@@ -1064,6 +1069,8 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       if (trim(part_group_configs(group_num)%init_function) /= 'none') then
         write(*,CHAR_FMT) 'init_pdf                ',trim(part_group_configs(group_num)%init_pdf)
       endif
+      write(*,LOGI_FMT) 'do_conservation_checks  ',sim%groups(group_num)%do_conservation_checks
+      
 
       ! ncs and ics -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'ncs' .or. sim%groups(group_num)%coupling_scheme .eq. 'ics') then     
@@ -1129,6 +1136,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
       end do
       write(*,INTG_FMT) "n_wall_actions          ",n_wall_actions
       if(n_wall_actions > 0) then
+        write(*,INTG_FMT) "wall_act_each_nstep_part",part_group_configs(group_num)%wall_act_each_nstep_part
         do i=1,n_part_groups_max
           if (trim(part_group_configs(group_num)%wall_act_configs(i)%type) == "none") cycle
           
