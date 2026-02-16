@@ -4,7 +4,6 @@ use fruit
 use mod_io_actions
 use mod_particle_sim
 use mod_particle_types
-use phys_module
 implicit none
 private
 public :: run_fruit_sim_hdf5_io_spec_mpi
@@ -156,8 +155,8 @@ subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  n_part_groups = n_groups_expect
-  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader) 
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
@@ -168,6 +167,7 @@ subroutine test_write_native_sim_one_particle_kinetic_leapfrog
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc; 
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -196,9 +196,8 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  n_part_groups = n_groups_expect
   allocate(writer, reader); 
-  allocate(sim_to_write%groups(n_groups_expect));
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.)
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; sim_to_write%groups(1)%Z = 10;
@@ -208,6 +207,7 @@ subroutine test_write_gatherv_sim_one_particle_kinetic_leapfrog
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -235,8 +235,8 @@ subroutine test_write_native_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  n_part_groups = n_groups_expect
-  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader)
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.)
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_mpi = n_tasks_loc;
   sim_to_write%time = filename_time; sim_to_write%groups(1)%Z = 2;
@@ -247,6 +247,7 @@ subroutine test_write_native_sim_one_group_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -275,8 +276,8 @@ subroutine test_write_gatherv_sim_one_group_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, n_groups, n_particles
-  n_part_groups = n_groups_expect
-  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader)
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.)
   call allocate_particles_here(sim_to_write%groups(1)%particles, n_particles_expect(1))
   sim_to_write%my_id = rank_loc; sim_to_write%n_mpi = n_tasks_loc;
   sim_to_write%time = filename_time; writer%mpi_comm_io = mpi_comm_loc;
@@ -286,6 +287,7 @@ subroutine test_write_gatherv_sim_one_group_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -313,8 +315,8 @@ subroutine test_write_native_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
-  n_part_groups = n_groups_expect
-  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader)
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.)
   do i=1,n_groups_expect
     call allocate_particles_here(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
@@ -328,6 +330,7 @@ subroutine test_write_native_sim_two_groups_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -357,10 +360,9 @@ subroutine test_write_native_sim_all_particles
   class(write_action),allocatable :: writer
   class(read_action),allocatable  :: reader
   logical :: file_exists
-  n_part_groups = n_groups_expect
-  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
-  sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
-  sim_to_write%n_mpi = n_tasks_loc; 
+  allocate(writer, reader)
+  call sim_to_write%initialize(my_id=rank_loc,n_mpi=n_tasks_loc,num_groups=n_groups_expect,do_jorek_init_in=.false.)
+  sim_to_write%time = filename_time;
   call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,sim_to_write%groups,ifail_loc)
   call fill_groups(n_groups_expect,sim_to_write%groups,rank_loc,ifail_loc)
   call fill_particles(n_groups_expect,sim_to_write%groups,rank_in=rank_loc)
@@ -370,6 +372,7 @@ subroutine test_write_native_sim_all_particles
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -399,8 +402,8 @@ subroutine test_write_gatherv_sim_all_particles
   class(write_action),allocatable :: writer
   class(read_action),allocatable  :: reader
   logical :: file_exists
-  n_part_groups = n_groups_expect
-  allocate(writer, reader); allocate(sim_to_write%groups(n_groups_expect));
+  allocate(writer, reader)
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.)
   sim_to_write%time = filename_time; sim_to_write%my_id = rank_loc;
   sim_to_write%n_mpi = n_tasks_loc; 
   call allocate_one_particle_list_type(n_groups_expect,n_particles_expect,&
@@ -412,6 +415,7 @@ subroutine test_write_gatherv_sim_all_particles
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -438,9 +442,8 @@ subroutine test_write_gatherv_sim_two_groups_boris
   class(read_action), allocatable  :: reader
   logical :: file_exists
   integer :: i, j, n_groups, n_particles
-  n_part_groups = n_groups_expect
   allocate(writer, reader); 
-  allocate(sim_to_write%groups(n_groups_expect));
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.)
   do i=1,n_groups_expect
     call allocate_particles_here(sim_to_write%groups(i)%particles,n_particles_expect(i))
   enddo
@@ -453,6 +456,7 @@ subroutine test_write_gatherv_sim_two_groups_boris
   ! test if a file with the right name was created
   inquire(file=expected_filename, exist=file_exists)
   call assert_true(file_exists, 'file with the right name should be created')
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc;
   sim_to_read%time = sim_to_write%time; reader%time = sim_to_write%time; 
   reader%use_hdf5_access_properties=.false.; reader%mpi_comm_io = mpi_comm_loc; 
@@ -486,7 +490,7 @@ subroutine test_time_loop_gather_sim_two_groups_boris
   class(read_action), allocatable   :: reader
   integer :: ii, n_groups, n_particles
   !> initialise write particle simulation
-  allocate(sim_to_write%groups(n_groups_expect));
+  call sim_to_write%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.)
   do ii=1,n_groups_expect
     call allocate_particles_here(sim_to_write%groups(ii)%particles,n_particles_expect(ii))
   enddo
@@ -501,6 +505,7 @@ subroutine test_time_loop_gather_sim_two_groups_boris
     sim_to_write%time = sim_to_write%time + io_step !< update time
   enddo
   !> initialise read particle simulation
+  call sim_to_read%initialize(num_groups=n_groups_expect,do_jorek_init_in=.false.);
   sim_to_read%my_id = rank_loc; sim_to_read%n_mpi = n_tasks_loc; 
   sim_to_read%time = 0d0; read_events = [(event(stop_action(), start=stop_time)),\
   event(read_action(), step=io_step)]

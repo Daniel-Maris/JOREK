@@ -5,7 +5,6 @@ module mod_particle_io_mpi_test
 use fruit
 use mpi
 use mod_particle_sim, only: particle_sim
-use phys_module
 implicit none
 
 private
@@ -93,9 +92,7 @@ subroutine setup(rank,n_tasks,ifail)
   use_native_hdf5_mpio=.true.
 
   !> initialize the particle simulation
-  ! call preset_parameters()
-  n_part_groups = n_groups
-  call sim_particles%initialize(.false.,rank,n_tasks,.false.,.true.)
+  call sim_particles%initialize(.false.,rank,n_tasks,.false.,.true.,n_groups)
 
   !> set and broadcast simulation time
   if(rank.eq.0) then
@@ -166,8 +163,7 @@ subroutine test_particle_mpi_io_write_native_read
   use_hdf5_access_properties = .false.
 
   !> initialize the new particle simulation
-  n_part_groups = n_groups
-  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.,.true.)
+  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.,.true.,n_groups)
 
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename),&
@@ -197,8 +193,7 @@ subroutine test_particle_mpi_io_write_gatherv_read
   use_hdf5_access_properties = .false.;
 
   !> initialize the new particle simulation
-  n_part_groups = n_groups
-  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.,.true.)
+  call sim_particles_new%initialize(.false.,rank_loc,n_tasks_loc,.false.,.true.,n_groups)
 
   !> read default simulation from file and store in new sim
   call read_simulation_hdf5(sim_particles_new,trim(test_filename_gatherv),&
