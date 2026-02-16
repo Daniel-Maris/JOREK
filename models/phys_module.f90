@@ -953,6 +953,7 @@ module phys_module
   real*8, allocatable :: re_current_t(:), Ipre_tot_t(:)
 
   !> @name Particles-related input parameters
+  logical :: use_particles        !< Flag if simulation contains particles
   integer :: n_aux_var            !< number of variables in aux_node_list
   integer :: n_diag_var = n_var   !< number of variables in diag_node_list (= n_var is temporary)
   logical :: restart_particles    !< Load in previously simulated particles from a the part_restart.h5 restart file?
