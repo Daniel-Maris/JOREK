@@ -1837,7 +1837,7 @@ end subroutine project_sputter_vars_on_edge
 !> 3. Calculate new parallel energy from the square of E +- cs, with + or - 50/50
 !> 4. Add all energies together
 !> 5. Correct for atomic weight, assuming all velocities are central_mass velocities
-subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti_eV)
+pure subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti_eV)
   use phys_module, only: central_mass
   use mod_sampling, only: sample_chi_squared_3
   use mod_atomic_elements, only: atomic_weights
@@ -1856,10 +1856,8 @@ subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti_eV)
     Ti_eV_local = Ti_eV
   else
     Ti_eV_local = Te_eV
-    fact = 0.5
   end if
 
-  !write(*,*) "Ti_eV_local, Te_eV", Ti_eV_local, Te_eV
   ! Sample an energy at the local temperature
   E = Ti_eV_local*0.5d0*sample_chi_squared_3(u(1)) ! in eV
 
@@ -1875,7 +1873,7 @@ subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti_eV)
   v = sign(sqrt(2.d0*E*EL_CHG*(1.d0-beta)/(central_mass*ATOMIC_MASS_UNIT)), u(3)-0.5d0) ! m/s
   ! the sound speed is sqrt(k (1+gamma) T/m) = sqrt(T_eV*EL_CHG/m)
   ! gamma=1 is assumed, valid for cold dense plasma
-  v = v + sqrt(fact*(Te_eV+Ti_eV_local)*EL_CHG/(central_mass*ATOMIC_MASS_UNIT)) ! m/s
+  v = v + sqrt(gamma*(Te_eV+Ti_eV_local)*EL_CHG/(central_mass*ATOMIC_MASS_UNIT)) ! m/s
   E = E * beta + 0.5d0 * central_mass*ATOMIC_MASS_UNIT * v**2 / EL_CHG
 
   E = E*sqrt(atomic_weights(Z_ion)/central_mass) ! correct for atomic weight
