@@ -1,5 +1,5 @@
 !> Initialize parameters and broadcast them to all MPI procs.
-subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
+subroutine initialise_and_broadcast_parameters(my_id, filename, init_particles)
   
   use constants, only: mu_zero
   use mod_parameters,  only: n_tor, n_period
@@ -13,13 +13,13 @@ subroutine initialise_and_broadcast_parameters(my_id, filename, use_particles)
   ! --- Routine parameters
   integer,                      intent(in) :: my_id
   character(len=*),             intent(in) :: filename
-  logical,                      intent(in) :: use_particles
+  logical,                      intent(in) :: init_particles
   
   call initialise_parameters(my_id, filename)
 
   ! Determine coupling parameters
   if (my_id .eq. 0) then
-    if (use_particles) then
+    if (init_particles) then
 
       ! --- Initialize part_groups_in_use and determine n_part_groups
       if (part_groups_in_use(1) == 'non') then !< part_groups_in_use not manually defined
