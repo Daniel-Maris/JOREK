@@ -643,6 +643,7 @@ mpi_comm_in,mpi_info_in,test_in)
         n_particles_hsizet = int(n_particles_per_mpi_array(sim%my_id+1),kind=HSIZE_T)
 
         !> allocate particle list and initialise to 0 -----------------
+        if (allocated(sim%groups(i)%particles)) deallocate(sim%groups(i)%particles)
         call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi_array(sim%my_id+1), mpi_comm_loc)
 
         call initialize_particle_list_to_zero(n_particles_per_mpi_array(sim%my_id+1),sim%groups(i)%particles,ierr)
