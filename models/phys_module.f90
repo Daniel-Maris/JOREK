@@ -1071,6 +1071,8 @@ module phys_module
                                                    !  *cross collisions between different neutrals species is not yet supported
                                                    !   For more information on the neutral neutral collisions, see https://jorek.eu/wiki/doku.php?id=particles:neutral_neutral_collisions
     real*8              :: neutral_coll_dTw(3)     !< the reference diameter d_ref [m], reference temperatrue T_ref [K] and viscosity index omega [-] of the variable hard sphere model for this neutral species
+    integer             :: ncoll_each_nstep_part   !< run neutral self collisions action at every i_inner_loop = ncoll_each_nstep_part. Default (-9999991*) interpreted as nstep_inner_loop (i.e. each fluid timestep)
+                                                   ! * -9999991 was chosen as default because it is the negative of a big prime, so it will produce strange results if the gcd or lcm of it and another number will be calculated, making it easier to debug if something is wrong
 
     ! ---- impurities (ics) specific
     logical             :: use_kin_bg_collisions   !< switch on collisions with the background plasma
