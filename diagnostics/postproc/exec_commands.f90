@@ -2772,13 +2772,13 @@ module exec_commands
       end if
 
       ! --- Get input sources
-      if ( with_TiTe ) then
+#ifdef WITH_TiTe
         call sources(ES%xpoint, ES%xcase, ES%Z_axis, ES%Z_xpoint, psi_val, ES%psi_axis, ES%psi_bnd, &
                      particle_source, heat_source_i, heat_source_e)
-      else
+#else
         call sources(ES%xpoint, ES%xcase, ES%Z_axis, ES%Z_xpoint, psi_val, ES%psi_axis, ES%psi_bnd, &
                      particle_source, heat_source)
-      end if
+#endif
 
       res1d(i-1,1) = get_psi_n(psi_val)
       res1d(i-1,2) = int1
