@@ -70,7 +70,7 @@ subroutine flux_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id
     else ! (if xpoint)
       
       call grid_flux_surface(xpoint,xcase, node_list, element_list, surface_list, n_flux, n_tht,     &
-                             xr1, sig1, xr2, sig2,refinement)
+                             xr1, sig1, xr2, sig2,refinement, meshac_mod)
       
       call plot_grid(node_list, element_list, bnd_elm_list, bnd_node_list, .true., .false.,'fluxsurface')
       
