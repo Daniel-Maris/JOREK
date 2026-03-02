@@ -589,6 +589,7 @@ module phys_module
   
   !> @name Flux surface grid with X-point
   !! Parameters defining a flux-aligned grid with X-point in the poloidal plane.
+  logical :: meshac_mod        !< Generate the flux-aligned grid with modified meshac for SIG_closed, SIG_open, and SIG_theta
   integer :: n_open            !< Number of 'radial' grid points in the open flux region - between the two separatrices if double-null
   integer :: n_outer           !< Number of 'radial' grid points in the open flux region on the outer side (LFS) if double-null
   integer :: n_inner           !< Number of 'radial' grid points in the open flux region on the inner side (HFS) if double-null

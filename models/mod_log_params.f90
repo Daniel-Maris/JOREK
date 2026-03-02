@@ -292,6 +292,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,INTG_FMT) 'n_up_priv             ', n_up_priv
     write(*,INTG_FMT) 'n_up_leg              ', n_up_leg
     write(*,INTG_FMT) 'n_up_leg_out          ', n_up_leg_out
+    write(*,LOGI_FMT) 'meshac_mod            ', meshac_mod
     write(*,REAL_FMT) 'SIG_closed            ', SIG_closed
     write(*,REAL_FMT) 'SIG_open              ', SIG_open
     write(*,REAL_FMT) 'SIG_private           ', SIG_private

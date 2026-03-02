@@ -1,5 +1,5 @@
 !> Subroutine defines the new grid_points from crossing of polar and radial coordinate lines
-subroutine define_new_grid_points(node_list, element_list, flux_list, xcase, n_grids, stpts, sigmas, nwpts)
+subroutine define_new_grid_points(node_list, element_list, flux_list, xcase, n_grids, stpts, sigmas, meshac_mod, nwpts)
 
 use constants
 use tr_module 
@@ -20,6 +20,7 @@ type (type_new_points)      , intent(inout) :: nwpts
 integer,                      intent(inout) :: n_grids(12)
 integer,                      intent(in)    :: xcase
 real*8,                       intent(in)    :: sigmas(17)
+logical,                      intent(in)    :: meshac_mod
 
 ! --- local variables
 real*8, allocatable :: s_tmp(:), theta_sep(:)
@@ -121,7 +122,11 @@ else ! xcase == DOUBLE_NULL
     
     call tr_allocate(s_tmp,1,n_tht_mid,"s_tmp",CAT_GRID)
     s_tmp = 0
-    call meshac2(n_tht_mid,s_tmp,0.d0,1.d0,SIG_theta,SIG_theta_up,bgf_tht,1.0d0)
+    if (meshac_mod) then
+      call meshac3(n_tht_mid,s_tmp,0.d0,0.d0,1.d0,0.2*SIG_theta,SIG_theta,SIG_theta_up,bgf_tht,1.0d0)
+    else
+      call meshac2(n_tht_mid,s_tmp,0.d0,1.d0,SIG_theta,SIG_theta_up,bgf_tht,1.0d0)
+    endif
 
     do j=1,n_tht_mid
       theta_sep(j) = (tht_x1-2.d0*PI) + (tht_x2-(tht_x1-2.d0*PI)) * s_tmp(j)
@@ -133,7 +138,11 @@ else ! xcase == DOUBLE_NULL
     n_tht_mid2 = n_tht-n_tht_mid
     call tr_allocate(s_tmp,1,n_tht_mid2,"s_tmp",CAT_GRID)
     s_tmp = 0
-    call meshac2(n_tht_mid2,s_tmp,0.d0,1.d0,SIG_theta_up,SIG_theta,bgf_tht,1.0d0)
+    if (meshac_mod) then
+      call meshac3(n_tht_mid2,s_tmp,0.d0,1.d0,1.d0,SIG_theta_up,SIG_theta,0.2*SIG_theta,bgf_tht,1.0d0)
+    else
+      call meshac2(n_tht_mid2,s_tmp,0.d0,1.d0,SIG_theta_up,SIG_theta,bgf_tht,1.0d0)
+    endif
 
     do j=n_tht_mid+1,n_tht
       theta_sep(j) = tht_x2 + (tht_x1-tht_x2) * s_tmp(j-n_tht_mid)

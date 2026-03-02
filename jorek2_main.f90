@@ -187,7 +187,7 @@ program JOREK2
   res = 0.d0   
     
   !***********************************************************************
-  !*                  intialisation                                      *
+  !*                  initialisation                                      *
   !***********************************************************************
 
   ! --- Initialize OpenMP threads before MPI_init
@@ -338,11 +338,11 @@ mpi_required = 0
           endif
         else
 	  call grid_xpoint(node_list,element_list,n_flux,n_open,n_private,n_leg,n_tht,  &
-                           SIG_open,SIG_closed,SIG_private,SIG_theta,SIG_leg_0,SIG_leg_1,dPSI_open,dPSI_private, xcase)
+                           SIG_open,SIG_closed,SIG_private,SIG_theta,SIG_leg_0,SIG_leg_1,dPSI_open,dPSI_private, xcase, meshac_mod)
         endif
       else
         call grid_flux_surface(xpoint,xcase, node_list, element_list, surface_list, n_flux, n_tht, xr1,  &
-                               sig1, xr2, sig2, refinement)
+                               sig1, xr2, sig2, refinement, meshac_mod)
       end if
 
     end if

@@ -140,6 +140,7 @@ subroutine preset_parameters
   bgf_rpolar    = 0.6
   bgf_tht       = 0.6
 
+  meshac_mod = .false.
   SIG_closed  = 0.1d0
   SIG_open    = 0.1d0
   SIG_outer   = 0.1d0

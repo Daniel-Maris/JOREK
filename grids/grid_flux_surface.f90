@@ -1,4 +1,4 @@
-subroutine grid_flux_surface(xpoint,xcase,node_list,element_list,surface_list,n_flux,n_tht,xr1,sig1,xr2,sig2,refinement)
+subroutine grid_flux_surface(xpoint,xcase,node_list,element_list,surface_list,n_flux,n_tht,xr1,sig1,xr2,sig2,refinement, meshac_mod)
 !------------------------------------------------------------------------
 ! subroutine calculates a new flux surface grid (adapted from HELENA20)
 !------------------------------------------------------------------------
@@ -23,6 +23,7 @@ integer,                  intent(in)    :: n_flux
 integer,                  intent(in)    :: n_tht
 real*8,                   intent(in)    :: xr1, xr2
 real*8,                   intent(in)    :: sig1, sig2
+logical,                  intent(in)    :: meshac_mod
 
 ! --- local variables
 integer            :: nrnew, npnew, i, j, k, i_elm
@@ -83,7 +84,11 @@ call tr_allocate(ZZnew,1,n_max,1,nrnew*npnew,"ZZnew",CAT_GRID)
 call tr_allocate(PSInew,1,n_max,1,nrnew*npnew,"PSInew",CAT_GRID)
 
 s_values = 0.d0
-call meshac2(surface_list%n_psi+1,s_values,xr1,xr2,sig1,sig2,0.6d0,1.0d0)
+if (meshac_mod) then
+  call meshac3(surface_list%n_psi+1,s_values,xr1,xr1,xr2,0.3*sig1,sig1,sig1,0.2d0,1.0d0)
+else
+  call meshac2(surface_list%n_psi+1,s_values,xr1,xr2,sig1,sig2,0.6d0,1.0d0)
+endif
 
 psi_values(1) = ES%psi_axis
 
