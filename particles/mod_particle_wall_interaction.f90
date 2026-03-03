@@ -1838,7 +1838,7 @@ end subroutine project_sputter_vars_on_edge
 !> 4. Add all energies together
 !> 5. Correct for atomic weight, assuming all velocities are central_mass velocities
 pure subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti_eV)
-  use phys_module, only: central_mass
+  use phys_module, only: central_mass, gamma
   use mod_sampling, only: sample_chi_squared_3
   use mod_atomic_elements, only: atomic_weights
 
