@@ -1269,6 +1269,7 @@ end subroutine fluid2part_action
 subroutine part2self_action(this, sim)
   use phys_module, only: use_manual_random_seed
   use mod_polygon, only: inside_polygon
+  use mod_interp,  only: interp_RZ
   
   class(wall_action), intent(inout) :: this
   type(particle_sim), intent(inout) :: sim
@@ -1311,7 +1312,8 @@ subroutine part2self_action(this, sim)
     end if
 
     !> Place particle back into domain
-    pa(j)%i_elm = -pa(j)%i_elm
+    pa(j)%i_elm = -pa(j)%i_elm !reset i_elm to positive value (i_elm, s, t from where particle was lost at the boundary are known from find_RZ_nearby in mod_particle_evolution)
+    call interp_RZ(sim%fields%node_list,sim%fields%element_list,pa(j)%i_elm,pa(j)%st(1),pa(j)%st(2),pa(j)%x(1),pa(j)%x(2)) !get corresponding R,Z at boundary
     
     !> do single particle wall interaction
     call single_self_interaction(this, sim, pa(j), this%rng(i_rng), diagnostics)
@@ -1940,7 +1942,7 @@ subroutine particle_projection_diagnostic(this, sim, particle, E, sputtering_yie
   !> find in which patch the particle is lost
   i_patch = elm_in_patch(particle%i_elm, this%fluid_yield_integral)
   if (i_patch < 0) then
-    write(*,*) "ERR in particle_self_reflection elm_in_patch, particle lost to somewhere unknown"
+    write(*,"(A,I8,5es15.5)") "ERROR: in particle_self_reflection elm_in_patch, particle lost to somewhere unknown i_elm,s,t,R,Z,phi",particle%i_elm,particle%st,particle%x
     return
   end if
 

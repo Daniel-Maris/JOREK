@@ -211,6 +211,9 @@ real*8     :: aux_rho0, aux_E0, aux_mom_par0
 real*8     :: aux_E0_Ti, aux_E0_Te
 real*8     :: aux_P_par_re, aux_P_perp_re, aux_jre, aux_jre_ind
 
+! --- Using zkperp density dependence
+real*8     :: dZK_prof_drho, dZKe_prof_drho, dZKi_prof_drho
+
 #define DIM1 n_plane
 #define DIM2 1:n_vertex_max*n_var*n_degrees
 
@@ -1140,8 +1143,22 @@ do i=1,n_vertex_max
 
           ! --- Perpendicular heat diffusivities
           if ( with_TiTe ) then
-            ZKi_prof = get_zk_iperp(psi_norm)
-            ZKe_prof = get_zk_eperp(psi_norm)
+            if (use_zkperp_times_density) then
+              ZKi_prof = get_zk_iperp(psi_norm) * max(r0,zkperp_density_floor)
+              ZKe_prof = get_zk_eperp(psi_norm) * max(r0,zkperp_density_floor)
+              if (r0 .gt. zkperp_density_floor) then
+                dZKi_prof_drho = get_zk_iperp(psi_norm)
+                dZKe_prof_drho = get_zk_eperp(psi_norm)
+              else
+                dZKi_prof_drho = 0.d0
+                dZKe_prof_drho = 0.d0
+              endif
+            else
+              ZKi_prof = get_zk_iperp(psi_norm)
+              ZKe_prof = get_zk_eperp(psi_norm)
+              dZKi_prof_drho = 0.d0
+              dZKe_prof_drho = 0.d0
+            endif
             ZK_i_perp_num_psin = ZK_i_perp_num +                                                  &
                                  ZK_i_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_i_perp_num_tanh_psin)/ZK_i_perp_num_tanh_sig))
@@ -1149,7 +1166,17 @@ do i=1,n_vertex_max
                                  ZK_e_perp_num_tanh * 0.5d0*(1.d0-                                &
                                  tanh((psi_norm-ZK_e_perp_num_tanh_psin)/ZK_e_perp_num_tanh_sig))
           else
-            ZK_prof = get_zkperp(psi_norm)
+            if (use_zkperp_times_density) then
+              ZK_prof = get_zkperp(psi_norm) * max(r0,zkperp_density_floor)
+              if (r0 .gt. zkperp_density_floor) then
+                dZK_prof_drho = get_zkperp(psi_norm)
+              else
+                dZK_prof_drho = 0.d0
+              endif
+            else
+              ZK_prof = get_zkperp(psi_norm)
+              dZK_prof_drho = 0.d0
+            endif
             ZK_perp_num_psin = ZK_perp_num +                                                  &
                                ZK_perp_num_tanh * 0.5d0*(1.d0-                                &
                                tanh((psi_norm-ZK_perp_num_tanh_psin)/ZK_perp_num_tanh_sig))
@@ -1157,14 +1184,29 @@ do i=1,n_vertex_max
           !--- Increase diffusivity if very small temperature
           if ( with_TiTe ) then
             if (Ti0 .lt. ZK_i_prof_neg_thresh) then
-              ZKi_prof = ZK_i_prof_neg
+              if (use_zkperp_times_density) then
+                ZKi_prof = ZK_i_prof_neg * max(r0,zkperp_density_floor)
+                dZKi_prof_drho = ZK_i_prof_neg
+              else
+                ZKi_prof = ZK_i_prof_neg
+              endif
             end if
             if (Te0 .lt. ZK_e_prof_neg_thresh) then
-              ZKe_prof = ZK_e_prof_neg
+              if (use_zkperp_times_density) then
+                ZKe_prof = ZK_e_prof_neg * max(r0,zkperp_density_floor)
+                dZKe_prof_drho = ZK_e_prof_neg
+              else
+                ZKe_prof = ZK_e_prof_neg
+              endif
             end if
           else ! (with_TiTe = .f.), i.e. with single temperature
             if (T0 .lt. ZK_prof_neg_thresh) then
-              ZK_prof = ZK_prof_neg
+              if (use_zkperp_times_density) then
+                ZK_prof = ZK_prof_neg * max(r0,zkperp_density_floor)
+                dZK_prof_drho = ZK_prof_neg
+              else
+                ZK_prof = ZK_prof_neg
+              endif
             end if
           endif ! (with_TiTe)
 
@@ -3188,7 +3230,11 @@ do i=1,n_vertex_max
                                      * ( v_x * ps0_y -  v_y * ps0_x ) * xjac * theta * tstep * tstep &
                            + tgnum_Ti* 0.25d0 / BigR * vpar0**2                                      &
                                      * rho * (Ti0_x * ps0_y - Ti0_y * ps0_x + F0 / BigR * Ti0_p)     &
-                                     * ( v_x * ps0_y -  v_y * ps0_x ) * xjac * theta * tstep * tstep
+                                     * ( v_x * ps0_y -  v_y * ps0_x ) * xjac * theta * tstep * tstep &
+
+                            !==============================ZKi_perp density dependence=================
+                              - dZKi_prof_drho * rho * BigR / BB2 * Bgrad_T_star * Bgrad_Ti       * xjac * theta * tstep &
+                              + dZKi_prof_drho * rho * BigR * (v_x*Ti0_x + v_y*Ti0_y)             * xjac * theta * tstep
   
                     amat_n(var_Ti,var_rho) = + v * Ti0  * F0 / BigR * Vpar0 * rho_p   * xjac * theta * tstep    &
   
@@ -3532,7 +3578,11 @@ do i=1,n_vertex_max
                                      * ( v_x * ps0_y -  v_y * ps0_x ) * xjac * theta * tstep * tstep &
                            + tgnum_Te * 0.25d0 / BigR * vpar0**2                                      &
                                      * rho * (Te0_x * ps0_y - Te0_y * ps0_x + F0 / BigR * Te0_p)     &
-                                     * ( v_x * ps0_y -  v_y * ps0_x ) * xjac * theta * tstep * tstep
+                                     * ( v_x * ps0_y -  v_y * ps0_x ) * xjac * theta * tstep * tstep &
+
+                    !================= ZKe_perp density dependence ===========================
+                            - dZKe_prof_drho * rho * BigR / BB2 * Bgrad_T_star * Bgrad_Te    * xjac * theta * tstep &
+                            + dZKe_prof_drho * rho * BigR * (v_x*Te0_x + v_y*Te0_y)          * xjac * theta * tstep
   
                     amat_n(var_Te,var_rho) = + v * Te0  * F0 / BigR * Vpar0 * rho_p   * xjac * theta * tstep    &
   
@@ -3975,8 +4025,13 @@ do i=1,n_vertex_max
                                     * ( v_x * ps0_y -  v_y * ps0_x )                   * xjac * theta * tstep * tstep &
                           + tgnum_T * 0.25d0 / BigR * vpar0**2                                                        &
                                     * rho * (T0_x * ps0_y - T0_y * ps0_x + F0 / BigR * T0_p)                          &
-                                    * ( v_x * ps0_y -  v_y * ps0_x )                   * xjac * theta * tstep * tstep
+                                    * ( v_x * ps0_y -  v_y * ps0_x )                   * xjac * theta * tstep * tstep &
+
+                    !==============================ZKperp density dependence=================
+                           - dZK_prof_drho * rho * BigR / BB2 * Bgrad_T_star * Bgrad_T       * xjac * theta * tstep &
+                           + dZK_prof_drho * rho * BigR * (v_x*T0_x + v_y*T0_y)              * xjac * theta * tstep
   
+
                     amat_n(var_T,var_rho) = + v * T0  * F0 / BigR * Vpar0 * rho_p      * xjac * theta * tstep         &
                     !=============== The ionization potential energy term=========================
                           + (GAMMA - 1.) * v * E_ion_bg * F0 / BigR * Vpar0 * rho_p                                                        * xjac * theta * tstep    &
@@ -3986,7 +4041,7 @@ do i=1,n_vertex_max
   
                           + tgnum_T * 0.25d0 / BigR * vpar0**2                                                        &
                                     * T0 * (                              + F0 / BigR * rho_p)                        &
-                                    * ( v_x * ps0_y -  v_y * ps0_x                  )  * xjac * theta * tstep * tstep
+                                    * ( v_x * ps0_y -  v_y * ps0_x                  )  * xjac * theta * tstep * tstep 
   
                     amat_k(var_T,var_rho) =                                                                           &
                     !=============== The ionization potential energy term=========================
