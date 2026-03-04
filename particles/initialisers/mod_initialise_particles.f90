@@ -129,6 +129,11 @@ module mod_initialise_particles
     end select
   end subroutine initialise_group_EP
 
+
+  !> rejection function to produce EP spatial
+  !> distribution from ITPA TAE benchmark
+  !> A. Könies et al 2018 Nucl. Fusion 58 126027
+  !> https://doi.org/10.1088/1741-4326/aae4e6
   pure function f_toroidal_flux(n, P, grad_P) result(f)
     integer, intent(in) :: n
     real*8, intent(in)  :: P(n), grad_P(3,n)
