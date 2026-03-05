@@ -50,6 +50,18 @@ module coupling_variables
     "j_Phi"     & !> Phi compoment of current  
   ]
 
+  ! EPF (Full pressure coupling for energetic particles)
+  character(len=var_name_len), dimension(7) :: epf_var_names = [character(len=var_name_len) :: &
+    "PI_RR",     & !> (R,R)     component of full pressure tensor
+    "PI_ZZ",     & !> (Z,Z)     component of full pressure tensor
+    "PI_PHIPHI", & !> (Phi,Phi) component of full pressure tensor
+    "PI_RZ",     & !> (R,Z)     component of full pressure tensor
+    "PI_RPHI",   & !> (Z,Phi)   component of full pressure tensor
+    "PI_ZPHI",   & !> (R,Phi)   component of full pressure tensor
+    "rho_ep"     & !>           density
+  ]
+
+
   ! =========== Storage variables for kinetic coupling indices ======== !
 
   !> variables indices
@@ -64,6 +76,13 @@ module coupling_variables
   integer :: P_par_idx_kin    = 0
   integer :: P_perp_idx_kin   = 0
   integer :: j_Phi_idx_kin    = 0
+  integer :: rho_ep_idx_kin    = 0
+  integer :: PI_RR_idx_kin     = 0
+  integer :: PI_ZZ_idx_kin     = 0
+  integer :: PI_PHIPHI_idx_kin = 0
+  integer :: PI_RZ_idx_kin     = 0
+  integer :: PI_RPHI_idx_kin   = 0
+  integer :: PI_ZPHI_idx_kin   = 0
 
   !> index of coupling variables specific to each impurity group
   integer :: ics_indices_kin(n_aux_var_max) = -1
