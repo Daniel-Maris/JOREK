@@ -137,7 +137,7 @@ if (using_spi) then
     do i_inj = 1, n_inj
       spi_abl_rate_tot = spi_abl_rate_tot + xtime_spi_ablation_rate(i_inj,i)
       spi_abl_tot = spi_abl_tot + xtime_spi_ablation(i_inj,i)
-      spi_abl_bg_rate_tot = spi_abl_bg_rate_tot + xtime_spi_ablation_bg_rate(i_nj,i)
+      spi_abl_bg_rate_tot = spi_abl_bg_rate_tot + xtime_spi_ablation_bg_rate(i_inj,i)
       spi_abl_bg_tot = spi_abl_bg_tot + xtime_spi_ablation_bg(i_inj,i)
     end do
     write(20,'(i7,f12.3,4e14.6)') i,xtime(i), spi_abl_rate_tot, spi_abl_tot, spi_abl_bg_rate_tot, spi_abl_bg_tot
