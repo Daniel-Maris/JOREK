@@ -78,7 +78,7 @@ integer,  parameter :: n_terms_psi  = 5
 integer,  parameter :: n_terms_u    = 11
 integer,  parameter :: n_terms_zj   = 1
 integer,  parameter :: n_terms_w    = 1
-integer,  parameter :: n_terms_rho  = 12
+integer,  parameter :: n_terms_rho  = 13
 integer,  parameter :: n_terms_T    = 21
 integer,  parameter :: n_terms_Te   = 19
 integer,  parameter :: n_terms_Ti   = 14
@@ -125,7 +125,8 @@ character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                                  'rho_Eq__recombination    ', &  !  9:
                                                  'rho_Eq__zeta_time_evol   ', &  ! 10:
                                                  'rho_Eq__Dperp_num_term   ', &  ! 11:
-                                                 'rho_Eq__tg_num_term      '/)   ! 12:
+                                                 'rho_Eq__tg_num_term      ', &  ! 12:
+                                                 'rho_Eq__inward_pinch      '/)  ! 13:
 
 character*36, dimension(n_terms_T),     parameter :: T_term_names=  &
                                               (/ 'T_Eq__ext_heat_source  ', &  !  1:

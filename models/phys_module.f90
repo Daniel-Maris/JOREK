@@ -621,6 +621,11 @@ module phys_module
   !> @name Analytical heat, particle and neutral particles diffusivity parameters
   real*8  :: D_perp(10)    = 0.d0 !< Coefficients for perpendicular particle diffusion profile
   real*8  :: D_par                !< Parallel particle diffusion (usually not useful)
+  real*8  :: V_pinch_gauss = 0.d0 !< Amplitude of Gaussian inward pinch velocity profile for background fluid (rho only).
+                                  !< Profile: V_pinch_gauss * exp(-(psin - V_pinch_psin)^2 / V_pinch_sig^2).
+                                  !< Positive = inward (toward magnetic axis). Units: JOREK velocity = V_SI[m/s] * sqrt(mu0*rho0).
+  real*8  :: V_pinch_psin  = 0.d0 !< Centre of V_pinch Gaussian in normalised poloidal flux (psin).
+  real*8  :: V_pinch_sig   = 1.d0 !< Width (sigma) of V_pinch Gaussian in psin units.
   real*8  :: D_perp_imp(10)= 0.d0 !< Coefficients for perpendicular imp particle diffusion profile
   real*8  :: D_par_imp            !< Parallel impurity particle diffusion (usually not useful)
   real*8  :: ZK_perp(10)   = 0.d0 !< Coefficients for perpendicular heat diffusion profile

@@ -19,7 +19,7 @@ use gauss
 use basis_at_gaussian
 use phys_module
 use pellet_module
-use diffusivities, only: get_dperp, get_zkperp, get_zk_iperp, get_zk_eperp
+use diffusivities, only: get_dperp, get_zkperp, get_zk_iperp, get_zk_eperp, get_vpinch
 use equil_info, only : get_psi_n
 use corr_neg
 use mod_neutral_source
@@ -59,7 +59,7 @@ real*8     :: Bgrad_rho_k_star, Bgrad_T_k_star, Bgrad_Ti_Ti_n, Bgrad_Te_Te_n, Bg
 real*8     :: Bgrad_rhoimp, Bgrad_rhoimp_psi, Bgrad_rhoimp_rhoimp, Bgrad_rhoimp_rhoimp_n
 real*8     :: ZK_par_T, dZK_par_dT, ZKi_par_T, dZKi_par_dT, ZKe_par_T, dZKe_par_dT
 real*8     :: D_prof, D_par_local, ZK_prof, ZKi_prof, ZKe_prof, psi_norm, theta, zeta, delta_u_x, delta_u_y, delta_ps_x, delta_ps_y
-real*8     :: D_prof_imp, D_par_local_imp
+real*8     :: Dreal*8     :: V_prof_pinch, psi_grad2
 real*8     :: rhs_ij(n_var), rhs_ij_k(n_var)
 real*8     :: amat(n_var,n_var), amat_k(n_var,n_var), amat_n(n_var,n_var), amat_kn(n_var,n_var), amat_nn(n_var,n_var)
 
@@ -1050,6 +1050,9 @@ do i=1,n_vertex_max
 
           ! --- Particle diffusivities
           D_prof         = get_dperp (psi_norm)
+          V_prof_pinch   = get_vpinch(psi_norm) * sign(1.d0,psi_bnd-psi_axis)
+          psi_grad2      = ps0_x**2 + ps0_y**2
+          if (psi_grad2 < 1.d-30) psi_grad2 = 1.d-30
           D_par_local     = D_par
           D_par_local_imp = D_par_imp
           D_perp_num_psin = D_perp_num +                                                  &
@@ -1442,7 +1445,11 @@ do i=1,n_vertex_max
                                                     * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep                                  * factor(var_rho,12)&
                        - tgnum_rho * 0.25d0 / BigR * vpar0**2                                                    &
                                  * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                              &
-                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep                               * factor(var_rho,12)
+                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep                               * factor(var_rho,12)&
+
+                      ! --- Inward pinch (rho only): weak form of -∇·(r0 * V_pinch_vec),
+                      !     V_pinch_vec = -V_prof_pinch * ∇ψ/|∇ψ| (positive V_prof_pinch = inward toward magnetic axis)
+                       - V_prof_pinch / sqrt(psi_grad2) * (v_x * ps0_x + v_y * ps0_y) * r0 * BigR * xjac * tstep * factor(var_rho,13)
 
             rhs_ij_k(var_rho) = - ((D_par_local+D_par_sc_num*tau_sc)-D_prof) * BigR / BB2 * Bgrad_rho_k_star * (Bgrad_rho-Bgrad_rhoimp) * xjac * tstep * factor(var_rho,4) &
                             - ((D_par_local_imp+D_par_imp_sc_num*tau_sc)-D_prof_imp) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rhoimp     * xjac * tstep * factor(var_rho,4) &
@@ -1450,7 +1457,7 @@ do i=1,n_vertex_max
                             - D_prof_imp * BigR  * (                  v_p*rimp0_p /BigR**2 )        * xjac * tstep * factor(var_rho,5) &
                        - tgnum_rho * 0.25d0 / BigR * vpar0**2 &
                                  * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                              &
-                                 * (                            + F0 / BigR * v_p) * xjac * tstep * tstep        * factor(var_rho,12)
+                                 * (                            + F0 / BigR * v_p) * xjac * tstep * tstep        * factor(var_rho,12) 
 
             !###################################################################################################
             !#  Parallel Velocity Equation                                                                     #
@@ -2512,7 +2519,9 @@ do i=1,n_vertex_max
 
                           + tgnum_rho * 0.25d0 / BigR * vpar0**2                                                        &
                                     * (rho_x * ps0_y - rho_y * ps0_x )                             &
-                                    * ( v_x * ps0_y -  v_y * ps0_x   ) * xjac * theta * tstep * tstep
+                                    * ( v_x * ps0_y -  v_y * ps0_x   ) * xjac * theta * tstep * tstep &
+
+                          + V_prof_pinch / sqrt(psi_grad2) * (v_x * ps0_x + v_y * ps0_y) * rho * BigR   * xjac * theta * tstep
 
                   amat_k(var_rho,var_rho) = + ((D_par_local+D_par_sc_num*tau_sc)-D_prof) * BigR / BB2 * Bgrad_rho_k_star * Bgrad_rho_rho          * xjac * theta * tstep &
  
