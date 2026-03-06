@@ -126,7 +126,7 @@ character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                                  'rho_Eq__zeta_time_evol   ', &  ! 10:
                                                  'rho_Eq__Dperp_num_term   ', &  ! 11:
                                                  'rho_Eq__tg_num_term      ', &  ! 12:
-                                                 'rho_Eq__inward_pinch      '/)  ! 13:
+                                                 'rho_Eq__inward_pinch     '/)  ! 13:
 
 character*36, dimension(n_terms_T),     parameter :: T_term_names=  &
                                               (/ 'T_Eq__ext_heat_source  ', &  !  1:
