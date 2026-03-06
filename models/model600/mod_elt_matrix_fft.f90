@@ -59,7 +59,8 @@ real*8     :: Bgrad_rho_k_star, Bgrad_T_k_star, Bgrad_Ti_Ti_n, Bgrad_Te_Te_n, Bg
 real*8     :: Bgrad_rhoimp, Bgrad_rhoimp_psi, Bgrad_rhoimp_rhoimp, Bgrad_rhoimp_rhoimp_n
 real*8     :: ZK_par_T, dZK_par_dT, ZKi_par_T, dZKi_par_dT, ZKe_par_T, dZKe_par_dT
 real*8     :: D_prof, D_par_local, ZK_prof, ZKi_prof, ZKe_prof, psi_norm, theta, zeta, delta_u_x, delta_u_y, delta_ps_x, delta_ps_y
-real*8     :: Dreal*8     :: V_prof_pinch, psi_grad2
+real*8     :: D_prof_imp, D_par_local_imp
+real*8     :: V_prof_pinch, psi_grad2
 real*8     :: rhs_ij(n_var), rhs_ij_k(n_var)
 real*8     :: amat(n_var,n_var), amat_k(n_var,n_var), amat_n(n_var,n_var), amat_kn(n_var,n_var), amat_nn(n_var,n_var)
 

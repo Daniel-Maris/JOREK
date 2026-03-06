@@ -13,7 +13,7 @@ module diffusivities
   
   
   private
-  public get_dperp, get_zkperp, get_zk_iperp, get_zk_eperp
+  public get_dperp, get_zkperp, get_zk_iperp, get_zk_eperp, get_vpinch
   
   
   interface get_dperp
