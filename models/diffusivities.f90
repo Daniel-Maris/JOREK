@@ -6,7 +6,8 @@ module diffusivities
   use phys_module, only: num_d_perp, D_perp, num_d_perp_x, num_d_perp_y, num_d_perp_len,           &
                          num_zk_perp, num_zk_e_perp, num_zk_i_perp, ZK_perp, ZK_e_perp, ZK_i_perp, num_zk_perp_x, num_zk_perp_y, num_zk_perp_len,      &
                          num_zk_e_perp_x, num_zk_i_perp_x, num_zk_e_perp_y, num_zk_i_perp_y, num_zk_e_perp_len, num_zk_i_perp_len,     &
-       xpoint, xcase, rho_0, rho_coef, T_coef, Ti_coef, Te_coef, V_pinch_gauss, V_pinch_psin, V_pinch_sig
+       xpoint, xcase, rho_0, rho_coef, T_coef, Ti_coef, Te_coef, V_pinch_gauss, V_pinch_psin, V_pinch_sig, &
+       num_v_pinch, num_v_pinch_x, num_v_pinch_y, num_v_pinch_len
   use profiles,    only: interpolProf
     
   implicit none
@@ -571,18 +572,20 @@ module diffusivities
     
   end function get_zk_eperp2
 
-  !> Returns the Gaussian inward pinch velocity profile for background fluid.
-  !> Profile: V_pinch_gauss * exp(-(psin - V_pinch_psin)^2 / V_pinch_sig^2).
+  !> Returns the inward pinch velocity profile for background fluid.
+  !> If v_pinch_file /= 'none', the profile is interpolated from that file (two-column ASCII: psin, V_pinch).
+  !> Otherwise falls back to the Gaussian: V_pinch_gauss * exp(-(psin - V_pinch_psin)^2 / V_pinch_sig^2).
   !> Positive values drive density inward (toward magnetic axis).
   real*8 function get_vpinch(psin)
-#if _OPENMP >= 201511
-    !$omp declare simd
-#endif
     implicit none
 
     real*8, intent(in) :: psin
 
-    get_vpinch = V_pinch_gauss * exp(-(psin - V_pinch_psin)**2 / V_pinch_sig**2)
+    if ( num_v_pinch ) then
+      get_vpinch = interpolProf(num_v_pinch_x, num_v_pinch_y, num_v_pinch_len, psin)
+    else
+      get_vpinch = V_pinch_gauss * exp(-(psin - V_pinch_psin)**2 / V_pinch_sig**2)
+    end if
 
   end function get_vpinch
 

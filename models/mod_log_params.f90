@@ -520,9 +520,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,CHAR_FMT) 'D_perp_imp_file       ', trim(D_perp_imp_file)
   end if
 #endif
-  write(*,REAL_FMT) 'V_pinch_gauss         ', V_pinch_gauss
-  write(*,REAL_FMT) 'V_pinch_psin          ', V_pinch_psin
-  write(*,REAL_FMT) 'V_pinch_sig           ', V_pinch_sig
+  if ( num_v_pinch ) then
+    write(*,CHAR_FMT) 'v_pinch_file          ', trim(v_pinch_file)
+  else
+    write(*,REAL_FMT) 'V_pinch_gauss         ', V_pinch_gauss
+    write(*,REAL_FMT) 'V_pinch_psin          ', V_pinch_psin
+    write(*,REAL_FMT) 'V_pinch_sig           ', V_pinch_sig
+  end if
   write(*,REAL_FMT) 'particlesource        ', particlesource
   write(*,REAL_FMT) 'particlesource_psin   ', particlesource_psin
   write(*,REAL_FMT) 'particlesource_sig    ', particlesource_sig
