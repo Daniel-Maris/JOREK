@@ -82,7 +82,7 @@ integer,  parameter :: n_terms_rho  = 13
 integer,  parameter :: n_terms_T    = 21
 integer,  parameter :: n_terms_Te   = 19
 integer,  parameter :: n_terms_Ti   = 14
-integer,  parameter :: n_terms_vpar = 10
+integer,  parameter :: n_terms_vpar = 11
 integer,  parameter :: n_terms_rhon = 7
 integer,  parameter :: n_terms_rhoimp = 10
 
@@ -199,7 +199,8 @@ character*36, dimension(n_terms_vpar),  parameter :: vpar_term_names=  &
                                                  'vpar_Eq__ionization_term  ', &  !  7:
                                                  'vpar_Eq__recombin_term    ', &  !  8:
                                                  'vpar_Eq__viscopar_term    ', &  !  9:
-                                                 'vpar_Eq__neoclassical_term'/)   ! 10:
+                                                 'vpar_Eq__neoclassical_term', &  ! 10:
+                                                 'vpar_Eq__inward_pinch     '/)   ! 11:
 
  character*36, dimension(n_terms_rhon), parameter :: rhon_term_names=  &
                                               (/ 'rhon_Eq__neutral_diffusion', &  !  1:

@@ -1523,7 +1523,13 @@ do i=1,n_vertex_max
                                 + tauIC*2.   * (ps0_x * Pi0_x + ps0_y * Pi0_y)                   &
                                 + aki_neo_prof(ms,mt) * tauIC*2. * r0 * (ps0_x * Ti0_x + ps0_y * Ti0_y) - r0 * Vpar0 * Btheta2) * xjac * tstep * factor(var_vpar,10) * BigR
               endif
-              
+
+              ! --- Inward pinch: advection of v_par by V_pinch = -V_prof_pinch * ∇ψ/|∇ψ|
+              !     Adds ρ V_pinch · ∇v_par to the v_par equation (momentum-conserving coupling to density pinch)
+              rhs_ij(var_vpar) = rhs_ij(var_vpar) &
+                                 + V_prof_pinch / sqrt(psi_grad2) * (ps0_x * vpar0_x + ps0_y * vpar0_y) &
+                                         * r0 * v * BigR * xjac * tstep * factor(var_vpar,11)
+
               rhs_ij_k(var_vpar) = + 0.5d0 * r0 * vpar0**2 * BB2 * F0 / BigR * v_p                      * xjac * tstep * factor(var_vpar,3) &
   
                  - tgnum_vpar * 0.25d0 * r0 * Vpar0**2 * BB2 &
@@ -2729,10 +2735,14 @@ do i=1,n_vertex_max
 
                                + tgnum_vpar * 0.25d0 * vpar0 * Vpar0**2 * BB2 * fact_conservative_u &
                                          * (-(ps0_s * rho_t - ps0_t * rho_s)/xjac                          ) / BigR  &
-                                         * (-(ps0_s * v_t     - ps0_t * v_s)    /xjac)  * xjac * theta * tstep*tstep
+                                         * (-(ps0_s * v_t     - ps0_t * v_s)    /xjac)  * xjac * theta * tstep*tstep &
+
+                               ! --- Inward pinch: d/d(rho) of ρ V_pinch · ∇v_par
+                               + V_prof_pinch / sqrt(psi_grad2) * (ps0_x * vpar0_x + ps0_y * vpar0_y) &
+                                       * rho * v * BigR * xjac * theta * tstep
 
                     !===============================End of new TG_num terms============================
-  
+
                     amat_k(var_vpar,var_rho) = - 0.5d0 * rho * vpar0**2 * BB2 * F0 / BigR * v_p       * xjac * theta * tstep &
   
                                 + tgnum_vpar * 0.25d0 * rho * Vpar0**2 * BB2 &
@@ -2856,9 +2866,13 @@ do i=1,n_vertex_max
 
                     !===============================End of new TG_num terms============================
                             
-                            + visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar_vpar * Bgrad_rho_star         * xjac * theta * tstep
+                            + visco_par_par * F0**2 / (BigR * BB2) * Bgrad_vpar_vpar * Bgrad_rho_star         * xjac * theta * tstep &
 
-  
+                            ! --- Inward pinch: d/d(vpar) of rho V_pinch . grad(v_par)
+                            + V_prof_pinch / sqrt(psi_grad2) * (ps0_x * vpar_x + ps0_y * vpar_y) &
+                                    * r0 * v * BigR * xjac * theta * tstep
+
+
                     if (normalized_velocity_profile) then
                       amat(var_vpar,var_vpar) = amat(var_vpar,var_vpar) + (visco_par + visco_par_sc_num * tau_sc) * (v_x * Vpar_x + v_y * Vpar_y) * BigR        * xjac  * theta * tstep 
                     else
