@@ -1,5 +1,5 @@
 subroutine grid_xpoint(node_list, element_list, n_flux, n_open, n_private, n_leg, n_tht, &
-  SIG_open, SIG_closed, SIG_private, SIG_theta, SIG_leg_0, SIG_leg_1, dPSI_open, dPSI_private, xcase, meshac_mod)
+  SIG_open, SIG_closed, SIG_private, SIG_theta, SIG_leg_0, SIG_leg_1, dPSI_open, dPSI_private, xcase, modify_meshac)
 !-----------------------------------------------------------------------
 ! subroutine defines a flux surface aligned finite element grid
 ! inclduing a single x-point
@@ -24,7 +24,7 @@ type (type_element_list), intent(inout) :: element_list
 integer,                  intent(in)    :: n_flux, n_open, n_private, n_leg, n_tht, xcase
 real*8,                   intent(in)    :: SIG_open, SIG_closed, SIG_private, SIG_theta, SIG_leg_0, SIG_leg_1
 real*8,                   intent(in)    :: dPSI_open, dPSI_private
-logical,                  intent(in)    :: meshac_mod
+logical,                  intent(in)    :: modify_meshac
 
 ! --- local variables
 type (type_surface_list) :: flux_list
@@ -93,7 +93,7 @@ call tr_allocate(s_values,1,n_flux_2+n_open_2+n_private_2,"s_values",CAT_GRID)
 
 call tr_allocate(s_tmp,1,n_flux_2+1,"s_tmp",CAT_GRID)
 s_tmp = 0
-if (meshac_mod) then
+if (modify_meshac) then
   call meshac3(n_flux_2+1,s_tmp,1.d0,1.0,9999.d0,0.3*SIG_closed,SIG_closed,9999.d0,0.2d0,1.0d0)
 else
   call meshac2(n_flux_2+1,s_tmp,1.d0,9999.d0,SIG_closed,9999.d0,0.2d0,1.0d0)

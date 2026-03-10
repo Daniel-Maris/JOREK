@@ -485,7 +485,7 @@ subroutine bootstrap_get_averaged_j_spline(my_id, node_list, element_list, psi_a
     call tr_allocate(sep_list%psi_values,1,sep_list%n_psi,"sep_list%psi_values",CAT_GRID)
 
     ! --- Call the routine
-    call define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint_tmp, n_grids, sigmas, meshac_mod)
+    call define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint_tmp, n_grids, sigmas, modify_meshac)
   else
     ! --- Define number of psi values and allocate flux_list structure
     n_psi = n_spline_vtk
@@ -700,7 +700,7 @@ subroutine bootstrap_get_q_and_ft_splines(my_id, node_list, element_list, psi_ax
     call tr_allocate(sep_list%psi_values,1,sep_list%n_psi,"sep_list%psi_values",CAT_GRID)
 
     ! --- Call the routine
-    call define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint_tmp, n_grids, sigmas, meshac_mod)
+    call define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint_tmp, n_grids, sigmas, modify_meshac)
   else
     ! --- Define number of psi values and allocate flux_list structure
     n_psi = n_spline

@@ -17,7 +17,7 @@ use phys_module, only:     n_flux, n_open, n_tht, n_outer, n_inner, n_private, n
                            n_leg_out, n_up_leg_out, n_wall_blocks,     &
                            SIG_closed, SIG_theta, SIG_open, SIG_outer, SIG_inner, SIG_private, SIG_up_priv,     &
                            SIG_theta_up, SIG_leg_0, SIG_leg_1, SIG_up_leg_0, SIG_up_leg_1,                      &
-                           dPSI_open, dPSI_outer, dPSI_inner, dPSI_private, dPSI_up_priv, meshac_mod,           &
+                           dPSI_open, dPSI_outer, dPSI_inner, dPSI_private, dPSI_up_priv, modify_meshac,        &
                            xcase, force_horizontal_Xline
 use equil_info
 
@@ -184,7 +184,7 @@ if (allocated(sep_list%psi_values)) call tr_deallocate(sep_list%psi_values,"sep_
 call tr_allocate(sep_list%psi_values,1,sep_list%n_psi,"sep_list%psi_values",CAT_GRID)
 
 !-------------------------------- Call the routine
-call define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint, n_grids, sigmas, meshac_mod)
+call define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint, n_grids, sigmas, modify_meshac)
 
 call plot_flux_surfaces(node_list,element_list,flux_list,.true.,1,.true.,xcase)
 call plot_flux_surfaces(node_list,element_list,sep_list,.false.,1,.true.,xcase)

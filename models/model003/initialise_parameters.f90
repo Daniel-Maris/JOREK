@@ -23,7 +23,7 @@ namelist /in1/  tstep, nstep, tstep_n, nstep_n,                     &
                 eta, visco, visco_par,                              &
                 restart, rst_format, regrid, bootstrap, write_ps,   &
                 bootstrap_psin_cutoff,                              &
-                regrid_from_rz, meshac_mod,                         &
+                regrid_from_rz, modify_meshac,                      &
                 n_R, n_Z, n_radial, n_pol, n_tht, n_flux,           &
                 n_open, n_private, n_leg, n_leg_out, n_ext,         &
                 n_outer, n_inner, n_up_priv, n_up_leg, n_up_leg_out,&

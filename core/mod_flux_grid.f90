@@ -44,7 +44,7 @@ subroutine flux_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id
           if (xcase .eq. UPPER_XPOINT) then
             if(my_id == 0 ) call grid_upper_xpoint_wall(node_list,element_list,n_flux,n_open,n_up_priv,n_up_leg,n_up_leg_out,  &
                                                     n_tht,n_ext,SIG_open,SIG_closed,SIG_up_priv,SIG_theta_up,SIG_up_leg_0, &
-                                                    SIG_up_leg_1,dPSI_open,dPSI_up_priv, meshac_mod)
+                                                    SIG_up_leg_1,dPSI_open,dPSI_up_priv, modify_meshac)
           else
             call grid_double_xpoint_inside_wall(node_list, element_list)
           endif
@@ -55,12 +55,12 @@ subroutine flux_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id
   
         if (.not. grid_to_wall) then
           call grid_xpoint(node_list,element_list,n_flux,n_open,n_private,n_leg,n_tht,   &
-                           SIG_open,SIG_closed,SIG_private,SIG_theta,SIG_leg_0,SIG_leg_1,dPSI_open,dPSI_private, xcase, meshac_mod)
+                           SIG_open,SIG_closed,SIG_private,SIG_theta,SIG_leg_0,SIG_leg_1,dPSI_open,dPSI_private, xcase, modify_meshac)
         else
 !!rks only for ITER wall for the moment
  !        write(*,*) 'ITER wall started'
           if(my_id == 0 ) call grid_xpoint_wall(node_list,element_list,n_flux,n_open,n_private,n_leg,n_leg_out,n_tht, n_ext,  &
-                                SIG_open,SIG_closed,SIG_private,SIG_theta,SIG_leg_0,SIG_leg_1,dPSI_open,dPSI_private, meshac_mod)
+                                SIG_open,SIG_closed,SIG_private,SIG_theta,SIG_leg_0,SIG_leg_1,dPSI_open,dPSI_private, modify_meshac)
         endif !  if (.not. grid_to_wall) then
          
       endif !if (xcase .ge. 2) then
@@ -70,7 +70,7 @@ subroutine flux_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id
     else ! (if xpoint)
       
       call grid_flux_surface(xpoint,xcase, node_list, element_list, surface_list, n_flux, n_tht,     &
-                             xr1, sig1, xr2, sig2,refinement, meshac_mod)
+                             xr1, sig1, xr2, sig2,refinement, modify_meshac)
       
       call plot_grid(node_list, element_list, bnd_elm_list, bnd_node_list, .true., .false.,'fluxsurface')
       

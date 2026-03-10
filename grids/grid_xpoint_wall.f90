@@ -1,5 +1,5 @@
 subroutine grid_xpoint_wall(node_list, element_list, n_flux, n_open, n_private, n_leg, n_leg_out, n_tht, n_ext,&
-  SIG_open, SIG_closed, SIG_private, SIG_theta, SIG_leg_0, SIG_leg_1, dPSI_open, dPSI_private, meshac_mod)
+  SIG_open, SIG_closed, SIG_private, SIG_theta, SIG_leg_0, SIG_leg_1, dPSI_open, dPSI_private, modify_meshac)
 !-----------------------------------------------------------------------
 ! subroutine defines a flux surface aligned finite element grid
 ! including a single x-point.
@@ -27,7 +27,7 @@ type (type_element_list), intent(inout) :: element_list
 integer,                  intent(in)    :: n_flux, n_open, n_private, n_leg, n_leg_out, n_tht
 real*8,                   intent(in)    :: SIG_open, SIG_closed, SIG_private, SIG_theta, SIG_leg_0, SIG_leg_1
 real*8,                   intent(in)    :: dPSI_open, dPSI_private
-logical,                  intent(in)    :: meshac_mod
+logical,                  intent(in)    :: modify_meshac
 
 ! --- local variables
 type (type_surface_list) :: flux_list
@@ -120,7 +120,7 @@ allocate(s_values(n_flux+n_open+n_private),psi_gaussians(4,n_flux+n_open+n_priva
 
 allocate(s_tmp(n_flux),Aspline(n_flux),Bspline(n_flux),Cspline(n_flux),Dspline(n_flux),s_equidistant(n_flux))
 s_tmp = 0
-if (meshac_mod) then
+if (modify_meshac) then
   call meshac3(n_flux,s_tmp,1.d0,1.0,9999.d0,0.3*SIG_closed,SIG_closed,9999.d0,0.2d0,1.0d0)
 else
   call meshac2(n_flux,s_tmp,1.d0,9999.d0,SIG_closed,9999.d0,0.2d0,1.0d0)
@@ -2021,7 +2021,7 @@ enddo
 
 call dealloc_node_list(newnode_list) ! deallocates all the node values in newnode_list
 deallocate(newnode_list, newelement_list)
-deallocate(s_values,theta_sep,R_sep,Z_sep,R_max,Z_max,R_min,Z_min,s_tmp)
+deallocate(s_values,theta_sep,R_sep,Z_sep,R_max,Z_max,R_min,Z_min,s_tmp,s_tmp_out)
 deallocate(R_polar,Z_polar)
 deallocate(RR_new,ZZ_new,s_flux,t_flux,t_tht)
 deallocate(ielm_flux,k_cross)
