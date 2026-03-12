@@ -374,7 +374,7 @@ do j=1,npnew
     RRnew(2,inode) = + sign(1.d0,CN)/(sqrt(abs(CX+CY*TN2))*2.d0 *float(nrnew-1))
     ZZnew(2,inode) = + abs(TN)/(sqrt(abs(CX+CY*TN2))*2.d0*float(nrnew-1))
     RRnew(4,inode) = - abs(CX+CY*TN2)**(-1.5d0) * CY * abs(TN) / (CN**2 * 2.d0*float(nrnew-1)*float(npnew)/PI)
-    ZZnew(4,inode) = + CX * abs(CX + CY*TN2)**(-1.5d0) / (CN*abs(CN) * 2.d0*float(nrnew-1)*float(npnew-1)/PI)
+    ZZnew(4,inode) = + CX * abs(CX + CY*TN2)**(-1.5d0) / (CN*abs(CN) * 2.d0*float(nrnew-1)*float(npnew)/PI)
   ENDIF
 
   IF (theta .gt. PI) THEN
