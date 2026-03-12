@@ -408,6 +408,7 @@ do i=1,n_nodes_max
   node_list%node(i)%values   = 0.d0
   node_list%node(i)%index    = 0
   node_list%node(i)%boundary = 0
+  node_list%node(i)%constrained = .false.
 enddo
 node_list%n_nodes = 0
 
@@ -505,6 +506,7 @@ do i=1,nrnew
 
     node_list%node(index)%axis_node = .false.
     node_list%node(index)%axis_dof  = 0    
+    node_list%node(index)%constrained = .false.
 
     if (i .eq. 1) node_list%node(index)%axis_node = .true.
 
