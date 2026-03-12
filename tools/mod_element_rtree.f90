@@ -2,6 +2,7 @@
 module mod_element_rtree
 use iso_c_binding
 use data_structure
+use mpi
 implicit none
 public populate_element_rtree, nearby_elements, elements_containing_point, rtree_initialized, tree_slices
 
@@ -57,22 +58,43 @@ interface
     integer(C_INT) :: elements_in_rect
   end function elements_in_rect
 end interface
+type :: type_box_container
+   real(C_DOUBLE), allocatable :: min_vals(:) ! Size: n_slices * 3
+   real(C_DOUBLE), allocatable :: max_vals(:) ! Size: n_slices * 3
+end type type_box_container
 
-interface populate_element_rtree
-#if STELLARATOR_MODEL
-  ! If STELLARATOR_MODEL is defined during compilation, use the 3D version.
-  module procedure populate_element_rtree_3D
-#else
-  ! Otherwise, default to the 2D version.
-  module procedure populate_element_rtree_2D
-#endif
-end interface
-  type :: type_box_container
-     real(C_DOUBLE), allocatable :: min_vals(:) ! Size: n_slices * 3
-     real(C_DOUBLE), allocatable :: max_vals(:) ! Size: n_slices * 3
-  end type type_box_container
 contains
 
+
+subroutine populate_element_rtree(node_list, element_list, use_3D_rtree)
+   use iso_c_binding
+   use constants, only: PI
+   use data_structure, only: type_node_list, type_element_list
+   implicit none
+
+  type(type_node_list),    intent(in) :: node_list
+  type(type_element_list), intent(in) :: element_list
+  logical, intent(in), optional       :: use_3D_rtree
+  logical :: use_3D
+
+! Determine whether to use 3D RTree based on argument or compilation flag
+#if !STELLARATOR_MODEL
+   use_3D = .false.
+#else
+   if (present(use_3D_rtree)) then
+      use_3D = use_3D_rtree
+   else
+      use_3D = .true.
+   end if
+#endif
+
+   if (use_3D) then
+      call populate_element_rtree_3D(node_list, element_list)
+   else
+      call populate_element_rtree_2D(node_list, element_list)
+   end if
+  ! This is just a dispatcher to the appropriate version (2D or 3D) based on compilation flags.
+end subroutine populate_element_rtree
 
 !> Populate the RTree with the squares containing elements
 !> x=R, y=Z
@@ -82,6 +104,7 @@ contains
 subroutine populate_element_rtree_2D(node_list, element_list)
     use iso_c_binding
     use constants, only: PI
+    use mpi
     
     type(type_node_list),    intent(in) :: node_list
     type(type_element_list), intent(in) :: element_list
@@ -96,7 +119,8 @@ subroutine populate_element_rtree_2D(node_list, element_list)
     type(type_box_container), allocatable, target :: element_data(:)
 
     ! --- Local Variables ---
-    integer :: i, n
+    logical :: is_init
+    integer :: i, n, my_id, ierr
     real*8  :: rmin, rmax, zmin, zmax
 
     n = element_list%n_elements
@@ -107,8 +131,18 @@ subroutine populate_element_rtree_2D(node_list, element_list)
     allocate(min_ptrs(n))
     allocate(max_ptrs(n))
     allocate(element_data(n))
+    
+    call MPI_Initialized(is_init, ierr)
 
-    write(*,*) "Initializing 2D RTree (Axisymmetric)..."
+    if (is_init) then
+      call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+    else
+      my_id = 0
+    endif
+
+    if (my_id .eq. 0) then
+      write(*,*) "Initializing 2D RTree (Axisymmetric)..."
+    endif
 
     ! 2. Loop over elements
     do i = 1, n
@@ -481,6 +515,7 @@ end subroutine get_element_critical_planes
 subroutine populate_element_rtree_3D(node_list, element_list)
   use iso_c_binding
   use constants, only: PI
+  use mpi
   
   type(type_node_list),    intent(in) :: node_list
   type(type_element_list), intent(in) :: element_list
@@ -494,11 +529,12 @@ subroutine populate_element_rtree_3D(node_list, element_list)
   type(type_box_container), allocatable, target :: element_data(:)
 
   ! Local logic variables
-  integer :: i, j, n, num_planes, num_boxes
+  integer :: i, j, n, num_planes, num_boxes, my_id, ierr
   real*8, allocatable :: phi_planes(:) ! Array to hold critical angles for current element
   real*8 :: rmin, rmax, zmin, zmax, rmin_next, rmax_next, zmin_next, zmax_next
   real*8 :: phi_start, phi_end
   integer :: idx
+  logical :: is_init
 
   n = element_list%n_elements
   n_elms_c = int(n, C_INT)
@@ -511,7 +547,17 @@ subroutine populate_element_rtree_3D(node_list, element_list)
   ! Allocate the container that holds the jagged actual data
   allocate(element_data(n))
 
-  write(*,*) "Generating Adaptive RTree Slices..."
+  call MPI_Initialized(is_init, ierr)
+
+  if (is_init) then
+    call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+  else
+    my_id = 0
+  endif
+
+  if (my_id .eq. 0) then
+     write(*,*) "Generating Adaptive RTree Slices..."
+  endif
 
   ! Loop over all elements
   !$omp parallel do default(shared) &
@@ -594,7 +640,9 @@ subroutine populate_element_rtree_3D(node_list, element_list)
    !       end do
    !    end do
 
-  write(*,*) "Populating C++ RTree..."
+  if (my_id .eq. 0) then
+    write(*,*) "Populating C++ RTree..."
+  endif
   
   ! Call the C function
   call element_rtree(n_elms_c, sizes_c, min_ptrs, max_ptrs)

@@ -94,7 +94,7 @@ ndata      = 2*norb*10     !< Maximum number of data points to be stored
 fnout      = "poincare.h5" !< Output file
 
 call random_seed()
-call sim%initialize()
+call sim%initialize(num_groups=1)
 
 if( mass .eq. 0) then
    allocate(particle_fieldline::sim%groups(1)%particles(nprt))
