@@ -158,7 +158,7 @@ subroutine prepare(this, node_list, element_list, edge_domains, nsub, nsub_toroi
           this%patch(i_domain)%i_elm_jorek_edge(k) = edge_domains(i_domain)%i_elm(i+j)
           call interp_RZ(node_list, element_list, edge_domains(i_domain)%i_elm(i+j), st(1), st(2), R, Z)
             
-          this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal)],4)
+          this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal*n_period)],4)
           ! ien contains the coordinates of the edge points in counter-clockwise order.
           ! Elements point outwards from the domain (since particle fluxes are positive)
           ! orientation of JOREK elements is counterclockwise in poloidal plane
@@ -189,7 +189,7 @@ subroutine prepare(this, node_list, element_list, edge_domains, nsub, nsub_toroi
       this%patch(i_domain)%st(:,k) = st
       this%patch(i_domain)%i_elm_jorek_edge(k) = edge_domains(i_domain)%i_elm(i+n_jorek_elm-1)
       call interp_RZ(node_list, element_list, edge_domains(i_domain)%i_elm(i+n_jorek_elm-1), st(1), st(2), R, Z)
-      this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal)],4)
+      this%patch(i_domain)%xyz(:,k) = real([R, Z, TWOPI*real(i_sub_tor-1)/real(n_plane*nsub_toroidal*n_period)],4)
     end do
   end do
 end subroutine prepare
@@ -426,14 +426,14 @@ subroutine sample_edge_elements(this, res, i_scalar, n_samples, u, xyz, st, i_el
   type(type_cdf_data), intent(in) :: res
   integer, intent(in) :: i_scalar
   integer, intent(in) :: n_samples
-  real*8, intent(in)  :: u(2,n_samples)
+  real*8, intent(in)  :: u(3,n_samples)
   real*8, intent(out) :: xyz(3,n_samples)
   real*8, intent(out) :: st(2,n_samples)
   integer, intent(out) :: i_elm(n_samples)
 
 
   integer :: i, j, n, i_patch, i_min, i_max
-  real*8 :: u_tmp(2), s0(2), S1(2)
+  real*8 :: u_tmp(3), s0(2), S1(2)
   real*8, allocatable :: dl(:), r(:), p_phi(:)
   real*8 :: i_r, f_min, f_max, integral
 
@@ -504,7 +504,8 @@ subroutine sample_edge_elements(this, res, i_scalar, n_samples, u, xyz, st, i_el
     p_phi(1:res%nphi) = this%patch(i_patch)%scalars((i_min-1)*res%nphi+1:i_min*res%nphi,i_scalar)*f_min + &
                     this%patch(i_patch)%scalars((i_max-1)*res%nphi+1:i_max*res%nphi, i_scalar)*f_max
     p_phi(res%nphi+1) = p_phi(1) ! make it circular
-    xyz(3,i) = sample_piecewise_linear(res%nphi+1, [(real(j-1,8)*res%dphi*n_period,j=1,res%nphi+1)], p_phi, u_tmp(2))
+    xyz(3,i) = sample_piecewise_linear(res%nphi+1, [(real(j-1,8)*res%dphi,j=1,res%nphi+1)], p_phi, u_tmp(2))
+    xyz(3,i) = xyz(3,i) + int(u_tmp(3)*n_period) * TWOPI/real(n_period,8)  ! randomly add particle to one of n_period toroidal wedges
     deallocate(p_phi)
 
   end do
@@ -540,7 +541,7 @@ subroutine integrate_edge_elements(this, i_scalar, integral, res)
 
   ! Prepare PDFs
   res%nphi = n_plane*this%patch(1)%nsub_toroidal
-  res%dphi = TWOPI / (res%nphi)
+  res%dphi = TWOPI / (n_period*res%nphi)
   do i_patch=1,n_patch
     n = size(this%patch(i_patch)%st,2)/res%nphi
     allocate(res%pdf_pol(i_patch)%a(n))
@@ -572,7 +573,9 @@ subroutine integrate_edge_elements(this, i_scalar, integral, res)
     deallocate(r)
   end do
 
-  integral = res%cdf_patch(n_patch)
+  ! --- Volume integral of the wedge from 0 to 2*PI/n_period
+  ! --- needs to be over the full torus.
+  integral = n_period * res%cdf_patch(n_patch)
 
 end subroutine integrate_edge_elements
 

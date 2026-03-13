@@ -170,7 +170,7 @@ module mod_particle_recomb
               !> uses i_elm and s,t to give us R,Z
               call interp_RZ(node_list,element_list,ielm,s,t,R,Z)
               particles(i_free(k))%x(1:2)  = [R, Z]
-              particles(i_free(k))%x(3)    = phi_plane + delta_phi*(st_ran(3)-0.5d0)
+              particles(i_free(k))%x(3)    = phi_plane  + int(st_ran(1)*n_period) * 2.d0*PI/real(n_period,8) + delta_phi*(st_ran(3)-0.5d0)  !  randomly add particle to one of n_period toroidal wedges.
               
               particles(i_free(k))%v(1)  = rec_v_R(ife,mp)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0 !m/s
               particles(i_free(k))%v(2)  = rec_v_Z(ife,mp)   / (particles(i_free(k))%weight * CENTRAL_MASS * ATOMIC_MASS_UNIT )/ sqrt_mu0_over_rho0
