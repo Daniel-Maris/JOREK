@@ -25,17 +25,17 @@ type :: particle_group
   logical            :: do_conservation_checks                     !< whether to write conservation checks every interaction in the output file (i.e. the change in particles/momentum/energy etc.)
  
   ! ================ for neutrals and impurities =============
-  logical            :: use_kin_ionisation       !< switch on ionisation for group         
-  logical            :: use_kin_puffing          !< switch on particle puffing for group
-  logical            :: use_kin_radiation        !< switch on line radiation for group
+  logical            :: use_kin_ionisation = .false.      !< switch on ionisation for group         
+  logical            :: use_kin_puffing    = .false.      !< switch on particle puffing for group
+  logical            :: use_kin_radiation  = .false.      !< switch on line radiation for group
 
   ! --- neutrals only
-  logical            :: use_kin_cx               !< switch on charge-exchange for group  
-  logical            :: use_kin_recombination    !< switch on recombination for group       
-  logical            :: use_kin_neutral_coll     !< switch on neutral self-collisions for group       
+  logical            :: use_kin_cx            = .false.   !< switch on charge-exchange for group  
+  logical            :: use_kin_recombination = .false.   !< switch on recombination for group       
+  logical            :: use_kin_neutral_coll  = .false.   !< switch on neutral self-collisions for group       
 
   ! --- impurities only
-  logical            :: use_kin_bg_collisions    !< switch on collisions with the background plasma
+  logical            :: use_kin_bg_collisions = .false.   !< switch on collisions with the background plasma
   character(len=9)   :: kin_bg_coll_type         !< method to calculate heat flux in kin_bg_collision
   real*8             :: homma2020_alpha          !< flux limiting factor alpha for Homma2020 heat flux
   integer            :: ics_group_idx            !< internal index given to this specific impurities group
