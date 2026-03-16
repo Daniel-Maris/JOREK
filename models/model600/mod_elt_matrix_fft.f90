@@ -208,6 +208,7 @@ real*8     :: visco_fact_old, visco_fact_new
 
 ! --- Fluid-kinetic coupling variables
 real*8     :: aux_rho0, aux_E0, aux_mom_par0
+real*8     :: aux_E0_Ti, aux_E0_Te
 real*8     :: aux_P_par_re, aux_P_perp_re, aux_jre, aux_jre_ind
 
 ! --- Full pressure tensor coupling variables 
@@ -341,6 +342,7 @@ eq_zTe          = 0.d0
 eq_zT           = 0.d0
 
 aux_rho0  = 0.d0; aux_E0    = 0.d0; aux_mom_par0 = 0.d0
+aux_E0_Ti = 0.d0; aux_E0_Te = 0.d0;
 aux_P_par_re = 0.d0; aux_P_perp_re = 0.d0; aux_jre = 0.d0; aux_jre_ind = 0.d0
 
 ! --- full pressure tensor coupling terms
@@ -719,9 +721,14 @@ do i=1,n_vertex_max
 
           !> kinetic neutrals or kinetic impurities
           if (use_ncs .or. use_ics) then
-            if (use_ncs) aux_rho0 = eq_aux_g(mp,rho_idx_kin,ms,mt)
-            aux_E0       = eq_aux_g(mp,E_idx_kin,ms,mt)
-            aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
+              if (use_ncs) aux_rho0 = eq_aux_g(mp,rho_idx_kin,ms,mt)
+#ifdef WITH_TiTe
+              aux_E0_Te = eq_aux_g(mp,E_Te_idx_kin,ms,mt)
+              aux_E0_Ti = eq_aux_g(mp,E_Ti_idx_kin,ms,mt)
+#else
+              aux_E0 = eq_aux_g(mp,E_idx_kin,ms,mt)
+#endif
+              aux_mom_par0 = eq_aux_g(mp,mom_par_idx_kin,ms,mt)
           end if
 
           !> kinetic runaway electrons 
@@ -1365,9 +1372,8 @@ do i=1,n_vertex_max
             source_neutral_drift = max(0.,source_neutral_drift)
 
           else if (use_ncs .and. use_kin_recomb_global) then !< using kinetic neutrals (current not compatible with fluid neutrals)
-            
-            call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
-             
+            call rec_rate_to_kinetic(r0, Te0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
+
             !> following terms are handled on the kinetic side (mod_particle_evolution.f90)
             LradDrays_T   = 0.d0
             dLradDrays_dT = 0.d0
@@ -1645,7 +1651,7 @@ do i=1,n_vertex_max
                                                     * ( v_x * u0_y - v_y * u0_x) * xjac * tstep * tstep                                             * factor(var_rho,12)&
                        - tgnum_rho * 0.25d0 / BigR * vpar0**2                                                                                                           &
                                  * (r0_x * ps0_y - r0_y * ps0_x + F0 / BigR * r0_p)                                                                                     &
-                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep                                          * factor(var_rho,12)&
+                                 * ( v_x * ps0_y -  v_y * ps0_x                   ) * xjac * tstep * tstep * factor(var_rho,12) &
 
                       ! ------------------------------ from kinetic neutral / impurity coupling --------------------------------------
                        + v * BigR * aux_rho0                                                                                         * xjac * tstep * factor(var_rho,13) 
@@ -1812,7 +1818,14 @@ do i=1,n_vertex_max
                          ! heating  source for small temperatures
                          +implicit_heat_source*(gamma-1.d0)*v &
                                   *(0.5d0*Tie_min_neg*(1 + exp( (min(Ti0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Ti0,Tie_min_neg))    &
-                                  *xjac*tstep*BigR * factor(var_Ti,13)   
+                                  *xjac*tstep*BigR * factor(var_Ti,13)&  
+                        ! --------------------------------------- from kinetic coupling -------------------------------------------------
+                         + v * BigR * aux_E0_Ti                                                      * xjac * tstep * factor(var_Ti,15) &
+                         + (gamma-1.d0)*0.5d0 * v * aux_rho0                 * vpar0**2 * BB2 * BigR * xjac * tstep * factor(var_Ti,16) &
+                         - (gamma-1.d0)*v * aux_mom_par0 * vpar0 * BigR                              * xjac * tstep * factor(var_Ti,17) &
+                        ! --------------------------------- end of terms from kinetic coupling ------------------------------------------
+                         - v * Ti0 * BigR * r0_corr * r0_corr  * Srec_T                              * xjac * tstep * factor(var_Ti,18) 
+
  
               if (with_impurities) then
                 rhs_ij(var_Ti) = rhs_ij(var_Ti) + &
@@ -1885,7 +1898,11 @@ do i=1,n_vertex_max
                          ! implicit heating source
                          +implicit_heat_source*(gamma-1.d0)*v                                                                      & 
                             * (0.5d0*Tie_min_neg*(1+exp( (min(Te0,Tie_min_neg)-Tie_min_neg)/(0.5d0*Tie_min_neg) )) -min(Te0,Tie_min_neg))    &
-                                                                                           * xjac*tstep*BigR  * factor(var_Te,19)  
+                                                                                           * xjac*tstep*BigR  * factor(var_Te,19)& 
+                        ! --------------------------------------- from kinetic coupling -------------------------------------------------
+                         + v * BigR * aux_E0_Te                                                      * xjac * tstep * factor(var_Te,20)
+                         ! no aux_rho0 and aux_mom_par0 terms here, since we assume bulk ion flow and m_e->0
+                        ! --------------------------------- end of terms from kinetic coupling ------------------------------------------ 
 
               if (with_impurities) then
                 rhs_ij(var_Te) = rhs_ij(var_Te) + &
@@ -2017,7 +2034,7 @@ do i=1,n_vertex_max
                              + zeta * v * T0      * delta_g(mp,var_rho,ms,mt) * BigR            * xjac * factor(var_T,10)                     &
                              +implicit_heat_source*(gamma-1.d0)*v &
                              * (0.5d0*T_min_neg*(1 + exp( (min(T0,T_min_neg)-T_min_neg)/(0.5d0*T_min_neg) )) -min(T0,T_min_neg)) &
-                             *                                                                                 xjac*tstep*BigR  * factor(var_T,20) &
+                             *                                                                                 xjac*tstep*BigR  *factor(var_T,20)& 
 
                             ! ------------------------------ from kinetic neutral / impurity coupling ---------------------------------------
                              + v * BigR * aux_E0                                                                         * xjac * tstep * factor(var_T,24) &
@@ -3288,6 +3305,8 @@ do i=1,n_vertex_max
                               - v * BigR * ((GAMMA - 1.)/2.) * vv2            * (rho*rn0*Sion_T) * xjac * theta * tstep &
                              !==============================End of friction terms=================
 
+                              + 2.d0 * v * BigR * rho * r0_corr * Srec_T * Ti0             * xjac * theta * tstep &
+
 
                            + tgnum_Ti* 0.25d0 * BigR**2 * Ti0* (rho_x * u0_y - rho_y * u0_x)         &
                                      * ( v_x * u0_y - v_y * u0_x) * xjac * theta*tstep*tstep         &
@@ -3351,6 +3370,8 @@ do i=1,n_vertex_max
                               + ZK_i_perp_num_psin*(v_xx + v_x/BigR + v_yy)*(Ti_xx + Ti_x/BigR + Ti_yy) * BigR * xjac * theta * tstep &
   
   !!!!                            -v * Te * (gamma-1.d0) * deta_dT_ohm * (zj0 / BigR)**2.d0 * BigR * xjac * theta * tstep &
+
+                              + v * bigR * Ti * r0_corr * r0_corr * Srec_T                    * xjac * theta * tstep &
   
                               + tgnum_Ti* 0.25d0 * BigR**2 * Ti* ((r0_x+alpha_i*rimp0_x)*u0_y - (r0_y+alpha_i*rimp0_y)*u0_x)         &
                                         * ( v_x * u0_y - v_y * u0_x) * xjac * theta * tstep * tstep  &
@@ -3395,6 +3416,11 @@ do i=1,n_vertex_max
                                 + v * Ti0 * Vpar * alpha_i * (rimp0_s * ps0_t - rimp0_t * ps0_s)               * theta * tstep & 
     
                                 + v * (r0 + rimp0*alpha_i) * GAMMA * Ti0 * (vpar_s * ps0_t - vpar_t * ps0_s)   * theta * tstep &
+
+                      ! --------------------------------- from kinetic coupling -------------------------------------------------
+                                - (gamma-1.d0)*v * aux_rho0 * vpar0 * vpar * BB2 * BigR * xjac * theta * tstep &
+                                + (gamma-1.d0)*v * aux_mom_par0 * vpar * BigR * xjac * theta * tstep &
+                      ! ----------------------------end of terms from kinetic coupling ------------------------------------------
 
                       !===================== Additional terms from friction terms============
                                 - v * BigR *(GAMMA - 1.) * vpar0 * Vpar * BB2 * ((r0+rimp0*alpha_e)*rn0*Sion_T)             * xjac * theta * tstep &
@@ -3441,7 +3467,7 @@ do i=1,n_vertex_max
                                           - v * BigR * ((GAMMA - 1.)/2.) * vpar0**2 * BB2 &
                                               * (rimp0*dalpha_e_dT*rn0*Sion_T)    * Te * xjac * theta * tstep &
                                           - v * BigR * ((GAMMA - 1.)/2.) * vv2 &
-                                              * (rimp0*dalpha_e_dT*rn0*Sion_T)    * Te * xjac * theta * tstep 
+                                              * (rimp0*dalpha_e_dT*rn0*Sion_T)    * Te * xjac * theta * tstep
                     !==============================End of friction terms=================
 
                     if (with_neutrals) then
@@ -3816,7 +3842,7 @@ do i=1,n_vertex_max
                                       * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep &
                                   + tgnum_Te * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
                                       * (r0+alpha_e_bis*rimp0) * (Te0_x * ps0_y - Te0_y * ps0_x + F0 / BigR * Te0_p)                             &
-                                      * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep 
+                                      * ( v_x * ps0_y -  v_y * ps0_x                        ) * xjac * theta * tstep * tstep  
     
                       amat_k(var_Te,var_vpar) =  &
                             + tgnum_Te * 0.25d0 / BigR * 2.d0 * vpar0*vpar &
@@ -3829,6 +3855,7 @@ do i=1,n_vertex_max
                       amat_n(var_Te,var_vpar) = + v * (r0 + rimp0 * alpha_e) * GAMMA * Te0 * F0 / BigR * vpar_p * xjac * theta * tstep &
                             + (GAMMA-1.) * v * E_ion * rimp0 * F0 / BigR * vpar_p                      * xjac * theta * tstep &
                             + (GAMMA-1.) * v * E_ion_bg * (r0-rimp0) * F0 / BigR * vpar_p              * xjac * theta * tstep
+
                     end if ! (with_vpar)
                     if (with_neutrals) then
                       amat(var_Te,var_rhon) = + v * BigR * (r0 + rimp0 * alpha_e) * rhon * ksi_ion_norm * Sion_T * xjac * theta * tstep &

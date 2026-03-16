@@ -84,14 +84,6 @@ subroutine check_compatibility_ncs(group_num)
     write(*,*) "  Please recompile with with_neutrals and with_impurities=.false."
     stop
   endif
-
-  !> currently ncs particles are not compatible with two temperature
-  if (with_TiTe) then
-    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently kinetic neutrals are not compatible with two temperature models, "
-    write(*,*) "  Please recompile with with_TiTe=.false."
-    stop
-  endif
   
 end subroutine check_compatibility_ncs
 
@@ -120,14 +112,6 @@ subroutine check_compatibility_ics(group_num)
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
     write(*,*) "  Currently kinetic impurities are not compatible with fluid neutrals/impurities."
     write(*,*) "  Please recompile with with_neutrals and with_impurities=.false."
-    stop
-  endif
-
-  !> currently ics particles are not compatible with two temperature
-  if (with_TiTe) then
-    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  Currently kinetic impurities are not compatible with two temperature models, "
-    write(*,*) "  Please recompile with with_TiTe=.false."
     stop
   endif
 
@@ -258,8 +242,15 @@ subroutine determine_coupling_variables()
         rho_idx_kin = final_var_idx
       case ("mom_par")
         mom_par_idx_kin = final_var_idx
+#ifdef WITH_TiTe
+      case ("E_Te")
+        E_Te_idx_kin = final_var_idx
+      case ("E_Ti")
+        E_Ti_idx_kin = final_var_idx
+#else
       case ("E")
         E_idx_kin = final_var_idx
+#endif
       case ("P_par")
         P_par_idx_kin  = final_var_idx
       case ("P_perp")
