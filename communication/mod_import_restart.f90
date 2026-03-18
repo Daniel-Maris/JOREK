@@ -2016,6 +2016,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
             write(*,*) "WARNING! Dimention of xtime_spi_ablation not equal to n_spi_tot, check if the correct spi_abl_history_old flag is set! Exiting!", var_dims(1), n_spi_tot
             stop
           endif
+          if(allocated(var_dims)) deallocate(var_dims)
           if (allocated(xtime_spi_ablation_tmp)) &
             call tr_deallocate(xtime_spi_ablation_tmp,"xtime_spi_ablation",CAT_UNKNOWN)
           call tr_allocate(xtime_spi_ablation_tmp,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
@@ -2083,6 +2084,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
             write(*,*) "WARNING! Dimention of xtime_spi_ablation not equal to n_inj, check if the correct spi_abl_history_old flag is set! Exiting!", var_dims(1), n_inj
             stop
           endif
+          if(allocated(var_dims)) deallocate(var_dims)
           if (allocated(xtime_spi_ablation)) &
             call tr_deallocate(xtime_spi_ablation,"xtime_spi_ablation",CAT_UNKNOWN)
           call tr_allocate(xtime_spi_ablation,1,n_inj,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
