@@ -606,6 +606,14 @@ endif
 
       if (index_start >= 1) then
         if (spi_abl_history_old) then
+          ! For the h5 file, check the restart file to consistency
+          var_rank = 0
+          deallocate(var_dims)
+          HDF5_extract_dataset_rank_shape(file_id,var_rank,var_dims,"xtime_spi_ablation")
+          if(var_dims(1) .ne. n_inj) then
+            write(*,*) "WARNING! Dimention of xtime_spi_ablation not equal to n_inj, check if the correct spi_abl_history_old flag is set! Exiting!", var_dims(1), n_inj
+            stop
+          endif
           if (allocated(xtime_spi_ablation_tmp)) &
             call tr_deallocate(xtime_spi_ablation_tmp,"xtime_spi_ablation",CAT_UNKNOWN)
           call tr_allocate(xtime_spi_ablation_tmp,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
@@ -657,6 +665,8 @@ endif
           call tr_deallocate(xtime_spi_ablation_bg_tmp,"xtime_spi_ablation_bg",CAT_UNKNOWN)
           call tr_deallocate(xtime_spi_ablation_bg_rate_tmp,"xtime_spi_ablation_bg_rate",CAT_UNKNOWN)
         else
+          ! For the binary file, simply output the warning so that the users are aware.
+          write(*,*) "WARNING! The dimension of the SPI ablation history is changed. Make sure to set spi_abl_history_old = .t. if you are restarting from an old restart file or the first time!"
           if (allocated(xtime_spi_ablation)) &
             call tr_deallocate(xtime_spi_ablation,"xtime_spi_ablation",CAT_UNKNOWN)
           call tr_allocate(xtime_spi_ablation,1,n_inj,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
@@ -1075,6 +1085,8 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
   real*8, allocatable  :: xtime_spi_ablation_rate_tmp(:,:)    !< The time history of SPI ablation rate
   real*8, allocatable  :: xtime_spi_ablation_bg_tmp(:,:)      !< The time history of SPI ablation for background species
   real*8, allocatable  :: xtime_spi_ablation_bg_rate_tmp(:,:) ! <The time history of SPI ablation rate for bg species
+  integer              :: var_rank       !< Rank of an array in the restart file
+  integer(HSIZE_T),dimension(:),allocatable :: var_dims       !< Dimension of an array in the restart file
 
   integer :: err_exists, dterr, n_spi_begin, i_inj
   logical :: flag_exists, type_match, aux_values_read
@@ -2004,6 +2016,14 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
 
       if (index_start >= 1) then
         if (spi_abl_history_old) then
+          ! For the h5 file, check the restart file to consistency
+          var_rank = 0
+          deallocate(var_dims)
+          HDF5_extract_dataset_rank_shape(file_id,var_rank,var_dims,"xtime_spi_ablation")
+          if(var_dims(1) .ne. n_spi_tot) then
+            write(*,*) "WARNING! Dimention of xtime_spi_ablation not equal to n_spi_tot, check if the correct spi_abl_history_old flag is set! Exiting!", var_dims(1), n_spi_tot
+            stop
+          endif
           if (allocated(xtime_spi_ablation_tmp)) &
             call tr_deallocate(xtime_spi_ablation_tmp,"xtime_spi_ablation",CAT_UNKNOWN)
           call tr_allocate(xtime_spi_ablation_tmp,1,n_spi_tot,1,index_start+nstep,"xtime_spi_ablation",CAT_UNKNOWN)
