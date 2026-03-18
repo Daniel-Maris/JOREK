@@ -2010,7 +2010,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         if (spi_abl_history_old) then
           ! For the h5 file, check the restart file to consistency
           var_rank = 0
-          deallocate(var_dims)
+          if(allocated(var_dims)) deallocate(var_dims)
           call HDF5_extract_dataset_rank_shape(file_id,var_rank,var_dims,"xtime_spi_ablation")
           if(var_dims(1) .ne. n_spi_tot) then
             write(*,*) "WARNING! Dimention of xtime_spi_ablation not equal to n_spi_tot, check if the correct spi_abl_history_old flag is set! Exiting!", var_dims(1), n_spi_tot
@@ -2077,7 +2077,7 @@ subroutine import_hdf5_restart(node_list, element_list, filename, format_rst, er
         else
           ! For the h5 file, check the restart file to consistency
           var_rank = 0
-          deallocate(var_dims)
+          if(allocated(var_dims)) deallocate(var_dims)
           call HDF5_extract_dataset_rank_shape(file_id,var_rank,var_dims,"xtime_spi_ablation")
           if(var_dims(1) .ne. n_inj) then
             write(*,*) "WARNING! Dimention of xtime_spi_ablation not equal to n_inj, check if the correct spi_abl_history_old flag is set! Exiting!", var_dims(1), n_inj
