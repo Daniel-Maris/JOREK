@@ -513,8 +513,10 @@ mpi_comm_in,mpi_info_in,test_in)
 
   do i=1, n_part_groups ! loop over groups in part_groups_in_use
 
-    ! the matching part_group_config
-    config = part_group_configs(matching_part_config_indices(i))
+    if(.not. sim%hard_coded_init) then
+      ! the matching part_group_config
+      config = part_group_configs(matching_part_config_indices(i))
+    end if
     id_matched = .false.
     if (sim%my_id == master_task) then
       write(*,*) ""
@@ -545,53 +547,55 @@ mpi_comm_in,mpi_info_in,test_in)
         call HDF5_get_dataset_rank_dims(file_id,trim(group_name)//"i_elm",&
         rank,n_particles_tot,n_particles_max) ! n_particles_tot
 
-        !> Check if read attributes matches with specified attributes -----------
-        !> will only be done on main mpi process to allow for cleaner error messages
-        if (sim%my_id == master_task) then
-          if (config%Z /= tmp_Z) then
-            write(*,*) "IMPORT ERROR: Attribute 'Z' mismatch between namelist and imported data for group: ", part_group_id
-            stop
-          endif
-  
-          if (config%mass /= tmp_mass) then
-            write(*,*) "IMPORT ERROR: Attribute 'mass' mismatch between namelist and imported data for group: ", part_group_id
-            stop
-          endif
-  
-          if (trim(config%coupling_scheme) /= trim(tmp_cs)) then
-            write(*,*) "IMPORT ERROR: Attribute 'coupling_scheme' mismatch between namelist and imported data for group: ", part_group_id
-            stop
-          endif
-  
-          if (trim(config%type) /= trim(particle_type_str)) then
-            write(*,*) "IMPORT ERROR: Attribute 'type' mismatch between namelist and imported data for group: ", part_group_id
-            write(*,*) "Namelist type: ", trim(config%type)
-            write(*,*) "Imported type: ", trim(particle_type_str)
-            stop
-          endif
-  
-          !> attributes that are allowed to change
-          if (trim(config%atom_data_suffix) /= trim(tmp_ad_suffix)) then
-            write(*,*) "IMPORT WARNING: Attribute 'atom_data_suffix' mismatch between namelist and imported data for group: ", part_group_id
-            write(*,*) " Namelist value: ", trim(config%atom_data_suffix) 
-            write(*,*) " Imported value: ", trim(tmp_ad_suffix)
-            write(*,*) " Will proceed with suffix given by namelist."
-          endif
-  
-          if (config%n_particles /= n_particles_tot(1)) then
-  
-            !> currently we do not allow the user to decrease the size of the particle array as we need 
-            !> a more reliable way of determining which slots of the array are free (planned improvement to the isfree system)
-            if (config%n_particles < n_particles_tot(1)) then
-              write(*,*) "ERROR: demanding less particles than saved in the restart"
-              write(*,*) "  file for a group is currently not supported." 
+        if (.not. sim%hard_coded_init) then
+          !> Check if read attributes matches with specified attributes -----------
+          !> will only be done on main mpi process to allow for cleaner error messages
+          if (sim%my_id == master_task) then
+            if (config%Z /= tmp_Z) then
+              write(*,*) "IMPORT ERROR: Attribute 'Z' mismatch between namelist and imported data for group: ", part_group_id
               stop
             endif
-  
-            write(*,*) "IMPORT WARNING: Attribute 'n_particles' mismatch between namelist and imported data for group: ", part_group_id
-            write(*,*) " Namelist value: ", config%n_particles 
-            write(*,*) " Imported value: ", n_particles_tot(1)
-            write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
+    
+            if (config%mass /= tmp_mass) then
+              write(*,*) "IMPORT ERROR: Attribute 'mass' mismatch between namelist and imported data for group: ", part_group_id
+              stop
+            endif
+    
+            if (trim(config%coupling_scheme) /= trim(tmp_cs)) then
+              write(*,*) "IMPORT ERROR: Attribute 'coupling_scheme' mismatch between namelist and imported data for group: ", part_group_id
+              stop
+            endif
+    
+            if (trim(config%type) /= trim(particle_type_str)) then
+              write(*,*) "IMPORT ERROR: Attribute 'type' mismatch between namelist and imported data for group: ", part_group_id
+              write(*,*) "Namelist type: ", trim(config%type)
+              write(*,*) "Imported type: ", trim(particle_type_str)
+              stop
+            endif
+    
+            !> attributes that are allowed to change
+            if (trim(config%atom_data_suffix) /= trim(tmp_ad_suffix)) then
+              write(*,*) "IMPORT WARNING: Attribute 'atom_data_suffix' mismatch between namelist and imported data for group: ", part_group_id
+              write(*,*) " Namelist value: ", trim(config%atom_data_suffix) 
+              write(*,*) " Imported value: ", trim(tmp_ad_suffix)
+              write(*,*) " Will proceed with suffix given by namelist."
+            endif
+    
+            if (config%n_particles /= n_particles_tot(1)) then
+    
+              !> currently we do not allow the user to decrease the size of the particle array as we need 
+              !> a more reliable way of determining which slots of the array are free (planned improvement to the isfree system)
+              if (config%n_particles < n_particles_tot(1)) then
+                write(*,*) "ERROR: demanding less particles than saved in the restart"
+                write(*,*) "  file for a group is currently not supported." 
+                stop
+              endif
+    
+              write(*,*) "IMPORT WARNING: Attribute 'n_particles' mismatch between namelist and imported data for group: ", part_group_id
+              write(*,*) " Namelist value: ", config%n_particles 
+              write(*,*) " Imported value: ", n_particles_tot(1)
+              write(*,*) " Will proceed with namelist value. (Resizing particles array for group)"
+            endif
           endif
         endif
 
@@ -602,12 +606,19 @@ mpi_comm_in,mpi_info_in,test_in)
         sim%groups(i)%coupling_scheme = tmp_cs
         if(isnan(tmp_average_weight)) tmp_average_weight = -1 !avoid NaNs if the average_weight was not saved (backwards compatibility), will get updated before first particle loop call
         sim%groups(i)%average_weight  = tmp_average_weight
-        ! overriding n_particles_tot from import with n_particles from config
-        sim%groups(i)%n_particles = config%n_particles
-        n_particles_tot(1) = config%n_particles
-  
-        !> adas data
-        sim%groups(i)%ad%suffix = config%atom_data_suffix
+        
+        if(.not. sim%hard_coded_init) then
+          ! overriding n_particles_tot from import with n_particles from config
+          sim%groups(i)%n_particles = config%n_particles
+          n_particles_tot(1) = config%n_particles
+        
+          !> adas data
+          sim%groups(i)%ad%suffix = config%atom_data_suffix
+        else ! hard coded initialization, use imported values
+          sim%groups(i)%n_particles = n_particles_tot(1)
+          sim%groups(i)%ad%suffix = tmp_ad_suffix
+        endif
+        
         if((len_trim(sim%groups(i)%ad%suffix).gt.0).and.(.not.test)) then
           if (trim(adas_dir) .eq. '') then
             sim%groups(i)%ad = read_adf11(sim%my_id,sim%groups(i)%ad%suffix)
@@ -632,6 +643,7 @@ mpi_comm_in,mpi_info_in,test_in)
         n_particles_hsizet = int(n_particles_per_mpi_array(sim%my_id+1),kind=HSIZE_T)
 
         !> allocate particle list and initialise to 0 -----------------
+        if (allocated(sim%groups(i)%particles)) deallocate(sim%groups(i)%particles)
         call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi_array(sim%my_id+1), mpi_comm_loc)
 
         call initialize_particle_list_to_zero(n_particles_per_mpi_array(sim%my_id+1),sim%groups(i)%particles,ierr)
@@ -707,27 +719,29 @@ mpi_comm_in,mpi_info_in,test_in)
     enddo ! n_groups_old (particle groups in restart)
 
     if (.not. id_matched) then
-      if (sim%my_id == master_task) then
-        write(*,*) "WARNING: No matching group found in restart file for '", part_groups_in_use(i), "'"
-        write(*,*) "A new group will be initialized according to particle_groups_configs"
+      if (.not. sim%hard_coded_init) then
+        if (sim%my_id == master_task) then
+          write(*,*) "WARNING: No matching group found in restart file for '", part_groups_in_use(i), "'"
+          write(*,*) "A new group will be initialized according to particle_groups_configs"
+        endif
+
+        ! calculate load balancing ------
+        n_particles_per_mpi_array = calc_n_particles_per_mpi_array(int(config%n_particles), sim%n_mpi)
+        if (sim%my_id == master_task) then
+          write(*,*) "-- Particle load balancing across mpi for group '", part_groups_in_use(i), "' --"
+          do k=1, sim%n_mpi
+            write(*,*) " MPI ", k-1, ":    ", n_particles_per_mpi_array(k)
+          enddo
+          write(*,*) " ----------------------------------------------- "
+        endif
+
+        ! getting particle type --------- 
+        if(allocated(particle_type_str)) deallocate(particle_type_str)
+        particle_type_str = trim(config%type)
+
+        call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi_array(sim%my_id+1), mpi_comm_loc)
+        if (sim%my_id == master_task) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
       endif
-
-      ! calculate load balancing ------
-      n_particles_per_mpi_array = calc_n_particles_per_mpi_array(int(config%n_particles), sim%n_mpi)
-      if (sim%my_id == master_task) then
-        write(*,*) "-- Particle load balancing across mpi for group '", part_groups_in_use(i), "' --"
-        do k=1, sim%n_mpi
-          write(*,*) " MPI ", k-1, ":    ", n_particles_per_mpi_array(k)
-        enddo
-        write(*,*) " ----------------------------------------------- "
-      endif
-
-      ! getting particle type --------- 
-      if(allocated(particle_type_str)) deallocate(particle_type_str)
-      particle_type_str = trim(config%type)
-
-      call allocate_particles_for_group(sim, i, particle_type_str, n_particles_per_mpi_array(sim%my_id+1), mpi_comm_loc)
-      if (sim%my_id == master_task) write(*,*) "Group '", part_groups_in_use(i), "' initialized."
     endif
   enddo ! n_part_groups (particle groups requested in part_groups_in_use)
 
