@@ -133,7 +133,7 @@ subroutine check_compatibility_epf(group_num)
   if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
     write(*,*) "  Currently only type = 'particle_kinetic_leapfrog' is supported for"
-    write(*,*) "  groups with coupling scheme 'ncs'"
+    write(*,*) "  groups with coupling scheme 'epf'"
     stop
   endif
 
