@@ -118,6 +118,7 @@ subroutine check_compatibility_ics(group_num)
     call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
   endif
 
+<<<<<<< HEAD
   !> currently ics particles are not compatible with two temperature
   if (with_TiTe) then
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
@@ -126,6 +127,8 @@ subroutine check_compatibility_ics(group_num)
     call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
   endif
 
+=======
+>>>>>>> kinetic_develop
 end subroutine check_compatibility_ics
 
 subroutine check_compatibility_epf(group_num)
