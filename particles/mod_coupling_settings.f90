@@ -34,20 +34,28 @@ subroutine check_compatibility_and_determine_coupling_schemes()
   do group_num=1, n_part_groups
     select case (part_group_configs(group_num)%coupling_scheme)
       case ('ncs')
+        call check_no_ics_params(group_num)
         call check_compatibility_ncs(group_num)
         use_ncs = .true.
       case ('ics')
+        call check_no_ncs_params(group_num)
         call check_compatibility_ics(group_num)
         use_ics = .true.
         n_ics = n_ics + 1
         part_group_configs(group_num)%ics_group_idx = n_ics
       case ('rep')
+        call check_no_ics_ncs_params(group_num)
         use_rep = .true.
       case ('epc')
+        write(*,*) "ERROR: coupling scheme 'epc' is not yet implemented"
+        stop
         use_epc = .true.
       case ('epp')
+        write(*,*) "ERROR: coupling scheme 'epp' is not yet implemented"
+        stop
         use_epp = .true.
       case ('epf')
+        call check_no_ics_ncs_params(group_num)
         call check_compatibility_epf(group_num)
         use_epf = .true.
       case ('non')
@@ -91,13 +99,6 @@ end subroutine check_compatibility_ncs
 subroutine check_compatibility_ics(group_num)
   implicit none
   integer :: group_num
-  
-  !> ics not compatible with use_kin_recombination
-  if (part_group_configs(group_num)%use_kin_recombination) then
-    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "': "
-    write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
-    stop
-  endif
 
   !> currently ics particles must be of type 'particle_kinetic_leapfrog'
   if (trim(part_group_configs(group_num)%type) /= 'particle_kinetic_leapfrog') then
@@ -173,6 +174,73 @@ subroutine check_compatibility_epf(group_num)
   endif
 
 end subroutine check_compatibility_epf
+
+!> Checks that no ncs parameters have been set - used for non ncs groups
+subroutine check_no_ncs_params(group_num)
+  implicit none
+  integer :: group_num
+
+  if (part_group_configs(group_num)%use_kin_recombination) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  use_kin_recombination can only be .t. for groups with coupling scheme 'ncs'"
+    stop
+  endif
+
+  if (part_group_configs(group_num)%use_kin_cx) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  use_kin_cx can only be .t. for groups with coupling scheme 'ncs'"
+    stop
+  endif
+
+  if (part_group_configs(group_num)%use_kin_neutral_coll) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  use_kin_neutral_coll can only be .t. for groups with coupling scheme 'ncs'"
+    stop
+  endif
+
+end subroutine check_no_ncs_params
+
+!> checks that no ics parameters have been set - used for non ics groups
+subroutine check_no_ics_params(group_num)
+  implicit none
+  integer :: group_num
+
+  if (part_group_configs(group_num)%use_kin_bg_collisions) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  use_kin_bg_collisions can only be .t. for groups with coupling scheme 'ics'"
+    stop
+  endif
+
+end subroutine check_no_ics_params
+
+!> Checks that no ncs or ics parameters have been set - used for non ncs and non ics groups
+subroutine check_no_ics_ncs_params(group_num)
+  implicit none
+  integer :: group_num
+
+  call check_no_ncs_params(group_num)
+  call check_no_ics_params(group_num)
+
+  if (part_group_configs(group_num)%use_kin_ionisation) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  use_kin_ionisation can only be .t. for groups with coupling scheme 'ics' or 'ncs'"
+    stop
+  endif
+
+  if (part_group_configs(group_num)%use_kin_puffing) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  use_kin_puffing can only be .t. for groups with coupling scheme 'ics' or 'ncs'"
+    stop
+  endif
+
+  if (part_group_configs(group_num)%use_kin_radiation) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  use_kin_radiation can only be .t. for groups with coupling scheme 'ics' or 'ncs'"
+    stop
+  endif
+
+end subroutine check_no_ics_ncs_params
+
 
 !> compares the name of a given coupling variable associated with a coupling scheme (i.e. assessed_var) 
 !> with the list of coupling variables already used by the simulation (i.e. coupling_vars). If the 
