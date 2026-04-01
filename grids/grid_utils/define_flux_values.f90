@@ -29,7 +29,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   integer             :: n_outer,     n_inner
   integer             :: n_private,   n_up_priv 
   integer             :: n_leg,       n_up_leg  
-  real*8,             :: xr_closed(2), SIG_closed(3)
+  real*8              :: xr_closed(2), SIG_closed(3)
   real*8              :: SIG_open, SIG_outer, SIG_inner, SIG_private, SIG_up_priv
   real*8              :: SIG_leg_0, SIG_leg_1, SIG_up_leg_0, SIG_up_leg_1
   real*8              :: dPSI_open, dPSI_outer, dPSI_inner, dPSI_private, dPSI_up_priv
@@ -91,7 +91,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   s_tmp = 0
   j     = 0
   if (modify_meshac) then
-    call meshac3(n_flux+1,s_tmp,1.d0,xr(1),xr(1),SIG_closed(1),SIG_closed(2),SIG_closed(3),bgf_closed,1.0d0)
+    call meshac3(n_flux+1,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),bgf_closed,1.0d0)
   else
     call meshac2(n_flux+1,s_tmp,1.d0,9999.d0,SIG_closed(1),9999.d0,bgf_closed,1.0d0)
   endif

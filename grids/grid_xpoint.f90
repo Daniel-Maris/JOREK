@@ -95,7 +95,7 @@ call tr_allocate(s_values,1,n_flux_2+n_open_2+n_private_2,"s_values",CAT_GRID)
 call tr_allocate(s_tmp,1,n_flux_2+1,"s_tmp",CAT_GRID)
 s_tmp = 0
 if (modify_meshac) then
-  call meshac3(n_flux_2+1,s_tmp,1.d0,xr(1),xr(1),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
+  call meshac3(n_flux_2+1,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
 else
   call meshac2(n_flux_2+1,s_tmp,1.d0,9999.d0,SIG_closed(1),9999.d0,0.2d0,1.0d0)
 endif

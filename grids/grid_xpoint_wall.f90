@@ -122,7 +122,7 @@ allocate(s_values(n_flux+n_open+n_private),psi_gaussians(4,n_flux+n_open+n_priva
 allocate(s_tmp(n_flux),Aspline(n_flux),Bspline(n_flux),Cspline(n_flux),Dspline(n_flux),s_equidistant(n_flux))
 s_tmp = 0
 if (modify_meshac) then
-  call meshac3(n_flux,s_tmp,1.d0,xr(1),xr(1),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
+  call meshac3(n_flux,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
 else
   call meshac2(n_flux,s_tmp,1.d0,9999.d0,SIG_closed(1),9999.d0,0.2d0,1.0d0)
 endif
