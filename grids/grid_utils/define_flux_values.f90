@@ -18,7 +18,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   type (type_node_list),    intent(inout) :: node_list
   type (type_element_list), intent(inout) :: element_list
   integer,                  intent(in)    :: n_grids(12), xcase
-  real*8,                   intent(in)    :: sigmas(21)
+  real*8,                   intent(in)    :: sigmas(22)
   logical,                  intent(in)    :: modify_meshac
   real*8,                   intent(inout) :: psi_xpoint(2)
   
@@ -29,7 +29,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   integer             :: n_outer,     n_inner
   integer             :: n_private,   n_up_priv 
   integer             :: n_leg,       n_up_leg  
-  real*8              :: xr_closed(2), SIG_closed(3)
+  real*8              :: xr_closed(3), SIG_closed(3)
   real*8              :: SIG_open, SIG_outer, SIG_inner, SIG_private, SIG_up_priv
   real*8              :: SIG_leg_0, SIG_leg_1, SIG_up_leg_0, SIG_up_leg_1
   real*8              :: dPSI_open, dPSI_outer, dPSI_inner, dPSI_private, dPSI_up_priv
@@ -51,6 +51,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   dPSI_private = sigmas(15); dPSI_up_priv = sigmas(16)
   SIG_closed(2)= sigmas(18); SIG_closed(3)= sigmas(19)
   xr_closed(1) = sigmas(20); xr_closed(2) = sigmas(21)
+  xr_closed(3) = sigmas(22)
  
 
   n_flux    = n_grids(1)

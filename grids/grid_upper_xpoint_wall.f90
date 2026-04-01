@@ -25,7 +25,7 @@ implicit none
 type (type_node_list),    intent(inout) :: node_list
 type (type_element_list), intent(inout) :: element_list
 integer,                  intent(in)    :: n_flux, n_open, n_up_priv, n_up_leg, n_up_leg_out, n_tht
-real*8,                   intent(in)    :: xr_closed(2), SIG_closed(3)
+real*8,                   intent(in)    :: xr_closed(3), SIG_closed(3)
 real*8,                   intent(in)    :: SIG_open, SIG_up_priv, SIG_theta_up, SIG_up_leg_0, SIG_up_leg_1
 real*8,                   intent(in)    :: dPSI_open, dPSI_up_priv
 logical,                  intent(in)    :: modify_meshac
@@ -123,7 +123,7 @@ allocate(s_tmp(n_flux),Aspline(n_flux),Bspline(n_flux),Cspline(n_flux),Dspline(n
 s_tmp = 0
 
 if (modify_meshac) then
-  call meshac3(n_flux,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
+  call meshac3(n_flux,s_tmp,xr_closed(1),xr_closed(2),xr_closed(3),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
 else
   call meshac2(n_flux,s_tmp,1.d0,9999.d0,SIG_closed(1),9999.d0,0.2d0,1.0d0)
 endif

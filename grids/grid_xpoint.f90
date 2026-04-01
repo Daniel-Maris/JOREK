@@ -22,7 +22,7 @@ implicit none
 type (type_node_list),    intent(inout) :: node_list
 type (type_element_list), intent(inout) :: element_list
 integer,                  intent(in)    :: n_flux, n_open, n_private, n_leg, n_tht, xcase
-real*8,                   intent(in)    :: xr_closed(2), SIG_closed(3)
+real*8,                   intent(in)    :: xr_closed(3), SIG_closed(3)
 real*8,                   intent(in)    :: SIG_open, SIG_private, SIG_theta, SIG_leg_0, SIG_leg_1
 real*8,                   intent(in)    :: dPSI_open, dPSI_private
 logical,                  intent(in)    :: modify_meshac
@@ -95,7 +95,7 @@ call tr_allocate(s_values,1,n_flux_2+n_open_2+n_private_2,"s_values",CAT_GRID)
 call tr_allocate(s_tmp,1,n_flux_2+1,"s_tmp",CAT_GRID)
 s_tmp = 0
 if (modify_meshac) then
-  call meshac3(n_flux_2+1,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
+  call meshac3(n_flux_2+1,s_tmp,xr_closed(1),xr_closed(2),xr_closed(3),SIG_closed(1),SIG_closed(2),SIG_closed(3),0.2d0,1.0d0)
 else
   call meshac2(n_flux_2+1,s_tmp,1.d0,9999.d0,SIG_closed(1),9999.d0,0.2d0,1.0d0)
 endif

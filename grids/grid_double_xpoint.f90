@@ -34,7 +34,7 @@ real*8              :: psi_xpoint(2)
 integer             :: n_psi
 integer             :: i_elm_find(8), ifail
 real*8              :: psi_bnd, psi_bnd2
-real*8              :: sigmas(21)
+real*8              :: sigmas(22)
 integer             :: n_grids(12)
 
 write(*,*) ' '
@@ -89,6 +89,7 @@ else
 endif
 sigmas(18) = SIG_closed(2); sigmas(19) = SIG_closed(3)
 sigmas(20) = xr_closed(1) ; sigmas(21) = xr_closed(2)
+sigmas(22) = xr_closed(3)
 
 n_grids(1) = n_flux   ; n_grids(2) = n_tht
 n_grids(3) = n_open   ; n_grids(4) = n_outer  ; n_grids(5) = n_inner
