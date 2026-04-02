@@ -1,4 +1,4 @@
-subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint, n_grids, sigmas, modify_meshac)
+subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcase, psi_xpoint, n_grids, sigmas)
   !-----------------------------------------------------------------------
   ! subroutine defines the flux values of the flux surfaces on which the
   ! finite element grid will be aligned
@@ -19,7 +19,6 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   type (type_element_list), intent(inout) :: element_list
   integer,                  intent(in)    :: n_grids(12), xcase
   real*8,                   intent(in)    :: sigmas(22)
-  logical,                  intent(in)    :: modify_meshac
   real*8,                   intent(inout) :: psi_xpoint(2)
   
   ! --- local variables
@@ -91,11 +90,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   call tr_allocate(s_tmp,1,n_flux+1,"s_tmp",CAT_GRID)
   s_tmp = 0
   j     = 0
-  if (modify_meshac) then
-    call meshac3(n_flux+1,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),bgf_closed,1.0d0)
-  else
-    call meshac2(n_flux+1,s_tmp,1.d0,9999.d0,SIG_closed(1),9999.d0,bgf_closed,1.0d0)
-  endif
+  call meshac3(n_flux+1,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),bgf_closed,1.0d0)
 
   do i=1,n_flux
     flux_list%psi_values(i+j) = ES%psi_axis + (psi_bnd - ES%psi_axis) * s_tmp(i+1)**2
@@ -115,11 +110,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
         flux_list%psi_values(i+j) = ES%psi_axis + (psi_bnd - ES%psi_axis) * (1.d0 + dPSI_open*s_tmp(i+1))**2
       enddo
     else
-      if (modify_meshac) then
-        call meshac2(n_open+1,s_tmp,0.d0,1.d0,0.2*SIG_open,9999.d0,0.8d0,1.0d0)
-      else
-        call meshac2(n_open+1,s_tmp,0.d0,1.d0,SIG_open,9999.d0,0.8d0,1.0d0)
-      endif
+      call meshac2(n_open+1,s_tmp,0.d0,1.d0,SIG_open,9999.d0,0.8d0,1.0d0)
  
       do i=1,n_open
         flux_list%psi_values(i+j) = psi_bnd + (psi_bnd2 - psi_bnd) * s_tmp(i+1)
