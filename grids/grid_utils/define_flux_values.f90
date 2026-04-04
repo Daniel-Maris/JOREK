@@ -90,7 +90,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
   call tr_allocate(s_tmp,1,n_flux+1,"s_tmp",CAT_GRID)
   s_tmp = 0
   j     = 0
-  call meshac3(n_flux+1,s_tmp,1.d0,xr_closed(1),xr_closed(2),SIG_closed(1),SIG_closed(2),SIG_closed(3),bgf_closed,1.0d0)
+  call meshac3(n_flux+1,s_tmp,xr_closed(1),xr_closed(2),xr_closed(3),SIG_closed(1),SIG_closed(2),SIG_closed(3),bgf_closed,1.0d0)
 
   do i=1,n_flux
     flux_list%psi_values(i+j) = ES%psi_axis + (psi_bnd - ES%psi_axis) * s_tmp(i+1)**2
@@ -110,7 +110,7 @@ subroutine define_flux_values(node_list, element_list, flux_list, sep_list, xcas
         flux_list%psi_values(i+j) = ES%psi_axis + (psi_bnd - ES%psi_axis) * (1.d0 + dPSI_open*s_tmp(i+1))**2
       enddo
     else
-      call meshac2(n_open+1,s_tmp,0.d0,1.d0,SIG_open,9999.d0,0.8d0,1.0d0)
+      call meshac2(n_open+1,s_tmp,0.d0,1.d0,SIG_open,SIG_open,0.8d0,1.0d0)
  
       do i=1,n_open
         flux_list%psi_values(i+j) = psi_bnd + (psi_bnd2 - psi_bnd) * s_tmp(i+1)
