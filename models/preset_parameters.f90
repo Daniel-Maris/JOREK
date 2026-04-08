@@ -140,7 +140,6 @@ subroutine preset_parameters
   bgf_rpolar    = 0.6
   bgf_tht       = 0.6
 
-  modify_meshac = .false.
   xr_closed   = (/   1.0d0, 9999.d0, 9999.d0 /)
   SIG_closed  = (/   0.1d0, 9999.d0, 0.1d0   /)
   SIG_open    = 0.1d0
