@@ -808,6 +808,7 @@ subroutine preset_parameters
   spi_tor_rot     = .false.
   spi_num_vol     = .true.
   using_spi       = .false.
+  spi_abl_history_old = .false.
 
   output_prad_phi = .false.
 
