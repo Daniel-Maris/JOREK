@@ -492,6 +492,7 @@ module phys_module
   real*8, allocatable  :: xtime_spi_ablation_rate(:,:)    !< The time history of SPI ablation rate
   real*8, allocatable  :: xtime_spi_ablation_bg(:,:)      !< The time history of SPI ablation for background species
   real*8, allocatable  :: xtime_spi_ablation_bg_rate(:,:) ! <The time history of SPI ablation rate for bg species
+  logical              :: spi_abl_history_old        !< If this is .t., convert the old spi_abl_history format to the new one upon restart.
 
   real*8, allocatable  :: xtime_radiation(:)         !< The time history of radiated energy in SI unit
   real*8, allocatable  :: xtime_rad_power(:)         !< The time history of radiated power in SI unit
@@ -600,7 +601,8 @@ module phys_module
   integer :: n_up_leg_out      !< Number of 'poloidal' grid points along the divertor legs on the top on the LFS (upper Xpoint or double-null)
   integer :: n_ext             !< Number of 'radial' grid points from the outermost flux surface to wall)
   logical :: n_tht_equidistant !< switch on to get an equidistant poloidal distribution of elements in the core of the grid (psi<0.5)
-  real*8  :: SIG_closed        !< Width with grid accumulation (for flux-aligned grid)
+  real*8  :: xr_closed(3)      !< Location for grid accumulation (for flux-aligned grid)
+  real*8  :: SIG_closed(3)     !< Width with grid accumulation (for flux-aligned grid)
   real*8  :: SIG_open          !< Width with grid accumulation (for flux-aligned grid)
   real*8  :: SIG_outer         !< Width with grid accumulation (for flux-aligned grid)
   real*8  :: SIG_inner         !< Width with grid accumulation (for flux-aligned grid)
