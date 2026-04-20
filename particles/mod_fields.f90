@@ -369,7 +369,7 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 
 end subroutine calc_NeTeTi
 
-subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
+subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_n_e, grad_T_e)
   use phys_module, only: central_density, central_mass
   use constants
   use corr_neg
@@ -379,11 +379,12 @@ subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
   real*8, intent(out)                               :: n_e !< electron density [m^-3]
   real*8, intent(out)                               :: T_e !< electron temperature [K]
   real*8, intent(out)                               :: vpar !< parallel velocity [m/s / T] (multiply by norm2(B) still to get [m/s])
+  real*8, intent(out), optional, dimension(3)       :: grad_n_e !< gradient of electron density [m^-4]
   real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of electron temperature [K/m]
-  
 
   real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
+  real*8               :: n_norm !< density normalisation
   real*8               :: T_norm !< temperature normalisation
   real*8               :: v_norm !< vpar normalisation
 
@@ -396,7 +397,8 @@ subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
 #endif
 
   ! use same protection against negative values as the sheath BC in mod_boundary_matrix_open
-  n_e = central_density * P(1) * 1.d20 ! plasma density [1/m^3]
+  n_norm = central_density * 1.d20
+  n_e = P(1) * n_norm ! plasma density [1/m^3]
   T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
 #if (JOREK_MODEL == 400)
   T_norm = T_norm*2.d0 ! P(1) contains the electron temperature, reverse previous correction
@@ -405,6 +407,14 @@ subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
 
   v_norm = 1.d0/sqrt(MU_ZERO*central_mass*central_density*1.d20*atomic_mass_unit)
   vpar = P(3)*v_norm !note that it should still be multiplied by the norm of the B field to be si
+  
+  if (present(grad_n_e)) then
+
+    xjac = jac(R_s,R_t,Z_s,Z_t)
+    grad_n_e = n_norm*[(  P_s(1) * Z_t - P_t(1) * Z_s)/ xjac, &
+                     (- P_s(1) * R_t + P_t(1) * R_s)/ xjac, &
+                     P_phi(1)/R]
+  end if
 
   if (present(grad_T_e)) then
 
