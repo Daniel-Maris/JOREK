@@ -372,6 +372,7 @@ end subroutine calc_NeTeTi
 subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
   use phys_module, only: central_density, central_mass
   use constants
+  use corr_neg
   class(fields_base), intent(in)                    :: fields
   integer, intent(in)                               :: i_elm
   real*8, intent(in)                                :: time, st(2), phi
@@ -394,12 +395,13 @@ subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
   call fields%interp_PRZ(time,i_elm,[5,6,7],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 #endif
 
-  n_e = max(central_density * P(1) * 1d20,1d16)                           ! plasma density [1/m^3], capped against negative
+  ! use same protection against negative values as the sheath BC in mod_boundary_matrix_open
+  n_e = central_density * P(1) * 1.d20 ! plasma density [1/m^3]
   T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
 #if (JOREK_MODEL == 400)
   T_norm = T_norm*2.d0 ! P(1) contains the electron temperature, reverse previous correction
 #endif
-  T_e = max(P(2)*T_norm, 1.d0) ! temperature capped against going negative
+  T_e = corr_neg_temp1(P(2))*T_norm
 
   v_norm = 1.d0/sqrt(MU_ZERO*central_mass*central_density*1.d20*atomic_mass_unit)
   vpar = P(3)*v_norm !note that it should still be multiplied by the norm of the B field to be si
