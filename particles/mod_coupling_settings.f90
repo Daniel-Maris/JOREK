@@ -192,6 +192,12 @@ subroutine check_no_ncs_params(group_num)
     call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
   endif
 
+  if (any(part_group_configs(group_num)%neutral_coll_dTw /= -1.d99)) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  neutral_coll_dTw can only be set for groups with coupling scheme 'ncs'"
+    call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+  endif
+
 end subroutine check_no_ncs_params
 
 !> checks that no ics parameters have been set - used for non ics groups
@@ -202,6 +208,24 @@ subroutine check_no_ics_params(group_num)
   if (part_group_configs(group_num)%use_kin_bg_collisions) then
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
     write(*,*) "  use_kin_bg_collisions can only be .t. for groups with coupling scheme 'ics'"
+    call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+  endif
+
+  if (trim(part_group_configs(group_num)%kin_bg_coll_type) /= 'Homma2020') then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  kin_bg_coll_type can only be set for groups with coupling scheme 'ics'"
+    call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+  endif
+
+  if (part_group_configs(group_num)%homma2020_alpha /= 1.5d0) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  homma2020_alpha can only be set for groups with coupling scheme 'ics'"
+    call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+  endif
+
+  if (part_group_configs(group_num)%ics_group_idx /= -1) then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  ics_group_idx can only be set for groups with coupling scheme 'ics'"
     call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
   endif
 
@@ -230,6 +254,12 @@ subroutine check_no_ics_ncs_params(group_num)
   if (part_group_configs(group_num)%use_kin_radiation) then
     write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
     write(*,*) "  use_kin_radiation can only be .t. for groups with coupling scheme 'ics' or 'ncs'"
+    call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
+  endif
+
+  if (trim(part_group_configs(group_num)%atom_data_suffix) /= '') then
+    write(*,*) "ERROR: incompatible setting enabled for group '", part_group_configs(group_num)%id, "':"
+    write(*,*) "  atom_data_suffix can only be defined for groups with coupling scheme 'ics' or 'ncs'"
     call MPI_ABORT(MPI_COMM_WORLD, 1, ierr)
   endif
 
