@@ -258,7 +258,8 @@ end subroutine calc_NeTe
 subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
                             n_e,T_e,T_i,                                &
                             n_e_raw,T_e_raw,T_i_raw,                    &
-                            grad_T_e,grad_T_i)
+                            grad_T_e,grad_T_i,                          &
+                            T_norm_out)
   use phys_module, only: central_density
   use constants
   class(fields_base), intent(in)                    :: fields
@@ -270,6 +271,7 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
   real*8, intent(out),  optional                    :: n_e_raw              !< raw ne [m^-3]
   real*8, intent(out),  optional                    :: T_e_raw, T_i_raw     !< raw Ti/Te [K]
   real*8, intent(out),  optional, dimension(3)      :: grad_T_e, grad_T_i   !< grad(corrected Ti/Te) [K/m]
+  real*8, intent(out),  optional                    :: T_norm_out           !< T_SI/T_Jor
 
 #ifdef WITH_TiTe
   real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
@@ -293,6 +295,7 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 #else
   T_norm = 1.d0 / (K_BOLTZ * 2.d0 * MU_ZERO * central_density * 1.d20)
 #endif
+  if(present(T_norm_out)) T_norm_out = T_norm
   n_norm = central_density * 1.d20
 
   ! what do we actually need?
@@ -369,6 +372,9 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 
 end subroutine calc_NeTeTi
 
+
+!> specific subroutine to match the normalisation used in mod_boundary_matrix_open on the fluid side
+! internally calls calc_NeTeTi
 subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
   use phys_module, only: central_density, central_mass
   use constants
@@ -382,37 +388,25 @@ subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
   real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of electron temperature [K/m]
   
 
-  real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
+  real*8, dimension(1) :: P, P_s, P_t, P_phi, P_time
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
   real*8               :: T_norm !< temperature normalisation
   real*8               :: v_norm !< vpar normalisation
+  real*8               :: n_e_tmp, T_e_tmp, n_e_raw, T_e_raw, grad_T_e_loc(3)
 
-#if (JOREK_MODEL == 400)
-  ! electron temperature
-  call fields%interp_PRZ(time,i_elm,[5,8,7],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
-#else
-  ! electron temperature + ion temperature (assumed equal)
-  call fields%interp_PRZ(time,i_elm,[5,6,7],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
-#endif
+  call calc_NeTeTi(fields, time, i_elm, st, phi, n_e_tmp, T_e_tmp, n_e_raw=n_e_raw, T_e_raw=T_e_raw, grad_T_e=grad_T_e_loc, T_norm_out=T_norm)
 
   ! use same protection against negative values as the sheath BC in mod_boundary_matrix_open
-  n_e = central_density * P(1) * 1.d20 ! plasma density [1/m^3]
-  T_norm = (1.d0/K_BOLTZ/(2.d0*MU_ZERO*central_density*1.d20))
-#if (JOREK_MODEL == 400)
-  T_norm = T_norm*2.d0 ! P(1) contains the electron temperature, reverse previous correction
-#endif
-  T_e = corr_neg_temp1(P(2))*T_norm
+  n_e = n_e_raw ! plasma density [1/m^3]
+  T_e = corr_neg_temp1(T_e_raw/T_norm)*T_norm
+
+  if (present(grad_T_e)) grad_T_e = grad_T_e_loc
+
+  call fields%interp_PRZ(time,i_elm,[var_vpar],1,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 
   v_norm = 1.d0/sqrt(MU_ZERO*central_mass*central_density*1.d20*atomic_mass_unit)
-  vpar = P(3)*v_norm !note that it should still be multiplied by the norm of the B field to be si
+  vpar = P(1)*v_norm !note that it should still be multiplied by the norm of the B field to be si
 
-  if (present(grad_T_e)) then
-
-    xjac = jac(R_s,R_t,Z_s,Z_t)
-    grad_T_e = T_norm*[(  P_s(2) * Z_t - P_t(2) * Z_s)/ xjac, &
-                     (- P_s(2) * R_t + P_t(2) * R_s)/ xjac, &
-                     P_phi(2)/R]
-  end if
 end subroutine calc_NeTevpar
 
 !> Calculate densities and temperature(s) for all species including ions
