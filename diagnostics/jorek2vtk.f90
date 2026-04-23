@@ -6,6 +6,7 @@ use data_structure
 use phys_module
 use basis_at_gaussian
 use diffusivities, only: get_dperp, get_zkperp
+use mod_chi
 use pellet_module
 use mpi_mod
 use mod_bootstrap_functions
@@ -35,13 +36,13 @@ real*4,allocatable    :: currdens(:), xyz (:,:), scalars(:,:), vectors(:,:,:)
 real*4                :: time_vtk
 integer,allocatable   :: ien (:,:)
 integer, parameter    :: ivtk = 22 ! an arbitrary unit number for the VTK output file
-integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, i_tor_old, i_plane, index, index_node, my_id
+integer               :: i, j, k, m, etype, irst, int, i_var, i_tor, i_tor_old, i_tor_coord, i_plane, index, index_node, my_id
 character             :: buffer*80, lf*1, str1*12, str2*12
 character*36, allocatable :: scalar_names(:), vector_names(:), variable_names_si(:)
 real*8                :: s, t
 real*8                :: P,P_s,P_t,P_st,P_ss,P_tt
-real*8                :: R,R_s,R_t,R_st,R_ss,R_tt
-real*8                :: Z,Z_s,Z_t,Z_st,Z_ss,Z_tt
+real*8                :: R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp
+real*8                :: Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp
 real*8                :: Ps0, Ps0_s, Ps0_t, Ps0_st, Ps0_ss, Ps0_tt, Psi, Ps_s, Ps_t, Ps_st, Ps_ss, Ps_tt
 real*8                :: ZJ0, ZJ0_s, ZJ0_t, ZJ0_st, ZJ0_ss, ZJ0_tt, ZJ,  ZJ_s, ZJ_t, ZJ_st, ZJ_ss, ZJ_tt
 real*8                :: U0,  U0_s,  U0_t,  U0_st,  U0_ss,  U0_tt,  U,   U_s,  U_t,  U_st,  U_ss,  U_tt
@@ -53,7 +54,7 @@ real*8                :: Te0, Te0_s, Te0_t, Te0_st, Te0_ss, Te0_tt, Te, Te_s,  T
 real*8                :: V0,  V0_s,  V0_t,  V0_st,  V0_ss,  V0_tt,  V, V_s, V_t, V_st, V_ss, V_tt, V_sum
 real*8                :: dPsi, dPs_s, dPs_t, dPs_st, dPs_ss, dPs_tt
 real*8                :: dU,    dU_s,  dU_t,  dU_st,  dU_ss,  dU_tt
-real*8                :: ps0_x, ps0_y, psi_sum, ps_x, ps_y, ps_p
+real*8                :: ps0_x, ps0_y, psi_sum, ps_x, ps_y, ps_p, ps_x_itor, ps_y_itor
 real*8                :: u0_x,  u0_y,  u_sum,   u_x,  u_y,  u_p
 real*8                :: zj0_x, zj0_y, zj_sum,  zj_x, zj_y, zj_p
 real*8                :: w0_x,  w0_y,  w_sum,   w0_xx, w0_yy, w_x, w_y, w_p, w_xx, w_yy
@@ -77,6 +78,12 @@ real*8                :: Fprof
 real*8                :: BR, BR_R, BR_Z, BR_p
 real*8                :: BZ, BZ_R, BZ_Z, BZ_p
 real*8                :: BP, BP_R, BP_Z, BP_p
+real*8                :: BRg, BRg_s, BRg_t, BRg_st, BRg_ss, BRg_tt
+real*8                :: BZg, BZg_s, BZg_t, BZg_st, BZg_ss, BZg_tt
+real*8                :: BPg, BPg_s, BPg_t, BPg_st, BPg_ss, BPg_tt
+real*8                :: JRg, JRg_s, JRg_t, JRg_st, JRg_ss, JRg_tt
+real*8                :: JZg, JZg_s, JZg_t, JZg_st, JZg_ss, JZg_tt
+real*8                :: JPg, JPg_s, JPg_t, JPg_st, JPg_ss, JPg_tt
 real*8                :: JxB_R,   JxB_Z,   JxB_p,   JxB_pol
 real*8                :: GradP_R, GradP_Z, GradP_p, GradP_pol
 real*8                :: psi_axis,      R_axis,      Z_axis,      s_axis,      t_axis
@@ -84,13 +91,13 @@ real*8                :: psi_xpoint(2), R_xpoint(2), Z_xpoint(2), s_xpoint(2), t
 real*8                :: psi_norm, psi_bnd, grad_psi
 real*8                :: J_phi, J_R, J_Z, eta_T
 real*8                :: E_phi, E_R, E_Z, dU_x, dU_y, Jpol_R, Jpol_Z, FFp
-real*8                :: xjac, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, Btot, BigR, BB2_zero
+real*8                :: xjac, xjac_x, xjac_y, v_perp, Psi_J, R_p, error, Btot, BigR, BB2_zero, Bv2, grad_chi(3)
 real*8                :: particle_source, D_prof, ZK_prof, source_pellet, ZKpar_T
 real*8                :: Jb,rho_norm,t_norm
 integer               :: i_elm_axis, i_elm_xpoint(2), k_tor, ifail, ierr
 logical               :: without_n0_mode, SI_units
-logical               :: include_fluxes, include_neo, include_magnetic_field, include_velocity_field
-logical               :: include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
+logical               :: include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_vacuum_field
+logical               :: include_velocity_field, include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords
 logical               :: include_projections, include_saw_ene
 character*80          :: proj_basename, filename_proj
 real*8                :: toroidal_angle
@@ -104,17 +111,19 @@ real*8                :: angle, source_volume, local_density, local_temperature,
 logical               :: include_radiation
 real*8                :: Arad_bg, Brad_bg, Crad_bg, frad_bg
 real*8                :: Te_eV, ne_SI, Lrad_imp, r_imp_bg
-real*8                :: Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksiion, LradDcont_T
+real*8                :: Te_corr_eV, coef_rad_1, Sion_T, eta_Sp, ksi_ion_norm, LradDcont_T
+real*8                :: LradDcont_corr, dLradDcont_dT_corr
 real*8                :: LradDrays_T, coef_ion_1, coef_ion_2, coef_ion_3, S_ion_puiss
 real*8                :: r0_real8, rn0_real8, lnA
 real*8                :: T0_corr, r0_corr, rn0_corr, ne_JOREK, T_or_Te, T_or_Te_corr, T_or_Te_0 
 integer               :: i_imp, offset_bgimp, i_bg     ! Loop for more than one background impurity
 integer               :: i_proj
-integer               :: i_psin, i_test, iimp(6), i_ne, ineu(7), ibg_tot, i_pellet(2), i_flux(8), i_neo(10), i_boot(2), i_saw
-integer               :: i_full(11), i_vec_B, i_vec_V, i_vec_E, i_vec_Jpol
+integer               :: i_psin, i_test, iimp(6), i_ne, ineu(7), ibg_tot, i_pellet(2), i_flux(8), i_neo(10), i_boot(2), i_gvec(3), i_vac(3), i_saw
+integer               :: i_full(11), i_vec_B, i_vec_V, i_vec_E, i_vec_Jpol, i_vec_gvec(3), i_vec_vac(2)
 integer, allocatable  :: iibg(:), iproj(:)
 character*36          :: imp_label, proj_label
 
+real*8, dimension(0:n_order-1,0:n_order-1,0:n_order-1) :: chi, chi_corr
 
 #ifdef WITH_Impurities
 ! See https://www.jorek.eu/wiki/doku.php?id=model500_501_555 for details
@@ -155,9 +164,9 @@ real*8  :: Rp_start, Zp_start, Rp_end, Zp_end
 real*8  :: Rp, Zp, Rmin, Rmax, Zmin, Zmax, s_out, t_out, R_out, Z_out
 
 namelist /vtk_params/ nsub, i_tor, i_plane, without_n0_mode, SI_units, &
-                      include_fluxes, include_neo, include_magnetic_field, include_velocity_field,&
-                      include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords,&
-                      include_projections, proj_basename, include_saw_ene
+                      include_fluxes, include_neo, include_gvec_field, include_magnetic_field, include_vacuum_field,&
+                      include_velocity_field, include_bootstrap, include_psi_norm, include_electric_field, include_Jpol, RphiZ_coords,&
+                      include_projections, proj_basename
 
 
 write(*,*) '***************************************'
@@ -167,7 +176,9 @@ write(*,*) ' if your VTK is smaller than expected,'
 write(*,*) ' please consider the new parameters:'
 write(*,*) '   -include_fluxes'
 write(*,*) '   -include_neo'
+write(*,*) '   -include_gvec_field    '
 write(*,*) '   -include_magnetic_field'
+write(*,*) '   -include_vacuum_field'
 write(*,*) '   -include_velocity_field'
 write(*,*) '   -include_electric_field'
 write(*,*) '   -include_Jpol'
@@ -180,6 +191,7 @@ write(*,*) '***************************************'
 call flush_it(6)
 
 allocate(node_list)
+allocate(aux_node_list) 
 allocate(element_list)
 allocate(bnd_elm_list)
 allocate(bnd_node_list)
@@ -191,12 +203,14 @@ call initialise_parameters(my_id, "__NO_FILENAME__")
 ! --- Preset parameters
 nsub                   = 5       ! Number of subdivisions of the cubic finite elements into linear pieces
 i_tor                  = -1      ! If i_tor > 0, only this mode will be included in the vtk file...
-i_plane                = 1       ! ... otherwise, all modes will be summed up at the toroidal plane i_plane
+i_plane                = -1       ! ... otherwise, all modes will be summed up at the toroidal plane i_plane
 without_n0_mode        = .false. ! If true, do not include the n=0 mode (i_tor=1)
 SI_units               = .false. ! when true, write variables in SI units
 include_fluxes         = .false. ! include energy and density fluxes (or not)
 include_neo            = .false. ! include neoclassical and more terms (or not)
+include_gvec_field     = .false. ! include current and magnetic field from GVEC (or not) - only for model 180
 include_magnetic_field = .false. ! include vector of magnetic field (or not)
+include_vacuum_field   = .false. ! include vector of vacuum magnetic field (or not) - only for stellarator models
 include_velocity_field = .false. ! include vector of velocity field (or not)
 include_electric_field = .false. ! include vector of E-field (or not), evaluated at t-dt/2 
 include_Jpol           = .false. ! include poloidal current vector (J_phi=0 for visualization)
@@ -239,6 +253,12 @@ write(*,*) 'without_n0_mode =', without_n0_mode
 write(*,*) 'si_units        =', si_units
 write(*,*) 'include_fluxes  =', include_fluxes
 write(*,*) 'include_neo     =', include_neo
+#if STELLARATOR_MODEL
+#if JOREK_MODEL == 180
+write(*,*) 'include_gvec_field     =', include_gvec_field
+#endif
+write(*,*) 'include_vacuum_field   =',include_vacuum_field
+#endif
 write(*,*) 'include_magnetic_field =',include_magnetic_field
 write(*,*) 'include_velocity_field =',include_velocity_field
 write(*,*) 'include_electric_field =',include_electric_field
@@ -340,6 +360,20 @@ if (include_psi_norm) then
   call add_vtk_entry('psi_norm    ', 'psi_norm    ',    i_psin, n_scalars, si_units, scalar_names)
 endif
 
+if (include_gvec_field) then
+  call add_vtk_entry('pressure    ', 'pressure    ',   i_gvec(1), n_scalars, si_units, scalar_names)
+  call add_vtk_entry('Div_B_gvec  ', 'Div_B_gvec  ',   i_gvec(2), n_scalars, si_units, scalar_names)
+  call add_vtk_entry('zj_gvec     ', 'zj_gvec     ',   i_gvec(3), n_scalars, si_units, scalar_names)
+endif
+
+if (include_vacuum_field) then
+  call add_vtk_entry('Lap_chi     ', 'Lap_chi     ',    i_vac(1), n_scalars, si_units, scalar_names)
+  call add_vtk_entry('chi         ', 'chi         ',    i_vac(2), n_scalars, si_units, scalar_names)
+#ifndef USE_DOMM
+  call add_vtk_entry('chi_corr    ', 'chi_corr    ',    i_vac(3), n_scalars, si_units, scalar_names)
+#endif
+endif
+
 allocate(iibg(n_adas),iproj(n_var))
 
 if (include_projections) then
@@ -423,18 +457,33 @@ endif
 if (include_Jpol) then
   call add_vtk_entry('Jpol        ', 'Jpol (MA/m2)', i_vec_Jpol, n_vectors, si_units, vector_names) 
 endif
+
+if (include_gvec_field) then
+  call add_vtk_entry('B_gvec      ', 'B_gvec      ', i_vec_gvec(1), n_vectors, si_units, vector_names)
+  call add_vtk_entry('J_gvec      ', 'J_gvec      ', i_vec_gvec(2), n_vectors, si_units, vector_names)
+  call add_vtk_entry('J_gvec_JOR  ', 'J_gvec_JOR  ', i_vec_gvec(3), n_vectors, si_units, vector_names)
+endif
+
+if (include_vacuum_field) then
+  call add_vtk_entry('grad_chi    ', 'grad_chi    ', i_vec_vac(1), n_vectors, si_units, vector_names)
+#ifndef USE_DOMM
+  call add_vtk_entry('grad_chi_cor', 'grad_chi_cor', i_vec_vac(2), n_vectors, si_units, vector_names)
+#endif
+endif
 ! --- end adding vectors
-
-
 
 do k_tor=1, n_tor
   mode(k_tor) = + int(k_tor / 2) * n_period
 enddo
-
-
-call import_restart(node_list,  element_list, 'jorek_restart', rst_format, ierr, .true., aux_node_list=aux_node_list)
+do k_tor=1, n_coord_tor
+  mode_coord(k_tor) = + int(k_tor / 2) * n_coord_period
+enddo
 
 call initialise_basis                              ! define the basis functions at the Gaussian points
+
+call import_restart(node_list,  element_list, 'jorek_restart', rst_format, ierr, .true., aux_node_list=aux_node_list, use_3D_rtree=.false.)
+
+call init_chi_basis
 
 nnos = nsub*nsub*element_list%n_elements
 allocate(currdens(nnos),xyz(3,nnos),scalars(nnos,1:n_scalars),vectors(nnos,3,1:n_vectors))
@@ -463,17 +512,21 @@ endif
 grad_psi = 0.d0
 
 ! --- You may choose to print your poloidal snapshot at a different toroidal angle
-toroidal_angle = 0.d0 ! 2*PI / 6
-if (toroidal_angle .ne. 0.d0) then
-  do k_tor=1, n_tor
-    mode(k_tor) = + int(k_tor / 2) * n_period
-  enddo
-  HZ(1,i_plane)   = 1.d0
-  do i=1,(n_tor-1)/2
-    HZ(2*i,i_plane)      = cos(mode(2*i)   * toroidal_angle )
-    HZ(2*i+1,i_plane)    = sin(mode(2*i+1) * toroidal_angle )
-  enddo
-endif
+if ( i_tor .ge. 1 .and. i_plane .eq. -1) then
+   HZ = 1.d0
+   if (  (i_tor .gt. 1) .and. (mod(i_tor,2) .eq. 0)) then !cos
+      HZ_p(i_tor,1)   = 0.d0
+      HZ_pp(i_tor,1)  = -float(mode(2*i_tor))**2
+   else if (i_tor .gt. 1) then !sin
+      HZ_p(i_tor,1) =  0.d0
+      HZ_pp(i+1,1) =   -float(mode(2*i_tor))**2
+   end if
+   i_plane=1
+  write(*,*)  'WARNING: You set i_tor but not i_plane, so a vtk file of the mode structure will be produced, ignoring the toroidal position. For old behavior set i_plane=1)'
+else
+  if (i_plane .eq. -1) i_plane=1
+  toroidal_angle = (i_plane - 1) * 2 * PI / n_plane / n_period ! 2*PI / 6
+end if
 
 do i=1,element_list%n_elements
 
@@ -487,7 +540,8 @@ do i=1,element_list%n_elements
 
       t = float(k-1)/float(nsub-1)
 
-      call interp_RZ(node_list,element_list,i,s,t,R,R_s,R_t,R_st,R_ss,R_tt,Z,Z_s,Z_t,Z_st,Z_ss,Z_tt)
+      call interp_RZP(node_list,element_list,i,s,t,toroidal_angle,R,R_s,R_t,R_phi,R_st,R_ss,R_tt,R_sp,R_tp,R_pp, &
+                      Z,Z_s,Z_t,Z_p,Z_st,Z_ss,Z_tt,Z_sp,Z_tp,Z_pp)
 
       xjac  = R_s * Z_t - R_t * Z_s
 
@@ -499,7 +553,15 @@ do i=1,element_list%n_elements
               + Z_st*(R_s*Z_t + R_t*Z_s) + R_tt*Z_s**2 - Z_tt*R_s*Z_s) / xjac
 
       xjac_y  = (Z_tt*R_s**2 - R_tt*Z_s*R_s - 2.d0*Z_st*R_t*R_s   &
-              + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac
+              + R_st*(Z_t*R_s + Z_s*R_t) + Z_ss*R_t**2 - R_ss*Z_t*R_t) / xjac 
+
+      chi = get_chi(R,Z,toroidal_angle,node_list,element_list,i,s,t)
+#ifndef USE_DOMM
+      chi_corr = get_chi_corr(node_list,element_list,i,s,t,toroidal_angle)
+#endif
+
+      grad_chi = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
+      Bv2 = dot_product(grad_chi,grad_chi)
 
       inode = inode+1
       
@@ -745,6 +807,7 @@ do i=1,element_list%n_elements
         do i_tor = 1, n_tor
 
           if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) cycle ! Do not include the n=0 mode
+          if (n_coord_period .ne. 1 .and. without_n0_mode .and. mod(mode(i_tor),n_coord_period) .eq. 0) cycle
 
           do m=1,n_var
              call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
@@ -1005,6 +1068,7 @@ do i=1,element_list%n_elements
         do i_tor = 1, n_tor
 
           if ( ( i_tor == 1 ) .and. ( without_n0_mode ) ) cycle ! Do not include the n=0 mode
+          if (n_coord_period .ne. 1 .and. without_n0_mode .and. mod(mode(i_tor),n_coord_period) .eq. 0) cycle
 
           do m=1,n_var
              call interp(node_list,element_list,i,m,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
@@ -1066,8 +1130,11 @@ do i=1,element_list%n_elements
              du_x = du_x  + (   Z_t * dU_s - Z_s * dU_t )   / xjac * HZ(i_tor,i_plane)
              du_y = du_y  + ( - R_t * dU_s + R_s * dU_t )   / xjac * HZ(i_tor,i_plane)
 
-             ps_x  = ps_x + (   Z_t * PS_s - Z_s * PS_t )   / xjac * HZ(i_tor,i_plane)
-             ps_y  = ps_y + ( - R_t * PS_s + R_s * PS_t )   / xjac * HZ(i_tor,i_plane)
+             ps_x_itor = (   Z_t * PS_s - Z_s * PS_t )   / xjac * HZ(i_tor,i_plane)
+             ps_y_itor = ( - R_t * PS_s + R_s * PS_t )   / xjac * HZ(i_tor,i_plane)
+             ps_x  = ps_x + ps_x_itor
+             ps_y  = ps_y + ps_y_itor
+             ps_p = ps_p + psi*HZ_p(i_tor,i_plane) - ps_x_itor*R_phi - ps_y_itor*Z_p
 
              zj_x  = zj_x + (   Z_t * ZJ_s - Z_s * ZJ_t )   / xjac * HZ(i_tor,i_plane)
              zj_y  = zj_y + ( - R_t * ZJ_s + R_s * ZJ_t )   / xjac * HZ(i_tor,i_plane)
@@ -1120,13 +1187,49 @@ do i=1,element_list%n_elements
         E_Z   = - F0 * (U_y - 0.5d0*dU_y)
         if (jorek_model .lt. 100) cycle
 
+        if (include_gvec_field) then
+          call interp_gvec(node_list,element_list,i,3,1,i_tor,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+          scalars(inode,i_gvec(1)) = BRg
+          do i_tor_coord=1, n_coord_tor
+            call interp_gvec(node_list,element_list,i,1,1,i_tor_coord,s,t,BRg,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+            call interp_gvec(node_list,element_list,i,1,2,i_tor_coord,s,t,BZg,BZg_s,BZg_t,BZg_st,BZg_ss,BZg_tt)
+            call interp_gvec(node_list,element_list,i,1,3,i_tor_coord,s,t,Bpg,Bpg_s,Bpg_t,Bpg_st,Bpg_ss,Bpg_tt)
+            vectors(inode,:,i_vec_gvec(1)) =  vectors(inode,:,i_vec_gvec(1)) + (/ BRg, BZg, BPg /) * HZ_coord(i_tor_coord, i_plane)          
+            BR_R  = (   Z_t * BRg_s - Z_s * BRg_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+            BR_Z  = ( - R_t * BRg_s + R_s * BRg_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+            BR_p  = BRg * HZ_coord_p(i_tor_coord, i_plane) - BR_R * R_phi - Z_p * BR_Z
+            BZ_R  = (   Z_t * BZg_s - Z_s * BZg_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+            BZ_Z  = ( - R_t * BZg_s + R_s * BZg_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+            BZ_p  = BZg * HZ_coord_p(i_tor_coord, i_plane) - BZ_R * R_phi - Z_p * BZ_Z
+            BP_R  = (   Z_t * BPg_s - Z_s * BPg_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+            BP_Z  = ( - R_t * BPg_s + R_s * BPg_t )     / xjac * HZ_coord(i_tor_coord,i_plane)
+            BP_p  = BPg * HZ_coord_p(i_tor_coord, i_plane) - BP_R * R_phi - Z_p * BP_Z
+            scalars(inode,i_gvec(2)) = scalars(inode, i_gvec(2)) + BRg * HZ_coord(i_tor_coord, i_plane) / BigR + BR_R + BZ_Z + BP_p / BigR  
+            
+            JRg = 1 / BigR * BZ_p - BP_Z
+            JZg = 1 / BigR * (BPg + BigR * BP_R - BR_p)
+            JPg = BR_Z - BZ_R
+            scalars(inode, i_gvec(3)) = scalars(inode, i_gvec(3)) + F0 / (chi(1,0,0)**2 + chi(0,1,0)**2 + chi(0,0,1)**2/BigR**2) * (chi(1,0,0) * JRg + chi(0,1,0) * JZg + chi(0,0,1)/BigR * JPg)
+            vectors(inode,:,i_vec_gvec(3)) =  vectors(inode,:,i_vec_gvec(3)) + (/ JRg, JZg, JPg /)         
+
+            call interp_gvec(node_list,element_list,i,2,1,i_tor_coord,s,t,JRg,JRg_s,JRg_t,JRg_st,JRg_ss,JRg_tt)
+            call interp_gvec(node_list,element_list,i,2,2,i_tor_coord,s,t,JZg,JZg_s,JZg_t,JZg_st,JZg_ss,JZg_tt)
+            call interp_gvec(node_list,element_list,i,2,3,i_tor_coord,s,t,Jpg,Jpg_s,Jpg_t,Jpg_st,Jpg_ss,Jpg_tt)
+            vectors(inode,:,i_vec_gvec(2)) =  vectors(inode,:,i_vec_gvec(2)) + (/ JRg, JZg, JPg /) * HZ_coord(i_tor_coord, i_plane)         
+          enddo
+        end if
+
         Psi_tot = 0.d0
         do i_tor =1, n_tor
            call interp(node_list,element_list,i,1,i_tor,s,t,P,P_s,P_t,P_st,P_ss,P_tt)
            Psi_tot = Psi_tot + P * HZ(i_tor,i_plane)
         enddo
- 
+        
+#if STELLARATOR_MODEL
+        call interp_gvec(node_list,element_list,i,4,1,i_tor,s,t,psi_norm,BRg_s,BRg_t,BRg_st,BRg_ss,BRg_tt)
+#else
         psi_norm = get_psi_n(Psi_tot, Z)
+#endif
 
         if (include_bootstrap) then
           call bootstrap_current(R, Z, ES%R_axis, ES%Z_axis, ES%psi_axis, ES%R_xpoint, ES%Z_xpoint, ES%psi_bnd, psi_norm,&
@@ -1181,11 +1284,36 @@ do i=1,element_list%n_elements
         endif ! include_fluxes
 
         if (include_magnetic_field) then
+#if STELLARATOR_MODEL
+          vectors(inode,:,i_vec_B)  = (/ chi(1,0,0)      + (ps_y*chi(0,0,1) - ps_p*chi(0,1,0))/(F0*BigR), &
+                                         chi(0,1,0)      - (ps_x*chi(0,0,1) - ps_p*chi(1,0,0))/(F0*BigR), &
+                                         chi(0,0,1)/BigR + (ps_x*chi(0,1,0) - ps_y*chi(1,0,0))/F0         /)
+#else
           vectors(inode,:,i_vec_B) = (/ ps_y/BigR, -ps_x/BigR, F0/BigR /)          
+#endif
+        endif
+
+        if (include_vacuum_field) then
+          ! Total vacuum field
+          vectors(inode,:,i_vec_vac(1)) = (/ chi(1,0,0), chi(0,1,0), chi(0,0,1)/BigR /)
+          scalars(inode,i_vac(1)) = chi(2,0,0) + chi(1,0,0)/BigR + chi(0,2,0) + chi(0,0,2)/BigR**2
+          scalars(inode,i_vac(2)) = chi(0,0,0)
+          
+#ifndef USE_DOMM
+          ! Chi correction
+          scalars(inode,i_vac(3))  =  chi_corr(0,0,0)
+          vectors(inode,:,i_vec_vac(2)) =  (/ chi_corr(1,0,0), chi_corr(0,1,0), chi_corr(0,0,1)/BigR /)
+#endif
         endif
 
         if (include_velocity_field) then
-          vectors(inode,:,i_vec_V) = (/ -BigR*u_y + V_sum/BigR*ps_y, BigR*u_x - V_sum/BigR*ps_x, V_sum*F0/BigR /)          
+#if STELLARATOR_MODEL
+          vectors(inode,:,i_vec_V) = (/  ( u_y*chi(0,0,1) - u_p*chi(0,1,0))/(BigR*Bv2), &
+                                         (-u_x*chi(0,0,1) + u_p*chi(1,0,0))/(BigR*Bv2), &
+                                         ( u_x*chi(0,1,0) - u_y*chi(1,0,0))/Bv2         /)  
+#else
+          vectors(inode,:,i_vec_V) = (/ -BigR*u_y + V_sum/BigR*ps_y, BigR*u_x - V_sum/BigR*ps_x, V_sum*F0/BigR /)       
+#endif
         endif
 
         if (include_electric_field) then
@@ -1283,26 +1411,26 @@ enddo  ! n_elements
 #if (defined WITH_Neutrals) 
       coef_ion_3 = 27.2d0*EL_CHG*MU_ZERO*central_density*1.d20
       coef_ion_2 = 0.232d0
-      coef_ion_1 = (MU_ZERO*central_mass*MASS_PROTON)**(0.5d0)*0.2917d-13*(central_density*1.d20)**(1.5d0)
+      coef_ion_1 = (MU_ZERO*central_mass*ATOMIC_MASS_UNIT)**(0.5d0)*0.2917d-13*(central_density*1.d20)**(1.5d0)
       S_ion_puiss = 3.9d-1
 
-      ksiion = ksi_ion * central_density * 1.d20
+      ksi_ion_norm = ksi_ion * central_density * 1.d20
       rn0_real8 = scalars(i,var_rhon)
 
       if ( with_TiTe ) then
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) !< add scalars(i,var_rho) as last optional parameter for density dependence
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) !< add scalars(i,var_rho) as last optional parameter for density dependence
       else
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) 
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT,r0_real8,rn0_real8,.true. ) 
       endif
 
       call coulomb_log_ei(T_or_Te, T_or_Te_corr, rho, corr_neg_dens1(rho), 0.0, 0.0, 0.0, lnA)
       call resistivity(eta, T_or_Te, T_or_Te_corr, T_max_eta, T_or_Te_0, 1.d0, lnA, eta_Sp)           
 
-      scalars(i,ineu(1)) = ksiion * scalars(i,var_rho) * scalars(i,var_rhon) * Sion_T
+      scalars(i,ineu(1)) = ksi_ion_norm * scalars(i,var_rho) * scalars(i,var_rhon) * Sion_T
       scalars(i,ineu(2)) = scalars(i,var_rho) * scalars(i,var_rhon) * LradDrays_T
-      scalars(i,ineu(3)) = LradDcont_T * scalars(i,var_rho)**2.d0
+      scalars(i,ineu(3)) = LradDcont_T * scalars(i,var_rho)**2.d0                           !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 #ifdef fullmhd
       scalars(i,ineu(4)) = 0.d0   ! NEEDS BE CALCULATED FOR FULL MHD ELESEWHERE! 
 #else /* not fullmhd */ 
@@ -1337,8 +1465,8 @@ enddo  ! n_elements
           Arad_bg = 2.4d-31
           Brad_bg = 20.
           Crad_bg = 0.8
-          frad_bg = (2./3.)*(1./(central_mass*MASS_PROTON))                               &
-                     *((MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**(1.5d0)) &
+          frad_bg = (2./3.)*(1./(central_mass*ATOMIC_MASS_UNIT))                               &
+                     *((MU_ZERO*central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**(1.5d0)) &
                      *nimp_bg(1)* Arad_bg*exp(-((log(Te_corr_eV)-log(Brad_bg))**2.)/Crad_bg**2.)
         else
           write(*,*) "WARNING: hard-coded fitting doesn't exist for  ", trim(imp_type(1)), ", use open adas instead!"
@@ -1514,12 +1642,12 @@ enddo  ! n_elements
 
       if ( with_TiTe ) then
         T_real8 = scalars(i,var_Te)
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
       else
         T_real8 = scalars(i,var_T)
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8, rn0_real8, .true. )
       endif
 
       r0_corr   = corr_neg_dens(r0_real8)
@@ -1539,7 +1667,7 @@ enddo  ! n_elements
 if (SI_units) then
 
   !===========================================================real values=============
-  rho_norm = central_density*1.d20 * central_mass * mass_proton
+  rho_norm = central_density*1.d20 * central_mass * ATOMIC_MASS_UNIT
   t_norm   = sqrt(MU_zero*rho_norm)
 
   !=================================================real values============
@@ -1677,28 +1805,28 @@ if (SI_units) then
       endif
 
 #if (defined WITH_Neutrals) 
-      coef_ion_1 = (MU_ZERO*central_mass*MASS_PROTON)**(0.5d0)*(central_density*1.d20)**(1.5d0)
-      coef_rad_1 = (gamma-1.d0)*MU_ZERO**1.5d0*(central_mass*MASS_PROTON)**0.5d0*(central_density*1.d20)**2.5d0
+      coef_ion_1 = (MU_ZERO*central_mass*ATOMIC_MASS_UNIT)**(0.5d0)*(central_density*1.d20)**(1.5d0)
+      coef_rad_1 = (gamma-1.d0)*MU_ZERO**1.5d0*(central_mass*ATOMIC_MASS_UNIT)**0.5d0*(central_density*1.d20)**2.5d0
 
-      ksiion = ksi_ion * central_density * 1.d20
+      ksi_ion_norm = ksi_ion * central_density * 1.d20
       rn0_real8 = scalars(i,8)/central_density
 
       if ( with_TiTe ) then
-        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. )  ! T, rho and rhon should be in JOREK unit here
+        call atomic_coeff_deuterium(T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. )  ! T, rho and rhon should be in JOREK unit here
       else
-        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                  LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. ) 
+        call atomic_coeff_deuterium(0.5d0*T_real8, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                    LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0_real8,rn0_real8,.true. ) 
       endif
 
       eta_Sp = 1.65d-9*17*(1.d-3*Te_corr_eV)**(-1.5d0)
   
-      scalars(i,ineu(1)) = ksiion* (1.5d0)/(MU_zero*central_density*1.d20)      &
+      scalars(i,ineu(1)) = ksi_ion_norm* (1.5d0)/(MU_zero*central_density*1.d20)      &
                                           * scalars(i,var_rho) * 1.d20 * scalars(i,var_rhon) * 1.d20 * Sion_T / coef_ion_1
 
       scalars(i,ineu(2)) = scalars(i,var_rho)* 1.d20 * scalars(i,var_rhon) * 1.d20 * LradDrays_T/ coef_rad_1
 
-      scalars(i,ineu(3)) = LradDcont_T * (scalars(i,var_rho)*1.d20)**2.d0 / coef_rad_1
+      scalars(i,ineu(3)) = LradDcont_T * (scalars(i,var_rho)*1.d20)**2.d0 / coef_rad_1  !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 
       scalars(i,ineu(4)) = eta_Sp * (1.d6*scalars(i,var_zj))**2.d0
 #endif /* WITH_Neutrals but not WITH_Impurities */
@@ -1740,15 +1868,15 @@ if (SI_units) then
 #ifdef WITH_Impurities
   if (include_radiation) then
    scalars(i,iimp(1)) = scalars(i,iimp(1))/(K_BOLTZ*MU_ZERO)
-   scalars(i,iimp(2)) = scalars(i,iimp(2))/(2.d0/3.d0*MU_ZERO**1.5d0*(central_mass*MASS_PROTON*central_density*1.d20)**0.5d0)
-   scalars(i,iimp(3)) = scalars(i,iimp(3))/(2.d0/3.d0*((central_mass*MASS_PROTON*central_density*1.d20)**0.5)*(MU_ZERO**1.5)) 
+   scalars(i,iimp(2)) = scalars(i,iimp(2))/(2.d0/3.d0*MU_ZERO**1.5d0*(central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**0.5d0)
+   scalars(i,iimp(3)) = scalars(i,iimp(3))/(2.d0/3.d0*((central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**0.5)*(MU_ZERO**1.5)) 
    scalars(i,iimp(4)) = scalars(i,iimp(4)) ! Z_imp
    scalars(i,iimp(5)) = scalars(i,iimp(5)) ! Z_eff
    scalars(i,iimp(6)) = scalars(i,iimp(6)) ! beta_imp
    scalars(i,ibg_tot) = scalars(i,ibg_tot) &
-       /((GAMMA-1.d0)*MU_ZERO**1.5d0*(central_mass*MASS_PROTON*central_density*1.d20)**0.5d0)
+       /((GAMMA-1.d0)*MU_ZERO**1.5d0*(central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**0.5d0)
    do i_imp=1,n_adas
-     scalars(i,iibg(i_imp)) = scalars(i,iibg(i_imp)) / ((GAMMA-1.d0)*MU_ZERO**1.5d0*(central_mass*MASS_PROTON*central_density*1.d20)**0.5d0)
+     scalars(i,iibg(i_imp)) = scalars(i,iibg(i_imp)) / ((GAMMA-1.d0)*MU_ZERO**1.5d0*(central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**0.5d0)
    end do
   end if
 #endif /* WITH_Impurities */

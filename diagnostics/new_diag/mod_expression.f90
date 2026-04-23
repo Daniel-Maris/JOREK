@@ -124,6 +124,7 @@ module mod_expression
     call add(exprs_all, 'dPsi_dt     ', 'Time derivative of poloidal magnetic flux             ')
     call add(exprs_all, 'u           ', 'Velocity Stream Function                              ')
     call add(exprs_all, 'Phi         ', 'Electric Potential Phi                                ')
+    call add(exprs_all, 'qpar_tot    ', 'Total parallel heat-flux (conduc + convec + kin)      ')
     call add(exprs_all, 'zj          ', 'Toroidal Current Density Multiplied by 1/R            ')
     call add(exprs_all, 'currdens    ', 'Physical Toroidal Current Density (== zj/R)           ')
     call add(exprs_all, 'JR          ', 'Physical current density (R component)                ')
@@ -621,9 +622,12 @@ module mod_expression
     real*8 :: hh, hh_s, hh_t, hh_ss, hh_tt, hh_st, hhz, hhz_p, hhz_pp, sz, vv(0:n_var), va(n_var), aux(20)
     real*8 :: delta_g(n_var), delta_s(n_var), delta_t(n_var)
     ! --- Fluxes
-    real*8  ::  ZKpar_flux, ZKipar_flux, ZKepar_flux, ZKperp_flux, ZKiperp_flux, ZKeperp_flux,     &
-      Dpar_flux, Dperp_flux, partF_cnv_par, partF_cnv_tot
-    real*8  ::  pres_flux_par, pres_flux_tot, kin_flux_par, kin_flux_tot, neut_part_flux, ExB_norm 
+    real*8  ::  ZKpar_flux, ZKipar_flux, ZKepar_flux, ZKpar_flux_norm, ZKipar_flux_norm, ZKepar_flux_norm,   &
+                ZKperp_flux_norm, ZKiperp_flux_norm, ZKeperp_flux_norm,                                      &
+                pres_flux_par, kin_flux_par, pres_flux_par_norm, kin_flux_par_norm,                          &
+                pres_flux_tot_norm, kin_flux_tot_norm, Dpar_flux_norm, Dperp_flux_norm, neut_part_flux_norm, &
+                partF_cnv_par_norm, partF_cnv_tot_norm, ExB_norm 
+    
     ! --- Normalization factors
     real*8  :: rho_norm, fact_time, fact_mu_zero, fact_ne, fact_rho, fact_T, fact_vpar,            &
       fact_resistiv, fact_Er, fact_flux, fact_rad, fact_ffp_si
@@ -633,10 +637,11 @@ module mod_expression
 
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
     real*8  :: Te_corr_eV, Te_eV
-    real*8  :: LradDrays_T, LradDcont_T, Sion_T, Srec_T
-    real*8  :: dLradDrays_dT, dLradDcont_dT, dSion_dT, dSrec_dT
+    real*8  :: LradDrays_T, LradDcont_T, LradDcont_corr, Sion_T, Srec_T
+    real*8  :: dLradDrays_dT, dLradDcont_dT, dLradDcont_dT_corr, dSion_dT, dSrec_dT
     real*8  :: ne_SI, ne_JOREK                              ! Electron density used in radiation rate
-    real*8  :: Lrad_imp, r_imp_bg, i_imp, frad_bg
+    real*8  :: Lrad_imp, r_imp_bg, frad_bg
+    integer :: i_imp
 #endif
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
     real*8  :: Arad_bg, Brad_bg, Crad_bg
@@ -701,7 +706,12 @@ module mod_expression
          stop
      end select
 #endif
-    
+   
+    if ( (tor_pos_list%n_pos > 1) .and. pol_pos_list%has_dedicated_tor_pos ) then
+      write(*,*) 'ERROR: When giving dedicated phi coords to each poloidal coordinate, tor_pos_list%n_pos must be 1'
+      stop
+    endif
+
     if ( allocated(result) ) deallocate(result)
     allocate( result(tor_pos_list%n_pos, pol_pos_list%n_pos(1), pol_pos_list%n_pos(2),             &
       expr_list%n_expr) )
@@ -759,7 +769,8 @@ module mod_expression
         ! --- Elements and nodes
         element  = pol_pos%element
         nodes(:) = pol_pos%nodes(:)
-        if(export_aux_node_list .and. associated(aux_node_list)) then
+
+        if(export_aux_node_list .and. allocated(aux_node_list%node)) then
            aux_nodes(:) = aux_node_list%node(pol_pos%element%vertex(:))
         endif
         
@@ -768,7 +779,12 @@ module mod_expression
           tor_pos => tor_pos_list%pos(itorpos)
           
           ! --- Toroidal Coordinate and Basis Functions
-          phi     = tor_pos%phi
+          if (pol_pos_list%has_dedicated_tor_pos) then
+            phi     = pol_pos%phi
+          else
+            phi     = tor_pos%phi
+          endif 
+
           HZ(1)   = 1.d0
           HZ_p(1) = 0.d0
           do i = 1, (n_tor-1) / 2
@@ -837,8 +853,8 @@ module mod_expression
                 hhz_pp = HZ_pp(i_tor)
                 vv(:)  = 0.d0
                 vv(1:n_var)  = nodes(i)%values(i_tor,j,:)
-		va(:)  = 0.d0
-                if(export_aux_node_list .and. associated(aux_node_list)) then
+		            va(:)  = 0.d0
+              if(export_aux_node_list .and. allocated(aux_node_list%node)) then
                    va(1:n_var)  = aux_nodes(i)%values(i_tor,j,:)
                 endif
                 
@@ -1377,43 +1393,52 @@ module mod_expression
           end if
 
           ! --- Fluxes 
-          pres_flux_par =  gamma/(gamma-1.d0) * r0 * T0 * Vpar_tot * Bnorm / Btot          !  p v_par·n
-          pres_flux_tot =  gamma/(gamma-1.d0) * r0 * T0 * (VR*nmlR + VZ*nmlZ)              !  p v·n
+          pres_flux_par      =  gamma/(gamma-1.d0) * r0 * T0 * Vpar_tot                  !  p v_par
+          pres_flux_par_norm =  pres_flux_par * Bnorm / Btot                             !  p v_par·n
+          pres_flux_tot_norm =  gamma/(gamma-1.d0) * r0 * T0 * (VR*nmlR + VZ*nmlZ)       !  p v·n
 
-          kin_flux_par  = 0.5d0*r0* (VR*VR + VZ*VZ + V_phi*V_phi)* Vpar_tot * Bnorm / Btot ! 0.5 nv^2 v_par·n
-          kin_flux_tot  = 0.5d0*r0* (VR*VR + VZ*VZ + V_phi*V_phi)* (VR*nmlR + VZ*nmlZ)     ! 0.5 nv^2 v·n 
+          kin_flux_par      = 0.5d0*r0* (VR*VR + VZ*VZ + V_phi*V_phi)* Vpar_tot          !  0.5 nv^2 v_par
+          kin_flux_par_norm = kin_flux_par * Bnorm / Btot                                !  0.5 nv^2 v_par·n   
+          kin_flux_tot_norm = 0.5d0*r0* (VR*VR + VZ*VZ + V_phi*V_phi)* (VR*nmlR + VZ*nmlZ) !0.5 nv^2 v·n 
 
           if ( with_TiTe ) then
-            ZKipar_flux    = - ZKi_par_T *(BR*Ti0_R + BZ*Ti0_Z + Btor*Ti0_p/R) * Bnorm / BB2 / (gamma-1.d0)   ! q_par·n 
-            ZKiperp_flux   = - ZKi_prof  *( Ti0_R*nmlR + Ti0_Z*nmlZ)                         / (gamma-1.d0) & ! q_perp·n
-                             + ZKi_prof  *(BR*Ti0_R + BZ*Ti0_Z + Btor*Ti0_p/R) * Bnorm / BB2 / (gamma-1.d0) 
-            ZKepar_flux    = - ZKe_par_T *(BR*Te0_R + BZ*Te0_Z + Btor*Te0_p/R) * Bnorm / BB2 / (gamma-1.d0)   ! q_par·n 
-            ZKeperp_flux   = - ZKe_prof  *( Te0_R*nmlR + Te0_Z*nmlZ)                         / (gamma-1.d0) & ! q_perp·n
-                             + ZKe_prof  *(BR*Te0_R + BZ*Te0_Z + Btor*Te0_p/R) * Bnorm / BB2 / (gamma-1.d0) 
-            ZKpar_flux     = ZKipar_flux  + ZKepar_flux
-            ZKperp_flux    = ZKiperp_flux + ZKeperp_flux
+            ZKipar_flux      = - ZKi_par_T *(BR*Ti0_R + BZ*Ti0_Z + Btor*Ti0_p/R) / Btot        / (gamma-1.d0)   ! q_par 
+            ZKipar_flux_norm = ZKipar_flux * Bnorm / Btot                                                       ! q_par·n
+            ZKiperp_flux_norm= - ZKi_prof  *( Ti0_R*nmlR + Ti0_Z*nmlZ)                         / (gamma-1.d0) & ! q_perp·n
+                               + ZKi_prof  *(BR*Ti0_R + BZ*Ti0_Z + Btor*Ti0_p/R) * Bnorm / BB2 / (gamma-1.d0) 
+            ZKepar_flux      = - ZKe_par_T *(BR*Te0_R + BZ*Te0_Z + Btor*Te0_p/R) / Btot        / (gamma-1.d0)   ! q_par 
+            ZKepar_flux_norm = ZKepar_flux * Bnorm / Btot                                                       ! q_par·n
+            ZKeperp_flux_norm= - ZKe_prof  *( Te0_R*nmlR + Te0_Z*nmlZ)                         / (gamma-1.d0) & ! q_perp·n
+                               + ZKe_prof  *(BR*Te0_R + BZ*Te0_Z + Btor*Te0_p/R) * Bnorm / BB2 / (gamma-1.d0) 
+            ZKpar_flux       = ZKipar_flux       + ZKepar_flux
+            ZKpar_flux_norm  = ZKipar_flux_norm  + ZKepar_flux_norm
+            ZKperp_flux_norm = ZKiperp_flux_norm + ZKeperp_flux_norm
           else
-            ZKpar_flux    = - ZKpar_T *(BR*T0_R + BZ*T0_Z + Btor*T0_p/R) * Bnorm / BB2 / (gamma-1.d0) ! q_par·n 
-            ZKperp_flux   = - ZK_prof *( T0_R*nmlR + T0_Z*nmlZ)        / (gamma-1.d0) &                ! q_perp·n
-                            + ZK_prof *(BR*T0_R + BZ*T0_Z + Btor*T0_p/R) * Bnorm / BB2 / (gamma-1.d0) 
-            ZKipar_flux   = ZKpar_flux  / 2.d0
-            ZKiperp_flux  = ZKperp_flux / 2.d0
+            ZKpar_flux       = - ZKpar_T *(BR*T0_R + BZ*T0_Z + Btor*T0_p/R) / Btot              / (gamma-1.d0) ! q_par
+            ZKpar_flux_norm  = ZKpar_flux* Bnorm / Btot                                                        ! q_par·n
+            ZKperp_flux_norm = - ZK_prof *( T0_R*nmlR + T0_Z*nmlZ)        / (gamma-1.d0) &                     ! q_perp·n
+                                 + ZK_prof *(BR*T0_R + BZ*T0_Z + Btor*T0_p/R) * Bnorm / BB2 / (gamma-1.d0) 
+            ZKipar_flux      = ZKpar_flux      / 2.d0
+            ZKipar_flux_norm = ZKpar_flux_norm / 2.d0  
+            ZKiperp_flux_norm= ZKperp_flux_norm/ 2.d0
 
-            ZKepar_flux   = ZKpar_flux  / 2.d0
-            ZKeperp_flux  = ZKperp_flux / 2.d0
+            ZKepar_flux      = ZKpar_flux      / 2.d0
+            ZKepar_flux_norm = ZKpar_flux_norm / 2.d0
+            ZKeperp_flux_norm= ZKperp_flux_norm/ 2.d0
           end if
+
+   
+          Dpar_flux_norm   = - D_par  * (BR*r0_R + BZ*T0_Z + Btor*T0_p/R) * Bnorm / BB2
+          Dperp_flux_norm  = - D_prof * ( r0_R*nmlR + T0_Z*nmlZ)                       &                              
+                             + D_prof * (BR*r0_R + BZ*T0_Z + Btor*T0_p/R) * Bnorm / BB2 
     
-          Dpar_flux     = - D_par  * (BR*r0_R + BZ*T0_Z + Btor*T0_p/R) * Bnorm / BB2
-          Dperp_flux    = - D_prof * ( r0_R*nmlR + T0_Z*nmlZ)                       &                              
-                          + D_prof * (BR*r0_R + BZ*T0_Z + Btor*T0_p/R) * Bnorm / BB2 
-    
-          partF_cnv_par =   r0 * Vpar_tot * Bnorm / Btot                           !  p v_par·n
-          partF_cnv_tot =   r0 * ( VR * nmlR + VZ * nmlZ )                         !  n v·n
+          partF_cnv_par_norm =   r0 * Vpar_tot * Bnorm / Btot                           !  p v_par·n
+          partF_cnv_tot_norm =   r0 * ( VR * nmlR + VZ * nmlZ )                         !  n v·n
     
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
-          neut_part_flux= -D_neutral_x*rn0_R * nmlR - D_neutral_y * rn0_Z * nmlZ
+          neut_part_flux_norm= -D_neutral_x*rn0_R * nmlR - D_neutral_y * rn0_Z * nmlZ
 #else
-          neut_part_flux= 0.d0
+          neut_part_flux_norm= 0.d0
 #endif    
          
           ! --- Other parameters (combination of the main variables)
@@ -1480,9 +1505,9 @@ module mod_expression
           ln_Lambda0 = 14.9 - 0.5 * log( ne0_20 ) + log( Te0_eV / 1000.d0 ) ! Eq. (2.7) at thermal speeds
           ln_Lambda  = 14.6 + 0.5 * log( Te0_eV / ne0_20 )                  ! Eq. (2.9) at relativistic energies
                   
-          E_crit = C_LIGHT**2 * EL_CHG**3 * ln_Lambda * MU_ZERO**2.5 * (central_density*1.d20*central_mass*MASS_PROTON)**1.5 * r0 / ( 4 * PI * MASS_ELECTRON * MASS_PROTON * central_mass )
+          E_crit = C_LIGHT**2 * EL_CHG**3 * ln_Lambda * MU_ZERO**2.5 * (central_density*1.d20*central_mass*ATOMIC_MASS_UNIT)**1.5 * r0 / ( 4 * PI * MASS_ELECTRON * ATOMIC_MASS_UNIT * central_mass )
           
-          E_dreicer = EL_CHG**3 * ln_Lambda0 * MU_ZERO**1.5 * (central_density*1.d20*central_mass*MASS_PROTON)**2.5 * r0 / ( 2.d0 * PI * EPS_ZERO**2 * (MASS_PROTON*central_mass)**2 * T0 )
+          E_dreicer = EL_CHG**3 * ln_Lambda0 * MU_ZERO**1.5 * (central_density*1.d20*central_mass*ATOMIC_MASS_UNIT)**2.5 * r0 / ( 2.d0 * PI * EPS_ZERO**2 * (ATOMIC_MASS_UNIT*central_mass)**2 * T0 )
           
 #if JOREK_MODEL >= 303
           if (bootstrap) then
@@ -1499,8 +1524,8 @@ module mod_expression
    Te_eV = Te0/(EL_CHG*MU_ZERO*central_density * 1.d20)
 
    if (use_imp_adas) then
-     call atomic_coeff_deuterium(Te0_corr, Sion_T, dSion_dT, Srec_T, dSrec_dT,        &
-                                LradDcont_T, dLradDcont_dT, LradDrays_T, dLradDrays_dT, r0, rn0, .true. ) 
+     call atomic_coeff_deuterium(Te0_corr, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, &
+                                 LradDcont_corr, dLradDcont_dT_corr, LradDrays_T, dLradDrays_dT, r0, rn0, .true. ) 
      ! Note the inputs and outputs of atomic_coeff_deuterium are all in JOREK units!!!
 
     !--------------------------------------------------------
@@ -1534,7 +1559,7 @@ module mod_expression
         if ( units == SI_UNITS ) then
           frad_bg = nimp_bg(1)*Arad_bg*exp(-((log(Te_corr_eV)-log(Brad_bg))**2.)/Crad_bg**2.)
         else if ( units == JOREK_UNITS ) then
-          frad_bg = (2./3.)*(1./(central_mass*MASS_PROTON))*((MU_ZERO*central_mass*MASS_PROTON*central_density*1.d20)**(1.5d0))*nimp_bg(1)*Arad_bg*exp(-((log(Te_corr_eV)-log(Brad_bg))**2.)/Crad_bg**2.)
+          frad_bg = (2./3.)*(1./(central_mass*ATOMIC_MASS_UNIT))*((MU_ZERO*central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**(1.5d0))*nimp_bg(1)*Arad_bg*exp(-((log(Te_corr_eV)-log(Brad_bg))**2.)/Crad_bg**2.)
         end if
       else
         write(*,*) "WARNING: hard-coded fitting doesn't exist for  ", trim(imp_type(1)), ", use open adas instead!"
@@ -1622,16 +1647,16 @@ module mod_expression
 
           ! --- Factors for switching between JOREK normalized and SI units.
           if ( units == SI_UNITS ) then
-             rho_norm      = central_density *1.d20 * central_mass * mass_proton   ! rho_0 = central mass density
+             rho_norm      = central_density *1.d20 * central_mass * ATOMIC_MASS_UNIT   ! rho_0 = central mass density
              fact_time     = sqrt(MU_zero*rho_norm)                                ! time factor
              fact_mu_zero  = MU_zero                                               ! division by mu_zero for P and J
              fact_ne       = central_density * 1.d20                               ! factor for n_e
-             fact_rho      = central_density * 1.d20 * central_mass*MASS_PROTON    ! factor for rho
+             fact_rho      = central_density * 1.d20 * central_mass*ATOMIC_MASS_UNIT    ! factor for rho
              fact_T        = 1.d0 / ( MU_zero * central_density * 1.d20 * EL_CHG ) ! factor for T
              fact_vpar     = sqrt(BB2) / fact_time                                 ! factor for Vpar
              fact_resistiv = sqrt ( MU_zero / rho_norm )                           ! factor for eta == 1 / (factor for visco)
              fact_Er       = F0 / fact_time
-             fact_rad      = 1.d0/(2.d0/3.d0*MU_ZERO**1.5d0*(central_mass*MASS_PROTON*central_density*1.d20)**0.5d0) ! factor for Prad (not Lrad)
+             fact_rad      = 1.d0/(2.d0/3.d0*MU_ZERO**1.5d0*(central_mass*ATOMIC_MASS_UNIT*central_density*1.d20)**0.5d0) ! factor for Prad (not Lrad)
              fact_flux     = 1.d0/(mu_zero*fact_time)  
              fact_ffp_si   = -1.d0   ! En SI:  J_phi * mu_0 * R ~ FF'_SI, then FF'_SI = -FF'_JOREK
           else if ( units == JOREK_UNITS ) then
@@ -1707,7 +1732,10 @@ module mod_expression
                 
               case ( 'Phi' )
                 res = u0 * F0 / fact_time !### sign?
-                
+
+              case ( 'qpar_tot' )
+                res = (ZKpar_flux + kin_flux_par + pres_flux_par) * fact_flux
+ 
               case ( 'zj' )
                 res = zj0 / fact_mu_zero
                 
@@ -2002,55 +2030,55 @@ module mod_expression
                 res = gamma_stangeby*r0*Te0*vpar0*Bnorm*fact_flux
 
               case ( 'heatF_par_cd' )
-                res = ZKpar_flux * fact_flux
+                res = ZKpar_flux_norm * fact_flux 
 
               case ( 'heatF_prp_cd' )
-                res = ZKperp_flux * fact_flux
+                res = ZKperp_flux_norm * fact_flux
 
               case ( 'heatF_tot_cd' )
-                res = (ZKperp_flux + ZKpar_flux) * fact_flux
+                res = (ZKperp_flux_norm + ZKpar_flux_norm) * fact_flux
 
               case ( 'heatF_par_cv' )
-                res = pres_flux_par * fact_flux
+                res = pres_flux_par_norm * fact_flux
 
               case ( 'heatF_prp_cv' )
-                res = (pres_flux_tot-pres_flux_par) * fact_flux
+                res = (pres_flux_tot_norm-pres_flux_par_norm) * fact_flux
 
               case ( 'heatF_tot_cv' )
-                res = pres_flux_tot * fact_flux
+                res = pres_flux_tot_norm * fact_flux
 
               case ( 'heatF_tot_th'  )
-                res = (pres_flux_tot + ZKperp_flux + ZKpar_flux) * fact_flux
+                res = (pres_flux_tot_norm + ZKperp_flux_norm + ZKpar_flux_norm) * fact_flux
 
               case ( 'heatF_total'  )
-                res = (pres_flux_tot + ZKperp_flux + ZKpar_flux + kin_flux_tot) * fact_flux
+                res = (pres_flux_tot_norm + ZKperp_flux_norm + ZKpar_flux_norm + kin_flux_tot_norm) * fact_flux
 
               case ( 'kinEn_F_par' )
-                res = kin_flux_par * fact_flux
+                res = kin_flux_par_norm * fact_flux
 
               case ( 'kinEn_F_perp ' )
-                res = (kin_flux_tot-kin_flux_par) * fact_flux
+                res = (kin_flux_tot_norm-kin_flux_par_norm) * fact_flux
 
               case ( 'kinEn_F_tot ' )
-                res = kin_flux_tot * fact_flux
+                res = kin_flux_tot_norm * fact_flux
 
               case ( 'partF_par_cd' )
-                res = Dpar_flux * fact_ne / fact_time
+                res = Dpar_flux_norm * fact_ne / fact_time
 
               case ( 'partF_prp_cd' )
-                res = Dperp_flux * fact_ne / fact_time
+                res = Dperp_flux_norm * fact_ne / fact_time
 
               case ( 'partF_par_cv' )
-                res = partF_cnv_par * fact_ne / fact_time
+                res = partF_cnv_par_norm * fact_ne / fact_time
 
               case ( 'partF_prp_cv' )
-                res = (partF_cnv_tot - partF_cnv_par) * fact_ne / fact_time
+                res = (partF_cnv_tot_norm - partF_cnv_par_norm) * fact_ne / fact_time
 
               case ( 'partF_total'  )
-                res = partF_cnv_tot * fact_ne / fact_time
+                res = partF_cnv_tot_norm * fact_ne / fact_time
 
               case ( 'npartF_total'  )
-                res = neut_part_flux * fact_ne / fact_time
+                res = neut_part_flux_norm * fact_ne / fact_time
 
               case ( 'ExB_norm'  )
                 res = ExB_norm * fact_flux
@@ -2059,7 +2087,7 @@ module mod_expression
                 res = J_boot / R / fact_mu_zero
 
 #if (defined WITH_Neutrals) && (!defined WITH_Impurities)
-              case ( 'radiation' )
+              case ( 'radiation' ) !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
 
                 if (rn0 .lt. 0.d0) then
                   res = r0 * r0 * LradDcont_T * fact_rad &
@@ -2070,7 +2098,7 @@ module mod_expression
                        + r0 * fact_ne * frad_bg
                 endif
 
-              case ( 'brem' )
+              case ( 'brem' ) !< outputs radiation power (i.e. what a bolometer would measure), rather than the radiative cooling
                 res = r0 * r0 * LradDcont_T * fact_rad
 
               case ('line_rad')

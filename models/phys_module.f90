@@ -25,11 +25,13 @@ module phys_module
   real*8  :: eta_rst              !< eta value from restart file
   logical :: visco_T_dependent    !< Viscosity dependent on temperature? Otherwise constant.
   logical :: visco_old_setup      !< If true, the old perp. viscosity treatment is used for compatibility (old visco depends on R^2)
-  real*8  :: visco_par            !< Parallel viscosity (normalized)
+  real*8  :: visco_par            !< Cross B-field viscosity acting on parallel flow (normalized)
+  real*8  :: visco_par_par        !< B-field Parallel viscosity acting on parallel flow (normalized)
   real*8  :: visco_par_heating    !< Parallel viscosity used in the parallel viscous heating term (normalized)
+  real*8  :: TiTe_ratio           !< ratio to set ion and electron temperature from T (in model 180): Ti=TiTe_ratio*T; Te=(1.0-TiTe_ratio)*T
   real*8  :: F0                   !< Determines fixed toroidal magnetic field: \f$ B_\phi = F_0/R \f$
   real*8  :: central_density      !< particle density at the magnetic axis (in units of \f$10^{20} m^{-3}\f$)
-  real*8  :: central_mass         !< average ion mass in atomic mass units (constant in time and space)
+  real*8  :: central_mass         !< average ion mass in atomic mass units (constant in time and space, including electron mass)
   real*8  :: sqrt_mu0_rho0        !< Normalization factor \f$\sqrt(\mu_0 \rho_0)\f$ calculated from input
   real*8  :: sqrt_mu0_over_rho0   !< Normalization factor \f$\sqrt(\mu_0/\rho_0)\f$ calculated from input
   real*8  :: gamma                !< ratio of specific heat (typically 5/3)
@@ -53,13 +55,14 @@ module phys_module
   real*8  :: imp_reflection       !< impurity reflection coefficient on open fieldlines
   real*8  :: loop_voltage         !< Apply a loop voltage at the boundary of the computational domain (in V; works only for fixed boundary)
   logical :: old_deuterium_atomic !< use old fit to calculate atomic coefficients for D (ionization, recombination, radiation), otherwise a better fit is used
-  logical :: deuterium_adas       !< use OPEN ADAS to calculate ionization, recombination and radiation coeffients for deuterium                        
+  logical :: deuterium_adas       !< use OPEN ADAS to calculate ionization, recombination and radiation coeffients for deuterium   
   logical :: deuterium_adas_1e20  !< use OPEN ADAS with fixed density=1e20 to calculate ionization, recombination and radiation coeffients for deuterium
   logical :: mach_one_bnd_integral!< use a boundary integral (boundary_matrix_open) to implement Mach=one boundary condition
   logical :: vpar_smoothing       !< apply a smoothing function to smooth jumps in Vpar at B.n=0
   real*8  :: vpar_smoothing_coef(3) !< coefficients for the smoothing profile of the parallel velocity
   real*8  :: min_sheath_angle     !< For sheath boundary conditions: Minimum incident angle for heat and particle fluxes (in degrees)
   integer :: mode(n_tor)          !< Toroidal mode number corresponding to the JOREK modes, e.g., for n_period=8 and n_tor=3, mode(:)=0,8,8
+  integer :: mode_coord(n_coord_tor)  !< Toroidal mode number corresponding to the JOREK RZ grid modes
   integer :: nout                 !< Output a restart file every nout timesteps
   integer :: nout_projection      !< Output particle projection every nout_projection timesteps (only for diagnostics)
                                   !< Note that the 'to_h5' or 'to_vtk' flag should be .true. in the 'new_projection' function for this parameter to be in play
@@ -76,6 +79,7 @@ module phys_module
   real*8  :: Z_xpoint_limit(2)    !< Search the lower X-point in the region Z < Z_xpoint_limit(1) and the upper X-point in the region Z > Z_xpoint_limit(2) 
   integer :: xpoint_search_tries  !< The number of candidate elements to check for being the element containing the upper or lower X-point.
   logical :: bootstrap            !< Evolve the Bootstrap current consistently with time?
+  real*8  :: bootstrap_psin_cutoff!< Bootstrap-current hard cutoff if simulating X-point plasma.
   real*8  :: minRad               !< Approximation of minor radius for bootstrap current calculation
   logical :: refinement           !< Use mesh refinement? (not presently available)
   logical :: force_central_node   !< Force all nodes in the center to have the same values in flux aligned grids or independent values?
@@ -134,6 +138,9 @@ module phys_module
   logical :: use_mumps_eq         !< Use Mumps equilibrium solver
   logical :: use_pastix_eq        !< Use Pastix equilibrium solver
   logical :: use_strumpack_eq     !< Use Strumpack equilibrium solver  
+  logical :: use_mumps_prj        !< Use Mumps projection solver
+  logical :: use_pastix_prj       !< Use Pastix projection solver
+  logical :: use_strumpack_prj    !< Use Strumpack projection solver  
   logical :: use_wsmp             !< Use WSMP solver
   logical :: centralize_harm_mat  !< Centralize harmonic matrices on toridal master ranks; switch for STRUMPACK solver
   real*8  :: prev_FB_fact = 1.d0  !< FB_factor that had been applied when importing the restart file
@@ -202,6 +209,7 @@ module phys_module
   real*8, allocatable :: energies4(:,:,:)  !< global applied eccd currents j1 and j2 at timesteps.
 
   character(len=3)    :: mode_type(n_tor) !< 'cos' or 'sin'
+  character(len=3)    :: mode_coord_type(n_coord_tor) !< 'cos' or 'sin'
   
   !> Points used as limiters (see routine find_limiter)
   integer, parameter :: max_limiter = 1000 !< Maximum number of limiter points
@@ -210,7 +218,13 @@ module phys_module
   real*8  :: Z_limiter(max_limiter)        !< Z-positions of the limiter points
   integer :: first_target_point		   !< index of the first target point on the limiter (for xpoint_grid_wall)
   integer :: last_target_point		   !< index of the last  target point on the limiter (does NOT need to be > first_target_point)
-  
+   
+  ! Stellarator parameters
+  logical :: gvec_grid_import     !< Generate grid fourier representation with GVEC
+  logical :: extended_boundary    !< Choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
+  real*8  :: j_cutoff_rcoord      !< Radial location from which the current is set to zero as it approaches the boundary - rcoord corresponds to the normalised toroidal flux
+  real*8  :: j_cutoff_sig         !< Radial width over which the current is ramped down to zero towards the boundary
+
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   real*8  :: surface_cross_tol                                                  !< Tolerance when looking for crossing of polar lines and surfaces, needs to be > 1.0
   real*8  :: eqdsk_psi_fact                                                     !< multiply eqdsk psi by factor for grid_inside_wall
@@ -299,6 +313,9 @@ module phys_module
              ZK_i_perp_num_tanh, ZK_i_perp_num_tanh_psin, ZK_i_perp_num_tanh_sig,    &
              ZK_e_perp_num_tanh, ZK_e_perp_num_tanh_psin, ZK_e_perp_num_tanh_sig
   real*8  :: Dn_perp_num
+  logical :: maintain_profiles             !< Add artificial sources to maintain initial rho and T profiles
+                                           !! (diffusion acts on deviation from initial profiles)
+					   !! at present only implemented for stellarator model 183
 
   !> @name Shock-capturing terms
   logical :: use_sc  !< Use shock-capturing stabilization
@@ -444,7 +461,7 @@ module phys_module
   real*8  :: A_Dmv             !< Cross sectional area of DMV (Disruption mitigation valve) pipe
   real*8  :: K_Dmv             !< Correction parameter describing the gas expansion near the pipe orifice
   real*8  :: L_tube            !< Pipe length
-  real*8  :: ksi_ion            !< Energy cost of each ionization
+  real*8  :: ksi_ion            !< Energy cost of each ionization, ksi_ion / mu_0 / (gamma-1) / e = 13.7 eV
   real*8  :: delta_n_convection !< Switch to activate the convection term for neutrals (at the plasma velocity)
   real*8  :: nimp_bg(n_imp_max) !< Density of background impurities (in \f$m^{-3}\f$)
   integer :: index_main_imp     !< Index of the main impurity species (in imp_type and nimp_bg) solved with continuity equation
@@ -475,9 +492,11 @@ module phys_module
   real*8, allocatable  :: xtime_spi_ablation_rate(:,:)    !< The time history of SPI ablation rate
   real*8, allocatable  :: xtime_spi_ablation_bg(:,:)      !< The time history of SPI ablation for background species
   real*8, allocatable  :: xtime_spi_ablation_bg_rate(:,:) ! <The time history of SPI ablation rate for bg species
+  logical              :: spi_abl_history_old        !< If this is .t., convert the old spi_abl_history format to the new one upon restart.
 
-  real*8, allocatable  :: xtime_radiation(:)    !< The time history of radiated energy in SI unit
-  real*8, allocatable  :: xtime_rad_power(:)    !< The time history of radiated power in SI unit
+  real*8, allocatable  :: xtime_radiation(:)         !< The time history of radiated energy in SI unit
+  real*8, allocatable  :: xtime_rad_power(:)         !< The time history of radiated power in SI unit
+  real*8, allocatable  :: xtime_rad_cooling_power(:) !< The time history of radiative power loss from plasma in SI unit
 
   real*8, allocatable  :: xtime_E_ion(:)        !< The time history of the ionization potential energy in SI unit
   real*8, allocatable  :: xtime_E_ion_power(:)  !< Time derivative of xtime_E_ion
@@ -496,6 +515,7 @@ module phys_module
   character(len=256) :: spi_shard_file(n_inj_max)!< The name of the shard size file
   character(len=256) :: spi_plume_file(n_inj_max)!< The name of the shard information datafile (array)
   logical            :: spi_plume_hdf5           !< if 'spi_plume_file' is in HDF5format?
+  logical            :: spi_abl_mag_reduction    !< Whether to use the magnetic reduction effect described in Eq.(27) of Nucl. Fusion 60 066027
 
   integer :: n_adas             !< Number of species to be traced by ADAS
 
@@ -565,6 +585,8 @@ module phys_module
   real*8  :: xr2               !< Grid accumulation parameter (for flux-aligned grid)
   real*8  :: sig1              !< Grid accumulation parameter (for flux-aligned grid)
   real*8  :: sig2              !< Grid accumulation parameter (for flux-aligned grid)
+  integer :: m_pol_bc          !< Number of poloidal modes for Psi boundary condition in stellarator
+  integer :: i_plane_rtree     !< The poloidal plane in a stellarator on which the RTree is to be built (RZ_minmax refers to this plane)
   
   !> @name Flux surface grid with X-point
   !! Parameters defining a flux-aligned grid with X-point in the poloidal plane.
@@ -579,7 +601,8 @@ module phys_module
   integer :: n_up_leg_out      !< Number of 'poloidal' grid points along the divertor legs on the top on the LFS (upper Xpoint or double-null)
   integer :: n_ext             !< Number of 'radial' grid points from the outermost flux surface to wall)
   logical :: n_tht_equidistant !< switch on to get an equidistant poloidal distribution of elements in the core of the grid (psi<0.5)
-  real*8  :: SIG_closed        !< Width with grid accumulation (for flux-aligned grid)
+  real*8  :: xr_closed(3)      !< Location for grid accumulation (for flux-aligned grid)
+  real*8  :: SIG_closed(3)     !< Width with grid accumulation (for flux-aligned grid)
   real*8  :: SIG_open          !< Width with grid accumulation (for flux-aligned grid)
   real*8  :: SIG_outer         !< Width with grid accumulation (for flux-aligned grid)
   real*8  :: SIG_inner         !< Width with grid accumulation (for flux-aligned grid)
@@ -600,6 +623,11 @@ module phys_module
   !> @name Analytical heat, particle and neutral particles diffusivity parameters
   real*8  :: D_perp(10)    = 0.d0 !< Coefficients for perpendicular particle diffusion profile
   real*8  :: D_par                !< Parallel particle diffusion (usually not useful)
+  real*8  :: V_pinch_gauss = 0.d0 !< Amplitude of Gaussian inward pinch velocity profile for background fluid (rho only).
+                                  !< Profile: V_pinch_gauss * exp(-(psin - V_pinch_psin)^2 / V_pinch_sig^2).
+                                  !< Positive = inward (toward magnetic axis). Units: JOREK velocity = V_SI[m/s] * sqrt(mu0*rho0).
+  real*8  :: V_pinch_psin  = 0.d0 !< Centre of V_pinch Gaussian in normalised poloidal flux (psin).
+  real*8  :: V_pinch_sig   = 1.d0 !< Width (sigma) of V_pinch Gaussian in psin units.
   real*8  :: D_perp_imp(10)= 0.d0 !< Coefficients for perpendicular imp particle diffusion profile
   real*8  :: D_par_imp            !< Parallel impurity particle diffusion (usually not useful)
   real*8  :: ZK_perp(10)   = 0.d0 !< Coefficients for perpendicular heat diffusion profile
@@ -627,16 +655,19 @@ module phys_module
   character(len=512)  :: zk_perp_file       !< ASCII file with perpendicular heat diffusion profile
   character(len=512)  :: zk_e_perp_file     !< ASCII file with perpendicular electron heat diffusion profile
   character(len=512)  :: zk_i_perp_file     !< ASCII file wtih perpendicular ion heat diffusion profile
+  character(len=512)  :: v_pinch_file       !< ASCII file with inward pinch velocity profile (psin, V_pinch columns)
   logical             :: num_d_perp         !< automatically set true if d_perp_file /= 'none'
   logical             :: num_d_perp_imp     !< automatically set true if d_perp_file /= 'none'
   logical             :: num_zk_perp        !< automatically set true if zk_perp_file /= 'none'
   logical             :: num_zk_e_perp      !< automatically set true if zk_e_perp_file /= 'none'
   logical             :: num_zk_i_perp      !< automatically set true if zk_i_perp_file /= 'none'
+  logical             :: num_v_pinch        !< automatically set true if v_pinch_file /= 'none'
   integer             :: num_d_perp_len     !< Number of datapoints in d_perp profile
   integer             :: num_d_perp_len_imp !< Number of datapoints in d_perp profile for impurity
   integer             :: num_zk_perp_len    !< Number of datapoints in zk_perp profile
   integer             :: num_zk_e_perp_len  !< Number of datapoints in zk_e_perp profile
   integer             :: num_zk_i_perp_len  !< Number of datapoints in zk_i_perp profile
+  integer             :: num_v_pinch_len    !< Number of datapoints in v_pinch profile
   real*8, allocatable :: num_d_perp_x(:)    !< Psi_N values of d_perp  profile
   real*8, allocatable :: num_d_perp_y(:)    !< D_perp values of d_perp profile
   real*8, allocatable :: num_d_perp_x_imp(:)!< Psi_N values of d_perp  profile for impurity
@@ -647,6 +678,8 @@ module phys_module
   real*8, allocatable :: num_zk_e_perp_y(:) !< ZK_perp values of zk_e_perp profile
   real*8, allocatable :: num_zk_i_perp_x(:) !< Psi_N values of zk_i_perp profile
   real*8, allocatable :: num_zk_i_perp_y(:) !< ZK_perp values of zk_i_perp profile
+  real*8, allocatable :: num_v_pinch_x(:)   !< Psi_N values of v_pinch profile
+  real*8, allocatable :: num_v_pinch_y(:)   !< V_pinch values of v_pinch profile
   
   !> @name Analytical input profile for the density
   real*8  :: rho_0             !< Central normalized density (usually 1)
@@ -729,15 +762,32 @@ module phys_module
   real*8, allocatable :: num_Fprofile_y2(:) !< Second derivatives of Fprofile profile (\f$ d^2F/d\Psi_N^2 \f$)
   real*8, allocatable :: num_Fprofile_y3(:) !< Third derivatives of Fprofile profile (\f$ d^2F/d\Psi_N^2 \f$)
 
+  !> @name Analytical input profile for the background Phi profile
+  real*8  :: phi_0             !< Central background potential; (usually 1)
+  real*8  :: phi_1             !< Edge background potential
+  real*8  :: phi_coef(10)      !< potential profile coefficients
+
+  !> @name Numerical input profile for the background potential profile
+  character(len=512)  :: phi_file           !< ASCII file the potential profile is read from.
+  logical             :: num_phi            !< is set true if potential_file /= 'none'
+  integer             :: num_phi_len        !< Number of points in profile
+  real*8, allocatable :: num_phi_x(:)       !< Radial positions of profile points (PsiN values)
+  real*8, allocatable :: num_phi_y0(:)      !< Values of potential profile
+  real*8, allocatable :: num_phi_y1(:)      !< First derivatives of potential profile (\f$ d\Phi/d\rcoord_N \f$)
+  real*8, allocatable :: num_phi_y2(:)      !< Second derivatives of potential profile (\f$ d^2\Phi/d\rcoord_N^2 \f$)
+  real*8, allocatable :: num_phi_y3(:)      !< Third derivatives of potential profile (\f$ d^3\Phi/d\rcoord_N^3 \f$)
+
+  real*8  :: nu_phi_source                  !< Friction coefficient of the n=0 background potential profile source term (>~ visco)
+
   !> @name Numerical input profile for Fprofile
-  integer, parameter  :: n_Fprofile_internal_max = 300                !< INTERNAL Max Size of F-profile
-  integer             :: n_Fprofile_internal                          !< INTERNAL Size of F-profile
-  real*8              :: Fprofile_internal   (n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration
-  real*8              :: Fprofile_internal_d1(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (first derivative)
-  real*8              :: Fprofile_internal_d2(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (second derivative)
-  real*8              :: Fprofile_internal_d3(n_Fprofile_internal_max)!< INTERNAL F-profile, from  FFprime integration (third derivative)
-  real*8              :: Fprofile_psi_max                             !< INTERNAL max psi_norm of F-profile
-  real*8              :: Fprofile_tolerance                           !< INTERNAL tolerance (in %) for accuracy of F-profile compared to input FFprime
+  integer, parameter  :: n_Fprofile_internal_max = 300                 !< INTERNAL Max Size of F-profile
+  integer             :: n_Fprofile_internal                           !< INTERNAL Size of F-profile
+  real*8              :: Fprofile_internal   (n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration
+  real*8              :: Fprofile_internal_d1(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (first derivative)
+  real*8              :: Fprofile_internal_d2(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (second derivative)
+  real*8              :: Fprofile_internal_d3(n_Fprofile_internal_max) !< INTERNAL F-profile, from  FFprime integration (third derivative)
+  real*8              :: Fprofile_psi_max                              !< INTERNAL max psi_norm of F-profile
+  real*8              :: Fprofile_tolerance                            !< INTERNAL tolerance (in %) for accuracy of F-profile compared to input FFprime
 
   !> @name Analytical input profile for FFprime
   real*8  :: FF_0              !< FF' value in the plasma center
@@ -802,6 +852,12 @@ module phys_module
   real*8, allocatable :: num_rot_y3(:)   !< Third derivatives of toroidal rotation profile with respect to $\Psi_{N}$
   logical             :: normalized_velocity_profile !< if true, reads the normalized velocity profile as flux function, else Omega_tor is read as flux function. 
   
+  !> @name Coefficients for Dommaschk potentials; needed for vacuum field representation in stellarator models (see Dommaschk, CPC 40, 203, 1986)
+  character(len=512)                                    :: domm_file !< Namelist file containing the coefficients for Dommaschk potentials
+  logical                                               :: domm      !< automatically set to true if domm_file /= 'none'
+  real*8                                                :: R_domm    !< Toroidally averaged radial position of the vacuum magnetic axis
+  real*8, dimension(4,0:l_pol_domm,0:(n_coord_tor-1)/2) :: dcoef     !< Array containing the Dommaschk potential coefficients
+  
   !> @name Global quantities determined in each time step
   real*8, allocatable :: R_axis_t(:), Z_axis_t(:), psi_axis_t(:), R_xpoint_t(:,:), Z_xpoint_t(:,:),           &
     psi_xpoint_t(:,:), R_bnd_t(:), Z_bnd_t(:), psi_bnd_t(:),                                                  &
@@ -813,7 +869,8 @@ module phys_module
     Magwork_tot_t(:), thmwork_tot_t(:), viscopar_dissip_tot_t(:), viscopar_flux_t(:), li3_t(:),      &
     li3_tot_t(:), part_src_tot_t(:), heat_src_tot_t(:), volume_t(:), area_t(:), mag_ener_src_tot(:), &
     dpart_tot_dt(:), part_flux_Dpar_t(:), part_flux_Dperp_t(:), part_flux_vpar_t(:), part_flux_vperp_t(:), & 
-    dnpart_tot_dt(:), npart_tot_t(:), npart_flux_t(:), density_tot_t(:), flux_poynting_t(:),         &
+    dnpart_tot_dt(:), npart_tot_t(:), npart_flux_t(:), density_tot_t(:), flux_poynting_t(:), & 
+    Px_t(:), Py_t(:), dPx_dt(:), dPy_dt(:), &
     thermal_e_tot_t(:), thermal_i_tot_t(:), visco_dissip_tot_t(:)
 
   !> @name gmres parameters
@@ -843,6 +900,8 @@ module phys_module
 
   !> @name Flag to determine whether or not we keep current source term  
   logical             :: keep_current_prof !< Artificial current source to approximately keep the initial current profile, i.e., \f$\eta(j-j0)\f$?
+  logical             :: init_current_prof !< Initialize the current source from the current profile present
+  logical             :: current_prof_initialized !< Flag that is automatically set to true once the current source has been initialized to prevent accidental reinitialization when restarting
   
   !> @name Numerical parameters
   real*8              :: D_prof_neg         !< Particle diffusion coefficient in regions with negative background species density
@@ -868,14 +927,13 @@ module phys_module
   real*8              :: D_imp_extra_neg_thresh  !< D_imp_extra_neg becomes effective if rho_imp < D_imp_extra_neg_thresh
   real*8              :: T_min              !< minimum temperature (limits on the temperature dependence of resistivity etc.) value in jorek units: 2.01d-5*central_density*Tmin_ev (preset central_density = 1, 20 eV)
   real*8              :: rho_min            !< minimum density
+  real*8              :: ne_SI_min          !< minimum e density (in SI unit) below which we cut-off the radiation loss
+  real*8              :: Te_eV_min          !< minimum temperature (in eV) below which we cut-off the radiation loss
+  real*8              :: rn0_min            !< minimum impurity density (in JU) for radiation loss cut-off
   real*8              :: T_min_neg          !< minimum temperature,used for correcting negative values,in jorek units: 2.01d-5*central_density*Tmin_ev (preset central_density = 1, 20 eV)  
   real*8              :: rho_min_neg        !< minimum density, used for correcting negative values  
   real*8              :: implicit_heat_source !< Choose = 1.d0 to fully switch on the implicit heat source for numerical stabilization
   
-  real*8              :: ne_SI_min          !< minimum e density (in SI unit) below which we cut-off the radiation loss
-  real*8              :: Te_eV_min          !< minimum temperature (in eV) below which we cut-off the radiation loss
-  real*8              :: rn0_min            !< minimum impurity density (in JU) for radiation loss cut-off
-
   integer             :: n_tor_fft_thresh   !< If n_tor >= n_tor_fft_thresh, element_matrix_fft will be used
   integer*8           :: fftw_plan          !< Required for FFTW library
   real*8              :: corr_neg_temp_coef(2) !< Parameters used in models/corr_neg.f90
@@ -899,26 +957,40 @@ module phys_module
   real*8  :: D_neutral
 
   !> @name Particles-related input parameters
+  logical :: use_particles       ! Flag if simulation contains particles
+  integer :: n_aux_var = n_var   ! number of variables in aux_node_list (= n_var is temporary)
+  integer :: n_diag_var = n_var  ! number of variables in diag_node_list (= n_var is temporary)
   logical :: restart_particles
-  logical :: use_ncs          ! use neutral particles
-  logical :: use_ccs          ! use current coupling scheme for fast particles
-  logical :: use_pcs          ! use pressure coupling scheme for fast particles
-  logical :: use_pcs_full     ! use full tensor pressure coupling scheme for fast particles
-  logical :: use_cx           ! switch on sputtering         (in particle module)
-  logical :: use_marker       ! This flag determines whether to use marker particles to treat impurity (Placeholder)
-  logical :: use_sputtering   ! switch on charge-exchange    (in particle module)
-  logical :: use_ionisation   ! switch on ionisation         (in particle module)
-  real*8  :: n_particles      ! the number of particles (real on purpose)
-  real*8  :: tstep_particles  ! the time step for the particles
-  integer :: nstep_particles  ! the number of particle time steps
-  integer :: nsubstep_particles ! the number of particles substeps (without projection)
-  real*8  :: filter_perp      ! particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_hyper     ! particle projection smoothing parameter, poloidal plane
-  real*8  :: filter_par       ! particle projection smoothing parameter, parallel direction
-  real*8  :: filter_perp_n0   ! particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_hyper_n0  ! particle projection smoothing parameter, poloidal plane (n=0)
-  real*8  :: filter_par_n0    ! particle projection smoothing parameter, parallel direction (n=0)
-  
+  logical :: use_ncs          !< use neutral particles
+  logical :: use_ccs          !< use current coupling scheme for fast particles
+  logical :: use_pcs          !< use pressure coupling scheme for fast particles
+  logical :: use_pcs_full     !< use full tensor pressure coupling scheme for fast particles
+  logical :: use_kn_cx        !< switch on sputtering         (in particle module)
+  logical :: use_marker       !< This flag determines whether to use marker particles to treat impurity (Placeholder)
+  logical :: use_kn_sputtering   !< switch on charge-exchange    (in particle module)
+  logical :: use_kn_ionisation   !< switch on ionisation         (in particle module)
+  logical :: use_kn_recombination !< switch on recombination         (in particle module)
+  logical :: use_kn_puffing       !< switch on particle puffing         (in particle module)
+  logical :: use_kn_line_radiation !< switch on line radiation         (in particle module)
+  real*8  :: n_particles      !< the number of particles (real on purpose)
+  real*8  :: tstep_particles  !< the time step for the particles
+  integer :: nstep_particles  !< the number of particle time steps
+  integer :: nsubstep_particles !< the number of particles substeps (without projection)
+  real*8  :: filter_perp      !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_hyper     !< particle projection smoothing parameter, poloidal plane
+  real*8  :: filter_par       !< particle projection smoothing parameter, parallel direction
+  real*8  :: filter_perp_n0   !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_hyper_n0  !< particle projection smoothing parameter, poloidal plane (n=0)
+  real*8  :: filter_par_n0    !< particle projection smoothing parameter, parallel direction (n=0)
+
+  real*8  :: puff_rate        !< physical atoms/sec puffed (shared over 2 places)
+  real*8  :: r_valve          !< radius of poloidal circular source
+  real*8  :: R_valve_loc      !< R position valve 1
+  real*8  :: Z_valve          !< Z position valve 1
+  real*8  :: R_valve_loc2     !< R position valve 2
+  real*8  :: Z_valve2         !< Z position valve 2
+  integer :: n_puff           !< superparticles used per puffing action per valve
+    
   !> @name Mode families preconditioner parameters
   integer, parameter :: n_fam_max = 100               !< maximum number of families
   integer :: n_mode_families                          !< number of families
@@ -928,7 +1000,12 @@ module phys_module
   real*8  :: weights_per_family(n_fam_max)            !< Multiplication factor of family's contribution to the full solution
   logical :: autodistribute_ranks                     !< use automatic or manual rank distribution
   integer :: ranks_per_family(n_fam_max)              !< Number of MPI ranks per mode families
- 
+
+  !> @name Manual setting of random seed (for testing)
+  logical :: use_manual_random_seed                   !< whether the random seed should be manually set
+  integer :: manual_seed                              !< the manually set seed value
+  logical :: use_fixed_rng_value                      !< forcibly set all rng outputs to return a specific value (set by fixed_rng_value, use this for debugging and testing only)
+  real*8  :: fixed_rng_value                          !< the value the fixed rng is set to when using use_fixed_rng_value
   contains
   
 end module phys_module

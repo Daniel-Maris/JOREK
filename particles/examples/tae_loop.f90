@@ -20,7 +20,7 @@ use phys_module, only: n_particles, nstep_particles, nsubstep_particles, tstep_p
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: n_mode_families
 
-use constants,   only: MU_ZERO, MASS_PROTON, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
+use constants,   only: MU_ZERO, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
 
 use mod_particle_sputtering, only: particle_sputter, sample_fluid_particle_energy
 use mod_projection_functions, only: proj_f_combined_density, &
@@ -47,7 +47,7 @@ type(write_particle_diagnostics)                  :: diag
 
 real*8, parameter  :: binding_energy = 2.18d-18 ! ionization energy of a hydrogen atom [J] (= 13.6 eV)
 real*8    :: target_time
-real*8    :: physical_particles, weight
+real*8    :: physical_particles, weight, tstep_keep
 real*8    :: oldtime, step_rest_time, particle_step_time, particle_start_time, diag_time
 real*8    :: rho_norm, t_norm, v_norm, E_norm, M_norm, N_norm, tstep_si, timesteps
 real*8    :: v_kin_temp, E(3), B(3), psi, U, B_norm(3)
@@ -65,11 +65,13 @@ rho_part    = 1.195d19 !(corrected value to obtain density=1.441e17 (as in bench
 
 n_particles_local = int(n_particles/sim%n_cpu) 
 timesteps         = tstep_particles
+tstep_keep       = tstep
 
 ! Set up the field reader
 fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
 call with(sim, fieldreader)
 
+tstep = tstep_keep
 write(*,*) 'main : t_start = ',t_start
 
 if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
@@ -79,7 +81,7 @@ call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
 call update_equil_state(sim%my_id,sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase)
 
 n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+rho_norm = central_mass * ATOMIC_MASS_UNIT * n_norm                  ! rho_SI = rho_norm * rho
 t_norm   = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
 
 tstep_si  = tstep * t_norm
@@ -285,7 +287,7 @@ real*8,allocatable :: feedback_rhs(:,:,:,:,:)
 !$ w0 = omp_get_wtime()
 
 n_norm   = CENTRAL_DENSITY * 1.d20                              ! (number) density normalisation
-rho_norm = CENTRAL_MASS * MASS_PROTON * n_norm                  ! rho_SI = rho_norm * rho
+rho_norm = central_mass * ATOMIC_MASS_UNIT * n_norm                  ! rho_SI = rho_norm * rho
 t_norm   = sqrt((MU_ZERO * rho_norm))                           ! t_SI   = t_norm * t_jorek
 v_norm   = 1.d0 / t_norm                                        ! V_SI   = v_norm * v_jorek
 E_norm   = 1.5d0 / MU_ZERO                                      ! E_SI   = E_norm * E_jorek
@@ -297,7 +299,7 @@ allocate(feedback_rhs,source=jorek_feedback%rhs)
 jorek_feedback%rhs = 0.d0
 feedback_rhs       = 0.d0
 
-call with(sim, counter)
+call with(sim, counter) !v 
 
 select type (particles => sim%groups(1)%particles)
 type is (particle_kinetic_leapfrog)
@@ -362,7 +364,7 @@ type is (particle_kinetic_leapfrog)
           do i_tor=1,n_tor
             feedback_rhs(m,l,i_elm,i_tor,1) = feedback_rhs(m,l,i_elm,i_tor,1) &
                                                   
-                                                  + HZ(i_tor) * v * particle_tmp%weight * sim%groups(1)%mass * mass_proton &
+                                                  + HZ(i_tor) * v * particle_tmp%weight * sim%groups(1)%mass * atomic_mass_unit &
             
                                                   * (1.d0/3.d0) * (particle_tmp%v(1)**2 + particle_tmp%v(2)**2 + particle_tmp%v(3)**2) * mu_zero
           enddo

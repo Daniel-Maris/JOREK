@@ -18,6 +18,7 @@ use mod_plasma_functions
 use mod_import_restart
 use equil_info, only : get_psi_n, ES
 use mod_interp
+use constants, only : ATOMIC_MASS_UNIT
 
 implicit none
 
@@ -99,7 +100,7 @@ call import_restart(node_list,element_list, 'jorek_restart', rst_format, ierr, .
 
 call initialise_basis                              ! define the basis functions at the Gaussian points
 
-rho_norm = central_density*1.d20 * central_mass * 1.67d-27
+rho_norm = central_density*1.d20 * central_mass * ATOMIC_MASS_UNIT
 t_norm   = sqrt(MU_zero*rho_norm)
 
 ! --- Find the lowest point on the outer divertor target (required later)
@@ -419,7 +420,7 @@ do m=1, n_plane
 
             scalars(inode,5) = (rho * Vpar * psi_t * normal)                    / R / sqrt(R_t**2 + Z_t**2)
 
-            scalars(inode,6) = gamma_sheath * (rho * T * Vpar * psi_t * normal) / R / sqrt(R_t**2 + Z_t**2)
+            scalars(inode,6) = (gamma_sheath -1.d0+gamma)* (rho * T * Vpar * psi_t * normal) / R / sqrt(R_t**2 + Z_t**2)
  
             if (abs(xjac) .gt. 1.d-7) then
 

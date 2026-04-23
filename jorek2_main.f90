@@ -59,6 +59,11 @@ program JOREK2
   use mod_initial_grid
   use mod_flux_grid
 
+  use mod_chi
+#ifdef SEMIANALYTICAL
+  use mod_equations
+#endif
+
 ! these write additional live data (global data) used when an ECCD current is applied)
 #ifdef JECCD
   use live_data2,          only: init_live_data2, write_live_data2, finalize_live_data2
@@ -180,10 +185,11 @@ program JOREK2
   call init_expr()
   allocate(res(exprs_all_int%n_expr+1))
   res = 0.d0   
-  
+    
   !***********************************************************************
-  !*                  intialisation                                      *
+  !*                  initialisation                                      *
   !***********************************************************************
+
   ! --- Initialize OpenMP threads before MPI_init
   !call init_threads()
   
@@ -257,6 +263,9 @@ mpi_required = 0
   ! --- Define the basis functions at the Gaussian points
   call initialise_basis()
   
+  ! --- Initialize basis functions for the Dommaschk potentials
+  if (domm) call init_chi_basis()
+
 #if (defined WITH_Neutrals) || (defined WITH_Impurities)
   ! --- Read ADAS data and generate coronal equilibrium if needed
   call init_imp_adas(my_id)
@@ -298,7 +307,8 @@ mpi_required = 0
       write(*,*) 'WARNING: Axis treatments set via input file is not the same as that in the restart file.'
       write(*,*) 'You are trying to restart the simulation with treat_axis = ', input_treat_axis
       write(*,*) 'Earlier treat_axis was set to = ', treat_axis
-      write(*,*) 'STOP' 
+      write(*,*) 'STOP'
+      call MPI_Abort(MPI_COMM_WORLD, 29, IERR)
       stop      
     endif
 
@@ -327,7 +337,7 @@ mpi_required = 0
             call grid_double_xpoint(node_list, element_list)
           endif
         else
-	  call grid_xpoint(node_list,element_list,n_flux,n_open,n_private,n_leg,n_tht,  &
+	  call grid_xpoint(node_list,element_list,n_flux,n_open,n_private,n_leg,n_tht,xr_closed,  &
                            SIG_open,SIG_closed,SIG_private,SIG_theta,SIG_leg_0,SIG_leg_1,dPSI_open,dPSI_private, xcase)
         endif
       else
@@ -358,11 +368,24 @@ mpi_required = 0
   !***********************************************************************
   !*                  define grid / equilibrium                          *
   !***********************************************************************
-  
   if_not_restart: if (.not. restart) then
-    call tr_resetfile()
 
+    call tr_resetfile()
+    call init_node_list(node_list, n_nodes_max, node_list%n_dof, n_var)
+
+#if JOREK_MODEL == 180
+    call initialise_equilibrium(my_id,node_list,element_list,bnd_node_list, bnd_elm_list, ierr)
+    if (ierr == 3) then
+      write(fileout,rst_file_ind_fmt(1)) 'jorek',0
+      call export_restart(node_list, element_list, fileout)
+      write(*,*) 'Restart file created, aborting.'
+      call MPI_Abort(MPI_COMM_WORLD, 3, ierr)
+      stop
+    end if
+#else
     if_not_regrid_from_rz: if(.not. regrid_from_rz) then
+      
+      ! --- allocate values of nodes
 
       call initial_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id, n_cpu)
 
@@ -416,7 +439,7 @@ mpi_required = 0
     if (n_flux > 1) then
 
       call flux_grid(node_list, element_list, bnd_node_list, bnd_elm_list, my_id, n_cpu)
-      
+            
       if ( freeb_equil2) then
         freeboundary_equil = .true.
         call get_vacuum_response(my_id, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,  &
@@ -436,7 +459,7 @@ mpi_required = 0
         call export_boundary(node_list, bnd_elm_list, bnd_node_list)
       endif
     end if ! if (n_flux > 1) then
- 
+      
     if (my_id == 0) then
           
       ! --- Update the status of the equilibrium
@@ -452,38 +475,52 @@ mpi_required = 0
       write(*,'(A,12e16.8)') ' initial energies : ', W_mag, W_kin
 
     end if ! (my_id == 0)
-    
+#endif
   end if if_not_restart
   
   ! --- Print some grid information
   if ( my_id == 0 ) call log_grid_info(.false., node_list, element_list)
+  
+#if STELLARATOR_MODEL
+  if (my_id .eq. 0 .and. init_current_prof .and. .not. current_prof_initialized) then
+    do inode=1,node_list%n_nodes
+      node_list%node(inode)%j_source = node_list%node(inode)%values(:,:,var_zj)
+    end do
+    current_prof_initialized = .true.
+  else if (my_id .eq. 0 .and. init_current_prof .and. current_prof_initialized) then
+    write(*,*) "WARNING: init_current_prof was set to true, but this parameter will be ignored,"
+    write(*,*) "  as the current source has already been initialized"
+  end if
+#endif
   
   call MPI_Barrier(MPI_COMM_WORLD,ierr)
   
   ! --- Determine boundary information from the grid
   if ( my_id == 0 ) call boundary_from_grid(node_list, element_list, bnd_node_list, bnd_elm_list, output_bnd_elements)
   call broadcast_boundary(my_id, bnd_elm_list, bnd_node_list)
-  
+    
   ! --- Fill the vacuum response matrices for freeboundary computations
-  if ( freeboundary ) then
-    call get_vacuum_response(my_id, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,    &
-        resistive_wall)
-    call update_response(my_id,tstep,  resistive_wall)
-    call import_external_fields('coil_field.dat', my_id)
-    call set_coil_curr_time_trace()
-    call read_Z_axis_profile() 
-    if ( (.not. restart) .or. (.not. wall_curr_initialized) ) call init_wall_currents(my_id, resistive_wall)
-  end if
+if ( freeboundary ) then
+  call get_vacuum_response(my_id, node_list, bnd_elm_list, bnd_node_list, freeboundary_equil,    &
+      resistive_wall)
+  call update_response(my_id,tstep,  resistive_wall)
+  call import_external_fields('coil_field.dat', my_id)
+  call set_coil_curr_time_trace()
+  if ( (.not. restart) .or. (.not. wall_curr_initialized) ) call init_wall_currents(my_id, resistive_wall)
+end if
   
-  call tr_print_memsize("AfterEquilibrium")
+call tr_print_memsize("AfterEquilibrium")
 
-  if (RMP_on) then
-     if (my_id == 0) then
-        call read_RMP_profiles(bnd_node_list)
-     endif
+if (RMP_on) then
+  if (my_id == 0) then
+    call read_RMP_profiles(bnd_node_list)
   endif
-  
-  ! --- Broadcast grid information and input parameters to other MPI procs
+endif
+
+
+write(*,*) "n elements:", element_list%n_elements
+
+! --- Broadcast grid information and input parameters to other MPI procs
   call broadcast_elements(my_id, element_list)                ! elements
   
   if (RMP_on) call broadcast_RMP_profiles(my_id, bnd_node_list)        ! psi_RMP profiles
@@ -494,8 +531,10 @@ mpi_required = 0
 #ifdef USE_NO_TREE
   call no_tree_init(node_list, element_list)
 #elif USE_QUADTREE
+
   call quadtree_init(node_list, element_list)
 #else
+
   call populate_element_rtree(node_list, element_list)
 #endif
 
@@ -505,7 +544,10 @@ mpi_required = 0
   ! --- from the previous time-step, which is only read by my_id=0 from the restart file
   call broadcast_equil_state(my_id)                           ! equil_state
 
-  if ( freeboundary ) call broadcast_vacuum(my_id, resistive_wall)
+  if ( freeboundary ) then
+     call broadcast_vacuum(my_id, resistive_wall)
+     call read_Z_axis_profile()
+  end if
 
   mhd_sim%my_id = my_id
   mhd_sim%n_cpu = n_cpu
@@ -519,8 +561,8 @@ mpi_required = 0
   mhd_sim%bnd_elm_list  => bnd_elm_list
 
   ! --- Load deuterium ADAS data if required
-  if (deuterium_adas) ad_deuterium = read_adf11(my_id,'96_h') 
-
+  if (deuterium_adas) ad_deuterium = read_adf11(my_id,'96_h')  
+  
    ! --- Initialize FFTW
 #ifdef USE_FFTW
   call dfftw_plan_dft_r2c_1d(fftw_plan,n_plane,in_fft,out_fft,FFTW_PATIENT)
@@ -574,6 +616,11 @@ mpi_required = 0
     call MPI_Barrier(a_mat%comm,ierr)
 
   endif ! (nstep >0)
+  
+#if STELLARATOR_MODEL
+  ! Add chi representation to element data structure using imported node representation
+  call compute_chi_on_gauss_points(my_id, element_list,node_list, mhd_sim%local_elms, mhd_sim%n_local_elms)
+#endif
 
   ! --- Do Catalyst insitu pipelines before the first timestep
 #ifdef USE_CATALYST
@@ -583,7 +630,7 @@ mpi_required = 0
   ! --- Export a restart file before the first timestep
   if ( (my_id == 0) .and. (.not. restart) ) then
     if ( freeboundary .and. freeb_change_indices ) call exchange_indices(node_list, my_id, n_cpu, .true.)
-    fileout = 'jorek00000'
+    write(fileout,rst_file_ind_fmt(1)) 'jorek',0
     call export_restart(node_list, element_list, fileout)
     if ( freeboundary .and. freeb_change_indices ) call exchange_indices(node_list, my_id, n_cpu, .false.)
   end if
@@ -613,8 +660,13 @@ mpi_required = 0
   call r3_info_print (-2, -2, 'INITIALIZATION')    ! timing
 
   if (.not. associated(aux_node_list)) allocate(aux_node_list) ! information of particle moments is stored in aux_list
+  call init_node_list(aux_node_list, n_nodes_max, aux_node_list%n_dof, n_aux_var)
 
   index_now = index_start  ! index_now: Index of current timestep
+
+#if defined(SEMIANALYTICAL)
+  call init_eq_struct()
+#endif
 
   jstep_loop: do jstep = 1, 10 ! Go through the different values of the tstep_n and nstep_n arrays
   istep_loop: do istep = 1, nstep_n(jstep)
@@ -677,7 +729,7 @@ mpi_required = 0
     call construct_matrix(mhd_sim, mhd_sim%local_elms, mhd_sim%n_local_elms, a_mat, rhs_vec, harmonic_matrix=.false.)
   
     call clck_time_barrier(t1); call clck_ldiff(t0,t1,tsecond)
-    if (my_id.eq.0) write(*,FMT_TIMING) my_id, '# Elapsed time in construct global matrix :',tsecond
+    if (my_id.eq.0) write(*,FMT_TIMING) my_id, '# Elapsed time construct global matrix: ',tsecond
       
     solver%tstep = tstep
     solver%istep = istep
@@ -801,7 +853,7 @@ mpi_required = 0
 #endif
 
        ! --- Output some information about the current timestep
-       130 format(1x,a,i5.5,a,es10.3,a)
+       130 format(1x,a,i6.6,a,es10.3,a)
        131 format(1x,a,2(2(es10.2,' ...',es10.2,',')))
        132 format(1x,'-------------------------------------------------------------------')
        133 format(1x,a,2(es10.2,' at ',i10,','))
@@ -831,7 +883,9 @@ mpi_required = 0
        write(*,*)
     endif   !--- my_id=0
 
+#if (!defined STELLARATOR_MODEL) || (!defined USE_DOMM)
     call int3d_new(my_id, mhd_sim%node_list, mhd_sim%element_list, bnd_node_list, bnd_elm_list, exprs_all_int, res, 1)
+#endif
 
     if (my_id .eq. 0 ) then
       ! --- Output energies and growth_rates to text files during the code run
@@ -846,7 +900,6 @@ mpi_required = 0
 #endif
 #endif
     endif
-
     call clck_time_barrier(t1)
     call clck_ldiff(t0,t1,tsecond)
     if (my_id .eq. 0) then
@@ -869,7 +922,7 @@ mpi_required = 0
     ! --- Write a restart file every nout timesteps
     if ( (my_id == 0) .and. (mod(index_now,nout) == 0) ) then
       if ( freeboundary .and. freeb_change_indices ) call exchange_indices(mhd_sim%node_list, my_id, n_cpu, .true.)
-      write(fileout,'(A5,i5.5)') 'jorek',index_now
+      write(fileout,rst_file_ind_fmt(1)) 'jorek',index_now
       call export_restart(mhd_sim%node_list, mhd_sim%element_list, fileout)
       if ( freeboundary .and. freeb_change_indices ) call exchange_indices(mhd_sim%node_list, my_id, n_cpu, .false.)
     endif
@@ -1125,6 +1178,9 @@ mpi_required = 0
 #ifdef USE_FFTW
   call dfftw_destroy_plan(fftw_plan)
 #endif
+
+if (allocated(node_list%node)) call dealloc_node_list(node_list)
+if (allocated(aux_node_list%node)) call dealloc_node_list(aux_node_list)
 
   call r3_info_summary ()                                ! timing
   call MPI_FINALIZE(IERR)                                ! clean up MPI

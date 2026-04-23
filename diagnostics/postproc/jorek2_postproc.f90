@@ -11,6 +11,7 @@ program jorek2_postproc
   use settings,       only: set_setting
   use basis_at_gaussian, only: initialise_basis
   use mod_import_restart
+  use mod_plasma_functions, only: initialise_reference_parameters
   
   implicit none
   
@@ -28,7 +29,13 @@ program jorek2_postproc
   
   ! --- Preset namelist input parameters
   call preset_parameters()
-  
+
+  ! --- Initialize derived reference parameters
+  call initialise_reference_parameters()  
+
+  ! --- Ensure that aux_node_list is associated
+  if (.not. associated(aux_node_list)) allocate(aux_node_list)
+
   ! --- Preset some parameters
   call set_setting('units',           '0',     ierr, 'Calculate quantities in which units (1=JOREK, 0=SI)')
   call set_setting('loop_units',      '0',     ierr, 'Use which units for time-loops (1=JOREK, 0=SI)'     )

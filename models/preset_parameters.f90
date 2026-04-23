@@ -40,16 +40,19 @@ subroutine preset_parameters
   T_max_eta     = 1.d99
   eta_ohmic     = 0.d0
   T_max_eta_ohm = 1.d99
+  
+  TiTe_ratio    = 0.5d0
 
   visco = 1.d-5
   T_max_visco   = 1.d99
   visco_par = 1.d-5
+  visco_par_par = 0.d0  
   visco_heating     = 0.d0
   visco_par_heating = 0.d0
   visco_old_setup   = .false.
   
-  central_density = 1.d0        ! the central density in units 10^20 m^-3
-  central_mass    = 2.d0        ! the central average ion mass (D)
+  central_density = 1.d0            ! the central density in units 10^20 m^-3
+  central_mass    = 2.01410177811d0 ! the central average mass (atomic mass of deuterium, including electron)
 
   n_tor_restart= 0
   restart      = .false.
@@ -58,7 +61,11 @@ subroutine preset_parameters
   regrid_from_rz = .false.
   rst_format   = 0             ! use 'old' format for restart import
   write_ps     = .true.           ! write postscript file at the end of the run 
-  
+  gvec_grid_import = .false.
+  extended_boundary = .false.
+  j_cutoff_rcoord = 99.0
+  j_cutoff_sig = 0.025
+
   freeboundary_equil = .false. ! use free or fixed boundary equilibrium
   freeboundary       = .false. ! use free or fixed boundary?
   resistive_wall     = .false. ! use a resistive or ideal wall?    (freeboundary only)
@@ -104,6 +111,8 @@ subroutine preset_parameters
   n_flux       = 11
   n_tht        = 16
   n_tht_equidistant = .false.
+  m_pol_bc     = 1
+  i_plane_rtree = 1
   
   n_open       = 5
   n_outer      = 0
@@ -131,7 +140,8 @@ subroutine preset_parameters
   bgf_rpolar    = 0.6
   bgf_tht       = 0.6
 
-  SIG_closed  = 0.1d0
+  xr_closed   = (/   1.0d0, 9999.d0, 9999.d0 /)
+  SIG_closed  = (/   0.1d0, 9999.d0, 0.1d0   /)
   SIG_open    = 0.1d0
   SIG_outer   = 0.1d0
   SIG_inner   = 0.1d0
@@ -156,6 +166,8 @@ subroutine preset_parameters
   R_geo     = 10.d0
   Z_geo     = 0.d0
   amin      = 1.d0
+
+  R_domm        = -10.d0
 
   F0        = 10.d0
   GAMMA     = 5.d0 / 3.d0
@@ -184,6 +196,7 @@ subroutine preset_parameters
   T_jropes       = 0.d0
 
   bootstrap = .false.
+  bootstrap_psin_cutoff = 0.9995
 
   ellip  = 1.d0
   tria_u = 0.d0
@@ -215,6 +228,7 @@ subroutine preset_parameters
 
   rect_grid_vac_psi = 0.d0
   
+  maintain_profiles = .false.
   ZK_perp(1:5)   = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   ZK_i_perp(1:5) = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   ZK_e_perp(1:5) = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
@@ -224,6 +238,9 @@ subroutine preset_parameters
   ZK_par_max   = 1.d20
   D_perp(1:5)  = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   D_par        = 0.d0
+  V_pinch_gauss = 0.d0
+  V_pinch_psin  = 0.d0
+  V_pinch_sig   = 1.d0
   D_perp_imp(1:5)  = (/ 1.d-5, 0.d0, 0.d0, 99.d0, 99.d0 /)
   D_par_imp        = 0.d0
 
@@ -257,8 +274,8 @@ subroutine preset_parameters
   ne_SI_min          = 1.d18
   Te_eV_min          = 5.
   rn0_min            = 1.d-8
-  T_min              = 1.0d-20
-  rho_min            = 1.0d-20
+  T_min              = 1.0d-20  !-1.0d20
+  rho_min            = 1.0d-20  !-1.0d20
   T_min_neg          = -1.d12 !< only used if T_min_neg>0 , 2.01d-5*central_density*Tmin_ev (cd = 1, 20 eV)
   T_min_ZKpar        = -1.d12 
   Ti_min_ZKpar       = -1.d12 
@@ -505,13 +522,19 @@ subroutine preset_parameters
   rho_1 =  1.d0   
   FF_0  =  1.d0
   FF_1  =  0.d0
-  
+  phi_0 =  0.d0
+  phi_1 =  0.d0
+
   zj_coef     = 0.d0;  zj_coef(1)  = -1.d0
   T_coef      = 0.d0;  T_coef(1)   = -1.d0
   Te_coef     = 0.d0;  Te_coef(1)  = -1.d0
   Ti_coef     = 0.d0;  Ti_coef(1)  = -1.d0
   rho_coef    = 0.d0;  rho_coef(1) =  0.d0
   FF_coef     = 0.d0;  FF_coef(1)  = -1.d0
+  dcoef       = 0.d0
+
+  phi_coef    = 0.d0;  phi_coef(1) =  0.d0; phi_coef(4) = 1.d0
+  nu_phi_source = 0.d0
 
   rhon_0 =  0.d0
   rhon_1 =  0.d0
@@ -557,6 +580,7 @@ subroutine preset_parameters
   T_file             = 'none'
   Te_file            = 'none'
   Ti_file            = 'none'
+  phi_file           = 'none'
   Fprofile_file      = 'none'
   ffprime_file       = 'none'
   d_perp_file        = 'none'
@@ -564,9 +588,11 @@ subroutine preset_parameters
   zk_perp_file       = 'none'
   zk_e_perp_file     = 'none'
   zk_i_perp_file     = 'none'
+  v_pinch_file       = 'none'
   R_Z_psi_bnd_file   = 'none'
-  wall_file          = 'none'
+  wall_file          = 'wall.txt'
   rot_file           = 'none'
+  domm_file          = 'none'
   normalized_velocity_profile = .true.
 
   n_Fprofile_internal = 300 ! model710 only: size of internal numerical F-profile
@@ -619,16 +645,22 @@ subroutine preset_parameters
   tgnum_A3           = 0.d0
 
   keep_current_prof  = .true.               ! Keep the current_source term
+  init_current_prof  = .false.
+  current_prof_initialized = .false.
   
   use_mumps          = .false.              ! Use MUMPS solver
-  use_pastix         = .true.               ! Use PASTIX solver
-  use_strumpack      = .false.              ! Use STRUMPACK solver  
+  use_pastix         = .false.              ! Use PASTIX solver
+  use_strumpack      = .true.               ! Use STRUMPACK solver  
   use_wsmp           = .false.              ! Use WSMP solver (use with care, still in development!)
   
   use_mumps_eq       = .false.              ! Use MUMPS equilibrium solver
   use_pastix_eq      = .false.              ! Use PASTIX equilibrium solver
   use_strumpack_eq   = .false.              ! Use STRUMPACK equilibrium olver  
   
+  use_mumps_prj      = .true.               ! Use MUMPS projection solver
+  use_pastix_prj     = .false.              ! Use PASTIX projection solver
+  use_strumpack_prj  = .false.              ! Use STRUMPACK projection olver  
+
   refinement         = .false.              ! enable mesh refinement
   force_central_node = .true.               ! force all nodes in the grid center to have the same values in flux surface aligned grids
   fix_axis_nodes     = .false.              ! Fix t-derivative and cross st-derivative on axis to avoid noise
@@ -735,6 +767,7 @@ subroutine preset_parameters
   D_neutral_p = 1.d-5
   delta_n_convection = 0
   nimp_bg = 0.
+
   n_adas = 1
   adas_dir = ' '
   imp_type = ' '
@@ -775,9 +808,11 @@ subroutine preset_parameters
   spi_shard_file(:) = 'none'
   spi_plume_file(:) = 'none'
   spi_plume_hdf5  = .false.
+  spi_abl_mag_reduction  = .false.
   spi_tor_rot     = .false.
   spi_num_vol     = .true.
   using_spi       = .false.
+  spi_abl_history_old = .false.
 
   output_prad_phi = .false.
 
@@ -819,6 +854,7 @@ subroutine preset_parameters
   Sigma = 0.d0
 
 !===================== particle input values
+use_particles      = .false.
 n_particles        = 0
 nstep_particles    = 0
 nsubstep_particles = 1
@@ -834,9 +870,25 @@ use_ncs            = .false.
 use_ccs            = .false.
 use_pcs            = .false.
 use_pcs_full       = .false.
-use_ionisation     = .true.
-use_sputtering     = .false.
-use_cx             = .true.
+use_kn_ionisation     = .true.
+use_kn_sputtering     = .false.
+use_kn_cx             = .true.
 use_marker         = .false.
+use_kn_recombination = .true.
+use_kn_puffing       = .false.
+use_kn_line_radiation= .true.
+
+n_puff        = 0
+puff_rate     = 0.d0
+r_valve       = 0.d0
+R_valve_loc   = 0.d0
+Z_valve       = 0.d0
+R_valve_loc2  = 0.d0
+Z_valve2      = 0.d0
+
+use_manual_random_seed = .false.
+manual_seed = 498932990          !< chosen arbitarily
+use_fixed_rng_value = .false.
+fixed_rng_value = 0.5
 
 end subroutine preset_parameters

@@ -58,6 +58,7 @@ type, extends(fields_base) :: jorek_fields_interp_hermite_birkhoff
   contains
     procedure :: interp_PRZ => do_interp_PRZ_1
     procedure :: interp_PRZ_2 => do_interp_PRZ_2
+    procedure :: interp_PRZP_1 => do_interp_PRZP_1
     procedure, nopass :: mask !< Map number to 1..NL
     procedure :: ind !< Return (array of) indices into 1..NL (start+i etc)
 end type jorek_fields_interp_hermite_birkhoff
@@ -234,6 +235,24 @@ pure subroutine do_interp_PRZ_2(this,time,i_elm,i_v,n_v,s,t,phi,       &
     
 end subroutine do_interp_PRZ_2
 
+pure subroutine do_interp_PRZP_1(this, time, i_elm, i_v, n_v, s, t, phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi)
+  use mod_interp
+  use constants, only: mu_zero, atomic_mass_unit
+  use phys_module, only: tstep, central_mass, central_density
+  use mod_linear, only: linear_interp_differentials
+  use mod_linear, only: linear_interp_differentials_dt
+  class(jorek_fields_interp_hermite_birkhoff),  intent(in)  :: this
+  real*8,                   intent(in)  :: time !< Time at which to calculate this variable
+  integer,                  intent(in)  :: i_elm
+  integer,                  intent(in)  :: n_v, i_v(n_v)
+  real*8,                   intent(in)  :: s, t, phi
+  real*8,                   intent(out) :: P(n_v), P_s(n_v), P_t(n_v), P_phi(n_v), P_time(n_v)
+  real*8,                   intent(out) :: R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi
+
+  ! This routine has not been implemented yet!
+  return
+end subroutine
+
 !> Constructor to allow for optional variables
 function new_read_jorek_fields_interp_hermite_birkhoff(basename, i, rst_format, stop_at_end) result(new)
   character(len=*), intent(in), optional :: basename
@@ -277,7 +296,7 @@ end function new_read_jorek_fields_interp_hermite_birkhoff
 !> t(jend-1).
 subroutine do_read(this, sim, ev)
   use phys_module, only: central_mass, central_density, t_start, tstep
-  use constants, only: mu_zero, mass_proton
+  use constants, only: mu_zero, atomic_mass_unit
   use mpi
   use mod_neighbours
   class(read_jorek_fields_interp_hermite_birkhoff), intent(inout) :: this
@@ -288,7 +307,7 @@ subroutine do_read(this, sim, ev)
   logical :: file_exists, next_file_found
 
   real*8 :: t_norm, invdet
-  t_norm = sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
+  t_norm = sqrt(mu_zero * ATOMIC_MASS_UNIT * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
 
@@ -411,7 +430,7 @@ subroutine read_next_file(this, f, i_found, prefer_plus_2)
   logical, optional, intent(in) :: prefer_plus_2 !< Set to true if we need to
   !< check for the presence of this%i+2 first
 
-  character(len=80) :: restart_file
+  character(len=80) :: restart_file, tmp_name
   integer :: i, j, k, di, ierr, my_id
   logical :: file_exists, next_file_found, flip_i12 = .false.
 
@@ -429,7 +448,8 @@ subroutine read_next_file(this, f, i_found, prefer_plus_2)
       else
         i = this%i + di
       end if
-      write(restart_file,'(A,i5.5,A)') trim(this%basename), i, '.h5'
+      write(tmp_name,rst_file_ind_fmt(1)) trim(this%basename), i
+      write(restart_file,'(A,A)') trim(tmp_name), '.h5'
       inquire(file=trim(restart_file), exist=file_exists)
       if (file_exists) then
         next_file_found=.true.

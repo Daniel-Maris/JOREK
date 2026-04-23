@@ -38,13 +38,14 @@ type, extends(fields_base) :: jorek_fields_interp_linear
   contains
     procedure :: interp_PRZ => do_interp_PRZ_1
     procedure :: interp_PRZ_2 => do_interp_PRZ_2
+    procedure :: interp_PRZP_1 => do_interp_PRZP_1
 end type jorek_fields_interp_linear
 contains
 
 !> Interpolate a variable at a specific position (with phi), with first derivatives only
 pure subroutine do_interp_PRZ_1(this, time, i_elm, i_v, n_v, s, t, phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, Z, Z_s, Z_t)
   use mod_interp
-  use constants, only: mu_zero, mass_proton
+  use constants, only: mu_zero, atomic_mass_unit
   use phys_module, only: tstep, central_mass, central_density
   use mod_linear, only: linear_interp_differentials
   use mod_linear, only: linear_interp_differentials_dt
@@ -61,7 +62,7 @@ pure subroutine do_interp_PRZ_1(this, time, i_elm, i_v, n_v, s, t, phi, P, P_s, 
   real*8                 :: t_jorek
   
   ! JOREK time step in seconds
-  t_jorek = tstep*sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20)
+  t_jorek = tstep*sqrt(mu_zero * ATOMIC_MASS_UNIT * central_mass * central_density * 1.d20)
 
   P_time = 0.d0
   
@@ -116,7 +117,7 @@ pure subroutine do_interp_PRZ_2(this,time,i_elm,i_v,n_v,s,t,phi, &
   P_ttime,R,R_s,R_t,R_ss,R_st,R_tt,Z,Z_s,Z_t,Z_ss,Z_st,Z_tt)
   !> load module and functions
   use mod_interp
-  use constants, only: mu_zero,mass_proton
+  use constants, only: mu_zero,atomic_mass_unit
   use phys_module, only: tstep,central_mass,central_density
   use mod_linear, only: linear_interp_differentials
   use mod_linear, only: linear_interp_differentials_dt
@@ -142,7 +143,7 @@ pure subroutine do_interp_PRZ_2(this,time,i_elm,i_v,n_v,s,t,phi, &
   real(kind=8), dimension(n_v) :: dP_sphi, dP_tphi, dP_phiphi
   
   ! JOREK time step in seconds
-  t_jorek = tstep*sqrt(mu_zero*central_density*mass_proton*central_mass*1.d20)
+  t_jorek = tstep*sqrt(mu_zero*central_density*ATOMIC_MASS_UNIT*central_mass*1.d20)
 
   P_time = 0.d0
   P_stime = 0.d0
@@ -185,6 +186,56 @@ pure subroutine do_interp_PRZ_2(this,time,i_elm,i_v,n_v,s,t,phi, &
  
 end subroutine do_interp_PRZ_2
 
+
+!> Interpolate a variable at a specific position (with phi), with first derivatives only, including phi derivatives
+pure subroutine do_interp_PRZP_1(this, time, i_elm, i_v, n_v, s, t, phi, P, P_s, P_t, P_phi, P_time, R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi)
+  use mod_interp
+  use constants, only: mu_zero, atomic_mass_unit
+  use phys_module, only: tstep, central_mass, central_density
+  use mod_linear, only: linear_interp_differentials
+  use mod_linear, only: linear_interp_differentials_dt
+  class(jorek_fields_interp_linear),  intent(in)  :: this
+  real*8,                   intent(in)  :: time !< Time at which to calculate this variable
+  integer,                  intent(in)  :: i_elm
+  integer,                  intent(in)  :: n_v, i_v(n_v)
+  real*8,                   intent(in)  :: s, t, phi
+  real*8,                   intent(out) :: P(n_v), P_s(n_v), P_t(n_v), P_phi(n_v), P_time(n_v)
+  real*8,                   intent(out) :: R, R_s, R_t, R_phi, Z, Z_s, Z_t, Z_phi
+
+  real*8                 :: df, dt
+  real*8, dimension(n_v) :: Pd, Pd_s, Pd_t, Pd_phi
+  real*8                 :: t_jorek
+  
+  ! JOREK time step in seconds
+  t_jorek = tstep*sqrt(mu_zero * ATOMIC_MASS_UNIT * central_mass * central_density * 1.d20)
+
+  P_time = 0.d0
+  
+  !> interpolate values
+  call interp_PRZP(this%node_list,this%element_list,i_elm,i_v,n_v,s,t,phi,P,P_s,P_t,P_phi,R,R_s,R_t,R_phi,Z,Z_s,Z_t,Z_phi)
+
+  !> interpolate differentials
+  if(t_jorek .gt. 0.d0) then
+    call interp_PRZP(this%node_list,this%element_list,i_elm,i_v,n_v,s,t,phi, &
+      Pd,Pd_s,Pd_t,Pd_phi,R,R_s,R_t,R_phi,Z,Z_s,Z_t,Z_phi,deltas=.true.)
+    if(abs(this%time_now-this%time_prev) .gt. 1d-10 .and. .not. this%static) then
+      !> compute time fraction df
+      dt = 1.d0/(this%time_now - this%time_prev)
+      df = (this%time_now - time)*dt
+      !> apply linear interpolation
+      P     = linear_interp_differentials(n_v,P,Pd,df)
+      P_s   = linear_interp_differentials(n_v,P_s,Pd_s,df)
+      P_t   = linear_interp_differentials(n_v,P_t,Pd_t,df)
+      P_phi = linear_interp_differentials(n_v,P_phi,Pd_phi,df)
+    else
+      dt = 1.d0/t_jorek
+    endif
+    !> compute time derivative
+    P_time = linear_interp_differentials_dt(n_v,Pd,dt) 
+  endif
+
+end subroutine do_interp_PRZP_1
+
 !> Constructor to allow for optional and default variables
 function new_read_jorek_fields_interp_linear(basename, i, rst_format, stop_at_end,mode_divisor) result(new)
   character(len=*), intent(in), optional :: basename
@@ -219,7 +270,7 @@ function last_file_before_time(time) result(file_number)
   real*8 :: t_norm, t_lower, t_guess, t_upper
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
-  t_norm = sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
+  t_norm = sqrt(mu_zero * ATOMIC_MASS_UNIT * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
   if (my_id .eq. 0) then
     write(*,*) "Looking for jorek restart file just before time ", time
 
@@ -309,12 +360,12 @@ subroutine do_read(this, sim, ev)
   class(read_jorek_fields_interp_linear), intent(inout) :: this
   type(particle_sim), intent(inout) :: sim
   type(event), intent(inout), optional :: ev
-  character(len=80) :: restart_file
+  character(len=80) :: restart_file, tmp_name
   integer :: i, ierr, my_id,i_nodes,n_nodes
   logical :: file_exists, next_file_found
 
   real*8 :: t_norm
-  t_norm = sqrt(mu_zero * mass_proton * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
+  t_norm = sqrt(mu_zero * ATOMIC_MASS_UNIT * central_mass * central_density * 1.d20) ! 1 jorek time unit in seconds
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
 
@@ -345,7 +396,8 @@ subroutine do_read(this, sim, ev)
         if (this%i .eq. -1) then
           write(restart_file,'(A,A)') trim(this%basename), '_restart.h5'
         else
-          write(restart_file,'(A,i5.5,A)') trim(this%basename), this%i, '.h5'
+          write(tmp_name,rst_file_ind_fmt(1)) trim(this%basename), this%i
+          write(restart_file,'(A,A)') trim(tmp_name), '.h5'
         end if
         inquire(file=trim(restart_file), exist=file_exists)
         if (file_exists) then
@@ -377,7 +429,8 @@ subroutine do_read(this, sim, ev)
       else ! Linearly interpolating case
         ! If nothing has been loaded (i.e. fields%time_prev = 0.d0) load the initial file
         if (abs(f%time_prev) .lt. 1.d-50) then
-          write(restart_file,'(A,i5.5,A)') trim(this%basename), this%i, '.h5'
+          write(tmp_name,rst_file_ind_fmt(1)) trim(this%basename), this%i
+          write(restart_file,'(A,A)') trim(tmp_name), '.h5'
           inquire(file=trim(restart_file), exist=file_exists)
           if (file_exists) then
             call import_hdf5_restart(f%node_list,f%element_list,trim(restart_file),this%rst_format,ierr)
@@ -405,7 +458,8 @@ subroutine do_read(this, sim, ev)
         ! Find the following file (next timestep number)
         next_file_found=.false.
         do i=this%i+1,this%i+20 ! check 20 files ahead
-          write(restart_file,'(A,i5.5,A)') trim(this%basename), i, '.h5'
+          write(tmp_name,rst_file_ind_fmt(1)) trim(this%basename), i
+          write(restart_file,'(A,A)') tmp_name, '.h5'
           inquire(file=trim(restart_file), exist=file_exists)
           if (file_exists) then
             next_file_found=.true.

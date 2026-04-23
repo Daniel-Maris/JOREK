@@ -144,6 +144,8 @@ module exec_commands
           call int3d(command, first_step, ierr)
         case ( 'equil_params' )
           call equil_params(command, first_step, ierr)
+        case ( 'energy3d' )
+          call energy3d(command, first_step, ierr)
         case ( 'energy_spectrum' )
           call energy_spectrum(command, first_step, ierr)
         case ( 'expressions' )
@@ -238,7 +240,7 @@ module exec_commands
     else
       
       select case ( trim(command%args(0)) )
-        case ( 'expressions', 'expressions_int', 'mark_coords', 'int2d', 'int3d','midplane',       &
+        case ( 'expressions', 'expressions_int', 'mark_coords', 'int2d', 'int3d','energy3d','midplane',       &
           'average', 'point', 'pol_line', 'int_along_pol_line', 'tor_line', 'equil_params',        &
           'qprofile', 'q_at_psin', 'fluxsurfaces', 'fluxsurface', 'separatrix', 'set', 'four2d',   &
           'gourdon', 'jorek-units', 'jnorm_bnd_curr', 'si-units', 'grid', 'grid_diagnostics',      &
@@ -303,24 +305,22 @@ module exec_commands
     integer,            intent(out) :: ierr !< Error flag
     
     character(len=64) :: file_name
-    logical           :: file_exists
     real*8            :: minRad
+    integer           :: i_fmt
     
     ierr = 0
-    
-    write(file_name,'(a,i5.5)') 'jorek', istep
-    if ( rst_hdf5 .ne. 0 ) then
-      inquire (file=trim(file_name)//'.h5', exist=file_exists)
-    else
-      inquire (file=trim(file_name)//'.rst', exist=file_exists)
-    end if
-    if ( .not. file_exists ) then
+
+    i_fmt = restart_file_exists(istep) ! -1 if it does not exist, otherwise index for restart file digit format
+
+    if ( i_fmt < 0 ) then ! file does not exist
       ierr = 42
       return
     end if
+
+    write(file_name, rst_file_ind_fmt(i_fmt)) 'jorek', istep
     
     write(*,*)
-    write(*,'(a,i5.5,a)') '#################### TIME STEP ', istep, ' ####################'
+    write(*,rst_file_ind_fmt(i_fmt)) '#################### TIME STEP ', istep, ' ####################'
     write(*,*)
     
     ! --- Load the restart file
@@ -526,7 +526,7 @@ module exec_commands
     
     ! --- Local variables
     integer              :: jcmd, istep, load_error, n_avail, itime, n_time, iavail, n_select, & 
-                            temp_select, loop_unit, input_err
+                            temp_select, loop_unit, input_err, i_fmt
     logical              :: first_step, file_exists   ! Is true for the first timestep loaded in the for-loop
     real*8               :: time_loop, rho_norm, loop_fact_time
     character(len=64)    :: file_name
@@ -571,30 +571,24 @@ module exec_commands
 
       ! --- Get list of available restart files
       n_avail=0
-      allocate(available_steps(100000))
-      do istep = 0, 99999
-        if ( rst_hdf5 .ne. 0 ) then
-          write (file_name,'(a, i5.5, a)') 'jorek', istep, '.h5'
-          inquire (file=file_name, exist=file_exists)
-        else
-          write (file_name,'(a, i5.5, a)') 'jorek', istep, '.rst'
-          inquire (file=file_name, exist=file_exists)
-        end if
-
-        if ( file_exists ) then
+      allocate(available_steps(1000000))
+      do istep = 0, 999999
+        if ( restart_file_exists(istep) > 0 ) then ! -1 if it does not exist
           n_avail=n_avail+1					
           available_steps(n_avail) = istep
         end if
       end do
 
       ! --- Get xtime from the restart file with the highest step number
-      write (file_name,'(a, i5.5)') 'jorek', available_steps(n_avail)
+      i_fmt = restart_file_exists(available_steps(n_avail)) ! -1 if it does not exist, otherwise index for restart file digit format
+      write(file_name, rst_file_ind_fmt(i_fmt)) 'jorek',  available_steps(n_avail)
+
       call import_restart(node_list, element_list, file_name, rst_format, ierr, .true., aux_node_list)
       if ( ierr /= 0 ) return
 
       ! --- Set time unit correctly
       loop_unit = get_int_setting('loop_unit', ierr)
-      rho_norm       = central_density *1.d20 * central_mass * mass_proton   ! rho_0 = central mass density
+      rho_norm       = central_density *1.d20 * central_mass * ATOMIC_MASS_UNIT   ! rho_0 = central mass density
       loop_fact_time = sqrt(MU_zero*rho_norm)
       if ( loop_unit .eq. SI_UNITS ) then
         loop_min_time  = loop_min_time/loop_fact_time
@@ -633,7 +627,7 @@ module exec_commands
           n_select                 = n_select+1
           selected_steps(n_select) = temp_select
 
-          write(*,'(a, i5.5, a,f13.6)') 'Selected Step: ', selected_steps(n_select),&
+          write(*,'(a, i6.6, a,f13.6)') 'Selected Step: ', selected_steps(n_select),&
           ' at t=',xtime(selected_steps(n_select))
           write(*,'(a,f13.6,a)') '                        (=',xtime(selected_steps(n_select))*loop_fact_Time*1000,' ms)'
         end if
@@ -671,7 +665,7 @@ module exec_commands
     end do
     
     if ( first_step ) then
-      write(*,'(a,i5.5,a,i5.5,a)') 'WARNING: There were no restart files for steps ',              &
+      write(*,'(a,i6.6,a,i6.6,a)') 'WARNING: There were no restart files for steps ',              &
         loop_min_step, ' to ', loop_max_step, '.'
     end if
     
@@ -780,16 +774,12 @@ module exec_commands
     
     character(len=256)  :: filename
     logical             :: file_exists
-    integer             :: i
+    integer             :: i, i_fmt
     
     write(*,'(a)') 'Available restart files:'
-    do i = 0, 99999
-      write (filename,'(a, i5.5, a)') 'jorek', i, '.rst'
-      inquire (file=filename, exist=file_exists)
-      if (file_exists) write(*,'(i6)',advance='no') i
-      write (filename,'(a, i5.5, a)') 'jorek', i, '.h5'
-      inquire (file=filename, exist=file_exists)
-      if (file_exists) write(*,'(i6)',advance='no') i
+    do i = 0, 999999
+      i_fmt = restart_file_exists(i)
+      if (i_fmt>0) write(*,'(i7)',advance='no') i
     end do
     write(*,*)
     
@@ -1060,6 +1050,7 @@ module exec_commands
 
     integer, intent(in) :: min_step, max_step
     character(len=2)    :: prefix
+    character(len=20)   :: init_string, end_string
 
     if ( loop_mode .eq. LOOP_S_MODE )  then 
       prefix='_s'
@@ -1068,9 +1059,11 @@ module exec_commands
     end if
 
     if ( min_step /= max_step ) then
-      write(step_range_string,'(a,i5.5,a,i5.5)') prefix, min_step, '..', max_step
+      write(init_string, rst_file_ind_fmt(1)) prefix, min_step
+      write(end_string,  rst_file_ind_fmt(1)) '..', max_step
+      write(step_range_string,'(a,a)') trim(init_string), trim(end_string)
     else
-      write(step_range_string,'(a,i5.5)') prefix, min_step
+      write(step_range_string,rst_file_ind_fmt(1)) trim(prefix), min_step
     end if
 
   end function step_range_string
@@ -1152,7 +1145,7 @@ module exec_commands
     do i = 1, node_list%n_nodes
       node_list%node(i)%values(:,:,:) = values(:,:,:,i) / total_weight
     end do
-    call export_restart(node_list, element_list, 'jorek99999', aux_node_list)
+    call export_restart(node_list, element_list, 'jorek_average', aux_node_list)
     deallocate(values)
     
   end subroutine average_h5_finalize
@@ -1759,7 +1752,8 @@ module exec_commands
     logical, optional, intent(in)   :: flux_av     !< Perform proper flux average
     
     ! --- Local variables
-    integer :: units, npts, nsmall, i_exp
+    integer :: units, npts, nsmall, i_exp, nmaxstep
+    real*8  :: deltaphi, PsiNmin, PsiNmax
     character(len=1024) :: filename, comment
     type(t_pol_pos_list), save :: pol_pos_list
     type(t_tor_pos_list), save :: tor_pos_list
@@ -1771,16 +1765,20 @@ module exec_commands
     call check_step_imported(ierr);          if ( ierr /= 0 ) return
     call check_exprs_selected(ierr);         if ( ierr /= 0 ) return
     
-    units = get_int_setting('units', ierr)
-    npts  = get_int_setting('surfaces', ierr)
-    nsmall= get_int_setting('nsmallsteps', ierr)
+    units    = get_int_setting('units', ierr)
+    npts     = get_int_setting('surfaces', ierr)
+    nsmall   = get_int_setting('nsmallsteps', ierr)
+    nmaxstep = get_int_setting('nmaxsteps', ierr)
+    deltaphi = get_float_setting('deltaphi', ierr)
+    PsiNmin  = get_float_setting('rad_range_min', ierr)
+    PsiNmax  = get_float_setting('rad_range_max', ierr)
     
     write(filename,'(4a)') trim(DIR), 'exprs_averaged',                                                  &
       trim(step_range_string(loop_min_step,loop_max_step)), '.dat'
     
     ! ### is nTht and nphi really chosen well???
     pol_pos_list = pol_pos(node_list, element_list, ES, nPsiN=npts, nTht=max(150,6*n_plane),                &
-      nsmallsteps=nsmall)
+      nsmallsteps=nsmall, nmaxsteps=nmaxstep, deltaphi=deltaphi, PsiNmax=PsiNmax, PsiNmin=PsiNmin )
     tor_pos_list = tor_pos(nphi=max(n_plane,2))
 
     if (present(flux_av)) then
@@ -2203,9 +2201,71 @@ module exec_commands
    
   end subroutine int3D
   
+
+
+
+
+
+  !> Output energies distributed among mode families. This routine is intended for use with stellarator models.
+  !!
+  !! The magnetic and kinetic energies are integrated over the plasma volume and separated into the configuration
+  !! mode families (see: C. Schwab 1993 Phys. Fluids B 5 3195-206 Section III)
+  subroutine energy3d(command, first_step, ierr)
+    
+    use mod_energy3D
+
+    ! --- Routine parameters
+    type(type_command), intent(in)  :: command     !< Command to be executed
+    logical,            intent(in)  :: first_step  !< First time step of a for loop?
+    integer,            intent(out) :: ierr        !< Error flag
+    
+    ! --- Local variables
+    integer :: i_file, i, i_mode_family, units
+    real*8, dimension(1+int(n_coord_period/2)) :: Wmag, Wkin
+    character(len=1024) :: filename, status, access
+
+    ierr = 0
+
+    ! --- Some checks
+    call check_args(command%n_args,ierr,0,1);  if ( ierr /= 0 ) return
+    call check_step_imported(ierr);            if ( ierr /= 0 ) return
+    units = get_int_setting('units', ierr)
+  
+    ! Open file
+    write(filename,'(4a)') trim(DIR), 'energies3D', trim(step_range_string(loop_min_step,loop_max_step)), '.dat'
+    status = 'replace'; access = 'sequential'
+    if ( .not. first_step ) then
+      status = 'old'; access = 'append'
+    end if
+    i_file=133
+    open(i_file, file=trim(filename), form='formatted', status=trim(status), access=trim(access), iostat=ierr)
+    
+    ! Set header for file
+    if ( first_step ) then
+      write(i_file,'(a)',advance='no') '# time                   '
+      ! List toroidal mode families in header
+      do i_mode_family = 1,1+int(n_coord_period/2)
+        write(i_file,'(A7,",",I2.2,A2,1x)',advance='no') '"E_{mag', i_mode_family - 1, '}"'
+      end do
+      do i_mode_family = 1,1+int(n_coord_period/2)
+        write(i_file,'(A7,",",I2.2,A2,1x)',advance='no') '"E_{kin', i_mode_family - 1, '}"'
+      end do
+      write(i_file,'(a)')
+    end if
+ 
+    ! Compute energy in mode families
+    call energy3d_new(node_list,element_list,Wmag(:),Wkin(:))        
+
+    ! Output time step to file
+    write(i_file,'(12E18.8)')  time_now, Wmag(:), Wkin(:)
+    close(i_file)
+   
+  end subroutine energy3d
   
   
  
+
+
 
   !> Output current density normal to the jorek boundary as a function of Rbnd
   !! and Zbnd
@@ -2453,7 +2513,7 @@ module exec_commands
     
     ! --- Find the PsiN locations
     npsi = 0
-    do i = 1, npts-1
+    do i = 2, npts-1  ! to avoid first and last point of q-profile which often is bad especially the first point is always zero
       if ( (q(i)-qvalue)*(q(i+1)-qvalue) < 0.d0 ) then ! is it between these two points?
         npsi = npsi + 1
         psi_values(npsi) = surface_list%psi_values(i) + ( surface_list%psi_values(i+1)-surface_list%psi_values(i) ) * (qvalue-q(i))/(q(i+1)-q(i))
@@ -2867,7 +2927,7 @@ module exec_commands
     real*8, dimension(n_gauss,n_gauss) :: x_g,   x_s,   x_t,   x_ss,   x_tt,   x_st
     real*8, dimension(n_gauss,n_gauss) :: y_g,   y_s,   y_t,   y_ss,   y_tt,   y_st
     integer :: dim0, dim1, dim2, only_itor
-    character(len=64)       :: file_name, label 
+    character(len=64)       :: file_name, label, tmp_name1, tmp_name2 
     integer   :: required,provided,StatInfo
 #ifdef USE_FFTW
     real*8     :: in_fft(1:n_plane)
@@ -3437,7 +3497,9 @@ module exec_commands
     write(*,*) ''
     write(*,*) '  Writing non-zero terms to vtk...'
   
-    write (file_name,'(2a, i5.5, a)') trim(DIR),'RHS.', index_start, '.vtk'
+    write (tmp_name1,'(a,a)') trim(DIR), 'RHS.'
+    write (tmp_name2,rst_file_ind_fmt(1)) trim(tmp_name1), index_start
+    write (file_name,'(a,a)') trim(tmp_name2), '.vtk'
     call write_vtk(file_name,xyz,ien,9,scalar_names,scalars)
   
     write(*,*) '  Finished writing vtk'
@@ -3452,7 +3514,7 @@ module exec_commands
 #endif  
 
   end subroutine RHS_terms_vtk   
-  
+ 
   !> Output the separatrix.
   recursive subroutine separatrix(command, ierr, R_sep, Z_sep)
   

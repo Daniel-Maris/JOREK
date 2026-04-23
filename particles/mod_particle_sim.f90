@@ -57,8 +57,9 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
   use mod_mpi_tools,     only: init_mpi_threads
   use mod_mpi_tools,     only: get_mpi_wtime
   use mod_parameters,    only: n_tor, n_period
-  use phys_module,       only: mode
+  use phys_module,       only: mode, domm
   use basis_at_gaussian, only: initialise_basis
+  use mod_chi,           only: init_chi_basis
   use data_structure,    only: init_threads, nbthreads
   !$ use omp_lib
   class(particle_sim), intent(inout) :: sim
@@ -103,6 +104,9 @@ subroutine initialize(sim,num_groups,skip_jorek2help,my_id,n_cpu,do_jorek_init_i
 
     ! Initialise the gaussian points at basis functions
     call initialise_basis
+
+    ! --- Initialize basis functions for the Dommaschk potentials
+    if (domm) call init_chi_basis()
   endif
 end subroutine
 
@@ -127,11 +131,11 @@ end subroutine
 !>   sim: (particle_sim) the particle simulation
 subroutine set_t_norm(sim)
   use phys_module, only: central_mass, central_density
-  use constants, only: MU_ZERO, MASS_PROTON
+  use constants, only: MU_ZERO, ATOMIC_MASS_UNIT
   implicit none
   ! input-outputs
   class(particle_sim), intent(inout) :: sim
-  sim%t_norm = sqrt(MU_ZERO * central_mass * MASS_PROTON * central_density * 1.d20)
+  sim%t_norm = sqrt(MU_ZERO * central_mass * ATOMIC_MASS_UNIT * central_density * 1.d20)
 end subroutine set_t_norm
 
 !> this function returns the size of the particle group

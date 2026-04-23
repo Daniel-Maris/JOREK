@@ -64,6 +64,8 @@ module mod_sparse_data
 
     logical                     :: verbose = .true.                    !< flag for logfile printout
 
+    logical                     :: projection = .false.                !< flag to set ONLY if using with the project particles module, it assumes matrix assembled only on rank zero and multiple rhs, use with care
+
   contains
     procedure :: setup
     procedure :: finalize
@@ -108,11 +110,15 @@ module mod_sparse_data
 #ifdef USE_STRUMPACK
     use mod_strumpack, only: strumpack_finalize
 #endif
+    use mpi 
     implicit none
 
     class(type_SP_SOLVER)     :: self
+    integer                   :: my_id, ierr 
 
-    if (self%verbose) write(*,*) "Finalizing solver"
+    call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
+
+    if (self%verbose .and. (my_id .eq. 0)) write(*,*) "Finalizing solver"
 
 #if (defined USE_PASTIX) || (defined USE_PASTIX6)
     if (self%ptss%initialized) call pastix_finalize(self%ptss)
