@@ -1687,7 +1687,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
   use phys_module, only: central_mass, xpoint, xcase, min_sheath_angle, gamma, n_vertex_max, bcs, D_par, central_density
   use data_structure, only: type_node
   use diffusivities, only: get_dperp
-  use equil_info, only: get_psi_n, get_dperp
+  use equil_info, only: get_psi_n
   use constants, only: MU_ZERO, ATOMIC_MASS_UNIT
   
   type(wall_action),  intent(inout) :: this
@@ -1704,7 +1704,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
   real*8 :: c_angle !< min_sheath_angle but then in radians, same as in mod_boundary_matrix_open
 
   real*8 :: psi_axis, R_axis, Z_axis, s_axis, t_axis, psi_xpoint(2), psi_limit, R_xpoint(2), Z_xpoint(2), s_xpoint(2), t_xpoint(2)
-  integer :: i_elm_axis, ifail, i_elm_xpoint(2)
+  integer :: i_elm_axis, ifail, i_elm_xpoint(2), ierr
   integer :: n_dirichlet_BC_nodes, n_sheath_BC_nodes, n_grad0_BC_nodes, inode, inodes(n_vertex_max)
 
   c_angle = min_sheath_angle * PI/180.d0
@@ -1748,7 +1748,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
 #endif
     !$omp private(i, n_e, T_e, vpar, grad_n_e, E, B, psi, U, psi_norm, vector_normal, B_hat, cos_alpha, grad_par_n_e, q, T_i, mass_ion, c_s, Gamma_d, &
     !$omp         Gamma_convective, yield, inodes, inode, node, n_dirichlet_BC_nodes, n_sheath_BC_nodes, n_grad0_BC_nodes, &
-    !$omp         D_par_si, D_perp_si) schedule(static)
+    !$omp         D_par_si, D_perp_si, ierr) schedule(static)
     do i = 1, size(this%fluid_yield_integral%patch(i_patch)%xyz, 2) !< over all nodes
       call sim%fields%calc_NeTevpar(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
         real(this%fluid_yield_integral%patch(i_patch)%xyz(3,i), 8), n_e, T_e, vpar, grad_n_e=grad_n_e)
@@ -1813,7 +1813,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
         !$omp critical
         write(*,*) "ERROR: in mod_particle_wall_interaction, it should be impossible to end up in this place in the if, else if tree"
         !$omp end critical
-        call MPI_Abort(MPI_COMM_WORLD, 32, IERR)
+        call MPI_Abort(MPI_COMM_WORLD, 32, ierr)
       end if
       
       ! Assume an impact angle of 0!
