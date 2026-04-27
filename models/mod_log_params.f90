@@ -292,6 +292,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,INTG_FMT) 'n_up_priv             ', n_up_priv
     write(*,INTG_FMT) 'n_up_leg              ', n_up_leg
     write(*,INTG_FMT) 'n_up_leg_out          ', n_up_leg_out
+    write(*,REAL_FMT) 'xr_closed             ', xr_closed
     write(*,REAL_FMT) 'SIG_closed            ', SIG_closed
     write(*,REAL_FMT) 'SIG_open              ', SIG_open
     write(*,REAL_FMT) 'SIG_private           ', SIG_private
@@ -520,6 +521,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,CHAR_FMT) 'D_perp_imp_file       ', trim(D_perp_imp_file)
   end if
 #endif
+  if ( num_v_pinch ) then
+    write(*,CHAR_FMT) 'v_pinch_file          ', trim(v_pinch_file)
+  else
+    write(*,REAL_FMT) 'V_pinch_gauss         ', V_pinch_gauss
+    write(*,REAL_FMT) 'V_pinch_psin          ', V_pinch_psin
+    write(*,REAL_FMT) 'V_pinch_sig           ', V_pinch_sig
+  end if
   write(*,REAL_FMT) 'particlesource        ', particlesource
   write(*,REAL_FMT) 'particlesource_psin   ', particlesource_psin
   write(*,REAL_FMT) 'particlesource_sig    ', particlesource_sig
