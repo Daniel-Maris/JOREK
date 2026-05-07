@@ -20,9 +20,18 @@ module data_structure
   real*8     :: pressure(n_degrees)                     !< scalar pressure from GVEC
   real*8     :: j_field(n_coord_tor,n_degrees,n_dim+1)  !< current density R, Z, phi components from GVEC
   real*8     :: b_field(n_coord_tor,n_degrees,n_dim+1)  !< magnetic field  R, Z, phi components from GVEC
+#elif defined(USE_EXT_FIELD)
+  ! Model183 with USE_EXT_FIELD: need b_field for full equilibrium field interpolation
+  real*8     :: b_field(n_coord_tor,n_degrees,n_dim+1)  !< magnetic field  R, Z, phi components from model180 equilibrium
 #endif
 #ifndef USE_DOMM
-  real*8     :: chi_correction(n_coord_tor,n_degrees)   !< correction to the vacuum magnetic field
+#ifdef USE_EXT_FIELD
+  real*8     :: b_vac_field(n_coord_tor,n_degrees,n_dim+1)  !< vacuum magnetic field  R, Z, phi components from gvec2jorek file
+#else
+  real*8     :: chi_correction(n_coord_tor,n_degrees)       !< correction to the vacuum magnetic field
+#endif
+#else
+  real*8     :: b_vac_field(n_coord_tor,n_degrees,n_dim+1)  !< vacuum magnetic field from GVEC for SBC n.B
 #endif 
   real*8     :: j_source(n_tor,n_degrees)               !< Current source in a stellarator
 #elif fullmhd
