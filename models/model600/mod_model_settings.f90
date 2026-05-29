@@ -6,7 +6,7 @@ implicit none
 logical, parameter :: with_vpar       = .true.
 logical, parameter :: with_TiTe       = .false.
 logical, parameter :: with_neutrals   = .false. 
-logical, parameter :: with_impurities = .true.
+logical, parameter :: with_impurities = .false.
 logical, parameter :: with_refluid    = .false. ! not yet possible to switch
 
 
@@ -78,11 +78,11 @@ integer,  parameter :: n_terms_psi  = 5
 integer,  parameter :: n_terms_u    = 11
 integer,  parameter :: n_terms_zj   = 1
 integer,  parameter :: n_terms_w    = 1
-integer,  parameter :: n_terms_rho  = 12
+integer,  parameter :: n_terms_rho  = 13
 integer,  parameter :: n_terms_T    = 21
 integer,  parameter :: n_terms_Te   = 19
 integer,  parameter :: n_terms_Ti   = 14
-integer,  parameter :: n_terms_vpar = 10
+integer,  parameter :: n_terms_vpar = 11
 integer,  parameter :: n_terms_rhon = 7
 integer,  parameter :: n_terms_rhoimp = 10
 
@@ -125,7 +125,8 @@ character*36, dimension(n_terms_u),     parameter :: u_term_names=  &
                                                  'rho_Eq__recombination    ', &  !  9:
                                                  'rho_Eq__zeta_time_evol   ', &  ! 10:
                                                  'rho_Eq__Dperp_num_term   ', &  ! 11:
-                                                 'rho_Eq__tg_num_term      '/)   ! 12:
+                                                 'rho_Eq__tg_num_term      ', &  ! 12:
+                                                 'rho_Eq__inward_pinch     '/)  ! 13:
 
 character*36, dimension(n_terms_T),     parameter :: T_term_names=  &
                                               (/ 'T_Eq__ext_heat_source  ', &  !  1:
@@ -198,7 +199,8 @@ character*36, dimension(n_terms_vpar),  parameter :: vpar_term_names=  &
                                                  'vpar_Eq__ionization_term  ', &  !  7:
                                                  'vpar_Eq__recombin_term    ', &  !  8:
                                                  'vpar_Eq__viscopar_term    ', &  !  9:
-                                                 'vpar_Eq__neoclassical_term'/)   ! 10:
+                                                 'vpar_Eq__neoclassical_term', &  ! 10:
+                                                 'vpar_Eq__inward_pinch     '/)   ! 11:
 
  character*36, dimension(n_terms_rhon), parameter :: rhon_term_names=  &
                                               (/ 'rhon_Eq__neutral_diffusion', &  !  1:
