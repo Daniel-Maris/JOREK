@@ -2017,24 +2017,28 @@ subroutine particle_projection_diagnostic(this, sim, particle, E, sputtering_yie
   !associate (sc => this%wall_projection%patch(i_patch)%scalars) ! associate is nice to make more readable but cannot be used in OMP before version 4.5 (so not in OneAPI's OMP)
   do k=1,4
     ! particle flux
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),1) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),1) + particle%weight * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),1) + (particle%weight/n_period) * area(k)/sum(area)**2
     
     ! particle heat flux on edge elements (including sheath potential)
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),2) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),2) + particle%weight * E * EL_CHG * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),2) + (particle%weight/n_period) * E * EL_CHG * area(k)/sum(area)**2
     
     ! particle flux from prompt redeposition (i.e. from particles younger than 2 pi / omega_c)
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),3) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),3) + particle%weight * is_prompt_loss * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),3) + (particle%weight/n_period) * is_prompt_loss * area(k)/sum(area)**2
     
     ! sputtering yield
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),4) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),4) + particle%weight * sputtering_yield * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),4) + (particle%weight/n_period) * sputtering_yield * area(k)/sum(area)**2
     
   end do
   !end associate
