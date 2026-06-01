@@ -84,7 +84,10 @@ subroutine gmres2_driver(a_mat,b,x,n,solver)
     b_(1) = rho
     b_(2:restart+1) = 0.d0
     nrit = restart-1
-    if (my_id.eq.0) write(*,*) "GMRES it. ", totit, "res = ", rho, "rel.res = ", rho/rho0, "restart!"
+    if (my_id.eq.0) then
+      write(*, "(A, X, I0, X, A, X, ES14.6, X, A, X, ES14.6)") "[GMRES] iteration", totit, "res =", rho, "rel.res =", rho/rho0
+      write(*, "(A)") "[GMRES] --- Restart ---"
+    endif
 
     do it = 1, restart
       totit = totit +1
@@ -141,7 +144,7 @@ subroutine gmres2_driver(a_mat,b,x,n,solver)
       b_(it+1) = -givens_s(it)*b_(it)
       b_(it) = givens_c(it)*b_(it)
       rho = abs(b_(it+1))
-      if (my_id.eq.0) write(*,"(A8,X,I4,X,A4,X,E14.6,X,A8,X,E14.6)") "GMRES it", totit, "res=", rho, "rel.res=", rho/rho0
+      if (my_id.eq.0) write(*, "(A, X, I0, X, A, X, ES14.6, X, A, X, ES14.6)") "[GMRES] iteration", totit, "res =", rho, "rel.res =", rho/rho0
       if ((rho < atol).or.(rho/rho0 < rtol).or.(totit >= maxit)) then
         no_conv = .false.
         nrit = it-1
