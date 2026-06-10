@@ -180,6 +180,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,*) 'off'
 #endif
 
+write(*,'(1x,a)',advance='no') ' USE_DOMM            : '
+#ifdef USE_DOMM
+  write(*,*) 'on  (Dommaschk-only vacuum field, no FE correction)'
+#else
+  write(*,*) 'off (GVEC import + FE correction for vacuum field)'
+#endif
+
   write(*,*)
   write(*,200)
   write(*,*) '* Hard-Coded Parameters:                                                      *'
