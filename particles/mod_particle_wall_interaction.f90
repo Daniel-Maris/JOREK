@@ -1690,7 +1690,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
   
   integer :: q, i, i_patch, Z
   real*8 :: vector_normal(3), cos_alpha, mass_ion, c_s, Gamma_d
-  real*8 :: T_i, T_e, n_e, yield, vpar
+  real*8 :: T_i, T_e, n_e, n_e_corr, yield, vpar
   real*8, dimension(3) :: E, B, B_hat
   real*8 :: m, psi, U
   real*8 :: c_angle !< min_sheath_angle but then in radians, same as in mod_boundary_matrix_open
@@ -1735,11 +1735,14 @@ subroutine project_sputter_vars_on_edge(this, sim)
     !$omp shared(this, sim, gamma, &
     !$omp i_patch, central_mass, psi_axis, psi_limit, c_angle) &
 #endif
-    !$omp private(i, n_e, T_e, vpar, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, m, Gamma_d, &
+    !$omp private(i, n_e, n_e_corr, T_e, vpar, E, B, psi, U, vector_normal, B_hat, cos_alpha, q, T_i, mass_ion, c_s, m, Gamma_d, &
     !$omp         yield, Z) schedule(static)
     do i = 1, size(this%fluid_yield_integral%patch(i_patch)%xyz, 2) !< over all nodes
-      call sim%fields%calc_NeTevpar(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
-        real(this%fluid_yield_integral%patch(i_patch)%xyz(3,i), 8), n_e, T_e, vpar)
+      call sim%fields%calc_NeTeTi(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
+        real(this%fluid_yield_integral%patch(i_patch)%xyz(3,i), 8), n_e_corr, T_e, T_i, n_e_raw=n_e)
+
+      call sim%fields%calc_vpar(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
+        real(this%fluid_yield_integral%patch(i_patch)%xyz(3,i), 8), vpar)
       
       call sim%fields%calc_EBpsiU(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), &
            this%fluid_yield_integral%patch(i_patch)%st(:,i), &
@@ -1758,7 +1761,6 @@ subroutine project_sputter_vars_on_edge(this, sim)
       cos_alpha = abs(dot_product(vector_normal,B_hat))
         
       q = 1 ! for calculation of sound speed
-      T_i = T_e !< not made for model 400 [K]
       mass_ion = central_mass* ATOMIC_MASS_UNIT !< now we use only the deuterium soundspeed
       ! c_s = sqrt((k_boltz/mass_ion)*(T_e + gamma * T_i)) ! m/s !< gamma *(Te+Ti) in model303 and 307
       c_s = sqrt((k_boltz/mass_ion)*(gamma * (T_i+T_e))) !< IF model =303 / 307
@@ -1942,7 +1944,9 @@ subroutine particle_projection_diagnostic(this, sim, particle, E, sputtering_yie
   !> find in which patch the particle is lost
   i_patch = elm_in_patch(particle%i_elm, this%fluid_yield_integral)
   if (i_patch < 0) then
+    !$omp critical
     write(*,"(A,I8,5es15.5)") "ERROR: in particle_self_reflection elm_in_patch, particle lost to somewhere unknown i_elm,s,t,R,Z,phi",particle%i_elm,particle%st,particle%x
+    !$omp end critical
     return
   end if
 

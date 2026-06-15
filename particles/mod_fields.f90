@@ -23,7 +23,7 @@ module mod_fields
     procedure(interp_PRZ_2), deferred, public  :: interp_PRZ_2
     procedure(interp_PRZP_1), deferred, public :: interp_PRZP_1
     procedure, public :: calc_NeTe
-    procedure, public :: calc_NeTevpar
+    procedure, public :: calc_vpar
     procedure, public :: calc_NeTeTi
     procedure, public :: calc_NjTj
     procedure, public :: calc_EBpsiU
@@ -366,39 +366,25 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 end subroutine calc_NeTeTi
 
 
-!> specific subroutine to match the normalisation used in mod_boundary_matrix_open on the fluid side
-! internally calls calc_NeTeTi
-subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_T_e)
+!> calculate vpar in si units (note that it should still be multiplied by the norm of the B field to be si)
+subroutine calc_vpar(fields, time, i_elm, st, phi, vpar)
   use phys_module, only: central_density, central_mass
   use constants
   class(fields_base), intent(in)                    :: fields
   integer, intent(in)                               :: i_elm
   real*8, intent(in)                                :: time, st(2), phi
-  real*8, intent(out)                               :: n_e !< electron density [m^-3]
-  real*8, intent(out)                               :: T_e !< electron temperature [K]
   real*8, intent(out)                               :: vpar !< parallel velocity [m/s / T] (multiply by norm2(B) still to get [m/s])
-  real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of electron temperature [K/m]
-  
 
   real*8, dimension(1) :: P, P_s, P_t, P_phi, P_time
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
-  real*8               :: T_norm !< temperature normalisation
   real*8               :: v_norm !< vpar normalisation
-  real*8               :: n_e_tmp, n_e_raw, grad_T_e_loc(3)
-
-  call calc_NeTeTi(fields, time, i_elm, st, phi, n_e_tmp, T_e, n_e_raw=n_e_raw, grad_T_e=grad_T_e_loc)
-
-  ! use same protection against negative values as the sheath BC in mod_boundary_matrix_open
-  n_e = n_e_raw ! plasma density [1/m^3]
-  
-  if (present(grad_T_e)) grad_T_e = grad_T_e_loc
 
   call fields%interp_PRZ(time,i_elm,[var_vpar],1,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 
   v_norm = 1.d0/sqrt(MU_ZERO*central_mass*central_density*1.d20*atomic_mass_unit)
-  vpar = P(1)*v_norm !note that it should still be multiplied by the norm of the B field to be si
+  vpar = P(1)*v_norm
 
-end subroutine calc_NeTevpar
+end subroutine calc_vpar
 
 !> Calculate densities and temperature(s) for all species including ions
 !> For impurities, coronal equilibrium is assumed. Note that you will need adas data to be initialized first
