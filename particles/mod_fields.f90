@@ -284,8 +284,6 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
   real*8               :: tmp_g(3)
   integer              :: ii_Ti, ii_Te
   logical              :: need_Ti, need_grad
-  real*8, parameter    :: N_FLOOR = 1.d16
-  real*8, parameter    :: T_FLOOR = 1.d0
   real*8, parameter    :: EPS     = 1.d-12
 
   ! normalizations
