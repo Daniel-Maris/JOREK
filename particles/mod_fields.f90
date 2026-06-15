@@ -260,8 +260,9 @@ end subroutine calc_NeTe
 subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
                             n_e,T_e,T_i,                                &
                             n_e_raw,T_e_raw,T_i_raw,                    &
-                            grad_T_e,grad_T_i)
+                            grad_raw_n_e,grad_T_e,grad_T_i)
   use phys_module, only: central_density
+  use corr_neg, only: corr_neg_dens, corr_neg_temp
   use constants
   class(fields_base), intent(in)                    :: fields
   integer, intent(in)                               :: i_elm
@@ -271,6 +272,7 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
   real*8, intent(out),  optional                    :: T_i                  !< corrected Ti [K]
   real*8, intent(out),  optional                    :: n_e_raw              !< raw ne [m^-3]
   real*8, intent(out),  optional                    :: T_e_raw, T_i_raw     !< raw Ti/Te [K]
+  real*8, intent(out),  optional, dimension(3)      :: grad_raw_n_e         !< grad raw ne [m^-4]
   real*8, intent(out),  optional, dimension(3)      :: grad_T_e, grad_T_i   !< grad(corrected Ti/Te) [K/m]
   
 #ifdef WITH_TiTe
@@ -296,7 +298,7 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 
   ! what do we actually need?
   need_Ti   = present(T_i) .or. present(T_i_raw) .or. present(grad_T_i)
-  need_grad = present(grad_T_i) .or. present(grad_T_e)
+  need_grad = present(grad_T_i) .or. present(grad_T_e) .or. present(grad_raw_n_e)
 
   ! interpolate fields
 #ifdef WITH_TiTe
@@ -345,22 +347,26 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
       if (present(grad_T_i)) grad_T_i = grad_of(ii_Ti, inv_xjac, inv_R, R_s, R_t, Z_s, Z_t, P_s, P_t, P_phi, T_norm)
       if (present(grad_T_e)) grad_T_e = grad_of(ii_Te, inv_xjac, inv_R, R_s, R_t, Z_s, Z_t, P_s, P_t, P_phi, T_norm)
     end if
+    
+    if(present(grad_raw_n_e)) grad_raw_n_e = grad_of(1, inv_xjac, inv_R, R_s, R_t, Z_s, Z_t, P_s, P_t, P_phi, n_norm)
+
   end if
+
   
   contains
 
     ! Helper function using suffix to avoid masking parent variables
     pure function grad_of(ii_, inv_xjac_, inv_R_, R_s_, R_t_, Z_s_, Z_t_, &
-                          P_s_, P_t_, P_phi_, T_norm_) result(g)
+                          P_s_, P_t_, P_phi_, norm_) result(g)
       integer, intent(in)             :: ii_
-      real*8, intent(in)              :: inv_xjac_, inv_R_, T_norm_
+      real*8, intent(in)              :: inv_xjac_, inv_R_, norm_
       real*8, intent(in)              :: R_s_, R_t_, Z_s_, Z_t_
       real*8, intent(in)              :: P_s_(:), P_t_(:), P_phi_(:)
       real*8                          :: g(3)
   
-      g(1) = T_norm_ * ((  P_s_(ii_) * Z_t_ - P_t_(ii_) * Z_s_) * inv_xjac_)
-      g(2) = T_norm_ * ((- P_s_(ii_) * R_t_ + P_t_(ii_) * R_s_) * inv_xjac_)
-      g(3) = T_norm_ * (   P_phi_(ii_) * inv_R_ )
+      g(1) = norm_ * ((  P_s_(ii_) * Z_t_ - P_t_(ii_) * Z_s_) * inv_xjac_)
+      g(2) = norm_ * ((- P_s_(ii_) * R_t_ + P_t_(ii_) * R_s_) * inv_xjac_)
+      g(3) = norm_ * (   P_phi_(ii_) * inv_R_ )
     end function grad_of
 
 end subroutine calc_NeTeTi
