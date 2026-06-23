@@ -73,13 +73,13 @@ enddo !n_mpi
 !if not allocated, allocate rec_variables of size (n_elements)
 if(.not. allocated(rec_rate_local)) then
   allocate(rec_rate_local(local_rec_elements(my_id+1), n_plane  )) !< local_rec_elements bcause it's local
-	allocate(rec_v_R(local_rec_elements(my_id+1), n_plane    ))
-	allocate(rec_v_Z(local_rec_elements(my_id+1), n_plane    ))
-	allocate(rec_v_phi(local_rec_elements(my_id+1), n_plane  ))
-	
-	allocate(volume_check(local_rec_elements(my_id+1), n_plane))
-	allocate(energy_neutrals(local_rec_elements(my_id+1), n_plane))
-	allocate(energy_radiation(local_rec_elements(my_id+1), n_plane))  
+  allocate(rec_v_R(local_rec_elements(my_id+1), n_plane    ))
+  allocate(rec_v_Z(local_rec_elements(my_id+1), n_plane    ))
+  allocate(rec_v_phi(local_rec_elements(my_id+1), n_plane  ))
+
+  allocate(volume_check(local_rec_elements(my_id+1), n_plane))
+  allocate(energy_neutrals(local_rec_elements(my_id+1), n_plane))
+  allocate(energy_radiation(local_rec_elements(my_id+1), n_plane))
 endif
 
 !> can now be done local?
@@ -197,18 +197,23 @@ enddo
 
         r0    = eq_g(mp,5,ms,mt)
         r0_corr = corr_neg_dens1(r0)
-      
-        T0    = eq_g(mp,6,ms,mt)
-        T0_corr = corr_neg_temp1(T0)
-      
-        vpar0    = eq_g(mp,7,ms,mt)
-    
-        !> Calculate 
-        call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)  
-        ! --- Transform derivatives on Te to derivatives in total T  
-        dSrec_dT           = dSrec_dT      / 2.d0  
+		
+#ifdef WITH_TiTe
+        T0       = eq_g(mp,var_Te,ms,mt)
+        T0_corr  = corr_neg_temp1(T0)
+        vpar0    = eq_g(mp,var_vpar,ms,mt)
+        call rec_rate_to_kinetic(r0, T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)
+#else
+        T0       = eq_g(mp,var_T,ms,mt)
+        T0_corr  = corr_neg_temp1(T0)
+        vpar0    = eq_g(mp,var_vpar,ms,mt)
+        call rec_rate_to_kinetic(r0, 0.5d0*T0, Sion_T, dSion_dT, Srec_T, dSrec_dT, LradDcont_T, dLradDcont_dT, LradDcont_corr, dLradDcont_dT_corr)
+
+        ! --- Transform derivatives on Te to derivatives in total T	
+        dSrec_dT           = dSrec_dT      / 2.d0	
         dLradDcont_dT      = dLradDcont_dT / 2.d0
         dLradDcont_dT_corr = dLradDcont_dT_corr / 2.d0
+#endif
     
         !> neutral density gain in element due to recombination
         rec_rate_local(ife,mp)   = rec_rate_local(ife,mp)+ (Srec_T * r0_corr * r0_corr)                                      *BigR *xjac *tstep * delta_phi *wst ! rho_rec
@@ -228,9 +233,18 @@ enddo
     call dealloc_node(nodes(iv))
   enddo
 
-  !write(50+my_id,*) "ife,ielm,volume_check(ife)",ife, ielm, volume_check(ife)
 enddo !ife
 !$omp end parallel do
+
+! --- Volume integrals above were over wedge from 0 to (2 * PI) / n_period
+! --- We need to account for all n_period wedges
+rec_rate_local   = n_period * rec_rate_local
+rec_v_R          = n_period * rec_v_R
+rec_v_Z          = n_period * rec_v_Z
+rec_v_phi        = n_period * rec_v_phi
+volume_check     = n_period * volume_check
+energy_neutrals  = n_period * energy_neutrals
+energy_radiation = n_period * energy_radiation
 
 !return
 end subroutine

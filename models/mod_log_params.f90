@@ -186,6 +186,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,*) 'off'
 #endif
 
+write(*,'(1x,a)',advance='no') ' USE_DOMM            : '
+#ifdef USE_DOMM
+  write(*,*) 'on  (Dommaschk-only vacuum field, no FE correction)'
+#else
+  write(*,*) 'off (GVEC import + FE correction for vacuum field)'
+#endif
+
   write(*,*)
   write(*,200)
   write(*,*) '* Hard-Coded Parameters:                                                      *'
@@ -298,6 +305,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,INTG_FMT) 'n_up_priv             ', n_up_priv
     write(*,INTG_FMT) 'n_up_leg              ', n_up_leg
     write(*,INTG_FMT) 'n_up_leg_out          ', n_up_leg_out
+    write(*,REAL_FMT) 'xr_closed             ', xr_closed
     write(*,REAL_FMT) 'SIG_closed            ', SIG_closed
     write(*,REAL_FMT) 'SIG_open              ', SIG_open
     write(*,REAL_FMT) 'SIG_private           ', SIG_private
@@ -428,6 +436,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
   write(*,LOGI_FMT) 'extended_boundary     ', extended_boundary
   write(*,REAL_FMT) 'j_cutoff_rcoord       ', j_cutoff_rcoord
   write(*,REAL_FMT) 'j_cutoff_sig          ', j_cutoff_sig
+  write(*,REAL_FMT) 'bloating_factor       ', bloating_factor
 
   if ( (abs(V_0) .ge. 1.d-19) .or. (num_rot) ) then
      write(*,LOGI_FMT) 'normalized_velocity_profile', normalized_velocity_profile
@@ -527,6 +536,13 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,CHAR_FMT) 'D_perp_imp_file       ', trim(D_perp_imp_file)
   end if
 #endif
+  if ( num_v_pinch ) then
+    write(*,CHAR_FMT) 'v_pinch_file          ', trim(v_pinch_file)
+  else
+    write(*,REAL_FMT) 'V_pinch_gauss         ', V_pinch_gauss
+    write(*,REAL_FMT) 'V_pinch_psin          ', V_pinch_psin
+    write(*,REAL_FMT) 'V_pinch_sig           ', V_pinch_sig
+  end if
   write(*,REAL_FMT) 'particlesource        ', particlesource
   write(*,REAL_FMT) 'particlesource_psin   ', particlesource_psin
   write(*,REAL_FMT) 'particlesource_sig    ', particlesource_sig
@@ -1048,6 +1064,7 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
     write(*,*) "  use_ncs               = ", use_ncs
     write(*,*) "  use_ics               = ", use_ics
     write(*,*) "  use_rep               = ", use_rep
+    write(*,*) "  use_epf               = ", use_epf
     write(*,*) "  use_kin_recomb_global = ", use_kin_recomb_global
 
     write(*,HEADER_FMT) '=========== Particle Groups ============'
@@ -1122,11 +1139,19 @@ write(*,'(1x,a)',advance='no') ' USE_CATALYST : '
 
       ! rep (runaway electrons, only pressure coupling for now) -----
       if (sim%groups(group_num)%coupling_scheme .eq. 'rep') then
-        write(*,REAL_FMT) 'n_re,                   ',part_group_configs(group_num)%num_re
+        write(*,REAL_FMT) 'num_re,                 ',part_group_configs(group_num)%num_re
         write(*,REAL_FMT) 're_energy,              ',part_group_configs(group_num)%re_energy
         write(*,REAL_FMT) 're_std_energy,          ',part_group_configs(group_num)%re_std_energy
         write(*,REAL_FMT) 're_pitch,               ',part_group_configs(group_num)%re_pitch
-      endif     
+      endif
+
+      ! epf (energetic particles, full pressure tensor coupling)
+      if (sim%groups(group_num)%coupling_scheme .eq. 'epf') then
+        write(*,REAL_FMT) 'T_maxwell,              ',part_group_configs(group_num)%T_maxwell
+        write(*,INTG_FMT) 'n_phi_planes,           ',part_group_configs(group_num)%n_phi_planes
+        write(*,REAL_FMT) 'n_particles_total,      ',part_group_configs(group_num)%n_particles_total
+        write(*,INTG_FMT) 'proj_collection_period, ',proj_collection_period
+      endif
 
 
       ! wall interactions

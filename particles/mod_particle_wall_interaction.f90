@@ -1039,8 +1039,8 @@ subroutine fluid2part_action(this, sim)
   integer :: j, i_p, n_supers, n_supers_loc, i_rng
   integer :: q, Z
   real*8 :: E !< [eV] particle energy  (eV because of eckstein coeffs).
-  real*8 :: n_e, T_e, T_eV
-  real*8,  allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_supers_loc), (2,n_supers_loc), (3,n_supers_loc)
+  real*8 :: n_e, T_e, T_i, Te_eV, Ti_eV
+  real*8,  allocatable :: xyz_sampled(:,:), st_sampled(:,:), rng_sample(:,:) !< (3,n_supers_loc), (2,n_supers_loc), (6,n_supers_loc)
   integer, allocatable :: i_elm_sampled(:) !< (n_supers_loc)
   logical :: do_main !> whether to do the main calculation (we can't just return early because that breaks the MPI_REDUCE at the end of the subroutine)
 
@@ -1082,7 +1082,7 @@ subroutine fluid2part_action(this, sim)
   end if
   
   if(do_main) then  
-    allocate(rng_sample(3,size(i_free)))
+    allocate(rng_sample(6,size(i_free)))
     allocate(xyz_sampled(3,size(i_free)))
     allocate(st_sampled(2,size(i_free)))
     allocate(i_elm_sampled(size(i_free)))
@@ -1110,7 +1110,7 @@ subroutine fluid2part_action(this, sim)
     q = min(q, 4) ! limit to 4 for divertor conditions
     Z = this%fluid_Z
 
-    call sample_edge_elements(this%fluid_yield_integral, this%res, 1, n_supers_loc, rng_sample(1:2,:), xyz_sampled, st_sampled, i_elm_sampled)
+    call sample_edge_elements(this%fluid_yield_integral, this%res, 1, n_supers_loc, rng_sample(1:3,:), xyz_sampled, st_sampled, i_elm_sampled)
 
     if (sim%my_id .eq. 0) then
       write(*,"(A,i8,A,A,A,A,A,i2,3A,i2,A,es16.6,A,es16.6)") "fluid2wall will create ", n_supers," ", element_symbols(sim%groups(this%target_group)%Z),&
@@ -1127,7 +1127,7 @@ subroutine fluid2part_action(this, sim)
     !$omp shared(this, sim, rng_sample, xyz_sampled, st_sampled, i_elm_sampled, i_free, &
     !$omp q, Z, n_supers_loc, n_supers) &
 #endif
-    !$omp private(i_rng, j, E, T_e, T_eV, n_e, particle, i_p) &
+    !$omp private(i_rng, j, E, T_e, T_i, Te_eV, Ti_eV, n_e, particle, i_p) &
     !$omp reduction(+:diagnostics)
     i_rng = 1
     !$ i_rng = omp_get_thread_num()+1
@@ -1154,13 +1154,22 @@ subroutine fluid2part_action(this, sim)
       particle%weight = this%domain_integral/n_supers
 
       ! Calculate temperature at this position to determine particle energy
-      call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e, T_e)
-      T_eV = T_e * K_BOLTZ / EL_CHG
+#ifdef WITH_TiTe
+      call sim%fields%calc_NeTeTi(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e, T_i=T_i)
+      Ti_eV = T_i * K_BOLTZ / EL_CHG
+#else
+      call sim%fields%calc_NeTe(sim%time, i_elm_sampled(j), st_sampled(:,j), xyz_sampled(3,j), n_e=n_e, T_e=T_e)
+#endif
+      Te_eV = T_e * K_BOLTZ / EL_CHG
 
       select case(trim(this%type))
       case("wall recomb")
         ! determine E
-        call sample_fluid_particle_energy(T_eV, rng_sample(1:3,j), Z, E)
+#ifdef WITH_TiTe
+        call sample_fluid_particle_energy(Te_eV, rng_sample(4:6,j), Z, E, Ti_eV=Ti_eV)
+#else
+        call sample_fluid_particle_energy(Te_eV, rng_sample(4:6,j), Z, E)
+#endif
 
         ! determine outcoming particle
         call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "reflection")
@@ -1185,9 +1194,12 @@ subroutine fluid2part_action(this, sim)
         ! work at a fixed energy of 3 q T_e + 2 T_i, so we don't need to do this
         ! anymore. The extension to realistic IEDFs should be done later, so 
         ! I've kept some of the code around.
-
-        E = 2 * T_eV !< from the bohm criterion, E = E_sheath_entrance + E_sheath_acceleration = 2 T_i + 3 q T_e, but for now T_i = T_e
+#ifdef WITH_TiTe
+        E = 2 * Ti_eV
+#else
+        E = 2 * Te_eV !< from the bohm criterion, E = E_sheath_entrance + E_sheath_acceleration = 2 T_i + 3 q T_e, but for now T_i = T_e
         ! so E_sheath_entrance  = 2 T_i = 2 T, and E_sheath_acceleration will be added later
+#endif
         call single_self_interaction(this, sim, particle, this%rng(i_rng), diagnostics, E, "self sputter", .true.)
 
         ! Non-implemented alternative to the above method:
@@ -1332,11 +1344,11 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   character(len=*),  optional,             intent(in)    :: type_in            !< type of single interaction (either "self sputter" or "reflection") (if not specified will be set to this%type) 
   logical,           optional,             intent(in)    :: weight_preadjusted !< whether the weight was already adjusted beforehand to take the yield into account (true) or not (false, default)
 
-  real*8 :: n_e, T_e, theta
+  real*8 :: n_e, T_e, T_i, theta
   real*8 :: E !<[eV] particle energy. E is in [eV] in this subroutine, because of eckstein coeffs.
   real*8 :: vector_normal(3)
   logical :: fast_reflection !< whether the reflection is a fast reflection or a thermal desorption (not that release is instant, but the energy of the reflected particle is different)
-  real*8 :: yield, energy_coeff, T_eV, fast_reflect_chance, v_new
+  real*8 :: yield, energy_coeff, Te_eV, Ti_eV, fast_reflect_chance, v_new
   real*8 :: u(2), p_kill(1)
   character(len=20) :: local_type !< which single particle interaction to do, used to call self interaction from within fluid2part_action (=type_in if present, else =this%type)
   logical :: skip_yield !< if weight_preadjusted = true, then the yield calculation should be skipped
@@ -1378,7 +1390,7 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
   ! impact angles as well
   theta = 0.d0 
   !> old theta 
-  ! theta = acos(dot_product(-vector_normal,particle%v)/norm2(particle%v))*180.d0/PI !< acos gives results in radians
+  !theta = acos(dot_product(-vector_normal,particle%v)/norm2(particle%v))*180.d0/PI !< acos gives results in radians
   ! ! theta must be in degrees as the theta_star is also in degrees
   ! if (abs(theta) .gt. 91) then
   !   ! This is like an assert, it cannot really happen... but it does
@@ -1389,9 +1401,15 @@ subroutine single_self_interaction(this, sim, particle, rng, diagnostics, E_in, 
 
   if (trim(local_type) /= "pump") then
     ! Update the particle energy from the potential drop in the sheath
-    call sim%fields%calc_NeTe(sim%time, particle%i_elm, particle%st, particle%x(3), n_e, T_e)
-    T_eV = T_e*K_BOLTZ/EL_CHG
-    E = E + simple_potential_drop(int(particle%q,4),T_eV)
+#ifdef WITH_TiTe
+    call sim%fields%calc_NeTeTi(sim%time, particle%i_elm, particle%st, particle%x(3), n_e=n_e, T_i=T_i, T_e=T_e)
+    Ti_eV = T_i * K_BOLTZ / EL_CHG
+#else
+    call sim%fields%calc_NeTeTi(sim%time, particle%i_elm, particle%st, particle%x(3), n_e=n_e, T_e=T_e)
+#endif
+    Te_eV = T_e * K_BOLTZ / EL_CHG
+  
+    E = E + simple_potential_drop(int(particle%q,4),Te_eV)
   end if
 
   ! store this particle's contribution to incoming particle, heatflux and flux onto the wall
@@ -1821,21 +1839,30 @@ end subroutine project_sputter_vars_on_edge
 !> 3. Calculate new parallel energy from the square of E +- cs, with + or - 50/50
 !> 4. Add all energies together
 !> 5. Correct for atomic weight, assuming all velocities are central_mass velocities
-pure subroutine sample_fluid_particle_energy(T_eV, u, Z_ion, E, E_threshold)
-  use phys_module, only: central_mass
+pure subroutine sample_fluid_particle_energy(Te_eV, u, Z_ion, E, E_threshold, Ti_eV)
+  use phys_module, only: central_mass, gamma
   use mod_sampling, only: sample_chi_squared_3
   use mod_atomic_elements, only: atomic_weights
 
-  real*8, intent(in)             :: T_eV !< Temperature in eV
+  real*8, intent(in)             :: Te_eV !< Electron temperature in eV
   real*8, intent(in)             :: u(3) !< random numbers for sampling
   integer, intent(in)            :: Z_ion
   real*8, intent(out)            :: E !< Energy in eV
   real*8, intent(in), optional   :: E_threshold !< Theshold energy in eV, not to sample particles below this energy
+  real*8, intent(in), optional  :: Ti_eV !< ion temperature (eV), optional
 
-  real*8                         :: beta, v
+  real*8                         :: beta, v, Ti_eV_local, fact
+
+  ! Use Ti if provided, otherwise fall back to Te
+  if (present(Ti_eV)) then
+    Ti_eV_local = Ti_eV
+  else
+    Ti_eV_local = Te_eV
+  end if
 
   ! Sample an energy at the local temperature
-  E = T_eV*0.5d0*sample_chi_squared_3(u(1)) ! in eV
+  E = Ti_eV_local*0.5d0*sample_chi_squared_3(u(1)) ! in eV
+
   ! Solve now for u = 1-sqrt(1-x) (CDF of beta(1,1/2) distribution)
   beta = 2.d0*u(2)-u(2)**2
   ! this is also the ratio between perpendicular and total energies
@@ -1847,7 +1874,8 @@ pure subroutine sample_fluid_particle_energy(T_eV, u, Z_ion, E, E_threshold)
   ! v = sqrt(2E/m) (+ or - with 50/50 prob)
   v = sign(sqrt(2.d0*E*EL_CHG*(1.d0-beta)/(central_mass*ATOMIC_MASS_UNIT)), u(3)-0.5d0) ! m/s
   ! the sound speed is sqrt(k (1+gamma) T/m) = sqrt(T_eV*EL_CHG/m)
-  v = v + sqrt(T_eV*EL_CHG/(central_mass*ATOMIC_MASS_UNIT)) ! m/s
+  ! gamma=1 is assumed, valid for cold dense plasma
+  v = v + sqrt(gamma*(Te_eV+Ti_eV_local)*EL_CHG/(central_mass*ATOMIC_MASS_UNIT)) ! m/s
   E = E * beta + 0.5d0 * central_mass*ATOMIC_MASS_UNIT * v**2 / EL_CHG
 
   E = E*sqrt(atomic_weights(Z_ion)/central_mass) ! correct for atomic weight
@@ -1989,24 +2017,28 @@ subroutine particle_projection_diagnostic(this, sim, particle, E, sputtering_yie
   !associate (sc => this%wall_projection%patch(i_patch)%scalars) ! associate is nice to make more readable but cannot be used in OMP before version 4.5 (so not in OneAPI's OMP)
   do k=1,4
     ! particle flux
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),1) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),1) + particle%weight * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),1) + (particle%weight/n_period) * area(k)/sum(area)**2
     
     ! particle heat flux on edge elements (including sheath potential)
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),2) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),2) + particle%weight * E * EL_CHG * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),2) + (particle%weight/n_period) * E * EL_CHG * area(k)/sum(area)**2
     
     ! particle flux from prompt redeposition (i.e. from particles younger than 2 pi / omega_c)
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),3) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),3) + particle%weight * is_prompt_loss * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),3) + (particle%weight/n_period) * is_prompt_loss * area(k)/sum(area)**2
     
     ! sputtering yield
+    ! (weight/n_period since we are only looking at the flux of one 1/n_period wedge)
     !$omp atomic
     this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),4) = &
-    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),4) + particle%weight * sputtering_yield * area(k)/sum(area)**2
+    this%wall_projection%patch(i_patch)%scalars(i_edge_nodes(k),4) + (particle%weight/n_period) * sputtering_yield * area(k)/sum(area)**2
     
   end do
   !end associate

@@ -43,6 +43,7 @@ use mod_coupling_settings, only: use_kin_recomb_global
 use mod_initialise_particles
 use equil_info
 use mod_output_file_routines, only: write_to_outputfile
+use mod_impurity,        only: init_imp_adas
 
 use phys_module, only: index_now
 use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
@@ -53,6 +54,7 @@ use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: apply_dirichlet_proj, part_group_configs, init_particles_only
 use phys_module, only: use_manual_random_seed, manual_seed
+use phys_module, only: use_imp_adas, nimp_bg 
 
 use mod_particle_group_id, only: matching_part_config_indices
 
@@ -114,6 +116,12 @@ else
   stop
 end if
 
+!> update and broadcast the equilibrium state
+if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
+call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
+call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
+call broadcast_equil_state(sim%my_id)
+
 ! setting up the particles
 if (restart_particles) then
   ! reading the particles from a file
@@ -124,12 +132,6 @@ if (restart_particles) then
   !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
   if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
-
-  !> is this needed for neutrals?
-  if (sim%my_id .eq. 0) call boundary_from_grid(sim%fields%node_list, sim%fields%element_list, bnd_node_list, bnd_elm_list, .false.)
-  call broadcast_boundary(sim%my_id, bnd_elm_list, bnd_node_list)
-
-  call update_equil_state(sim%my_id, sim%fields%node_list, sim%fields%element_list, bnd_elm_list, xpoint, xcase )
 
   call allocate_particles_for_sim(sim) ! populate the particle arrays in the particle groups
 
@@ -148,6 +150,16 @@ endif ! (restart_particles)
 
 ! Read Open ADAS data for plasma fluid
 if (deuterium_adas .and. use_kin_recomb_global) ad_deuterium =  read_adf11(sim%my_id,'96_h') !< move to core (jorek2_main for particles)
+
+#if (defined WITH_Impurities)
+  ! --- Read ADAS data and generate coronal equilibrium if needed
+  call init_imp_adas(sim%my_id)
+#else
+  if (use_imp_adas .and. (nimp_bg(1) > 0.d0)) then
+    call init_imp_adas(sim%my_id)
+  endif
+#endif
+
 
 ! --- Setting up random numbers for ionisation probability
 seed = random_seed()
@@ -463,27 +475,6 @@ pure function f_original(n, P, grad_P) result(f)
   f = coeff(3)*exp(-coeff(2)/coeff(1)*(tanh((sqrt(s)-coeff(0))/coeff(2))))
 
 end function f_original
-
-pure function f_toroidal_flux(n, P, grad_P) result(f)
-  integer, intent(in) :: n
-  real*8, intent(in) :: P(n), grad_P(3,n)
-  real*8 :: s, psi_norm, coeff(0:3)
-  real*4 :: f
-
-  ! central densiy should be 1.44131x10^17
-
-  coeff(0)=0.49123
-  coeff(1)=0.298228
-  coeff(2)=0.198739
-  coeff(3)=0.521298
-
-  psi_norm = max((P(1) - ES%Psi_axis) / ( ES%Psi_bnd - ES%Psi_axis),0.d0)
-
-  s = 0.957 * psi_norm + 0.043 * psi_norm**2 
-
-  f = coeff(3)*exp(-coeff(2)/coeff(1)*(tanh((sqrt(s)-coeff(0))/coeff(2))))
-
-end function f_toroidal_flux
 
 
 end program kinetic_main
