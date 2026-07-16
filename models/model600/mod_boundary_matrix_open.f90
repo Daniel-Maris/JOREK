@@ -345,15 +345,21 @@ do ms=1, n_gauss
 
             ! --- Sheath heat flux (c_angle for mininum heat fluxes at grazing angles)
             if (with_TiTe) then
-              rhs_ij(var_Ti)  = - v * (gamma_sheath_i-1.d0) * r0 * Ti0 * vpar0 * ps0_s * normal_sign3 * tstep &
-                                - v * (gamma_sheath_i-1.d0) * r0 * Ti0 * cs0    * BigR * dl * c_angle * tstep & 
+              ! rhs_ij(var_Ti)  = - v * (gamma_sheath_i-1.d0) * r0 * Ti0 * vpar0 * ps0_s * normal_sign3 * tstep &
+              !                   - v * (gamma_sheath_i-1.d0) * r0 * Ti0 * cs0    * BigR * dl * c_angle * tstep & 
+              rhs_ij(var_Ti)  = - v * (gamma_sheath_i-1.d0) * r0_corr * Ti0 * vpar0 * ps0_s * normal_sign3 * tstep &
+                                - v * (gamma_sheath_i-1.d0) * r0_corr * Ti0 * cs0    * BigR * dl * c_angle * tstep & 
                                 - v * (GAMMA - 1.d0) * vpar0 * visco_par_heating * gradvpar0dotn * BigR * dl  * tstep  
 
-              rhs_ij(var_Te)  = - v * (gamma_sheath_e-1.d0) * r0 * Te0 * vpar0 * ps0_s * normal_sign3 * tstep &
-                                - v * (gamma_sheath_e-1.d0) * r0 * Te0 * cs0  * BigR * dl * c_angle   * tstep  
+              ! rhs_ij(var_Te)  = - v * (gamma_sheath_e-1.d0) * r0 * Te0 * vpar0 * ps0_s * normal_sign3 * tstep &
+              !                   - v * (gamma_sheath_e-1.d0) * r0 * Te0 * cs0  * BigR * dl * c_angle   * tstep  
+              rhs_ij(var_Te)  = - v * (gamma_sheath_e-1.d0) * r0_corr * Te0 * vpar0 * ps0_s * normal_sign3 * tstep &
+                                - v * (gamma_sheath_e-1.d0) * r0_corr * Te0 * cs0  * BigR * dl * c_angle   * tstep  
             else
-              rhs_ij(var_T)   = - v * (gamma_sheath  -1.d0) * r0 * T0  * vpar0 * ps0_s * normal_sign3 * tstep &
-                                - v * (gamma_sheath  -1.d0) * r0 * T0  * cs0    * BigR * dl * c_angle * tstep & 
+              ! rhs_ij(var_T)   = - v * (gamma_sheath  -1.d0) * r0 * T0  * vpar0 * ps0_s * normal_sign3 * tstep &
+              !                   - v * (gamma_sheath  -1.d0) * r0 * T0  * cs0    * BigR * dl * c_angle * tstep & 
+              rhs_ij(var_T)   = - v * (gamma_sheath  -1.d0) * r0_corr * T0  * vpar0 * ps0_s * normal_sign3 * tstep &
+                                - v * (gamma_sheath  -1.d0) * r0_corr * T0  * cs0    * BigR * dl * c_angle * tstep & 
                                 - v * (GAMMA - 1.d0) * vpar0 * visco_par_heating * gradvpar0dotn * BigR * dl  * tstep  
             endif
 

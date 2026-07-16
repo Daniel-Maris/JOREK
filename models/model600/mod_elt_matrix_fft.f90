@@ -1191,6 +1191,9 @@ do i=1,n_vertex_max
 
           ! --- Particle diffusivities
           D_prof         = get_dperp (psi_norm)
+          ! D_prof = ((1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*get_dperp(psi_norm) & ! above xpoint
+          !            + (1-(1+tanh((y_g(ms,mt)-(Z_xpoint(1)+0.1))/0.03))/2)*(get_dperp(psi_norm)+1.d-6) ! below Xpoint
+
           V_prof_pinch   = get_vpinch(psi_norm) * sign(1.d0,psi_bnd-psi_axis)
           psi_grad2      = ps0_x**2 + ps0_y**2
           if (psi_grad2 < 1.d-30) psi_grad2 = 1.d-30

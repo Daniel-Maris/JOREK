@@ -4,7 +4,7 @@ module mod_particle_evolution
     use mod_model_settings
     use particle_tracer
     use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY
-    use phys_module, only: use_manual_random_seed, n_aux_var, part_kill_ratio, proj_collection_period
+    use phys_module, only: use_manual_random_seed, n_aux_var, part_kill_ratio, proj_collection_period, ne_SI_min
     use mod_coupling_settings
     use coupling_variables
     use mod_project_particles
@@ -347,7 +347,7 @@ contains
 #else
     !$omp E_idx_kin,                                                                                      &
 #endif
-    !$omp imp_q_idx, ics_indices_kin,                                                                     &
+    !$omp imp_q_idx, ics_indices_kin,  ne_SI_min,                                                         &
     !$omp CENTRAL_DENSITY, CENTRAL_MASS, feedback_nodelist, feedback_element_list)                        &
     !$omp private(particle_tmp, i_rng, i, j, k, l, m, t, E, B, psi, U, rz_old, st_old,                    &
     !$omp i_elm_old, i_elm, n_i, n_e, T_e, T_i, imp_charge_density, PLT, PRB, Srec, q_old,                &
@@ -400,6 +400,8 @@ contains
           limits = (n_e_raw .le. 1e14) .or. (T_e_raw * K_BOLTZ / EL_CHG .le. 1.d0)
           limits_coll = T_e_raw * K_BOLTZ / EL_CHG < 0.d0 !< limits for collisions
 #endif
+
+        ! limits=.false.
 
         !> loop over impurities groups and calculate their contribution to electron density
         imp_charge_density = 0.d0
@@ -461,7 +463,7 @@ contains
           
           !> CHARGE EXCHANGE
           ! It is assumed that we will have a exchange between hydrogen isotopes
-          if (sim%groups(group_num)%use_kin_cx  .and. .not. limits .and. particle_tmp%weight .gt. 0.d0) then !< CX uses adas as well. Te limit could be lower.
+          if (sim%groups(group_num)%use_kin_cx .and. n_e_raw > ne_SI_min .and.  particle_tmp%weight .gt. 0.d0) then !< CX uses adas as well. Te limit could be lower.
             call sim%groups(group_num)%ad%CCD%interp(int(particle_tmp%q+1), log10(n_e), log10(T_e), cx_rate) ! [m^3/s]
             CX_prob = 1.d0 - exp(-cx_rate * n_e * tstep_part_adj)
     

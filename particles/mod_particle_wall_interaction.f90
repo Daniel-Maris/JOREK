@@ -1697,7 +1697,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
   
   integer :: q, i, i_patch
   real*8 :: vector_normal(3), cos_alpha, mass_ion, c_s, Gamma_d, Gamma_convective
-  real*8 :: T_i, T_e, n_e, yield, vpar, grad_par_n_e
+  real*8 :: T_i, T_e, n_e, n_e_corr, yield, vpar, grad_par_n_e
   real*8, dimension(3) :: E, B, B_hat, grad_n_e
   real*8 :: psi, U, psi_norm
   real*8 :: D_par_si, D_perp_si, D_norm !< normalisation for diffusivity: D_si = D_jor * D_norm
@@ -1746,12 +1746,15 @@ subroutine project_sputter_vars_on_edge(this, sim)
     !$omp shared(this, sim, gamma, &
     !$omp i_patch, central_mass, central_density, psi_axis, psi_limit, c_angle, bcs, D_par, D_norm) &
 #endif
-    !$omp private(i, n_e, T_e, vpar, grad_n_e, E, B, psi, U, psi_norm, vector_normal, B_hat, cos_alpha, grad_par_n_e, q, T_i, mass_ion, c_s, Gamma_d, &
+    !$omp private(i, n_e, n_e_corr, T_e, vpar, grad_n_e, E, B, psi, U, psi_norm, vector_normal, B_hat, cos_alpha, grad_par_n_e, q, T_i, mass_ion, c_s, Gamma_d, &
     !$omp         Gamma_convective, yield, inodes, inode, node, n_dirichlet_BC_nodes, n_sheath_BC_nodes, n_grad0_BC_nodes, &
     !$omp         D_par_si, D_perp_si, ierr) schedule(static)
     do i = 1, size(this%fluid_yield_integral%patch(i_patch)%xyz, 2) !< over all nodes
-      call sim%fields%calc_NeTevpar(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
-        real(this%fluid_yield_integral%patch(i_patch)%xyz(3,i), 8), n_e, T_e, vpar, grad_n_e=grad_n_e)
+      call sim%fields%calc_NeTeTi(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
+        real(this%fluid_yield_integral%patch(i_patch)%xyz(3,i), 8), n_e_corr, T_e, T_i, n_e_raw=n_e, grad_raw_n_e=grad_n_e)
+
+      call sim%fields%calc_vpar(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), this%fluid_yield_integral%patch(i_patch)%st(:,i), &
+        real(this%fluid_yield_integral%patch(i_patch)%xyz(3,i), 8), vpar)
       
       call sim%fields%calc_EBpsiU(sim%time, this%fluid_yield_integral%patch(i_patch)%i_elm_jorek_edge(i), &
            this%fluid_yield_integral%patch(i_patch)%st(:,i), &
@@ -1773,7 +1776,6 @@ subroutine project_sputter_vars_on_edge(this, sim)
       Gamma_convective = n_e * vpar * norm2(B) * cos_alpha
         
       q = 1 ! for calculation of sound speed
-      T_i = T_e !< not made for model 400 [K]
       mass_ion = central_mass* ATOMIC_MASS_UNIT !< now we use only the deuterium soundspeed
       ! c_s = sqrt((k_boltz/mass_ion)*(T_e + gamma * T_i)) ! m/s !< gamma *(Te+Ti) in model303 and 307
       c_s = sqrt((k_boltz/mass_ion)*(gamma * (T_i+T_e))) !< IF model =303 / 307
@@ -1797,10 +1799,10 @@ subroutine project_sputter_vars_on_edge(this, sim)
 
       Gamma_d = 0
 
-      ! calculating the boundary flux according to the wall
-      if (n_sheath_BC_nodes > 0) then ! apply sheath BC, but since grad rho . n = 0, loss is only convective + c_angle term
+      ! calculating the particle flux to the wall
+      if (n_sheath_BC_nodes > 0) then ! apply sheath BC -> loss is only convective + c_angle term
         Gamma_d = Gamma_convective + n_e * c_s * c_angle
-      else if (n_dirichlet_BC_nodes > 0) then ! apply dirichlet BC (no c_angle term, but diffusive term is present)
+      else if (n_dirichlet_BC_nodes > 0) then ! apply dirichlet BC -> no c_angle term, but diffusive and convective terms are present
         psi_norm = get_psi_n(psi,z=real(this%fluid_yield_integral%patch(i_patch)%xyz(2,i),8))
         D_par_si = D_par * D_norm
         D_perp_si = get_dperp(psi_norm) * D_norm

@@ -21,7 +21,7 @@ module mod_fields
     procedure(interp_PRZ_2), deferred, public  :: interp_PRZ_2
     procedure(interp_PRZP_1), deferred, public :: interp_PRZP_1
     procedure, public :: calc_NeTe
-    procedure, public :: calc_NeTevpar
+    procedure, public :: calc_vpar
     procedure, public :: calc_NeTeTi
     procedure, public :: calc_NjTj
     procedure, public :: calc_EBpsiU

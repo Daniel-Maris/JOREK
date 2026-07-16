@@ -700,9 +700,11 @@ subroutine elements_containing_point(R, Z, phi, i_elms)
   integer(C_int), dimension(:), allocatable :: i_nearby_C
 
   if (R .ne. R .or. Z .ne. Z .or. phi .ne. phi) then
-    write(*,*) "Warning: NaN supplied for R or Z in elements_containing_point, returning 0 elements"
-    allocate(i_elms(0))
-    return
+   !$omp critical 
+   write(*,*) "Warning: NaN supplied for R or Z in elements_containing_point, returning 0 elements"
+   !$omp end critical
+   allocate(i_elms(0))
+   return
   end if
 
   if (.not. rtree_initialized) then
