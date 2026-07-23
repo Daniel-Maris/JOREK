@@ -284,12 +284,16 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
   real*8               :: inv_xjac, inv_R
   real*8               :: T_norm, n_norm
   real*8               :: tmp_g(3)
-  integer              :: ii_Ti, ii_Te, T_e_tmp, T_i_tmp
+  integer              :: ii_Ti, ii_Te
   logical              :: need_Ti, need_grad
   real*8, parameter    :: EPS     = 1.d-12
 
   ! normalizations
+#ifdef WITH_TiTe
   T_norm = 1.d0 / (K_BOLTZ * MU_ZERO * central_density * 1.d20)
+#else
+  T_norm = 1.d0 / (K_BOLTZ * 2.d0 * MU_ZERO * central_density * 1.d20)
+#endif
   n_norm = central_density * 1.d20
 
   ! what do we actually need?
@@ -302,15 +306,11 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
                          P,P_s,P_t,P_phi,P_time,                               &
                          R,R_s,R_t,Z,Z_s,Z_t)
   ii_Ti = 2; ii_Te = 3
-  T_e_tmp = P(ii_Te)
-  T_i_tmp = P(ii_Ti)
 #else
   call fields%interp_PRZ(time,i_elm,[var_rho,var_T],2,st(1),st(2),phi,         &
                          P,P_s,P_t,P_phi,P_time,                               &
                          R,R_s,R_t,Z,Z_s,Z_t)
   ii_Ti = 2; ii_Te = 2
-  T_e_tmp = P(ii_Te)/2.d0
-  T_i_tmp = P(ii_Ti)/2.d0
 #endif
 
   ! density
@@ -320,12 +320,12 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
   ! temperatures
   ! compute Te (required)
   if (present(T_e_raw)) T_e_raw = P(ii_Te) * T_norm
-  T_e = corr_neg_temp(P(ii_Te)*2.d0) * 0.5d0  * T_norm
+  T_e = corr_neg_temp(P(ii_Te)) * T_norm
 
   ! compute Ti only if requested (in 1-T, this is the same component anyway)
   if (need_Ti) then
     if (present(T_i_raw)) T_i_raw = P(ii_Ti) * T_norm
-    if (present(T_i))     T_i     = corr_neg_temp(P(ii_Ti)*2.d0) * 0.5d0 * T_norm
+    if (present(T_i))     T_i     = corr_neg_temp(P(ii_Ti)) * T_norm
   end if
 
   ! gradients (only if requested)
@@ -417,12 +417,12 @@ subroutine calc_NjTj(fields, time, i_elm, st, phi, m_i_over_m_imp, ne, te, ni, t
   if(with_TiTe) then
      if(with_impurities) then
         call fields%interp_PRZ(time,i_elm,[var_rho,var_Te,var_rhoimp,var_Ti],4,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
-        Ti = corr_neg_temp(P(4)*2.d0)/(2.d0*K_BOLTZ*MU_ZERO*central_density*1.d20)
+        Ti = corr_neg_temp(P(4))/(K_BOLTZ*MU_ZERO*central_density*1.d20)
      else
         call fields%interp_PRZ(time,i_elm,[var_rho,var_Te,var_Ti],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
-        Ti = corr_neg_temp(P(3)*2.d0)/(2.d0*K_BOLTZ*MU_ZERO*central_density*1.d20)
+        Ti = corr_neg_temp(P(3))/(K_BOLTZ*MU_ZERO*central_density*1.d20)
      end if
-     Te = corr_neg_temp(P(2)*2.d0)/(2.d0*K_BOLTZ*MU_ZERO*central_density*1.d20)
+     Te = corr_neg_temp(P(2))/(K_BOLTZ*MU_ZERO*central_density*1.d20)
 
   else
      if(with_impurities) then
