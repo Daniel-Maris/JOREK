@@ -20,5 +20,5 @@ All publications using JOREK **must** cite the overview article (Nuclear Fusion 
 - Code of Conduct: [See GOVERNANCE.md](./GOVERNANCE.md)
 
 ## Development
-- Repository: <<<<<link to url needs to be added>>>>>>
+- Repository: [JOREK](https://github.com/iterorganization/JOREK)
 - Contact: admin@jorek.eu
