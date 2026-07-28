@@ -1,75 +1,177 @@
-SUBROUTINE TB15A(N,X,F,D,W,LP)
-implicit none
-!------------------------------------------------------------------
-! HSL routine for cubic spline with periodic boundary conditions
-! first point must be the same as last : f(1)=f(n)
-!    N : number of points
-!    X : coordinate (input)
-!    F : the function values to be splined (input)
-!    D : the derivatives at the points (output)
-!    W : workspace (dimension 3N)
-!   LP : unit number for output
-!------------------------------------------------------------------
-REAL*8     :: ZERO,ONE,TWO,THREE
-PARAMETER (ZERO=0.0D0,ONE=1.0D0,TWO=2.0D0,THREE=3.0D0)
-INTEGER    :: LP,N
-REAL*8     :: D(N),F(N),W(*),X(N)
-REAL*8     :: A3N1,F1,F2,H1,H2,P
-INTEGER    :: I,J,K,N2
+subroutine tb15a(n,x,f,d,w,lp)
 
-IF (N.LT.4) THEN
-  WRITE (LP,'(A39)')  'RETURN FROM TB15AD BECAUSE N TOO SMALL'
-  W(1) = ONE
-  RETURN
-END IF
-DO I = 2,N
-  IF (X(I).LE.X(I-1)) THEN
-    WRITE (LP,'(A29,I3,A13)') ' RETURN FROM TB15AD BECAUSE  ',I,' OUT OF ORDER'
-    W(1) = TWO
-    RETURN
-  END IF
-ENDDO
-IF (F(1).NE.F(N)) THEN
-  WRITE (LP,'(A40)')  'RETURN FROM TB15AD BECAUSE F(1).NE.F(N)'
-  W(1) = THREE
-  RETURN
-END IF
-DO I = 2,N
-  H1 = ONE/ (X(I)-X(I-1))
-  F1 = F(I-1)
-  IF (I.EQ.N) THEN
-    H2 = ONE/ (X(2)-X(1))
-    F2 = F(2)
-  ELSE
-    H2 = ONE/ (X(I+1)-X(I))
-    F2 = F(I+1)
-  END IF
-  W(3*I-2) = H1
-  W(3*I-1) = TWO* (H1+H2)
-  W(3*I) = H2
-  D(I) = 3.0* (F2*H2*H2+F(I)* (H1*H1-H2*H2)-F1*H1*H1)
-ENDDO
-N2 = N - 2
-K = 5
-A3N1 = W(3*N-1)
-DO I = 2,N2
-  P = W(K+2)/W(K)
-  W(K+3) = W(K+3) - P*W(K+1)
-  D(I+1) = D(I+1) - P*D(I)
-  W(K+2) = -P*W(K-1)
-  P = W(K-1)/W(K)
-  A3N1 = -P*W(K-1) + A3N1
-  D(N) = D(N) - P*D(I)
-  K = K + 3
-ENDDO
-P = (W(K+2)+W(K-1))/W(K)
-A3N1 = A3N1 - P* (W(K+1)+W(K-1))
-D(N) = (D(N)-P*D(N-1))/A3N1
-DO I = 3,N
-  J = N + 2 - I
-  D(J) = (D(J)-W(3*J)*D(J+1)-W(3*J-2)*D(N))/W(3*J-1)
-ENDDO
-D(1) = D(N)
-W(1) = ZERO
-RETURN
-END
+  implicit none
+  
+  integer,intent(in) :: n,lp
+  real(8),intent(in) :: x(n),f(n)
+  real(8),intent(out):: d(n)
+  real(8),intent(inout):: w(*)
+  
+  real(8) :: a(n-1),b(n-1),c(n-1),rhs(n-1)
+  real(8) :: sol(n-1)
+  
+  real(8) :: h1,h2,f1,f2
+  integer :: i,m
+  
+  
+  if (n < 4) then
+     write(lp,*) "n too small"
+     return
+  endif
+  
+  
+  m=n-1
+  
+  
+  !------------------------------------------------------
+  ! Build equations for unknowns:
+  !
+  ! sol(1)=d(2)
+  ! ...
+  ! sol(n-1)=d(n)
+  !
+  !------------------------------------------------------
+  
+ do i=2,n
+
+    if(i==n) then
+        h2 = 1.d0/(x(2)-x(1))
+        f2 = f(2)
+    else
+        h2 = 1.d0/(x(i+1)-x(i))
+        f2 = f(i+1)
+    endif
+
+
+    h1 = 1.d0/(x(i)-x(i-1))
+
+    f1=f(i-1)
+
+
+    a(i-1)=h1
+
+    b(i-1)=2.d0*(h1+h2)
+
+    c(i-1)=h2
+
+
+    rhs(i-1)=3.d0*( &
+          f2*h2*h2 &
+        + f(i)*(h1*h1-h2*h2) &
+        - f1*h1*h1 )
+
+enddo
+  
+  
+  !------------------------------------------------------
+  ! Cyclic corner terms
+  !
+  ! first row:
+  ! b1*x1+c1*x2+beta*xm
+  !
+  ! last row:
+  ! alpha*x1+a_m*x_{m-1}+b_m*xm
+  !
+  !------------------------------------------------------
+  
+  call cyclic_solve(m,a,b,c,a(1),c(m),rhs,sol)
+  
+  
+  do i=2,n
+      d(i)=sol(i-1)
+  enddo
+  
+  d(1)=d(n)
+  
+  
+end subroutine tb15a
+
+  subroutine cyclic_solve(n,a,b,c,alpha,beta,r,x)
+
+    implicit none
+    
+    integer,intent(in)::n
+    
+    real(8),intent(in)::a(n),b(n),c(n)
+    real(8),intent(in)::alpha,beta
+    real(8),intent(in)::r(n)
+    
+    real(8),intent(out)::x(n)
+    
+    real(8)::bb(n),u(n),z(n)
+    real(8)::gamma,factor
+    integer::i
+    
+    
+    gamma=-b(1)
+    
+    
+    bb=b
+    bb(1)=b(1)-gamma
+    bb(n)=b(n)-alpha*beta/gamma
+    
+    
+    call tridag(n,a,bb,c,r,x)
+    
+    
+    u=0.d0
+    u(1)=gamma
+    u(n)=alpha
+    
+    
+    call tridag(n,a,bb,c,u,z)
+    
+    
+    factor=(x(1)+beta*x(n)/gamma) / &
+           (1.d0+z(1)+beta*z(n)/gamma)
+    
+    
+    do i=1,n
+        x(i)=x(i)-factor*z(i)
+    enddo
+    
+    
+    end subroutine cyclic_solve
+    subroutine tridag(n,a,b,c,r,u)
+
+implicit none
+
+integer,intent(in)::n
+
+real(8),intent(in)::a(n),b(n),c(n),r(n)
+real(8),intent(out)::u(n)
+
+real(8)::gam(n)
+real(8)::bet
+integer::i
+
+
+bet=b(1)
+
+if(bet==0.d0) stop "zero pivot"
+
+
+u(1)=r(1)/bet
+
+
+do i=2,n
+
+    gam(i)=c(i-1)/bet
+
+    bet=b(i)-a(i)*gam(i)
+
+    if(bet==0.d0) stop "zero pivot"
+
+    u(i)=(r(i)-a(i)*u(i-1))/bet
+
+enddo
+
+
+do i=n-1,1,-1
+
+    u(i)=u(i)-gam(i+1)*u(i+1)
+
+enddo
+
+
+end subroutine tridag
