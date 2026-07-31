@@ -1,4 +1,4 @@
-subroutine tg02a(ix,n,x0,s,d,x,v)
+subroutine tg02a(ix,n,x0,f,d,x,v)
   
   implicit none
   !------------------------------------------------------------------
@@ -14,9 +14,15 @@ subroutine tg02a(ix,n,x0,s,d,x,v)
   !   v(1-4) : value and derivatives of the spline interpolation
   !------------------------------------------------------------------
 
-  real*8, intent(in)   :: x
-  integer, intent(in)  :: ix,n
-  real*8, intent(inout)   :: d(*),s(*),x0(*),v(4)
+  real*8, intent(in)      :: x     ! Evaluation point
+  integer, intent(in)     :: ix,n  ! ix<=0: no initial guess
+                                   ! ix>0 : index of first guess 
+  real*8, intent(inout)   :: d(:)  ! Derivate at knots
+  real*8, intent(inout)   :: f(:)  ! Value at knots
+  real*8, intent(inout)   :: x0(:) ! knot coordinates
+  real*8, intent(inout)   :: v(4)  ! value at x and derivatives
+
+   
 
   ! Local variables
   integer :: j
@@ -30,14 +36,18 @@ subroutine tg02a(ix,n,x0,s,d,x,v)
      if (dabs(x-x0(1)) .lt. eps*dabs(x0(n)-x0(1))) then
         j = 1
      else
-        v(:) = 0.d0
+        write(*,*) "Warning: interpolation below range"
+        v(1) = f(1)
+        v(2:4) = 0.d0
         return
      end if
   else if (x .ge. x0(n)) then
      if (dabs(x-x0(n)) .lt. eps * dabs(x0(n)-x0(1))) then
         j = n-1
      else
-        v(:) = 0.d0
+        write(*,*) "Warning: interpolation below range"
+        v(1) = f(n)
+        v(2:4) = 0.d0
         return
      end if
   else 
@@ -67,12 +77,12 @@ subroutine tg02a(ix,n,x0,s,d,x,v)
   h11 = theta3 - theta2
 
   ! Calculate spline values and their derivative
-  v(1) = h00*s(j) + h10*dx*d(j) + h01*s(j+1) + h11*dx*d(j+1)
-  v(2) = 6.d0*(theta2 - theta)*s(j) + (3.d0*theta2 - 4.d0*theta + 1)*dx*d(j) + 6.d0*(-theta2 + theta)*s(j+1) + (3.d0*theta2 - 2.d0*theta)*dx*d(j+1)
+  v(1) = h00*f(j) + h10*dx*d(j) + h01*f(j+1) + h11*dx*d(j+1)
+  v(2) = 6.d0*(theta2 - theta)*f(j) + (3.d0*theta2 - 4.d0*theta + 1)*dx*d(j) + 6.d0*(-theta2 + theta)*f(j+1) + (3.d0*theta2 - 2.d0*theta)*dx*d(j+1)
   v(2) = v(2)/dx
-  v(3) = (12.d0*theta - 6.d0)*s(j) + (6.d0*theta - 4.d0)*dx*d(j) + (-12.d0*theta + 6.d0)*s(j+1) + (6.d0*theta - 2.d0)*dx*d(j+1)
+  v(3) = (12.d0*theta - 6.d0)*f(j) + (6.d0*theta - 4.d0)*dx*d(j) + (-12.d0*theta + 6.d0)*f(j+1) + (6.d0*theta - 2.d0)*dx*d(j+1)
   v(3) = v(3)/(dx**2)
-  v(4) = 6.d0*(2*s(j) - 2.d0*s(j+1) + dx*d(j) + dx*d(j+1))/(dx**3)
+  v(4) = 6.d0*(2*f(j) - 2.d0*f(j+1) + dx*d(j) + dx*d(j+1))/(dx**3)
 
 
 end subroutine tg02a

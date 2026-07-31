@@ -37,7 +37,6 @@ subroutine tb15a(n,x,f,d,w,lp)
 
   m=n-1
 
-
   !------------------------------------------------------
   ! Build equations for unknowns:
   !
