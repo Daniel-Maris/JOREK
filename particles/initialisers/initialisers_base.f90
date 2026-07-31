@@ -1,6 +1,6 @@
-!> Module for the initialization of particles in configuration space (6D)
-!> by rejection sampling
-module mod_initialise_particles
+!> Module containing the base functionality for the initialization of particles in 
+!> configuration space (6D) by rejection sampling
+module initialisers_base
   use mod_rng
   use data_structure
   use mod_particle_types
@@ -120,7 +120,7 @@ subroutine initialise_particles(particles, node_list, element_list, &
   real*8  :: t0, t1, ostart, oend
   integer :: seq, n_streams, n_threads, i_thread
   integer :: n_geom, n_mhd
-  integer :: my_id, n_cpu
+  integer :: my_id, n_mpi
   integer :: seed
   logical :: rng_n_streams_round_off
   real*8, dimension(:), allocatable :: P
@@ -132,7 +132,7 @@ subroutine initialise_particles(particles, node_list, element_list, &
   oend   = 0.d0
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ifail)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
   rng_n_streams_round_off = .false.
   if(present(rng_n_streams_round_off_in)) rng_n_streams_round_off = rng_n_streams_round_off_in
   if (present(variables)) then
@@ -185,7 +185,8 @@ subroutine initialise_particles(particles, node_list, element_list, &
   n_threads = 1
 !$ n_threads = omp_get_max_threads()
   allocate(rngs(0:n_threads-1), source=rng)
-  n_streams = n_cpu*n_threads ! Works only for homogeneous environments!
+  n_streams = n_mpi*n_threads ! Works only for homogeneous environments!
+
   do i_thread=0,n_threads-1
     seq = my_id*n_threads + i_thread + 1
     call rngs(i_thread)%initialize(7, seed, n_streams, seq, &
@@ -244,7 +245,7 @@ subroutine initialise_particles(particles, node_list, element_list, &
 
           if (present(transform)) then
             if (ran(4) .lt. transform(p)) then
-              particles(j)%x = [r, z, phi]
+              particles(j)%x = [R, Z, phi]
               particles(j)%i_elm = i_elm
               particles(j)%st = [s, t]
               select type (pa => particles(j))
@@ -369,7 +370,7 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
 
   !> internal variables
   class(type_rng),dimension(:),allocatable :: rngs 
-  integer                                  :: t0,t1,my_id,n_cpu,n_threads,thread_id,ifail
+  integer                                  :: t0,t1,my_id,n_mpi,n_threads,thread_id,ifail
   integer                                  :: ii,jj,n_particles,i_elm
   integer                                  :: n_real_pdf_param,n_int_pdf_param
   integer                                  :: n_real_weight_param,n_int_weight_param
@@ -385,7 +386,7 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
 
   !> extract id and size of the MPI Communicator
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ifail)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
   rng_n_streams_round_off = .false.
   if(present(rng_n_streams_round_off_in)) rng_n_streams_round_off = rng_n_streams_round_off_in
   !> initialize random number generator
@@ -394,7 +395,7 @@ subroutine initialise_particles_in_phase_space(n_variables, particles, fields, r
   allocate(variables(n_variables+1))
   allocate(rngs(n_threads),source=rng_base)
   do ii=1,n_threads
-    call rngs(ii)%initialize(n_variables+1, random_seed(), n_cpu*n_threads, &
+    call rngs(ii)%initialize(n_variables+1, random_seed(), n_mpi*n_threads, &
     my_id*n_threads+ii,ifail,round_off_n_streams_in=rng_n_streams_round_off)
     if (ifail.ne.0) call MPI_ABORT(MPI_COMM_WORLD, -1, ifail)
   end do
@@ -652,7 +653,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
   real*8  :: R_s, R_t, Z_s, Z_t, R_i, Z_i, xjac
   real*8  :: s, t, u_init_max, temp, u
   real*8  :: psi_axis, R_axis, Z_axis, s_axis, t_axis
-  integer :: i_elm, i, j, k, ifail, my_id, n_cpu, ierr, n_mhd, n_geom
+  integer :: i_elm, i, j, k, ifail, my_id, n_mpi, ierr, n_mhd, n_geom
   real*8, dimension(fields%element_list%n_elements,2)    :: psi_minmax_list
   real*8, allocatable, dimension(:,:)             :: rans
   class(particle_base), dimension(:), allocatable :: particles_tmp
@@ -715,7 +716,7 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
 
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr)
 
   if (.not. init_uniform_space) then
     psimin= 1d10
@@ -742,7 +743,9 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
   call rng%initialize(8, random_seed(), 1, 1, ifail, round_off_n_streams_in=rng_n_streams_round_off)
 
   ! Preparatory work: get R_axis, Z_axis
-  call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
+  if (.not. init_uniform_space) then
+    call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
+  end if
 
   ! Preset i_elm to 0 so that by default particles are lost
   particles(:)%i_elm = 0
@@ -761,13 +764,13 @@ subroutine initialise_particles_H_mu_psi(particles, fields, rng_base, mass, T_ma
 
     ! Calculate starting-point for this block
     ! random numbers are generated in blocks per mpi process
-    ! blocks are grouped in a superblock of block*n_cpu size
+    ! blocks are grouped in a superblock of block*n_mpi size
     ! blocks must be equal size
     ! we communicate a blocksize here, and keep a running index of the previous starting points
     ! make this the biggest of n_tries_now
     call MPI_AllReduce(n_tries_now, blocksize, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
 
-    call rng%jump_ahead((n_cpu-my_id-1)*prev_blocksize + my_id*blocksize)
+    call rng%jump_ahead((n_mpi-my_id-1)*prev_blocksize + my_id*blocksize)
 
     prev_blocksize = blocksize
 
@@ -1090,7 +1093,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   real*8  :: R_s, R_t, Z_s, Z_t, R_i, Z_i, xjac
   real*8  :: s, t, u_init_max, temp, u, v2, v_par
   real*8  :: psi_axis, R_axis, Z_axis, s_axis, t_axis
-  integer :: i_elm, i, j, k, ifail, my_id, n_cpu, ierr, n_mhd, n_geom
+  integer :: i_elm, i, j, k, ifail, my_id, n_mpi, ierr, n_mhd, n_geom
   real*8, dimension(fields%element_list%n_elements,2)    :: psi_minmax_list
   real*8, allocatable, dimension(:,:)             :: rans
   class(particle_base), dimension(:), allocatable :: particles_tmp
@@ -1172,7 +1175,7 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   end if
 
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ierr)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ierr)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ierr)
 
   if (.not. init_uniform_space) then
     psimin= 1d10
@@ -1199,7 +1202,9 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
   call rng%initialize(8, random_seed(), 1, 1, ifail, round_off_n_streams_in=rng_n_streams_round_off)
 
   ! Preparatory work: get R_axis, Z_axis
-  call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
+  if (.not. init_uniform_space) then
+    call find_axis(my_id, fields%node_list, fields%element_list, psi_axis, R_axis, Z_axis, i_elm, s_axis, t_axis, ifail)
+  end if
 
   ! Preset i_elm to 0 so that by default particles are lost
   particles(:)%i_elm = 0
@@ -1219,13 +1224,13 @@ subroutine initialise_particles_H_mu_psi_phiplanes(particles, fields, rng_base, 
 
     ! Calculate starting-point for this block
     ! random numbers are generated in blocks per mpi process
-    ! blocks are grouped in a superblock of block*n_cpu size
+    ! blocks are grouped in a superblock of block*n_mpi size
     ! blocks must be equal size
     ! we communicate a blocksize here, and keep a running index of the previous starting points
     ! make this the biggest of n_tries_now
     call MPI_AllReduce(n_tries_now, blocksize, 1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
 
-    call rng%jump_ahead((n_cpu-my_id-1)*prev_blocksize + my_id*blocksize)
+    call rng%jump_ahead((n_mpi-my_id-1)*prev_blocksize + my_id*blocksize)
 
     prev_blocksize = blocksize
 
@@ -1861,7 +1866,7 @@ subroutine set_velocity_from_T(particles, mass, node_list, element_list, cor, v_
   logical, intent(in), optional                     :: v_par !< Include the parallel velocity if present and true
 
   class(type_rng), allocatable :: my_rng
-  integer :: i, ifail, seed, my_id, n_cpu
+  integer :: i, ifail, seed, my_id, n_mpi
   real*8, dimension(4) :: P, P_s, P_t, P_phi
   real*8 :: v_out(3)
   real*8 :: R, R_s, R_t, Z, Z_s, Z_t, Psi, Psi_R, Psi_Z, B(3)
@@ -1874,7 +1879,7 @@ subroutine set_velocity_from_T(particles, mass, node_list, element_list, cor, v_
 
 ! Calculate a single random seed and communicate it over MPI
   call MPI_COMM_RANK(MPI_COMM_WORLD, my_id, ifail)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_cpu, ifail)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD, n_mpi, ifail)
   if (my_id .eq. 0) seed = random_seed()
   call MPI_Bcast(seed, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ifail)
 
@@ -1948,4 +1953,4 @@ subroutine set_velocity_from_T(particles, mass, node_list, element_list, cor, v_
     end select
   end do
 end subroutine set_velocity_from_T
-end module mod_initialise_particles
+end module initialisers_base
