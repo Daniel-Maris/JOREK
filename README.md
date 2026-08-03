@@ -21,4 +21,4 @@ All publications using JOREK **must** cite the overview article (Nuclear Fusion 
 
 ## Development
 - Repository: [JOREK](https://github.com/iterorganization/JOREK)
-- Contact: admin@jorek.eu
+- Contact: admin@jorek.eu 
