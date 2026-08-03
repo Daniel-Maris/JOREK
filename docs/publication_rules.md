@@ -15,9 +15,9 @@ render_with_liquid: false
 - **Always cite**:
   1. Overview article: "M Hoelzl, GTA Huijsmans, SJP Pamela, M Becoulet, E Nardon,
      FJ Artola, B Nkonga, et al. Nuclear Fusion 61, 065001 (2021)"
-  2. Most recent JOREK review article: "M Hoelzl, GTA Huijsmans, FJ Artola,
-     E Nardon, M Becoulet, N Schwarz, A Cathey, SJP Pamela et al. Nuclear Fusion
-     64, 112016 (2024)"
+  2. Most recent JOREK review article: "M Hoelzl, N Schwarz, GTA Huijsmans, FJ Artola,
+     D Hu, G Su, E Nardon, N Isernia, P Rac, A Cathey, M Kong et al. Nuclear Fusion
+     66, 116006 (2026)"
   3. Relevant prior works you directly build upon (see [`CITATION.cff`](../CITATION.cff)
      and the JOREK public website).
 
