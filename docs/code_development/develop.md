@@ -1,5 +1,5 @@
 ---
-title: "Development Workflow"
+title: "Coding Guidelines"
 nav_order: 1
 parent: "Code Development"
 layout: default

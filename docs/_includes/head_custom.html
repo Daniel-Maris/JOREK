@@ -1,4 +1,36 @@
 <script>
+  /* Dark/light theme bootstrap. Runs before the body renders so the correct
+     scheme is applied without a flash. The default stylesheet compiles the
+     `color_scheme` from _config.yml (jorek_light); if the stored/preferred
+     theme differs, we swap the stylesheet href here immediately. */
+  (function () {
+    var LIGHT = 'jorek_light';
+    var DARK = 'gruvbox_dark';
+    var SCHEME_RE = /just-the-docs-(?:default|jorek_light|gruvbox_dark)\.css/;
+    var theme;
+    try {
+      theme = localStorage.getItem('jtd-theme');
+    } catch (e) { /* localStorage may be unavailable */ }
+    if (theme !== LIGHT && theme !== DARK) {
+      theme = (window.matchMedia &&
+               window.matchMedia('(prefers-color-scheme: dark)').matches)
+              ? DARK : LIGHT;
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+    /* The default stylesheet compiles jorek_light; only swap if we need dark. */
+    if (theme !== LIGHT) {
+      var links = document.querySelectorAll('link[rel="stylesheet"]');
+      for (var i = 0; i < links.length; i++) {
+        var href = links[i].getAttribute('href') || '';
+        if (SCHEME_RE.test(href)) {
+          links[i].setAttribute('href', href.replace(SCHEME_RE, 'just-the-docs-' + theme + '.css'));
+          break;
+        }
+      }
+    }
+  })();
+</script>
+<script>
   MathJax = {
     tex: {
       inlineMath: [['$', '$'], ['\\(', '\\)']],

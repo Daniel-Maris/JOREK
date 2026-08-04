@@ -7,6 +7,11 @@ baseurl: "/JOREK"
 
 search_enabled: true
 
+# Default color scheme (custom, defined in _sass/color_schemes/).
+# A runtime dark/light toggle switches between "jorek_light" and "gruvbox_dark"
+# (see _includes/header_custom.html and _includes/head_custom.html).
+color_scheme: jorek_light
+
 heading_anchors: true
 
 markdown: kramdown
@@ -33,6 +38,6 @@ plugins:
 
 defaults:
   - scope:
-      path: "docs"
+      path: ""
     values:
       layout: "default"

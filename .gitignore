@@ -17,6 +17,8 @@
 *.pyc
 *.xml
 *.png
+# ...but keep PNGs that are part of the documentation site (docs/ is the Jekyll root)
+!docs/**/*.png
 *.csv
 Makefile.inc
 *.optrpt
