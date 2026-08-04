@@ -7,7 +7,7 @@ render_with_liquid: false
 ---
 
 
-# Main Devlopment Workflow
+# Main Development Workflow
 
 ## Committing Guidelines
 - See also [**Coding Guidelines**](develop#coding-guidelines)
@@ -36,43 +36,56 @@ render_with_liquid: false
 
 3. **Clone Your Fork**:
    - Clone your fork to your local machine:
-     ```bash
+
+```bash
      git clone https://github.com/<your-username>/<repository-name>.git
      cd <repository-name>
-     ```
+```
 
-4. **Set Up the Main Repository as an Upstream Remote**:
+4. **Set Up the documentation**:
+   - During your development, you will contribute to the documentation. You can preview it as it will appear in 
+   the main repository by setting 'Settings'->'Pages'->'Source' to 'GitHub Actions' *in your fork*. 
+   For faster iteration, however, we recommend building the documentation locally.
+   You can find instructions for this in the [documentation setup guide](/docs/contributing.md).
+
+5. **Set Up the Main Repository as an Upstream Remote**:
    - Add the main repository as an upstream remote to keep your fork in sync:
-     ```bash
-     git remote add upstream https://github.com/iterorganization/JOREK.git
-     ```
 
-5. **Sync Your Fork with the Main Repository**:
+```bash
+     git remote add upstream https://github.com/iterorganization/JOREK.git
+```
+
+6. **Sync Your Fork with the Main Repository**:
    - Regularly fetch and merge changes from the main repository:
-     ```bash
+
+```bash
      git fetch upstream
      git merge upstream/develop
-     ```
+```
 
 
 ## Development and Bugfixes
 
 1. **Develop Features or Fix Bugs**:
    - Create a new branch for each feature or bug fix:
-     ```bash
+
+```bash
      git checkout -b <feature|bugfix>/branch-name
-     ```
+```
+
    - Commit your changes to the branch:
-     ```bash
+
+```bash
      git add .
      git commit -m "Description of changes"
-     ```
+```
 
 2. **Push Changes to Your Fork**:
    - Push your branch to your fork:
-     ```bash
+
+```bash
      git push origin <feature-or-bugfix-branch>
-     ```
+```
 
 3. **Create a Pull Request**:
    - Open a pull request (PR) from your fork's branch to the main repository's `develop` branch.
@@ -90,10 +103,11 @@ render_with_liquid: false
 - Make sure to create new [regression tests](nrt) for your developments.
 - Bug fixes should be developed independently of feature development.
 - Merge bug fixes from the main repository into your fork as soon as they are available:
-  ```bash
-  git fetch upstream
-  git merge upstream/develop
-  ```
+
+```bash
+    git fetch upstream
+    git merge upstream/develop
+```
 
 ## Using the GitHub Issue Tracker
 Use the [GitHub Issue Tracker](https://github.com/iterorganization/JOREK/issues) to bring up important bugfixes and discussions on new developments or to make a feature request.
@@ -117,35 +131,50 @@ During the migration to GitHub, the history of commit hashes will change. Follow
 
 1. **Push Your Branches Before Migration (end of July)**:
    - Before the migration, push all your local branches to the current repository:
-     ```bash
+```bash
      git push origin <branch-name>
-     ```
+```
 
 2. **Retrieve Your Branch After Migration**:
    - After the migration, contact **jorek-devel@jorek.eu** to retrieve your new branch from the private GitHub repository where old branches are saved during the migration period, **please include your GitHub username in the email**.
 
 3. **Set Up Your Fork with the Old Branch**:
+   - Be sure to have followed the steps in [Setting Up the Workflow](#setting-up-the-workflow)
+
    - Clone your fork of the new main repository:
-     ```bash
-     git clone https://github.com/<your-username>/<repository-name>.git
-     cd <repository-name>
-     ```
-   - Add the private repository (containing old branches) as a remote:
-     ```bash
-     git remote add old-repo https://github.com/<private-repo-owner>/<private-repo-name>.git
-     ```
+
+```bash
+     git clone https://github.com/<your-username>/<fork-repo>.git
+     cd <fork-repo>
+```
+
+   - Add the private repository (containing the old branches) as a remote:
+
+```bash
+     git remote add old-repo git@github.com:N-Schwarz/jorek-backup.git
+```
+
    - Fetch your old branch:
-     ```bash
+
+```bash
      git fetch old-repo <branch-name>
-     ```
-   - Create a new branch in your fork based on the old branch:
-     ```bash
+```
+
+   - Create a branch in your fork based on the old branch:
+
+```bash
      git checkout -b <branch-name> old-repo/<branch-name>
-     ```
+```
+
    - Push the branch to your fork:
-     ```bash
-     git push origin <branch-name>
-     ```
+
+```bash
+     git push -u origin <branch-name>
+```
+
+   The old branch and the public repository share the same history, so the
+   commits attach where they always were: nothing is rewritten and there are
+   no conflicts to resolve. 
 
 ---
 
