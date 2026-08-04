@@ -12,15 +12,23 @@ render_with_liquid: false
 -->
 
 <style>
-  .params-table { table-layout: fixed; width: 100%; font-size: 0.9em; }
-  .params-table th, .params-table td {
-      word-wrap: break-word; vertical-align: top; padding: 4px 6px;
+  /* Target the tables directly rather than a `.params-table` class: kramdown's
+     `{: .params-table}` IAL does not reliably attach to very large tables.
+     All column widths use `em` (no percentages): mixing `%` text columns with
+     `em` numeric columns under `table-layout: fixed` + `min-width: 100%` makes
+     Firefox resolve the percentages against the wrong basis and collapse the
+     text columns. With uniform `em` widths both engines distribute leftover
+     space proportionally, keeping the description column widest. Scoped to
+     .main-content so it only affects this page's parameter tables. */
+  .main-content table { table-layout: fixed; width: 100%; font-size: 0.9em; }
+  .main-content table th, .main-content table td {
+      word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; padding: 4px 6px;
   }
-  .params-table th:nth-child(1), .params-table td:nth-child(1) { width: 12%; }
-  .params-table th:nth-child(2), .params-table td:nth-child(2) { width: 10%; }
-  .params-table th:nth-child(3), .params-table td:nth-child(3) { width: 38%; }
-  .params-table th:nth-child(n+4), .params-table td:nth-child(n+4) {
-      width: 2.5em; text-align: center;
+  .main-content table th:nth-child(1), .main-content table td:nth-child(1) { width: 10em; }
+  .main-content table th:nth-child(2), .main-content table td:nth-child(2) { width: 8em; }
+  .main-content table th:nth-child(3), .main-content table td:nth-child(3) { width: 30em; }
+  .main-content table th:nth-child(n+4), .main-content table td:nth-child(n+4) {
+      width: 2.2em; text-align: center;
   }
 </style>
 

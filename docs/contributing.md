@@ -202,7 +202,7 @@ For pages in a different directory, use a path relative to the current file:
 Absolute paths from the repo root also work:
 
 ```markdown
-[Getting Started](docs/compiling/getting_started/learn_jorek.md)
+[Getting Started](compiling/getting_started/learn_jorek.md)
 ```
 
 Do not hard-code `.html` extensions — they will break if the site baseurl changes.

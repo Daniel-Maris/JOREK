@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [master]
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +17,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The Jekyll site lives in docs/ (source root). Run steps there.
+    defaults:
+      run:
+        working-directory: docs
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/docs/Gemfile
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +31,7 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
+          working-directory: docs
 
       - name: Setup Pages
         id: pages
@@ -37,6 +44,8 @@ jobs:
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_site
 
   deploy:
     environment:
