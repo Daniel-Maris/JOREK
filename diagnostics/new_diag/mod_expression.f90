@@ -1020,6 +1020,17 @@ module mod_expression
               end do
             end do
           end do
+
+          if (.not. with_rho) then
+            r0       = 1.d0
+            r0_s     = 0.d0
+            r0_t     = 0.d0
+            r0_ss    = 0.d0
+            r0_tt    = 0.d0
+            r0_st    = 0.d0
+            r0_p     = 0.d0
+            r0_pp    = 0.d0
+          endif
           
           ! --- Construct Cartesian Derivatives of Variables.
           ps0_R    = (   Z_t * ps0_s - Z_s * ps0_t ) / xjac
