@@ -80,7 +80,7 @@ module mod_poloidal_currents
         if (i_tor==1) rho = 1.d0
       endif
 
-      if (jorek_model < 200) then 
+      if (jorek_model < 180) then 
         T0 = 0.d0;  T0_s = 0.d0; T0_t = 0.d0; 
       else
         if (with_TiTe) then
@@ -357,7 +357,7 @@ module mod_poloidal_currents
               rho_s = 0.d0
             endif
 
-            if (jorek_model > 200 ) then
+            if (jorek_model > 180 ) then
               if (with_TiTe) then 
                 T0   (:) = T0   (:) + node_k%values(in,k_dir,var_Ti)  * k_size*  H1(k_vertex,k_dof,:) * HZ(in,i_plane)
                 T0   (:) = T0   (:) + node_k%values(in,k_dir,var_Te)  * k_size*  H1(k_vertex,k_dof,:) * HZ(in,i_plane)

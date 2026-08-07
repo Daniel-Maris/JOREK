@@ -1886,7 +1886,7 @@ if (SI_units) then
 
       eta_Sp = 1.65d-9*17*(1.d-3*Te_corr_eV)**(-1.5d0)
   
-      scalars(i,ineu(1)) = ksiion* (1.5d0)/(MU_zero*central_density*1.d20)      &
+      scalars(i,ineu(1)) = ksi_ion_norm* (1.5d0)/(MU_zero*central_density*1.d20)      &
                                           * r0_tmp * 1.d20 * scalars(i,var_rhon) * 1.d20 * Sion_T / coef_ion_1
 
       scalars(i,ineu(2)) = r0_tmp* 1.d20 * scalars(i,var_rhon) * 1.d20 * LradDrays_T/ coef_rad_1
