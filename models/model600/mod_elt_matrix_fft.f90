@@ -181,7 +181,7 @@ complex*16 :: out_fft(1:n_plane)
 integer*8  :: plan
 
 integer    :: max_terms_loop, i_term
-real*8     :: factor(n_var,max_terms)
+real*8     :: factor(0:n_var,max_terms)
 
 integer    :: i_v, i_loc, j_loc
 
