@@ -55,7 +55,8 @@ module phys_module
   real*8  :: imp_reflection       !< impurity reflection coefficient on open fieldlines
   real*8  :: loop_voltage         !< Apply a loop voltage at the boundary of the computational domain (in V; works only for fixed boundary)
   logical :: old_deuterium_atomic !< use old fit to calculate atomic coefficients for D (ionization, recombination, radiation), otherwise a better fit is used
-  logical :: deuterium_adas       !< use OPEN ADAS to calculate ionization, recombination and radiation coeffients for deuterium   
+  logical :: deuterium_adas       !< use OPEN ADAS to calculate ionization, recombination and radiation coefficients for deuterium in
+                                  !< the fluid model, only recombination coefficients in the kinetic model
   logical :: deuterium_adas_1e20  !< use OPEN ADAS with fixed density=1e20 to calculate ionization, recombination and radiation coeffients for deuterium
   logical :: mach_one_bnd_integral!< use a boundary integral (boundary_matrix_open) to implement Mach=one boundary condition
   logical :: vpar_smoothing       !< apply a smoothing function to smooth jumps in Vpar at B.n=0
@@ -228,6 +229,7 @@ module phys_module
   logical :: extended_boundary    !< Choose if extended boundary conditions (Biot-Savart version) should be used, default (false) is grad_chi with Dommaschk potentials
   real*8  :: j_cutoff_rcoord      !< Radial location from which the current is set to zero as it approaches the boundary - rcoord corresponds to the normalised toroidal flux
   real*8  :: j_cutoff_sig         !< Radial width over which the current is ramped down to zero towards the boundary
+  real*8  :: bloating_factor      !< Linear radial factor by which the boundary has been bloated/extended. The LCFS should be at rcoord=1/(bloating_factor).
 
   !> Points used as blocks to extend grid into complex wall structures, see https://www.jorek.eu/wiki/doku.php?id=wallgrid_tutorial
   real*8  :: surface_cross_tol                                                  !< Tolerance when looking for crossing of polar lines and surfaces, needs to be > 1.0
