@@ -1744,7 +1744,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
 #else
     !$omp parallel do default(none) &
     !$omp shared(this, sim, gamma, &
-    !$omp i_patch, central_mass, central_density, psi_axis, psi_limit, c_angle, bcs, D_par, D_norm) &
+    !$omp i_patch, central_mass, psi_axis, psi_limit, c_angle, bcs, D_par, D_norm) &
 #endif
     !$omp private(i, n_e, n_e_corr, T_e, vpar, grad_n_e, E, B, psi, U, psi_norm, vector_normal, B_hat, cos_alpha, grad_par_n_e, q, T_i, mass_ion, c_s, Gamma_d, &
     !$omp         Gamma_convective, yield, inodes, inode, node, n_dirichlet_BC_nodes, n_sheath_BC_nodes, n_grad0_BC_nodes, &
@@ -1809,6 +1809,7 @@ subroutine project_sputter_vars_on_edge(this, sim)
         grad_par_n_e=dot_product(b_hat, grad_n_e)
         
         Gamma_d = Gamma_convective - ((D_par_si - D_perp_si)*grad_par_n_e*cos_alpha + D_perp_si*dot_product(grad_n_e,vector_normal))
+        
       else if (n_grad0_BC_nodes > 0) then !no BC applied -> grad rho . n = 0, so only loss is convective
         Gamma_d = Gamma_convective
       else

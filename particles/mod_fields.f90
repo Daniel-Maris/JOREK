@@ -2,6 +2,8 @@
 !> to implement
 module mod_fields
   use data_structure
+  use corr_neg
+  
   implicit none
   private
   public fields_base
@@ -258,9 +260,9 @@ end subroutine calc_NeTe
 subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
                             n_e,T_e,T_i,                                &
                             n_e_raw,T_e_raw,T_i_raw,                    &
-                            grad_raw_n_e,grad_T_e,grad_T_i,             &
-                            T_norm_out)
+                            grad_raw_n_e,grad_T_e,grad_T_i)
   use phys_module, only: central_density
+  use corr_neg, only: corr_neg_dens, corr_neg_temp
   use constants
   class(fields_base), intent(in)                    :: fields
   integer, intent(in)                               :: i_elm
@@ -272,8 +274,7 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
   real*8, intent(out),  optional                    :: T_e_raw, T_i_raw     !< raw Ti/Te [K]
   real*8, intent(out),  optional, dimension(3)      :: grad_raw_n_e         !< grad raw ne [m^-4]
   real*8, intent(out),  optional, dimension(3)      :: grad_T_e, grad_T_i   !< grad(corrected Ti/Te) [K/m]
-  real*8, intent(out),  optional                    :: T_norm_out           !< T_SI/T_Jor
-
+  
 #ifdef WITH_TiTe
   real*8, dimension(3) :: P, P_s, P_t, P_phi, P_time
 #else
@@ -281,13 +282,10 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 #endif
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
   real*8               :: inv_xjac, inv_R
-  real*8               :: T_norm, n_norm, n_e_temp
-  real*8               :: T_i_temp, T_e_temp
+  real*8               :: T_norm, n_norm
   real*8               :: tmp_g(3)
   integer              :: ii_Ti, ii_Te
   logical              :: need_Ti, need_grad
-  real*8, parameter    :: N_FLOOR = 1.d16
-  real*8, parameter    :: T_FLOOR = 1.d0
   real*8, parameter    :: EPS     = 1.d-12
 
   ! normalizations
@@ -296,7 +294,6 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 #else
   T_norm = 1.d0 / (K_BOLTZ * 2.d0 * MU_ZERO * central_density * 1.d20)
 #endif
-  if(present(T_norm_out)) T_norm_out = T_norm
   n_norm = central_density * 1.d20
 
   ! what do we actually need?
@@ -317,21 +314,18 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 #endif
 
   ! density
-  n_e_temp = P(1) * n_norm
-  if (present(n_e_raw)) n_e_raw = n_e_temp
-  n_e = max(n_e_temp, N_FLOOR)
+  if (present(n_e_raw)) n_e_raw = P(1) * n_norm
+  n_e = corr_neg_dens(P(1)) * n_norm
 
   ! temperatures
   ! compute Te (required)
-  T_e_temp = P(ii_Te) * T_norm
-  if (present(T_e_raw)) T_e_raw = T_e_temp
-  T_e = max(T_e_temp, T_FLOOR)
+  if (present(T_e_raw)) T_e_raw = P(ii_Te) * T_norm
+  T_e = corr_neg_temp(P(ii_Te)) * T_norm
 
   ! compute Ti only if requested (in 1-T, this is the same component anyway)
   if (need_Ti) then
-    T_i_temp = P(ii_Ti) * T_norm
-    if (present(T_i_raw)) T_i_raw = T_i_temp
-    if (present(T_i))     T_i     = max(T_i_temp, T_FLOOR)
+    if (present(T_i_raw)) T_i_raw = P(ii_Ti) * T_norm
+    if (present(T_i))     T_i     = corr_neg_temp(P(ii_Ti)) * T_norm
   end if
 
   ! gradients (only if requested)
@@ -377,43 +371,26 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 
 end subroutine calc_NeTeTi
 
-!> specific subroutine to match the normalisation used in mod_boundary_matrix_open on the fluid side
-! internally calls calc_NeTeTi
-subroutine calc_NeTevpar(fields, time, i_elm, st, phi, n_e, T_e, vpar, grad_n_e, grad_T_e)
+
+!> calculate vpar in si units (note that it should still be multiplied by the norm of the B field to be si)
+subroutine calc_vpar(fields, time, i_elm, st, phi, vpar)
   use phys_module, only: central_density, central_mass
   use constants
-  use corr_neg
   class(fields_base), intent(in)                    :: fields
   integer, intent(in)                               :: i_elm
   real*8, intent(in)                                :: time, st(2), phi
-  real*8, intent(out)                               :: n_e !< electron density [m^-3]
-  real*8, intent(out)                               :: T_e !< electron temperature [K]
   real*8, intent(out)                               :: vpar !< parallel velocity [m/s / T] (multiply by norm2(B) still to get [m/s])
-  real*8, intent(out), optional, dimension(3)       :: grad_n_e !< gradient of electron density [m^-4]
-  real*8, intent(out), optional, dimension(3)       :: grad_T_e !< gradient of electron temperature [K/m]
 
   real*8, dimension(1) :: P, P_s, P_t, P_phi, P_time
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
-  real*8               :: n_norm !< density normalisation
-  real*8               :: T_norm !< temperature normalisation
   real*8               :: v_norm !< vpar normalisation
-  real*8               :: n_e_tmp, T_e_tmp, n_e_raw, T_e_raw, grad_n_e_loc(3), grad_T_e_loc(3)
-
-  call calc_NeTeTi(fields, time, i_elm, st, phi, n_e_tmp, T_e_tmp, n_e_raw=n_e_raw, T_e_raw=T_e_raw, grad_raw_n_e=grad_n_e_loc, grad_T_e=grad_T_e_loc, T_norm_out=T_norm)
-
-  ! use same protection against negative values as the sheath BC in mod_boundary_matrix_open
-  n_e = n_e_raw ! plasma density [1/m^3]
-  T_e = corr_neg_temp1(T_e_raw/T_norm)*T_norm
-
-  if (present(grad_T_e)) grad_T_e = grad_T_e_loc
-  if (present(grad_n_e)) grad_n_e = grad_n_e_loc
 
   call fields%interp_PRZ(time,i_elm,[var_vpar],1,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
 
   v_norm = 1.d0/sqrt(MU_ZERO*central_mass*central_density*1.d20*atomic_mass_unit)
-  vpar = P(1)*v_norm !note that it should still be multiplied by the norm of the B field to be si
+  vpar = P(1)*v_norm
 
-end subroutine calc_NeTevpar
+end subroutine calc_vpar
 
 !> Calculate densities and temperature(s) for all species including ions
 !> For impurities, coronal equilibrium is assumed. Note that you will need adas data to be initialized first
@@ -440,12 +417,12 @@ subroutine calc_NjTj(fields, time, i_elm, st, phi, m_i_over_m_imp, ne, te, ni, t
   if(with_TiTe) then
      if(with_impurities) then
         call fields%interp_PRZ(time,i_elm,[var_rho,var_Te,var_rhoimp,var_Ti],4,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
-        Ti = max(P(4)/(K_BOLTZ*MU_ZERO*central_density*1.d20), 1.d0)
+        Ti = corr_neg_temp(P(4))/(K_BOLTZ*MU_ZERO*central_density*1.d20)
      else
         call fields%interp_PRZ(time,i_elm,[var_rho,var_Te,var_Ti],3,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
-        Ti = max(P(3)/(K_BOLTZ*MU_ZERO*central_density*1.d20), 1.d0)
+        Ti = corr_neg_temp(P(3))/(K_BOLTZ*MU_ZERO*central_density*1.d20)
      end if
-     Te = max(P(2)/(K_BOLTZ*MU_ZERO*central_density*1.d20), 1.d0)
+     Te = corr_neg_temp(P(2))/(K_BOLTZ*MU_ZERO*central_density*1.d20)
 
   else
      if(with_impurities) then
@@ -454,13 +431,13 @@ subroutine calc_NjTj(fields, time, i_elm, st, phi, m_i_over_m_imp, ne, te, ni, t
         call fields%interp_PRZ(time,i_elm,[var_rho,var_T],2,st(1),st(2),phi,P,P_s,P_t,P_phi,P_time,R,R_s,R_t,Z,Z_s,Z_t)
      end if
 
-     Te = max(P(2)/(2.d0*K_BOLTZ*MU_ZERO*central_density*1.d20), 1.d0)
+     Te = corr_neg_temp(P(2))/(2.d0*K_BOLTZ*MU_ZERO*central_density*1.d20)
      Ti = Te
   end if
 
   if(with_impurities) then
 
-     ni(1) = max(central_density * ( P(1) - P(3) ) * 1d20,1d10) ! main ion density [1/m^3], capped against negative
+     ni(1) = corr_neg_dens( P(1) - P(3) ) * central_density * 1d20 ! main ion density [1/m^3], capped against negative
      ne = ni(1)
 
      ! Assume single impurity species and store their densities to ni array as [n_main, n_imp0, n_imp+1, ...]
@@ -469,7 +446,7 @@ subroutine calc_NjTj(fields, time, i_elm, st, phi, m_i_over_m_imp, ne, te, ni, t
      ni(2:size(ni)) = central_density*1.d20 * m_i_over_m_imp * ni(2:size(ni)) * P(3)
      ne = ne + sum( ni(2:size(ni)) * ( (/ (i, i=0,size(ni)-2, 1) /) ) )
   else
-     ne    = max(central_density * P(1) * 1d20,1d16)
+     ne    = corr_neg_dens(P(1)) * central_density * 1d20
      ni(1) = ne
   end if
 
