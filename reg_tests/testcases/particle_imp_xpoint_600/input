@@ -22,10 +22,16 @@
   filter_par_n0      = 0.d0
 
   time_evol_scheme= 'Gears'
-  use_strumpack = .false.
-  use_mumps     = .true.
-  use_mumps_eq  = .true.
-  use_mumps_prj = .true.
+  use_strumpack     = .t.
+  use_strumpack_prj = .t.
+  use_strumpack_eq  = .t.
+  use_mumps     = .f.
+  use_mumps_eq  = .f.
+  use_mumps_prj = .f.
+  use_pastix     = .f.
+  use_pastix_eq  = .f.
+  use_pastix_prj = .f.
+
   T_min_neg     = 4.d-4
   rho_min_neg   =  1.d-3
 
