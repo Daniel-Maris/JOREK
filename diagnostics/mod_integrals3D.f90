@@ -921,7 +921,7 @@ aux_q0    = 0.d0; aux_jx0   = 0.d0; aux_jy0   = 0.d0; aux_jz0   = 0.d0; aux_jz0_
                       !- (gamma-1.d0)* aux_mom_par0 * vpar0 * BigR *xjac* delta_phi *wst
 #endif
           !>Lost to recombination (no Brehmstralung)
-          local_Prec = local_Prec + r0_corr*r0_corr*(Te0_corr*Srec_T_ncs)*BigR *xjac* delta_phi *wst
+          local_Prec = local_Prec + r0_corr*r0_corr*(Ti0_corr*Srec_T_ncs)*BigR *xjac* delta_phi *wst
           ! Radiation power of recombination and bremsstrahlung combined
           local_Prb         = local_Prb         + r0_corr*r0_corr *LradDcont_T_ncs    *BigR *xjac* delta_phi *wst
           ! Radiative cooling power of recombination and bremsstrahlung combined
