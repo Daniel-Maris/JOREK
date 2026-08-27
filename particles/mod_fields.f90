@@ -282,9 +282,9 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 #endif
   real*8               :: R, R_s, R_t, Z, Z_s, Z_t, xjac
   real*8               :: inv_xjac, inv_R
-  real*8               :: T_norm, n_norm
+  real*8               :: T_norm, n_norm, Te_jor, Ti_jor
   real*8               :: tmp_g(3)
-  integer              :: ii_Ti, ii_Te, T_e_tmp, T_i_tmp
+  integer              :: ii_Ti, ii_Te
   logical              :: need_Ti, need_grad
   real*8, parameter    :: EPS     = 1.d-12
 
@@ -302,15 +302,15 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
                          P,P_s,P_t,P_phi,P_time,                               &
                          R,R_s,R_t,Z,Z_s,Z_t)
   ii_Ti = 2; ii_Te = 3
-  T_e_tmp = P(ii_Te)
-  T_i_tmp = P(ii_Ti)
+  Te_jor = P(ii_Te)
+  Ti_jor = P(ii_Ti)
 #else
   call fields%interp_PRZ(time,i_elm,[var_rho,var_T],2,st(1),st(2),phi,         &
                          P,P_s,P_t,P_phi,P_time,                               &
                          R,R_s,R_t,Z,Z_s,Z_t)
   ii_Ti = 2; ii_Te = 2
-  T_e_tmp = P(ii_Te)/2.d0
-  T_i_tmp = P(ii_Ti)/2.d0
+  Te_jor = P(2)*0.5d0
+  Ti_jor = P(2)*0.5d0
 #endif
 
   ! density
@@ -319,13 +319,13 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
 
   ! temperatures
   ! compute Te (required)
-  if (present(T_e_raw)) T_e_raw = P(ii_Te) * T_norm
-  T_e = corr_neg_temp(P(ii_Te)*2.d0) * 0.5d0  * T_norm
+  if (present(T_e_raw)) T_e_raw = Te_jor * T_norm
+  T_e = corr_neg_temp(Te_jor*2.d0) * 0.5d0  * T_norm
 
   ! compute Ti only if requested (in 1-T, this is the same component anyway)
   if (need_Ti) then
-    if (present(T_i_raw)) T_i_raw = P(ii_Ti) * T_norm
-    if (present(T_i))     T_i     = corr_neg_temp(P(ii_Ti)*2.d0) * 0.5d0 * T_norm
+    if (present(T_i_raw)) T_i_raw = Ti_jor * T_norm
+    if (present(T_i))     T_i     = corr_neg_temp(Ti_jor*2.d0) * 0.5d0 * T_norm
   end if
 
   ! gradients (only if requested)
@@ -339,7 +339,7 @@ subroutine calc_NeTeTi(fields,time,i_elm,st,phi,                   &
     
     if (.not. with_TiTe) then
       ! 1-T case
-      tmp_g = grad_of(ii_Te, inv_xjac, inv_R, R_s, R_t, Z_s, Z_t, P_s, P_t, P_phi, T_norm)
+      tmp_g = grad_of(ii_Te, inv_xjac, inv_R, R_s, R_t, Z_s, Z_t, P_s, P_t, P_phi, T_norm*0.5d0)
       if (present(grad_T_e)) grad_T_e = tmp_g
       if (present(grad_T_i)) grad_T_i = tmp_g
     else
