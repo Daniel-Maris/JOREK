@@ -9,6 +9,9 @@ module mod_particle_recomb
   !$ use omp_lib
 
   implicit none
+  
+  private
+  public :: do_1particle_recombination
 
   contains
 

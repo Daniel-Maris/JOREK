@@ -1,88 +1,64 @@
 !> The equivalent of jorek2_main.f90 for kinetic simulations
 !>
-!> OpenADAS is used for atomic physics
-!> The wall interaction rates are based on external files with Eckstein coefficients such as 
-!> y_DD.dat (for yield of a D -> D reaction, which would be wall recombination) and 
-!> ye_DD.dat (for the resulting energy of the same reaction).
-!>
-!> To use a particle restart file: use restart_particles=.t. in the input file.
-!>
-!> To change to 3D recombination:
-!> Change subroutine do1particlerecombination: use mod_integrate_recomb3D, only : integrate_recombination
-!> Particle puffing is axisymmetric by default.
-
+!> For more information, please visit https://iterorganization.github.io/JOREK/physics/kinetic_models/particle_introduction.html
 program kinetic_main
 
 use particle_tracer
-use mod_particle_diagnostics
 use mpi
-use mod_interp
-use mod_atomic_elements
-use mod_particle_evolution
-use mod_particle_recomb
-use mod_particle_conservation
-use mod_particle_io
-use mod_particle_allocation
-use mod_event
-use mod_project_particles
-use mod_jorek_timestepping
-use mod_random_seed
-use mod_basisfunctions
-use nodes_elements
-use constants,   only: MU_ZERO, ATOMIC_MASS_UNIT, K_BOLTZ, EL_CHG
-use mod_particle_wall_interaction
-use mod_neutral_collision, only: neutral_collisions_from_config, type_neutral_collision, gcd_neutral_collisions
-use mod_projection_functions, only: proj_f_combined_density, proj_f_combined_energy, proj_f_combined_par_momentum
-use mod_particle_puffing
-use mod_edge_domain
-use mod_edge_elements, only: edge_elements
-use mod_atomic_coeff_deuterium, only: ad_deuterium 
-use data_structure, only: type_bnd_element_list, type_bnd_node_list 
-use mod_boundary,   only: boundary_from_grid
-use mod_coupling_settings, only: use_kin_recomb_global
-use mod_particle_group_init
-use equil_info
-use mod_output_file_routines, only: write_to_outputfile
-use mod_neutral_density, only: get_neutral_density
-use mod_impurity,        only: init_imp_adas
+use mod_particle_evolution,        only: evolve_particle_group
+use mod_particle_recomb,           only: do_1particle_recombination
+use mod_particle_conservation,     only: conservation_checks
+use mod_particle_io,               only: write_simulation_hdf5
+use mod_particle_allocation,       only: allocate_particles_for_sim
+use mod_event,                     only: event, with, new_event_ptr
+use mod_project_particles,         only: projection, new_projection
+use mod_jorek_timestepping,        only: jorek_timestep_action, new_jorek_timestep_action, get_tstep_n
+use mod_random_seed,               only: random_seed
+use nodes_elements,                only: node_list, element_list, bnd_node_list, bnd_elm_list, aux_node_list
+use constants,                     only: MU_ZERO, ATOMIC_MASS_UNIT
+use mod_particle_wall_interaction, only: wall_act_group, wall_actions_from_config, gcd_wall_acts
+use mod_neutral_collision,         only: neutral_collisions_from_config, type_neutral_collision, gcd_neutral_collisions
+use mod_particle_puffing,          only: particle_puffing
+use mod_edge_domain,               only: type_edge_domain, find_edge_domains
+use mod_edge_elements,             only: edge_elements
+use mod_atomic_coeff_deuterium,    only: ad_deuterium 
+use mod_boundary,                  only: boundary_from_grid
+use mod_coupling_settings,         only: use_kin_recomb_global
+use mod_particle_group_init,       only: initialise_particles_for_sim
+use equil_info,                    only: update_equil_state, broadcast_equil_state
+use mod_output_file_routines,      only: write_to_outputfile
+use mod_neutral_density,           only: get_neutral_density
+use mod_impurity,                  only: init_imp_adas
+use mod_particle_group_id,         only: matching_part_config_indices
+use mod_pcg32_rng,                 only: pcg32_rng
+!$ use omp_lib
 
 use phys_module, only: index_now
-use phys_module, only: tstep,tstep_n,restart_particles, restart, t_start, nout
+use phys_module, only: tstep,restart_particles, restart, nout
 use phys_module, only: CENTRAL_MASS, CENTRAL_DENSITY, xcase, xpoint
 use phys_module, only: n_part_groups, n_aux_var, n_valves_max
-use phys_module, only: nstep_particles, nsubstep_particles, tstep_particles, nout_particles
-use phys_module, only: deuterium_adas,sqrt_mu0_over_rho0
+use phys_module, only: tstep_particles, nout_particles
+use phys_module, only: deuterium_adas
 use phys_module, only: filter_perp, filter_hyper, filter_par, filter_perp_n0, filter_hyper_n0, filter_par_n0
 use phys_module, only: apply_dirichlet_proj, part_group_configs, init_particles_only
-use phys_module, only: use_manual_random_seed, manual_seed
 use phys_module, only: use_imp_adas, nimp_bg 
-
-use mod_particle_group_id, only: matching_part_config_indices
-
-use mod_pcg32_rng, only: pcg32_rng
-use mod_rng, only: type_rng, setup_shared_rngs
-!$ use omp_lib
 
 implicit none
 
 type(event)                                       :: fieldreader, partreader
-type(event)                                       :: gas_puff_event, gas_puff2_event
-type(event), target                               :: project_jorek_feedback, jorek_stepper_event, project_neutral_density
+type(event), target                               :: project_jorek_feedback, jorek_stepper_event
 type(pcg32_rng), dimension(:), allocatable        :: rng
-type(count_action)                                :: counter
 type(projection), target                          :: jorek_feedback
 type(projection), target                          :: neutral_density_proj
 type(jorek_timestep_action), target               :: jorek_stepper
 type(type_edge_domain), allocatable, dimension(:) :: edge_domains
 type(edge_elements)                               :: edge_elm_template
-type(particle_puffing)                            :: gas_puff, gas_puff2
-character(len=50)                                 :: rst_part_file
 
+character(len=50)  :: rst_part_file
+character(len=100) :: header_line
 real*8    :: rho_norm, t_norm, n_norm
-
-integer   :: n_reflect
-integer   :: i, j, istep_inner_loop, group_num, config_num, valve_num, n_lcm_blocks, inner_stepsize
-integer   :: seed, i_rng, n_stream
+integer   :: i, istep_inner_loop, group_num, config_num, valve_num, n_lcm_blocks, inner_stepsize
+integer   :: seed, n_stream, ierr
 logical   :: last_step !< whether it is the last step of the inner particle loop
 logical   :: puff_from_namelist, puff_from_file
 
@@ -96,13 +72,6 @@ type(particle_puffing),       dimension(:), allocatable :: puff_actions
 type(wall_act_group),         dimension(:), allocatable :: wall_act_groups
 type(type_neutral_collision), dimension(:), allocatable :: neutral_collisions
 
-!tmp
-class(type_rng), dimension(:), allocatable :: wall_rng
-
-integer :: n_particles_local
-
-character(len=100) :: header_line
-
 !***********************************************************************
 !*                            initialisation                            *
 !***********************************************************************
@@ -115,8 +84,8 @@ if (restart) then
   fieldreader = event(read_jorek_fields_interp_linear(basename='jorek', i=-1))
   call with(sim, fieldreader)
 else
-  if (sim%my_id == 0) write(*,*) 'ERROR: using this program without restarting from a jorek field is not possible. Please set restart=.t. in the namelist and provide a jorek_restart.h5 file'
-  stop
+  if (sim%my_id == 0) write(*,*) 'ERROR: using this program (kinetic_main) without restarting from a jorek field is not possible. Please set restart=.t. in the namelist and provide a jorek_restart.h5 file'
+  call MPI_Abort(MPI_COMM_WORLD, 1, IERR)
 end if
 
 !> update and broadcast the equilibrium state
@@ -132,7 +101,6 @@ if (restart_particles) then
   partreader = event(read_action(filename='part_restart.h5'))
   call with(sim, partreader) !<defines sim%groups and the corresponding particles
 
-  !TODO? Sven: We should make an option to use partreader but increase n_particles; may be similar to phi_zero_whrite to a sim_in and sim_out but with different allocation size.
 else
   if (sim%my_id == 0) write(*,*) 'INFO: INITIALIZING PARTICLES', sim%n_mpi, " mpi's "
 
@@ -143,6 +111,8 @@ else
   call write_simulation_hdf5(sim, 'part_restart_init.h5')
 
   if (init_particles_only) then
+    if (sim%my_id == 0) write(*,*) "init_particles_only=.true."
+    if (sim%my_id == 0) write(*,*) "stopping now"
     call sim%finalize
     stop
   endif
@@ -424,6 +394,7 @@ do while (.not. sim%stop_now)
   if ( nout_particles .eq. 9999999 ) then
     if ( mod(index_now,nout) .eq. 0 ) then
       call write_to_outputfile(sim, "Writing interim_part_restart.h5",next_block_write_conserv=.false.)
+      call write_simulation_hdf5(sim, 'interim_part_restart.h5')
     endif
   else
     !Writing regular particle restart files every nout_particles.
@@ -456,47 +427,5 @@ call sim%finalize()
 !***********************************************************************
 !*                          end of main program                        *
 !***********************************************************************
-
-contains
-
-pure function f_adapted(n, P, grad_P) result(f)
-  integer, intent(in) :: n
-  real*8, intent(in) :: P(n), grad_P(3,n)
-  real*8 ::s, coeff(0:4)
-  real*4 :: f
-
-  coeff(0)=0.53
-  coeff(1)=0.3
-  coeff(2)=0.2
-  coeff(3)=0.52
-  coeff(4)=0.26
-
-  s = max((P(1) - ES%Psi_axis) / ( ES%Psi_bnd - ES%Psi_axis),0.d0)
-
-  f = coeff(3)*exp(-coeff(2)/coeff(1)*(tanh((sqrt(s)-coeff(0))/coeff(2))))
-
-  f = (f - coeff(4)) / (1.d0 - coeff(4))
-
-end function f_adapted
-
-pure function f_original(n, P, grad_P) result(f)
-  integer, intent(in) :: n
-  real*8, intent(in) :: P(n), grad_P(3,n)
-  real*8 ::s, coeff(0:3)
-  real*4 :: f
-
-  ! central densiy should be 1.44131x10^17
-
-  coeff(0)=0.49123
-  coeff(1)=0.298228
-  coeff(2)=0.198739
-  coeff(3)=0.521298
-
-  s = max((P(1) - ES%Psi_axis) / ( ES%Psi_bnd - ES%Psi_axis),0.d0)
-
-  f = coeff(3)*exp(-coeff(2)/coeff(1)*(tanh((sqrt(s)-coeff(0))/coeff(2))))
-
-end function f_original
-
 
 end program kinetic_main
